@@ -1,4 +1,4 @@
-# Virtual environment
+﻿# Virtual environment
 venv/
 .venv/
 
@@ -19,3 +19,19 @@ dist/
 # OS
 Thumbs.db
 .DS_Store
+# Dependencies
+node_modules/
+.npm
+
+# Next.js build output
+.next/
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment
+.env*.local
+
+# Vercel
+.vercel
