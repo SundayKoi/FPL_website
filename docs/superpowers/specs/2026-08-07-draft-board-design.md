@@ -71,7 +71,7 @@ All mutating RPCs take `FOR UPDATE` locks on the lot/draft rows, so concurrent c
 
 ### `/admin` — setup area
 
-Create a draft; create teams with budgets and nomination order; link each team to its captain's Discord account; enter the player pool (form + CSV paste: name, role, rank, op.gg); mark pre-draft roster entries (captain, FA signing); start the draft.
+Create a draft; create teams with budgets and nomination order; link each team to its captain's Discord account; enter the player pool (form + CSV paste: name, role, rank, op.gg); mark pre-draft roster entries (captain, FA signing); start the draft. Starting is blocked unless every team has exactly 2 pre-filled roles and the pool holds at least as many available players per role as teams needing that role.
 
 ## Edge cases & failure handling
 
