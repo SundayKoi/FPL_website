@@ -79,8 +79,8 @@ update profiles set is_admin = true where id = '<your auth user uuid>';
 ## Tests
 
 ```powershell
-npx supabase test db   # pgTAP: 72 assertions against the local DB (needs supabase start)
-npm test                # Vitest: 15 unit tests
+npx supabase test db   # pgTAP suite against the local DB (needs supabase start)
+npm test                # Vitest unit test suite
 npm run e2e              # Playwright: end-to-end auction smoke test
 ```
 
@@ -132,7 +132,7 @@ service's dashboard in a browser.
    npx supabase db push
    ```
 
-   This applies all six migrations in `supabase/migrations/`.
+   This applies every migration in `supabase/migrations/`.
 3. Verify in the cloud project's SQL editor:
 
    ```sql
