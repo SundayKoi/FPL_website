@@ -1,11 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(9);
 select ok(has_table_privilege('anon','public.drafts','select'), 'anon reads drafts');
 select ok(has_table_privilege('anon','public.lots','select'), 'anon reads lots');
 select ok(not has_table_privilege('anon','public.drafts','insert'), 'anon cannot insert drafts');
 select ok(has_table_privilege('authenticated','public.players','insert'), 'authenticated can insert players (RLS gates to admins)');
 select ok(not has_table_privilege('authenticated','public.bids','insert'), 'authenticated cannot insert bids directly');
 select ok(has_function_privilege('anon','public.close_lot(uuid)','execute'), 'anon may poke close_lot');
+select ok(not has_function_privilege('anon','public._close_lot(uuid, boolean)','execute'), 'anon cannot call _close_lot');
+select ok(not has_function_privilege('authenticated','public._close_lot(uuid, boolean)','execute'), 'authenticated cannot call _close_lot');
+select ok(not has_function_privilege('anon','public._advance_turn(public.drafts)','execute'), 'anon cannot call _advance_turn');
 select * from finish();
 rollback;
