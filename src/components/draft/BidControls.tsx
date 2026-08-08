@@ -13,6 +13,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
   const quick = lot.current_bid + 1;
   const [amount, setAmount] = useState<number>(quick);
   const place = async (a: number) => {
+    if (!Number.isFinite(a)) return onError("Enter a valid bid amount");
     const blocked = bidBlockReason(team, lot, lotPlayer, players, a);
     if (blocked) return onError(blocked);
     const { error } = await supabase.rpc("place_bid", { p_lot_id: lot.id, p_amount: a });

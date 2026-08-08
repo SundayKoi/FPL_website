@@ -35,7 +35,11 @@ export default function DraftBoard({
   const lotPlayer = openLot ? players.find((p) => p.id === openLot.player_id) ?? null : null;
   const leadingTeam = openLot ? teams.find((t) => t.id === openLot.leading_team_id) ?? null : null;
   const nominatorTeam = teams.find((t) => t.id === draft.current_nominator_team_id) ?? null;
-  const isMyNomination = !!myTeam && draft.current_nominator_team_id === myTeam.id && !openLot;
+  const isMyNomination =
+    draft.status === "live" &&
+    !!myTeam &&
+    draft.current_nominator_team_id === myTeam.id &&
+    !openLot;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 text-zinc-100">
@@ -86,7 +90,7 @@ export default function DraftBoard({
                   paused={draft.status === "paused"}
                   nominatorTeam={nominatorTeam}
                 />
-                {myTeam && openLot && lotPlayer && (
+                {draft.status === "live" && myTeam && openLot && lotPlayer && (
                   <BidControls
                     team={myTeam}
                     lot={openLot}
