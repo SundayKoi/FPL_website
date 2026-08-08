@@ -75,12 +75,15 @@ async function ensureUser(
   if (!error) return data.user.id;
 
   // Already exists from a prior seed run — look it up instead. Supabase
-  // returns this as an AuthApiError with code "email_exists" (message text
-  // has varied across versions: "already registered" / "already exists"),
-  // so check both the structured code and the message.
-  const msg = error.message ?? String(error);
+  // returns this as an AuthApiError with structured code "email_exists"
+  // (confirmed empirically against the local CLI) — check that first. The
+  // message-text regex is kept only as a fallback for older CLI/GoTrue
+  // versions that might not set `code`, whose wording has varied
+  // ("already registered" / "already exists").
   const code = (error as { code?: string }).code ?? "";
-  if (!/already registered|already exists|email_exists/i.test(`${code} ${msg}`)) throw error;
+  const msg = error.message ?? String(error);
+  const alreadyExists = code === "email_exists" || /already registered|already exists/i.test(msg);
+  if (!alreadyExists) throw error;
 
   let page = 1;
   for (;;) {
@@ -101,6 +104,14 @@ async function main() {
   const cap1Id = await ensureUser(supabase.auth.admin, CAP1_EMAIL, PASSWORD);
   const cap2Id = await ensureUser(supabase.auth.admin, CAP2_EMAIL, PASSWORD);
 
+  // Single-concurrent-seeder assumption: this cleanup (read prior drafts,
+  // delete their bids/lots, delete the draft, insert a new one) is several
+  // separate statements, not one transaction — two seeders racing on the
+  // same DRAFT_NAME could interleave and leave things in a bad state. Only
+  // one seeder may run at a time. For the test suite this is enforced by
+  // `workers: 1` / `fullyParallel: false` in playwright.config.ts; don't
+  // also run `npx tsx e2e/seed.ts` by hand while `npm run e2e` is running.
+  //
   // Reset any prior e2e draft. `drafts -> teams/players/lots` all cascade on
   // delete, and `lots -> bids` cascades too — but `bids.team_id` has NO
   // cascade (plain FK, confirmed against the schema), so once any bid has
