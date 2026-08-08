@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchServerOffset, remainingMs } from "@/lib/time";
 import type { Bid, Draft, Lot, Player, Team } from "@/lib/draft/types";
@@ -73,13 +73,15 @@ export function useDraftState(draftId: string) {
 
   // Auto-close: first client to notice expiry finalizes the sale; retry every
   // 2s while the lot stays open in case a realtime message was dropped.
-  const closing = useRef<string | null>(null);
+  // close_lot is a safe no-op server-side once the lot is already closed (or
+  // not yet expired), so every tick can call it unconditionally — no local
+  // "already tried" bookkeeping needed. Once the lot closes, the realtime
+  // update nulls `openLot` and this effect's cleanup stops the timers.
   useEffect(() => {
     if (!openLot || draft?.status !== "live") return;
     const tryClose = () => {
-      if (remainingMs(openLot.closes_at, offsetMs) === 0 && closing.current !== openLot.id) {
-        closing.current = openLot.id;
-        void supabase.rpc("close_lot", { p_lot_id: openLot.id });
+      if (remainingMs(openLot.closes_at, offsetMs) === 0) {
+        void supabase.rpc("close_lot", { p_lot_id: openLot.id }).then(undefined, () => {});
       }
     };
     const id = setInterval(tryClose, 2000);
