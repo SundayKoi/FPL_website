@@ -2,7 +2,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { errCode, type Draft, type Player, type Profile, type Team } from "@/lib/draft/types";
+import { errCode, errMessage, type Draft, type Player, type Profile, type Team } from "@/lib/draft/types";
 import TeamEditor from "./TeamEditor";
 import PlayerPoolEditor from "./PlayerPoolEditor";
 
@@ -44,10 +44,7 @@ export default function DraftSetupEditor({
     setStarting(false);
     if (error) {
       const code = errCode(error);
-      const msg =
-        error instanceof Error
-          ? error.message
-          : ((error as { message?: string })?.message ?? String(error));
+      const msg = errMessage(error);
       setStartErr(code === "SETUP_INVALID" ? msg.replace(/^SETUP_INVALID:\s*/, "") : msg);
       return;
     }

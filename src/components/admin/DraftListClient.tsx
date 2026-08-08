@@ -39,9 +39,22 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
   const deleteDraft = async (draft: Draft) => {
     if (draft.status !== "setup") return;
     if (!confirm(`Delete draft "${draft.name}"? This cannot be undone.`)) return;
-    const { error } = await supabase.from("drafts").delete().eq("id", draft.id);
+    // Guard the setup-only rule server-side too (client's `status` prop can be
+    // stale): only delete if it's still "setup" at the moment of the write,
+    // and check what actually got deleted via `.select()`.
+    const { data, error } = await supabase
+      .from("drafts")
+      .delete()
+      .eq("id", draft.id)
+      .eq("status", "setup")
+      .select();
     if (error) {
       setErr(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setErr("Draft is no longer in setup — refresh.");
+      await refetch();
       return;
     }
     await refetch();

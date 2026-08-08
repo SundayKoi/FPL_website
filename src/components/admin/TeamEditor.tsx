@@ -50,6 +50,14 @@ export default function TeamEditor({
   const removeTeam = async (team: Team) => {
     if (!confirm(`Remove team "${team.name}"? Its pre-filled players will also be removed.`)) return;
     setErr(null);
+    // players.team_id has no ON DELETE CASCADE, so this team's pre-fill
+    // players (the only players it can hold, in setup) must be deleted
+    // first or the team delete throws a raw FK violation.
+    const { error: playersError } = await supabase.from("players").delete().eq("team_id", team.id);
+    if (playersError) {
+      setErr(playersError.message);
+      return;
+    }
     const { error } = await supabase.from("teams").delete().eq("id", team.id);
     if (error) setErr(error.message);
     else await onChanged();
@@ -67,7 +75,8 @@ export default function TeamEditor({
   };
 
   const addPrefill = async (team: Team, role: LolRole, displayName: string) => {
-    if (!displayName.trim()) return;
+    if (!displayName.trim() || busy) return; // guards double-submits (raw Postgres uniqueness errors otherwise)
+    setBusy(true);
     setErr(null);
     const { error } = await supabase.from("players").insert({
       draft_id: draftId,
@@ -77,6 +86,7 @@ export default function TeamEditor({
       price: 0,
       acquisition: "captain",
     });
+    setBusy(false);
     if (error) setErr(error.message);
     else await onChanged();
   };
@@ -185,6 +195,7 @@ export default function TeamEditor({
                 {prefills.length < 2 && (
                   <PrefillForm
                     usedRoles={prefills.map((p) => p.role)}
+                    disabled={busy}
                     onAdd={(role, name) => addPrefill(team, role, name)}
                   />
                 )}
@@ -200,9 +211,11 @@ export default function TeamEditor({
 
 function PrefillForm({
   usedRoles,
+  disabled,
   onAdd,
 }: {
   usedRoles: LolRole[];
+  disabled: boolean;
   onAdd: (role: LolRole, name: string) => void;
 }) {
   const available = ROLE_ORDER.filter((r) => !usedRoles.includes(r));
@@ -238,7 +251,7 @@ function PrefillForm({
       />
       <button
         type="submit"
-        disabled={!name.trim()}
+        disabled={!name.trim() || disabled}
         className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40"
       >
         Add

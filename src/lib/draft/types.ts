@@ -33,6 +33,12 @@ export interface Bid {
   id: number; lot_id: string; team_id: string; amount: number; created_at: string;
 }
 
+/** Safely extract a message string from any thrown/returned error shape
+ *  (Error, PostgrestError, plain string, or anything else). */
+export function errMessage(e: unknown): string {
+  return e instanceof Error ? e.message : typeof e === "string" ? e : (e as { message?: string })?.message ?? String(e);
+}
+
 /** RPC errors look like "OVER_CAP: your max bid is 12" — extract the code. */
 export function errCode(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === "string" ? e : (e as { message?: string })?.message ?? "";
