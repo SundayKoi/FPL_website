@@ -1,13 +1,17 @@
 "use client";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useCountdown } from "@/hooks/useCountdown";
+import { maxBid } from "@/lib/draft/derive";
 import CenterStage from "./CenterStage";
 import TeamColumn from "./TeamColumn";
 import PlayerPool from "./PlayerPool";
 import BidFeed from "./BidFeed";
 import FinalRosters from "./FinalRosters";
 import DraftHeader from "./DraftHeader";
+import BidControls from "./BidControls";
+import NominationPicker from "./NominationPicker";
+import Toast from "./Toast";
 
 export default function DraftBoard({
   draftId,
@@ -23,6 +27,7 @@ export default function DraftBoard({
     s.draft?.status === "live" ? (s.openLot?.closes_at ?? null) : null,
     s.offsetMs
   );
+  const [toast, setToast] = useState<string | null>(null);
 
   if (!s.draft) return <main className="p-8 text-zinc-400">Loading draft…</main>;
 
@@ -30,10 +35,18 @@ export default function DraftBoard({
   const lotPlayer = openLot ? players.find((p) => p.id === openLot.player_id) ?? null : null;
   const leadingTeam = openLot ? teams.find((t) => t.id === openLot.leading_team_id) ?? null : null;
   const nominatorTeam = teams.find((t) => t.id === draft.current_nominator_team_id) ?? null;
+  const isMyNomination = !!myTeam && draft.current_nominator_team_id === myTeam.id && !openLot;
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 text-zinc-100">
       <DraftHeader draft={draft} connected={s.connected} />
+
+      {myTeam && (
+        <div className="rounded-lg border border-indigo-800 bg-indigo-950/30 px-4 py-2 text-sm text-indigo-100">
+          You are <span className="font-semibold">Team {myTeam.name}</span> — {myTeam.points_remaining} pts,
+          max bid {maxBid(myTeam, players)}
+        </div>
+      )}
 
       {draft.status === "setup" ? (
         <section className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-16 text-center">
@@ -73,6 +86,18 @@ export default function DraftBoard({
                   paused={draft.status === "paused"}
                   nominatorTeam={nominatorTeam}
                 />
+                {myTeam && openLot && lotPlayer && (
+                  <BidControls
+                    team={myTeam}
+                    lot={openLot}
+                    lotPlayer={lotPlayer}
+                    players={players}
+                    onError={setToast}
+                  />
+                )}
+                {myTeam && isMyNomination && (
+                  <NominationPicker team={myTeam} draft={draft} players={players} onError={setToast} />
+                )}
                 {captainControls}
                 {adminControls}
               </div>
@@ -84,6 +109,8 @@ export default function DraftBoard({
           <PlayerPool players={players} teams={teams} />
         </>
       )}
+
+      <Toast message={toast} onDismiss={() => setToast(null)} />
     </main>
   );
 }
