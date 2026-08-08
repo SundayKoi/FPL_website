@@ -6,6 +6,14 @@ const FRIENDLY: Record<string, string> = {
   LOT_EXPIRED: "Too late — the hammer already fell.",
   OVER_CAP: "That bid would strand a roster slot.",
   NOT_YOUR_TURN: "It's not your nomination.",
+  NOT_LIVE: "The draft isn't live right now.",
+  NOT_CAPTAIN: "You're not a captain in this draft.",
+  PLAYER_TAKEN: "That player is already taken.",
+  ROLE_FILLED: "You already have that role filled.",
+  LOT_CLOSED: "That auction is already over.",
+  ALREADY_LEADING: "You already hold the high bid.",
+  LOT_OPEN_EXISTS: "An auction is already running.",
+  NOT_ADMIN: "Admin access required.",
 };
 
 /** Map a raw RPC error (via errCode) to a friendly message. */
