@@ -11,31 +11,37 @@ export default async function Home() {
   const drafts = (data as Draft[]) ?? [];
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">FPL Draft League</h1>
-        <Link href="/admin" className="underline">
-          Admin
-        </Link>
-      </div>
+    <main className="bg-hash min-h-screen flex-1">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-16">
+        <div className="flex flex-col gap-2">
+          <span className="label-dash">FRANCHISE PREMIER LEAGUE</span>
+          <div className="flex items-center justify-between">
+            <h1 className="type-display text-5xl">DRAFTS</h1>
+            <Link href="/admin" className="text-steel underline-offset-4 hover:text-white">
+              Admin
+            </Link>
+          </div>
+        </div>
 
-      {drafts.length === 0 ? (
-        <p className="text-sm opacity-60">No drafts yet.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {drafts.map((draft) => (
-            <li key={draft.id}>
-              <Link
-                href={`/draft/${draft.id}`}
-                className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-zinc-500/10"
-              >
-                <span className="font-medium">{draft.name}</span>
-                <span className="text-xs uppercase tracking-wide opacity-60">{draft.status}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+        {drafts.length === 0 ? (
+          <p className="text-sm text-steel">No drafts yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {drafts.map((draft) => (
+              <li key={draft.id}>
+                <Link
+                  href={`/draft/${draft.id}`}
+                  className="card-brand flex flex-col gap-2 px-5 py-4 transition-colors hover:border-steel"
+                >
+                  <span className="type-display text-xl">{draft.name}</span>
+                  <span className="text-steel text-sm">{draft.status}</span>
+                  <span className="label-dash">VIEW BOARD →</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </main>
   );
 }

@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Chakra_Petch, Saira } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import AuthButton from "@/components/AuthButton";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const chakra = Chakra_Petch({
   subsets: ["latin"],
+  weight: ["600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-chakra",
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const saira = Saira({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-saira",
 });
 
 export const metadata: Metadata = {
@@ -23,14 +26,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${chakra.variable} ${saira.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <header className="flex items-center justify-between border-b px-6 py-4">
-          <Link href="/" className="text-lg font-semibold">
-            FPL Draft League
-          </Link>
-          <AuthButton />
+      <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
+        <header
+          className="sticky top-0 z-40 border-b border-line backdrop-blur"
+          style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
+        >
+          <div className="flex items-center justify-between px-6 py-3">
+            <Link href="/" className="flex items-center gap-2">
+              <Image src="/fpl-logo.png" width={30} height={30} alt="" />
+              <span className="type-display text-base">
+                FPL EXCHANGE <span className="text-steel font-body not-italic">DRAFT</span>
+              </span>
+            </Link>
+            <AuthButton />
+          </div>
         </header>
         {children}
       </body>
