@@ -12,6 +12,7 @@ export function useDraftState(draftId: string) {
   const [lots, setLots] = useState<Lot[]>([]);
   const [bids, setBids] = useState<Bid[]>([]);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [offsetMs, setOffsetMs] = useState(0);
   const [connected, setConnected] = useState(false);
 
@@ -35,7 +36,14 @@ export function useDraftState(draftId: string) {
   }, [supabase, draftId]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setProfileId(data.user?.id ?? null));
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      setProfileId(uid);
+      if (!uid) return;
+      supabase.from("profiles").select("is_admin").eq("id", uid).single().then(({ data: p }) => {
+        setIsAdmin(p?.is_admin ?? false);
+      });
+    });
     fetchServerOffset(supabase).then(setOffsetMs);
 
     // Realtime DELETE payloads carry an empty `new`, so `row.id` would be
@@ -89,5 +97,5 @@ export function useDraftState(draftId: string) {
     return () => { clearInterval(id); clearTimeout(t); };
   }, [openLot, draft?.status, offsetMs, supabase]);
 
-  return { draft, teams, players, lots, bids, profileId, myTeam, openLot, offsetMs, connected, refetch };
+  return { draft, teams, players, lots, bids, profileId, isAdmin, myTeam, openLot, offsetMs, connected, refetch };
 }

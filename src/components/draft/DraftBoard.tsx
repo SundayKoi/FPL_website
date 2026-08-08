@@ -11,6 +11,7 @@ import FinalRosters from "./FinalRosters";
 import DraftHeader from "./DraftHeader";
 import BidControls from "./BidControls";
 import NominationPicker from "./NominationPicker";
+import AdminStrip from "./AdminStrip";
 import Toast from "./Toast";
 
 export default function DraftBoard({
@@ -103,6 +104,7 @@ export default function DraftBoard({
                   <NominationPicker team={myTeam} draft={draft} players={players} onError={setToast} />
                 )}
                 {captainControls}
+                {s.isAdmin && <AdminStrip draft={draft} openLot={openLot} onError={setToast} />}
                 {adminControls}
               </div>
 
