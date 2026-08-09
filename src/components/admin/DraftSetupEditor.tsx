@@ -53,9 +53,9 @@ export default function DraftSetupEditor({
 
   if (draft.status !== "setup") {
     return (
-      <div className="rounded-lg border border-zinc-800 p-6 text-sm text-zinc-300">
-        This draft is already <span className="font-semibold">{draft.status}</span>.{" "}
-        <a href={`/draft/${draft.id}`} className="underline">
+      <div className="card-brand p-6 text-sm text-steel">
+        This draft is already <span className="font-semibold text-white">{draft.status}</span>.{" "}
+        <a href={`/draft/${draft.id}`} className="text-gold underline">
           Go to the board
         </a>
         .
@@ -68,11 +68,11 @@ export default function DraftSetupEditor({
       <TeamEditor draftId={draft.id} teams={teams} players={players} profiles={profiles} onChanged={refetch} />
       <PlayerPoolEditor draftId={draft.id} players={players} onChanged={refetch} />
 
-      <div className="flex flex-col gap-2 rounded-lg border border-emerald-800 bg-emerald-950/20 p-4">
+      <div className="card-brand flex flex-col gap-2 p-4">
         <button
           onClick={startDraft}
           disabled={starting}
-          className="w-fit rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          className="w-fit rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Start draft
         </button>

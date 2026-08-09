@@ -101,11 +101,11 @@ export default function TeamEditor({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-100">Teams</h2>
+        <h2 className="label-dash">Teams</h2>
         <button
           disabled={busy}
           onClick={addTeam}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Add team
         </button>
@@ -116,14 +116,14 @@ export default function TeamEditor({
         {teams.map((team) => {
           const prefills = players.filter((p) => p.team_id === team.id);
           return (
-            <div key={team.id} className="flex flex-col gap-3 rounded-lg border border-zinc-800 p-4">
+            <div key={team.id} className="card-brand flex flex-col gap-3 p-4">
               <div className="flex flex-wrap items-center gap-3">
                 <input
                   value={team.name}
                   onChange={(e) => updateTeam(team, { name: e.target.value })}
-                  className="w-40 rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+                  className="w-40 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
                 />
-                <label className="flex items-center gap-1 text-xs text-zinc-400">
+                <label className="flex items-center gap-1 text-xs text-steel">
                   Position
                   <input
                     type="number"
@@ -132,27 +132,27 @@ export default function TeamEditor({
                     onChange={(e) =>
                       updateTeam(team, { nomination_position: Number(e.target.value) })
                     }
-                    className="w-16 rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+                    className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
                   />
                 </label>
-                <label className="flex items-center gap-1 text-xs text-zinc-400">
+                <label className="flex items-center gap-1 text-xs text-steel">
                   Budget
                   <input
                     type="number"
                     min={0}
                     value={team.budget_start}
                     onChange={(e) => setBudget(team, Number(e.target.value))}
-                    className="w-20 rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+                    className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
                   />
                 </label>
-                <label className="flex items-center gap-1 text-xs text-zinc-400">
+                <label className="flex items-center gap-1 text-xs text-steel">
                   Captain
                   <select
                     value={team.captain_profile_id ?? ""}
                     onChange={(e) =>
                       updateTeam(team, { captain_profile_id: e.target.value || null })
                     }
-                    className="rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
                   >
                     <option value="">— none —</option>
                     {profiles.map((p) => (
@@ -164,28 +164,28 @@ export default function TeamEditor({
                 </label>
                 <button
                   onClick={() => removeTeam(team)}
-                  className="ml-auto rounded bg-red-800 px-2 py-1 text-xs font-semibold text-white"
+                  className="ml-auto rounded border border-red-500/60 px-2 py-1 text-xs font-semibold text-red-400"
                 >
                   Remove team
                 </button>
               </div>
 
               <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <h3 className="label-dash">
                   Pre-filled players ({prefills.length}/2)
                 </h3>
                 <ul className="flex flex-col gap-1">
                   {prefills.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 rounded border border-zinc-800 bg-black/20 px-2 py-1 text-sm"
+                      className="flex items-center justify-between gap-2 rounded border border-line bg-navy/40 px-2 py-1 text-sm"
                     >
-                      <span className="text-zinc-100">
-                        {p.display_name} <span className="text-xs text-zinc-500">· {p.role}</span>
+                      <span className="text-white">
+                        {p.display_name} <span className="text-xs text-steel">· {p.role}</span>
                       </span>
                       <button
                         onClick={() => removePrefill(p)}
-                        className="shrink-0 rounded bg-red-800 px-2 py-0.5 text-xs font-semibold text-white"
+                        className="shrink-0 rounded border border-red-500/60 px-2 py-0.5 text-xs font-semibold text-red-400"
                       >
                         Remove
                       </button>
@@ -203,7 +203,7 @@ export default function TeamEditor({
             </div>
           );
         })}
-        {teams.length === 0 && <p className="text-sm opacity-60">No teams yet.</p>}
+        {teams.length === 0 && <p className="text-sm text-steel">No teams yet.</p>}
       </div>
     </section>
   );
@@ -235,7 +235,7 @@ function PrefillForm({
       <select
         value={role}
         onChange={(e) => setRole(e.target.value as LolRole)}
-        className="rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+        className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
       >
         {available.map((r) => (
           <option key={r} value={r}>
@@ -247,12 +247,12 @@ function PrefillForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Player name"
-        className="flex-1 rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100 placeholder:text-zinc-600"
+        className="flex-1 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
       />
       <button
         type="submit"
         disabled={!name.trim() || disabled}
-        className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40"
+        className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Add
       </button>

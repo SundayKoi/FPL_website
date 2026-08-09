@@ -30,8 +30,8 @@ export default async function AdminDraftPage({
   if (!draftRes.data) redirect("/admin");
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-16 text-zinc-100">
-      <h1 className="text-2xl font-semibold tracking-tight">
+    <main className="bg-hash mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-16">
+      <h1 className="type-display text-2xl text-white">
         Setup — {(draftRes.data as Draft).name}
       </h1>
       <DraftSetupEditor

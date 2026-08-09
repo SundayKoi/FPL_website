@@ -67,12 +67,12 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New draft name"
-          className="flex-1 rounded border border-zinc-700 bg-black/30 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
+          className="flex-1 rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
         />
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           New draft
         </button>
@@ -80,22 +80,22 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
       {err && <p className="text-sm text-red-400">{err}</p>}
 
       {drafts.length === 0 ? (
-        <p className="text-sm opacity-60">No drafts yet.</p>
+        <p className="text-sm text-steel">No drafts yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {drafts.map((draft) => (
             <li
               key={draft.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 px-4 py-3"
+              className="card-brand flex items-center justify-between gap-2 px-4 py-3"
             >
               <Link href={`/admin/${draft.id}`} className="flex flex-1 items-center justify-between gap-2">
-                <span className="font-medium text-zinc-100">{draft.name}</span>
-                <span className="text-xs uppercase tracking-wide opacity-60">{draft.status}</span>
+                <span className="font-medium text-white">{draft.name}</span>
+                <span className="text-xs uppercase tracking-wide text-steel">{draft.status}</span>
               </Link>
               {draft.status === "setup" && (
                 <button
                   onClick={() => deleteDraft(draft)}
-                  className="shrink-0 rounded bg-red-800 px-2 py-1 text-xs font-semibold text-white"
+                  className="shrink-0 rounded border border-red-500/60 px-2 py-1 text-xs font-semibold text-red-400"
                 >
                   Delete
                 </button>

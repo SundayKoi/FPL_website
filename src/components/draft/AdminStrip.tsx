@@ -32,14 +32,14 @@ export default function AdminStrip({
   const isLive = draft.status === "live";
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-rose-700 bg-rose-950/20 p-3">
-      <h3 className="text-sm font-bold text-rose-300">Admin</h3>
+    <section className="card-brand flex flex-col gap-3 p-3">
+      <h3 className="label-dash">Admin</h3>
 
       <div className="flex flex-wrap gap-2">
         {isPaused ? (
           <button
             disabled={busy}
-            className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
             onClick={() =>
               run("Resume the draft?", () => supabase.rpc("resume_draft", { p_draft_id: draft.id }))
             }
@@ -49,7 +49,7 @@ export default function AdminStrip({
         ) : (
           <button
             disabled={busy || !isLive}
-            className="rounded bg-amber-600 px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-40"
+            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
             onClick={() =>
               run("Pause the draft?", () => supabase.rpc("pause_draft", { p_draft_id: draft.id }))
             }
@@ -60,7 +60,7 @@ export default function AdminStrip({
 
         <button
           disabled={busy}
-          className="rounded bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded border border-gold text-gold px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
           onClick={() =>
             run("Undo the last sale? The player returns to the pool and points are refunded.", () =>
               supabase.rpc("undo_last_sale", { p_draft_id: draft.id })
@@ -74,7 +74,7 @@ export default function AdminStrip({
           <>
             <button
               disabled={busy}
-              className="rounded bg-red-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+              className="rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40"
               onClick={() =>
                 run("Cancel this lot? The nominator keeps their turn.", () =>
                   supabase.rpc("cancel_lot", { p_lot_id: openLot.id })
@@ -85,7 +85,7 @@ export default function AdminStrip({
             </button>
             <button
               disabled={busy}
-              className="rounded bg-red-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+              className="rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40"
               onClick={() =>
                 run("Force close this lot now, selling to the current leader?", () =>
                   supabase.rpc("force_close_lot", { p_lot_id: openLot.id })
@@ -99,7 +99,7 @@ export default function AdminStrip({
       </div>
 
       <div className="flex items-center gap-2">
-        <label htmlFor="countdown-seconds" className="text-xs text-zinc-400">
+        <label htmlFor="countdown-seconds" className="text-xs text-steel">
           Countdown (s)
         </label>
         <input
@@ -109,11 +109,11 @@ export default function AdminStrip({
           max={300}
           value={countdown}
           onChange={(e) => setCountdown(e.target.value)}
-          className="w-20 rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100"
+          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
         />
         <button
           disabled={busy}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
           onClick={() =>
             run(`Set countdown to ${countdown}s?`, () =>
               supabase.rpc("update_draft_settings", {

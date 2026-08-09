@@ -100,11 +100,11 @@ export default function PlayerPoolEditor({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold text-zinc-100">Player pool</h2>
+      <h2 className="label-dash">Player pool</h2>
       {err && <p className="text-sm text-red-400">{err}</p>}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-zinc-800 p-4">
-        <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="card-brand flex flex-col gap-2 p-4">
+        <label className="label-dash">
           CSV paste — one player per line: name,role[,rank[,opgg_url]]
         </label>
         <textarea
@@ -112,13 +112,13 @@ export default function PlayerPoolEditor({
           onChange={(e) => setCsv(e.target.value)}
           rows={6}
           placeholder={"Faker,mid,Challenger,https://op.gg/...\nCanyon,jungle"}
-          className="rounded border border-zinc-700 bg-black/30 px-2 py-1 font-mono text-xs text-zinc-100 placeholder:text-zinc-600"
+          className="rounded border border-line bg-navy px-2 py-1 font-mono text-xs text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <button
             onClick={handleParse}
             disabled={!csv.trim()}
-            className="rounded bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
           >
             Validate
           </button>
@@ -126,7 +126,7 @@ export default function PlayerPoolEditor({
             <button
               onClick={handleImport}
               disabled={busy || validCount === 0}
-              className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+              className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
             >
               Import {validCount} valid row{validCount === 1 ? "" : "s"}
             </button>
@@ -143,7 +143,7 @@ export default function PlayerPoolEditor({
                 ))}
               </ul>
             )}
-            <p className="text-zinc-500">
+            <p className="text-steel">
               {validCount} valid, {errorRows.length} invalid
             </p>
           </div>
@@ -151,15 +151,15 @@ export default function PlayerPoolEditor({
       </div>
 
       <div className="flex flex-col gap-1">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <h3 className="label-dash">
           Pool ({pool.length})
         </h3>
         {pool.length === 0 ? (
-          <p className="text-sm opacity-60">No pool players yet.</p>
+          <p className="text-sm text-steel">No pool players yet.</p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="text-xs uppercase tracking-wide text-steel">
                 <th className="py-1">Name</th>
                 <th className="py-1">Role</th>
                 <th className="py-1">Rank</th>
@@ -169,13 +169,13 @@ export default function PlayerPoolEditor({
             </thead>
             <tbody>
               {pool.map((p) => (
-                <tr key={p.id} className="border-t border-zinc-800">
-                  <td className="py-1 text-zinc-100">{p.display_name}</td>
-                  <td className="py-1 text-zinc-400">{p.role}</td>
-                  <td className="py-1 text-zinc-400">{p.rank ?? "—"}</td>
-                  <td className="py-1 text-zinc-400">
+                <tr key={p.id} className="border-t border-line">
+                  <td className="py-1 text-white">{p.display_name}</td>
+                  <td className="py-1 text-steel">{p.role}</td>
+                  <td className="py-1 text-steel">{p.rank ?? "—"}</td>
+                  <td className="py-1 text-steel">
                     {p.opgg_url ? (
-                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="underline">
+                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-gold underline">
                         link
                       </a>
                     ) : (
@@ -185,7 +185,7 @@ export default function PlayerPoolEditor({
                   <td className="py-1 text-right">
                     <button
                       onClick={() => removePlayer(p)}
-                      className="rounded bg-red-800 px-2 py-0.5 text-xs font-semibold text-white"
+                      className="rounded border border-red-500/60 px-2 py-0.5 text-xs font-semibold text-red-400"
                     >
                       Delete
                     </button>

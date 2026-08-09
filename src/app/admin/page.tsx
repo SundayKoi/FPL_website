@@ -19,8 +19,8 @@ export default async function AdminPage() {
   const drafts = (data as Draft[]) ?? [];
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-16 text-zinc-100">
-      <h1 className="text-2xl font-semibold tracking-tight">Admin — drafts</h1>
+    <main className="bg-hash mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-16">
+      <h1 className="type-display text-2xl text-white">Admin — drafts</h1>
       <DraftListClient initialDrafts={drafts} />
     </main>
   );
