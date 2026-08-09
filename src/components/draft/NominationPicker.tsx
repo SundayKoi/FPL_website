@@ -35,10 +35,15 @@ export default function NominationPicker({
     if (error) onError(friendly(errCode(error)));
   };
 
+  const nominatable = available.filter((p) => roles.includes(p.role));
+
   return (
     <section className="card-brand flex flex-col gap-3 p-3">
-      <header className="flex items-center justify-between gap-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="label-dash !text-gold">Your turn to nominate</h3>
+        <span className="text-xs text-steel">
+          click a player to nominate · opens at <span className="font-semibold text-gold">{minimum}</span>
+        </span>
         <input
           type="text"
           value={query}
@@ -52,46 +57,33 @@ export default function NominationPicker({
         <p className="text-sm text-steel">Your roster is already full.</p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {roles.map((role) => {
-          const rows = available.filter((p) => p.role === role);
-          if (rows.length === 0) return null;
+      <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-4">
+        {nominatable.map((p) => {
+          const blocked = nominateBlockReason(team, p, draft, players);
           return (
-            <div key={role} className="flex flex-col gap-1">
-              <h4 className="label-dash">{role}</h4>
-              <ul className="flex flex-col gap-1">
-                {rows.map((p) => {
-                  const blocked = nominateBlockReason(team, p, draft, players);
-                  return (
-                    <li
-                      key={p.id}
-                      className="flex items-center justify-between gap-2 rounded border border-line px-2 py-1 text-sm hover:bg-navy/60"
-                    >
-                      <span className="truncate text-white">
-                        {p.display_name}
-                        {p.rank ? <span className="ml-1 text-xs text-steel">· {p.rank}</span> : null}
-                      </span>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {blocked && <span className="text-xs text-steel">{blocked}</span>}
-                        <button
-                          className="shrink-0 rounded border border-gold px-2 py-1 text-xs font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"
-                          disabled={!!blocked}
-                          onClick={() => nominate(p)}
-                        >
-                          Nominate (opens at {minimum})
-                        </button>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <li key={p.id}>
+              <button
+                className="flex w-full items-center justify-between gap-2 rounded border border-line bg-navy px-2.5 py-1.5 text-left text-sm hover:border-gold hover:bg-gold/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-navy"
+                disabled={!!blocked}
+                title={blocked ?? `Nominate (opens at ${minimum})`}
+                onClick={() => nominate(p)}
+              >
+                <span className="sr-only">Nominate </span>
+                <span className="truncate text-white">
+                  {p.display_name}
+                  {p.rank ? <span className="ml-1 text-xs text-steel">· {p.rank}</span> : null}
+                </span>
+                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-steel">
+                  {p.role}
+                </span>
+              </button>
+            </li>
           );
         })}
-        {roles.length > 0 && available.filter((p) => roles.includes(p.role)).length === 0 && (
-          <p className="text-sm text-steel">No players match.</p>
-        )}
-      </div>
+      </ul>
+      {roles.length > 0 && nominatable.length === 0 && (
+        <p className="text-sm text-steel">No players match.</p>
+      )}
     </section>
   );
 }

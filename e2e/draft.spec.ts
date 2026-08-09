@@ -48,8 +48,9 @@ test("two captains run one auction to settlement", async ({ browser }) => {
   await expect(cap1.getByText(/Waiting for .* to nominate/)).toBeVisible();
   await expect(cap2.getByText(/Waiting for .* to nominate/)).toBeVisible();
 
-  // Captain 1 (E2E Alpha, on the clock) nominates the first available mid.
-  await cap1.getByRole("button", { name: /^Nominate/ }).first().click();
+  // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
+  // picker lists players alphabetically, so "first button" is not stable.
+  await cap1.getByRole("button", { name: /^Nominate Mid1/ }).click();
 
   // cap1's own click already updates its own board locally; the interesting
   // assertion is that the lot appears on captain 2's board too, WITHOUT a
