@@ -19,7 +19,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3">
           <Image src="/fpl-logo.png" width={96} height={96} alt="" />
           <span className="type-display text-2xl">
-            FPL EXCHANGE <span className="text-steel font-body not-italic">DRAFT</span>
+            FPL <span className="text-steel font-body not-italic">DRAFT</span>
           </span>
         </div>
         <button

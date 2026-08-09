@@ -37,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="flex items-center gap-2">
               <Image src="/fpl-logo.png" width={30} height={30} alt="" />
               <span className="type-display text-base">
-                FPL EXCHANGE <span className="text-steel font-body not-italic">DRAFT</span>
+                FPL <span className="text-steel font-body not-italic">DRAFT</span>
               </span>
             </Link>
             <AuthButton />
