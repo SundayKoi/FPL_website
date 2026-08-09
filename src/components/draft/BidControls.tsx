@@ -17,7 +17,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
   if (key !== prevKey) {
     const isNewLot = !prevKey.startsWith(lot.id);
     setPrevKey(key);
-    if (isNewLot || amount < quick) setAmount(quick);
+    if (isNewLot || !(amount >= quick)) setAmount(quick);
   }
   const place = async (a: number) => {
     if (!Number.isFinite(a)) return onError("Enter a valid bid amount");
