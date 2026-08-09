@@ -18,8 +18,8 @@ export default function CenterStage({
 }) {
   if (!lot || !player) {
     return (
-      <section className="flex flex-col items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-8 text-center">
-        <p className="text-sm text-zinc-400">
+      <section className="card-brand flex flex-col items-center justify-center gap-2 border-2 border-dashed border-line p-8 text-center">
+        <p className="text-sm text-steel">
           Waiting for {nominatorTeam?.name ?? "the next team"} to nominate…
         </p>
       </section>
@@ -27,10 +27,13 @@ export default function CenterStage({
   }
 
   return (
-    <section className="flex flex-col items-center justify-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-8 text-center">
+    <section
+      className="card-brand flex flex-col items-center justify-center gap-3 p-8 text-center"
+      style={{ boxShadow: "0 16px 40px rgb(0 0 0 / 0.5)" }}
+    >
       <div>
-        <h2 className="text-2xl font-bold text-zinc-100">{player.display_name}</h2>
-        <p className="text-xs uppercase tracking-wide text-zinc-500">
+        <h2 className="type-display text-3xl text-white">{player.display_name}</h2>
+        <p className="text-xs uppercase tracking-wide text-steel">
           {player.role}
           {player.rank ? ` · ${player.rank}` : ""}
         </p>
@@ -39,21 +42,21 @@ export default function CenterStage({
             href={player.opgg_url}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-indigo-400 underline"
+            className="text-xs text-steel underline"
           >
             op.gg
           </a>
         )}
       </div>
 
-      <div className="text-5xl font-extrabold text-emerald-400">{lot.current_bid}</div>
-      <p className="text-sm text-zinc-400">
-        Leading: <span className="text-zinc-100">{leadingTeam?.name ?? "—"}</span>
+      <div className="type-display text-5xl text-gold">{lot.current_bid}</div>
+      <p className="text-sm text-steel">
+        Leading: <span className="text-steel">{leadingTeam?.name ?? "—"}</span>
       </p>
 
       <div
-        className={`font-mono text-4xl font-bold tabular-nums ${
-          paused ? "text-amber-400" : secondsLeft <= 5 ? "text-red-500" : "text-zinc-100"
+        className={`font-display italic font-bold tabular-nums text-7xl ${
+          paused ? "text-gold" : secondsLeft <= 5 ? "text-red-500 animate-pulse" : "text-gold"
         }`}
       >
         {paused ? "PAUSED" : secondsLeft}

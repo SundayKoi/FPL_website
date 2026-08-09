@@ -30,7 +30,14 @@ export default function DraftBoard({
   );
   const [toast, setToast] = useState<string | null>(null);
 
-  if (!s.draft) return <main className="p-8 text-zinc-400">Loading draft…</main>;
+  if (!s.draft)
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-navy bg-hash p-8">
+        <div className="card-brand px-10 py-8 text-center">
+          <p className="type-display text-xl text-white">Loading draft…</p>
+        </div>
+      </main>
+    );
 
   const { draft, teams, players, lots, bids, openLot, myTeam } = s;
   const lotPlayer = openLot ? players.find((p) => p.id === openLot.player_id) ?? null : null;
@@ -43,26 +50,28 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 text-zinc-100">
+    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <DraftHeader draft={draft} connected={s.connected} />
 
       {myTeam && (
-        <div className="rounded-lg border border-indigo-800 bg-indigo-950/30 px-4 py-2 text-sm text-indigo-100">
-          You are <span className="font-semibold">Team {myTeam.name}</span> — {myTeam.points_remaining} pts,
-          max bid {maxBid(myTeam, players)}
+        <div className="card-brand px-4 py-3 text-sm text-steel">
+          You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
+          <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
+          max bid{" "}
+          <span className="font-display font-semibold not-italic text-gold">{maxBid(myTeam, players)}</span>
         </div>
       )}
 
       {draft.status === "setup" ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-16 text-center">
-          <p className="text-lg text-zinc-300">Draft hasn&apos;t started</p>
-          <p className="text-sm text-zinc-500">Check back once the admin goes live.</p>
+        <section className="card-brand flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center">
+          <p className="type-display text-2xl text-white">Draft hasn&apos;t started</p>
+          <p className="text-sm text-steel">Check back once the admin goes live.</p>
         </section>
       ) : (
         <>
           {draft.status === "paused" && (
-            <div className="rounded-lg bg-amber-600 px-4 py-2 text-center text-sm font-semibold text-black">
-              Paused by admin
+            <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
+              <span className="label-dash">Paused by admin</span>
             </div>
           )}
 
