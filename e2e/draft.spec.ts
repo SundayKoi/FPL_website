@@ -50,9 +50,9 @@ test("two captains run one auction to settlement", async ({ browser }) => {
 
   // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
   // picker lists players alphabetically, so "first button" is not stable.
-  // Nominating pops a confirm() dialog; accept it.
-  cap1.once("dialog", (dialog) => void dialog.accept());
+  // Nominating opens the branded confirm modal; confirm it.
   await cap1.getByRole("button", { name: /^Nominate Mid1/ }).click();
+  await cap1.getByRole("dialog").getByRole("button", { name: "Nominate", exact: true }).click();
 
   // cap1's own click already updates its own board locally; the interesting
   // assertion is that the lot appears on captain 2's board too, WITHOUT a

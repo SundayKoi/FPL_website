@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { nominateBlockReason, openRoles } from "@/lib/draft/derive";
 import { errCode, ROLE_ORDER, type Draft, type LolRole, type Player, type Team } from "@/lib/draft/types";
 import { friendly } from "./Toast";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function NominationPicker({
   team,
@@ -19,6 +20,7 @@ export default function NominationPicker({
   const supabase = createClient();
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<LolRole | null>(null);
+  const [pending, setPending] = useState<Player | null>(null);
 
   const roles = openRoles(team.id, players);
   const minimum =
@@ -33,10 +35,14 @@ export default function NominationPicker({
         a.display_name.localeCompare(b.display_name)
     );
 
-  const nominate = async (player: Player) => {
+  const requestNominate = (player: Player) => {
     const blocked = nominateBlockReason(team, player, draft, players);
     if (blocked) return onError(blocked);
-    if (!confirm(`Nominate ${player.display_name}? You open the bidding at ${minimum} points.`)) return;
+    setPending(player);
+  };
+
+  const nominate = async (player: Player) => {
+    setPending(null);
     const { error } = await supabase.rpc("nominate", { p_draft_id: draft.id, p_player_id: player.id });
     if (error) onError(friendly(errCode(error)));
   };
@@ -106,7 +112,7 @@ export default function NominationPicker({
                           className="flex w-full items-center justify-between gap-2 rounded border border-line bg-navy px-2.5 py-1.5 text-left text-sm hover:border-gold hover:bg-gold/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-navy"
                           disabled={!!blocked}
                           title={blocked ?? `Nominate (opens at ${minimum})`}
-                          onClick={() => nominate(p)}
+                          onClick={() => requestNominate(p)}
                         >
                           <span className="sr-only">Nominate </span>
                           <span className="truncate text-white">
@@ -123,6 +129,25 @@ export default function NominationPicker({
           );
         })}
       </div>
+
+      {pending && (
+        <ConfirmDialog
+          title="Confirm nomination"
+          confirmLabel="Nominate"
+          onConfirm={() => void nominate(pending)}
+          onCancel={() => setPending(null)}
+        >
+          <p className="type-display text-2xl">{pending.display_name}</p>
+          <p className="mt-1 text-sm text-steel">
+            <span className="uppercase">{pending.role}</span>
+            {pending.rank ? ` · ${pending.rank}` : ""}
+          </p>
+          <p className="mt-3 text-sm">
+            You open the bidding at{" "}
+            <span className="font-display font-bold not-italic text-gold">{minimum}</span> points.
+          </p>
+        </ConfirmDialog>
+      )}
     </section>
   );
 }
