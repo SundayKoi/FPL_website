@@ -15,6 +15,7 @@ export function useDraftState(draftId: string) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [offsetMs, setOffsetMs] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const refetch = useCallback(async () => {
     const [d, t, p, l] = await Promise.all([
@@ -33,6 +34,7 @@ export function useDraftState(draftId: string) {
         .in("lot_id", lotRows.map((x) => x.id)).order("id");
       setBids((b as Bid[]) ?? []);
     } else setBids([]);
+    setLoaded(true); // first fetch finished — a null draft now means "not found"
   }, [supabase, draftId]);
 
   useEffect(() => {
@@ -97,5 +99,5 @@ export function useDraftState(draftId: string) {
     return () => { clearInterval(id); clearTimeout(t); };
   }, [openLot, draft?.status, offsetMs, supabase]);
 
-  return { draft, teams, players, lots, bids, profileId, isAdmin, myTeam, openLot, offsetMs, connected, refetch };
+  return { draft, teams, players, lots, bids, profileId, isAdmin, myTeam, openLot, offsetMs, connected, loaded, refetch };
 }

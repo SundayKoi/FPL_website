@@ -1,5 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useCountdown } from "@/hooks/useCountdown";
 import { maxBid } from "@/lib/draft/derive";
@@ -34,7 +35,19 @@ export default function DraftBoard({
     return (
       <main className="flex min-h-screen items-center justify-center bg-navy bg-hash p-8">
         <div className="card-brand px-10 py-8 text-center">
-          <p className="type-display text-xl text-white">Loading draft…</p>
+          {s.loaded ? (
+            <>
+              <p className="type-display text-xl text-white">Draft not found</p>
+              <p className="mt-2 text-sm text-steel">
+                This draft may have been deleted or the link is out of date.
+              </p>
+              <Link href="/" className="btn-pill mt-4 inline-block text-sm">
+                Back to drafts
+              </Link>
+            </>
+          ) : (
+            <p className="type-display text-xl text-white">Loading draft…</p>
+          )}
         </div>
       </main>
     );
