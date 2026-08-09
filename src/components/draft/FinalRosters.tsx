@@ -16,7 +16,7 @@ export default function FinalRosters({
   return (
     <section className="flex flex-col gap-3">
       <h2 className="type-display text-xl text-white">Final rosters</h2>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {teams.map((team) => (
           <div key={team.id} className="flex flex-col gap-1">
             <TeamColumn team={team} players={players} isNominator={false} isMyTeam={myTeamId === team.id} />

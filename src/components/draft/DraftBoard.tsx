@@ -78,28 +78,33 @@ export default function DraftBoard({
           {draft.status === "complete" ? (
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.4fr_1fr]">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                {teams.map((team) => (
-                  <TeamColumn
-                    key={team.id}
-                    team={team}
-                    players={players}
-                    isNominator={team.id === draft.current_nominator_team_id}
-                    isMyTeam={myTeam?.id === team.id}
-                  />
-                ))}
-              </div>
+            <div className="flex gap-4">
+              {myTeam && (
+                <aside className="hidden w-64 shrink-0 lg:block">
+                  <div className="sticky top-20">
+                    <TeamColumn
+                      team={myTeam}
+                      players={players}
+                      isNominator={draft.current_nominator_team_id === myTeam.id}
+                      isMyTeam
+                    />
+                  </div>
+                </aside>
+              )}
 
-              <div className="flex flex-col gap-3">
-                <CenterStage
-                  lot={openLot}
-                  player={lotPlayer}
-                  leadingTeam={leadingTeam}
-                  secondsLeft={secondsLeft}
-                  paused={draft.status === "paused"}
-                  nominatorTeam={nominatorTeam}
-                />
+              <div className="min-w-0 flex-1 space-y-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
+                  <CenterStage
+                    lot={openLot}
+                    player={lotPlayer}
+                    leadingTeam={leadingTeam}
+                    secondsLeft={secondsLeft}
+                    paused={draft.status === "paused"}
+                    nominatorTeam={nominatorTeam}
+                  />
+                  <BidFeed bids={bids} teams={teams} players={players} lots={lots} />
+                </div>
+
                 {draft.status === "live" && myTeam && openLot && lotPlayer && (
                   <BidControls
                     team={myTeam}
@@ -115,13 +120,26 @@ export default function DraftBoard({
                 {captainControls}
                 {s.isAdmin && <AdminStrip draft={draft} openLot={openLot} onError={setToast} />}
                 {adminControls}
-              </div>
 
-              <BidFeed bids={bids} teams={teams} players={players} lots={lots} />
+                <PlayerPool players={players} teams={teams} />
+
+                <section>
+                  <h2 className="label-dash mb-2">TEAMS</h2>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                    {teams.map((team) => (
+                      <TeamColumn
+                        key={team.id}
+                        team={team}
+                        players={players}
+                        isNominator={team.id === draft.current_nominator_team_id}
+                        isMyTeam={myTeam?.id === team.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </div>
             </div>
           )}
-
-          <PlayerPool players={players} teams={teams} />
         </>
       )}
 
