@@ -21,20 +21,20 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
   };
   const quickBlocked = bidBlockReason(team, lot, lotPlayer, players, quick);
   return (
-    <div className="flex items-center gap-2 rounded-lg border p-3">
-      <button className="rounded bg-emerald-600 px-4 py-2 font-bold text-white disabled:opacity-40"
+    <div className="card-brand flex items-center gap-2 p-3">
+      <button className="rounded bg-gold px-4 py-2 font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         disabled={!!quickBlocked} onClick={() => place(quick)}>
         Bid {quick}
       </button>
-      <input type="number" className="w-24 rounded border p-2" value={amount}
+      <input type="number" className="w-24 rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none" value={amount}
         min={quick} max={maxBid(team, players)}
         onChange={(e) => setAmount(Number(e.target.value))} />
-      <button className="rounded bg-emerald-700 px-3 py-2 text-white disabled:opacity-40"
+      <button className="rounded border border-gold px-3 py-2 text-gold disabled:opacity-40"
         disabled={!!bidBlockReason(team, lot, lotPlayer, players, amount)}
         onClick={() => place(amount)}>
         Bid
       </button>
-      {quickBlocked && <span className="text-sm opacity-70">{quickBlocked}</span>}
+      {quickBlocked && <span className="text-sm text-steel">{quickBlocked}</span>}
     </div>
   );
 }

@@ -14,20 +14,21 @@ export default function PlayerPool({ players, teams }: { players: Player[]; team
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+    <section className="card-brand flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search players…"
-          className="rounded border border-zinc-700 bg-black/30 px-2 py-1 text-sm text-zinc-100 placeholder:text-zinc-600"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
         />
         <div className="flex flex-wrap gap-1">
           <button
             onClick={() => setRole(null)}
+            aria-pressed={role === null}
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              role === null ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-400"
+              role === null ? "bg-gold text-navy font-semibold" : "bg-panel text-steel border border-line"
             }`}
           >
             All
@@ -36,8 +37,9 @@ export default function PlayerPool({ players, teams }: { players: Player[]; team
             <button
               key={r}
               onClick={() => setRole(r)}
+              aria-pressed={role === r}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${
-                role === r ? "bg-indigo-600 text-white" : "bg-zinc-800 text-zinc-400"
+                role === r ? "bg-gold text-navy font-semibold" : "bg-panel text-steel border border-line"
               }`}
             >
               {r}
@@ -52,25 +54,25 @@ export default function PlayerPool({ players, teams }: { players: Player[]; team
           return (
             <li
               key={p.id}
-              className={`flex items-center justify-between gap-2 rounded border border-zinc-800 px-2 py-1 text-xs ${
-                sold ? "bg-black/10" : "bg-black/30"
+              className={`flex items-center justify-between gap-2 rounded border border-line px-2 py-1 text-xs ${
+                sold ? "bg-navy/40" : "bg-navy/70"
               }`}
             >
-              <span className={`truncate ${sold ? "text-zinc-500 line-through" : "text-zinc-100"}`}>
+              <span className={`truncate ${sold ? "text-steel/60 line-through" : "text-white"}`}>
                 {p.display_name}
               </span>
               {sold ? (
-                <span className="shrink-0 text-[10px] text-zinc-500">
-                  {teamName(p.team_id)} · {p.price ?? 0}
+                <span className="shrink-0 text-[10px] text-steel/60">
+                  {teamName(p.team_id)} · <span className="text-gold">{p.price ?? 0}</span>
                 </span>
               ) : (
-                <span className="shrink-0 text-[10px] uppercase text-zinc-600">{p.role}</span>
+                <span className="shrink-0 text-[10px] uppercase text-steel">{p.role}</span>
               )}
             </li>
           );
         })}
         {filtered.length === 0 && (
-          <li className="col-span-full py-4 text-center text-xs text-zinc-600">No players match.</li>
+          <li className="col-span-full py-4 text-center text-xs text-steel">No players match.</li>
         )}
       </ul>
     </section>

@@ -37,7 +37,7 @@ export default function Toast({
   if (!message) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-xs rounded-lg border border-red-800 bg-red-950/95 px-4 py-3 text-sm text-red-100 shadow-lg">
+    <div className="card-brand fixed bottom-4 right-4 z-50 max-w-xs border-red-500/60 px-4 py-3 text-sm text-white">
       {message}
     </div>
   );

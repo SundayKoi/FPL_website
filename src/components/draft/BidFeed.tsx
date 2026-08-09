@@ -21,16 +21,17 @@ export default function BidFeed({
   const sorted = [...bids].sort((a, b) => b.id - a.id);
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-      <h3 className="text-sm font-semibold text-zinc-300">Bid feed</h3>
+    <section className="card-brand flex flex-col gap-2 p-3">
+      <h3 className="label-dash">Bid feed</h3>
       <ul className="flex max-h-96 flex-col gap-1 overflow-y-auto text-xs">
         {sorted.map((bid) => (
-          <li key={bid.id} className="rounded border border-zinc-800 bg-black/20 px-2 py-1 text-zinc-300">
-            <span className="font-semibold text-zinc-100">{teamName(bid.team_id)}</span> bid{" "}
-            <span className="font-mono text-emerald-400">{bid.amount}</span> on {playerName(bid.lot_id)}
+          <li key={bid.id} className="border-b border-line/50 px-1 py-1.5">
+            <span className="font-semibold text-white">{teamName(bid.team_id)}</span> bid{" "}
+            <span className="font-display font-semibold not-italic text-gold">{bid.amount}</span> on{" "}
+            <span className="text-steel">{playerName(bid.lot_id)}</span>
           </li>
         ))}
-        {sorted.length === 0 && <li className="py-4 text-center text-zinc-600">No bids yet.</li>}
+        {sorted.length === 0 && <li className="py-4 text-center text-steel">No bids yet.</li>}
       </ul>
     </section>
   );
