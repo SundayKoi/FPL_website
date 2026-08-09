@@ -28,7 +28,7 @@ export default function PlayerPool({ players, teams }: { players: Player[]; team
             onClick={() => setRole(null)}
             aria-pressed={role === null}
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              role === null ? "bg-gold text-navy font-semibold" : "bg-panel text-steel border border-line"
+              role === null ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
             }`}
           >
             All
@@ -39,7 +39,7 @@ export default function PlayerPool({ players, teams }: { players: Player[]; team
               onClick={() => setRole(r)}
               aria-pressed={role === r}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${
-                role === r ? "bg-gold text-navy font-semibold" : "bg-panel text-steel border border-line"
+                role === r ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
               }`}
             >
               {r}

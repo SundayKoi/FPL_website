@@ -29,7 +29,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
       <input type="number" className="w-24 rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none" value={amount}
         min={quick} max={maxBid(team, players)}
         onChange={(e) => setAmount(Number(e.target.value))} />
-      <button className="rounded border border-gold px-3 py-2 text-gold disabled:opacity-40"
+      <button className="rounded border border-gold px-3 py-2 text-gold hover:bg-gold/10 disabled:opacity-40"
         disabled={!!bidBlockReason(team, lot, lotPlayer, players, amount)}
         onClick={() => place(amount)}>
         Bid

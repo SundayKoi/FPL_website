@@ -71,7 +71,7 @@ export default function DraftBoard({
         <>
           {draft.status === "paused" && (
             <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
-              <span className="label-dash">Paused by admin</span>
+              <span className="label-dash !text-gold">Paused by admin</span>
             </div>
           )}
 

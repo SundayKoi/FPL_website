@@ -17,7 +17,7 @@ export default async function Home() {
           <span className="label-dash">FRANCHISE PREMIER LEAGUE</span>
           <div className="flex items-center justify-between">
             <h1 className="type-display text-5xl">DRAFTS</h1>
-            <Link href="/admin" className="text-steel underline-offset-4 hover:text-white">
+            <Link href="/admin" className="text-steel underline underline-offset-4 hover:text-white">
               Admin
             </Link>
           </div>
@@ -34,7 +34,7 @@ export default async function Home() {
                   className="card-brand flex flex-col gap-2 px-5 py-4 transition-colors hover:border-steel"
                 >
                   <span className="type-display text-xl">{draft.name}</span>
-                  <span className="text-steel text-sm">{draft.status}</span>
+                  <span className="text-steel text-sm uppercase tracking-wide">{draft.status}</span>
                   <span className="label-dash">VIEW BOARD →</span>
                 </Link>
               </li>

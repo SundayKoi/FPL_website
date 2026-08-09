@@ -60,7 +60,7 @@ export default function AdminStrip({
 
         <button
           disabled={busy}
-          className="rounded border border-gold text-gold px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+          className="rounded border border-gold text-gold px-3 py-1.5 text-xs font-semibold hover:bg-gold/10 disabled:opacity-40"
           onClick={() =>
             run("Undo the last sale? The player returns to the pool and points are refunded.", () =>
               supabase.rpc("undo_last_sale", { p_draft_id: draft.id })

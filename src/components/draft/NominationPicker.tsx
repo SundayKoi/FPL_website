@@ -74,7 +74,7 @@ export default function NominationPicker({
                       <span className="flex shrink-0 items-center gap-2">
                         {blocked && <span className="text-xs text-steel">{blocked}</span>}
                         <button
-                          className="shrink-0 rounded border border-gold px-2 py-1 text-xs font-semibold text-gold disabled:opacity-40"
+                          className="shrink-0 rounded border border-gold px-2 py-1 text-xs font-semibold text-gold hover:bg-gold/10 disabled:opacity-40"
                           disabled={!!blocked}
                           onClick={() => nominate(p)}
                         >
