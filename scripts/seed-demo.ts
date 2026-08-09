@@ -24,26 +24,35 @@ const DRAFT_NAME = "Demo Draft (12 Teams)";
 const PASSWORD = "password123";
 const COUNTDOWN_SECONDS = 15;
 
-const TEAMS: { name: string; email: string; budget: number }[] = [
-  { name: "Lion Guard", email: "e2e-cap1@test.local", budget: 100 },
-  { name: "Crest Kings", email: "e2e-cap2@test.local", budget: 100 },
-  { name: "Navy Nexus", email: "demo-cap3@test.local", budget: 95 },
-  { name: "Baron Barons", email: "demo-cap4@test.local", budget: 95 },
-  { name: "Gold Fang", email: "demo-cap5@test.local", budget: 90 },
-  { name: "Steel Sentinels", email: "demo-cap6@test.local", budget: 90 },
-  { name: "Dragon Soul", email: "demo-cap7@test.local", budget: 85 },
-  { name: "Rift Runners", email: "demo-cap8@test.local", budget: 85 },
-  { name: "Crown Chasers", email: "demo-cap9@test.local", budget: 80 },
-  { name: "Void Vanguard", email: "demo-cap10@test.local", budget: 80 },
-  { name: "Herald Hunters", email: "demo-cap11@test.local", budget: 75 },
-  { name: "Flash Wolves FPL", email: "demo-cap12@test.local", budget: 75 },
+// Each team pre-fills two roles (captain + free-agency signing). The pairs are
+// varied so different captains need different roles — lets every point of view
+// be demoed (a team hunting top/jungle, a team hunting mid, etc.).
+const TEAMS: { name: string; email: string; budget: number; capRole: string; faRole: string }[] = [
+  { name: "Lion Guard", email: "e2e-cap1@test.local", budget: 100, capRole: "top", faRole: "jungle" },
+  { name: "Crest Kings", email: "e2e-cap2@test.local", budget: 100, capRole: "mid", faRole: "support" },
+  { name: "Navy Nexus", email: "demo-cap3@test.local", budget: 95, capRole: "adc", faRole: "top" },
+  { name: "Baron Barons", email: "demo-cap4@test.local", budget: 95, capRole: "jungle", faRole: "mid" },
+  { name: "Gold Fang", email: "demo-cap5@test.local", budget: 90, capRole: "support", faRole: "adc" },
+  { name: "Steel Sentinels", email: "demo-cap6@test.local", budget: 90, capRole: "top", faRole: "mid" },
+  { name: "Dragon Soul", email: "demo-cap7@test.local", budget: 85, capRole: "jungle", faRole: "adc" },
+  { name: "Rift Runners", email: "demo-cap8@test.local", budget: 85, capRole: "mid", faRole: "adc" },
+  { name: "Crown Chasers", email: "demo-cap9@test.local", budget: 80, capRole: "support", faRole: "top" },
+  { name: "Void Vanguard", email: "demo-cap10@test.local", budget: 80, capRole: "jungle", faRole: "support" },
+  { name: "Herald Hunters", email: "demo-cap11@test.local", budget: 75, capRole: "adc", faRole: "support" },
+  { name: "Flash Wolves FPL", email: "demo-cap12@test.local", budget: 75, capRole: "top", faRole: "jungle" },
 ];
 
 const POOL_NAMES: Record<string, string[]> = {
+  top: ["Teemo Terror", "Darius Dunk", "Garen Spin2Win", "Fiora Flair", "Malphite Rock", "Camille Clip", "Jax Bamboo", "Kled Rider", "Ornn Forge", "SionInting"],
+  jungle: ["Lee Sin Blind", "Elise Spider", "Kha'Zix Bug", "Graves Cigar", "Sejuani Boar", "Viego Ruined", "Hecarim Horse", "Amumu Sadge", "Nidalee Spear", "Kindred Lamb"],
   mid: ["Azir Enjoyer", "Roam King", "CtrlMage", "OriannaMain", "Faker Jr", "MidDiff", "Syndra Sam", "Zed4Life", "TF Blade Runner", "Ryze Above", "Cassio Pete", "Viktor Frost", "Ahri Trainer", "LeBlancDX"],
   adc: ["Kai'Sa Carry", "DravenTax", "Jinxed", "CritChance", "Ez Real One", "Ashe Archer", "TwitchPrime", "Sivir Server", "MFortune", "Xayah Ray", "Caitlyn Cupcake", "VayneTrain", "Lucian Locke", "KogMawler"],
   support: ["Ward Bot", "Thresh Prince", "Lulu Whimsy", "Leona Solar", "Pyke Hook", "Soraka Heals", "Nami Tide", "Braum Shield", "Janna Breeze", "BlitzGrab", "Rell Charge", "Alistar Combo", "Bard Chimes", "Renata Deal"],
 };
+
+function cap(s: string): string {
+  return s[0].toUpperCase() + s.slice(1);
+}
 
 function resolveConfig(): { url: string; serviceKey: string } {
   const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -131,10 +140,14 @@ async function main() {
     .select();
   if (teamsErr) throw teamsErr;
 
-  const prefillRows = teams!.flatMap((t) => [
-    { draft_id: draftId, display_name: `${t.name} Top`, role: "top", team_id: t.id, price: 0, acquisition: "captain" },
-    { draft_id: draftId, display_name: `${t.name} Jungle`, role: "jungle", team_id: t.id, price: 0, acquisition: "free_agency" },
-  ]);
+  const cfgByPosition = (pos: number) => TEAMS[pos - 1];
+  const prefillRows = teams!.flatMap((t) => {
+    const cfg = cfgByPosition(t.nomination_position);
+    return [
+      { draft_id: draftId, display_name: `${t.name} ${cap(cfg.capRole)}`, role: cfg.capRole, team_id: t.id, price: 0, acquisition: "captain" },
+      { draft_id: draftId, display_name: `${t.name} ${cap(cfg.faRole)}`, role: cfg.faRole, team_id: t.id, price: 0, acquisition: "free_agency" },
+    ];
+  });
   const { error: prefillErr } = await supabase.from("players").insert(prefillRows);
   if (prefillErr) throw prefillErr;
 
@@ -153,7 +166,11 @@ async function main() {
 
   console.log(`Seeded "${DRAFT_NAME}" -> ${draftId}`);
   console.log(`Password for every captain: ${PASSWORD}`);
-  TEAMS.forEach((t, i) => console.log(`  pos ${String(i + 1).padStart(2)}  ${t.name.padEnd(17)} ${t.email}${i === 0 ? "  (admin)" : ""}`));
+  const ALL_ROLES = ["top", "jungle", "mid", "adc", "support"];
+  TEAMS.forEach((t, i) => {
+    const needs = ALL_ROLES.filter((r) => r !== t.capRole && r !== t.faRole).join("/");
+    console.log(`  pos ${String(i + 1).padStart(2)}  ${t.name.padEnd(17)} ${t.email.padEnd(23)} needs ${needs}${i === 0 ? "  (admin)" : ""}`);
+  });
 }
 
 main().catch((err) => {
