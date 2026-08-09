@@ -50,6 +50,8 @@ test("two captains run one auction to settlement", async ({ browser }) => {
 
   // Captain 1 (E2E Alpha, on the clock) nominates Mid1 explicitly — the
   // picker lists players alphabetically, so "first button" is not stable.
+  // Nominating pops a confirm() dialog; accept it.
+  cap1.once("dialog", (dialog) => void dialog.accept());
   await cap1.getByRole("button", { name: /^Nominate Mid1/ }).click();
 
   // cap1's own click already updates its own board locally; the interesting

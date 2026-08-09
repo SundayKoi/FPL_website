@@ -36,6 +36,7 @@ export default function NominationPicker({
   const nominate = async (player: Player) => {
     const blocked = nominateBlockReason(team, player, draft, players);
     if (blocked) return onError(blocked);
+    if (!confirm(`Nominate ${player.display_name}? You open the bidding at ${minimum} points.`)) return;
     const { error } = await supabase.rpc("nominate", { p_draft_id: draft.id, p_player_id: player.id });
     if (error) onError(friendly(errCode(error)));
   };
