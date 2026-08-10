@@ -1,7 +1,7 @@
 export type LolRole = "top" | "jungle" | "mid" | "adc" | "support";
 export type DraftStatus = "setup" | "live" | "paused" | "complete";
 export type LotStatus = "open" | "sold" | "cancelled";
-export type Acquisition = "captain" | "free_agency" | "auction";
+export type Acquisition = "captain" | "free_agency" | "auction" | "admin";
 
 export const ROLE_ORDER: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
 

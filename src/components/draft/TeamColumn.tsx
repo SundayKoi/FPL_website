@@ -3,6 +3,7 @@ import { ROLE_ORDER, type Player, type Team } from "@/lib/draft/types";
 const ACQ_BADGE: Record<string, string> = {
   captain: "C",
   free_agency: "FA",
+  admin: "ADM",
 };
 
 export default function TeamColumn({
