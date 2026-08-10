@@ -10,9 +10,17 @@ describe("LeagueHub", () => {
       </LeagueHub>,
     );
 
-    const twitch = screen.getAllByRole("link", { name: /twitch/i })[0];
-    expect(twitch.getAttribute("href")).toBe("https://www.twitch.tv/franchisepremierleague");
-    expect(twitch.getAttribute("target")).toBe("_blank");
+    const twitchLinks = screen.getAllByRole("link", { name: /twitch/i });
+    expect(twitchLinks).toHaveLength(2);
+
+    for (const twitchLink of twitchLinks) {
+      expect(twitchLink.getAttribute("href")).toBe(
+        "https://www.twitch.tv/franchisepremierleague",
+      );
+      expect(twitchLink.getAttribute("target")).toBe("_blank");
+      expect(twitchLink.getAttribute("rel")).toBe("noreferrer");
+    }
+
     expect(screen.getByRole("link", { name: /explore drafts/i }).getAttribute("href")).toBe(
       "#draft-central",
     );
