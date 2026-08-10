@@ -91,6 +91,21 @@ export default function TeamEditor({
     else await onChanged();
   };
 
+  const addExistingPrefill = async (team: Team, playerId: string, price: number) => {
+    if (!playerId || !Number.isInteger(price) || price < 0 || busy) return;
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("admin_assign_setup_player", {
+      p_draft_id: draftId,
+      p_player_id: playerId,
+      p_team_id: team.id,
+      p_price: price,
+    });
+    setBusy(false);
+    if (error) setErr(error.message);
+    else await onChanged();
+  };
+
   const removePrefill = async (player: Player) => {
     setErr(null);
     const { error } = await supabase.from("players").delete().eq("id", player.id);
@@ -115,6 +130,12 @@ export default function TeamEditor({
       <div className="flex flex-col gap-4">
         {teams.map((team) => {
           const prefills = players.filter((p) => p.team_id === team.id);
+          const availablePoolPlayers = players.filter(
+            (p) =>
+              p.draft_id === draftId &&
+              p.team_id === null &&
+              !prefills.some((prefill) => prefill.role === p.role)
+          );
           return (
             <div key={team.id} className="card-brand flex flex-col gap-3 p-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -193,11 +214,18 @@ export default function TeamEditor({
                   ))}
                 </ul>
                 {prefills.length < 2 && (
-                  <PrefillForm
-                    usedRoles={prefills.map((p) => p.role)}
-                    disabled={busy}
-                    onAdd={(role, name) => addPrefill(team, role, name)}
-                  />
+                  <>
+                    <PrefillForm
+                      usedRoles={prefills.map((p) => p.role)}
+                      disabled={busy}
+                      onAdd={(role, name) => addPrefill(team, role, name)}
+                    />
+                    <ExistingPrefillForm
+                      players={availablePoolPlayers}
+                      disabled={busy}
+                      onAdd={(playerId, price) => addExistingPrefill(team, playerId, price)}
+                    />
+                  </>
                 )}
               </div>
             </div>
@@ -206,6 +234,69 @@ export default function TeamEditor({
         {teams.length === 0 && <p className="text-sm text-steel">No teams yet.</p>}
       </div>
     </section>
+  );
+}
+
+function ExistingPrefillForm({
+  players,
+  disabled,
+  onAdd,
+}: {
+  players: Player[];
+  disabled: boolean;
+  onAdd: (playerId: string, price: number) => void;
+}) {
+  const [playerId, setPlayerId] = useState("");
+  const [price, setPrice] = useState("");
+  const validPrice = /^\d+$/.test(price);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!playerId || !validPrice) return;
+        onAdd(playerId, Number(price));
+        setPlayerId("");
+        setPrice("");
+      }}
+      className="flex flex-wrap items-center gap-2"
+    >
+      <label className="flex items-center gap-1 text-xs text-steel">
+        Existing player
+        <select
+          value={playerId}
+          onChange={(e) => setPlayerId(e.target.value)}
+          disabled={disabled || players.length === 0}
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
+        >
+          <option value="">— select player —</option>
+          {players.map((player) => (
+            <option key={player.id} value={player.id}>
+              {player.display_name} · {player.role}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1 text-xs text-steel">
+        Point value
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          disabled={disabled || players.length === 0}
+          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={disabled || players.length === 0 || !playerId || !validPrice}
+        className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+      >
+        Add existing player
+      </button>
+    </form>
   );
 }
 
