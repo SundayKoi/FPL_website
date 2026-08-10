@@ -30,7 +30,8 @@ export interface RosterSlotView {
   role: LolRole;
   displayName: string;
   price: number;
-  acquisition: Acquisition;
+  acquisition: Acquisition | null;
+  isEmpty?: boolean;
 }
 
 export interface RosterTeamView {

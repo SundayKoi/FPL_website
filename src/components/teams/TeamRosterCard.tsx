@@ -31,8 +31,8 @@ export default function TeamRosterCard({
   const headingId = `team-heading-${team.id}`;
 
   const handleDragStart = (event: DragEvent<HTMLLIElement>, player: RosterSlotView) => {
-    event.dataTransfer.setData("text/plain", player.id);
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer?.setData("text/plain", player.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     onDragStart?.(player);
   };
 
@@ -62,11 +62,12 @@ export default function TeamRosterCard({
       <ul aria-label={`${team.name} roster`} className="divide-y divide-line/80">
         {team.players.map((player) => {
           const captain = player.acquisition === "captain";
+          const empty = player.isEmpty === true;
           return (
             <li
               key={player.id}
-              draggable={editable && !captain}
-              aria-disabled={captain || undefined}
+              draggable={editable && !captain && !empty}
+              aria-disabled={captain || empty || undefined}
               onDragStart={(event) => handleDragStart(event, player)}
               onDragEnd={onDragEnd}
               onDragOver={(event) => {
@@ -80,7 +81,7 @@ export default function TeamRosterCard({
                 onDrop?.(player);
               }}
               className={`group flex min-h-12 items-center gap-3 px-4 py-2 ${
-                editable && !captain ? "cursor-grab hover:bg-white/5" : ""
+                editable && !captain && !empty ? "cursor-grab hover:bg-white/5" : ""
               }`}
             >
               <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-steel">
@@ -89,7 +90,9 @@ export default function TeamRosterCard({
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
                 {player.displayName}
               </span>
-              <span className="shrink-0 text-sm font-semibold text-gold">{player.price}</span>
+              <span className="shrink-0 text-sm font-semibold text-gold">
+                {empty ? "—" : player.price}
+              </span>
               {captain ? (
                 <span
                   aria-label="Captain, cannot be traded"
@@ -97,7 +100,7 @@ export default function TeamRosterCard({
                 >
                   C
                 </span>
-              ) : editable ? (
+              ) : editable && !empty ? (
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}
