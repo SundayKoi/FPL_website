@@ -36,6 +36,9 @@ out/
 # Vercel
 .vercel
 
+# Local worktrees
+.worktrees/
+
 # Playwright
 /test-results/
 /playwright-report/
