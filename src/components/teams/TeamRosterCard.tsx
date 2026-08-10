@@ -67,7 +67,6 @@ export default function TeamRosterCard({
             <li
               key={player.id}
               draggable={editable && !captain && !empty}
-              aria-disabled={captain || empty || undefined}
               onDragStart={(event) => handleDragStart(event, player)}
               onDragEnd={onDragEnd}
               onDragOver={(event) => {
