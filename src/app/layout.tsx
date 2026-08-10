@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Saira } from "next/font/google";
-import Image from "next/image";
-import Link from "next/link";
 import AuthButton from "@/components/AuthButton";
+import SiteNavigation from "@/components/SiteNavigation";
 import "./globals.css";
 
 const chakra = Chakra_Petch({
@@ -29,20 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${chakra.variable} ${saira.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
-        <header
-          className="sticky top-0 z-40 border-b border-line backdrop-blur"
-          style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
-        >
-          <div className="flex items-center justify-between px-6 py-3">
-            <Link href="/" className="flex items-center gap-2">
-              <Image src="/fpl-logo.png" width={30} height={30} alt="" />
-              <span className="type-display text-base">
-                FPL <span className="text-steel font-body not-italic">DRAFT</span>
-              </span>
-            </Link>
-            <AuthButton />
-          </div>
-        </header>
+        <SiteNavigation authSlot={<AuthButton />} />
         {children}
       </body>
     </html>
