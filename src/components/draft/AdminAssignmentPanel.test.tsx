@@ -142,4 +142,16 @@ describe("AdminAssignmentPanel", () => {
 
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it("does not confirm or call the RPC when price is blank", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<AdminAssignmentPanel {...props} openLot={null} />);
+
+    fireEvent.change(screen.getByLabelText("Player"), { target: { value: "mid-1" } });
+    fireEvent.change(screen.getByLabelText("Team"), { target: { value: "team-a" } });
+    fireEvent.click(screen.getByRole("button", { name: /assign player/i }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

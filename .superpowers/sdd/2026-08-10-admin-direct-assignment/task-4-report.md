@@ -25,3 +25,29 @@ Vitest emits an existing Vite configuration warning about CommonJS loading an ES
 ## Concerns
 
 None for Task 4. Server-side RPC validation remains authoritative as required.
+
+## Review fix — round 1
+
+### Status
+
+Complete.
+
+### Commit
+
+`fix: reject blank admin assignment prices` (this follow-up commit)
+
+### Root cause and fix
+
+`Number("")` returns `0`, so the prior nonnegative-integer validation treated an untouched price field as a valid zero-price assignment. The submission guard now rejects an empty or whitespace-only price before numeric validation. An explicitly entered `0` remains a valid integer price.
+
+### Regression coverage and results
+
+- Added a focused regression test confirming a blank price neither opens confirmation nor calls the RPC.
+- `npx vitest run src/components/draft/AdminAssignmentPanel.test.tsx` — 6 passed.
+- `npx vitest run` — 21 files and 48 tests passed.
+
+The existing Vite CommonJS/ESM configuration warning remains present but does not affect the passing results.
+
+### Self-review
+
+The fix is limited to local input presence validation. It neither changes RPC payloads for numeric inputs nor changes server-side authoritative validation.

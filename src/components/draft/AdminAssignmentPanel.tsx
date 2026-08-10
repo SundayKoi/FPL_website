@@ -42,6 +42,7 @@ export default function AdminAssignmentPanel({
       busy ||
       !selectedPlayer ||
       !selectedTeam ||
+      price.trim() === "" ||
       !Number.isInteger(numericPrice) ||
       numericPrice < 0
     ) {
