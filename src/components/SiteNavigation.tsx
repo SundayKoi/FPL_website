@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
-const comingSoonClass = "whitespace-nowrap text-xs font-medium uppercase tracking-wide text-steel";
 const linkClass =
   "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold";
 
@@ -26,18 +25,18 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           <Link href="/" className={linkClass}>
             Home
           </Link>
-          <span className={comingSoonClass}>
-            Stats <small className="ml-1 text-gold">Coming soon</small>
-          </span>
-          <span className={comingSoonClass}>
-            Schedule <small className="ml-1 text-gold">Coming soon</small>
-          </span>
-          <Link href="/#draft-central" className={linkClass}>
+          <Link href="/stats" className={linkClass}>
+            Stats
+          </Link>
+          <Link href="/schedule" className={linkClass}>
+            Schedule
+          </Link>
+          <Link href="/draft" className={linkClass}>
             Draft
           </Link>
-          <span className={comingSoonClass}>
-            Info <small className="ml-1 text-gold">Coming soon</small>
-          </span>
+          <Link href="/info" className={linkClass}>
+            Info
+          </Link>
         </nav>
         <div className="shrink-0">{authSlot}</div>
       </div>
