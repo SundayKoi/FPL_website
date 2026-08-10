@@ -9,7 +9,9 @@ Allow an administrator to place an available player onto a team during an active
 
 ## Scope
 
-This feature covers direct assignment from the live draft board. It does not change pre-draft setup editing, captain bidding, nomination, auction history, or the existing post-draft roster swap tool.
+This feature covers direct assignment from the live draft board and assigning existing pool players during pre-draft setup. It does not change captain bidding, nomination, auction history, or the existing post-draft roster swap tool.
+
+During pre-draft setup, admins can also move an existing unassigned pool player onto a team as a priced free-agency/pre-draft signing. The existing add-by-name prefill control remains available for creating a new player row.
 
 An admin assignment is available only when:
 
@@ -20,6 +22,14 @@ An admin assignment is available only when:
 - the entered price is a nonnegative integer no greater than the team’s remaining points.
 
 The assignment preserves the current `live` or `paused` status. It deducts the entered price from the team, then advances the nomination turn using the existing snake-order and full-roster rules. If the assignment fills the final open slot, the existing turn helper marks the draft complete.
+
+The setup action is available only when the draft is `setup` and:
+
+- the selected player belongs to the draft and is currently unassigned;
+- the selected team belongs to the draft, has fewer than two pre-filled players, and has an open slot for the player’s role; and
+- the entered price is a nonnegative integer no greater than the team’s remaining points.
+
+It assigns the player with acquisition `free_agency`, stores the entered price, and deducts the price from the team without changing draft turn state.
 
 ## Architecture
 
@@ -40,6 +50,8 @@ The RPC will:
 
 The operation is atomic. A failed validation leaves player, team, and draft state unchanged. The existing RLS policies remain in place; the RPC is the authoritative mutation path.
 
+Add a separate admin-only `admin_assign_setup_player(p_draft_id uuid, p_player_id uuid, p_team_id uuid, p_price int)` security-definer RPC for setup assignments. It locks the draft, player, and team rows, validates setup-only rules, assigns the player as `free_agency`, deducts points, and does not call `_advance_turn`.
+
 Because the current acquisition enum does not identify admin placements, extend it with an `admin` value and update the shared TypeScript acquisition union. Existing `captain`, `free_agency`, and `auction` values retain their current meanings.
 
 ### Draft-board UI
@@ -53,6 +65,10 @@ Extend the admin controls on the draft board with an assignment panel. It receiv
 The submit action confirms the assignment, calls `admin_assign_player`, reports safe RPC errors through the existing toast path, and relies on Realtime/refetch to display the confirmed state. While an auction is open, the panel is hidden and the RPC independently rejects any stale or forged request.
 
 The panel does not attempt optimistic roster, budget, or turn updates. The database transaction and existing Realtime subscription remain the source of truth.
+
+### Pre-draft setup UI
+
+In each team’s existing `Pre-filled players` section, add a second form for selecting an available player from the current draft pool and entering a point value. The form calls `admin_assign_setup_player`, keeps the existing two-player prefill limit, reports errors inline using the setup editor’s existing error state, and refetches the draft setup after success. The existing name/role form remains the path for creating a new player row.
 
 ## Error handling
 
@@ -75,6 +91,13 @@ Extend the pgTAP coverage with cases proving:
 - wrong-draft, occupied-player, occupied-role, and insufficient-point requests are rejected; and
 - failed requests leave the original state unchanged.
 
+Add setup RPC coverage proving:
+
+- an admin can move an existing pool player onto a setup team with a selected price;
+- the player is marked `free_agency`, the team’s points are deducted, and draft turn state is unchanged;
+- non-admin, wrong-draft, occupied-player, occupied-role, full-prefill, and insufficient-point requests are rejected; and
+- failed setup requests leave the player in the pool and preserve the team budget.
+
 ### Component tests
 
 Add focused tests for the assignment panel that verify:
@@ -83,11 +106,14 @@ Add focused tests for the assignment panel that verify:
 - available players and role-compatible teams are offered; and
 - submitting the form calls the RPC with the selected draft, player, team, and price and refreshes on success.
 
+Add TeamEditor coverage proving the existing-player setup form lists pool players, submits the selected player/team/price, and leaves the existing add-by-name prefill form intact.
+
 Run the existing Vitest suite, lint, and the Supabase test suite when the local Supabase environment is available.
 
 ## Non-goals
 
 - No assignment while an auction is open.
+- No live-draft turn advancement for pre-draft setup assignments.
 - No ability for captains or spectators to use the direct-assignment action.
 - No automatic price selection or silent budget override.
 - No changes to the existing admin roster swap behavior on `/teams`.

@@ -25,10 +25,14 @@
 
 - Create: supabase/migrations/20260810000002_admin_direct_assignment.sql — add the admin acquisition enum value and the admin-only transactional RPC.
 - Create: supabase/tests/0011_admin_direct_assignment_test.sql — pgTAP coverage for success, authorization, auction-state, validation, accounting, and turn progression.
+- Create: supabase/migrations/20260810000003_admin_setup_assignment.sql — add the setup-only admin RPC for moving an existing pool player onto a team.
+- Create: supabase/tests/0012_admin_setup_assignment_test.sql — pgTAP coverage for setup assignment, prefill limits, budget accounting, and validation.
 - Modify: src/lib/draft/types.ts — add admin to the shared Acquisition union.
 - Modify: src/components/draft/TeamColumn.tsx — show an ADM acquisition badge for direct placements.
 - Create: src/components/draft/AdminAssignmentPanel.tsx — admin-only form for selecting an available player, compatible team, and price.
 - Create: src/components/draft/AdminAssignmentPanel.test.tsx — component-level visibility, filtering, submission, and error tests.
+- Modify: src/components/admin/TeamEditor.tsx — add an existing-player setup form with a point-value input.
+- Create: src/components/admin/TeamEditor.test.tsx — test existing-player setup selection, pricing, RPC submission, and preservation of the new-player form.
 - Modify: src/components/draft/AdminStrip.tsx — accept current teams and players and render the assignment panel alongside existing admin actions.
 - Modify: src/components/draft/DraftBoard.tsx — pass current teams and players into AdminStrip.
 - Modify: src/components/draft/Toast.tsx — map new assignment RPC error codes to safe user-facing messages.
@@ -258,7 +262,160 @@ git add supabase/migrations/20260810000002_admin_direct_assignment.sql supabase/
 git commit -m "feat: add admin direct assignment RPC"
 ~~~
 
-### Task 2: Add the shared acquisition type and admin roster badge
+### Task 2: Add the pre-draft setup assignment RPC
+
+Files:
+- Create: supabase/tests/0012_admin_setup_assignment_test.sql
+- Create: supabase/migrations/20260810000003_admin_setup_assignment.sql
+
+Interfaces:
+- Consumes: public._require_admin(), public.open_roles(uuid), and the existing setup schema constraints.
+- Produces: public.admin_assign_setup_player(p_draft_id uuid, p_player_id uuid, p_team_id uuid, p_price int) returns void.
+
+- [ ] Step 1: Write the failing pgTAP test
+
+Use the shared fixture, remove Team A’s existing free-agency prefill to create one setup slot, then prove that an admin can move an existing pool player into that slot at a selected price:
+
+~~~sql
+begin;
+create extension if not exists pgtap with schema extensions;
+\ir helpers/_fixtures.sql.inc
+select plan(11);
+
+create temporary table t as select tests.fixture() as d;
+delete from public.players
+ where draft_id = (select d from t) and display_name = 'FA 1';
+create temporary table ids as
+  select
+    (select id from public.teams where draft_id = (select d from t) and nomination_position = 1) as team_a,
+    (select id from public.players where draft_id = (select d from t) and display_name = 'Mid1') as mid1;
+
+select tests.acting_as(tests.admin_id());
+select lives_ok($$ select public.admin_assign_setup_player(
+  (select d from t), (select mid1 from ids), (select team_a from ids), 12
+) $$, 'admin assigns an existing pool player during setup');
+select is((select team_id from public.players where id = (select mid1 from ids)),
+          (select team_a from ids), 'setup player is assigned to the selected team');
+select is((select price from public.players where id = (select mid1 from ids)), 12,
+          'setup point value is stored');
+select is((select acquisition::text from public.players where id = (select mid1 from ids)), 'free_agency',
+          'setup assignment is marked free agency');
+select is((select points_remaining from public.teams where id = (select team_a from ids)), 88,
+          'setup assignment deducts team points');
+select is((select status::text from public.drafts where id = (select d from t)), 'setup',
+          'setup assignment does not change draft status');
+
+select tests.acting_as(tests.cap(1));
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from t),
+  (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
+  (select team_a from ids), 1
+) $$, 'NOT_ADMIN%', 'captain cannot assign during setup');
+
+select tests.acting_as(tests.admin_id());
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from t), gen_random_uuid(), (select team_a from ids), 1
+) $$, 'PLAYER_INVALID%', 'wrong-draft player is rejected');
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from t),
+  (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
+  (select team_a from ids), 1
+) $$, 'SETUP_FULL%', 'full prefill team is rejected');
+select ok((select team_id is null and price is null from public.players
+           where draft_id = (select d from t) and display_name = 'Mid2'),
+          'failed setup assignment leaves player in the pool');
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from t),
+  (select id from public.players where draft_id = (select d from t) and display_name = 'Adc2'),
+  (select id from public.teams where draft_id = (select d from t) and nomination_position = 2),
+  999
+) $$, 'INSUFFICIENT_POINTS%', 'insufficient setup points are rejected');
+
+select * from finish();
+rollback;
+~~~
+
+- [ ] Step 2: Run the focused database test to verify it fails
+
+Run: npx supabase test db --file supabase/tests/0012_admin_setup_assignment_test.sql
+
+Expected: FAIL because public.admin_assign_setup_player does not exist yet.
+
+- [ ] Step 3: Add the setup-only transactional RPC
+
+Create the migration with this behavior:
+
+~~~sql
+create function public.admin_assign_setup_player(
+  p_draft_id uuid,
+  p_player_id uuid,
+  p_team_id uuid,
+  p_price int
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_draft public.drafts;
+  v_player public.players;
+  v_team public.teams;
+begin
+  perform public._require_admin();
+  select * into v_draft from public.drafts where id = p_draft_id for update;
+  if not found or v_draft.status <> 'setup' then
+    raise exception 'SETUP_INVALID: draft is not in setup';
+  end if;
+  if p_price is null or p_price < 0 then
+    raise exception 'PRICE_INVALID: price must be a nonnegative integer';
+  end if;
+
+  select * into v_player from public.players
+    where id = p_player_id and draft_id = p_draft_id for update;
+  if not found then
+    raise exception 'PLAYER_INVALID: player is not in this draft';
+  end if;
+  if v_player.team_id is not null then
+    raise exception 'PLAYER_TAKEN: player is already assigned';
+  end if;
+
+  select * into v_team from public.teams
+    where id = p_team_id and draft_id = p_draft_id for update;
+  if not found then
+    raise exception 'TEAM_INVALID: team is not in this draft';
+  end if;
+  if (select count(*) from public.players where team_id = v_team.id) >= 2 then
+    raise exception 'SETUP_FULL: team already has two pre-filled players';
+  end if;
+  if not (v_player.role = any (public.open_roles(v_team.id))) then
+    raise exception 'ROLE_FILLED: team already has that role filled';
+  end if;
+  if p_price > v_team.points_remaining then
+    raise exception 'INSUFFICIENT_POINTS: price exceeds team points';
+  end if;
+
+  update public.players
+    set team_id = v_team.id, price = p_price, acquisition = 'free_agency'
+    where id = v_player.id;
+  update public.teams
+    set points_remaining = points_remaining - p_price
+    where id = v_team.id;
+end $$;
+~~~
+
+The RPC must not call _advance_turn. Keep same-draft filters, row locks, and the existing one-player-per-role/check constraints authoritative.
+
+- [ ] Step 4: Run the focused and complete database tests
+
+Run: npx supabase db reset && npx supabase test db
+
+Expected: all pgTAP tests pass, including the new setup assignment test and existing setup lifecycle tests.
+
+- [ ] Step 5: Commit the setup RPC
+
+~~~bash
+git add supabase/migrations/20260810000003_admin_setup_assignment.sql supabase/tests/0012_admin_setup_assignment_test.sql
+git commit -m "feat: add admin setup player assignment RPC"
+~~~
+
+### Task 3: Add the shared acquisition type and admin roster badge
 
 Files:
 - Modify: src/lib/draft/types.ts
@@ -326,7 +483,7 @@ git add src/lib/draft/types.ts src/components/draft/TeamColumn.tsx src/component
 git commit -m "feat: label admin draft assignments"
 ~~~
 
-### Task 3: Build the admin assignment form with test-first behavior
+### Task 4: Build the admin assignment form with test-first behavior
 
 Files:
 - Create: src/components/draft/AdminAssignmentPanel.test.tsx
@@ -403,7 +560,7 @@ git add src/components/draft/AdminAssignmentPanel.tsx src/components/draft/Admin
 git commit -m "feat: add admin draft assignment form"
 ~~~
 
-### Task 4: Integrate the form into the draft board and friendly errors
+### Task 5: Integrate the form into the draft board and friendly errors
 
 Files:
 - Modify: src/components/draft/AdminStrip.tsx
@@ -411,7 +568,7 @@ Files:
 - Modify: src/components/draft/Toast.tsx
 
 Interfaces:
-- Consumes: AdminAssignmentPanel from Task 3, current teams/players from DraftBoard, and existing openLot state.
+- Consumes: AdminAssignmentPanel from Task 4, current teams/players from DraftBoard, and existing openLot state.
 - Produces: admin board controls that show direct assignment only when allowed, while preserving every existing pause/resume, undo, cancel, force-close, and countdown control.
 
 - [ ] Step 1: Update the admin strip contract
@@ -461,10 +618,71 @@ git add src/components/draft/AdminStrip.tsx src/components/draft/DraftBoard.tsx 
 git commit -m "feat: expose admin assignments on draft board"
 ~~~
 
-### Task 5: Run full verification and inspect the final diff
+### Task 6: Add existing-player pricing to the pre-draft setup UI
 
 Files:
-- No new files; verify all feature files from Tasks 1–4.
+- Modify: src/components/admin/TeamEditor.tsx
+- Create: src/components/admin/TeamEditor.test.tsx
+
+Interfaces:
+- Consumes: the setup RPC from Task 2, the current draft players passed through TeamEditor, and existing TeamEditor refetch behavior.
+- Produces: an Existing player selector and Point value input in each team’s pre-filled-player section, while preserving the existing add-by-name form.
+
+- [ ] Step 1: Write the failing TeamEditor tests
+
+Mock the Supabase client with a chainable from method for the existing render path and an rpc spy for the new setup mutation. Render a setup draft with one team, one existing unassigned Mid player, and one prefilled Top player. Cover:
+
+~~~tsx
+it("offers an existing pool player with a point value field", () => {
+  render(<TeamEditor {...props} />);
+  expect(screen.getByRole("option", { name: "Mid One · mid" })).toBeTruthy();
+  expect(screen.getByLabelText("Point value")).toBeTruthy();
+  expect(screen.getByPlaceholderText("Player name")).toBeTruthy();
+});
+
+it("assigns the selected existing player at the entered point value", async () => {
+  render(<TeamEditor {...props} />);
+  fireEvent.change(screen.getByLabelText("Existing player"), { target: { value: "mid-1" } });
+  fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "12" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add existing player" }));
+  await waitFor(() => expect(rpc).toHaveBeenCalledWith("admin_assign_setup_player", {
+    p_draft_id: "draft-1", p_player_id: "mid-1", p_team_id: "team-a", p_price: 12,
+  }));
+  expect(onChanged).toHaveBeenCalled();
+});
+~~~
+
+Also assert the existing Player name field and Add button remain rendered for new-player creation, and that no existing-player form is offered when a team already has two prefills.
+
+- [ ] Step 2: Run the focused tests to verify they fail
+
+Run: npx vitest run src/components/admin/TeamEditor.test.tsx
+
+Expected: FAIL because the existing-player setup form does not exist.
+
+- [ ] Step 3: Add the existing-player setup form
+
+Add an addExistingPrefill handler that calls admin_assign_setup_player with the draft, player, team, and numeric price. Use the existing team players to derive available pool players and preserve the two-prefill limit. Filter the options so a team cannot select an available player whose role is already used by that team. On RPC error, set the existing TeamEditor error state; on success, call onChanged. Do not change addPrefill’s name/role behavior.
+
+Render the new form next to or below PrefillForm with labels Existing player and Point value, a nonnegative integer number input, and an Add existing player submit button. Disable it when busy, no eligible pool players exist, or the team already has two prefills.
+
+- [ ] Step 4: Run the focused tests to verify they pass
+
+Run: npx vitest run src/components/admin/TeamEditor.test.tsx
+
+Expected: PASS for existing-player selection, point-value RPC payload, refetch, preservation of new-player creation, and the two-prefill limit.
+
+- [ ] Step 5: Commit the setup UI
+
+~~~bash
+git add src/components/admin/TeamEditor.tsx src/components/admin/TeamEditor.test.tsx
+git commit -m "feat: price existing setup player assignments"
+~~~
+
+### Task 7: Run full verification and inspect the final diff
+
+Files:
+- No new files; verify all feature files from Tasks 1–6.
 
 Interfaces:
 - Consumes: the complete admin direct-assignment implementation.
@@ -495,7 +713,7 @@ Run:
 ~~~bash
 git diff --check
 git status --short
-git diff HEAD~4 -- supabase src/components/draft src/lib/draft/types.ts
+git diff HEAD~6 -- supabase src/components/admin src/components/draft src/lib/draft/types.ts
 ~~~
 
 Confirm the feature commits contain only intended files and that the pre-existing info-page edits and untracked CSV remain untouched.
@@ -509,6 +727,6 @@ With the local app and Supabase running, open an admin draft with no open lot an
 If verification requires a code correction, rerun the relevant focused test and then full gates before committing:
 
 ~~~bash
-git add supabase src/components/draft src/lib/draft/types.ts
+git add supabase src/components/admin src/components/draft src/lib/draft/types.ts
 git commit -m "fix: verify admin direct assignment flow"
 ~~~
