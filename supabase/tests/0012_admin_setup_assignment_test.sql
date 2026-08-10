@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(14);
+select plan(18);
 
 create temporary table t as select tests.fixture() as d;
 create temporary table other as select tests.fixture() as d;
@@ -65,6 +65,28 @@ select throws_like($$ select public.admin_assign_setup_player(
   (select id from public.teams where draft_id = (select d from t) and nomination_position = 2),
   999
 ) $$, 'INSUFFICIENT_POINTS%', 'insufficient setup points are rejected');
+select is((select points_remaining from public.teams
+           where draft_id = (select d from t) and nomination_position = 2), 90,
+          'insufficient-points rejection preserves the team budget');
+
+create temporary table role_case as select tests.fixture() as d;
+delete from public.players
+ where draft_id = (select d from role_case) and display_name = 'FA 1';
+insert into public.players (draft_id, display_name, role)
+values ((select d from role_case), 'Pool Top', 'top');
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from role_case),
+  (select id from public.players where draft_id = (select d from role_case) and display_name = 'Pool Top'),
+  (select id from public.teams where draft_id = (select d from role_case) and nomination_position = 1),
+  5
+) $$, 'ROLE_FILLED%', 'filled setup role is rejected before mutation');
+select ok((select team_id is null and price is null and acquisition is null
+           from public.players
+           where draft_id = (select d from role_case) and display_name = 'Pool Top'),
+          'role-filled rejection leaves the player in the pool');
+select is((select points_remaining from public.teams
+           where draft_id = (select d from role_case) and nomination_position = 1), 100,
+          'role-filled rejection preserves the team budget');
 
 select * from finish();
 rollback;

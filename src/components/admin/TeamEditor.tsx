@@ -48,17 +48,16 @@ export default function TeamEditor({
   };
 
   const removeTeam = async (team: Team) => {
-    if (!confirm(`Remove team "${team.name}"? Its pre-filled players will also be removed.`)) return;
+    if (
+      !confirm(
+        `Remove team "${team.name}"? New prefills will be removed and existing players returned to the pool.`
+      )
+    ) return;
     setErr(null);
-    // players.team_id has no ON DELETE CASCADE, so this team's pre-fill
-    // players (the only players it can hold, in setup) must be deleted
-    // first or the team delete throws a raw FK violation.
-    const { error: playersError } = await supabase.from("players").delete().eq("team_id", team.id);
-    if (playersError) {
-      setErr(playersError.message);
-      return;
-    }
-    const { error } = await supabase.from("teams").delete().eq("id", team.id);
+    const { error } = await supabase.rpc("admin_remove_setup_team", {
+      p_draft_id: draftId,
+      p_team_id: team.id,
+    });
     if (error) setErr(error.message);
     else await onChanged();
   };
@@ -71,7 +70,14 @@ export default function TeamEditor({
   };
 
   const setBudget = async (team: Team, budget: number) => {
-    await updateTeam(team, { budget_start: budget, points_remaining: budget });
+    setErr(null);
+    const { error } = await supabase.rpc("admin_set_setup_team_budget", {
+      p_draft_id: draftId,
+      p_team_id: team.id,
+      p_budget: budget,
+    });
+    if (error) setErr(error.message);
+    else await onChanged();
   };
 
   const addPrefill = async (team: Team, role: LolRole, displayName: string) => {
@@ -91,24 +97,38 @@ export default function TeamEditor({
     else await onChanged();
   };
 
-  const addExistingPrefill = async (team: Team, playerId: string, price: number) => {
-    if (!playerId || !Number.isInteger(price) || price < 0 || busy) return;
+  const addExistingPrefill = async (
+    team: Team,
+    playerId: string,
+    price: number
+  ): Promise<boolean> => {
+    if (!playerId || !Number.isInteger(price) || price < 0 || busy) return false;
     setBusy(true);
     setErr(null);
-    const { error } = await supabase.rpc("admin_assign_setup_player", {
-      p_draft_id: draftId,
-      p_player_id: playerId,
-      p_team_id: team.id,
-      p_price: price,
-    });
-    setBusy(false);
-    if (error) setErr(error.message);
-    else await onChanged();
+    try {
+      const { error } = await supabase.rpc("admin_assign_setup_player", {
+        p_draft_id: draftId,
+        p_player_id: playerId,
+        p_team_id: team.id,
+        p_price: price,
+      });
+      if (error) {
+        setErr(error.message);
+        return false;
+      }
+      await onChanged();
+      return true;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const removePrefill = async (player: Player) => {
     setErr(null);
-    const { error } = await supabase.from("players").delete().eq("id", player.id);
+    const { error } = await supabase.rpc("admin_remove_setup_player", {
+      p_draft_id: draftId,
+      p_player_id: player.id,
+    });
     if (error) setErr(error.message);
     else await onChanged();
   };
@@ -244,7 +264,7 @@ function ExistingPrefillForm({
 }: {
   players: Player[];
   disabled: boolean;
-  onAdd: (playerId: string, price: number) => void;
+  onAdd: (playerId: string, price: number) => Promise<boolean>;
 }) {
   const [playerId, setPlayerId] = useState("");
   const [price, setPrice] = useState("");
@@ -252,12 +272,13 @@ function ExistingPrefillForm({
 
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         if (!playerId || !validPrice) return;
-        onAdd(playerId, Number(price));
-        setPlayerId("");
-        setPrice("");
+        if (await onAdd(playerId, Number(price))) {
+          setPlayerId("");
+          setPrice("");
+        }
       }}
       className="flex flex-wrap items-center gap-2"
     >

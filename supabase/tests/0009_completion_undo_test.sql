@@ -55,7 +55,7 @@ select is((select count(*) from public.players
 -- === (b) Undo after completion ===
 create temporary table last_lot as
   select * from public.lots where draft_id=(select d from t) and status='sold'
-  order by closed_at desc limit 1;
+  order by sale_action_sequence desc, closed_at desc limit 1;
 
 create temporary table pre_undo_points as
   select points_remaining from public.teams where id=(select leading_team_id from last_lot);

@@ -23,6 +23,7 @@ const chain = {
 };
 
 Object.values(chain).forEach((method) => method.mockReturnValue(chain));
+from.mockReturnValue(chain);
 
 const team: Team = {
   id: "team-a",
@@ -76,6 +77,8 @@ afterEach(() => {
   rpc.mockClear();
   rpc.mockResolvedValue({ error: null });
   onChanged.mockClear();
+  Object.values(chain).forEach((method) => method.mockClear());
+  vi.restoreAllMocks();
 });
 
 describe("TeamEditor", () => {
@@ -104,6 +107,68 @@ describe("TeamEditor", () => {
       })
     );
     expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("retains the existing-player selection and price when the RPC fails", async () => {
+    rpc.mockResolvedValue({ error: { message: "ROLE_FILLED: already filled" } });
+    render(<TeamEditor {...props} />);
+
+    fireEvent.change(screen.getByLabelText("Existing player"), { target: { value: "mid-1" } });
+    fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add existing player" }));
+
+    await screen.findByText("ROLE_FILLED: already filled");
+    expect((screen.getByLabelText("Existing player") as HTMLSelectElement).value).toBe("mid-1");
+    expect((screen.getByLabelText("Point value") as HTMLInputElement).value).toBe("12");
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("changes a setup budget through the authoritative RPC", async () => {
+    render(<TeamEditor {...props} />);
+
+    fireEvent.change(screen.getByLabelText("Budget"), { target: { value: "120" } });
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_set_setup_team_budget", {
+        p_draft_id: "draft-1",
+        p_team_id: "team-a",
+        p_budget: 120,
+      })
+    );
+  });
+
+  it("removes a setup player through the origin-aware RPC", async () => {
+    render(
+      <TeamEditor
+        {...props}
+        players={[
+          { ...players[0], team_id: "team-a", price: 12, acquisition: "free_agency" },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_remove_setup_player", {
+        p_draft_id: "draft-1",
+        p_player_id: "mid-1",
+      })
+    );
+  });
+
+  it("removes a setup team through the origin-aware RPC", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<TeamEditor {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove team" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_remove_setup_team", {
+        p_draft_id: "draft-1",
+        p_team_id: "team-a",
+      })
+    );
   });
 
   it("excludes available players whose role is already prefilled", () => {

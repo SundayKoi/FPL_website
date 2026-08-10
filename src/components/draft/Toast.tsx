@@ -19,11 +19,13 @@ const FRIENDLY: Record<string, string> = {
   TEAM_INVALID: "That team is not available in this draft.",
   PRICE_INVALID: "Enter a nonnegative whole-number price.",
   INSUFFICIENT_POINTS: "That team does not have enough points.",
+  BUDGET_BELOW_SPEND: "Budget cannot be lower than committed player spending.",
+  UNDO_BLOCKED_NEWER_ASSIGNMENT: "A newer direct assignment prevents undoing that sale.",
 };
 
 /** Map a raw RPC error (via errCode) to a friendly message. */
 export function friendly(code: string): string {
-  return FRIENDLY[code] ?? code;
+  return FRIENDLY[code] ?? "Something went wrong. Please try again.";
 }
 
 export default function Toast({
