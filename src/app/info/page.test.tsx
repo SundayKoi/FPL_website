@@ -17,10 +17,16 @@ describe("InfoPage", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen
-        .getByRole("link", { name: /1\. league structure/i })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: "League Structure" }).getAttribute("href"),
     ).toBe("#league-structure");
+    expect(
+      within(screen.getByRole("article", { name: "Rulebook resource" })).getByRole(
+        "link",
+        { name: /open resource/i },
+      ).getAttribute("href"),
+    ).toBe(
+      "https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7",
+    );
     expect(
       screen
         .getByRole("link", { name: /back to rulebook sections/i })

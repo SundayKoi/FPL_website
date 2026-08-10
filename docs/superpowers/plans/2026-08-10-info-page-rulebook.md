@@ -1,188 +1,123 @@
-# Info Page and Rulebook Implementation Plan
+# Split 5 Info Page Rulebook Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (\`- [ ]\`) syntax for tracking.
 
-**Goal:** Replace the empty `/info` route with a branded resource hub and an exact-wording, navigable Rulebook article.
+**Goal:** Replace the stale embedded /info Rulebook article with the supplied Split 5 rulebook while preserving the existing branded layout and adding its gauntlet/playoff visual.
 
-**Architecture:** Keep the route as a server-rendered App Router page. Extract the long Rulebook article into a focused `RulebookContent` component and use a reusable `InfoResourceCard` for the three external destinations. Render the source document's existing hierarchy with semantic headings, anchored sections, paragraphs, and lists using existing Tailwind utilities rather than adding a Markdown dependency.
+**Architecture:** Keep the server-rendered App Router page and existing resource-card/table-of-contents shell. Replace the static RulebookContent JSX with the copied Split 5 hierarchy and exact source wording, and render the source bracket as a local semantic figure so the page does not depend on Google Docs' canvas or remote image URLs.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript, Tailwind CSS v4, Vitest, Testing Library.
 
 ## Global Constraints
 
-- Preserve the Rulebook wording exactly, including current capitalization, punctuation, terminology, and typos.
-- Payment must link to `https://www.paypal.com/paypalme/DraftFPL`.
-- MasterDoc must link to `https://docs.google.com/spreadsheets/d/187hoKxxeSpSPtDAmlrTOeuDrcz5kpdwv1qgQ5kipaHY/edit?usp=sharing`.
-- Rulebook must link to `https://docs.google.com/document/d/1KXJWcEtrjz8icHzzmuXgyd8SBWXXR_x9Bb8Xh03QXRI/edit?usp=sharing`.
-- External links must use `target="_blank"` and `rel="noopener noreferrer"`.
-- Keep the page server-rendered and do not add a Markdown parsing dependency.
-- Use the existing navy, panel, line, steel, gold, `bg-hash`, `card-brand`, `type-display`, and `label-dash` brand utilities.
+- Preserve the supplied Split 5 Rulebook wording, including capitalization, punctuation, terminology, and typos.
+- Rulebook source URL: https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7.
+- Keep Payment at https://www.paypal.com/paypalme/DraftFPL.
+- Keep MasterDoc at https://docs.google.com/spreadsheets/d/187hoKxxeSpSPtDAmlrTOeuDrcz5kpdwv1qgQ5kipaHY/edit?usp=sharing.
+- Preserve external-link target="_blank" and rel="noopener noreferrer" behavior.
+- Keep the page server-rendered and do not add a Markdown parser, CMS, or runtime document fetch.
+- Keep existing FPL utilities: bg-hash, card-brand, label-dash, type-display, font-display, text-steel, text-gold, border-line.
+- Do not stage or modify unrelated players_name_role.csv or the existing unrelated design changes.
 
 ---
 
-### Task 1: Add the Rulebook article and its focused tests
+### Task 1: Add failing coverage for the Split 5 snapshot
 
 **Files:**
-- Create: `src/components/info/RulebookContent.tsx`
-- Create: `src/components/info/RulebookContent.test.tsx`
+- Modify: src/app/info/page.test.tsx
+- Modify: src/components/info/RulebookContent.test.tsx
+
+**Interfaces:** Tests exercise InfoPage and RulebookContent through their public rendered output; no new production interface is introduced.
+
+- [ ] Step 1: Update page tests to assert the new Rulebook source URL.
+
+Add an assertion that the Rulebook resource card's Open resource link has href equal to https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7.
+
+- [ ] Step 2: Add failing assertions for Split 5 content and the figure.
+
+Extend RulebookContent.test.tsx with this focused test:
+
+~~~tsx
+it("renders the Split 5 rules and the playoff figure", () => {
+  render(<RulebookContent />);
+
+  expect(screen.getByRole("heading", { name: "League Overview", level: 2 })).toBeTruthy();
+  expect(screen.getByText(/150 ranked games \(S15 \+ S16\)/i)).toBeTruthy();
+  expect(screen.getByText(/Each captain will get bids that will be placed blindly/i)).toBeTruthy();
+  expect(screen.getByText(/Players can be removed from the league under strenuous circumstances/i)).toBeTruthy();
+  expect(screen.getByText(/Founders: Rutledge, Jake, JayDK, & Repped/i)).toBeTruthy();
+  expect(screen.getByRole("figure", { name: /gauntlet and playoff format/i })).toBeTruthy();
+  expect(screen.getByRole("img", { name: /gauntlet and playoff bracket/i })).toBeTruthy();
+});
+~~~
+
+- [ ] Step 3: Run the focused tests and confirm the expected red failure.
+
+Run:
+~~~bash
+npm test -- --run src/app/info/page.test.tsx src/components/info/RulebookContent.test.tsx
+~~~
+Expected: FAIL because the page still points to the old Rulebook URL and the article does not contain the Split 5 wording or figure.
+
+### Task 2: Replace the article and source link
+
+**Files:**
+- Modify: src/app/info/page.tsx
+- Modify: src/components/info/RulebookContent.tsx
 
 **Interfaces:**
-- Produces: `RulebookContent(): JSX.Element`, a static article with stable IDs for the table of contents.
+- InfoPage continues to render the existing page shell and passes the Split 5 source URL to the Rulebook resource card and source link.
+- RulebookContent continues to render one server-side article with stable section IDs.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] Step 1: Update the Rulebook resource URL.
 
-```tsx
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import RulebookContent from "./RulebookContent";
+Replace the resources Rulebook href and leave Payment and MasterDoc unchanged. Update rulebookSections to these labels and IDs:
+~~~tsx
+const rulebookSections = [
+  ["League Overview", "league-overview"],
+  ["League Structure", "league-structure"],
+  ["Auction Draft Begins", "auction-draft"],
+  ["Nemesis Draft Begins", "nemesis-draft"],
+  ["League Format", "league-format"],
+  ["Game Rules/Penalties", "game-rules"],
+  ["Gauntlet", "gauntlet"],
+  ["Playoffs", "playoffs"],
+  ["Additional Rules & Aspects", "additional-rules"],
+  ["FPL Staff", "staff"],
+] as const;
+~~~
 
-describe("RulebookContent", () => {
-  it("renders the title and major section anchors", () => {
-    render(<RulebookContent />);
+- [ ] Step 2: Replace stale RulebookContent JSX with the Split 5 hierarchy.
 
-    expect(screen.getByRole("heading", { name: /official rulebook/i, level: 1 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "1. League Structure", level: 2 }).getAttribute("id")).toBe("league-structure");
-    expect(screen.getByRole("heading", { name: "12. Admin Discretion", level: 2 }).getAttribute("id")).toBe("admin-discretion");
-  });
+Keep the existing article class constants and rewrite the article into semantic sections for the exact source headings and wording: title; League Overview (Welcome Message, Entry Fees & Prizes, Player/Captain Registration, Player Eligibility); League Structure (Beginning of a New Split, Phase 1, Phase 2, Auction Draft Begins, Nemesis Draft Begins, League Format, Game Rules/Penalties, Gauntlet, Playoffs); Additional Rules & Aspects (Trades, Subs/Esubs/Replacements, Mid Series Subs, Conduct & Integrity, Unprofessional Conduct, Streaming & Content, Rule Amendments, FPL Staff); and the closing authorship/staff text.
 
-  it("preserves representative source wording", () => {
-    render(<RulebookContent />);
+Use ul/ol only where the copied source is list-like, keep each source sentence verbatim, and give the top-level headings these IDs: league-overview, league-structure, auction-draft, nemesis-draft, league-format, game-rules, gauntlet, playoffs, additional-rules, staff.
 
-    expect(screen.getByText(/The FPL is a franchise-based league featuring multiple established organizations\./i)).toBeTruthy();
-    expect(screen.getByText(/Matches occur weekly on Mondays at 8:00 PM EST\./i)).toBeTruthy();
-    expect(screen.getByText(/All decisions regarding conduct violations are final and binding\./i)).toBeTruthy();
-  });
-});
-```
+- [ ] Step 3: Add the local gauntlet/playoff figure.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+Inside the Playoffs section add a responsive figure with a div role="img" aria-label="Gauntlet and playoff bracket showing quarterfinals, semifinals, and grand finals", plus a visible figcaption "Gauntlet and playoff format and flow." Represent the source matchups in three responsive columns: quarterfinals (SOLARI #1–SOLARI #5, LUNARI #1–SOLARI #4, SOLARI #2–LUNARI #3, LUNARI #2–SOLARI #3), semifinals (SOLARI #1–LUNARI #2, LUNARI #1–SOLARI #2), and grand finals (SOLARI #1–LUNARI #1). Style each match as a panel using existing brand colors and keep text readable at mobile widths.
 
-Run: `npm test -- --run src/components/info/RulebookContent.test.tsx`
+- [ ] Step 4: Run focused tests and confirm green.
 
-Expected: FAIL because `RulebookContent.tsx` does not exist yet.
+Run:
+~~~bash
+npm test -- --run src/app/info/page.test.tsx src/components/info/RulebookContent.test.tsx src/components/info/InfoResourceCard.test.tsx
+~~~
+Expected: all focused tests pass with no test failures.
 
-- [ ] **Step 3: Implement the static Rulebook article**
+### Task 3: Verify the complete implementation
 
-Create a server component with:
+**Files:** Modify only Task 1–2 files if verification finds a defect.
 
-```tsx
-export default function RulebookContent() {
-  return (
-    <article aria-labelledby="rulebook-title" className="...">
-      <h1 id="rulebook-title">Franchise Premier League (FPL) Official Rulebook</h1>
-      <section aria-labelledby="league-statement">The exact League Statement content.</section>
-      <section aria-labelledby="league-structure">The exact Section 1 content.</section>
-    </article>
-  );
-}
-```
+- [ ] Step 1: Run lint. Run npm run lint. Expected: exit code 0.
+- [ ] Step 2: Run the full unit suite. Run npm test. Expected: all test files and tests pass.
+- [ ] Step 3: Run the production build. Run npm run build. Expected: the Next.js build completes successfully and includes /info.
+- [ ] Step 4: Review the final diff and status.
 
-Use `h2` for the League Statement and numbered major sections, `h3` for numbered subsections, and `h4` for the nested playoff examples and admin subsections. Convert source paragraphs that are clearly enumerations into `<ul>`/`<ol>` while retaining each sentence's exact wording. Include all sections from the captured Rulebook: League Statement, 1–12, Lock-In Window phases, Admin Discretion subsections, staff list, and Changelog.
-
-- [ ] **Step 4: Run the focused test to verify it passes**
-
-Run: `npm test -- --run src/components/info/RulebookContent.test.tsx`
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit the article and tests**
-
-```bash
-git add src/components/info/RulebookContent.tsx src/components/info/RulebookContent.test.tsx
-git commit -m "feat: add formatted rulebook content"
-```
-
-### Task 2: Build the branded info page and resource cards
-
-**Files:**
-- Create: `src/components/info/InfoResourceCard.tsx`
-- Create: `src/components/info/InfoResourceCard.test.tsx`
-- Modify: `src/app/info/page.tsx`
-- Create: `src/app/info/page.test.tsx`
-
-**Interfaces:**
-- Consumes: `RulebookContent` from Task 1.
-- Produces: `InfoResourceCard({ label, description, href }: { label: string; description: string; href: string })` and a populated `/info` route.
-
-- [ ] **Step 1: Write the failing card and page tests**
-
-```tsx
-it("renders an external resource card safely", () => {
-  render(<InfoResourceCard label="Payment" description="Pay league fees." href="https://example.com" />);
-
-  expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
-  expect(screen.getByRole("link", { name: /open resource/i }).getAttribute("href")).toBe("https://example.com");
-  expect(screen.getByRole("link", { name: /open resource/i }).getAttribute("target")).toBe("_blank");
-  expect(screen.getByRole("link", { name: /open resource/i }).getAttribute("rel")).toBe("noopener noreferrer");
-});
-
-it("renders all requested resources and the Rulebook navigation", () => {
-  render(<InfoPage />);
-
-  expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Rulebook", level: 2 })).toBeTruthy();
-  expect(screen.getByRole("link", { name: /1\. league structure/i }).getAttribute("href")).toBe("#league-structure");
-});
-```
-
-- [ ] **Step 2: Run the focused tests to verify they fail**
-
-Run: `npm test -- --run src/components/info/InfoResourceCard.test.tsx src/app/info/page.test.tsx`
-
-Expected: FAIL because the card, page implementation, and page test imports do not exist yet.
-
-- [ ] **Step 3: Implement the resource card**
-
-Use a semantic `article` with a level-2 heading, steel description, and a safe external link. Make the label gold with the strongest page-level title treatment:
-
-```tsx
-<h2 className="type-display text-3xl text-gold">{label}</h2>
-<a href={href} target="_blank" rel="noopener noreferrer">Open resource ↗</a>
-```
-
-- [ ] **Step 4: Replace the info placeholder with the page layout**
-
-Render the three cards in a responsive grid, with `Payment`, `MasterDoc`, and `Rulebook` as the exact labels. Add a Rulebook table of contents containing links to `#league-statement`, `#league-structure`, `#auction-draft-format`, `#regular-season-structure`, `#playoff-season-structure`, `#relegation`, `#team-management`, `#match-setup`, `#player-conduct`, `#content-streaming`, `#rule-amendments`, `#lock-in-window`, and `#admin-discretion`, then render `<RulebookContent />` below it. Apply `bg-hash`, `card-brand`, and existing typography/spacing utilities; keep the page readable at mobile widths.
-
-- [ ] **Step 5: Run focused tests to verify they pass**
-
-Run: `npm test -- --run src/components/info/InfoResourceCard.test.tsx src/app/info/page.test.tsx src/components/info/RulebookContent.test.tsx`
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit the info page**
-
-```bash
-git add src/components/info/InfoResourceCard.tsx src/components/info/InfoResourceCard.test.tsx src/app/info/page.tsx src/app/info/page.test.tsx
-git commit -m "feat: fill out league info page"
-```
-
-### Task 3: Verify the full change
-
-**Files:**
-- Modify only if verification exposes an issue: files from Tasks 1–2.
-
-- [ ] **Step 1: Run lint**
-
-Run: `npm run lint`
-
-Expected: exit code 0 with no ESLint errors.
-
-- [ ] **Step 2: Run the full unit test suite**
-
-Run: `npm test`
-
-Expected: all existing and new tests pass.
-
-- [ ] **Step 3: Run the production build**
-
-Run: `npm run build`
-
-Expected: Next.js production build completes successfully and includes the `/info` route.
-
-- [ ] **Step 4: Review the final diff**
-
-Run: `git diff HEAD~2..HEAD --check && git status --short`
-
-Expected: no whitespace errors; only the design/plan docs and info-page implementation files are changed.
+Run:
+~~~bash
+git diff --check
+git diff -- src/app/info/page.tsx src/components/info/RulebookContent.tsx src/app/info/page.test.tsx src/components/info/RulebookContent.test.tsx docs/superpowers/plans/2026-08-10-info-page-rulebook.md
+git status --short
+~~~
+Expected: no whitespace errors; unrelated files remain unstaged and untouched.

@@ -15,26 +15,21 @@ const resources = [
   {
     label: "Rulebook",
     description: "Read the formatted Rulebook here or open the source Google Doc.",
-    href: "https://docs.google.com/document/d/1KXJWcEtrjz8icHzzmuXgyd8SBWXXR_x9Bb8Xh03QXRI/edit?usp=sharing",
+    href: "https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7",
   },
 ] as const;
 
 const rulebookSections = [
-  ["League Statement", "league-statement"],
-  ["1. League Structure", "league-structure"],
-  ["2. Auction Draft Format", "auction-draft-format"],
-  ["3. Regular Season Structure (12 Team)", "regular-season-structure"],
-  ["4. Playoff Season Structure", "playoff-season-structure"],
-  ["5. Relegation", "relegation"],
-  ["6. Team Management", "team-management"],
-  ["7. Match Setup & Procedure", "match-setup"],
-  ["8. Player Conduct", "player-conduct"],
-  ["9. Content and Streaming", "content-streaming"],
-  ["10. Rule Amendments", "rule-amendments"],
-  ["11. The Lock-In Window (Offseason)", "lock-in-window"],
-  ["12. Admin Discretion", "admin-discretion"],
-  ["Franchise Premier League Staff", "staff"],
-  ["Changelog", "changelog"],
+  ["League Overview", "league-overview"],
+  ["League Structure", "league-structure"],
+  ["Auction Draft Begins", "auction-draft"],
+  ["Nemesis Draft Begins", "nemesis-draft"],
+  ["League Format", "league-format"],
+  ["Game Rules/Penalties", "game-rules"],
+  ["Gauntlet", "gauntlet"],
+  ["Playoffs", "playoffs"],
+  ["Additional Rules & Aspects", "additional-rules"],
+  ["FPL Staff", "staff"],
 ] as const;
 
 export default function InfoPage() {

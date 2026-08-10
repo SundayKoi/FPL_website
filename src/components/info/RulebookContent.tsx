@@ -2,11 +2,86 @@ const sectionHeadingClass =
   "scroll-mt-24 border-b border-line pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
 const subsectionHeadingClass =
   "scroll-mt-24 pt-3 font-display text-xl font-semibold text-white";
-const minorHeadingClass =
-  "scroll-mt-24 pt-2 font-display text-lg font-semibold text-white";
 const paragraphClass = "max-w-4xl text-steel";
 const listClass = "max-w-4xl list-disc space-y-2 pl-6 text-steel";
 const orderedListClass = "max-w-4xl list-decimal space-y-2 pl-6 text-steel";
+
+type BracketMatchProps = {
+  top: string;
+  bottom: string;
+};
+
+function BracketMatch({ top, bottom }: BracketMatchProps) {
+  return (
+    <div className="overflow-hidden rounded border border-line bg-navy/80">
+      <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-gold">
+        {top}
+      </div>
+      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
+        {bottom}
+      </div>
+    </div>
+  );
+}
+
+type BracketColumnProps = {
+  title: string;
+  matches: BracketMatchProps[];
+};
+
+function BracketColumn({ title, matches }: BracketColumnProps) {
+  return (
+    <div className="space-y-4">
+      <h4 className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-steel">
+        {title}
+      </h4>
+      <div className="space-y-4">
+        {matches.map((match) => (
+          <BracketMatch key={match.top + match.bottom} {...match} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GauntletPlayoffFigure() {
+  return (
+    <figure
+      aria-labelledby="gauntlet-playoff-caption"
+      className="max-w-5xl rounded border border-line bg-panel/70 p-4 sm:p-6"
+    >
+      <div
+        aria-label="Gauntlet and playoff bracket showing quarterfinals, semifinals, and grand finals"
+        className="grid gap-6 overflow-x-auto sm:grid-cols-3 sm:gap-8"
+        role="img"
+      >
+        <BracketColumn
+          title="Quarterfinals"
+          matches={[
+            { top: "Solari #1", bottom: "Solari #5" },
+            { top: "Lunari #1", bottom: "Solari #4" },
+            { top: "Solari #2", bottom: "Lunari #3" },
+            { top: "Lunari #2", bottom: "Solari #3" },
+          ]}
+        />
+        <BracketColumn
+          title="Semifinals"
+          matches={[
+            { top: "Solari #1", bottom: "Lunari #2" },
+            { top: "Lunari #1", bottom: "Solari #2" },
+          ]}
+        />
+        <BracketColumn
+          title="Grand Finals"
+          matches={[{ top: "Solari #1", bottom: "Lunari #1" }]}
+        />
+      </div>
+      <figcaption id="gauntlet-playoff-caption" className="mt-5 text-sm text-steel">
+        Gauntlet and playoff format and flow.
+      </figcaption>
+    </figure>
+  );
+}
 
 export default function RulebookContent() {
   return (
@@ -19,516 +94,423 @@ export default function RulebookContent() {
           id="rulebook-title"
           className="scroll-mt-24 font-display text-4xl font-semibold text-white sm:text-5xl"
         >
-          Franchise Premier League (FPL) Official Rulebook
+          Franchise Premier League(FPL)–Official Premier Rulebook Split 5
         </h1>
       </header>
 
-      <section aria-labelledby="league-statement" className="space-y-5">
-        <h2 id="league-statement" className={sectionHeadingClass}>
-          League Statement:
+      <section aria-labelledby="league-overview" className="space-y-5">
+        <h2 id="league-overview" className={sectionHeadingClass}>
+          League Overview
         </h2>
-        <p className={paragraphClass}>Hey everyone!</p>
-        <p className={paragraphClass}>
-          We’re excited to have you join us for the Franchise Premier League (FPL) – a brand-new competitive league where esports franchises compete.
-        </p>
-        <h3 className={subsectionHeadingClass}>What is the FPL?</h3>
-        <ul className={listClass}>
-          <li>The FPL is a franchise-based league featuring multiple established organizations.</li>
-          <li>Each franchise “owns” a team roster and competes against other franchises throughout the season.</li>
-          <li>The league is structured to create balanced, competitive matches and showcase emerging talent.</li>
-        </ul>
-        <h3 className={subsectionHeadingClass}>The Draft</h3>
-        <p className={paragraphClass}>
-          Instead of teams recruiting privately, FPL uses a draft system.
-        </p>
-        <p className={paragraphClass}>Here’s how the draft works:</p>
-        <ul className={listClass}>
-          <li>Captains take turns selecting players (By Bidding From Their 100pt Allotment), one at a time, from the player pool.</li>
-          <li>The draft goes in rounds until each team fills all 5 roles (Top, Jungle, Mid, ADC, Support).</li>
-          <li>This means everyone has a chance to be picked, and strong players are spread across teams rather than stacked on one roster.</li>
-          <li>It creates balanced, competitive teams and makes the league exciting for everyone!</li>
-        </ul>
-        <h3 className={subsectionHeadingClass}>Building Rosters</h3>
-        <p className={paragraphClass}>After the draft, each Captain has its own roster.</p>
-        <p className={paragraphClass}>Those players officially become part of that team for the season.</p>
-        <p className={paragraphClass}>Captains might run scrims (practice matches), help with coaching, and build team synergy.</p>
-        <h3 className={subsectionHeadingClass}>The Competition</h3>
-        <p className={paragraphClass}>Once teams are set, the season begins!</p>
-        <p className={paragraphClass}>Teams play scheduled matches against each other.</p>
-        <p className={paragraphClass}>Wins and losses affect standings and determine who makes the playoffs and competes for the championship.</p>
-      </section>
 
-      <p className={paragraphClass}>
-        This rulebook establishes the structure, rules, and guidelines for the Franchise Premier League (FPL) League of Legends competition. Participation constitutes acceptance of all regulations detailed herein.
-      </p>
-      <p className={paragraphClass}>
-        League staff retain authority to enforce rules, interpret the rulebook, and ensure fair play and integrity.
-      </p>
+        <h3 className={subsectionHeadingClass}>Welcome Message</h3>
+        <p className={paragraphClass}>
+          Welcome to the Franchise Premier League (FPL), a competitive, franchise-based League of Legends league designed to promote balanced teams and showcase emerging talent.
+        </p>
+        <p className={paragraphClass}>
+          FPL uses a structured auction draft system to ensure fair competition and exciting matches throughout the regular season, gauntlet, and playoffs.
+        </p>
+
+        <h3 className={subsectionHeadingClass}>Entry Fees &amp; Prizes</h3>
+        <ul className={listClass}>
+          <li>Captains Entry Fee: $25</li>
+          <li>1st Place: $200</li>
+          <li>2nd Place: $100</li>
+          <li>Players Entry Fee: $15</li>
+          <li>1st Place: $260 (divided among the 4 players)</li>
+          <li>2nd Place: $140 (divided among the 4 players)</li>
+        </ul>
+
+        <h3 className={subsectionHeadingClass}>Player/Captain Registration</h3>
+        <p className={paragraphClass}>
+          Players must sign up to join the player pool by submitting their IGN, Discord, and op.gg multi-link.
+        </p>
+        <p className={paragraphClass}>
+          Captains must apply to be in the captain pool by submitting their IGN, Discord, and op.gg multi-link. (If denied they may become a player).
+        </p>
+        <p className={paragraphClass}>
+          Captains create and manage teams for the full split, including making a team name/logo, participating in the league’s offseason phase, drafting their team in the auction, managing their roster, finding subs/replacement, and making sure their team follows all the rules applicable to the league, etc.
+        </p>
+
+        <h3 className={subsectionHeadingClass}>Player Eligibility</h3>
+        <p className={paragraphClass}>Players must meet the following requirements:</p>
+        <ol className={orderedListClass}>
+          <li>150 ranked games (S15 + S16)</li>
+          <li>Play at least 5 games every 14 days</li>
+          <li>Account level 200+ (if under than reach out to admins)</li>
+          <li>Disclose all alternate accounts (all accounts level 30 or above with ranked games)</li>
+          <li>
+            Must not exceed Masters 100lp in S15 or S16 (Players are allowed to go past rank cap mid-split, however, you will be ineligible for Academy for future splits)
+          </li>
+          <li>
+            Exception players (players that have previously ranked at the cap of M200) are eligible to play if they meet the criteria below
+            <ul className={listClass}>
+              <li>Exception:</li>
+              <li>They must have played at least 200 games in Season 16 since hitting M200.</li>
+              <li>Be currently under M100 LP throughout their decline in elo</li>
+              <li>
+                This request must be submitted via ticket to staff, it will be viewed and a decision will be made by staff. Staff reserves the right to reject exception players on a case-by-case basis
+              </li>
+            </ul>
+          </li>
+        </ol>
+      </section>
 
       <section aria-labelledby="league-structure" className="space-y-5">
-        <h2 id="league-structure" className={sectionHeadingClass}>1. League Structure</h2>
-        <h3 className={subsectionHeadingClass}>1.1 Schedule</h3>
-        <p className={paragraphClass}>Matches occur weekly on Mondays at 8:00 PM EST.</p>
-        <h3 className={subsectionHeadingClass}>1.2 Teams</h3>
-        <p className={paragraphClass}>Each team comprises five players (Top, Jungle, Mid, ADC, Support).</p>
-        <h3 className={subsectionHeadingClass}>1.3 Divisions</h3>
-        <p className={paragraphClass}>Teams will be competing in two divisions during the regular season: Solari and Lunari</p>
-        <p className={paragraphClass}>Placement into divisions is determined by Nemesis Draft</p>
-        <h3 className={subsectionHeadingClass}>1.4 Player Eligibility</h3>
-        <p className={paragraphClass}>
-          Every Split player must adhere to the following player eligibility requirements. If a player is affected by any of the below restrictions after completing a split, then they will have their eligibility reassessed solely for the purpose of determining compliance with the eligibility thresholds in effect for the subsequent split. Once accepted and paid for their spot for the current split, players can climb without changes/restrictions, but will have to adhere to the below policies upon attempting to re-enter future splits.
-        </p>
-        <ul className={listClass}>
-          <li>Required Games Played - Required 150 Games combined both in S2025 and S2026.</li>
-          <li>Elo Sitting Games: Require players to play five games every 14 days</li>
-          <li>Account Level Requirement: Level 200. (Exceptions can be made in a ticket.)</li>
-          <li>Disclosure of Alternate Accounts: At registration, players are required to disclose all accounts they have that are level 30 or higher. Players are also required to submit any newly-acquired accounts during the season or any accounts that reach level 30 during the season.</li>
-          <li>Season 15 Peak Rank – A player must not have peaked above Diamond 1 99 LP at any time within LoL Season 15. See Solo-queue warrior clause for more details.</li>
-        </ul>
-        <p className={paragraphClass}>Solo-queue Warrior Clause for Previous Masters:</p>
-        <p className={paragraphClass}>
-          Former Masters Players who have played at least 200 games since achieving their previous peak rank may submit a request to be eligible to play. This request must be submitted via a support ticket and will be reviewed by the Founders.
-        </p>
-        <h3 className={subsectionHeadingClass}>1.5 Captain Entry Fees &amp; Prizes (12 Team)</h3>
-        <p className={paragraphClass}>This split has a $25 entry fee per captain.</p>
-        <ul className={listClass}>
-          <li>1st Place $200</li>
-          <li>2nd Place $100</li>
-        </ul>
-        <h3 className={subsectionHeadingClass}>1.6 Player Entry Fees &amp; Prizes (12 Team)</h3>
-        <p className={paragraphClass}>Players have a $15 entry fee.</p>
-        <p className={paragraphClass}>1st $260       2nd $140</p>
-        <h3 className={subsectionHeadingClass}>1.7 Operation Costs (Content, Stream, Staff, etc.)</h3>
-        <p className={paragraphClass}>$320 of Player Entry</p>
-      </section>
+        <h2 id="league-structure" className={sectionHeadingClass}>
+          League Structure
+        </h2>
 
-      <section aria-labelledby="auction-draft-format" className="space-y-5">
-        <h2 id="auction-draft-format" className={sectionHeadingClass}>2. Auction Draft Format</h2>
-        <h3 className={subsectionHeadingClass}>2.1 Auction Draft Format</h3>
-        <p className={paragraphClass}>The Auction Draft will be conducted by an auctioneer, with each Captain taking turns nominating one player per round.</p>
-        <p className={paragraphClass}>Each Captain begins the Auction Draft with a total of one hundred (100) auction points. (Minus any points used in offseason or on captain.)</p>
-        <p className={paragraphClass}>During the 1st round, a franchise nominates a player; they must immediately place a minimum opening bid of 10 points on that player.</p>
-        <p className={paragraphClass}>During the 2nd round, a franchise nominates a player; they must immediately place a minimum opening bid of 5 points on that player. (After the 2nd round minimum bids can start at 1 point)</p>
-        <p className={paragraphClass}>Bids must increase in increments of at least one (1) point.</p>
-        <p className={paragraphClass}>If no other bids are placed, the nominating captain automatically acquires the player at the minimum bid.</p>
-        <h3 className={subsectionHeadingClass}>2.2 Auction Etiquette and Interference:</h3>
-        <p className={paragraphClass}>The auctioneer will call bids using the format “Going once, going twice, sold.”</p>
-        <p className={paragraphClass}>Captains may not:</p>
-        <ul className={listClass}>
-          <li>Nominate players for roles they have already filled on their roster.</li>
-          <li>Bid on players who occupy roles already filled on their roster.</li>
-          <li>Intentionally Delay/Stall</li>
-        </ul>
-        <p className={paragraphClass}>If you cause auction interference listed above you may receive the following punishment</p>
-        <p className={paragraphClass}>Warning → 2-point deduction → 5-point deduction → skipped nomination round.</p>
-        <h3 className={subsectionHeadingClass}>2.3 Nemesis Division Draft</h3>
-        <p className={paragraphClass}>Immediately following the auction draft, Captains will be participating in a Nemesis Draft to assign Teams to their Divisions for the upcoming split.</p>
-        <p className={paragraphClass}>The first Team will be selected to Division Solari by spinning a wheel.</p>
-        <p className={paragraphClass}>The Captain selected by the wheel will be given the ability to select what Team will be drafted to the Lunari Division. These steps are repeated until both divisions are filled.</p>
-      </section>
+        <h3 className={subsectionHeadingClass}>Beginning of a New Split</h3>
+        <p className={paragraphClass}>
+          A split starts by captains being selected and a player pool being formed.
+        </p>
+        <p className={paragraphClass}>
+          Once this is complete and everyone has paid their entry fees, staff assign all players in the pool a minimum point value and all selected captains a final point value.
+        </p>
+        <p className={paragraphClass}>
+          The captains’ point values are determined by rank, strength in their role compared to other players in their role, perceived skill, and strength compared to other captains, etc.
+        </p>
+        <p className={paragraphClass}>
+          The players’ min point values are determined by rank, strength in their role compared to other players in their role, perceived skill, and what their expected auction price will be.
+        </p>
 
-      <section aria-labelledby="regular-season-structure" className="space-y-5">
-        <h2 id="regular-season-structure" className={sectionHeadingClass}>3. Regular Season Structure (12 Team)</h2>
-        <h3 className={subsectionHeadingClass}>3.1 Format</h3>
-        <p className={paragraphClass}>The Regular Season will span 5 weeks.</p>
-        <p className={paragraphClass}>The league will be divided into two groups, each containing either 6 Teams.</p>
-        <p className={paragraphClass}>Every week each group will play one best-of-three (BO3) round-robin format.</p>
-        <p className={paragraphClass}>All matches will be scheduled for Mondays at 8:00 PM EST, unless rescheduled in compliance with league rescheduling policies.</p>
-        <p className={paragraphClass}>League Reschedule Policy found in section 7.6</p>
-        <h3 className={subsectionHeadingClass}>3.2 Advancement to Postseason (12 Team)</h3>
-        <p className={paragraphClass}>The top 3 teams from each group, based on standings, will advance directly to the Playoffs.</p>
-        <p className={paragraphClass}>The bottom 3 teams from each group will enter the Gauntlet, a last-chance playoff structure offering a path to the postseason for lower-seeded teams.</p>
-        <h3 className={subsectionHeadingClass}>3.3 Standings and Tiebreakers</h3>
-        <p className={paragraphClass}>Regular Season standings will be determined by the following criteria, in order of priority:</p>
+        <h3 className={subsectionHeadingClass}>
+          Phase 1: Market Value (lasts 24 hours)
+        </h3>
+        <p className={paragraphClass}>
+          Once point values are set, each captain will get bids that will be placed blindly on players in the player pool to set their new min point values.
+        </p>
+        <p className={paragraphClass}>The bids are:</p>
+        <ul className={listClass}>
+          <li>2- 50 pt bids</li>
+          <li>3- 40 pt bids</li>
+          <li>2- 30 pt bids</li>
+          <li>2- 20 pt bids</li>
+          <li>2- 10 pt bids</li>
+          <li>1- 5 pt bid</li>
+        </ul>
+        <p className={paragraphClass}>
+          Captains cannot place bids on players in their roles, and bids that are under the players set min point value.
+        </p>
+        <p className={paragraphClass}>
+          After all bids are placed and collected, staff will determine all players&apos; new min point values.
+        </p>
+
+        <h3 className={subsectionHeadingClass}>
+          Phase 2: Free Agency (lasts 48 hours)
+        </h3>
+        <p className={paragraphClass}>
+          Captains will have to sign one player that they have bidded on for the player’s new set min point value to their team, after each captain does so free agency ends.
+        </p>
+        <p className={paragraphClass}>
+          Each captain must sign one player, and players must accept offers made by a captain, but in the case that the player has multiple offers they may choose the captain they want to sign with.
+        </p>
+        <p className={paragraphClass}>
+          Ultimatums/threats by players are not allowed and will be punished accordingly by staff discretion.
+        </p>
+        <p className={paragraphClass}>
+          For purposes of this section, ‘collusion’ means a pre-arranged agreement between two or more captains or players intended to artificially inflate or suppress a player’s market value.
+        </p>
+        <p className={paragraphClass}>
+          Punishment Examples. - Point Deductions from total allotment, Point Addition to player cost, Removal from League.
+        </p>
+        <p className={paragraphClass}>
+          When free agency ends, each team will subtract from their original 100 points the amount they signed the player in free agency for and the amount the admins assigned them as a captain at the beginning.
+        </p>
+
+        <h3 id="auction-draft" className={subsectionHeadingClass}>
+          Auction Draft Begins
+        </h3>
+        <p className={paragraphClass}>
+          All remaining players are put in the auction pool for the captains to propose and bid on in front of all.
+        </p>
+        <p className={paragraphClass}>
+          Captains will propose players in a snake draft order for 3 rounds.
+        </p>
+        <p className={paragraphClass}>
+          Captains may not draft, propose, or bid on roles already filled for their team.
+        </p>
+        <p className={paragraphClass}>
+          The order of the draft goes by lowest captain point value to highest captain point value, and if 2 captains have the same point value then it goes by most remaining team points to lowest remaining team points. In the rare case that that is also the same then it will be random among those tied teams.
+        </p>
+        <p className={paragraphClass}>
+          Each round will have a min starting bid for each player proposed.
+        </p>
+        <p className={paragraphClass}>Minimum bids:</p>
+        <ul className={listClass}>
+          <li>Round 1: 10 points</li>
+          <li>Round 2: 5 points</li>
+          <li>Round 3: 1 point</li>
+        </ul>
+        <p className={paragraphClass}>
+          The draft is run by an auctioneer and held in the appropriate discord channel. After a player is proposed and auctioned off, the auctioneer will use the “going once, going twice, sold” method.
+        </p>
+        <p className={paragraphClass}>
+          Once all teams are filled the auction draft is over, and the nemesis draft for team divisions will take place.
+        </p>
+
+        <h3 id="nemesis-draft" className={subsectionHeadingClass}>
+          Nemesis Draft Begins
+        </h3>
+        <p className={paragraphClass}>
+          The last ordered captain will be chosen and put in one of the divisions.
+        </p>
+        <p className={paragraphClass}>
+          That captain will then choose another captain to put into the other division.
+        </p>
+        <p className={paragraphClass}>
+          This will continue until each division has 6 captains each in them.
+        </p>
+
+        <h3 id="league-format" className={subsectionHeadingClass}>
+          League Format
+        </h3>
+        <p className={paragraphClass}>
+          Then the league schedule is released and the regular season starts the next Monday at 8pm est.
+        </p>
+        <p className={paragraphClass}>
+          Matches follow the Fearless Format (champions can only be played once a series) and are played weekly on Mondays at 8:00pm est.
+        </p>
+        <p className={paragraphClass}>
+          Each team consists of five players: Top, Jungle, Mid, Adc, and Support.
+        </p>
+        <p className={paragraphClass}>
+          Teams are split into two divisions: Solari and Lunari, assigned through a Nemesis Draft.
+        </p>
+        <p className={paragraphClass}>
+          The regular season consists of 5 weeks of Bo3s done between division teams.
+        </p>
+        <p className={paragraphClass}>
+          Side selection for game 1 is determined prior by staff and for every game after, the side is chosen by the losing team of the previous match in that series. (Same for playoffs)
+        </p>
+        <p className={paragraphClass}>
+          Each team will play each other team in their division once in the regular season.
+        </p>
+        <p className={paragraphClass}>For Week 1, there are no elo-sitting games required by all players.</p>
+        <p className={paragraphClass}>
+          After all games in the regular season are played, the league seeding will be produced, the guidelines for the ordering of them are:
+        </p>
+        <p className={paragraphClass}>Seeding is determined by:</p>
         <ol className={orderedListClass}>
-          <li>Series Record</li>
-          <li>Total number of BO3 series won and lost.</li>
-          <li>Individual Game Record</li>
-          <li>Overall Individual Game Win %</li>
-          <li>Head-to-Head Record</li>
-          <li>Series results between tied teams.</li>
-          <li>Average Win Game Length</li>
-          <li>Used as a final tiebreaker if all previous metrics are equal.</li>
+          <li>Series record (# of Bo3s won &amp; lost)</li>
+          <li>Game win percentage (wins/total games played)</li>
+          <li>Head-to-head (wins/loses between tied teams)</li>
+          <li>Average win time (Avg time of series wins, quickest is best)</li>
         </ol>
-        <p className={paragraphClass}>Any necessary tiebreaker matches will be determined and scheduled at the discretion of League Staff.</p>
+        <p className={paragraphClass}>
+          Rescheduling matches is also allowed (as long as it is within 2 weeks of the original game date) and all parties must agree on the date and time of the reschedule before the original game date.
+        </p>
+        <p className={paragraphClass}>
+          Draftlol or Drafter must be used to draft each game, if down another similar website may be used.
+        </p>
+
+        <h3 id="game-rules" className={subsectionHeadingClass}>
+          Game Rules/Penalties
+        </h3>
+        <p className={paragraphClass}>
+          The timer for being late to a game starts when one of the teams has all 5 players with their correct quests in the lobby ready to start the draft.
+        </p>
+        <p className={paragraphClass}>Late to Game 1 penalties:</p>
+        <ul className={listClass}>
+          <li>10 minutes: -1 ban</li>
+          <li>15 minutes: -3 bans</li>
+          <li>20 minutes: 1 Game loss</li>
+          <li>30 minutes: Series loss</li>
+        </ul>
+        <p className={paragraphClass}>Late to Games 2-5 penalties:</p>
+        <ul className={listClass}>
+          <li>5 minutes: -2 bans</li>
+          <li>10 minutes: All bans lost</li>
+          <li>15 minutes: 1 Game loss</li>
+          <li>20 minutes: Series loss</li>
+        </ul>
+        <p className={paragraphClass}>
+          Players must play assigned roles and lane for at least 3 minutes.
+        </p>
+        <p className={paragraphClass}>
+          Pauses are limited to 10 minutes per team per game and cannot occur during combat(After 10 the allotted 10 minutes, the game must resume).
+        </p>
+        <p className={paragraphClass}>
+          No role swapping and teams must take their designated quests.
+        </p>
+
+        <h3 id="gauntlet" className={subsectionHeadingClass}>
+          Gauntlet
+        </h3>
+        <p className={paragraphClass}>
+          After the seeds are made, the gauntlet phase starts, the top 3 teams from each division head to playoffs, and the bottom 3 teams from each division head to the gauntlet.
+        </p>
+        <p className={paragraphClass}>
+          Gauntlets are BO1 with cross-division matchups prioritized.
+        </p>
+        <p className={paragraphClass}>
+          The 5th seed from Solari plays the 6th seed from Lunari and vice versa of the 6th seed from Solari plays the 5th seed from Lunari.
+        </p>
+        <p className={paragraphClass}>
+          The two winners play the 4th seeds and of the opposite division, if the 2 teams that won round 1 of the gauntlet are in the same division then the lower seed plays the 4th seed of their same division and the higher seed of the round 1 winners plays the 4th seed of the other division. After round 2, we will have 2 teams making it out of the gauntlet.
+        </p>
+        <p className={paragraphClass}>
+          If both teams are different division than they play the opposite division #1 seed in the first round of playoffs.
+        </p>
+        <p className={paragraphClass}>
+          If both team are in the same division than just like gauntlet, the lower seed plays their same division’s #1 seed and the other team plays the other divisions #1 seed.
+        </p>
+        <p className={paragraphClass}>
+          Below you can see an image representing the gauntlet/playoff format and flow, and the particular scenario talked about above having to do with 2 teams in the same division making it out of gauntlet (the image below shows if this was the case for Solari).
+        </p>
+        <p className={paragraphClass}>
+          Also, the two teams that eliminated in the first round of gauntlet, their captains are relegated, meaning they cannot be a captain again in the next split of FPL (they can be a captain again after that 1 split though)(unless admins decide their case was extraordinary, like they had their whole team drop or get removed, etc).
+        </p>
+        <p className={paragraphClass}>Also, both Bo1s of the gauntlet are on the same day.</p>
+
+        <h3 id="playoffs" className={subsectionHeadingClass}>
+          Playoffs
+        </h3>
+        <p className={paragraphClass}>After the gauntlet ends, the playoffs phase starts.</p>
+        <p className={paragraphClass}>
+          For game 1 of each series, the higher seed gets side selection (they must tell the other team what side they are selecting 24 hours in advance). Each game’s side after is determined by the loser of the previous game (just like regular season).
+        </p>
+        <p className={paragraphClass}>
+          There are 4 total Bo5s going on the same designated day, which is considered Quarterfinals.
+        </p>
+        <p className={paragraphClass}>
+          Teams who lose their series are eliminated, and teams who win move on to the Semifinals.
+        </p>
+        <p className={paragraphClass}>
+          As previously stated, cross division matches are prioritized, and if there are more teams remaining in one division than the lower seed plays the higher seed in their division and the other one plays the other division’s team.
+        </p>
+        <p className={paragraphClass}>
+          After the 2 matches in Semifinals are finished the winning 2 teams move on to FINALS, and the winner of that match is this split’s CHAMPION.
+        </p>
+        <GauntletPlayoffFigure />
       </section>
 
-      <section aria-labelledby="playoff-season-structure" className="space-y-5">
-        <h2 id="playoff-season-structure" className={sectionHeadingClass}>4. Playoff Season Structure</h2>
-        <h3 className={subsectionHeadingClass}>4.1 Gauntlet Stage</h3>
-        <p className={paragraphClass}>Following the regular season, the bottom teams from each group will enter the Gauntlet Stage for a chance to qualify for the playoffs.</p>
-        <p className={paragraphClass}>Higher seed receives side selection.</p>
-        <p className={paragraphClass}>The Gauntlet consists of:</p>
-        <ul className={listClass}><li>Two Best-of-One (BO1) matches</li><li>Winners advance to the Playoff Bracket.</li></ul>
-        <p className={paragraphClass}>Gauntlet seeding rules:</p>
-        <ul className={listClass}>
-          <li>Lower seeds initially play cross-group lower seeds whenever possible.</li>
-          <li>Example:</li>
-          <li>Solari #6 vs Lunari #5</li>
-          <li>Solari #5 vs Lunari #6</li>
-          <li>4th seeds receive byes in the first round.</li>
-        </ul>
-        <p className={paragraphClass}>If 3 second round gauntlet teams come from the same group, the lowest remaining seed from that group will be matched against the highest seed from the same group:</p>
-        <p className={paragraphClass}>Example:</p>
-        <ul className={listClass}>
-          <li>Round 1: Solari #6 vs Lunari #5 → Solari#6 wins</li>
-          <li>Round 1: Solari #5 vs Lunari #6 → Solari#5 wins</li>
-          <li>Round 2: Solari #4 vs Solari #6</li>
-          <li>Round 2: Solari #5 vs Lunari #4</li>
-        </ul>
-        <p className={paragraphClass}>Gauntlet example 1:</p>
-        <p className={paragraphClass}>This diagram shows how the FPL Gauntlet stage works when advancing teams come from mixed groups.</p>
-        <p className={paragraphClass}>In Round 1, Solari #5 defeats Lunari #6, while Lunari #5 defeats Solari #6.</p>
-        <p className={paragraphClass}>In Round 2, the winners from Round 1 face the 4th seeds from each group.</p>
-        <p className={paragraphClass}>Solari #4 plays Lunari #5.</p>
-        <p className={paragraphClass}>Lunari #4 plays Solari #5.</p>
-        <p className={paragraphClass}>Winners of Round 2 advance into the main Playoff bracket. This structure helps maintain cross-group matchups wherever possible and gives lower-seeded teams a path to playoffs.</p>
-        <p className={paragraphClass}>Gauntlet example 2:</p>
-        <p className={paragraphClass}>This diagram shows how the FPL Gauntlet stage works when two teams from the same Solari advance.</p>
-        <p className={paragraphClass}>In Round 1, Solari #5 defeats Lunari #6, and Solari #6 defeats Lunari #5.</p>
-        <p className={paragraphClass}>In Round 2, the winners face higher seeds from their own group due to the same-group constraint:</p>
-        <p className={paragraphClass}>Solari #4 plays Solari #6.</p>
-        <p className={paragraphClass}>Lunari #4 plays Solari #5.</p>
-        <p className={paragraphClass}>This ensures cross-group matchups remain prioritized when possible but handles situations where multiple teams advance from the same group.</p>
-        <h3 className={subsectionHeadingClass}>4.2 Playoff Structure</h3>
-        <p className={paragraphClass}>All playoffs will be BO5.</p>
-        <p className={paragraphClass}>Side selection will be determined by the higher seed.</p>
-        <p className={paragraphClass}>Then will be determined by the loser.</p>
-        <h3 className={subsectionHeadingClass}>4.2.1 Cross-Group Enforcement</h3>
-        <p className={paragraphClass}>The Playoff Bracket is structured to enforce cross-group matchups whenever possible in the opening playoff round. This ensures diverse competition and minimizes same-group rematches too early in the bracket.</p>
-        <p className={paragraphClass}>Cross-Group Priority:</p>
-        <p className={paragraphClass}>The first seeds (A1 and B1) will be matched, where possible, against the lowest available seeds from the opposite group (including any gauntlet winners).</p>
-        <p className={paragraphClass}>Second and third seeds from each group will also be paired cross-group where feasible.</p>
-        <p className={paragraphClass}>Same-Group Pairings Exception:</p>
-        <p className={paragraphClass}>Same-group matchups in the first playoff round are allowed only if:</p>
-        <ul className={listClass}>
-          <li>There are not enough teams from the opposite group to avoid them, or</li>
-          <li>Bracket integrity requires avoiding repeated matchups deeper in the playoffs.</li>
-        </ul>
-        <h4 className={minorHeadingClass}>Example 1 – Gauntlet Winners from the Same Group</h4>
-        <p className={paragraphClass}>If both gauntlet winners are from Solari (e.g. Solari #5 and Solari #4), the playoff seeds are:</p>
-        <ul className={listClass}>
-          <li>Solari #1, Solari #2, Solari #3</li>
-          <li>Lunari #1, Lunari #2, Lunari #3</li>
-          <li>Solari #4, Solari #5</li>
-        </ul>
-        <p className={paragraphClass}>Opening matchups might be arranged to force cross-group play:</p>
-        <ul className={listClass}>
-          <li>Solari #1 vs Solari #5</li>
-          <li>Lunari #1 vs Solari #4</li>
-          <li>Solari #2 vs Lunari #3</li>
-          <li>Lunari #2 vs Solari #3</li>
-        </ul>
-        <p className={paragraphClass}>Only Solari #1 vs Solari #5 remains a same-group matchup, unavoidable because both teams are from Solari.</p>
-        <h4 className={minorHeadingClass}>Example 2 – One Gauntlet Winner from Each Group</h4>
-        <p className={paragraphClass}>If gauntlet winners are Solari #5 and Lunari #5, playoff seeds are:</p>
-        <ul className={listClass}>
-          <li>Solari #1, Solari #2, Solari #3</li>
-          <li>Lunari #1, Lunari #2, Lunari #3</li>
-          <li>Solari #5, Lunari #5</li>
-        </ul>
-        <p className={paragraphClass}>Round 1 matchups might be:</p>
-        <ul className={listClass}>
-          <li>Solari #1 vs Lunari #5</li>
-          <li>Lunari #1 vs Solari #5</li>
-          <li>Solari #2 vs Lunari #3</li>
-          <li>Lunari #2 vs Solari #3</li>
-        </ul>
-        <p className={paragraphClass}>This fully enforces cross-group matchups in the first round.</p>
-        <h4 className={minorHeadingClass}>Example 3 – Unequal Group Representation in Semi-Finals</h4>
-        <p className={paragraphClass}>This example demonstrates a playoff scenario where the semifinal stage has an unequal group distribution: one team from Solari (A#1) and three teams from Lunari (B#1, B#2, B#3) have advanced.</p>
-        <p className={paragraphClass}>To preserve cross-group matchups as much as possible, the lone Solari team (A#1) is matched against the Lunari #2  seeds from Lunari. The highest remaining seed from Lunari (B#1) faces the lowest remaining seed from their same group.</p>
-        <p className={paragraphClass}>Semifinal 1: Solari #1 vs Lunari #2</p>
-        <p className={paragraphClass}>Semifinal 2: Lunari #1 vs Lunari #3</p>
-        <p className={paragraphClass}>This pairing minimizes same-group matches until unavoidable and ensures the top-seeded A#1 does not receive a bye or an unfair advantage. The winners of these matches advance to the Grand Finals.</p>
-      </section>
+      <section aria-labelledby="additional-rules" className="space-y-5">
+        <h2 id="additional-rules" className={sectionHeadingClass}>
+          Additional Rules &amp; Aspects of the League
+        </h2>
 
-      <section aria-labelledby="relegation" className="space-y-5">
-        <h2 id="relegation" className={sectionHeadingClass}>5. Relegation</h2>
-        <p className={paragraphClass}>Captains that finish 11th and 12th place (Teams that lose the first round of gauntlet) will be relegated from being captains for the following split.</p>
-        <p className={paragraphClass}>They can re-apply with a one split cooldown period. (They can still play as a returning player)</p>
-        <p className={paragraphClass}>Relegation is automatic unless league staff determine that extraordinary circumstances materially affected competitive participation.</p>
-      </section>
-
-      <section aria-labelledby="team-management" className="space-y-5">
-        <h2 id="team-management" className={sectionHeadingClass}>6. Team Management</h2>
-        <h3 className={subsectionHeadingClass}>6.1 Trades</h3>
-        <p className={paragraphClass}>Trade Window:</p>
-        <p className={paragraphClass}>Trading is permitted directly after draft till the sunday before week 5’s match.</p>
-        <p className={paragraphClass}>Approval Process:</p>
-        <p className={paragraphClass}>Trades must pass the FPL Checks and Balances system, requiring a majority vote (at least 2 of 3 votes) from:</p>
-        <ul className={listClass}>
-          <li>Head Admin</li>
-          <li>Player Representatives</li>
+        <h3 className={subsectionHeadingClass}>Trades</h3>
+        <p className={paragraphClass}>
+          Trades between teams are allowed until the Sunday before Week 5 and require approval.
+        </p>
+        <p className={paragraphClass}>
+          Trades must be approved by 2 out of the 3 groups (aka FPL’s checks and balances)
+        </p>
+        <ol className={orderedListClass}>
+          <li>Head Founder/Staff for the split</li>
+          <li>Player Reps (need a majority of the total assigned)</li>
           <li>Captains</li>
-        </ul>
-        <p className={paragraphClass}>Example: Captains and Player Representatives vote yes, Head Admin votes no → trade passes.</p>
-        <h3 className={subsectionHeadingClass}>6.2 Substitutes and E-Subs</h3>
-        <p className={paragraphClass}>Two substitutes per week max (Anymore refer to 6.3); no penalty if approved 24 hours prior.</p>
-        <p className={paragraphClass}>Emergency substitutes incur penalties: 1 ban loss per late sub.</p>
-        <p className={paragraphClass}>Admins will have discretion on e-subs that are submitted even when technically adhering to the items listed below:</p>
-        <p className={paragraphClass}>A substitute’s current rank must be equal to or lower than the replaced player’s Current Rank in S2026.</p>
-        <p className={paragraphClass}>Additionally, a substitute may not have peaked a whole division higher than the player they are replacing. (ex. E2 Replaced by D4)</p>
-        <p className={paragraphClass}>The current season, or the immediately preceding season of 15.</p>
-        <p className={paragraphClass}>League administrators reserve the right to submit any substitute approval to a vote when necessary to preserve league integrity. If a substitute is proposed with fewer than twelve (12) hours’ notice before game day, administrators may deny the request if it could reasonably compromise competitive integrity.</p>
-        <p className={paragraphClass}>Examples include, but are not limited to, replacing an off-role player with an on-role player of significantly higher skill or using a known Elo sitter. Administrators also reserve the right to order a remake of any match/restrict usage of the individual in future series in which a substitute’s performance materially compromises competitive integrity.</p>
-        <p className={paragraphClass}>Players must pass all additional eligibility checks listed in Section 1.3, Player Eligibility.</p>
-        <h3 className={subsectionHeadingClass}>6.3 Three E-Subs</h3>
-        <p className={paragraphClass}>In the event that 3 E-Subs are needed the following punishments will be applied regardless of notice:</p>
-        <ul className={listClass}><li>1 Game Loss for Bo3 or 2 Game Loss for Bo5</li><li>Lose first phase bans in all games with more than 2 E-Subs</li></ul>
-        <h3 className={subsectionHeadingClass}>6.4 Mid-Series E-Subs</h3>
-        <p className={paragraphClass}>Teams that require an E-SUB mid series will have 15 minutes after the previous game finishes to find an E-SUB.</p>
-        <p className={paragraphClass}>In the event that a team needs an E-SUB mid series, here are the punishments per game sub is needed:</p>
-        <p className={paragraphClass}>In B03s: Team with incoming sub loses all first phase bans in game 2 or 3 of B03s.</p>
-        <p className={paragraphClass}>In B05s:</p>
-        <p className={paragraphClass}>NOTE: ALL B05 SERIES THAT NEED A MID SERIES SUB ARE ENCOURAGED TO BE RESCHEDULED.</p>
-        <ul className={listClass}>
-          <li>Join Game 2: Team loses an additional ban on top of the E-Sub ban. (2 bans total).</li>
-          <li>Join Game 3: Gaining Team loses all bans.</li>
-          <li>Join Game 4: Team FFs 1 game or series.</li>
-          <li>Esubs can not join for game 5.</li>
-        </ul>
-        <p className={paragraphClass}>If a team is seen hiding their starting player to play an Esub mid series, that team will be punished by either losing a game or the entire series.</p>
-        <h3 className={subsectionHeadingClass}>6.5 Role Swaps</h3>
-        <p className={paragraphClass}>Players are locked into the role assigned at the start of each season.</p>
-        <p className={paragraphClass}>You must attend your lane assignment until 3 minutes into the game.</p>
-        <p className={paragraphClass}>Admin discretion can decide any abuse to this rule. Submit a ticket and pause the game if you believe someone is breaking 6.4.</p>
-        <p className={paragraphClass}>Players are required to take the quest that is associated with their assigned role in the league.</p>
-        <h3 className={subsectionHeadingClass}>6.6 Game Pauses</h3>
-        <p className={paragraphClass}>Teams are permitted to pause a match if unexpected technical issues or personal emergencies occur.</p>
-        <h4 className={minorHeadingClass}>Pause Limits</h4>
-        <p className={paragraphClass}>Each team is allowed up to ten (10) minutes of pause time per game, whether the match is being streamed or not. Once a team reaches this limit, they must resume the game regardless of the situation.</p>
-        <p className={paragraphClass}>An additional ten (10) minutes may be used solely by league officials to resolve in-game rulings or administrative decisions.</p>
-        <h4 className={minorHeadingClass}>Acceptable Pause Reasons</h4>
-        <p className={paragraphClass}>Pauses should only occur for legitimate situations. Acceptable reasons include technical problems or sudden, unavoidable life circumstances.</p>
-        <p className={paragraphClass}>League staff reserves the right to request a match be unpaused if they determine the reason is insufficient. For example, pausing a game right before it ends will typically be denied.</p>
-        <h4 className={minorHeadingClass}>No Pausing During Combat</h4>
-        <p className={paragraphClass}>Teams are not allowed to pause while players are actively engaging one another. Combat is defined as any moment when a player casts abilities or attacks an opponent, or responds to an enemy action with a spell or ability.</p>
-        <h3 className={subsectionHeadingClass}>6.7 Player Replacements</h3>
-        <p className={paragraphClass}>Permanent replacements follow substitute eligibility rules.</p>
-        <p className={paragraphClass}>Staff maintains the right to declare controversial replacements as a vote.</p>
-        <p className={paragraphClass}>Players are required to be replaced and approved no later than one week after player removal.</p>
-        <p className={paragraphClass}>Replacement Players can be put up for a vote if deemed necessary.</p>
-        <h3 className={subsectionHeadingClass}>6.8 Rescheduling Policy</h3>
-        <p className={paragraphClass}>All regular season matches are scheduled for Mondays each week.</p>
-        <p className={paragraphClass}>Teams may reschedule a match if:</p>
-        <ul className={listClass}>
-          <li>The match can be rescheduled to any time within 2 weeks of the scheduled match day</li>
-          <li>Both teams agree on the new time.</li>
-        </ul>
-        <p className={paragraphClass}>For playoff matches the game must be scheduled before next week’s match.</p>
-        <p className={paragraphClass}>When both teams agree to a rescheduled time, the rules outlined in Game Punctuality 7.2 apply.</p>
-      </section>
+        </ol>
+        <p className={paragraphClass}>Captains and players involved in the trade will not have their votes counted.</p>
 
-      <section aria-labelledby="match-setup" className="space-y-5">
-        <h2 id="match-setup" className={sectionHeadingClass}>7. Match Setup &amp; Procedure</h2>
-        <h3 className={subsectionHeadingClass}>7.1 Lobby &amp; Side Selection</h3>
-        <p className={paragraphClass}>Matches created via Tournament Codes are provided weekly.</p>
-        <p className={paragraphClass}>Initial sides are predetermined; the previous game&apos;s losing team chooses subsequent sides.</p>
-        <p className={paragraphClass}>During custom lobby set up you must have the appropriate quest assigned to the appropriate role (Ex. you can&apos;t have 2 top lane quests assigned to your team)</p>
-        <h3 className={subsectionHeadingClass}>7.2 Game Punctuality</h3>
-        <ul className={listClass}>
-          <li>10 mins late: 1 ban loss.</li>
-          <li>15 mins late: 3 ban losses.</li>
-          <li>20 mins late: Game forfeit.</li>
-          <li>30 minutes late: Series forfeit</li>
-        </ul>
-        <h3 className={subsectionHeadingClass}>7.3 Time Between Games</h3>
-        <p className={paragraphClass}>Teams have 5 minutes between games to be lined up in lobby</p>
-        <p className={paragraphClass}>Staff after this point can be contacted to start tracking time and following penalties can be enforced:</p>
-        <ul className={listClass}>
-          <li>5 Mins past is 2 Bans Lost</li>
-          <li>10 Mins past is ALL Bans Lost</li>
-          <li>15 Mins past is next Game FORFEIT</li>
-          <li>20 Mins past is series FORFEIT</li>
-        </ul>
-        <h3 className={subsectionHeadingClass}>7.4 Champion Draft</h3>
-        <p className={paragraphClass}>Third-party drafting tools mandatory (DraftLoL or Drafter).</p>
-        <p className={paragraphClass}>Players must maintain client draft positions; limited lane swaps permitted in-game.</p>
-        <h3 className={subsectionHeadingClass}>7.5 Fearless Format</h3>
-        <p className={paragraphClass}>In a Full Fearless Draft, champions that a team picks may not be used again in the duration of that series. For example, if Team A selects Aatrox, Sejuani, Orianna, Xayah, and Rakan in their pick ban of Game 1 of the Bo3, and Team B selects Ornn, Kayn, Ahri, Vayne, and Lux, both Team A and Team B will not be able to use any of those champions for the remainder of the series, regardless of win or loss of each game.</p>
-        <p className={paragraphClass}>For a playoff Bo5 series, the match will be full fearless (with complete bans in Games 4 and 5).</p>
-      </section>
+        <h3 className={subsectionHeadingClass}>Subs/Esubs/Replacements</h3>
+        <p className={paragraphClass}>
+          Teams may use substitutes with restrictions and penalties for emergency usage.
+        </p>
+        <p className={paragraphClass}>
+          Mid-series substitutions result in additional penalties and restrictions.
+        </p>
+        <p className={paragraphClass}>
+          Teams can submit subs 24 hours in advance of game time, with no penalty (max 2 subs).
+        </p>
+        <p className={paragraphClass}>
+          If not within 24 hours then -1 ban for each sub in every game of the series in the first ban phase (unless it is the staff’s fault it is not reviewed in a timely manner).
+        </p>
+        <p className={paragraphClass}>All subs must be follow these rules:</p>
+        <ol className={orderedListClass}>
+          <li>Equal to or lower current rank of original player</li>
+          <li>
+            Their peak rank in S15/S16 of original player cannot be in a higher division
+            <p className={paragraphClass}>
+              Examples: (Good=Plat 1 for E4 peaks, Bad= Diamond 4 for Emerald 1 peaks)
+            </p>
+          </li>
+          <li>Abide by all player eligibility rules seen in Player Eligibility</li>
+        </ol>
+        <p className={paragraphClass}>
+          League staff reserve the right to deny a sub if the player jeopardizes league integrity (elo-sitter, etc).
+        </p>
+        <p className={paragraphClass}>
+          In the rare scenario a team needs 3 subs, they will FF game 1 of the Bo3 or games 1 &amp; 2 of the Bo5 (3 subs not allowed in gauntlet) AND they will lose all first phase bans in each game..
+        </p>
+        <p className={paragraphClass}>
+          Replacements must abide by all regular sub rules. (also must be submitted no longer than 1 week after a player drops/gets removed)
+        </p>
 
-      <section aria-labelledby="player-conduct" className="space-y-5">
-        <h2 id="player-conduct" className={sectionHeadingClass}>8. Player Conduct</h2>
-        <p className={paragraphClass}>All participants in the Franchise Premier League (FPL) are held to the highest standards of competitive integrity and personal conduct. By participating in the FPL, players and associated staff agree to uphold the following:</p>
-        <p className={paragraphClass}>Suppose any participant feels uncomfortable, unsafe, or believes a line has been crossed in any communication (including private messages, in-game chat, Discord, or social media). In that case, they are strongly encouraged to report this immediately by opening a ticket. The staff will investigate and escalate concerns as necessary, and all reports will be handled with discretion And confidentiality.</p>
-        <h3 className={subsectionHeadingClass}>8.1 Fair Play and Integrity</h3>
-        <p className={paragraphClass}>All players are required to compete to the best of their ability in every match.</p>
-        <p className={paragraphClass}>The following actions are strictly prohibited and constitute serious violations of league rules:</p>
+        <h3 className={subsectionHeadingClass}>Mid Series Subs</h3>
+        <p className={paragraphClass}>Mid series subs must abide by all regular sub rules.</p>
+        <p className={paragraphClass}>
+          Teams have 15 mins to find an esub after the previous game has finished
+        </p>
+        <p className={paragraphClass}>In a Bo3, teams lose all first phase bans in remaining games.</p>
+        <p className={paragraphClass}>In a Bo5:</p>
         <ul className={listClass}>
-          <li>Collusion: Any agreement between players or teams to intentionally influence the outcome of a game or match for personal or team gain.</li>
-          <li>Hacking or Cheating: The use of unauthorized software, scripts, or external devices to modify or gain unfair advantages in-game.</li>
-          <li>Exploiting Bugs: Intentionally using game bugs or unintended mechanics to secure advantages.</li>
-          <li>Smurfing: Playing under another player’s account or knowingly allowing someone else to play on one’s account.</li>
-          <li>Match-Fixing: Deliberately losing or manipulating match outcomes for financial or competitive advantage.</li>
-          <li>Stream Sniping: Viewing an opponent’s live stream during a match to obtain real-time information.</li>
+          <li>Joins Game 2: Team loses 2 bans</li>
+          <li>Joins Game 3: Team loses all bans</li>
+          <li>
+            Joins Game 4: Team FFs game 4 and sub may be allowed to play game 5 unless they lose the series with this FF
+          </li>
+          <li>After Game 4 has ended no mid-series esubs are allowed.</li>
         </ul>
-        <h3 className={subsectionHeadingClass}>8.2 Unprofessional Conduct</h3>
-        <p className={paragraphClass}>The following behaviors are prohibited: In All Channels</p>
-        <p className={paragraphClass}>Harassment: Persistent or severe actions intended to disturb, threaten, or demean individuals or groups, including but not limited to:</p>
+
+        <h3 className={subsectionHeadingClass}>Conduct &amp; Integrity</h3>
+        <p className={paragraphClass}>The following actions are strictly prohibited:</p>
+        <ul className={listClass}>
+          <li>Cheating or scripting</li>
+          <li>Smurfing/account sharing</li>
+          <li>Match-fixing</li>
+          <li>Stream sniping.</li>
+        </ul>
+
+        <h3 className={subsectionHeadingClass}>Unprofessional Conduct</h3>
+        <p className={paragraphClass}>The following behaviors are strictly prohibited:</p>
+        <p className={paragraphClass}>
+          Harassment: Persistent or severe actions intended to disturb, threaten, or demean individuals or groups, including but not limited to:
+        </p>
         <ul className={listClass}>
           <li>Insults, slurs, or offensive remarks related to race, ethnicity, nationality, gender, sexual orientation, religion, or disability.</li>
-          <li>Targeted personal attacks or doxxing.</li>
         </ul>
-        <p className={paragraphClass}>Abusive Behavior: Excessive flaming, toxic language, or threats directed at opponents, teammates, staff, or community members.</p>
-        <p className={paragraphClass}>Disruptive to the League: Actions that harm the reputation or integrity of the FPL, including:</p>
-        <ul className={listClass}><li>Posting inappropriate or offensive content associated with the FPL brand.</li><li>Player removal from the league</li></ul>
-        <p className={paragraphClass}>Players can be removed from the league under strenuous circumstances that involve behavioral issues, attendance issues, etc.</p>
-        <h3 className={subsectionHeadingClass}>8.3 Communication Guidelines</h3>
-        <p className={paragraphClass}>Players must use appropriate language in all official league communications, including:</p>
+        <p className={paragraphClass}>
+          Abusive Behavior: Excessive flaming, toxic language, or threats directed at opponents, teammates, staff, or community members.
+        </p>
+        <p className={paragraphClass}>
+          Disruptive to the League: Actions that harm the reputation or integrity of the FPL, including:
+        </p>
         <ul className={listClass}>
-          <li>In-game chat</li>
-          <li>Voice comms</li>
-          <li>Discord servers</li>
-          <li>Public social media when discussing league matters</li>
+          <li>Posting inappropriate or offensive content associated with the FPL brand.</li>
         </ul>
-        <p className={paragraphClass}>Excessive profanity or inflammatory language in official settings is discouraged and may result in warnings or penalties.</p>
-        <p className={paragraphClass}>Suppose any participant feels uncomfortable, unsafe, or believes a line has been crossed in any communication (including private messages, in-game chat, Discord, or social media). In that case, they are strongly encouraged to report this immediately by opening a ticket. The staff will investigate and escalate concerns as necessary, and all reports will be handled with discretion and confidentiality.</p>
-        <h3 className={subsectionHeadingClass}>8.4 Banter Chat</h3>
-        <p className={paragraphClass}>The FPL maintains dedicated “banter chat” channels for playful trash talk, memes, and competitive banter among participants.</p>
-        <p className={paragraphClass}>Participation in banter chats is entirely optional.</p>
-        <p className={paragraphClass}>Banter chat channels are moderated less rigorously than other official channels, allowing for competitive banter. However:</p>
-        <ul className={listClass}>
-          <li>Hate speech and personal threats remain strictly prohibited.</li>
-          <li>The line between acceptable banter and personal attacks is determined at the discretion of the staff.</li>
-          <li>Participants are encouraged to self-regulate and maintain mutual respect, even in banter contexts.</li>
-          <li>Players who prefer not to engage in banter chats may mute or leave these channels.</li>
-        </ul>
-        <p className={paragraphClass}>If any participant feels uncomfortable, unsafe, or believes a line has been crossed in any communication (including private messages, in-game chat, Discord, or social media). In that case, they are strongly encouraged to report this immediately by opening a ticket. The staff will investigate and escalate concerns as necessary, and all reports will be handled with discretion and confidentiality.</p>
-        <h3 className={subsectionHeadingClass}>8.5 Penalties and Enforcement</h3>
-        <p className={paragraphClass}>Violations of this section may result in disciplinary actions, including but not limited to:</p>
-        <ul className={listClass}>
-          <li>Warnings</li>
-          <li>Loss of bans in future drafts</li>
-          <li>Suspension from one or more matches</li>
-          <li>Permanent ban from the league</li>
-          <li>Forfeiture of prize money or standing in the current season</li>
-        </ul>
-        <p className={paragraphClass}>The severity of penalties will be determined by the staff based on:</p>
-        <ul className={listClass}>
-          <li>Nature and seriousness of the offense</li>
-          <li>Impact on competitive integrity</li>
-          <li>Prior disciplinary history</li>
-        </ul>
-        <p className={paragraphClass}>All decisions regarding conduct violations are final and binding.</p>
-      </section>
+        <p className={paragraphClass}>
+          Players can be removed from the league under strenuous circumstances that involve behavioral issues, attendance issues, etc.
+        </p>
+        <p className={paragraphClass}>
+          Players must use appropriate language in all official league communications, and are not allowed to mute all, deafen, etc their teammates in official games.
+        </p>
+        <p className={paragraphClass}>Any problems please create a ticket and staff will handle the situation accordingly.</p>
 
-      <section aria-labelledby="content-streaming" className="space-y-5">
-        <h2 id="content-streaming" className={sectionHeadingClass}>9. Content and Streaming</h2>
-        <ul className={listClass}>
-          <li>Official matches may be streamed by the league or independently.</li>
-          <li>Results must not be disclosed prematurely.</li>
-          <li>Stream sniping prohibited; recommended stream delay: 3 minutes.</li>
-        </ul>
-      </section>
+        <h3 className={subsectionHeadingClass}>Streaming &amp; Content</h3>
+        <p className={paragraphClass}>Matches may be streamed.</p>
+        <p className={paragraphClass}>A 3-minute delay is recommended.</p>
+        <p className={paragraphClass}>Results must not be shared before official confirmation.</p>
 
-      <section aria-labelledby="rule-amendments" className="space-y-5">
-        <h2 id="rule-amendments" className={sectionHeadingClass}>10. Rule Amendments</h2>
-        <p className={paragraphClass}>The Franchise Premier League (FPL) reserves the right to update, modify, or clarify any rules contained in this rulebook at any time to preserve competitive integrity and ensure fair play.</p>
-        <p className={paragraphClass}>All rule changes will be:</p>
-        <ul className={listClass}>
-          <li>Documented in a public changelog.</li>
-          <li>Announced promptly via official league communication channels (e.g., Discord, website, email).</li>
-        </ul>
-        <p className={paragraphClass}>Amendments will not retroactively affect matches that have already been completed before the effective date of the change, except in extraordinary circumstances where failing to do so would compromise competitive integrity.</p>
-        <p className={paragraphClass}>In situations where retroactive enforcement is deemed necessary, such decisions will require a majority vote from the staff.</p>
-        <p className={paragraphClass}>Participants are responsible for staying informed about rule changes once they are announced.</p>
-      </section>
-
-      <section aria-labelledby="lock-in-window" className="space-y-5">
-        <h2 id="lock-in-window" className={sectionHeadingClass}>11. The Lock-In Window (Offseason)</h2>
-        <p className={paragraphClass}>3-day Lock-In Window.</p>
-        <h3 className={subsectionHeadingClass}>Phase 1 - Market Value Period (24 Hours)</h3>
-        <p className={paragraphClass}>All players going into the split’s auction draft will have a pre-established market minimum.</p>
-        <p className={paragraphClass}>Each Captain has 12 bids they can make on players during the Market Value Period. These bids will be used at a silent auction.</p>
-        <p className={paragraphClass}>The 12 bids will be from only these values. These bids are arbitrary and will not be taken away from your team’s cap. They are only meant to set a player&apos;s value for Free Agency.</p>
-        <ul className={listClass}>
-          <li>2- 50 pt bid.</li>
-          <li>3- 40 pt bid.</li>
-          <li>2- 30 pt bid</li>
-          <li>2- 20 pt bid.</li>
-          <li>2- 10 pt bid.</li>
-          <li>1- 5 pt bid.</li>
-        </ul>
-        <p className={paragraphClass}>Captains can only use one unique bid per player. All bids MUST be used. Captains may not bid on players in their own role.</p>
-        <p className={paragraphClass}>At the end of the Market Value Period, the average value a player was bid on (including their sit price) will set their free agency price.</p>
-        <p className={paragraphClass}>If a captain did not bid on a certain player during Market Value Period then they are not able to sign them during Selective Free Agency.</p>
-        <p className={paragraphClass}>Players or Captains caught trying to manipulate/collude during Phase 1 can be given punishments if caught by the Admin team:</p>
-        <p className={paragraphClass}>For purposes of this section, ‘collusion’ means a pre-arranged agreement between two or more captains or players intended to artificially inflate or suppress a player’s market value.</p>
-        <p className={paragraphClass}>A finding of collusion requires clear and articulable evidence, not mere similarity of bids.</p>
-        <p className={paragraphClass}>Punishment Examples. - Point Deductions from total allotment, Point Addition to player cost, Removal from league.</p>
-        <h3 className={subsectionHeadingClass}>Phase 2 – Selective Free Agency (48 Hours)</h3>
-        <p className={paragraphClass}>Each Captain is only able to sign one player (that they bid on) during the Selective Free Agency.</p>
-        <p className={paragraphClass}>A Player can only be signed for the price set by Market Value Period.</p>
-        <p className={paragraphClass}>Even if a Captain bid on a player during the Market Value Period they do not have to make an offer to those players.</p>
-        <p className={paragraphClass}>As Captains send offers to players, the players will make the final decision on which captain they would like to play with in the coming season. Captains can open up a ticket to ensure a player responds in a timely manner. (Players are expected to be responsive and help facilitate a smooth Phase 2.)</p>
-        <p className={paragraphClass}>In order to confirm a free agent signing, the captain must make a ticket with the player they wish to sign.</p>
-        <h3 className={subsectionHeadingClass}>Phase 3 – CONTINGENCY PERIOD (24 Hours)</h3>
-        <p className={paragraphClass}>If captains come out of selective free agency without a player signed, the remaining captains will have an additional 24 hours to make offers from the remaining people they bid on during the Market Value Period.</p>
-        <h4 className={minorHeadingClass}>Additional Rules</h4>
-        <p className={paragraphClass}>Free Agent Signing Restrictions:</p>
-        <p className={paragraphClass}>Teams may not circumvent the above limitations through trade agreements or informal arrangements. Violations will result in severe penalties.</p>
-        <p className={paragraphClass}>All roster slots beyond those filled by players retained through the Free Agency must be filled via the Auction Draft.</p>
-        <h3 className={subsectionHeadingClass}>Phase 4 – Auction Draft (see Section 2 for details)</h3>
-        <h3 className={subsectionHeadingClass}>Post-Auction Roster Finalization</h3>
-        <p className={paragraphClass}>Once the Auction Draft concludes, rosters are locked for the duration of the upcoming split, except for emergency substitutions under league rules.</p>
-        <p className={paragraphClass}>Any disputes or questions regarding draft outcomes will be reviewed by the Admin Team, whose decisions are final and binding.</p>
-      </section>
-
-      <section aria-labelledby="admin-discretion" className="space-y-5">
-        <h2 id="admin-discretion" className={sectionHeadingClass}>12. Admin Discretion</h2>
-        <p className={paragraphClass}>Administrators classified as the Commissioner as well as any Head of Staff members are able to make executive decisions and overrule votes which are deemed to be in the best interest of the league as a whole.</p>
-        <h3 className={subsectionHeadingClass}>12.1 Limitations on Admin Diescretion</h3>
-        <h4 className={minorHeadingClass}>12.1.1 Impartial Votes from the Staff</h4>
-        <p className={paragraphClass}>When a decision needs to be made that other members of the staff may not be able to vote impartially leading to votes being skewed.</p>
-        <h4 className={minorHeadingClass}>12.1.2 The Leagues Best Interest or Betterment of the League</h4>
-        <p className={paragraphClass}>When someone believes that by enforcing something in a particular way will better the league as a whole. The decision must be made with evidence or multiple suspicions leading to a belief that something is more probable than not.</p>
-        <h4 className={minorHeadingClass}>12.1.3 Executive Decisions Need to be Made</h4>
-        <p className={paragraphClass}>When someone believes that an executive decision needs to be made in a timely manner or in such a way that there is not proper time for the staff to meet and determine a ruling.</p>
-        <h3 className={subsectionHeadingClass}>12.2 Ruling Properties</h3>
-        <h4 className={minorHeadingClass}>12.2.1 Must Be Fully Documented</h4>
-        <p className={paragraphClass}>The executive decision must be documented in an informal manner showing the overview of why a decision was made. This does not need all evidence to be displayed but must be made public to other admins if they ask for it.</p>
-        <h4 className={minorHeadingClass}>12.2.2 They Create Precedence</h4>
-        <p className={paragraphClass}>If an executive decision is created it then sets the precedence for future cases of a similar nature. Before a second executive decision can be made on a similar case, one must ensure that there is not already a decision. If a decision has been made, the new ruling must follow the old ruling unless it can be proved that there is a reason why the precedence should be changed or why it should be treated as a one time exception.</p>
-        <h4 className={minorHeadingClass}>12.2.3 They Can be Later Overturned by the staff</h4>
-        <p className={paragraphClass}>As the league is run by these bodies they have the power to overturn any executive decision for future cases, however, they are not able to go back into the past and change the existing decision that was made. They have the power to change precedence and make the change for all future cases under the same circumstances but cannot change the past. This is to prevent situations where a decision was made, was overturned later, and massive changes would have happened to the structure of the league. As there was sufficient evidence in the first place, no past changes were made.</p>
-        <h4 className={minorHeadingClass}>12.2.4 Admin Discretion Rulings are To Be The Final Form of Defense</h4>
-        <p className={paragraphClass}>If a decision can be made in any other way, it should be and instead use the correct and normal patterns for getting a rule implemented.</p>
+        <h3 className={subsectionHeadingClass}>Rule Amendments</h3>
+        <p className={paragraphClass}>Rules may be updated at any time and will be publicly announced.</p>
+        <p className={paragraphClass}>
+          Changes will not apply retroactively unless necessary for competitive integrity.
+        </p>
       </section>
 
       <section aria-labelledby="staff" className="space-y-5">
-        <h2 id="staff" className={sectionHeadingClass}>Franchise Premier League Staff</h2>
-        <ul className={listClass}>
-          <li>Head of Staff: Rutledge</li>
-          <li>Staff: Jake, Repped, NeptuneRises</li>
-          <li>Founders: Jaydk, Jake, Repped, Rutledge</li>
-        </ul>
-        <p className={paragraphClass}>All rules and guidelines are subject to interpretation by League Staff. Staff decisions are final.</p>
-      </section>
-
-      <section aria-labelledby="changelog" className="space-y-5">
-        <h2 id="changelog" className={sectionHeadingClass}>Changelog:</h2>
-        <h3 className={subsectionHeadingClass}>08/18/25</h3>
-        <p className={paragraphClass}>Added 7.5 Game Pauses to the rulebook via town hall 1.</p>
-        <p className={paragraphClass}>Adjusted player rescheduling rule via vote, going 3-0 for 2 week rescheduling period</p>
-        <h3 className={subsectionHeadingClass}>8/21/25</h3>
-        <p className={paragraphClass}>Adjusted Elo sitting games from ineligible to losing bans via vote passed 3-0</p>
-        <p className={paragraphClass}>Split 2</p>
-        <h3 className={subsectionHeadingClass}>10/15/25</h3>
-        <p className={paragraphClass}>Adjusted low rank replacement to be an option for managers instead of mandatory. Made the replacement rank be below Gold 1 instead of Plat 4. Low elo replacement rank has also dropped to be can only replace with players who are between Gold 1 and Plat 4.</p>
-        <p className={paragraphClass}>Tiebreaker #2 wording has been adjusted to specify team win rate.</p>
-        <p className={paragraphClass}>The trade window has opened directly after the draft to the day before week 5 regular season.</p>
-        <p className={paragraphClass}>The player replacement rule will no longer follow player eligibility.</p>
-        <p className={paragraphClass}>Off role players will be labeled by staff preseason even if you aren&apos;t in the d2/d1 policy. Meaning if either your op.gg or previous competitive seasons show that you main a different role than what you are playing currently, you will be labeled off role.</p>
-        <p className={paragraphClass}>Off role player replacements can’t be higher than E1, and must be replaced by an on-role player no higher than 3 ranks below the off role player (E1 50LP → E4 50LP)</p>
-        <p className={paragraphClass}>Removal of trade block section.</p>
-        <h3 className={subsectionHeadingClass}>10/16/25</h3>
-        <p className={paragraphClass}>Adjusted off role replacement for lower elo off role players. No replacement lower than P4.</p>
-        <h3 className={subsectionHeadingClass}>10/18/25</h3>
-        <p className={paragraphClass}>Rule 13 has been made with admin discretion</p>
-        <p className={paragraphClass}>Split 3</p>
+        <h2 id="staff" className={sectionHeadingClass}>
+          FPL Staff
+        </h2>
+        <p className={paragraphClass}>Founders: Rutledge, Jake, JayDK, &amp; Repped</p>
+        <p className={paragraphClass}>Staff: Dribb, Jules, Sunset Diner, Geoff, Luke</p>
+        <p className={paragraphClass}>
+          All rules and guidelines are subject to interpretation by League Staff. No Rulebook is perfect and not every rule can be listed and detailed. Staff members have final decision making on rulings.
+        </p>
+        <p className={paragraphClass}>Made by Lizzo Mukkbang</p>
       </section>
     </article>
   );
