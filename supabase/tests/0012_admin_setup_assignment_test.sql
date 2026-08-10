@@ -1,15 +1,17 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(11);
+select plan(14);
 
 create temporary table t as select tests.fixture() as d;
+create temporary table other as select tests.fixture() as d;
 delete from public.players
  where draft_id = (select d from t) and display_name = 'FA 1';
 create temporary table ids as
   select
     (select id from public.teams where draft_id = (select d from t) and nomination_position = 1) as team_a,
-    (select id from public.players where draft_id = (select d from t) and display_name = 'Mid1') as mid1;
+    (select id from public.players where draft_id = (select d from t) and display_name = 'Mid1') as mid1,
+    (select id from public.players where draft_id = (select d from other) and display_name = 'Mid1') as other_mid1;
 
 select tests.acting_as(tests.admin_id());
 select lives_ok($$ select public.admin_assign_setup_player(
@@ -35,8 +37,18 @@ select throws_like($$ select public.admin_assign_setup_player(
 
 select tests.acting_as(tests.admin_id());
 select throws_like($$ select public.admin_assign_setup_player(
-  (select d from t), gen_random_uuid(), (select team_a from ids), 1
+  (select d from t), (select other_mid1 from ids), (select team_a from ids), 1
 ) $$, 'PLAYER_INVALID%', 'wrong-draft player is rejected');
+select ok((select team_id is null and price is null and acquisition is null
+           from public.players where id = (select other_mid1 from ids)),
+          'cross-draft rejection leaves the other draft player unchanged');
+select throws_like($$ select public.admin_assign_setup_player(
+  (select d from t), (select mid1 from ids), (select team_a from ids), 1
+) $$, 'PLAYER_TAKEN%', 'occupied player is rejected');
+select ok((select team_id = (select team_a from ids) and price = 12
+                  and acquisition::text = 'free_agency'
+           from public.players where id = (select mid1 from ids)),
+          'occupied-player rejection preserves the assigned player state');
 select throws_like($$ select public.admin_assign_setup_player(
   (select d from t),
   (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
