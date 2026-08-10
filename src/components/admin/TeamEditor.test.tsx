@@ -84,6 +84,18 @@ afterEach(() => {
 });
 
 describe("TeamEditor", () => {
+  it("adds a derived abbreviation for a new team", async () => {
+    render(<TeamEditor {...props} teams={[]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add team" }));
+
+    await waitFor(() =>
+      expect(chain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ abbreviation: "T1" })
+      )
+    );
+  });
+
   it("offers an eligible existing pool player with a point value field", () => {
     render(<TeamEditor {...props} />);
 

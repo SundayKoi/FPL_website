@@ -3,6 +3,15 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_ORDER, type LolRole, type Player, type Profile, type Team } from "@/lib/draft/types";
 
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
 export default function TeamEditor({
   draftId,
   teams,
@@ -35,9 +44,11 @@ export default function TeamEditor({
       .order("nomination_position", { ascending: false })
       .limit(1);
     const nextPosition = existing && existing.length ? existing[0].nomination_position + 1 : 1;
+    const name = `Team ${teams.length + 1}`;
     const { error } = await supabase.from("teams").insert({
       draft_id: draftId,
-      name: `Team ${teams.length + 1}`,
+      name,
+      abbreviation: initials(name),
       nomination_position: nextPosition,
       budget_start: 100,
       points_remaining: 100,

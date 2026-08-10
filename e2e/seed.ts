@@ -153,8 +153,8 @@ async function main() {
   const draftId = draft.id as string;
 
   const teamsInput = [
-    { name: "E2E Alpha", captain_profile_id: cap1Id, nomination_position: 1, budget_start: 100 },
-    { name: "E2E Bravo", captain_profile_id: cap2Id, nomination_position: 2, budget_start: 90 },
+    { name: "E2E Alpha", abbreviation: "EA", captain_profile_id: cap1Id, nomination_position: 1, budget_start: 100 },
+    { name: "E2E Bravo", abbreviation: "EB", captain_profile_id: cap2Id, nomination_position: 2, budget_start: 90 },
   ];
   const { data: teams, error: teamsErr } = await supabase
     .from("teams")
@@ -162,6 +162,7 @@ async function main() {
       teamsInput.map((t) => ({
         draft_id: draftId,
         name: t.name,
+        abbreviation: t.abbreviation,
         captain_profile_id: t.captain_profile_id,
         nomination_position: t.nomination_position,
         budget_start: t.budget_start,

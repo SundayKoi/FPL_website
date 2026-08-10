@@ -27,19 +27,19 @@ const COUNTDOWN_SECONDS = 15;
 // Each team pre-fills two roles (captain + free-agency signing). The pairs are
 // varied so different captains need different roles — lets every point of view
 // be demoed (a team hunting top/jungle, a team hunting mid, etc.).
-const TEAMS: { name: string; email: string; budget: number; capRole: string; faRole: string }[] = [
-  { name: "Lion Guard", email: "e2e-cap1@test.local", budget: 100, capRole: "top", faRole: "jungle" },
-  { name: "Crest Kings", email: "e2e-cap2@test.local", budget: 100, capRole: "mid", faRole: "support" },
-  { name: "Navy Nexus", email: "demo-cap3@test.local", budget: 95, capRole: "adc", faRole: "top" },
-  { name: "Baron Barons", email: "demo-cap4@test.local", budget: 95, capRole: "jungle", faRole: "mid" },
-  { name: "Gold Fang", email: "demo-cap5@test.local", budget: 90, capRole: "support", faRole: "adc" },
-  { name: "Steel Sentinels", email: "demo-cap6@test.local", budget: 90, capRole: "top", faRole: "mid" },
-  { name: "Dragon Soul", email: "demo-cap7@test.local", budget: 85, capRole: "jungle", faRole: "adc" },
-  { name: "Rift Runners", email: "demo-cap8@test.local", budget: 85, capRole: "mid", faRole: "adc" },
-  { name: "Crown Chasers", email: "demo-cap9@test.local", budget: 80, capRole: "support", faRole: "top" },
-  { name: "Void Vanguard", email: "demo-cap10@test.local", budget: 80, capRole: "jungle", faRole: "support" },
-  { name: "Herald Hunters", email: "demo-cap11@test.local", budget: 75, capRole: "adc", faRole: "support" },
-  { name: "Flash Wolves FPL", email: "demo-cap12@test.local", budget: 75, capRole: "top", faRole: "jungle" },
+const TEAMS: { name: string; abbreviation: string; email: string; budget: number; capRole: string; faRole: string }[] = [
+  { name: "Lion Guard", abbreviation: "LG", email: "e2e-cap1@test.local", budget: 100, capRole: "top", faRole: "jungle" },
+  { name: "Crest Kings", abbreviation: "CK", email: "e2e-cap2@test.local", budget: 100, capRole: "mid", faRole: "support" },
+  { name: "Navy Nexus", abbreviation: "NN", email: "demo-cap3@test.local", budget: 95, capRole: "adc", faRole: "top" },
+  { name: "Baron Barons", abbreviation: "BB", email: "demo-cap4@test.local", budget: 95, capRole: "jungle", faRole: "mid" },
+  { name: "Gold Fang", abbreviation: "GF", email: "demo-cap5@test.local", budget: 90, capRole: "support", faRole: "adc" },
+  { name: "Steel Sentinels", abbreviation: "SS", email: "demo-cap6@test.local", budget: 90, capRole: "top", faRole: "mid" },
+  { name: "Dragon Soul", abbreviation: "DS", email: "demo-cap7@test.local", budget: 85, capRole: "jungle", faRole: "adc" },
+  { name: "Rift Runners", abbreviation: "RR", email: "demo-cap8@test.local", budget: 85, capRole: "mid", faRole: "adc" },
+  { name: "Crown Chasers", abbreviation: "CC", email: "demo-cap9@test.local", budget: 80, capRole: "support", faRole: "top" },
+  { name: "Void Vanguard", abbreviation: "VV", email: "demo-cap10@test.local", budget: 80, capRole: "jungle", faRole: "support" },
+  { name: "Herald Hunters", abbreviation: "HH", email: "demo-cap11@test.local", budget: 75, capRole: "adc", faRole: "support" },
+  { name: "Flash Wolves FPL", abbreviation: "FWF", email: "demo-cap12@test.local", budget: 75, capRole: "top", faRole: "jungle" },
 ];
 
 const POOL_NAMES: Record<string, string[]> = {
@@ -131,6 +131,7 @@ async function main() {
       TEAMS.map((t, i) => ({
         draft_id: draftId,
         name: t.name,
+        abbreviation: t.abbreviation,
         captain_profile_id: captainIds[i],
         nomination_position: i + 1,
         budget_start: t.budget,
