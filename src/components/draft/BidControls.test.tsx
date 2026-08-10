@@ -16,7 +16,7 @@ describe("BidControls", () => {
   it("submits the custom bid amount when the bid form is submitted", async () => {
     render(<BidControls team={team} lot={lot} lotPlayer={player} players={[]} onError={vi.fn()} />);
 
-    const input = screen.getByRole("spinbutton");
+    const input = screen.getByDisplayValue("11");
     fireEvent.change(input, { target: { value: "25" } });
     fireEvent.submit(input.closest("form")!);
 
@@ -24,5 +24,14 @@ describe("BidControls", () => {
       p_lot_id: "lot-1",
       p_amount: 25,
     }));
+  });
+
+  it("keeps non-integer characters out of the bid amount", () => {
+    render(<BidControls team={team} lot={lot} lotPlayer={player} players={[]} onError={vi.fn()} />);
+
+    const input = screen.getByDisplayValue("11");
+    fireEvent.change(input, { target: { value: "12abc.5" } });
+
+    expect((input as HTMLInputElement).value).toBe("125");
   });
 });
