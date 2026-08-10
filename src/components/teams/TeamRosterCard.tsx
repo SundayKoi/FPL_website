@@ -1,3 +1,5 @@
+"use client";
+
 import type { DragEvent } from "react";
 import type { RosterSlotView, RosterTeamView } from "@/lib/draft/types";
 
