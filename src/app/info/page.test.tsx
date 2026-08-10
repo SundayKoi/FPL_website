@@ -21,5 +21,10 @@ describe("InfoPage", () => {
         .getByRole("link", { name: /1\. league structure/i })
         .getAttribute("href"),
     ).toBe("#league-structure");
+    expect(
+      screen
+        .getByRole("link", { name: /back to rulebook sections/i })
+        .getAttribute("href"),
+    ).toBe("#rulebook-sections");
   });
 });

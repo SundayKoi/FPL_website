@@ -37,49 +37,6 @@ export default function RulebookContent() {
           <li>Each franchise “owns” a team roster and competes against other franchises throughout the season.</li>
           <li>The league is structured to create balanced, competitive matches and showcase emerging talent.</li>
         </ul>
-        <h3 className={subsectionHeadingClass}>Player Sign-Ups</h3>
-        <p className={paragraphClass}>
-          All players who want to compete sign up to join the “player pool.”
-        </p>
-        <p className={paragraphClass}>
-          <a
-            className="text-gold underline decoration-gold/50 underline-offset-4 hover:text-white"
-            href="https://forms.gle/rKdxaVfXnvAhD8wQA"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            https://forms.gle/rKdxaVfXnvAhD8wQA
-          </a>
-        </p>
-        <p className={paragraphClass}>
-          This pool is basically the list of everyone available to be picked by teams.
-        </p>
-        <p className={paragraphClass}>
-          When you sign up, you’ll provide info like your role (Top, Jungle, Mid, ADC, or Support), your rank, and your OP.GG link so franchises can scout your stats and performance.
-        </p>
-        <h3 className={subsectionHeadingClass}>Captain Sign-Ups</h3>
-        <p className={paragraphClass}>
-          All players who want to participate as a captain in the following split can sign up here
-        </p>
-        <p className={paragraphClass}>
-          <a
-            className="text-gold underline decoration-gold/50 underline-offset-4 hover:text-white"
-            href="https://forms.gle/MrzDgQ51K7KyEt4q6"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            https://forms.gle/MrzDgQ51K7KyEt4q6
-          </a>
-        </p>
-        <p className={paragraphClass}>
-          Captains are players who are in charge of running their teams franchise slot for the duration of the split
-        </p>
-        <p className={paragraphClass}>
-          Captains are responsible for signing a free agent, auction drafting, and managing their roster (e-sub, replacements, trades).
-        </p>
-        <p className={paragraphClass}>
-          Captains also have a separate entry fee and prize pool covered in section 1.5
-        </p>
         <h3 className={subsectionHeadingClass}>The Draft</h3>
         <p className={paragraphClass}>
           Instead of teams recruiting privately, FPL uses a draft system.

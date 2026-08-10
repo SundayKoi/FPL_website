@@ -16,7 +16,10 @@ describe("InfoResourceCard", () => {
 
     const link = screen.getByRole("link", { name: /open resource/i });
 
-    expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
+    const heading = screen.getByRole("heading", { name: "Payment", level: 2 });
+
+    expect(heading).toBeTruthy();
+    expect(heading.className).toContain("text-white");
     expect(link.getAttribute("href")).toBe("https://example.com");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");

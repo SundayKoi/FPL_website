@@ -40,4 +40,13 @@ describe("RulebookContent", () => {
       ),
     ).toBeTruthy();
   });
+
+  it("omits signup sections from the on-page Rulebook", () => {
+    render(<RulebookContent />);
+
+    expect(screen.queryByRole("heading", { name: "Player Sign-Ups" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Captain Sign-Ups" })).toBeNull();
+    expect(screen.queryByText("https://forms.gle/rKdxaVfXnvAhD8wQA")).toBeNull();
+    expect(screen.queryByText("https://forms.gle/MrzDgQ51K7KyEt4q6")).toBeNull();
+  });
 });

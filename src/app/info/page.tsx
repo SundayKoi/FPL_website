@@ -73,7 +73,11 @@ export default function InfoPage() {
             </a>
           </div>
 
-          <nav aria-label="Rulebook sections" className="card-brand p-6 sm:p-8">
+          <nav
+            id="rulebook-sections"
+            aria-label="Rulebook sections"
+            className="card-brand p-6 sm:p-8"
+          >
             <h3 className="font-display text-xl font-semibold text-white">Sections</h3>
             <ol className="mt-4 grid gap-x-8 gap-y-2 text-sm text-steel sm:grid-cols-2 lg:grid-cols-3">
               {rulebookSections.map(([label, id]) => (
@@ -91,6 +95,15 @@ export default function InfoPage() {
 
           <RulebookContent />
         </section>
+
+        <a
+          aria-label="Back to Rulebook sections"
+          className="fixed bottom-5 right-4 z-30 inline-flex items-center gap-2 rounded-full border border-gold/50 bg-navy/95 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-gold shadow-lg shadow-black/30 backdrop-blur transition hover:bg-panel hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold sm:bottom-8 sm:right-8"
+          href="#rulebook-sections"
+        >
+          <span aria-hidden="true">↑</span>
+          Back to sections
+        </a>
       </div>
     </main>
   );
