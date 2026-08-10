@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { Draft, Player, Team } from "@/lib/draft/types";
+import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
+import AdminTeamEditor from "@/components/teams/AdminTeamEditor";
 import AdminRosterEditor from "@/components/teams/AdminRosterEditor";
 import FeaturedDraftSelector from "@/components/teams/FeaturedDraftSelector";
 import { PLACEHOLDER_TEAMS } from "@/components/teams/placeholderTeams";
@@ -35,6 +36,7 @@ export default async function TeamsPage() {
   let selectedDraft: Draft | null = null;
   let selectedTeams: Team[] = [];
   let selectedPlayers: Player[] = [];
+  let captainProfiles: Profile[] = [];
 
   if (featuredDraftId) {
     const [draftResult, teamsResult, playersResult] = await Promise.all([
@@ -53,10 +55,23 @@ export default async function TeamsPage() {
     selectedDraft = (draftResult.data as Draft) ?? null;
     selectedTeams = (teamsResult.data as Team[]) ?? [];
     selectedPlayers = (playersResult.data as Player[]) ?? [];
+
+    const captainProfileIds = selectedTeams.flatMap((team) =>
+      team.captain_profile_id ? [team.captain_profile_id] : [],
+    );
+    if (captainProfileIds.length) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, display_name")
+        .in("id", captainProfileIds);
+      captainProfiles = (profiles as Profile[]) ?? [];
+    }
   }
 
   const hasSelectedDraft = Boolean(selectedDraft);
-  const teams = hasSelectedDraft ? toRosterTeams(selectedTeams, selectedPlayers) : PLACEHOLDER_TEAMS;
+  const teams = hasSelectedDraft
+    ? toRosterTeams(selectedTeams, selectedPlayers, captainProfiles)
+    : PLACEHOLDER_TEAMS;
 
   return (
     <TeamsDirectory
@@ -73,7 +88,9 @@ export default async function TeamsPage() {
       }
       rosterContent={
         hasSelectedDraft && isAdmin ? (
-          <AdminRosterEditor draftId={selectedDraft!.id} teams={selectedTeams} players={selectedPlayers} />
+          <AdminTeamEditor draftId={selectedDraft!.id} teams={selectedTeams} profiles={captainProfiles}>
+            <AdminRosterEditor draftId={selectedDraft!.id} teams={selectedTeams} players={selectedPlayers} />
+          </AdminTeamEditor>
         ) : undefined
       }
     />

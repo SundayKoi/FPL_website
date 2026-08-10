@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TeamsPage from "./page";
 
@@ -26,10 +26,23 @@ function query(result: unknown) {
   const builder = {
     select: () => builder,
     eq: () => builder,
+    in: () => Promise.resolve(result),
     order: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
   };
   return builder;
+}
+
+function profilesQuery(adminResult: unknown, captainProfilesResult: unknown) {
+  return {
+    select: (columns: string) => query(columns === "is_admin" ? adminResult : captainProfilesResult),
+  };
+}
+
+function draftsQuery(draftsResult: unknown, selectedDraftResult: unknown) {
+  return {
+    select: (columns: string) => query(columns === "id, name" ? draftsResult : selectedDraftResult),
+  };
 }
 
 const selectedTeam = {
@@ -63,6 +76,11 @@ const selectedPlayers = [
   acquisition,
 }));
 
+const selectedCaptainProfile = {
+  id: "profile-live",
+  display_name: "Captain Profile",
+};
+
 afterEach(() => {
   cleanup();
   getUser.mockReset();
@@ -73,7 +91,7 @@ describe("TeamsPage", () => {
   it("shows the placeholder preview and admin selector when no draft is featured", async () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
-      if (table === "profiles") return query({ data: { is_admin: true } });
+      if (table === "profiles") return profilesQuery({ data: { is_admin: true } }, { data: [] });
       if (table === "league_settings") return query({ data: { featured_draft_id: null } });
       return query({ data: [{ id: "draft-1", name: "Draft One" }] });
     });
@@ -85,9 +103,35 @@ describe("TeamsPage", () => {
     expect(screen.getByLabelText("Display draft")).toBeTruthy();
   });
 
-  it("renders the selected draft instead of preview data", async () => {
+  it("shows the selected captain profile in the admin team editor", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    from.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return profilesQuery({ data: { is_admin: true } }, { data: [selectedCaptainProfile] });
+      }
+      if (table === "league_settings") return query({ data: { featured_draft_id: "draft-live" } });
+      if (table === "drafts") {
+        return draftsQuery(
+          { data: [{ id: "draft-live", name: "Split 5" }] },
+          { data: { id: "draft-live", name: "Split 5" } },
+        );
+      }
+      if (table === "teams") return query({ data: [selectedTeam] });
+      if (table === "players") return query({ data: selectedPlayers });
+      return query({ data: null });
+    });
+
+    render(await TeamsPage());
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+
+    expect(screen.getByText(/Captain Profile/)).toBeTruthy();
+  });
+
+  it("renders the selected draft profile without an editor for non-admins", async () => {
     getUser.mockResolvedValue({ data: { user: null } });
     from.mockImplementation((table: string) => {
+      if (table === "profiles") return profilesQuery({ data: { is_admin: false } }, { data: [selectedCaptainProfile] });
       if (table === "league_settings") return query({ data: { featured_draft_id: "draft-live" } });
       if (table === "drafts") return query({ data: { id: "draft-live", name: "Split 5" } });
       if (table === "teams") return query({ data: [selectedTeam] });
@@ -101,5 +145,7 @@ describe("TeamsPage", () => {
     expect(screen.queryByText("PREVIEW DATA")).toBeNull();
     expect(screen.getByText("Live Team")).toBeTruthy();
     expect(screen.queryByLabelText("Display draft")).toBeNull();
+    expect(screen.getByText(/Captain Profile/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit teams" })).toBeNull();
   });
 });
