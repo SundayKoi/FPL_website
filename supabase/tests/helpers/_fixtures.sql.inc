@@ -40,9 +40,9 @@ begin
   insert into public.drafts (name) values ('Test Draft') returning id into v_draft;
 
   for n in 1..4 loop
-    insert into public.teams (draft_id, name, captain_profile_id, nomination_position,
+    insert into public.teams (draft_id, name, abbreviation, captain_profile_id, nomination_position,
                               budget_start, points_remaining)
-    values (v_draft, 'Team ' || chr(64 + n), tests.cap(n), n, budgets[n], budgets[n])
+    values (v_draft, 'Team ' || chr(64 + n), 'T' || chr(64 + n), tests.cap(n), n, budgets[n], budgets[n])
     returning id into v_team;
 
     insert into public.players (draft_id, display_name, role, team_id, price, acquisition)
