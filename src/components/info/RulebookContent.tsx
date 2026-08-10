@@ -367,8 +367,8 @@ export default function RulebookContent() {
         <h2 id="match-setup" className={sectionHeadingClass}>7. Match Setup &amp; Procedure</h2>
         <h3 className={subsectionHeadingClass}>7.1 Lobby &amp; Side Selection</h3>
         <p className={paragraphClass}>Matches created via Tournament Codes are provided weekly.</p>
-        <p className={paragraphClass}>Initial sides are predetermined; the previous game's losing team chooses subsequent sides.</p>
-        <p className={paragraphClass}>During custom lobby set up you must have the appropriate quest assigned to the appropriate role (Ex. you can't have 2 top lane quests assigned to your team)</p>
+        <p className={paragraphClass}>Initial sides are predetermined; the previous game&apos;s losing team chooses subsequent sides.</p>
+        <p className={paragraphClass}>During custom lobby set up you must have the appropriate quest assigned to the appropriate role (Ex. you can&apos;t have 2 top lane quests assigned to your team)</p>
         <h3 className={subsectionHeadingClass}>7.2 Game Punctuality</h3>
         <ul className={listClass}>
           <li>10 mins late: 1 ban loss.</li>
@@ -486,7 +486,7 @@ export default function RulebookContent() {
         <h3 className={subsectionHeadingClass}>Phase 1 - Market Value Period (24 Hours)</h3>
         <p className={paragraphClass}>All players going into the split’s auction draft will have a pre-established market minimum.</p>
         <p className={paragraphClass}>Each Captain has 12 bids they can make on players during the Market Value Period. These bids will be used at a silent auction.</p>
-        <p className={paragraphClass}>The 12 bids will be from only these values. These bids are arbitrary and will not be taken away from your team’s cap. They are only meant to set a player's value for Free Agency.</p>
+        <p className={paragraphClass}>The 12 bids will be from only these values. These bids are arbitrary and will not be taken away from your team’s cap. They are only meant to set a player&apos;s value for Free Agency.</p>
         <ul className={listClass}>
           <li>2- 50 pt bid.</li>
           <li>3- 40 pt bid.</li>
@@ -564,7 +564,7 @@ export default function RulebookContent() {
         <p className={paragraphClass}>Tiebreaker #2 wording has been adjusted to specify team win rate.</p>
         <p className={paragraphClass}>The trade window has opened directly after the draft to the day before week 5 regular season.</p>
         <p className={paragraphClass}>The player replacement rule will no longer follow player eligibility.</p>
-        <p className={paragraphClass}>Off role players will be labeled by staff preseason even if you aren't in the d2/d1 policy. Meaning if either your op.gg or previous competitive seasons show that you main a different role than what you are playing currently, you will be labeled off role.</p>
+        <p className={paragraphClass}>Off role players will be labeled by staff preseason even if you aren&apos;t in the d2/d1 policy. Meaning if either your op.gg or previous competitive seasons show that you main a different role than what you are playing currently, you will be labeled off role.</p>
         <p className={paragraphClass}>Off role player replacements can’t be higher than E1, and must be replaced by an on-role player no higher than 3 ranks below the off role player (E1 50LP → E4 50LP)</p>
         <p className={paragraphClass}>Removal of trade block section.</p>
         <h3 className={subsectionHeadingClass}>10/16/25</h3>
