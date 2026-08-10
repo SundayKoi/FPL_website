@@ -8,6 +8,7 @@ describe("SiteNavigation", () => {
 
     expect(screen.getByRole("link", { name: /^Home$/ }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
+    expect(screen.getByRole("link", { name: /^Players$/ }).getAttribute("href")).toBe("/players");
     expect(screen.getByRole("link", { name: /^Schedule$/ }).getAttribute("href")).toBe(
       "/schedule",
     );
