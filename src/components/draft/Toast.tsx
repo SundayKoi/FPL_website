@@ -14,6 +14,11 @@ const FRIENDLY: Record<string, string> = {
   ALREADY_LEADING: "You already hold the high bid.",
   LOT_OPEN_EXISTS: "An auction is already running.",
   NOT_ADMIN: "Admin access required.",
+  DRAFT_INVALID: "Direct assignment is unavailable for this draft.",
+  PLAYER_INVALID: "That player is not available in this draft.",
+  TEAM_INVALID: "That team is not available in this draft.",
+  PRICE_INVALID: "Enter a nonnegative whole-number price.",
+  INSUFFICIENT_POINTS: "That team does not have enough points.",
 };
 
 /** Map a raw RPC error (via errCode) to a friendly message. */

@@ -1,15 +1,20 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errCode, type Draft, type Lot } from "@/lib/draft/types";
+import { errCode, type Draft, type Lot, type Player, type Team } from "@/lib/draft/types";
+import AdminAssignmentPanel from "./AdminAssignmentPanel";
 import { friendly } from "./Toast";
 
 export default function AdminStrip({
   draft,
+  teams,
+  players,
   openLot,
   onError,
 }: {
   draft: Draft;
+  teams: Team[];
+  players: Player[];
   openLot: Lot | null;
   onError: (msg: string) => void;
 }) {
@@ -126,6 +131,14 @@ export default function AdminStrip({
           Save
         </button>
       </div>
+
+      <AdminAssignmentPanel
+        draft={draft}
+        teams={teams}
+        players={players}
+        openLot={openLot}
+        onError={onError}
+      />
     </section>
   );
 }

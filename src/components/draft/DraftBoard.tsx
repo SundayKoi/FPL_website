@@ -131,7 +131,15 @@ export default function DraftBoard({
                   <NominationPicker team={myTeam} draft={draft} players={players} onError={setToast} />
                 )}
                 {captainControls}
-                {s.isAdmin && <AdminStrip draft={draft} openLot={openLot} onError={setToast} />}
+                {s.isAdmin && (
+                  <AdminStrip
+                    draft={draft}
+                    teams={teams}
+                    players={players}
+                    openLot={openLot}
+                    onError={setToast}
+                  />
+                )}
                 {adminControls}
 
                 <PlayerPool players={players} teams={teams} />
