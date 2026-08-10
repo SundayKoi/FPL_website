@@ -92,7 +92,7 @@ Also snapshot prices/acquisition before a successful swap and assert they are un
 
 - [ ] **Step 2: Run the focused database test to verify it fails**
 
-Run: `supabase test db --file supabase/tests/0010_teams_roster_swaps_test.sql`
+Run: `./node_modules/.bin/supabase test db --local supabase/tests/0010_teams_roster_swaps_test.sql`
 
 Expected: FAIL because the setting table and RPC do not exist.
 
@@ -111,16 +111,16 @@ if v_left.team_id = v_right.team_id then raise exception 'SAME_TEAM: players mus
 if v_left.role <> v_right.role then raise exception 'ROLE_MISMATCH: players must share a role'; end if;
 if v_left.acquisition = 'captain' or v_right.acquisition = 'captain' then raise exception 'CAPTAIN_LOCKED: captains cannot be traded'; end if;
 
-update public.players set team_id = null where id in (v_left.id, v_right.id);
-update public.players set team_id = v_right.team_id where id = v_left.id;
-update public.players set team_id = v_left.team_id where id = v_right.id;
+update public.players set team_id = null, acquisition = null where id in (v_left.id, v_right.id);
+update public.players set team_id = v_right.team_id, acquisition = v_left.acquisition where id = v_left.id;
+update public.players set team_id = v_left.team_id, acquisition = v_right.acquisition where id = v_right.id;
 ```
 
 Lock rows in deterministic ID order before reading their original team IDs, and grant `execute` only to `authenticated` because `_require_admin()` remains the authorization gate. Use the same `security definer set search_path = public` style as existing RPC migrations.
 
 - [ ] **Step 4: Run the focused database test to verify it passes**
 
-Run: `supabase test db --file supabase/tests/0010_teams_roster_swaps_test.sql`
+Run: `./node_modules/.bin/supabase test db --local supabase/tests/0010_teams_roster_swaps_test.sql`
 
 Expected: PASS for table existence, admin selection writes, all valid/invalid swap cases, and unchanged price/acquisition fields.
 
@@ -336,7 +336,7 @@ Expected: exit 0 and include `/teams` in the generated route output.
 
 - [ ] **Step 4: Run Supabase tests when the local stack is available**
 
-Run: `supabase test db`
+Run: `./node_modules/.bin/supabase test db --local supabase/tests`
 
 Expected: existing pgTAP tests and the new roster-swap test pass. If the local stack is unavailable, report that exact environment limitation rather than changing the database test.
 
