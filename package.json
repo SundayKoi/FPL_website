@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "run-locally": "bash scripts/run-locally",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

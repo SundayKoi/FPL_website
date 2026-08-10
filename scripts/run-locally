@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js is required. Install Node 22 and run this command again." >&2
+  exit 1
+fi
+
+if ! node -e 'const [major, minor] = process.versions.node.split(".").map(Number); process.exit(major > 20 || (major === 20 && minor >= 9) ? 0 : 1)'; then
+  echo "Node.js 20.9+ is required. Node 22 is recommended; found $(node --version)." >&2
+  exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker Desktop is required for local Supabase. Start Docker Desktop and try again." >&2
+  exit 1
+fi
+
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker Desktop is not running. Start it and try again." >&2
+  exit 1
+fi
+
+if [ ! -d node_modules ]; then
+  echo "Installing npm dependencies..."
+  npm install
+fi
+
+echo "Starting local Supabase..."
+npx supabase start
+
+status_json="$(npx supabase status -o json)"
+supabase_url="$(printf '%s' "$status_json" | node -e '
+  let input = "";
+  process.stdin.on("data", (chunk) => { input += chunk; });
+  process.stdin.on("end", () => process.stdout.write(JSON.parse(input).API_URL ?? ""));
+')"
+anon_key="$(printf '%s' "$status_json" | node -e '
+  let input = "";
+  process.stdin.on("data", (chunk) => { input += chunk; });
+  process.stdin.on("end", () => process.stdout.write(JSON.parse(input).ANON_KEY ?? ""));
+')"
+
+if [ -z "$supabase_url" ] || [ -z "$anon_key" ]; then
+  echo "Could not read the local Supabase URL and anon key." >&2
+  exit 1
+fi
+
+LOCAL_SUPABASE_URL="$supabase_url" LOCAL_SUPABASE_ANON_KEY="$anon_key" node <<'NODE'
+const fs = require("node:fs");
+
+const envPath = ".env.local";
+let contents = fs.existsSync(envPath)
+  ? fs.readFileSync(envPath, "utf8")
+  : fs.readFileSync(".env.example", "utf8");
+
+function setValue(name, value) {
+  const line = `${name}=${value}`;
+  const pattern = new RegExp(`^${name}=.*$`, "m");
+  contents = pattern.test(contents)
+    ? contents.replace(pattern, line)
+    : `${contents.replace(/\s*$/, "")}\n${line}\n`;
+}
+
+setValue("NEXT_PUBLIC_SUPABASE_URL", process.env.LOCAL_SUPABASE_URL);
+setValue("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.LOCAL_SUPABASE_ANON_KEY);
+fs.writeFileSync(envPath, contents);
+NODE
+
+echo "Local Supabase is ready. Starting the website at http://localhost:3000"
+exec npm run dev
