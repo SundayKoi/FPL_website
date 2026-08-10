@@ -108,8 +108,8 @@ Add an admin-only `swap_roster_players(p_left_player_id uuid, p_right_player_id 
 3. Verifies both players exist, are on teams, belong to the same draft, and belong to different teams.
 4. Verifies their roles are equal.
 5. Rejects either player when `acquisition = 'captain'`.
-6. Temporarily clears both `team_id` values to avoid the existing `players_one_per_role` unique index.
-7. Assigns each player to the other player’s original team.
+6. Temporarily clears both `team_id` and `acquisition` values to satisfy the existing player check constraint while avoiding the `players_one_per_role` unique index.
+7. Assigns each player to the other player’s original team and restores each player’s original acquisition value.
 8. Raises a stable prefixed error code on every invalid request.
 
 The RPC leaves prices and acquisition types unchanged. Existing public read policies and admin write policies remain intact; the RPC is the authoritative path for swaps.

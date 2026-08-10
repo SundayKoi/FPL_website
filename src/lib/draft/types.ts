@@ -24,6 +24,25 @@ export interface Player {
   rank: string | null; opgg_url: string | null; notes: string | null;
   team_id: string | null; price: number | null; acquisition: Acquisition | null;
 }
+
+export interface RosterSlotView {
+  id: string;
+  role: LolRole;
+  displayName: string;
+  price: number;
+  acquisition: Acquisition | null;
+  isEmpty?: boolean;
+}
+
+export interface RosterTeamView {
+  id: string;
+  name: string;
+  captainName: string;
+  monogram: string;
+  accentClass: string;
+  pointsRemaining: number;
+  players: RosterSlotView[];
+}
 export interface Lot {
   id: string; draft_id: string; player_id: string; nominated_by_team_id: string;
   round: number; opening_bid: number; current_bid: number; leading_team_id: string;
