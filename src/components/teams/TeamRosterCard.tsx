@@ -42,6 +42,8 @@ export default function TeamRosterCard({
     <article aria-labelledby={headingId} className="card-brand overflow-hidden">
       <div className={`${team.accentClass} relative flex h-28 items-end justify-between overflow-hidden px-5 py-4`}>
         {team.imageUrl ? (
+          // Deployment-specific Supabase Storage hosts make next/image remotePatterns brittle here.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={team.imageUrl}
             alt={`${team.name} logo`}

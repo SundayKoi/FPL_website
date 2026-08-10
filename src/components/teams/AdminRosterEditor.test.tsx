@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Player, Team } from "@/lib/draft/types";
+import type { Player, Profile, Team } from "@/lib/draft/types";
 import AdminRosterEditor from "./AdminRosterEditor";
 
 const { rpc, refresh } = vi.hoisted(() => ({
@@ -104,6 +104,23 @@ const players: Player[] = [
   },
 ];
 
+const profiles: Profile[] = [
+  {
+    id: "profile-a",
+    discord_id: null,
+    display_name: "Selected Captain A",
+    avatar_url: null,
+    is_admin: false,
+  },
+  {
+    id: "profile-b",
+    discord_id: null,
+    display_name: "Selected Captain B",
+    avatar_url: null,
+    is_admin: false,
+  },
+];
+
 afterEach(() => {
   cleanup();
   rpc.mockClear();
@@ -113,7 +130,7 @@ afterEach(() => {
 
 describe("AdminRosterEditor", () => {
   it("keeps captain rows locked", () => {
-    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} />);
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
     const captainRow = screen.getByText("Captain A").closest("li")!;
     expect(captainRow.getAttribute("draggable")).toBe("false");
@@ -121,7 +138,7 @@ describe("AdminRosterEditor", () => {
   });
 
   it("swaps same-role players through the RPC", async () => {
-    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} />);
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
     const source = screen.getByText("Mid A").closest("li")!;
     const target = screen.getByText("Mid B").closest("li")!;
@@ -138,7 +155,7 @@ describe("AdminRosterEditor", () => {
   });
 
   it("rejects a different-position drop without calling the RPC", async () => {
-    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} />);
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
     fireEvent.dragStart(screen.getByText("Mid A").closest("li")!);
     fireEvent.drop(screen.getByText("Support B").closest("li")!);
@@ -148,12 +165,19 @@ describe("AdminRosterEditor", () => {
   });
 
   it("offers only same-position destinations from the keyboard action", async () => {
-    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} />);
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Swap with Mid A" }));
     const dialog = await screen.findByRole("dialog", { name: /swap mid a/i });
     expect(within(dialog).getByRole("button", { name: /Mid B/ })).toBeTruthy();
     expect(within(dialog).queryByRole("button", { name: /Support B/ })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: /Captain B/ })).toBeNull();
+  });
+
+  it("uses the selected captain profile name on normal admin roster cards", () => {
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
+
+    expect(screen.getByText("Captain Selected Captain A")).toBeTruthy();
+    expect(screen.queryByText("Captain Captain A")).toBeNull();
   });
 });

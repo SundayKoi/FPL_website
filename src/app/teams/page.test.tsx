@@ -2,9 +2,11 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TeamsPage from "./page";
 
-const { getUser, from } = vi.hoisted(() => ({
+const { getUser, from, profileIdsIn, profileOrder } = vi.hoisted(() => ({
   getUser: vi.fn(),
   from: vi.fn(),
+  profileIdsIn: vi.fn(),
+  profileOrder: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -35,7 +37,17 @@ function query(result: unknown) {
 
 function profilesQuery(adminResult: unknown, captainProfilesResult: unknown) {
   return {
-    select: (columns: string) => query(columns === "is_admin" ? adminResult : captainProfilesResult),
+    select: (columns: string) => {
+      if (columns === "is_admin") return query(adminResult);
+
+      const profileRows = (captainProfilesResult as { data?: Array<{ id: string }> }).data ?? [];
+      const builder = query(captainProfilesResult);
+      builder.in = profileIdsIn.mockImplementation((column: string, ids: string[]) => Promise.resolve({
+        data: column === "id" ? profileRows.filter((profile) => ids.includes(profile.id)) : [],
+      }));
+      builder.order = profileOrder.mockImplementation(() => Promise.resolve(captainProfilesResult));
+      return builder;
+    },
   };
 }
 
@@ -81,10 +93,17 @@ const selectedCaptainProfile = {
   display_name: "Captain Profile",
 };
 
+const availableCaptainProfile = {
+  id: "profile-available",
+  display_name: "Available Captain",
+};
+
 afterEach(() => {
   cleanup();
   getUser.mockReset();
   from.mockReset();
+  profileIdsIn.mockReset();
+  profileOrder.mockReset();
 });
 
 describe("TeamsPage", () => {
@@ -107,7 +126,10 @@ describe("TeamsPage", () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
       if (table === "profiles") {
-        return profilesQuery({ data: { is_admin: true } }, { data: [selectedCaptainProfile] });
+        return profilesQuery(
+          { data: { is_admin: true } },
+          { data: [selectedCaptainProfile, availableCaptainProfile] },
+        );
       }
       if (table === "league_settings") return query({ data: { featured_draft_id: "draft-live" } });
       if (table === "drafts") {
@@ -123,9 +145,13 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage());
 
+    expect(screen.getByText("Captain Captain Profile")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
 
     expect(screen.getByText(/Captain Profile/)).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Available Captain" })).toBeTruthy();
+    expect(profileIdsIn).not.toHaveBeenCalled();
+    expect(profileOrder).toHaveBeenCalledWith("display_name");
   });
 
   it("renders the selected draft profile without an editor for non-admins", async () => {

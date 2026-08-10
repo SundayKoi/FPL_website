@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   type Player,
+  type Profile,
   type RosterSlotView,
   type Team,
 } from "@/lib/draft/types";
@@ -31,14 +32,16 @@ export default function AdminRosterEditor({
   draftId,
   teams,
   players,
+  profiles,
 }: {
   draftId: string;
   teams: Team[];
   players: Player[];
+  profiles: Profile[];
 }) {
   const supabase = createClient();
   const router = useRouter();
-  const teamViews = useMemo(() => toRosterTeams(teams, players), [teams, players]);
+  const teamViews = useMemo(() => toRosterTeams(teams, players, profiles), [teams, players, profiles]);
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [keyboardPlayerId, setKeyboardPlayerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

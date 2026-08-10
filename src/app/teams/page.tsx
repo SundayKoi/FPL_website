@@ -36,7 +36,7 @@ export default async function TeamsPage() {
   let selectedDraft: Draft | null = null;
   let selectedTeams: Team[] = [];
   let selectedPlayers: Player[] = [];
-  let captainProfiles: Profile[] = [];
+  let profiles: Profile[] = [];
 
   if (featuredDraftId) {
     const [draftResult, teamsResult, playersResult] = await Promise.all([
@@ -56,21 +56,16 @@ export default async function TeamsPage() {
     selectedTeams = (teamsResult.data as Team[]) ?? [];
     selectedPlayers = (playersResult.data as Player[]) ?? [];
 
-    const captainProfileIds = selectedTeams.flatMap((team) =>
-      team.captain_profile_id ? [team.captain_profile_id] : [],
-    );
-    if (captainProfileIds.length) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, display_name")
-        .in("id", captainProfileIds);
-      captainProfiles = (profiles as Profile[]) ?? [];
-    }
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .order("display_name");
+    profiles = (profileRows as Profile[]) ?? [];
   }
 
   const hasSelectedDraft = Boolean(selectedDraft);
   const teams = hasSelectedDraft
-    ? toRosterTeams(selectedTeams, selectedPlayers, captainProfiles)
+    ? toRosterTeams(selectedTeams, selectedPlayers, profiles)
     : PLACEHOLDER_TEAMS;
 
   return (
@@ -88,8 +83,18 @@ export default async function TeamsPage() {
       }
       rosterContent={
         hasSelectedDraft && isAdmin ? (
-          <AdminTeamEditor draftId={selectedDraft!.id} teams={selectedTeams} profiles={captainProfiles}>
-            <AdminRosterEditor draftId={selectedDraft!.id} teams={selectedTeams} players={selectedPlayers} />
+          <AdminTeamEditor
+            key={selectedDraft!.id}
+            draftId={selectedDraft!.id}
+            teams={selectedTeams}
+            profiles={profiles}
+          >
+            <AdminRosterEditor
+              draftId={selectedDraft!.id}
+              teams={selectedTeams}
+              players={selectedPlayers}
+              profiles={profiles}
+            />
           </AdminTeamEditor>
         ) : undefined
       }

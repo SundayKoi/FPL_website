@@ -23,6 +23,13 @@ type TeamFormState = {
   status: FormStatus;
 };
 
+type AdminTeamEditorProps = {
+  draftId: string;
+  teams: Team[];
+  profiles: Profile[];
+  children: ReactNode;
+};
+
 function formStateFor(teams: Team[]): Record<string, TeamFormState> {
   return Object.fromEntries(
     teams.map((team) => [
@@ -45,17 +52,33 @@ function messageFor(error: unknown) {
   return (error as { message?: string } | null)?.message ?? "The team could not be saved.";
 }
 
-export default function AdminTeamEditor({
+function versionedObjectPath(draftId: string, teamId: string) {
+  return `${draftId}/${teamId}/${crypto.randomUUID()}`;
+}
+
+function managedObjectPath(imageUrl: string | null, draftId: string, teamId: string) {
+  if (!imageUrl) return null;
+
+  try {
+    const url = new URL(imageUrl);
+    const publicPath = "/storage/v1/object/public/team-images/";
+    const publicPathIndex = url.pathname.indexOf(publicPath);
+    if (publicPathIndex === -1) return null;
+
+    const objectPath = decodeURIComponent(url.pathname.slice(publicPathIndex + publicPath.length));
+    const teamPrefix = `${draftId}/${teamId}`;
+    return objectPath === teamPrefix || objectPath.startsWith(`${teamPrefix}/`) ? objectPath : null;
+  } catch {
+    return null;
+  }
+}
+
+function DraftTeamEditor({
   draftId,
   teams,
   profiles,
   children,
-}: {
-  draftId: string;
-  teams: Team[];
-  profiles: Profile[];
-  children: ReactNode;
-}) {
+}: AdminTeamEditorProps) {
   const supabase = createClient();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -74,7 +97,7 @@ export default function AdminTeamEditor({
 
     const name = form.name.trim();
     const abbreviation = form.abbreviation.trim().toUpperCase();
-    if (!name || !/^[A-Z]{1,5}$/.test(abbreviation)) {
+    if (!name || !/^[A-Z0-9]{1,5}$/.test(abbreviation)) {
       setForm(team.id, {
         abbreviation,
         status: {
@@ -97,26 +120,26 @@ export default function AdminTeamEditor({
       return;
     }
 
-    const objectPath = `${draftId}/${team.id}`;
+    const previousObjectPath = managedObjectPath(form.currentImageUrl, draftId, team.id);
     let imageUrl = form.currentImageUrl;
-    let uploaded = false;
+    let uploadedObjectPath: string | null = null;
     setForm(team.id, { abbreviation, status: { kind: "saving" } });
 
     try {
       if (form.selectedFile) {
+        uploadedObjectPath = versionedObjectPath(draftId, team.id);
         const { error: uploadError } = await supabase.storage.from("team-images").upload(
-          objectPath,
+          uploadedObjectPath,
           form.selectedFile,
-          { upsert: true, contentType: form.selectedFile.type }
+          { upsert: false, contentType: form.selectedFile.type }
         );
         if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from("team-images").getPublicUrl(objectPath);
+        const { data } = supabase.storage.from("team-images").getPublicUrl(uploadedObjectPath);
         imageUrl = data.publicUrl;
-        uploaded = true;
       }
 
-      const { error } = await supabase
+      const { data: updatedTeam, error } = await supabase
         .from("teams")
         .update({
           name,
@@ -125,17 +148,32 @@ export default function AdminTeamEditor({
           image_url: imageUrl,
         })
         .eq("id", team.id)
-        .eq("draft_id", draftId);
-      if (error) {
-        if (uploaded) {
+        .eq("draft_id", draftId)
+        .select("id")
+        .single();
+      if (error || updatedTeam?.id !== team.id) {
+        if (uploadedObjectPath) {
           try {
-            await supabase.storage.from("team-images").remove([objectPath]);
+            await supabase.storage.from("team-images").remove([uploadedObjectPath]);
           } catch {
             // Cleanup is best-effort; retain the database update error.
           }
         }
-        setForm(team.id, { status: { kind: "error", message: messageFor(error) } });
+        setForm(team.id, {
+          status: {
+            kind: "error",
+            message: error ? messageFor(error) : "No matching team row was updated.",
+          },
+        });
         return;
+      }
+
+      if (uploadedObjectPath && previousObjectPath && previousObjectPath !== uploadedObjectPath) {
+        try {
+          await supabase.storage.from("team-images").remove([previousObjectPath]);
+        } catch {
+          // The replacement is already persisted; old-object cleanup is best-effort.
+        }
       }
 
       setForm(team.id, {
@@ -147,9 +185,9 @@ export default function AdminTeamEditor({
       });
       router.refresh();
     } catch (error) {
-      if (uploaded) {
+      if (uploadedObjectPath) {
         try {
-          await supabase.storage.from("team-images").remove([objectPath]);
+          await supabase.storage.from("team-images").remove([uploadedObjectPath]);
         } catch {
           // The database update already failed; cleanup must not hide that error.
         }
@@ -162,20 +200,32 @@ export default function AdminTeamEditor({
     const form = forms[team.id];
     if (!form || form.status.kind === "saving") return;
 
-    const objectPath = `${draftId}/${team.id}`;
+    const objectPath = managedObjectPath(form.currentImageUrl, draftId, team.id);
     setForm(team.id, { status: { kind: "saving" } });
     try {
-      const { error: removeError } = await supabase.storage.from("team-images").remove([objectPath]);
-      if (removeError) throw removeError;
-
-      const { error } = await supabase
+      const { data: updatedTeam, error } = await supabase
         .from("teams")
         .update({ image_url: null })
         .eq("id", team.id)
-        .eq("draft_id", draftId);
-      if (error) {
-        setForm(team.id, { status: { kind: "error", message: messageFor(error) } });
+        .eq("draft_id", draftId)
+        .select("id")
+        .single();
+      if (error || updatedTeam?.id !== team.id) {
+        setForm(team.id, {
+          status: {
+            kind: "error",
+            message: error ? messageFor(error) : "No matching team row was updated.",
+          },
+        });
         return;
+      }
+
+      if (objectPath) {
+        try {
+          await supabase.storage.from("team-images").remove([objectPath]);
+        } catch {
+          // The database no longer references this object; cleanup is best-effort.
+        }
       }
 
       setForm(team.id, {
@@ -325,4 +375,8 @@ export default function AdminTeamEditor({
       })}
     </section>
   );
+}
+
+export default function AdminTeamEditor(props: AdminTeamEditorProps) {
+  return <DraftTeamEditor key={props.draftId} {...props} />;
 }

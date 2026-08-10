@@ -11,6 +11,9 @@ const { from, upload, getPublicUrl, remove, refresh } = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
+const publicUrlFor = (objectPath: string) =>
+  `https://storage.test/storage/v1/object/public/team-images/${objectPath}`;
+
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from,
@@ -22,13 +25,30 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh }),
 }));
 
-const teamQuery = {
+type TeamUpdateResult = {
+  data: { id: string } | null;
+  error: { message: string } | null;
+};
+
+let teamUpdateResult: TeamUpdateResult = { data: { id: "team-a" }, error: null };
+const teamQuery: {
+  update: ReturnType<typeof vi.fn>;
+  eq: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+  then: PromiseLike<TeamUpdateResult>["then"];
+} = {
   update: vi.fn(),
   eq: vi.fn(),
+  select: vi.fn(),
+  single: vi.fn(),
+  then: (onFulfilled, onRejected) => Promise.resolve(teamUpdateResult).then(onFulfilled, onRejected),
 };
 
 teamQuery.update.mockReturnValue(teamQuery);
 teamQuery.eq.mockReturnValue(teamQuery);
+teamQuery.select.mockReturnValue(teamQuery);
+teamQuery.single.mockImplementation(() => Promise.resolve(teamUpdateResult));
 from.mockReturnValue(teamQuery);
 
 const teams: Team[] = [
@@ -38,7 +58,7 @@ const teams: Team[] = [
     name: "Team A",
     abbreviation: "TA",
     captain_profile_id: "profile-a",
-    image_url: "https://img.test/team-a.png",
+    image_url: publicUrlFor("draft-1/team-a"),
     nomination_position: 1,
     budget_start: 100,
     points_remaining: 75,
@@ -62,19 +82,22 @@ const profiles: Profile[] = [
   },
 ];
 
-function renderEditor() {
+function renderEditor({
+  draftId = "draft-1",
+  teamRows = teams,
+}: {
+  draftId?: string;
+  teamRows?: Team[];
+} = {}) {
   return render(
-    <AdminTeamEditor draftId="draft-1" teams={teams} profiles={profiles}>
+    <AdminTeamEditor draftId={draftId} teams={teamRows} profiles={profiles}>
       <p>Roster editor content</p>
     </AdminTeamEditor>
   );
 }
 
-function configuredUpdate(result: { error: { message: string } | null }) {
-  teamQuery.eq.mockImplementation(() => {
-    const callCount = teamQuery.eq.mock.calls.length;
-    return callCount % 2 === 0 ? Promise.resolve(result) : teamQuery;
-  });
+function configuredUpdate(result: TeamUpdateResult) {
+  teamUpdateResult = result;
 }
 
 afterEach(() => {
@@ -83,15 +106,18 @@ afterEach(() => {
   upload.mockReset();
   upload.mockResolvedValue({ error: null });
   getPublicUrl.mockReset();
-  getPublicUrl.mockReturnValue({ data: { publicUrl: "https://img.test/updated.png" } });
+  getPublicUrl.mockImplementation((objectPath: string) => ({
+    data: { publicUrl: publicUrlFor(objectPath) },
+  }));
   remove.mockReset();
   remove.mockResolvedValue({ error: null });
   refresh.mockClear();
   teamQuery.update.mockClear();
-  teamQuery.eq.mockReset();
-  teamQuery.eq.mockReturnValue(teamQuery);
+  teamQuery.eq.mockClear();
+  teamQuery.select.mockClear();
+  teamQuery.single.mockClear();
   from.mockReturnValue(teamQuery);
-  configuredUpdate({ error: null });
+  configuredUpdate({ data: { id: "team-a" }, error: null });
 });
 
 describe("AdminTeamEditor", () => {
@@ -157,28 +183,33 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A image"), { target: { files: [image] } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    await waitFor(() => expect(upload).toHaveBeenCalledWith(
-      "draft-1/team-a",
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    const objectPath = upload.mock.calls[0][0] as string;
+    expect(objectPath).toMatch(/^draft-1\/team-a\/[^/]+$/);
+    expect(upload).toHaveBeenCalledWith(
+      objectPath,
       expect.any(File),
-      expect.objectContaining({ upsert: true, contentType: "image/png" }),
-    ));
+      expect.objectContaining({ upsert: false, contentType: "image/png" }),
+    );
     await waitFor(() =>
       expect(teamQuery.update).toHaveBeenCalledWith({
         name: "Alpha",
         abbreviation: "ALP",
         captain_profile_id: "profile-b",
-        image_url: "https://img.test/updated.png",
+        image_url: publicUrlFor(objectPath),
       })
     );
+    expect(publicUrlFor(objectPath)).not.toBe(teams[0].image_url);
     expect(teamQuery.eq).toHaveBeenNthCalledWith(1, "id", "team-a");
     expect(teamQuery.eq).toHaveBeenNthCalledWith(2, "draft_id", "draft-1");
+    expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]);
+    expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("keeps typed input and cleans up a newly uploaded image when the update fails", async () => {
-    configuredUpdate({ error: { message: "Update denied" } });
-    remove.mockRejectedValue(new Error("Cleanup failed"));
+  it("keeps the existing image object when its replacement update fails", async () => {
+    configuredUpdate({ data: null, error: { message: "Update denied" } });
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
@@ -191,25 +222,96 @@ describe("AdminTeamEditor", () => {
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
     expect((await within(form).findByRole("status")).textContent).toContain("Update denied");
-    expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]);
+    const replacementPath = upload.mock.calls[0][0] as string;
+    expect(replacementPath).toMatch(/^draft-1\/team-a\/[^/]+$/);
+    expect(remove).toHaveBeenCalledWith([replacementPath]);
+    expect(remove).not.toHaveBeenCalledWith(["draft-1/team-a"]);
     expect(remove).toHaveBeenCalledTimes(1);
     expect((within(form).getByLabelText("Team A name") as HTMLInputElement).value).toBe("Alpha");
     expect((within(form).getByLabelText("Team A abbreviation") as HTMLInputElement).value).toBe("ALP");
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("removes the deterministic image object before clearing the saved image URL", async () => {
+  it("clears the saved image URL before removing its object", async () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
 
     fireEvent.click(within(form).getByRole("button", { name: "Remove picture" }));
 
-    await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
     await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith({ image_url: null }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
     expect(teamQuery.eq).toHaveBeenNthCalledWith(1, "id", "team-a");
     expect(teamQuery.eq).toHaveBeenNthCalledWith(2, "draft_id", "draft-1");
+    expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect((await within(form).findByRole("status")).textContent).toContain("Picture removed.");
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("does not remove the existing image object when clearing its URL fails", async () => {
+    configuredUpdate({ data: null, error: { message: "Update denied" } });
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.click(within(form).getByRole("button", { name: "Remove picture" }));
+
+    expect((await within(form).findByRole("status")).textContent).toContain("Update denied");
+    expect(remove).not.toHaveBeenCalled();
+    expect(within(form).getByRole("button", { name: "Remove picture" })).toBeTruthy();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("treats a zero-row team update as a failure", async () => {
+    configuredUpdate({ data: null, error: null });
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A name"), { target: { value: "Alpha" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    expect((await within(form).findByRole("status")).textContent).toMatch(/no matching team row/i);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("accepts an uppercase alphanumeric abbreviation", async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "t1" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ abbreviation: "T1" }),
+    ));
+    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+  });
+
+  it("resets form state when rerendered for a different draft", () => {
+    const nextTeams: Team[] = [{
+      ...teams[0],
+      id: "team-b",
+      draft_id: "draft-2",
+      name: "Team B",
+      abbreviation: "TB",
+      captain_profile_id: null,
+      image_url: null,
+    }];
+    const view = renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    fireEvent.change(screen.getByLabelText("Team A name"), { target: { value: "Unsaved Alpha" } });
+
+    expect(() => view.rerender(
+      <AdminTeamEditor draftId="draft-2" teams={nextTeams} profiles={profiles}>
+        <p>Next roster editor content</p>
+      </AdminTeamEditor>,
+    )).not.toThrow();
+
+    expect(screen.getByText("Next roster editor content")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    expect((screen.getByLabelText("Team B name") as HTMLInputElement).value).toBe("Team B");
+    expect(screen.queryByLabelText("Team A name")).toBeNull();
   });
 });
