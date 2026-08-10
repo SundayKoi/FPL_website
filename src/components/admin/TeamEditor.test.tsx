@@ -30,6 +30,8 @@ const team: Team = {
   draft_id: "draft-1",
   name: "Team A",
   captain_profile_id: null,
+  abbreviation: "TA",
+  image_url: null,
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 100,

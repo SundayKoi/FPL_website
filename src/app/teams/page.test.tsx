@@ -37,6 +37,8 @@ const selectedTeam = {
   draft_id: "draft-live",
   name: "Live Team",
   captain_profile_id: "profile-live",
+  abbreviation: "LT",
+  image_url: "https://img.test/live",
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 72,

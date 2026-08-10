@@ -1,4 +1,10 @@
-import { ROLE_ORDER, type Player, type RosterTeamView, type Team } from "@/lib/draft/types";
+import {
+  ROLE_ORDER,
+  type Player,
+  type Profile,
+  type RosterTeamView,
+  type Team,
+} from "@/lib/draft/types";
 
 const accentClasses = [
   "bg-cyan-950",
@@ -9,23 +15,31 @@ const accentClasses = [
   "bg-sky-950",
 ] as const;
 
-export function toRosterTeams(teams: Team[], players: Player[]): RosterTeamView[] {
+export function toRosterTeams(
+  teams: Team[],
+  players: Player[],
+  profiles: Profile[] = [],
+): RosterTeamView[] {
+  const profileNames = new Map(profiles.map((profile) => [profile.id, profile.display_name]));
+
   return teams.map((team, teamIndex) => {
     const roster = players.filter((player) => player.team_id === team.id);
     const captain = roster.find((player) => player.acquisition === "captain");
+    const derivedMonogram = team.name
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 3)
+      .toUpperCase();
 
     return {
       id: team.id,
       name: team.name,
-      captainName: captain?.display_name ?? "Unassigned",
-      monogram: team.name
-        .split(/\s+/)
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 3)
-        .toUpperCase(),
+      abbreviation: team.abbreviation,
+      imageUrl: team.image_url,
+      captainName: profileNames.get(team.captain_profile_id ?? "") ?? captain?.display_name ?? "Unassigned",
+      monogram: derivedMonogram,
       accentClass: accentClasses[teamIndex % accentClasses.length],
-      pointsRemaining: team.points_remaining,
       players: ROLE_ORDER.map((role) => {
         const player = roster.find((candidate) => candidate.role === role);
         return player

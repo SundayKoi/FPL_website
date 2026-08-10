@@ -17,6 +17,7 @@ export interface Draft {
 }
 export interface Team {
   id: string; draft_id: string; name: string; captain_profile_id: string | null;
+  abbreviation: string; image_url: string | null;
   nomination_position: number; budget_start: number; points_remaining: number;
 }
 export interface Player {
@@ -37,10 +38,11 @@ export interface RosterSlotView {
 export interface RosterTeamView {
   id: string;
   name: string;
+  abbreviation: string;
+  imageUrl: string | null;
   captainName: string;
   monogram: string;
   accentClass: string;
-  pointsRemaining: number;
   players: RosterSlotView[];
 }
 export interface Lot {

@@ -18,7 +18,8 @@ describe("PLACEHOLDER_TEAMS", () => {
       expect(team.players).toHaveLength(5);
       expect(team.players.map((player) => player.role)).toEqual(ROLE_ORDER);
       expect(team.players.some((player) => player.acquisition === "captain")).toBe(true);
-      expect(team.pointsRemaining).toBeGreaterThanOrEqual(0);
+      expect(team.abbreviation).toBeTruthy();
+      expect(team.imageUrl).toBeNull();
     }
   });
 });

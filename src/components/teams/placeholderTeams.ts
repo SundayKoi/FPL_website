@@ -1,18 +1,18 @@
 import { ROLE_ORDER, type RosterTeamView } from "@/lib/draft/types";
 
 const placeholderTeamSeeds = [
-  ["Northstar Collective", "Astra Vale", "NS", "bg-cyan-950", 64],
-  ["Ember Union", "Rook Mercer", "EU", "bg-red-950", 58],
-  ["Moonlit Circuit", "Nyx Calder", "MC", "bg-violet-950", 71],
-  ["Ironwood Guild", "Bramble Knox", "IG", "bg-emerald-950", 52],
-  ["Solaris House", "Sol Reyes", "SH", "bg-amber-950", 67],
-  ["Cloudbreak", "Mira Quill", "CB", "bg-sky-950", 49],
-  ["Riftbound", "Jett Rowan", "RB", "bg-fuchsia-950", 61],
-  ["Obsidian Tide", "Vesper Hart", "OT", "bg-slate-800", 55],
-  ["Wildsignal", "Kade Orion", "WS", "bg-lime-950", 73],
-  ["Neon Bastion", "Echo Lane", "NB", "bg-blue-950", 46],
-  ["Hollow Crown", "Sable Wynn", "HC", "bg-stone-800", 63],
-  ["Aurora Division", "Finn Mercer", "AD", "bg-teal-950", 57],
+  ["Northstar Collective", "Astra Vale", "NS", "bg-cyan-950"],
+  ["Ember Union", "Rook Mercer", "EU", "bg-red-950"],
+  ["Moonlit Circuit", "Nyx Calder", "MC", "bg-violet-950"],
+  ["Ironwood Guild", "Bramble Knox", "IG", "bg-emerald-950"],
+  ["Solaris House", "Sol Reyes", "SH", "bg-amber-950"],
+  ["Cloudbreak", "Mira Quill", "CB", "bg-sky-950"],
+  ["Riftbound", "Jett Rowan", "RB", "bg-fuchsia-950"],
+  ["Obsidian Tide", "Vesper Hart", "OT", "bg-slate-800"],
+  ["Wildsignal", "Kade Orion", "WS", "bg-lime-950"],
+  ["Neon Bastion", "Echo Lane", "NB", "bg-blue-950"],
+  ["Hollow Crown", "Sable Wynn", "HC", "bg-stone-800"],
+  ["Aurora Division", "Finn Mercer", "AD", "bg-teal-950"],
 ] as const;
 
 const playerNames = [
@@ -34,13 +34,14 @@ const roleLabels = ["TOP", "JG", "MID", "ADC", "SUP"] as const;
 const placeholderPrices = [0, 12, 18, 14, 9] as const;
 
 export const PLACEHOLDER_TEAMS: RosterTeamView[] = placeholderTeamSeeds.map(
-  ([name, captainName, monogram, accentClass, pointsRemaining], teamIndex) => ({
+  ([name, captainName, abbreviation, accentClass], teamIndex) => ({
     id: `placeholder-team-${teamIndex + 1}`,
     name,
     captainName,
-    monogram,
+    abbreviation,
+    imageUrl: null,
+    monogram: abbreviation,
     accentClass,
-    pointsRemaining,
     players: ROLE_ORDER.map((role, roleIndex) => ({
       id: `placeholder-player-${teamIndex + 1}-${role}`,
       role,
