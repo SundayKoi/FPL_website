@@ -27,7 +27,8 @@ describe("TeamsDirectory", () => {
       expect(within(card).getByText("ADC")).toBeTruthy();
       expect(within(card).getByText("SUP")).toBeTruthy();
       expect(within(card).getByText(/Captain/)).toBeTruthy();
-      expect(within(card).getByText(/Remaining budget/)).toBeTruthy();
+      expect(within(card).queryByText(/pts/)).toBeNull();
+      expect(within(card).queryByText(/Remaining budget/)).toBeNull();
     }
   });
 

@@ -41,9 +41,17 @@ export default function TeamRosterCard({
   return (
     <article aria-labelledby={headingId} className="card-brand overflow-hidden">
       <div className={`${team.accentClass} relative flex h-28 items-end justify-between overflow-hidden px-5 py-4`}>
-        <span className="type-display text-5xl text-white/90" aria-hidden="true">
-          {team.monogram}
-        </span>
+        {team.imageUrl ? (
+          <img
+            src={team.imageUrl}
+            alt={`${team.name} logo`}
+            className="h-16 w-16 rounded object-contain"
+          />
+        ) : (
+          <span className="type-display text-5xl text-white/90" aria-hidden="true">
+            {team.abbreviation}
+          </span>
+        )}
         <span className="label-dash text-white/70">Roster</span>
       </div>
 
@@ -52,9 +60,6 @@ export default function TeamRosterCard({
           <h2 id={headingId} className="font-display text-xl font-semibold text-white">
             {team.name}
           </h2>
-          <span className="shrink-0 text-right text-xs font-semibold uppercase tracking-[0.12em] text-gold">
-            {team.pointsRemaining} pts
-          </span>
         </div>
         <p className="mt-1 text-xs uppercase tracking-[0.14em] text-steel">
           Captain {team.captainName}
@@ -115,11 +120,6 @@ export default function TeamRosterCard({
           );
         })}
       </ul>
-
-      <div className="flex items-center justify-between border-t border-line bg-navy/70 px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em]">
-        <span className="text-steel">Remaining budget</span>
-        <span className="text-white">{team.pointsRemaining} pts</span>
-      </div>
     </article>
   );
 }

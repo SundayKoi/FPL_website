@@ -6,6 +6,27 @@ import TeamRosterCard from "./TeamRosterCard";
 afterEach(cleanup);
 
 describe("TeamRosterCard", () => {
+  it("renders the team image and no point or budget stats", () => {
+    const team = { ...PLACEHOLDER_TEAMS[0], imageUrl: "https://img.test/team.png" };
+
+    render(<TeamRosterCard team={team} />);
+
+    expect(screen.getByRole("img", { name: `${team.name} logo` })).toBeTruthy();
+    expect(screen.queryByText(/pts/)).toBeNull();
+    expect(screen.queryByText(/Remaining budget/)).toBeNull();
+  });
+
+  it("renders the team abbreviation when no image is available", () => {
+    const team = PLACEHOLDER_TEAMS[0];
+
+    render(<TeamRosterCard team={team} />);
+
+    expect(screen.getByText(team.abbreviation)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: `${team.name} logo` })).toBeNull();
+    expect(screen.queryByText(/pts/)).toBeNull();
+    expect(screen.queryByText(/Remaining budget/)).toBeNull();
+  });
+
   it("marks the captain row as locked and only makes other rows draggable", () => {
     render(<TeamRosterCard team={PLACEHOLDER_TEAMS[0]} editable />);
 
