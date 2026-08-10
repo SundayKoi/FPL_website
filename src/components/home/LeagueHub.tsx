@@ -1,9 +1,8 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 
 const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
 
-export default function LeagueHub({ children }: { children: ReactNode }) {
+export default function LeagueHub() {
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-16">
@@ -33,10 +32,10 @@ export default function LeagueHub({ children }: { children: ReactNode }) {
                 Watch on Twitch ↗
               </a>
               <Link
-                href="#draft-central"
+                href="/draft"
                 className="rounded-full border border-steel px-5 py-2 text-sm font-semibold text-white hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
-                Explore drafts
+                Explore draft central
               </Link>
             </div>
           </div>
@@ -61,54 +60,6 @@ export default function LeagueHub({ children }: { children: ReactNode }) {
             </a>
           </article>
         </section>
-        <section aria-labelledby="explore-title" className="mt-14">
-          <div className="mb-5">
-            <span className="label-dash">LEAGUE HUB</span>
-            <h2 id="explore-title" className="type-display mt-2 text-3xl">
-              Explore the league
-            </h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <article className="card-brand min-h-44 p-5">
-              <span className="label-dash">STATS</span>
-              <span className="mt-5 inline-flex rounded-full border border-line px-2.5 py-1 text-xs uppercase tracking-wide text-steel">
-                Coming soon
-              </span>
-              <p className="mt-3 text-sm text-steel">
-                Leaderboards, records, and player form.
-              </p>
-            </article>
-            <article className="card-brand min-h-44 p-5">
-              <span className="label-dash">SCHEDULE</span>
-              <span className="mt-5 inline-flex rounded-full border border-line px-2.5 py-1 text-xs uppercase tracking-wide text-steel">
-                Coming soon
-              </span>
-              <p className="mt-3 text-sm text-steel">
-                Matchweeks, live fixtures, and results.
-              </p>
-            </article>
-            <Link
-              href="#draft-central"
-              className="card-brand min-h-44 p-5 transition hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            >
-              <span className="label-dash">DRAFT</span>
-              <span className="mt-5 block type-display text-2xl text-white">Draft Central</span>
-              <p className="mt-3 text-sm text-steel">
-                Review active drafts and follow every board.
-              </p>
-            </Link>
-            <article className="card-brand min-h-44 p-5">
-              <span className="label-dash">INFO</span>
-              <span className="mt-5 inline-flex rounded-full border border-line px-2.5 py-1 text-xs uppercase tracking-wide text-steel">
-                Coming soon
-              </span>
-              <p className="mt-3 text-sm text-steel">
-                League rules, formats, and updates.
-              </p>
-            </article>
-          </div>
-        </section>
-        {children}
       </div>
     </main>
   );
