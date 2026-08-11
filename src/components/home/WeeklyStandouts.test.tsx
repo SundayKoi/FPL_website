@@ -53,6 +53,7 @@ describe("WeeklyStandouts", () => {
     expect(screen.getByText("MetaShift")).not.toBeNull();
     expect(screen.getByText("88.8")).not.toBeNull();
     expect(screen.getByText(/power score/i)).not.toBeNull();
+    expect(screen.getByText(/power score/i).parentElement?.classList.contains("flex-wrap")).toBe(true);
   });
 
   it("renders an empty state when weekly stats are unavailable", () => {

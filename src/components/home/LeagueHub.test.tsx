@@ -1,6 +1,28 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import LeagueHub from "./LeagueHub";
+
+vi.mock("@/lib/home/standings", () => ({
+  fetchHomepageStandings: vi.fn(async () => [
+    {
+      id: "team-alpha",
+      name: "Alpha",
+      abbreviation: "AL",
+      nomination_position: 1,
+      wins: 0,
+      losses: 0,
+    },
+  ]),
+}));
+
+vi.mock("@/lib/home/schedule", () => ({
+  fetchHomepageSchedule: vi.fn(async () => ({
+    season: "S5",
+    isNewestSeason: true,
+    activeStage: "week_1",
+    fixtures: [],
+  })),
+}));
 
 expect.extend({
   toHaveClass(received: Element | null | undefined, ...classNames: string[]) {
@@ -19,7 +41,7 @@ afterEach(() => {
 });
 
 describe("LeagueHub", () => {
-  it("uses the wide directory spacing on desktop", async () => {
+  it("uses the wide dashboard spacing on desktop", async () => {
     render(await LeagueHub());
 
     const main = screen.getByRole("main");
@@ -30,9 +52,9 @@ describe("LeagueHub", () => {
       "py-12",
       "sm:py-16",
     );
-    expect(screen.getByRole("region", { name: /the league never stops/i })).toHaveClass(
-      "gap-8",
-      "xl:gap-12",
+    expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass(
+      "lg:grid-cols-[2fr_1fr]",
+      "xl:gap-8",
     );
   });
 
@@ -40,7 +62,7 @@ describe("LeagueHub", () => {
     render(await LeagueHub());
 
     const twitchLinks = screen.getAllByRole("link", { name: /twitch/i });
-    expect(twitchLinks.length).toBeGreaterThanOrEqual(2);
+    expect(twitchLinks.length).toBeGreaterThanOrEqual(1);
 
     for (const twitchLink of twitchLinks) {
       expect(twitchLink.getAttribute("href")).toBe(
@@ -67,5 +89,18 @@ describe("LeagueHub", () => {
     render(await LeagueHub());
 
     expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
+  });
+
+  it("adds the team standings panel to the landing page", async () => {
+    render(await LeagueHub());
+
+    expect(screen.getByRole("article", { name: /team standings/i })).not.toBeNull();
+    expect(screen.getByText("Alpha")).not.toBeNull();
+  });
+
+  it("adds the upcoming schedule below the dashboard", async () => {
+    render(await LeagueHub());
+
+    expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
   });
 });

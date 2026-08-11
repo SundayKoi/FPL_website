@@ -1,6 +1,26 @@
 import { compareSeasonsNewestFirst } from "@/lib/stats/queries";
 import { FIXTURE_STAGES, type FixtureRow, type FixtureStage } from "./types";
 
+export const REGULAR_SEASON_STAGES = [
+  "week_1",
+  "week_2",
+  "week_3",
+  "week_4",
+  "week_5",
+] as const satisfies readonly FixtureStage[];
+
+/** Select the first regular-season week that is empty or has an unplayed fixture. */
+export function selectActiveRegularSeasonStage(rows: FixtureRow[]): FixtureStage | null {
+  for (const stage of REGULAR_SEASON_STAGES) {
+    const stageRows = rows.filter((row) => row.stage === stage);
+    if (stageRows.length === 0 || stageRows.some((row) => !hasResult(row))) {
+      return stage;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Distinct fixture seasons, newest first (numeric-aware — shares the stats
  * page's comparator so both pages order "S10" above "S9").

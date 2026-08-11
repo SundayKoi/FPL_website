@@ -109,7 +109,7 @@ export default async function SchedulePage({
                 {grouped
                   .filter(({ meta }) => meta.group === group)
                   .map(({ meta, fixtures: stageFixtures }) => (
-                    <div key={meta.stage} className="card-brand overflow-hidden">
+                    <div id={meta.stage} key={meta.stage} className="card-brand scroll-mt-24 overflow-hidden">
                       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
                         <h3 className="type-display text-xl">{meta.label}</h3>
                         <span className="text-xs text-steel">{meta.note}</span>

@@ -6,6 +6,7 @@ import {
   groupByStage,
   hasResult,
   resolveSeason,
+  selectActiveRegularSeasonStage,
   seasonsOf,
   stageMeta,
   teamLabel,
@@ -124,6 +125,34 @@ describe("seasonsOf / resolveSeason", () => {
 
   it("returns null when there are no fixtures", () => {
     expect(resolveSeason([], "S5")).toBeNull();
+  });
+});
+
+describe("selectActiveRegularSeasonStage", () => {
+  it("keeps an incomplete Week 1 active", () => {
+    expect(selectActiveRegularSeasonStage([fixture({ stage: "week_1" })])).toBe("week_1");
+  });
+
+  it("advances from a completed Week 1 to Week 2", () => {
+    expect(
+      selectActiveRegularSeasonStage([fixture({ stage: "week_1", score_a: 2, score_b: 1 })]),
+    ).toBe("week_2");
+  });
+
+  it("does not skip an empty Week 2 when a later week has fixtures", () => {
+    expect(
+      selectActiveRegularSeasonStage([
+        fixture({ stage: "week_1", score_a: 2, score_b: 1 }),
+        fixture({ stage: "week_3" }),
+      ]),
+    ).toBe("week_2");
+  });
+
+  it("returns null after every regular-season week is complete", () => {
+    const rows = (["week_1", "week_2", "week_3", "week_4", "week_5"] as const).map((stage) =>
+      fixture({ stage, score_a: 2, score_b: 1 }),
+    );
+    expect(selectActiveRegularSeasonStage(rows)).toBeNull();
   });
 });
 

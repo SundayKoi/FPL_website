@@ -13,17 +13,17 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
   return (
     <article
       aria-labelledby="weekly-standouts-title"
-      className="card-brand flex min-h-80 flex-col justify-between overflow-hidden p-6 sm:p-8"
+      className="card-brand flex min-h-0 flex-col justify-between overflow-hidden p-5 sm:p-6"
     >
       <div>
-        <div className="flex items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
             <span className="label-dash">POWER RANKINGS</span>
-            <h2 id="weekly-standouts-title" className="type-display mt-2 text-4xl">
+            <h2 id="weekly-standouts-title" className="type-display mt-2 text-3xl sm:text-4xl">
               Latest Week&apos;s Standouts
             </h2>
           </div>
-          <span className="rounded-full bg-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan">
+          <span className="shrink-0 rounded-full bg-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan">
             Power score
           </span>
         </div>
