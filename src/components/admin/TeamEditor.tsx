@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ROLE_ORDER, type LolRole, type Player, type Profile, type Team } from "@/lib/draft/types";
+import type { Acquisition, Player, Profile, Team } from "@/lib/draft/types";
 
 function initials(name: string): string {
   return name
@@ -91,26 +91,10 @@ export default function TeamEditor({
     else await onChanged();
   };
 
-  const addPrefill = async (team: Team, role: LolRole, displayName: string) => {
-    if (!displayName.trim() || busy) return; // guards double-submits (raw Postgres uniqueness errors otherwise)
-    setBusy(true);
-    setErr(null);
-    const { error } = await supabase.from("players").insert({
-      draft_id: draftId,
-      display_name: displayName.trim(),
-      role,
-      team_id: team.id,
-      price: 0,
-      acquisition: "captain",
-    });
-    setBusy(false);
-    if (error) setErr(error.message);
-    else await onChanged();
-  };
-
   const addExistingPrefill = async (
     team: Team,
     playerId: string,
+    acquisition: Acquisition,
     price: number
   ): Promise<boolean> => {
     if (!playerId || !Number.isInteger(price) || price < 0 || busy) return false;
@@ -122,6 +106,7 @@ export default function TeamEditor({
         p_player_id: playerId,
         p_team_id: team.id,
         p_price: price,
+        p_acquisition: acquisition,
       });
       if (error) {
         setErr(error.message);
@@ -161,6 +146,10 @@ export default function TeamEditor({
       <div className="flex flex-col gap-4">
         {teams.map((team) => {
           const prefills = players.filter((p) => p.team_id === team.id);
+          const setupAcquisitions: Acquisition[] = ["captain", "free_agency"];
+          const availableAcquisitions = setupAcquisitions.filter(
+            (acquisition) => !prefills.some((player) => player.acquisition === acquisition),
+          );
           const availablePoolPlayers = players.filter(
             (p) =>
               p.draft_id === draftId &&
@@ -244,20 +233,14 @@ export default function TeamEditor({
                     </li>
                   ))}
                 </ul>
-                {prefills.length < 2 && (
-                  <>
-                    <PrefillForm
-                      usedRoles={prefills.map((p) => p.role)}
-                      disabled={busy}
-                      onAdd={(role, name) => addPrefill(team, role, name)}
-                    />
-                    <ExistingPrefillForm
-                      players={availablePoolPlayers}
-                      disabled={busy}
-                      onAdd={(playerId, price) => addExistingPrefill(team, playerId, price)}
-                    />
-                  </>
-                )}
+                <ExistingPrefillForm
+                  players={availablePoolPlayers}
+                  acquisitions={availableAcquisitions}
+                  disabled={busy}
+                  onAdd={(playerId, acquisition, price) =>
+                    addExistingPrefill(team, playerId, acquisition, price)
+                  }
+                />
               </div>
             </div>
           );
@@ -270,24 +253,36 @@ export default function TeamEditor({
 
 function ExistingPrefillForm({
   players,
+  acquisitions,
   disabled,
   onAdd,
 }: {
   players: Player[];
+  acquisitions: Acquisition[];
   disabled: boolean;
-  onAdd: (playerId: string, price: number) => Promise<boolean>;
+  onAdd: (playerId: string, acquisition: Acquisition, price: number) => Promise<boolean>;
 }) {
   const [playerId, setPlayerId] = useState("");
+  const [acquisition, setAcquisition] = useState<Acquisition | "">(acquisitions[0] ?? "");
   const [price, setPrice] = useState("");
   const validPrice = /^\d+$/.test(price);
+  const formDisabled = disabled || players.length === 0 || acquisitions.length === 0;
+
+  useEffect(() => {
+    setAcquisition((current) => {
+      if (acquisitions.length === 0) return "";
+      return current && acquisitions.includes(current) ? current : acquisitions[0];
+    });
+  }, [acquisitions]);
 
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!playerId || !validPrice) return;
-        if (await onAdd(playerId, Number(price))) {
+        if (!playerId || !acquisition || !validPrice) return;
+        if (await onAdd(playerId, acquisition, Number(price))) {
           setPlayerId("");
+          setAcquisition(acquisitions[0] ?? "");
           setPrice("");
         }
       }}
@@ -298,13 +293,28 @@ function ExistingPrefillForm({
         <select
           value={playerId}
           onChange={(e) => setPlayerId(e.target.value)}
-          disabled={disabled || players.length === 0}
+          disabled={formDisabled}
           className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
         >
           <option value="">— select player —</option>
           {players.map((player) => (
             <option key={player.id} value={player.id}>
               {player.display_name} · {player.role}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-center gap-1 text-xs text-steel">
+        Acquisition
+        <select
+          value={acquisition}
+          onChange={(e) => setAcquisition(e.target.value as Acquisition)}
+          disabled={formDisabled}
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
+        >
+          {acquisitions.map((option) => (
+            <option key={option} value={option}>
+              {option === "captain" ? "Captain" : "Free Agency"}
             </option>
           ))}
         </select>
@@ -317,67 +327,16 @@ function ExistingPrefillForm({
           step={1}
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          disabled={disabled || players.length === 0}
+          disabled={formDisabled}
           className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
         />
       </label>
       <button
         type="submit"
-        disabled={disabled || players.length === 0 || !playerId || !validPrice}
+        disabled={formDisabled || !playerId || !acquisition || !validPrice}
         className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Add existing player
-      </button>
-    </form>
-  );
-}
-
-function PrefillForm({
-  usedRoles,
-  disabled,
-  onAdd,
-}: {
-  usedRoles: LolRole[];
-  disabled: boolean;
-  onAdd: (role: LolRole, name: string) => void;
-}) {
-  const available = ROLE_ORDER.filter((r) => !usedRoles.includes(r));
-  const [role, setRole] = useState<LolRole>(available[0] ?? "top");
-  const [name, setName] = useState("");
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!name.trim()) return;
-        onAdd(role, name);
-        setName("");
-      }}
-      className="flex items-center gap-2"
-    >
-      <select
-        value={role}
-        onChange={(e) => setRole(e.target.value as LolRole)}
-        className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
-      >
-        {available.map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Player name"
-        className="flex-1 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
-      />
-      <button
-        type="submit"
-        disabled={!name.trim() || disabled}
-        className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
-      >
-        Add
       </button>
     </form>
   );

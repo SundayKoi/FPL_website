@@ -51,6 +51,18 @@ const players: Player[] = [
     acquisition: null,
   },
   {
+    id: "adc-1",
+    draft_id: "draft-1",
+    display_name: "Adc One",
+    role: "adc",
+    rank: null,
+    opgg_url: null,
+    notes: null,
+    team_id: null,
+    price: null,
+    acquisition: null,
+  },
+  {
     id: "top-1",
     draft_id: "draft-1",
     display_name: "Top One",
@@ -97,19 +109,24 @@ describe("TeamEditor", () => {
   });
 
   it("offers an eligible existing pool player with a point value field", () => {
-    render(<TeamEditor {...props} />);
+    render(<TeamEditor {...props} players={players.slice(0, 2)} />);
 
     expect(screen.getByRole("option", { name: "Mid One · mid" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Adc One · adc" })).toBeTruthy();
     expect(screen.getByLabelText("Point value")).toBeTruthy();
-    expect(screen.getByPlaceholderText("Player name")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add" })).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Player name")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+    expect(screen.getByLabelText("Acquisition")).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Captain" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Free Agency" })).toBeTruthy();
   });
 
-  it("assigns the selected existing player at the entered point value", async () => {
-    render(<TeamEditor {...props} />);
+  it("assigns the selected existing player as captain at the entered point value", async () => {
+    render(<TeamEditor {...props} players={players.slice(0, 2)} />);
 
     fireEvent.change(screen.getByLabelText("Existing player"), { target: { value: "mid-1" } });
-    fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "12" } });
+    fireEvent.change(screen.getByLabelText("Acquisition"), { target: { value: "captain" } });
+    fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "15" } });
     fireEvent.click(screen.getByRole("button", { name: "Add existing player" }));
 
     await waitFor(() =>
@@ -117,24 +134,67 @@ describe("TeamEditor", () => {
         p_draft_id: "draft-1",
         p_player_id: "mid-1",
         p_team_id: "team-a",
-        p_price: 12,
+        p_price: 15,
+        p_acquisition: "captain",
       })
     );
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it("retains the existing-player selection and price when the RPC fails", async () => {
+  it("assigns the selected existing player as free agency at the entered point value", async () => {
+    render(<TeamEditor {...props} players={players.slice(0, 2)} />);
+
+    fireEvent.change(screen.getByLabelText("Existing player"), { target: { value: "adc-1" } });
+    fireEvent.change(screen.getByLabelText("Acquisition"), { target: { value: "free_agency" } });
+    fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "12" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add existing player" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_assign_setup_player", {
+        p_draft_id: "draft-1",
+        p_player_id: "adc-1",
+        p_team_id: "team-a",
+        p_price: 12,
+        p_acquisition: "free_agency",
+      })
+    );
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("retains the existing-player selection, acquisition, and price when the RPC fails", async () => {
     rpc.mockResolvedValue({ error: { message: "ROLE_FILLED: already filled" } });
-    render(<TeamEditor {...props} />);
+    render(<TeamEditor {...props} players={players.slice(0, 2)} />);
 
     fireEvent.change(screen.getByLabelText("Existing player"), { target: { value: "mid-1" } });
+    fireEvent.change(screen.getByLabelText("Acquisition"), { target: { value: "free_agency" } });
     fireEvent.change(screen.getByLabelText("Point value"), { target: { value: "12" } });
     fireEvent.click(screen.getByRole("button", { name: "Add existing player" }));
 
     await screen.findByText("ROLE_FILLED: already filled");
     expect((screen.getByLabelText("Existing player") as HTMLSelectElement).value).toBe("mid-1");
+    expect((screen.getByLabelText("Acquisition") as HTMLSelectElement).value).toBe("free_agency");
     expect((screen.getByLabelText("Point value") as HTMLInputElement).value).toBe("12");
     expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("only offers free agency when captain is already assigned", () => {
+    render(<TeamEditor {...props} />);
+
+    expect(screen.getByLabelText("Acquisition")).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Captain" })).toBeNull();
+    expect(screen.getByRole("option", { name: "Free Agency" })).toBeTruthy();
+  });
+
+  it("falls back to free agency when a refetch removes captain from the available acquisition types", () => {
+    const { rerender } = render(<TeamEditor {...props} players={players.slice(0, 2)} />);
+
+    fireEvent.change(screen.getByLabelText("Acquisition"), { target: { value: "captain" } });
+
+    rerender(<TeamEditor {...props} />);
+
+    expect((screen.getByLabelText("Acquisition") as HTMLSelectElement).value).toBe(
+      "free_agency"
+    );
   });
 
   it("changes a setup budget through the authoritative RPC", async () => {
@@ -199,18 +259,23 @@ describe("TeamEditor", () => {
     expect(screen.queryByRole("option", { name: "Another Top · top" })).toBeNull();
   });
 
-  it("does not offer either prefill form when a team already has two prefills", () => {
+  it("disables the typed setup form when a team already has two prefills", () => {
     render(
       <TeamEditor
         {...props}
         players={[
           ...players,
-          { ...players[0], id: "jungle-1", display_name: "Jungle One", role: "jungle", team_id: "team-a", price: 0, acquisition: "captain" },
+          { ...players[0], id: "jungle-1", display_name: "Jungle One", role: "jungle", team_id: "team-a", price: 0, acquisition: "free_agency" },
         ]}
       />
     );
 
-    expect(screen.queryByLabelText("Existing player")).toBeNull();
+    expect((screen.getByLabelText("Existing player") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Acquisition") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Point value") as HTMLInputElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Add existing player" }) as HTMLButtonElement).disabled
+    ).toBe(true);
     expect(screen.queryByPlaceholderText("Player name")).toBeNull();
   });
 });
