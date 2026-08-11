@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { fetchSeasons } from "@/lib/stats/queries";
 import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
+import MvpTab from "./MvpTab";
+import PowerRankingsTab from "./PowerRankingsTab";
 import RecordsTab from "./RecordsTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
 import TeamsTab from "./TeamsTab";
+import TimelineTab from "./TimelineTab";
 
 const TABS = [
   "Leaderboard",
@@ -101,6 +104,12 @@ export default function StatsTabs() {
         <ChampionsTab season={season} phase={phase} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} />
+      ) : activeTab === "MVP" ? (
+        <MvpTab season={season} phase={phase} />
+      ) : activeTab === "Power Rankings" ? (
+        <PowerRankingsTab season={season} phase={phase} />
+      ) : activeTab === "Timeline" ? (
+        <TimelineTab season={season} phase={phase} />
       ) : (
         <PlaceholderTab tab={activeTab} />
       )}
