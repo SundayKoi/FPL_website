@@ -211,3 +211,47 @@ service's dashboard in a browser.
     Open the Supabase dashboard for the project some time before draft
     night to wake it up, and confirm the site loads, before everyone
     joins.
+
+## Stats ingestion
+
+Game-night League of Legends stats are pulled from the Riot API and
+written directly to `public.raw_stats` in Supabase by
+`scripts/riot_stats_ingest.py`. **The old Google Sheets flow (gspread +
+`credentials.json`) is retired** — Supabase is now the source of truth for
+stats, and the `/stats` page reads from it.
+
+Run it after a game night, once you know the season/phase to tag the
+games with:
+
+```powershell
+# Explicit match ids
+python scripts/riot_stats_ingest.py NA1_5558429844 NA1_5558431122 --season S5 --phase Regular
+
+# Or discover match ids from the players in PLAYER_RIOT_IDS (scripts/riot_stats_ingest.py)
+# across a date window, filtered to the custom-game queue:
+python scripts/riot_stats_ingest.py --dates 2026-08-11 --season S5 --phase Regular
+
+# Preview the mapped rows without writing anything to Supabase:
+python scripts/riot_stats_ingest.py NA1_5558429844 --dry-run
+```
+
+Setup:
+
+1. `pip install requests python-dotenv`
+2. Copy `.env.example` to `.env` and fill in `RIOT_API_KEY`, `SUPABASE_URL`,
+   and `SUPABASE_SERVICE_ROLE_KEY` (the ingester writes with the service
+   role key, bypassing RLS, so guard `.env` like any other secret).
+3. `--season`/`--phase` are required for a real write (they fill the
+   `season`/`season_phase` columns); omit them only with `--dry-run`.
+
+Writes are idempotent: rows POST to `raw_stats` with
+`Prefer: resolution=ignore-duplicates` on the `(match_id, summoner_name)`
+unique index, so re-running the ingester for a night you've already
+imported is a safe no-op for existing rows.
+
+> **Riot API key regeneration warning.** The predecessor script
+> (`updated_stats.py`, since deleted) had a live Riot API key hardcoded in
+> its source and was committed to this repo's history before being
+> removed. Treat that key as permanently compromised — regenerate a new
+> key at the [Riot Developer Portal](https://developer.riotgames.com/) and
+> put it only in `.env` (gitignored), never in a script.
