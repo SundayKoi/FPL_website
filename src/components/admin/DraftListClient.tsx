@@ -37,23 +37,18 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
   };
 
   const deleteDraft = async (draft: Draft) => {
-    if (draft.status !== "setup") return;
     if (!confirm(`Delete draft "${draft.name}"? This cannot be undone.`)) return;
-    // Guard the setup-only rule server-side too (client's `status` prop can be
-    // stale): only delete if it's still "setup" at the moment of the write,
-    // and check what actually got deleted via `.select()`.
     const { data, error } = await supabase
       .from("drafts")
       .delete()
       .eq("id", draft.id)
-      .eq("status", "setup")
       .select();
     if (error) {
       setErr(error.message);
       return;
     }
     if (!data || data.length === 0) {
-      setErr("Draft is no longer in setup — refresh.");
+      setErr("Draft could not be deleted — refresh.");
       await refetch();
       return;
     }
@@ -92,14 +87,12 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
                 <span className="font-medium text-white">{draft.name}</span>
                 <span className="text-xs uppercase tracking-wide text-steel">{draft.status}</span>
               </Link>
-              {draft.status === "setup" && (
-                <button
-                  onClick={() => deleteDraft(draft)}
-                  className="shrink-0 rounded border border-red-500/60 px-2 py-1 text-xs font-semibold text-red-400"
-                >
-                  Delete
-                </button>
-              )}
+              <button
+                onClick={() => deleteDraft(draft)}
+                className="shrink-0 rounded border border-red-500/60 px-2 py-1 text-xs font-semibold text-red-400"
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>

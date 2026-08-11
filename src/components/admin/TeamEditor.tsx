@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Acquisition, Player, Profile, Team } from "@/lib/draft/types";
+import { currentPlayerPointValue } from "@/lib/players/pointValues";
 
 function initials(name: string): string {
   return name
@@ -292,11 +293,15 @@ function ExistingPrefillForm({
           className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
         >
           <option value="">— select player —</option>
-          {players.map((player) => (
-            <option key={player.id} value={player.id}>
-              {player.display_name} · {player.role}
-            </option>
-          ))}
+          {players.map((player) => {
+            const pointValue = currentPlayerPointValue(player.display_name);
+            return (
+              <option key={player.id} value={player.id}>
+                {player.display_name} · {player.role}
+                {pointValue !== null ? ` · ${pointValue} pts` : ""}
+              </option>
+            );
+          })}
         </select>
       </label>
       <label className="flex items-center gap-1 text-xs text-steel">

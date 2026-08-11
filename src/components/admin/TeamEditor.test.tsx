@@ -122,6 +122,17 @@ describe("TeamEditor", () => {
     expect(screen.getByRole("option", { name: "Free Agency" })).toBeTruthy();
   });
 
+  it("shows known player point values in the existing-player selector", () => {
+    render(
+      <TeamEditor
+        {...props}
+        players={[{ ...players[0], display_name: "Canny", role: "top" }]}
+      />
+    );
+
+    expect(screen.getByRole("option", { name: "Canny · top · 30 pts" })).toBeTruthy();
+  });
+
   it("assigns the selected existing player as captain at the entered point value", async () => {
     render(<TeamEditor {...props} players={players.slice(0, 2)} />);
 
