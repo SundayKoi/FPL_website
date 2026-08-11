@@ -280,6 +280,9 @@ function DraftTeamEditor({
         const form = forms[team.id];
         const isSaving = form.status.kind === "saving";
         const prefix = `team-${team.id}`;
+        const colorPickerValue = isHexBannerColor(form.bannerColor)
+          ? form.bannerColor
+          : normalizeBannerColor(team.banner_color);
         return (
           <form
             key={team.id}
@@ -335,22 +338,35 @@ function DraftTeamEditor({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-banner-color`}>
-                Banner color
-                <span className="flex rounded border border-line bg-navy px-2 py-1 focus-within:border-gold focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-gold">
+              <div className="flex flex-col gap-1 text-xs text-steel">
+                <span>Banner color</span>
+                <div className="flex gap-2">
                   <input
                     id={`${prefix}-banner-color`}
                     aria-label={`${team.name} banner color`}
                     type="color"
-                    value={form.bannerColor}
+                    value={colorPickerValue}
                     disabled={isSaving}
                     onChange={(event) =>
                       setForm(team.id, { bannerColor: event.target.value, status: { kind: "idle" } })
                     }
-                    className="h-8 w-full cursor-pointer bg-transparent disabled:cursor-not-allowed"
+                    className="h-10 w-12 shrink-0 cursor-pointer rounded border border-line bg-navy p-1 disabled:cursor-not-allowed disabled:opacity-50"
                   />
-                </span>
-              </label>
+                  <input
+                    id={`${prefix}-banner-hex-code`}
+                    aria-label={`${team.name} banner hex code`}
+                    value={form.bannerColor}
+                    disabled={isSaving}
+                    maxLength={7}
+                    placeholder="#083344"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      setForm(team.id, { bannerColor: event.target.value, status: { kind: "idle" } })
+                    }
+                    className="min-w-0 flex-1 rounded border border-line bg-navy px-3 py-2 font-mono text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
+                  />
+                </div>
+              </div>
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-image`}>
                 Team image
                 <input

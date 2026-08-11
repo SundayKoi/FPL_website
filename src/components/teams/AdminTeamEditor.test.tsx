@@ -293,6 +293,20 @@ describe("AdminTeamEditor", () => {
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
   });
 
+  it("accepts a typed hex banner color", async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A banner hex code"), { target: { value: "#ABCDEF" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({ banner_color: "#abcdef" }),
+    ));
+    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+  });
+
   it("resets form state when rerendered for a different draft", () => {
     const nextTeams: Team[] = [{
       ...teams[0],
