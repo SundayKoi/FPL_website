@@ -6,6 +6,7 @@ import { fetchPlayerAgg } from "@/lib/stats/queries";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { RoleChip, StatBar } from "./statsUi";
 
 function playerKey(row: PlayerAggRow): string {
   return `${row.summoner_name}#${row.tag}`;
@@ -99,45 +100,50 @@ export default function MvpTab({ season, phase }: { season: string; phase: Phase
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card-brand overflow-hidden p-6 sm:p-8">
-        <span className="label-dash">Most Valuable Player</span>
+      <div className="card-neon p-6 sm:p-8">
+        <div className="flex items-center gap-2">
+          <span className="float-soft text-2xl" aria-hidden="true">
+            👑
+          </span>
+          <span className="mono-label">Most Valuable Player</span>
+        </div>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="type-display text-4xl sm:text-5xl">{leader.summoner_name}</p>
-            <p className="mt-1 text-sm text-steel">
-              {leader.role_mode} · {leader.games} games · {leader.winrate_pct.toFixed(1)}% WR
+            <p className="mt-2 flex items-center gap-2 text-sm text-steel">
+              <RoleChip role={leader.role_mode} />
+              <span className="font-mono">
+                {leader.games} games · {leader.winrate_pct.toFixed(1)}% WR
+              </span>
             </p>
           </div>
-          <p className="type-display text-6xl text-gold sm:text-7xl">{leader.mvpScore}</p>
+          <p className="type-display glow-pulse text-6xl text-gold sm:text-7xl [text-shadow:0_0_24px_rgb(245_182_46/0.5)]">
+            {leader.mvpScore}
+          </p>
         </div>
-        <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-navy">
-          <div
-            className="h-full rounded-full bg-gold"
-            style={{ width: `${Math.max(0, Math.min(100, leader.mvpScore))}%` }}
-          />
-        </div>
+        <StatBar value={leader.mvpScore} max={100} color="gold" className="mt-4" />
       </div>
 
-      <div className="card-brand flex flex-col gap-1 p-2">
+      <div className="card-neon flex flex-col gap-1 p-2">
         {rest.map((entry, i) => (
           <div
             key={playerKey(entry)}
-            className="flex flex-wrap items-center gap-3 border-t border-line/60 px-3 py-2.5 first:border-t-0 sm:flex-nowrap"
+            className="flex flex-wrap items-center gap-3 border-t border-line/50 px-3 py-2.5 first:border-t-0 sm:flex-nowrap"
           >
-            <span className="w-8 shrink-0 text-sm font-semibold text-steel">#{i + 2}</span>
-            <div className="min-w-[10rem] flex-1">
-              <p className="truncate text-sm font-semibold text-white">{entry.summoner_name}</p>
-              <p className="truncate text-xs text-steel">
-                {entry.role_mode} · {entry.games}g · {entry.winrate_pct.toFixed(1)}% WR
+            <span className="w-8 shrink-0 font-mono text-sm font-semibold text-steel">#{i + 2}</span>
+            <div className="min-w-[9rem] flex-1">
+              <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-white">
+                {entry.summoner_name}
+                <RoleChip role={entry.role_mode} />
+              </p>
+              <p className="truncate font-mono text-xs text-steel">
+                {entry.games}g · {entry.winrate_pct.toFixed(1)}% WR
               </p>
             </div>
-            <div className="h-2 w-full max-w-xs flex-1 overflow-hidden rounded-full bg-navy">
-              <div
-                className="h-full rounded-full bg-gold/80"
-                style={{ width: `${Math.max(0, Math.min(100, entry.mvpScore))}%` }}
-              />
-            </div>
-            <span className="w-10 shrink-0 text-right text-base font-bold text-gold">{entry.mvpScore}</span>
+            <StatBar value={entry.mvpScore} max={100} color="gold" className="w-full max-w-xs flex-1" />
+            <span className="w-10 shrink-0 text-right font-mono text-base font-bold text-gold">
+              {entry.mvpScore}
+            </span>
           </div>
         ))}
       </div>
