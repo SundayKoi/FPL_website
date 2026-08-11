@@ -53,11 +53,9 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
       style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
       <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="FPL Draft home">
+        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="FPL home">
           <Image src="/fpl-logo.png" width={30} height={30} alt="" />
-          <span className="type-display text-base">
-            FPL <span className="font-body not-italic text-steel">DRAFT</span>
-          </span>
+          <span className="type-display text-base">FPL</span>
         </Link>
 
         <nav
@@ -66,7 +64,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           data-open={open}
           className={`${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0`}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-center sm:gap-8 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0`}
           style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
           {NAV_LINKS.map((link) => {
