@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import { clientSiteOrigin } from "@/lib/auth/siteOrigin";
 import { createClient } from "@/lib/supabase/client";
 
 const isLocal =
@@ -27,7 +28,11 @@ export default function LoginPage() {
           onClick={() =>
             supabase.auth.signInWithOAuth({
               provider: "discord",
-              options: { redirectTo: `${location.origin}/auth/callback` },
+              // Canonical origin, not location.origin: users arriving via a
+              // non-allowlisted host (old vercel.app links) were falling
+              // back to Supabase's Site URL after Discord auth — see
+              // lib/auth/siteOrigin.ts.
+              options: { redirectTo: `${clientSiteOrigin()}/auth/callback` },
             })
           }
         >

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveSiteOrigin } from "@/lib/auth/siteOrigin";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
@@ -8,5 +9,14 @@ export async function GET(request: Request) {
     const supabase = await createServerSupabase();
     await supabase.auth.exchangeCodeForSession(code);
   }
-  return NextResponse.redirect(new URL("/", url.origin));
+  // Redirect to the canonical origin (else the user-facing forwarded host)
+  // rather than url.origin — behind Vercel's proxy, request.url can carry
+  // the internal deployment host instead of the domain the user is on.
+  const origin = resolveSiteOrigin(
+    process.env.NEXT_PUBLIC_SITE_URL,
+    request.headers.get("x-forwarded-host"),
+    request.headers.get("x-forwarded-proto"),
+    url.origin,
+  );
+  return NextResponse.redirect(new URL("/", origin));
 }
