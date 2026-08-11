@@ -28,6 +28,9 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           <Link href="/stats" className={linkClass}>
             Stats
           </Link>
+          <Link href="/players" className={linkClass}>
+            Players
+          </Link>
           <Link href="/schedule" className={linkClass}>
             Schedule
           </Link>
