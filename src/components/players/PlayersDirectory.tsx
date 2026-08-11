@@ -20,7 +20,7 @@ export default function PlayersDirectory({ seasons }: Props) {
 
   return (
     <main className="bg-hash flex-1">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">PLAYER POOL</span>
@@ -49,11 +49,11 @@ export default function PlayersDirectory({ seasons }: Props) {
           </div>
         </header>
 
-        <section aria-label="Player directory" className="card-brand mt-10 p-4 sm:p-6">
+        <section aria-label="Player directory" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
           {sections.length === 0 ? (
             <p className="text-steel">Season 4 player data has not been added yet.</p>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-5 sm:grid-cols-2 xl:min-w-[1500px] xl:grid-cols-5">
               {sections.map((section) => (
                 <section
                   key={section.key}
@@ -75,7 +75,7 @@ export default function PlayersDirectory({ seasons }: Props) {
                           href={player.opggUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-w-0 break-words font-semibold underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                          className="min-w-0 break-words whitespace-nowrap font-semibold underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                         >
                           {player.name}
                         </a>
