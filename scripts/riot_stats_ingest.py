@@ -28,6 +28,11 @@ USAGE:
     # Explicit match ids, writes to Supabase:
     python scripts/riot_stats_ingest.py NA1_123 NA1_456 --season S5 --phase Regular
 
+    # Omitting --season/--phase reads the current values from the site's
+    # league_settings table (set by admins on the website) — the automation
+    # path: a bot only needs match ids:
+    python scripts/riot_stats_ingest.py NA1_123 NA1_456
+
     # Date-window discovery mode (looks up PLAYER_RIOT_IDS' match history,
     # keeps games that look like customs/tournament games inside the
     # window(s) built from the given dates):
@@ -89,6 +94,7 @@ API_DELAY = 1.5
 TIMELINE_INTERVALS = [5, 10, 15, 20]
 
 RAW_STATS_ENDPOINT = "/rest/v1/raw_stats"
+LEAGUE_SETTINGS_ENDPOINT = "/rest/v1/league_settings"
 WRITE_BATCH_SIZE = 100
 
 # ============================================================
@@ -911,6 +917,38 @@ def chunk(items, size):
     return [items[i : i + size] for i in range(0, len(items), size)]
 
 
+def fetch_current_season_phase(supabase_url, service_key):
+    """Read (current_season, current_phase) from the site's league_settings
+    singleton row (id=1) — the admin-set source of truth that lets automated
+    runs omit --season/--phase. Returns (season, phase) or None on any
+    failure (missing row, HTTP error, connection error); the caller decides
+    whether that's fatal."""
+    url = f"{supabase_url.rstrip('/')}{LEAGUE_SETTINGS_ENDPOINT}?id=eq.1&select=current_season,current_phase"
+    headers = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
+    try:
+        resp = requests.get(url, headers=headers)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not read league_settings: request error: {exc}")
+        return None
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not read league_settings: HTTP {resp.status_code}: {resp.text[:200]}")
+        return None
+    rows = resp.json()
+    if not rows or not rows[0].get("current_season") or not rows[0].get("current_phase"):
+        print("  [WARN] league_settings has no current_season/current_phase set.")
+        return None
+    return rows[0]["current_season"], rows[0]["current_phase"]
+
+
+def resolve_season_phase(flag_season, flag_phase, fetched):
+    """Merge explicit --season/--phase flags with the league_settings pair:
+    flags always win; the fetched pair fills whichever is missing. Returns
+    (season, phase) with None holes if neither source provided a value.
+    Pure function (no I/O) so it's unit-testable without the network."""
+    fetched_season, fetched_phase = fetched if fetched else (None, None)
+    return (flag_season or fetched_season, flag_phase or fetched_phase)
+
+
 def write_to_supabase(rows, supabase_url, service_key):
     """POST rows to {SUPABASE_URL}/rest/v1/raw_stats in batches of
     WRITE_BATCH_SIZE, with on-conflict-ignore on (match_id, summoner_name).
@@ -1015,11 +1053,6 @@ def main(argv=None):
         print("[ERROR] Pass either explicit match ids or --dates, not both.")
         return 1
 
-    if not args.dry_run and not (args.season and args.phase):
-        print("[ERROR] --season and --phase are required unless --dry-run is set.")
-        print("        Example: --season S5 --phase Regular")
-        return 1
-
     required_names = ["RIOT_API_KEY"] if args.dry_run else REQUIRED_ENV_VARS
     env = require_env(required_names)
     if env is None:
@@ -1027,6 +1060,21 @@ def main(argv=None):
     riot_api_key = env["RIOT_API_KEY"]
     supabase_url = env.get("SUPABASE_URL")
     service_key = env.get("SUPABASE_SERVICE_ROLE_KEY")
+
+    # Explicit --season/--phase win; otherwise fall back to the admin-set
+    # current values in league_settings so automated runs (a bot passing
+    # only match ids) label rows correctly without being told.
+    season, phase = args.season, args.phase
+    if not args.dry_run and not (season and phase):
+        print("Resolving season/phase from league_settings (flags omitted)...")
+        fetched = fetch_current_season_phase(supabase_url, service_key)
+        season, phase = resolve_season_phase(args.season, args.phase, fetched)
+        if not (season and phase):
+            print("[ERROR] --season and --phase were not passed and could not be read from league_settings.")
+            print("        Either pass them explicitly (--season S5 --phase Regular) or set the current")
+            print("        season/phase in the site's admin controls on the Schedule page.")
+            return 1
+        print(f"  Using season={season} phase={phase}")
 
     try:
         team_map = load_team_map(args.team_map)
@@ -1064,7 +1112,7 @@ def main(argv=None):
             print(f"  Date: {game_date} | Duration: {duration}m | Players: {players}")
 
             stats = fetch_and_extract(
-                match_id, match_data, riot_api_key, season=args.season, season_phase=args.phase, team_map=team_map
+                match_id, match_data, riot_api_key, season=season, season_phase=phase, team_map=team_map
             )
             all_rows.extend(stats)
             print(f"  Extracted {len(stats)} player rows\n")
@@ -1104,8 +1152,8 @@ def main(argv=None):
                     match_id,
                     match_data,
                     riot_api_key,
-                    season=args.season,
-                    season_phase=args.phase,
+                    season=season,
+                    season_phase=phase,
                     team_map=team_map,
                 )
                 all_rows.extend(stats)
