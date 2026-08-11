@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { fetchSeasons } from "@/lib/stats/queries";
+import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
+import RecordsTab from "./RecordsTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
+import TeamsTab from "./TeamsTab";
 
 const TABS = [
   "Leaderboard",
@@ -92,6 +95,12 @@ export default function StatsTabs() {
         </div>
       ) : activeTab === "Leaderboard" ? (
         <LeaderboardTab season={season} phase={phase} />
+      ) : activeTab === "Teams" ? (
+        <TeamsTab season={season} phase={phase} />
+      ) : activeTab === "Champions" ? (
+        <ChampionsTab season={season} phase={phase} />
+      ) : activeTab === "Records" ? (
+        <RecordsTab season={season} phase={phase} />
       ) : (
         <PlaceholderTab tab={activeTab} />
       )}
