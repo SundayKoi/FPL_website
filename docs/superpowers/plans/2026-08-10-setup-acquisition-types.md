@@ -41,7 +41,7 @@
 - Create: `supabase/tests/0016_setup_acquisition_types_test.sql`
 
 **Interfaces:**
-- Produces `public.admin_assign_setup_player(uuid, uuid, uuid, int, public.acquisition_type)` returning `void`.
+- Produces `public.admin_assign_setup_player(uuid, uuid, uuid, int, text)` returning `void`; the text is cast to `public.acquisition_type` only after validation.
 - Accepts `p_acquisition` values `captain` and `free_agency` only.
 - Raises `SETUP_ACQUISITION_INVALID` for any other setup acquisition and `SETUP_ACQUISITION_TAKEN` when that acquisition already exists on the team.
 
@@ -73,7 +73,7 @@ Expected: FAIL because the current schema exposes only `admin_assign_setup_playe
 
 - [ ] **Step 3: Create the migration with the new function signature and validation.**
 
-Drop the old signature, create the five-argument function, and grant only the new signature to `authenticated` and `service_role`. Keep the existing setup, draft, player, team, role, full-team, and insufficient-points checks, then add:
+Drop the old signature, create the five-argument function with `p_acquisition text`, and grant only the new signature to `authenticated` and `service_role`. Keep the existing setup, draft, player, team, role, full-team, and insufficient-points checks, then add:
 
 ```sql
 if p_acquisition not in ('captain', 'free_agency') then
@@ -81,13 +81,13 @@ if p_acquisition not in ('captain', 'free_agency') then
 end if;
 if exists (
   select 1 from public.players
-  where team_id = v_team.id and acquisition = p_acquisition
+  where team_id = v_team.id and acquisition = p_acquisition::public.acquisition_type
 ) then
   raise exception 'SETUP_ACQUISITION_TAKEN: team already has this setup acquisition';
 end if;
 ```
 
-Update the player with `acquisition = p_acquisition` and the entered price, and subtract `p_price` for both acquisition types. Revoke the old four-argument signature before dropping it.
+After validation, assign `p_acquisition::public.acquisition_type` to the player with the entered price, and subtract `p_price` for both acquisition types. Revoke the old four-argument signature before dropping it.
 
 - [ ] **Step 4: Update existing SQL callers with explicit acquisition values.**
 
