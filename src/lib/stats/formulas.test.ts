@@ -112,9 +112,15 @@ import type { PlayerAggRow } from "./types";
 // below ports ONLY the legacy report's "Core Performance / Damage
 // Profile / Economy / Vision & Map Control" card *values* (lines
 // 2880-2901, 2958-2973) that read directly off the `p` player-agg object
-// (p.kda, p.winRate, p.killsPerGame, p.deathsPerGame, p.assistsPerGame,
-// p.damagePerMin, p.goldPerMin, p.csPerMin, p.visionPerMin) — all present
-// on PlayerAggRow. The legacy percentile bars next to each of those
+// or a straightforward colAvg() reconstructible from a summed
+// PlayerAggRow column: p.kda, p.winRate, p.killsPerGame, p.deathsPerGame,
+// p.assistsPerGame, colAvg('Solo Kills') -> avg_solo_kills,
+// colAvg('Kill Participation %') -> avg_kp_pct (lines 2886-2887),
+// p.damagePerMin, p.goldPerMin, p.csPerMin,
+// colAvg('Turret Plates Destroyed') -> total_plates/games (line 2962,
+// one division reconstructing the per-game mean from the view's summed
+// column), p.visionPerMin — all present on, or one division away from,
+// PlayerAggRow. The legacy percentile bars next to each of those
 // (pctOf(key), lines 2839-2844) are cohort-relative and are NOT ported
 // here since scoutingProfile takes a single row with no cohort parameter
 // per the brief's exact signature; ScoutingProfile carries raw values only.
@@ -217,7 +223,8 @@ describe("scoutingProfile", () => {
       summoner_name: "Scout", role_mode: "MIDDLE", games: 10, wins: 6,
       winrate_pct: 60, kda: 3.5, avg_kills: 5, avg_deaths: 3, avg_assists: 7,
       avg_dmg_per_min: 650, avg_gold_per_min: 400, avg_cs_per_min: 7.5,
-      avg_vision_per_min: 1.1,
+      avg_vision_per_min: 1.1, avg_solo_kills: 1.4, avg_kp_pct: 62.3,
+      total_plates: 12,
     });
     const profile = scoutingProfile(row);
     expect(profile.player).toBe("Scout");
@@ -231,6 +238,35 @@ describe("scoutingProfile", () => {
     expect(profile.damage.find((l) => l.label === "DMG/Min")?.value).toBe(650);
     expect(profile.economy.find((l) => l.label === "Gold/Min")?.value).toBe(400);
     expect(profile.vision.find((l) => l.label === "Vision/Min")?.value).toBe(1.1);
+  });
+
+  // Fix round (coordinator review): Core Performance dropped 2 fields that
+  // sit inside the already-cited legacy range (2880-2888) — legacy lines
+  // 2886-2887: simpleRow('Solo Kills/Game', colAvg('Solo Kills').toFixed(1))
+  // and simpleRow('Kill Participation', colAvg('Kill Participation %').toFixed(1)+'%').
+  // Both map straight onto PlayerAggRow's own avg_solo_kills / avg_kp_pct.
+  it("Core Performance includes Solo Kills/Game and Kill Participation (legacy lines 2886-2887)", () => {
+    const row = playerRow({ avg_solo_kills: 1.4, avg_kp_pct: 62.3 });
+    const profile = scoutingProfile(row);
+    expect(profile.core.find((l) => l.label === "Solo Kills/Game")).toEqual({ label: "Solo Kills/Game", value: 1.4, fmt: "dec1" });
+    expect(profile.core.find((l) => l.label === "Kill Participation")).toEqual({ label: "Kill Participation", value: 62.3, fmt: "pct" });
+  });
+
+  // Economy: legacy line 2962, simpleRow('Turret Plates',
+  // colAvg('Turret Plates Destroyed').toFixed(1)+'/g') — colAvg is a mean
+  // over the player's raw rows; the view exposes only the season/phase sum
+  // (total_plates), so the per-game figure is reconstructed with one
+  // division: total_plates / games. 24 plates / 8 games = 3 per game.
+  it("Economy includes Turret Plates as total_plates / games (legacy line 2962)", () => {
+    const row = playerRow({ games: 8, total_plates: 24 });
+    const profile = scoutingProfile(row);
+    expect(profile.economy.find((l) => l.label === "Turret Plates")).toEqual({ label: "Turret Plates", value: 3, fmt: "dec1" });
+  });
+
+  it("Turret Plates divides exactly by games for a non-whole result", () => {
+    const row = playerRow({ games: 3, total_plates: 5 });
+    const profile = scoutingProfile(row);
+    expect(profile.economy.find((l) => l.label === "Turret Plates")?.value).toBeCloseTo(5 / 3, 5);
   });
 });
 

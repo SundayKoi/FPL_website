@@ -313,11 +313,14 @@ function round2(n: number): number {
 // (Task 4-7 import this exact shape) — so instead this ports only the
 // subset of the legacy Scouting report genuinely computable from one
 // PlayerAggRow: the raw (non-percentile) values shown in the "Core
-// Performance" (lines 2880-2888), "Damage Profile" (lines 2890-2892,
-// 2900 — DMG/Min and DMG Taken/Min only; the physical/magic/true split
-// and DMG Per Gold on lines 2893-2899 need raw_stats columns the view
-// doesn't expose), "Economy" (lines 2958-2960 — Gold/Min and CS/Min
-// only), and "Vision & Map Control" (line 2968 — Vision/Min only) cards.
+// Performance" (lines 2880-2888, all 7 rows: KDA, Win Rate, Kills/Game,
+// Deaths/Game, Assists/Game, Solo Kills/Game, Kill Participation),
+// "Damage Profile" (lines 2890-2892, 2900 — DMG/Min and DMG Taken/Min
+// only; the physical/magic/true split and DMG Per Gold on lines
+// 2893-2899 need raw_stats columns the view doesn't expose), "Economy"
+// (lines 2958-2962 — Gold/Min, CS/Min, and Turret Plates; Gold Share on
+// line 2961 and Bounty Gold on line 2963 need columns the view doesn't
+// expose), and "Vision & Map Control" (line 2968 — Vision/Min only) cards.
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
@@ -335,14 +338,18 @@ export function scoutingProfile(row: PlayerAggRow): ScoutingProfile {
     wins: row.wins,
     losses: row.games - row.wins,
     winrate_pct: row.winrate_pct,
-    // Core Performance — legacy lines 2881-2885 (statRow calls read
-    // p.kda, p.winRate, p.killsPerGame, p.deathsPerGame, p.assistsPerGame).
+    // Core Performance — legacy lines 2881-2887 (statRow calls read
+    // p.kda, p.winRate, p.killsPerGame, p.deathsPerGame, p.assistsPerGame;
+    // simpleRow calls read colAvg('Solo Kills') and colAvg('Kill
+    // Participation %'), mapped to avg_solo_kills / avg_kp_pct).
     core: [
       line("KDA", row.kda, "dec2"),
       line("Win Rate", row.winrate_pct, "pct"),
       line("Kills/Game", row.avg_kills, "dec1"),
       line("Deaths/Game", row.avg_deaths, "dec1"),
       line("Assists/Game", row.avg_assists, "dec1"),
+      line("Solo Kills/Game", row.avg_solo_kills, "dec1"),
+      line("Kill Participation", row.avg_kp_pct, "pct"),
     ],
     // Damage Profile — legacy line 2892 (p.damagePerMin) and line 2900
     // (colAvg('Damage Taken/min'), mapped to the view's avg_dmg_taken_per_min).
@@ -350,10 +357,16 @@ export function scoutingProfile(row: PlayerAggRow): ScoutingProfile {
       line("DMG/Min", row.avg_dmg_per_min, "int"),
       line("DMG Taken/Min", row.avg_dmg_taken_per_min, "int"),
     ],
-    // Economy — legacy lines 2959-2960 (p.goldPerMin, p.csPerMin).
+    // Economy — legacy lines 2959-2962 (p.goldPerMin, p.csPerMin, and
+    // simpleRow('Turret Plates', colAvg('Turret Plates Destroyed').toFixed(1)+'/g')).
+    // The view has no per-game turret-plates average column, only the
+    // season/phase sum (total_plates); total_plates / games reconstructs
+    // the same per-game mean colAvg('Turret Plates Destroyed') computes
+    // over the player's raw rows (sum of a column / row count == mean).
     economy: [
       line("Gold/Min", row.avg_gold_per_min, "dec1"),
       line("CS/Min", row.avg_cs_per_min, "dec1"),
+      line("Turret Plates", row.total_plates / row.games, "dec1"),
     ],
     // Vision & Map Control — legacy line 2968 (p.visionPerMin).
     vision: [
