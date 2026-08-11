@@ -30,16 +30,16 @@ export default async function LeagueHub() {
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section aria-label="Homepage dashboard" className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
-          <TwitchShowcase
-            channelLogin={TWITCH_CHANNEL_LOGIN}
-            clips={twitchClips}
-            streamState={twitchStatus.state}
-            twitchUrl={TWITCH_URL}
-          />
           <div className="flex min-w-0 flex-col gap-6">
+            <TwitchShowcase
+              channelLogin={TWITCH_CHANNEL_LOGIN}
+              clips={twitchClips}
+              streamState={twitchStatus.state}
+              twitchUrl={TWITCH_URL}
+            />
             <HomeStandings teams={standings} />
-            <WeeklyStandouts standouts={weeklyStandouts} />
           </div>
+          <WeeklyStandouts standouts={weeklyStandouts} />
         </section>
         <UpcomingSchedule schedule={schedule} />
       </div>

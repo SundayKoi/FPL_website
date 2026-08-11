@@ -98,6 +98,25 @@ describe("LeagueHub", () => {
     expect(screen.getByText("Alpha")).not.toBeNull();
   });
 
+  it("places standings below the broadcast in the left dashboard stack", async () => {
+    render(await LeagueHub());
+
+    const broadcast = screen.getByRole("article", {
+      name: /franchise premier league broadcast/i,
+    });
+    const standings = screen.getByRole("article", { name: /team standings/i });
+    const standouts = screen.getByRole("article", { name: /latest week's standouts/i });
+
+    expect(broadcast.parentElement).toBe(standings.parentElement);
+    expect(standings.parentElement).not.toBe(standouts.parentElement);
+    expect(
+      broadcast.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      standings.compareDocumentPosition(standouts) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("adds the upcoming schedule below the dashboard", async () => {
     render(await LeagueHub());
 
