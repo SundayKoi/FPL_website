@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(14);
 
 -- 1-5: the five views exist
 select has_view('public', 'stats_player_agg', 'stats_player_agg view exists');
@@ -26,36 +26,42 @@ insert into public.raw_stats (
   match_id, game_date, season, season_phase, team_side, team_name,
   summoner_name, tag, champion, role, kills, deaths, assists, kda,
   kill_participation_pct, total_damage_to_champions, damage_per_min,
-  cs, cs_per_min, gold_earned, vision_score, win,
+  cs, cs_per_min, gold_earned, vision_score, win, game_duration_min,
   team_dragons, team_first_dragon, team_barons, team_first_blood, team_first_tower,
   ban_1, ban_2, ban_3, ban_4, ban_5
 ) values
-  -- Game 1: Blue side (TestGuy + a teammate), Ahri banned both sides
+  -- Game 1: Blue side (TestGuy + a teammate), Ahri banned both sides.
+  -- TestGuy: 20000 dmg / 25 min = 800/min per-game rate (== stored damage_per_min).
   ('ZZ_G1', '2026-01-01 20:00', 'ZZ', 'Regular', 'Blue', 'Blue Squad',
    'TestGuy', 'NA1', 'Ahri', 'MIDDLE', 10, 2, 8, 9.0,
-   80.0, 20000, 800, 200, 8.0, 12000, 30, true,
+   80.0, 20000, 800, 200, 8.0, 12000, 30, true, 25,
    3, true, 1, true, true,
    'Ahri', 'Zed', null, null, null),
   ('ZZ_G1', '2026-01-01 20:00', 'ZZ', 'Regular', 'Blue', 'Blue Squad',
    'BlueMate', 'NA1', 'Garen', 'TOP', 4, 3, 6, 3.33,
-   60.0, 15000, 600, 180, 7.0, 10000, 20, true,
+   60.0, 15000, 600, 180, 7.0, 10000, 20, true, 25,
    3, true, 1, true, true,
    'Ahri', 'Zed', null, null, null),
   -- Game 1: Red side, different bans (Ahri also banned here -> same match_id+ban dedupes to 1)
   ('ZZ_G1', '2026-01-01 20:00', 'ZZ', 'Regular', 'Red', 'Red Squad',
    'FakeFoe', 'NA1', 'Zed', 'MIDDLE', 2, 10, 3, 0.5,
-   40.0, 10000, 400, 150, 6.0, 9000, 15, false,
+   40.0, 10000, 400, 150, 6.0, 9000, 15, false, 25,
    0, false, 0, false, false,
    'Ahri', 'Yasuo', null, null, null),
-  -- Game 2: TestGuy loses on Ahri, Ahri banned only here on blue (still just 1/game)
+  -- Game 2: TestGuy loses on Ahri, Ahri banned only here on blue (still just 1/game).
+  -- TestGuy: 6000 dmg / 15 min = 400/min per-game rate (deliberately different
+  -- duration from Game 1's 25 min, so an unweighted avg() of the two games'
+  -- per-game rates -- (800+400)/2=600 -- would differ from the duration-weighted
+  -- sum(damage)/sum(duration) -- (20000+6000)/(25+15)=650 -- this test asserts
+  -- the latter).
   ('ZZ_G2', '2026-01-02 20:00', 'ZZ', 'Regular', 'Blue', 'Blue Squad',
    'TestGuy', 'NA1', 'Ahri', 'MIDDLE', 1, 6, 2, 0.5,
-   30.0, 8000, 300, 140, 5.0, 8000, 18, false,
+   30.0, 6000, 400, 140, 5.0, 8000, 18, false, 15,
    1, false, 0, false, false,
    'Yasuo', null, null, null, null),
   ('ZZ_G2', '2026-01-02 20:00', 'ZZ', 'Regular', 'Red', 'Red Squad',
    'FakeFoe', 'NA1', 'Garen', 'TOP', 9, 1, 5, 14.0,
-   85.0, 22000, 900, 210, 9.0, 13000, 25, true,
+   85.0, 22000, 900, 210, 9.0, 13000, 25, true, 15,
    4, true, 2, true, true,
    'Yasuo', null, null, null, null);
 
@@ -73,6 +79,21 @@ select ok(
    from public.stats_player_agg
    where summoner_name = 'TestGuy' and season = 'ZZ' and season_phase = 'Regular'),
   'stats_player_agg: TestGuy kda = 2.63 (sum-based, not avg-of-per-game)'
+);
+
+-- avg_dmg_per_min: duration-weighted sum(damage)/sum(duration), matching
+-- the legacy dashboard's aggregate() (docs/reference/FPL_Stats_legacy.html
+-- line 891: damagePerMin:+(s.damage/d).toFixed(1)) -- NOT an unweighted
+-- average of each game's own damage_per_min rate. TestGuy: G1 20000dmg/25min
+-- (rate 800/min), G2 6000dmg/15min (rate 400/min). Duration-weighted:
+-- (20000+6000)/(25+15) = 26000/40 = 650.00. Unweighted avg of the two
+-- games' rates would give (800+400)/2 = 600.00 -- a different, wrong value
+-- this assertion rules out.
+select ok(
+  (select avg_dmg_per_min = 650.00
+   from public.stats_player_agg
+   where summoner_name = 'TestGuy' and season = 'ZZ' and season_phase = 'Regular'),
+  'stats_player_agg: TestGuy avg_dmg_per_min = 650.00 (duration-weighted sum/sum, not avg-of-per-game rates)'
 );
 
 -- champion bans: Ahri appears in ban_1 on both team-rows of Blue in G1 (2 rows,
