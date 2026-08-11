@@ -17,7 +17,7 @@ export default function TeamsDirectory({
 }) {
   return (
     <main className="bg-hash flex-1">
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">LEAGUE ROSTERS</span>
@@ -36,7 +36,7 @@ export default function TeamsDirectory({
 
         <section aria-label="Team rosters" className="mt-10">
           {rosterContent ?? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {teams.map((team) => (
                 <TeamRosterCard key={team.id} team={team} />
               ))}
