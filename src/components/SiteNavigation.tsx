@@ -17,7 +17,7 @@ const NAV_LINKS = [
 ] as const;
 
 const linkBase =
-  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold";
+  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold sm:text-sm lg:text-base";
 
 function isActive(pathname: string | null, href: string) {
   if (href === "/") return pathname === "/";
@@ -52,10 +52,16 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
       className="sticky top-0 z-40 border-b border-line backdrop-blur"
       style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
-      <div className="relative mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="FPL home">
-          <Image src="/fpl-logo.png" width={30} height={30} alt="" />
-          <span className="type-display text-base">FPL</span>
+      <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
+        <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3" aria-label="FPL home">
+          <Image
+            src="/fpl-logo.png"
+            width={44}
+            height={44}
+            alt=""
+            className="h-[30px] w-[30px] sm:h-11 sm:w-11"
+          />
+          <span className="type-display text-base sm:text-2xl">FPL</span>
         </Link>
 
         <nav
@@ -64,7 +70,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           data-open={open}
           className={`${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-center sm:gap-8 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0`}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
           style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
           {NAV_LINKS.map((link) => {

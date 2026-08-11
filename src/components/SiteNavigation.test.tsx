@@ -33,6 +33,26 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("aria-current")).toBeNull();
   });
 
+  it("uses the larger desktop header and brand treatment", () => {
+    const { container } = render(<SiteNavigation authSlot={<span>Account</span>} />);
+
+    const headerRow = container.querySelector("header > div");
+    expect(headerRow?.className).toContain("sm:px-8");
+    expect(headerRow?.className).toContain("sm:py-4");
+    expect(headerRow?.className).toContain("lg:px-10");
+
+    const brandLink = screen.getByRole("link", { name: /fpl home/i });
+    expect(brandLink.className).toContain("sm:gap-3");
+
+    const logo = brandLink.querySelector("img");
+    expect(logo?.getAttribute("width")).toBe("44");
+    expect(logo?.getAttribute("height")).toBe("44");
+    expect(brandLink.querySelector("span")?.className).toContain("sm:text-2xl");
+
+    const statsLink = screen.getByRole("link", { name: /^Stats$/ });
+    expect(statsLink.className).toContain("sm:text-sm");
+  });
+
   it("toggles the mobile menu open and closed via the hamburger button", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
