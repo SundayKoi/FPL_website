@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Acquisition, Player, Profile, Team } from "@/lib/draft/types";
-import { currentPlayerPointValue } from "@/lib/players/pointValues";
 
 function initials(name: string): string {
   return name
@@ -147,6 +146,7 @@ export default function TeamEditor({
       <div className="flex flex-col gap-4">
         {teams.map((team) => {
           const prefills = players.filter((p) => p.team_id === team.id);
+          const committedSpend = prefills.reduce((sum, player) => sum + (player.price ?? 0), 0);
           const setupAcquisitions: Acquisition[] = ["captain", "free_agency"];
           const availableAcquisitions = setupAcquisitions.filter(
             (acquisition) => !prefills.some((player) => player.acquisition === acquisition),
@@ -182,8 +182,8 @@ export default function TeamEditor({
                   <input
                     type="number"
                     min={0}
-                    value={team.budget_start}
-                    onChange={(e) => setBudget(team, Number(e.target.value))}
+                    value={team.points_remaining}
+                    onChange={(e) => setBudget(team, Number(e.target.value) + committedSpend)}
                     className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
                   />
                 </label>
@@ -223,7 +223,11 @@ export default function TeamEditor({
                       className="flex items-center justify-between gap-2 rounded border border-line bg-navy/40 px-2 py-1 text-sm"
                     >
                       <span className="text-white">
-                        {p.display_name} <span className="text-xs text-steel">· {p.role}</span>
+                        {p.display_name}{" "}
+                        <span className="text-xs text-steel">
+                          · {p.role}
+                          {p.price !== null ? ` · ${p.price} pts` : ""}
+                        </span>
                       </span>
                       <button
                         onClick={() => removePrefill(p)}
@@ -293,15 +297,11 @@ function ExistingPrefillForm({
           className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
         >
           <option value="">— select player —</option>
-          {players.map((player) => {
-            const pointValue = currentPlayerPointValue(player.display_name);
-            return (
-              <option key={player.id} value={player.id}>
-                {player.display_name} · {player.role}
-                {pointValue !== null ? ` · ${pointValue} pts` : ""}
-              </option>
-            );
-          })}
+          {players.map((player) => (
+            <option key={player.id} value={player.id}>
+              {player.display_name} · {player.role}
+            </option>
+          ))}
         </select>
       </label>
       <label className="flex items-center gap-1 text-xs text-steel">

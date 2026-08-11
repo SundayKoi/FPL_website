@@ -122,7 +122,7 @@ describe("TeamEditor", () => {
     expect(screen.getByRole("option", { name: "Free Agency" })).toBeTruthy();
   });
 
-  it("shows known player point values in the existing-player selector", () => {
+  it("keeps point values out of the existing-player selector", () => {
     render(
       <TeamEditor
         {...props}
@@ -130,7 +130,34 @@ describe("TeamEditor", () => {
       />
     );
 
-    expect(screen.getByRole("option", { name: "Canny · top · 30 pts" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Canny · top" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Canny · top · 30 pts" })).toBeNull();
+  });
+
+  it("shows a pre-filled player's assigned point value after they are added", () => {
+    render(
+      <TeamEditor
+        {...props}
+        players={[
+          {
+            ...players[0],
+            display_name: "Spies",
+            role: "support",
+            team_id: "team-a",
+            price: 20,
+            acquisition: "captain",
+          },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName.toLowerCase() === "li" &&
+          element.textContent?.includes("Spies · support · 20 pts") === true
+      )
+    ).toBeTruthy();
   });
 
   it("assigns the selected existing player as captain at the entered point value", async () => {
@@ -219,6 +246,35 @@ describe("TeamEditor", () => {
         p_draft_id: "draft-1",
         p_team_id: "team-a",
         p_budget: 120,
+      })
+    );
+  });
+
+  it("shows and edits the remaining setup budget after prefilled spend", async () => {
+    render(
+      <TeamEditor
+        {...props}
+        teams={[{ ...team, budget_start: 100, points_remaining: 80 }]}
+        players={[
+          {
+            ...players[0],
+            team_id: "team-a",
+            price: 20,
+            acquisition: "captain",
+          },
+        ]}
+      />
+    );
+
+    expect((screen.getByLabelText("Budget") as HTMLInputElement).value).toBe("80");
+
+    fireEvent.change(screen.getByLabelText("Budget"), { target: { value: "90" } });
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_set_setup_team_budget", {
+        p_draft_id: "draft-1",
+        p_team_id: "team-a",
+        p_budget: 110,
       })
     );
   });
