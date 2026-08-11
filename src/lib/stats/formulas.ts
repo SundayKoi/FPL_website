@@ -1,9 +1,11 @@
 import type {
+  ChampionAggRow,
   MvpEntry,
   PlayerAggRow,
   RankedPlayer,
   ScoutingProfile,
   ScoutingStatLine,
+  TeamAggRow,
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -60,13 +62,19 @@ const MAX_BENCHMARKS: Record<ScoreKey, number> = {
  * best≈100), inverted for "lower is better" keys (deaths).
  * Ports calcMVPScore's / calcPowerScore's `pctile()` (lines 1239-1245 /
  * 1480-1486) — byte-identical in both. `findIndex` matches on
- * `summoner_name` (legacy matches on `player`); ties are NOT
- * deduplicated, matching the legacy `sorted.findIndex` behavior of
- * returning the first matching index in stable-sort order.
+ * `summoner_name` in the legacy sheet (legacy matches on `player`, which
+ * carries no tag disambiguation there); this repo's data has 6 real
+ * shared-summoner_name pairs across distinct tags (different real
+ * players, e.g. Aura#5950 vs Aura#RGB0 — see stats_records' `tag` column
+ * fix), so matching on `summoner_name` alone can find the WRONG row's
+ * index when two same-named players are both in `cohort`. Matched on
+ * `${summoner_name}#${tag}` instead — unique per real player, behavior
+ * otherwise unchanged (still first-matching-index, ties not deduplicated).
  */
 function pctile(cohort: PlayerAggRow[], row: PlayerAggRow, key: ScoreKey, invert: boolean): number {
   const sorted = [...cohort].sort((a, b) => a[key] - b[key]);
-  const idx = sorted.findIndex((x) => x.summoner_name === row.summoner_name);
+  const rowKey = `${row.summoner_name}#${row.tag}`;
+  const idx = sorted.findIndex((x) => `${x.summoner_name}#${x.tag}` === rowKey);
   if (idx === -1) return 50;
   const pc = (idx / (sorted.length - 1 || 1)) * 100;
   return invert ? 100 - pc : pc;
@@ -236,8 +244,17 @@ export function mvpScores(rows: PlayerAggRow[]): MvpEntry[] {
  * - avg_kp_pct, avg_dmg_share_pct, avg_kda_challenges: games-weighted
  *   mean (same treatment as other avg_* columns; these are themselves
  *   already per-game averages in the source view).
+ *
+ * `seasonLabel` (final review fix wave): the combined row's `season`
+ * field defaults to the "All" sentinel, matching the original "All
+ * seasons" caller. But this same combiner is also the right tool for
+ * merging a SPECIFIC season's Regular+Playoffs rows when phase="All" is
+ * selected (views emit one row per (season, season_phase), so that
+ * fetch still returns 2 rows per player) — that merge should keep the
+ * real season code, not overwrite it with "All". Pass the season code
+ * explicitly for that case.
  */
-export function combineSeasonRows(rows: PlayerAggRow[]): PlayerAggRow {
+export function combineSeasonRows(rows: PlayerAggRow[], seasonLabel = "All"): PlayerAggRow {
   if (rows.length === 0) {
     throw new Error("combineSeasonRows: at least one row is required");
   }
@@ -261,7 +278,7 @@ export function combineSeasonRows(rows: PlayerAggRow[]): PlayerAggRow {
   const first = rows[0];
   return {
     ...first,
-    season: "All",
+    season: seasonLabel,
     games: totalGames,
     wins: totalWins,
     winrate_pct: round1((100 * totalWins) / totalGames),
@@ -297,6 +314,134 @@ function round1(n: number): number {
 }
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Generic group-and-combine: partitions `rows` by `keyFn`, then reduces
+ * each group down to one row via `combiner`. Order of the returned array
+ * follows first-seen-key order of `rows` (Map insertion order), not
+ * combiner-arbitrary order.
+ *
+ * Centralizes the "group by key, combine each group" pattern every tab
+ * (Leaderboard/MVP/Power Rankings/Teams/Champions/Players) previously
+ * hand-rolled inline with a `Map` + `for` loop, each keyed only on
+ * `season === ALL_SEASONS` — which under-merged whenever a SPECIFIC season
+ * was selected together with phase="All" (views emit one row per
+ * (season, season_phase), so a single season with both Regular and
+ * Playoffs games still returns 2 rows per player/team/champion in that
+ * case). Callers now merge whenever the fetch could have spanned more than
+ * one (season, season_phase) partition — i.e. `season === ALL_SEASONS ||
+ * phase === "All"` — using this helper with the same key/combiner they
+ * already had.
+ */
+export function mergeRows<T>(rows: T[], keyFn: (row: T) => string, combiner: (group: T[]) => T): T[] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = keyFn(row);
+    const list = groups.get(key);
+    if (list) list.push(row);
+    else groups.set(key, [row]);
+  }
+  return Array.from(groups.values()).map(combiner);
+}
+
+/**
+ * Games-weighted merge of a team's per-season/-phase stats_team_agg rows
+ * into one combined row. Same treatment as `combineSeasonRows` above:
+ * counting columns (games, wins, losses) summed; rate columns
+ * (winrate_pct, avg_duration_min, dragon_rate, baron_rate,
+ * first_blood_rate, first_tower_rate, avg_team_kills) games-weighted mean
+ * rather than a naive average, to avoid Simpson's paradox across
+ * seasons/phases with different game counts.
+ *
+ * Moved into formulas.ts from TeamsTab.tsx (final review fix wave) to kill
+ * the acknowledged duplication with `combineChampionRows`'s near-identical
+ * shape and to make it usable from a shared `mergeRows` call site; result's
+ * `season` sentinel is the caller's choice via `seasonLabel` (TeamsTab
+ * passes `ALL_SEASONS` for a true "All seasons" merge, but the same
+ * combiner also has to run for a single season + phase="All" merge, where
+ * the row's own real season code should be kept, not overwritten with the
+ * "All seasons" sentinel).
+ */
+export function combineTeamRows(rows: TeamAggRow[], seasonLabel?: string): TeamAggRow {
+  if (rows.length === 0) {
+    throw new Error("combineTeamRows: at least one row is required");
+  }
+  if (rows.length === 1 && seasonLabel === undefined) return rows[0];
+  const totalGames = rows.reduce((s, r) => s + r.games, 0);
+  const totalWins = rows.reduce((s, r) => s + r.wins, 0);
+  const totalLosses = rows.reduce((s, r) => s + r.losses, 0);
+  const weightedMean = (pick: (r: TeamAggRow) => number): number => {
+    const sum = rows.reduce((s, r) => s + pick(r) * r.games, 0);
+    return Math.round((sum / totalGames) * 100) / 100;
+  };
+  const first = rows[0];
+  return {
+    ...first,
+    season: seasonLabel ?? first.season,
+    games: totalGames,
+    wins: totalWins,
+    losses: totalLosses,
+    winrate_pct: Math.round(((100 * totalWins) / totalGames) * 10) / 10,
+    avg_duration_min: weightedMean((r) => r.avg_duration_min),
+    dragon_rate: weightedMean((r) => r.dragon_rate),
+    baron_rate: weightedMean((r) => r.baron_rate),
+    first_blood_rate: weightedMean((r) => r.first_blood_rate),
+    first_tower_rate: weightedMean((r) => r.first_tower_rate),
+    avg_team_kills: weightedMean((r) => r.avg_team_kills),
+  };
+}
+
+/**
+ * Games-weighted-by-picks merge of a champion's per-season/-phase
+ * stats_champion_agg rows into one combined row. Same treatment as
+ * `combineSeasonRows`/`combineTeamRows`: counting columns (picks, bans,
+ * games_in_scope) summed; winrate_pct and avg_kda recomputed from summed
+ * totals rather than naively averaged; presence_pct recomputed from summed
+ * (picks+bans) over summed games_in_scope, matching the view's own formula.
+ *
+ * Moved into formulas.ts from ChampionsTab.tsx (final review fix wave),
+ * with one correctness fix along the way: `wins` is now summed directly
+ * from each row's own `wins` field instead of being reconstructed as
+ * `round((winrate_pct/100)*picks)`, which round-trips through an
+ * already-rounded percentage and can drift from the true win count by a
+ * game or more once multiple rows are combined. `avg_kda` is still
+ * weighted by picks (the best available proxy for game count per
+ * season/phase — see below) since kda's own deaths denominator isn't
+ * reconstructible from the view's exposed columns.
+ */
+export function combineChampionRows(rows: ChampionAggRow[], seasonLabel?: string): ChampionAggRow {
+  if (rows.length === 0) {
+    throw new Error("combineChampionRows: at least one row is required");
+  }
+  if (rows.length === 1 && seasonLabel === undefined) return rows[0];
+  const totalPicks = rows.reduce((s, r) => s + r.picks, 0);
+  const totalBans = rows.reduce((s, r) => s + r.bans, 0);
+  const totalGamesInScope = rows.reduce((s, r) => s + r.games_in_scope, 0);
+  const totalWins = rows.reduce((s, r) => s + r.wins, 0);
+  // avg_kda per row is (kills+assists)/max(deaths,1) for that row's picks;
+  // reconstructing each row's implied deaths from its kda and pick count
+  // isn't exact (kda is already rounded), so weight by picks as the best
+  // available proxy for game count per season/phase, consistent with the
+  // "weighted mean" treatment used elsewhere for average-shaped columns.
+  const weightedKda =
+    totalPicks > 0 ? rows.reduce((s, r) => s + r.avg_kda * r.picks, 0) / totalPicks : 0;
+
+  const first = rows[0];
+  return {
+    ...first,
+    season: seasonLabel ?? first.season,
+    picks: totalPicks,
+    bans: totalBans,
+    games_in_scope: totalGamesInScope,
+    wins: totalWins,
+    winrate_pct: totalPicks > 0 ? Math.round(((100 * totalWins) / totalPicks) * 10) / 10 : 0,
+    avg_kda: Math.round(weightedKda * 100) / 100,
+    presence_pct:
+      totalGamesInScope > 0
+        ? Math.round((100 * (totalPicks + totalBans)) / totalGamesInScope * 10) / 10
+        : 0,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

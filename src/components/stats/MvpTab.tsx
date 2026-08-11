@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { combineSeasonRows, mvpScores } from "@/lib/stats/formulas";
+import { combineSeasonRows, mergeRows, mvpScores } from "@/lib/stats/formulas";
 import { fetchPlayerAgg } from "@/lib/stats/queries";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
@@ -47,21 +47,16 @@ export default function MvpTab({ season, phase }: { season: string; phase: Phase
     };
   }, [season, phase]);
 
-  // "All seasons" merges each player's per-season rows into one combined
-  // row (games-weighted), per formulas.ts `combineSeasonRows` — same
-  // pattern as LeaderboardTab, applied BEFORE feeding the formula so the
-  // MVP min-games gate and cohort percentiles see one row per player.
+  // Merge whenever the fetch could span more than one (season,
+  // season_phase) partition — "All seasons" OR a specific season with
+  // phase="All" — same pattern as LeaderboardTab, applied BEFORE feeding
+  // the formula so the MVP min-games gate and cohort percentiles see one
+  // row per player.
   const merged = useMemo(() => {
-    if (season !== ALL_SEASONS) return rows;
-    const byPlayer = new Map<string, PlayerAggRow[]>();
-    for (const row of rows) {
-      const key = playerKey(row);
-      const list = byPlayer.get(key);
-      if (list) list.push(row);
-      else byPlayer.set(key, [row]);
-    }
-    return Array.from(byPlayer.values()).map((group) => combineSeasonRows(group));
-  }, [rows, season]);
+    if (season !== ALL_SEASONS && phase !== "All") return rows;
+    const seasonLabel = season === ALL_SEASONS ? "All" : season;
+    return mergeRows(rows, playerKey, (group) => combineSeasonRows(group, seasonLabel));
+  }, [rows, season, phase]);
 
   // mvpScores applies its own built-in min-5-games gate before ranking.
   const ranked = useMemo(() => mvpScores(merged), [merged]);

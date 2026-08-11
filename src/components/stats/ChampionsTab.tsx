@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { combineChampionRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchChampionAgg } from "@/lib/stats/queries";
 import type { ChampionAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
@@ -65,46 +66,6 @@ const COLUMNS: Column[] = [
 
 type SortDir = "asc" | "desc";
 
-/**
- * Games-weighted-by-picks merge of a champion's per-season
- * stats_champion_agg rows into one "All seasons" row. Same treatment as
- * `combineSeasonRows`/`combineTeamRows`: counting columns (picks, bans,
- * games_in_scope) summed; winrate_pct and avg_kda recomputed from summed
- * wins/kda-implied totals rather than naively averaged. presence_pct is
- * recomputed from summed (picks+bans) over summed games_in_scope, matching
- * the view's own formula.
- */
-function combineChampionRows(rows: ChampionAggRow[]): ChampionAggRow {
-  if (rows.length === 1) return rows[0];
-  const totalPicks = rows.reduce((s, r) => s + r.picks, 0);
-  const totalBans = rows.reduce((s, r) => s + r.bans, 0);
-  const totalGamesInScope = rows.reduce((s, r) => s + r.games_in_scope, 0);
-  const totalWins = rows.reduce((s, r) => s + Math.round((r.winrate_pct / 100) * r.picks), 0);
-  // avg_kda per row is (kills+assists)/max(deaths,1) for that row's picks;
-  // reconstruct each row's implied deaths from its kda and pick count isn't
-  // exact (kda is already rounded), so weight by picks as the best available
-  // proxy for game count per season, consistent with the "weighted mean"
-  // treatment used elsewhere for average-shaped columns.
-  const weightedKda =
-    totalPicks > 0 ? rows.reduce((s, r) => s + r.avg_kda * r.picks, 0) / totalPicks : 0;
-
-  const first = rows[0];
-  return {
-    ...first,
-    season: ALL_SEASONS,
-    picks: totalPicks,
-    bans: totalBans,
-    games_in_scope: totalGamesInScope,
-    wins: totalWins,
-    winrate_pct: totalPicks > 0 ? Math.round((100 * totalWins) / totalPicks * 10) / 10 : 0,
-    avg_kda: Math.round(weightedKda * 100) / 100,
-    presence_pct:
-      totalGamesInScope > 0
-        ? Math.round((100 * (totalPicks + totalBans)) / totalGamesInScope * 10) / 10
-        : 0,
-  };
-}
-
 export default function ChampionsTab({ season, phase }: { season: string; phase: PhaseFilter }) {
   const [rows, setRows] = useState<ChampionAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -144,16 +105,15 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
     };
   }, [season, phase]);
 
+  // Merge whenever the fetch could span more than one (season,
+  // season_phase) partition — "All seasons" OR a specific season with
+  // phase="All" (the view emits one row per phase, so a single season with
+  // both Regular and Playoffs games still returns 2 rows per champion).
   const merged = useMemo(() => {
-    if (season !== ALL_SEASONS) return rows;
-    const byChampion = new Map<string, ChampionAggRow[]>();
-    for (const row of rows) {
-      const list = byChampion.get(row.champion);
-      if (list) list.push(row);
-      else byChampion.set(row.champion, [row]);
-    }
-    return Array.from(byChampion.values()).map(combineChampionRows);
-  }, [rows, season]);
+    if (season !== ALL_SEASONS && phase !== "All") return rows;
+    const seasonLabel = season === ALL_SEASONS ? ALL_SEASONS : season;
+    return mergeRows(rows, (r) => r.champion, (group) => combineChampionRows(group, seasonLabel));
+  }, [rows, season, phase]);
 
   const filtered = useMemo(
     () => merged.filter((r) => r.picks >= minPicks),

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { combineSeasonRows, mvpScores, powerRanking, scoutingProfile } from "./formulas";
-import type { PlayerAggRow } from "./types";
+import {
+  combineChampionRows,
+  combineSeasonRows,
+  combineTeamRows,
+  mergeRows,
+  mvpScores,
+  powerRanking,
+  scoutingProfile,
+} from "./formulas";
+import type { ChampionAggRow, PlayerAggRow, TeamAggRow } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Legacy source snippets being ported (docs/reference/FPL_Stats_legacy.html)
@@ -309,6 +317,226 @@ describe("combineSeasonRows", () => {
     expect(combined.games).toBe(8);
     expect(combined.wins).toBe(3);
     expect(combined.winrate_pct).toBeCloseTo(37.5, 1);
+  });
+
+  it("accepts an explicit seasonLabel for a specific-season + phase=All merge (item 1 fix)", () => {
+    // A single season's Regular + Playoffs rows merged together should
+    // keep the real season code, not the "All seasons" sentinel — this is
+    // the merge LeaderboardTab/MvpTab/PowerRankingsTab/PlayersTab now run
+    // whenever season is specific but phase="All".
+    const regular = playerRow({ season: "S1", season_phase: "Regular", games: 10, wins: 4 });
+    const playoffs = playerRow({ season: "S1", season_phase: "Playoffs", games: 4, wins: 3 });
+    const combined = combineSeasonRows([regular, playoffs], "S1");
+    expect(combined.season).toBe("S1");
+    expect(combined.games).toBe(14);
+    expect(combined.wins).toBe(7);
+  });
+
+  it("defaults seasonLabel to 'All' when omitted (unchanged pre-fix behavior)", () => {
+    const s1 = playerRow({ season: "S1", games: 10, wins: 5 });
+    const s2 = playerRow({ season: "S2", games: 10, wins: 5 });
+    const combined = combineSeasonRows([s1, s2]);
+    expect(combined.season).toBe("All");
+  });
+});
+
+describe("mergeRows", () => {
+  it("groups by keyFn and combines each group, preserving first-seen key order", () => {
+    const rows = [
+      { id: "a", v: 1 },
+      { id: "b", v: 10 },
+      { id: "a", v: 2 },
+      { id: "b", v: 20 },
+    ];
+    const merged = mergeRows(
+      rows,
+      (r) => r.id,
+      (group) => ({ id: group[0].id, v: group.reduce((s, r) => s + r.v, 0) }),
+    );
+    expect(merged).toEqual([
+      { id: "a", v: 3 },
+      { id: "b", v: 30 },
+    ]);
+  });
+
+  it("returns one combined row per distinct key for a single-row group (combiner still runs)", () => {
+    const rows = [{ id: "solo", v: 5 }];
+    const merged = mergeRows(rows, (r) => r.id, (group) => group[0]);
+    expect(merged).toEqual([{ id: "solo", v: 5 }]);
+  });
+
+  it("returns an empty array for an empty input", () => {
+    const merged = mergeRows<{ id: string }>([], (r) => r.id, (group) => group[0]);
+    expect(merged).toEqual([]);
+  });
+
+  it("real-shape regression: merges a specific-season+phase-All PlayerAggRow fetch to one row per player", () => {
+    // Reproduces item 1's exact bug scenario: stats_player_agg fetched for
+    // season='S1' with no phase filter returns 2 rows per player (Regular
+    // + Playoffs) — mergeRows + combineSeasonRows must collapse that back
+    // to 1 row per player with games summed.
+    const rows = [
+      playerRow({ summoner_name: "Solo", tag: "NA1", season: "S1", season_phase: "Regular", games: 10, wins: 6 }),
+      playerRow({ summoner_name: "Solo", tag: "NA1", season: "S1", season_phase: "Playoffs", games: 3, wins: 1 }),
+      playerRow({ summoner_name: "Duo", tag: "NA1", season: "S1", season_phase: "Regular", games: 8, wins: 4 }),
+    ];
+    const key = (r: PlayerAggRow) => `${r.summoner_name}#${r.tag}`;
+    const merged = mergeRows(rows, key, (group) => combineSeasonRows(group, "S1"));
+    expect(merged).toHaveLength(2);
+    const solo = merged.find((r) => r.summoner_name === "Solo");
+    expect(solo?.games).toBe(13);
+    expect(solo?.wins).toBe(7);
+  });
+});
+
+describe("combineTeamRows", () => {
+  function teamRow(overrides: Partial<TeamAggRow> = {}): TeamAggRow {
+    return {
+      team_name: "Team",
+      season: "S1",
+      season_phase: "Regular",
+      games: 10,
+      wins: 5,
+      losses: 5,
+      winrate_pct: 50,
+      avg_duration_min: 30,
+      dragon_rate: 60,
+      baron_rate: 40,
+      first_blood_rate: 50,
+      first_tower_rate: 45,
+      avg_team_kills: 20,
+      ...overrides,
+    };
+  }
+
+  it("sums counting columns and games-weights rate columns across two rows", () => {
+    const regular = teamRow({ season_phase: "Regular", games: 10, wins: 6, losses: 4, avg_team_kills: 20 });
+    const playoffs = teamRow({ season_phase: "Playoffs", games: 4, wins: 3, losses: 1, avg_team_kills: 25 });
+    const combined = combineTeamRows([regular, playoffs]);
+    expect(combined.games).toBe(14);
+    expect(combined.wins).toBe(9);
+    expect(combined.losses).toBe(5);
+    // avg_team_kills games-weighted: (20*10 + 25*4)/14 = (200+100)/14 = 21.43
+    expect(combined.avg_team_kills).toBeCloseTo(21.43, 2);
+  });
+
+  it("keeps the real season code when seasonLabel is passed explicitly", () => {
+    const regular = teamRow({ season: "S1", season_phase: "Regular" });
+    const playoffs = teamRow({ season: "S1", season_phase: "Playoffs" });
+    const combined = combineTeamRows([regular, playoffs], "S1");
+    expect(combined.season).toBe("S1");
+  });
+
+  it("defaults to the ALL_SEASONS sentinel when seasonLabel is passed for true all-seasons merges", () => {
+    const s1 = teamRow({ season: "S1" });
+    const s2 = teamRow({ season: "S2" });
+    const combined = combineTeamRows([s1, s2], "All");
+    expect(combined.season).toBe("All");
+  });
+
+  it("throws on an empty row list", () => {
+    expect(() => combineTeamRows([])).toThrow();
+  });
+});
+
+describe("combineChampionRows", () => {
+  function championRow(overrides: Partial<ChampionAggRow> = {}): ChampionAggRow {
+    return {
+      champion: "Ahri",
+      season: "S1",
+      season_phase: "Regular",
+      picks: 10,
+      wins: 6,
+      winrate_pct: 60,
+      avg_kda: 3,
+      bans: 5,
+      games_in_scope: 20,
+      presence_pct: 75,
+      ...overrides,
+    };
+  }
+
+  it("sums wins directly from each row's wins field (item 4 fix, not reconstructed from rounded winrate_pct)", () => {
+    // Rounded winrate_pct alone can't recover the exact win count: e.g.
+    // 7 wins / 11 picks = 63.636...% which rounds to 63.6 — reconstructing
+    // via round((63.6/100)*11) = round(6.996) = 7 happens to work here, but
+    // stacking that rounding error across multiple combined rows drifts.
+    // This fixture uses win/pick pairs whose OLD reconstruction diverges
+    // from the true summed win count: row A 5 wins/9 picks (55.6% rounds
+    // from 55.555..., reconstruct: round(0.556*9)=round(5.004)=5 - ok) but
+    // row B 2 wins/3 picks (66.7% rounds from 66.666..., reconstruct:
+    // round(0.667*3)=round(2.001)=2 - ok individually). The real
+    // regression is at the COMBINED level: old code summed the
+    // per-row RECONSTRUCTED wins (still correct per-row here), but the
+    // fix changes the mechanism entirely to read `wins` directly -- assert
+    // the summed total matches summing the real `wins` fields, not a
+    // winrate-derived approximation.
+    const a = championRow({ picks: 9, wins: 5, winrate_pct: 55.6 });
+    const b = championRow({ picks: 3, wins: 2, winrate_pct: 66.7 });
+    const combined = combineChampionRows([a, b]);
+    expect(combined.wins).toBe(7);
+    expect(combined.picks).toBe(12);
+  });
+
+  it("sums picks/bans/games_in_scope and recomputes winrate_pct/presence_pct from the summed totals", () => {
+    const regular = championRow({ season_phase: "Regular", picks: 10, wins: 6, bans: 5, games_in_scope: 20 });
+    const playoffs = championRow({ season_phase: "Playoffs", picks: 4, wins: 1, bans: 2, games_in_scope: 8 });
+    const combined = combineChampionRows([regular, playoffs]);
+    expect(combined.picks).toBe(14);
+    expect(combined.bans).toBe(7);
+    expect(combined.games_in_scope).toBe(28);
+    // winrate_pct = 100*7/14 = 50.0
+    expect(combined.winrate_pct).toBeCloseTo(50, 1);
+    // presence_pct = 100*(14+7)/28 = 75.0
+    expect(combined.presence_pct).toBeCloseTo(75, 1);
+  });
+
+  it("weights avg_kda by picks across rows", () => {
+    const a = championRow({ picks: 10, avg_kda: 3 });
+    const b = championRow({ picks: 5, avg_kda: 6 });
+    const combined = combineChampionRows([a, b]);
+    // (3*10 + 6*5)/15 = 60/15 = 4
+    expect(combined.avg_kda).toBeCloseTo(4, 2);
+  });
+
+  it("keeps the real season code when seasonLabel is passed explicitly", () => {
+    const regular = championRow({ season: "S1", season_phase: "Regular" });
+    const playoffs = championRow({ season: "S1", season_phase: "Playoffs" });
+    const combined = combineChampionRows([regular, playoffs], "S1");
+    expect(combined.season).toBe("S1");
+  });
+
+  it("throws on an empty row list", () => {
+    expect(() => combineChampionRows([])).toThrow();
+  });
+});
+
+describe("pctile tag disambiguation (item 3)", () => {
+  it("powerRanking ranks two same-named different-tag players correctly using their own row, not each other's", () => {
+    // Two real distinct players sharing a summoner_name (e.g. Aura#5950 vs
+    // Aura#RGB0) in the same cohort. Before the fix, pctile's
+    // `findIndex(x => x.summoner_name === row.summoner_name)` would always
+    // resolve to whichever same-named row sorts first, so both players
+    // would get the SAME percentile for every key regardless of their own
+    // actual stats. With the fix (`${summoner_name}#${tag}` match), each
+    // player's percentile reflects their own row.
+    const strong = playerRow({
+      summoner_name: "Aura", tag: "5950", role_mode: "TOP", games: 10,
+      winrate_pct: 80, kda: 5, avg_dmg_per_min: 750, avg_cs_per_min: 8.5,
+      avg_kills: 8, avg_deaths: 2, avg_gold_per_min: 430,
+    });
+    const weak = playerRow({
+      summoner_name: "Aura", tag: "RGB0", role_mode: "TOP", games: 10,
+      winrate_pct: 20, kda: 1, avg_dmg_per_min: 300, avg_cs_per_min: 4,
+      avg_kills: 2, avg_deaths: 7, avg_gold_per_min: 260,
+    });
+    const ranked = powerRanking([strong, weak]);
+    const strongEntry = ranked.find((r) => r.tag === "5950")!;
+    const weakEntry = ranked.find((r) => r.tag === "RGB0")!;
+    expect(strongEntry.score).toBeGreaterThan(weakEntry.score);
+    // Before the fix both would tie at whichever row findIndex hit first
+    // for BOTH players' lookups (same summoner_name) — assert they differ.
+    expect(strongEntry.score).not.toBe(weakEntry.score);
   });
 });
 

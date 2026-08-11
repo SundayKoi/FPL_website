@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { combineSeasonRows } from "@/lib/stats/formulas";
+import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchPlayerAgg } from "@/lib/stats/queries";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
@@ -182,19 +182,16 @@ export default function LeaderboardTab({
     };
   }, [season, phase]);
 
-  // "All seasons" merges each player's per-season rows into one combined
-  // row (games-weighted), per formulas.ts `combineSeasonRows`.
+  // Merge whenever the fetch could span more than one (season,
+  // season_phase) partition — "All seasons" OR a specific season with
+  // phase="All" (the view emits one row per phase, so a single season with
+  // both Regular and Playoffs games still returns 2 rows per player).
+  // Games-weighted combine per formulas.ts `combineSeasonRows`.
   const merged = useMemo(() => {
-    if (season !== ALL_SEASONS) return rows;
-    const byPlayer = new Map<string, PlayerAggRow[]>();
-    for (const row of rows) {
-      const key = playerKey(row);
-      const list = byPlayer.get(key);
-      if (list) list.push(row);
-      else byPlayer.set(key, [row]);
-    }
-    return Array.from(byPlayer.values()).map((group) => combineSeasonRows(group));
-  }, [rows, season]);
+    if (season !== ALL_SEASONS && phase !== "All") return rows;
+    const seasonLabel = season === ALL_SEASONS ? "All" : season;
+    return mergeRows(rows, playerKey, (group) => combineSeasonRows(group, seasonLabel));
+  }, [rows, season, phase]);
 
   // No team filter: `stats_player_agg` has no team column (per-season
   // ambiguous — see brief), and there's no roster/team join to filter by

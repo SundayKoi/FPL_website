@@ -1,45 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { combineTeamRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchTeamAgg } from "@/lib/stats/queries";
 import type { TeamAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
-
-/**
- * Games-weighted merge of a team's per-season stats_team_agg rows into one
- * "All seasons" row. Same treatment as `combineSeasonRows` in formulas.ts
- * (see that migration's header comment): counting columns (games, wins,
- * losses) summed; rate columns (winrate_pct, avg_duration_min, dragon_rate,
- * baron_rate, first_blood_rate, first_tower_rate, avg_team_kills)
- * games-weighted mean rather than a naive average, to avoid Simpson's
- * paradox across seasons with different game counts.
- */
-function combineTeamRows(rows: TeamAggRow[]): TeamAggRow {
-  if (rows.length === 1) return rows[0];
-  const totalGames = rows.reduce((s, r) => s + r.games, 0);
-  const totalWins = rows.reduce((s, r) => s + r.wins, 0);
-  const totalLosses = rows.reduce((s, r) => s + r.losses, 0);
-  const weightedMean = (pick: (r: TeamAggRow) => number): number => {
-    const sum = rows.reduce((s, r) => s + pick(r) * r.games, 0);
-    return Math.round((sum / totalGames) * 100) / 100;
-  };
-  const first = rows[0];
-  return {
-    ...first,
-    season: ALL_SEASONS,
-    games: totalGames,
-    wins: totalWins,
-    losses: totalLosses,
-    winrate_pct: Math.round(((100 * totalWins) / totalGames) * 10) / 10,
-    avg_duration_min: weightedMean((r) => r.avg_duration_min),
-    dragon_rate: weightedMean((r) => r.dragon_rate),
-    baron_rate: weightedMean((r) => r.baron_rate),
-    first_blood_rate: weightedMean((r) => r.first_blood_rate),
-    first_tower_rate: weightedMean((r) => r.first_tower_rate),
-    avg_team_kills: weightedMean((r) => r.avg_team_kills),
-  };
-}
 
 function formatDuration(min: number): string {
   const m = Math.floor(min);
@@ -108,19 +74,16 @@ export default function TeamsTab({ season, phase }: { season: string; phase: Pha
     );
   }
 
-  // "All seasons" merges each team's per-season rows into one combined row.
+  // Merge whenever the fetch could span more than one (season,
+  // season_phase) partition — "All seasons" OR a specific season with
+  // phase="All" (the view emits one row per phase, so a single season with
+  // both Regular and Playoffs games still returns 2 rows per team).
   const merged =
-    season !== ALL_SEASONS
+    season !== ALL_SEASONS && phase !== "All"
       ? rows
-      : (() => {
-          const byTeam = new Map<string, TeamAggRow[]>();
-          for (const row of rows) {
-            const list = byTeam.get(row.team_name);
-            if (list) list.push(row);
-            else byTeam.set(row.team_name, [row]);
-          }
-          return Array.from(byTeam.values()).map(combineTeamRows);
-        })();
+      : mergeRows(rows, (r) => r.team_name, (group) =>
+          combineTeamRows(group, season === ALL_SEASONS ? ALL_SEASONS : season),
+        );
 
   const sorted = [...merged].sort((a, b) => {
     if (b.winrate_pct !== a.winrate_pct) return b.winrate_pct - a.winrate_pct;
