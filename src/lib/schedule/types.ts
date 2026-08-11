@@ -22,6 +22,7 @@ export type Division = (typeof DIVISIONS)[number];
 
 export interface FixtureRow {
   id: string;
+  season: string;
   stage: FixtureStage;
   division: Division | null;
   team_a: string | null;

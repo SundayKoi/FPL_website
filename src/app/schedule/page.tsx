@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { groupByStage } from "@/lib/schedule/format";
+import { groupByStage, resolveSeason, seasonsOf } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import FixtureCard from "@/components/schedule/FixtureCard";
 
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
   let isAdmin = false;
@@ -23,7 +28,13 @@ export default async function SchedulePage() {
     .select("*")
     .order("stage")
     .order("sort_order");
-  const fixtures = (data as FixtureRow[]) ?? [];
+  const allFixtures = (data as FixtureRow[]) ?? [];
+
+  const requestedRaw = (await searchParams).season;
+  const requested = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
+  const seasons = seasonsOf(allFixtures);
+  const season = resolveSeason(allFixtures, requested);
+  const fixtures = season ? allFixtures.filter((f) => f.season === season) : [];
 
   const grouped = groupByStage(fixtures);
   const groups = ["Regular Season", "Gauntlet", "Playoffs"] as const;
@@ -50,9 +61,29 @@ export default async function SchedulePage() {
           </div>
         </header>
 
+        {seasons.length > 1 && (
+          <nav aria-label="Season" className="mt-8 flex flex-wrap items-center gap-1.5">
+            <span className="label-dash mr-1.5">Season</span>
+            {seasons.map((s) => (
+              <Link
+                key={s}
+                href={s === seasons[0] ? "/schedule" : `/schedule?season=${encodeURIComponent(s)}`}
+                aria-current={s === season ? "page" : undefined}
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                  s === season
+                    ? "bg-gold text-navy"
+                    : "border border-line bg-panel text-steel hover:text-white"
+                }`}
+              >
+                {s}
+              </Link>
+            ))}
+          </nav>
+        )}
+
         {isAdmin && (
           <div className="mt-8">
-            <AdminFixturesEditor fixtures={fixtures} />
+            <AdminFixturesEditor fixtures={fixtures} season={season} />
           </div>
         )}
 

@@ -1,10 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(12);
 
 select has_table('public', 'fixtures', 'fixtures exists');
 select has_column('public', 'fixtures', 'stage', 'stage column exists');
 select has_column('public', 'fixtures', 'scheduled_at', 'scheduled_at column exists');
+select has_column('public', 'fixtures', 'season', 'season column exists');
+
+-- season defaults so current-split inserts don't need to pass it.
+select col_default_is('public', 'fixtures', 'season', '''S5''::text', 'season defaults to S5');
 
 -- Public read, no anonymous writes.
 select ok(has_table_privilege('anon', 'public.fixtures', 'select'), 'anon reads fixtures');
