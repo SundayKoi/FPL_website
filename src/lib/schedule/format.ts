@@ -1,4 +1,24 @@
+import { compareSeasonsNewestFirst } from "@/lib/stats/queries";
 import { FIXTURE_STAGES, type FixtureRow, type FixtureStage } from "./types";
+
+/**
+ * Distinct fixture seasons, newest first (numeric-aware — shares the stats
+ * page's comparator so both pages order "S10" above "S9").
+ */
+export function seasonsOf(rows: FixtureRow[]): string[] {
+  return Array.from(new Set(rows.map((r) => r.season))).sort(compareSeasonsNewestFirst);
+}
+
+/**
+ * Resolve the season to display: the requested one when it exists, else the
+ * newest available (stale/absent query params degrade gracefully), else
+ * null when there are no fixtures at all.
+ */
+export function resolveSeason(rows: FixtureRow[], requested: string | undefined): string | null {
+  const seasons = seasonsOf(rows);
+  if (seasons.length === 0) return null;
+  return requested && seasons.includes(requested) ? requested : seasons[0];
+}
 
 /**
  * Presentation metadata per stage, straight from the Split 5 rulebook:

@@ -12,6 +12,7 @@ type FormStatus =
   | { kind: "error"; message: string };
 
 interface FixtureForm {
+  season: string;
   stage: FixtureStage;
   division: "" | Division;
   teamA: string;
@@ -23,6 +24,7 @@ interface FixtureForm {
 }
 
 const EMPTY_FORM: FixtureForm = {
+  season: "",
   stage: "week_1",
   division: "",
   teamA: "",
@@ -76,6 +78,7 @@ export function isoToEtInput(iso: string | null): string {
 
 function formFor(row: FixtureRow): FixtureForm {
   return {
+    season: row.season,
     stage: row.stage,
     division: row.division ?? "",
     teamA: row.team_a ?? "",
@@ -91,6 +94,8 @@ function payloadFor(form: FixtureForm) {
   const scoreA = form.scoreA.trim() === "" ? null : Number(form.scoreA);
   const scoreB = form.scoreB.trim() === "" ? null : Number(form.scoreB);
   return {
+    // Blank season falls back to the column default (current split).
+    ...(form.season.trim() === "" ? {} : { season: form.season.trim() }),
     stage: form.stage,
     division: form.division === "" ? null : form.division,
     team_a: form.teamA.trim() === "" ? null : form.teamA.trim(),
@@ -124,6 +129,16 @@ function FixtureFields({
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Season
+        <input
+          type="text"
+          value={form.season}
+          onChange={(e) => onChange({ ...form, season: e.target.value })}
+          placeholder="S5"
+          className={inputClass}
+        />
+      </label>
       <label className="flex flex-col gap-1 text-xs text-steel">
         Stage
         <select
@@ -228,11 +243,19 @@ function FixtureFields({
   );
 }
 
-export default function AdminFixturesEditor({ fixtures }: { fixtures: FixtureRow[] }) {
+export default function AdminFixturesEditor({
+  fixtures,
+  season,
+}: {
+  fixtures: FixtureRow[];
+  season: string | null;
+}) {
   const supabase = createClient();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [addForm, setAddForm] = useState<FixtureForm>(EMPTY_FORM);
+  // Prefill new fixtures with the season currently being viewed so adding
+  // to an old split from its filtered view does the expected thing.
+  const [addForm, setAddForm] = useState<FixtureForm>({ ...EMPTY_FORM, season: season ?? "" });
   const [addStatus, setAddStatus] = useState<FormStatus>({ kind: "idle" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<FixtureForm>(EMPTY_FORM);
@@ -250,7 +273,7 @@ export default function AdminFixturesEditor({ fixtures }: { fixtures: FixtureRow
       setAddStatus({ kind: "error", message: messageFor(error) });
       return;
     }
-    setAddForm(EMPTY_FORM);
+    setAddForm({ ...EMPTY_FORM, season: addForm.season });
     setAddStatus({ kind: "idle" });
     router.refresh();
   };

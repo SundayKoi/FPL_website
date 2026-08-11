@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { etInputToIso, isoToEtInput } from "@/components/schedule/AdminFixturesEditor";
-import { STAGE_META, formatKickoff, groupByStage, hasResult, stageMeta, teamLabel } from "./format";
+import {
+  STAGE_META,
+  formatKickoff,
+  groupByStage,
+  hasResult,
+  resolveSeason,
+  seasonsOf,
+  stageMeta,
+  teamLabel,
+} from "./format";
 import { FIXTURE_STAGES, type FixtureRow } from "./types";
 
 function fixture(overrides: Partial<FixtureRow>): FixtureRow {
   return {
     id: crypto.randomUUID(),
+    season: "S5",
     stage: "week_1",
     division: null,
     team_a: null,
@@ -88,6 +98,32 @@ describe("teamLabel / hasResult", () => {
   it("only reports a result when both scores are present", () => {
     expect(hasResult(fixture({}))).toBe(false);
     expect(hasResult(fixture({ score_a: 2, score_b: 1 }))).toBe(true);
+  });
+});
+
+describe("seasonsOf / resolveSeason", () => {
+  const rows = [
+    fixture({ season: "S4" }),
+    fixture({ season: "S5" }),
+    fixture({ season: "S5" }),
+    fixture({ season: "S10" }),
+  ];
+
+  it("lists distinct seasons newest first, numeric-aware", () => {
+    expect(seasonsOf(rows)).toEqual(["S10", "S5", "S4"]);
+  });
+
+  it("resolves the requested season when it exists", () => {
+    expect(resolveSeason(rows, "S4")).toBe("S4");
+  });
+
+  it("falls back to the newest season for stale or missing params", () => {
+    expect(resolveSeason(rows, "S99")).toBe("S10");
+    expect(resolveSeason(rows, undefined)).toBe("S10");
+  });
+
+  it("returns null when there are no fixtures", () => {
+    expect(resolveSeason([], "S5")).toBeNull();
   });
 });
 
