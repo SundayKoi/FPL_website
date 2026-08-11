@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { groupByStage, resolveSeason, seasonsOf } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
+import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import FixtureCard from "@/components/schedule/FixtureCard";
 
 export default async function SchedulePage({
@@ -23,12 +24,21 @@ export default async function SchedulePage({
     isAdmin = profile?.is_admin ?? false;
   }
 
-  const { data } = await supabase
-    .from("fixtures")
-    .select("*")
-    .order("stage")
-    .order("sort_order");
-  const allFixtures = (data as FixtureRow[]) ?? [];
+  const [fixturesResult, settingsResult] = await Promise.all([
+    supabase.from("fixtures").select("*").order("stage").order("sort_order"),
+    isAdmin
+      ? supabase
+          .from("league_settings")
+          .select("current_season, current_phase")
+          .eq("id", 1)
+          .single()
+      : Promise.resolve({ data: null }),
+  ]);
+  const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
+  const settings = settingsResult.data as {
+    current_season: string;
+    current_phase: string;
+  } | null;
 
   const requestedRaw = (await searchParams).season;
   const requested = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
@@ -82,7 +92,11 @@ export default async function SchedulePage({
         )}
 
         {isAdmin && (
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col gap-4">
+            <AdminSeasonSettings
+              currentSeason={settings?.current_season ?? ""}
+              currentPhase={settings?.current_phase ?? "Regular"}
+            />
             <AdminFixturesEditor fixtures={fixtures} season={season} />
           </div>
         )}
