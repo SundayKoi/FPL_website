@@ -6,7 +6,6 @@ import { fetchPlayerAgg, fetchSeasons } from "@/lib/stats/queries";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
-import MvpTab from "./MvpTab";
 import PlayerDetail from "./PlayerDetail";
 import PowerRankingsTab from "./PowerRankingsTab";
 import RecordsTab from "./RecordsTab";
@@ -15,12 +14,15 @@ import { RoleChip, StatBar, roleColor } from "./statsUi";
 import TeamsTab from "./TeamsTab";
 import TimelineTab from "./TimelineTab";
 
+// No separate MVP tab: mvpScores and powerRanking are near-identical
+// weighted percentile ladders (see formulas.ts) and produced the same names
+// in a slightly different order. Power Rankings absorbed the concept — its
+// #1 player carries the MVP crown in the hero card.
 const TABS = [
   "Leaderboard",
   "Teams",
   "Champions",
   "Records",
-  "MVP",
   "Power Rankings",
   "Timeline",
   "Players",
@@ -298,8 +300,6 @@ export default function StatsTabs() {
         <ChampionsTab season={season} phase={phase} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} />
-      ) : activeTab === "MVP" ? (
-        <MvpTab season={season} phase={phase} />
       ) : activeTab === "Power Rankings" ? (
         <PowerRankingsTab season={season} phase={phase} />
       ) : activeTab === "Timeline" ? (
