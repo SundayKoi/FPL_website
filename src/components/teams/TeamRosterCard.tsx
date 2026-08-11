@@ -71,6 +71,7 @@ export default function TeamRosterCard({
       <ul aria-label={`${team.name} roster`} className="divide-y divide-line/80">
         {team.players.map((player) => {
           const captain = player.acquisition === "captain";
+          const freeAgency = player.acquisition === "free_agency";
           const empty = player.isEmpty === true;
           return (
             <li
@@ -101,14 +102,15 @@ export default function TeamRosterCard({
               <span className="shrink-0 text-sm font-semibold text-gold">
                 {empty ? "—" : player.price}
               </span>
-              {captain ? (
+              {captain || freeAgency ? (
                 <span
-                  aria-label="Captain, cannot be traded"
+                  aria-label={captain ? "Captain, cannot be traded" : "Free agency"}
                   className="shrink-0 rounded border border-steel/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-steel"
                 >
-                  C
+                  {captain ? "C" : "FA"}
                 </span>
-              ) : editable && !empty ? (
+              ) : null}
+              {editable && !captain && !empty ? (
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}

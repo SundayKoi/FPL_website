@@ -1,7 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(25);
+select plan(28);
+
+select ok(not has_function_privilege(
+  'anon', 'public.admin_assign_setup_player(uuid,uuid,uuid,integer,text)', 'execute'
+), 'anon cannot execute setup assignment');
+select ok(has_function_privilege(
+  'authenticated', 'public.admin_assign_setup_player(uuid,uuid,uuid,integer,text)', 'execute'
+), 'authenticated callers may reach the admin-gated setup assignment RPC');
 
 select ok(not has_function_privilege(
   'anon', 'public.admin_set_setup_team_budget(uuid,uuid,integer)', 'execute'
@@ -36,7 +43,7 @@ create temporary table ids as
 
 select tests.acting_as(tests.admin_id());
 select public.admin_assign_setup_player(
-  (select d from t), (select mid1 from ids), (select team_a from ids), 12
+  (select d from t), (select mid1 from ids), (select team_a from ids), 12, 'free_agency'
 );
 
 select tests.acting_as(tests.cap(1));
@@ -86,11 +93,14 @@ select is((select points_remaining from public.teams where id = (select team_a f
 
 select lives_ok($$ select public.admin_remove_setup_player(
   (select d from t), (select captain_1 from ids)
-) $$, 'admin removes a newly created captain prefill');
-select is((select count(*) from public.players where id = (select captain_1 from ids)), 0::bigint,
-          'newly created captain prefill is deleted rather than returned to the pool');
+) $$, 'admin removes a legacy captain prefill');
+select ok((select team_id is null and price is null and acquisition is null
+           from public.players where id = (select captain_1 from ids)),
+          'legacy captain prefill is preserved as an available pool row');
 
 create temporary table team_case as select tests.fixture() as d;
+delete from public.players
+ where draft_id = (select d from team_case) and display_name = 'Captain 1';
 delete from public.players
  where draft_id = (select d from team_case) and display_name = 'FA 1';
 create temporary table team_case_ids as
@@ -98,25 +108,51 @@ create temporary table team_case_ids as
     (select id from public.teams
       where draft_id = (select d from team_case) and nomination_position = 1) as team_a,
     (select id from public.players
-      where draft_id = (select d from team_case) and display_name = 'Captain 1') as captain_1,
+      where draft_id = (select d from team_case) and display_name = 'Mid1') as captain_candidate,
     (select id from public.players
-      where draft_id = (select d from team_case) and display_name = 'Mid1') as mid1;
+      where draft_id = (select d from team_case) and display_name = 'Adc1') as free_agency_candidate;
 select public.admin_assign_setup_player(
   (select d from team_case),
-  (select mid1 from team_case_ids),
+  (select captain_candidate from team_case_ids),
   (select team_a from team_case_ids),
-  15
+  10,
+  'captain'
 );
+select public.admin_assign_setup_player(
+  (select d from team_case),
+  (select free_agency_candidate from team_case_ids),
+  (select team_a from team_case_ids),
+  15,
+  'free_agency'
+);
+create temporary table team_refund_audit (
+  team_id uuid primary key,
+  points_remaining int not null
+);
+create function tests.capture_setup_team_refund() returns trigger
+language plpgsql as $$
+begin
+  insert into team_refund_audit (team_id, points_remaining)
+    values (old.id, old.points_remaining);
+  return old;
+end $$;
+create trigger capture_setup_team_refund
+  before delete on public.teams
+  for each row execute function tests.capture_setup_team_refund();
 select lives_ok($$ select public.admin_remove_setup_team(
   (select d from team_case), (select team_a from team_case_ids)
 ) $$, 'admin removes a setup team atomically');
 select is((select count(*) from public.teams where id = (select team_a from team_case_ids)), 0::bigint,
           'setup team is deleted');
 select ok((select team_id is null and price is null and acquisition is null
-           from public.players where id = (select mid1 from team_case_ids)),
-          'team removal preserves its pool-origin player in the pool');
-select is((select count(*) from public.players where id = (select captain_1 from team_case_ids)), 0::bigint,
-          'team removal deletes its newly created captain prefill');
+           from public.players where id = (select free_agency_candidate from team_case_ids)),
+          'team removal returns its free agency player to the pool');
+select ok((select team_id is null and price is null and acquisition is null
+           from public.players where id = (select captain_candidate from team_case_ids)),
+          'team removal returns its captain player to the pool');
+select is((select points_remaining from team_refund_audit
+           where team_id = (select team_a from team_case_ids)), 100,
+          'team removal refunds the stored captain and free agency prices before deletion');
 
 select * from finish();
 rollback;
