@@ -58,7 +58,7 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with
-  // phase="All" — same pattern as LeaderboardTab/MvpTab, applied BEFORE
+  // phase="All" — same pattern as LeaderboardTab, applied BEFORE
   // feeding the formula.
   const merged = useMemo(() => {
     if (season !== ALL_SEASONS && phase !== "All") return rows;
@@ -132,7 +132,12 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
             <>
               <div className="card-neon p-6 sm:p-8">
                 <div className="flex items-center gap-2">
-                  <span className="mono-label">Power Ranking #1</span>
+                  {/* The MVP tab was folded into this one (near-identical
+                      formulas) — the #1 power-ranked player wears the crown. */}
+                  <span className="float-soft text-2xl" aria-hidden="true">
+                    👑
+                  </span>
+                  <span className="mono-label">Power Ranking #1 · MVP</span>
                   <span className={`font-display text-sm font-black ${leaderTier.className}`}>
                     {leaderTier.label}-TIER
                   </span>
