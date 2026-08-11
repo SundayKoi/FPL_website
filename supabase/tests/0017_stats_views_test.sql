@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(12);
 
 -- 1-5: the five views exist
 select has_view('public', 'stats_player_agg', 'stats_player_agg view exists');
@@ -12,9 +12,10 @@ select has_view('public', 'stats_game_log', 'stats_game_log view exists');
 -- Fixture: 2 synthetic games in a throwaway season 'ZZ' / phase 'Regular'.
 -- Game 1 (ZZ_G1): TestGuy (Blue, Ahri) beats FakeFoe (Red, Zed). TestGuy wins.
 -- Game 2 (ZZ_G2): TestGuy (Blue, Ahri) loses to FakeFoe (Red, Garen).
--- Both games: Ahri banned by both sides (ban_1 on every player row of a team,
--- per the brief's repetition-per-side note) -> should count as 1 ban per game,
--- not 2 (2 rows on one side both carry the same ban_1).
+-- ZZ_G1: Ahri banned by BOTH sides (ban_1='Ahri' on every player row of
+-- Blue, and ALSO ban_1='Ahri' on Red) -> counts once for the game, per the
+-- brief's "count per game not per player-row" rule. ZZ_G2 has no Ahri ban
+-- at all (both sides ban Yasuo instead) -> Ahri bans across the ZZ scope = 1.
 insert into public.raw_stats (
   match_id, game_date, season, season_phase, team_side, team_name,
   summoner_name, tag, champion, role, kills, deaths, assists, kda,
@@ -68,14 +69,16 @@ select ok(
   'stats_player_agg: TestGuy kda = 2.63 (sum-based, not avg-of-per-game)'
 );
 
--- champion bans: Ahri appears in ban_1 on both team-rows of Blue in G1 (2 rows) and
--- again on Red in G1 (1 row) and Blue in G2 (1 row) = 4 raw rows but only 2 distinct
--- (match_id, ban) pairs: (ZZ_G1, Ahri) and (ZZ_G2, Ahri) -> bans = 2, not 4.
+-- champion bans: Ahri appears in ban_1 on both team-rows of Blue in G1 (2 rows,
+-- same side) AND on Red in G1 (1 row, other side) = 3 raw rows across ZZ_G1,
+-- all deduped to (match_id='ZZ_G1', ban='Ahri') = 1 event -- banned by BOTH
+-- teams in the same game still counts once for that game, not once per side.
+-- ZZ_G2 has no Ahri ban at all. Total across the ZZ scope: bans = 1.
 select ok(
-  (select bans = 2
+  (select bans = 1
    from public.stats_champion_agg
    where champion = 'Ahri' and season = 'ZZ' and season_phase = 'Regular'),
-  'stats_champion_agg: Ahri bans = 2 (deduped per game, not per player row)'
+  'stats_champion_agg: Ahri bans = 1 (deduped per game incl. banned-by-both-teams)'
 );
 
 -- stats_records: Most Kills category present with FakeFoe's 9-kill game 2 on top for ZZ scope
@@ -93,6 +96,61 @@ select ok(
    from public.stats_game_log
    where match_id = 'ZZ_G1'),
   'stats_game_log: ZZ_G1 winner_team/blue_team/red_team correct'
+);
+
+-- Split-roster fixture for stats_team_agg: an FPL team ('SplitCo') whose
+-- own 5 players are not all on the same LoL side in a match.
+-- ZZ_SPLIT1: SplitCo has 2 players on Red (majority, Red wins) and 1 on
+--   Blue (minority, Blue loses) -> majority-side rule: side=Red, win=true.
+--   Contributes exactly 1 game / 1 win to SplitCo, not 2 games from 2 rows.
+-- ZZ_SPLIT2: SplitCo has exactly 1 player on each side (Blue wins, Red
+--   loses) -> an exact 50/50 split -> excluded entirely from SplitCo's
+--   standings (no principled side to pick).
+insert into public.raw_stats (
+  match_id, game_date, season, season_phase, team_side, team_name,
+  summoner_name, tag, champion, role, kills, deaths, assists, kda,
+  cs, gold_earned, vision_score, win,
+  team_dragons, team_first_dragon, team_barons, team_first_blood, team_first_tower
+) values
+  -- ZZ_SPLIT1: SplitCo majority on Red (2 players), Red wins
+  ('ZZ_SPLIT1', '2026-01-03 20:00', 'ZZ', 'Regular', 'Red', 'SplitCo',
+   'SplitRed1', 'NA1', 'Zed', 'MIDDLE', 5, 2, 5, 5.0, 180, 11000, 20, true,
+   2, true, 1, true, true),
+  ('ZZ_SPLIT1', '2026-01-03 20:00', 'ZZ', 'Regular', 'Red', 'SplitCo',
+   'SplitRed2', 'NA1', 'Garen', 'TOP', 4, 3, 4, 2.67, 170, 10000, 15, true,
+   2, true, 1, true, true),
+  ('ZZ_SPLIT1', '2026-01-03 20:00', 'ZZ', 'Regular', 'Blue', 'SplitCo',
+   'SplitBlue1', 'NA1', 'Ahri', 'JUNGLE', 1, 6, 2, 0.5, 120, 7000, 18, false,
+   0, false, 0, false, false),
+  -- ZZ_SPLIT1: the opposing roster (single team, Blue side, loses)
+  ('ZZ_SPLIT1', '2026-01-03 20:00', 'ZZ', 'Regular', 'Blue', 'Opponents',
+   'OppOne', 'NA1', 'Yasuo', 'BOTTOM', 2, 5, 3, 1.0, 140, 8000, 14, false,
+   0, false, 0, false, false),
+  -- ZZ_SPLIT2: SplitCo exactly 1 player each side -> tie, excluded
+  ('ZZ_SPLIT2', '2026-01-04 20:00', 'ZZ', 'Regular', 'Blue', 'SplitCo',
+   'SplitBlue2', 'NA1', 'Ahri', 'MIDDLE', 6, 2, 6, 6.0, 190, 12000, 22, true,
+   3, true, 1, true, true),
+  ('ZZ_SPLIT2', '2026-01-04 20:00', 'ZZ', 'Regular', 'Red', 'SplitCo',
+   'SplitRed3', 'NA1', 'Garen', 'TOP', 2, 6, 2, 0.67, 130, 7500, 12, false,
+   0, false, 0, false, false);
+
+-- SplitCo standings: ZZ_SPLIT1 contributes 1 game/1 win (majority=Red, won);
+-- ZZ_SPLIT2 contributes nothing (exact 1v1 split, excluded) -> games=1, wins=1.
+select ok(
+  (select games = 1 and wins = 1
+   from public.stats_team_agg
+   where team_name = 'SplitCo' and season = 'ZZ' and season_phase = 'Regular'),
+  'stats_team_agg: split-roster majority rule -- SplitCo games=1 wins=1 (tie match excluded)'
+);
+
+-- Explicitly confirm the tied match (ZZ_SPLIT2) contributes nothing at all:
+-- SplitCo's single counted game must be ZZ_SPLIT1's Red-side result (5+4
+-- kills = 9 team_kills), not an average/blend that includes ZZ_SPLIT2.
+select ok(
+  (select avg_team_kills = 9.00
+   from public.stats_team_agg
+   where team_name = 'SplitCo' and season = 'ZZ' and season_phase = 'Regular'),
+  'stats_team_agg: tied split match (ZZ_SPLIT2) excluded -- avg_team_kills reflects only ZZ_SPLIT1''s majority side'
 );
 
 select * from finish();

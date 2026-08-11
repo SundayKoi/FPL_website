@@ -85,33 +85,75 @@ grant select on public.stats_player_agg to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- stats_team_agg — per FPL team + season + phase.
+--
+-- Split-roster rule: an FPL team's own 5 players are not guaranteed to all
+-- sit on the same LoL side in a given match (real in the data: e.g.
+-- Womenphobia has players on both Blue and Red in NA1_5469213229). Legacy
+-- dashboard's renderTeams() has no explicit handling for this — it loops
+-- per player-row and increments games/wins per row, which would silently
+-- double-count these matches for team standings, so it is not a rule worth
+-- mirroring here. Instead: for each (match_id, team_name), pick the side
+-- with MORE of that team's players that game as the team's "real" side for
+-- the match; use that side's win flag, objective columns (team_dragons,
+-- team_barons, etc.) and actual team-side kill total (sum of kills for
+-- just the players on that side, not the team's whole fantasy roster). On
+-- an exact split (e.g. 1 player Blue / 1 player Red), the match is
+-- excluded entirely from that team's standings — there is no principled
+-- way to pick a side, and counting it on both sides double-counts a single
+-- real-world result.
 -- ---------------------------------------------------------------------------
 create or replace view public.stats_team_agg as
-with games as (
-  -- one row per team per game (dedupe the per-player rows down to one team-game row)
-  select distinct
-    match_id, season, season_phase, team_name,
-    game_duration_min, win,
-    team_dragons, team_first_dragon, team_barons, team_first_blood, team_first_tower,
-    (select sum(rs2.kills) from public.raw_stats rs2
-      where rs2.match_id = rs.match_id and rs2.team_name = rs.team_name) as team_kills
-  from public.raw_stats rs
+with side_counts as (
+  select
+    match_id, season, season_phase, team_name, team_side,
+    count(*) as n_players,
+    bool_or(win) as side_win,
+    max(game_duration_min) as game_duration_min,
+    max(team_dragons) as team_dragons,
+    max(team_barons) as team_barons,
+    bool_or(team_first_blood) as team_first_blood,
+    bool_or(team_first_tower) as team_first_tower,
+    sum(kills) as team_kills
+  from public.raw_stats
+  group by match_id, season, season_phase, team_name, team_side
+),
+ranked as (
+  select
+    sc.*,
+    row_number() over (
+      partition by sc.match_id, sc.team_name
+      order by sc.n_players desc
+    ) as side_rank,
+    max(sc.n_players) over (partition by sc.match_id, sc.team_name) as max_n_players,
+    count(*) over (
+      partition by sc.match_id, sc.team_name, sc.n_players
+    ) as n_sides_with_this_count
+  from side_counts sc
+),
+-- the majority side: the single side with strictly more of the team's
+-- players than every other side that match; an exact tie at the max
+-- (n_sides_with_this_count > 1 for the max n_players) excludes the match.
+majority as (
+  select *
+  from ranked
+  where side_rank = 1
+    and not (n_players = max_n_players and n_sides_with_this_count > 1)
 )
 select
   team_name,
   season,
   season_phase,
   count(*) as games,
-  count(*) filter (where win) as wins,
-  count(*) filter (where not win) as losses,
-  round(100.0 * count(*) filter (where win) / count(*), 1) as winrate_pct,
+  count(*) filter (where side_win) as wins,
+  count(*) filter (where not side_win) as losses,
+  round(100.0 * count(*) filter (where side_win) / count(*), 1) as winrate_pct,
   round(avg(game_duration_min)::numeric, 2) as avg_duration_min,
   round(100.0 * count(*) filter (where team_dragons > 0) / count(*), 1) as dragon_rate,
   round(100.0 * count(*) filter (where team_barons > 0) / count(*), 1) as baron_rate,
   round(100.0 * count(*) filter (where team_first_blood) / count(*), 1) as first_blood_rate,
   round(100.0 * count(*) filter (where team_first_tower) / count(*), 1) as first_tower_rate,
   round(avg(team_kills)::numeric, 2) as avg_team_kills
-from games
+from majority
 group by team_name, season, season_phase;
 
 grant select on public.stats_team_agg to anon, authenticated;
@@ -134,10 +176,11 @@ with picks as (
 bans_deduped as (
   -- Bans repeat across every player-row of a team (same 5 ban slots on each
   -- row for that side), so dedupe to one row per (match_id, ban, season,
-  -- season_phase) before counting -- this also naturally handles a champion
-  -- being banned by both teams in the same game as 2 distinct ban events,
-  -- one per team side, while collapsing the same team's repeated rows to 1.
-  select distinct match_id, season, season_phase, team_side, ban
+  -- season_phase) before counting. Deliberately dedupe on (match_id, ban)
+  -- ONLY (no team_side) so a champion banned by BOTH teams in the same game
+  -- still counts once for that game -- "count per game not per player-row"
+  -- means per game, full stop, not per team-side-per-game.
+  select distinct match_id, season, season_phase, ban
   from public.raw_stats
   cross join lateral (values (ban_1), (ban_2), (ban_3), (ban_4), (ban_5)) as b(ban)
   where ban is not null and ban <> ''
