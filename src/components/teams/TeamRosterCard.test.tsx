@@ -1,5 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PLACEHOLDER_TEAMS } from "./placeholderTeams";
 import TeamRosterCard from "./TeamRosterCard";
 
@@ -40,6 +40,7 @@ describe("TeamRosterCard", () => {
   });
 
   it("shows a free-agency badge while keeping free-agency rows draggable", () => {
+    const onKeyboardSwap = vi.fn();
     const team = {
       ...PLACEHOLDER_TEAMS[0],
       players: [
@@ -84,7 +85,7 @@ describe("TeamRosterCard", () => {
       ],
     };
 
-    render(<TeamRosterCard team={team} editable />);
+    render(<TeamRosterCard team={team} editable onKeyboardSwap={onKeyboardSwap} />);
 
     const card = screen.getByRole("article", { name: team.name });
     const captainRow = within(card).getByText("Captain Player").closest("li")!;
@@ -94,5 +95,14 @@ describe("TeamRosterCard", () => {
     expect(screen.getByText("FA")).toBeTruthy();
     expect(captainRow.getAttribute("draggable")).toBe("false");
     expect(freeAgencyRow.getAttribute("draggable")).toBe("true");
+    expect(within(freeAgencyRow).getByRole("button", { name: /Swap with Free Agent Player/ })).toBeTruthy();
+    within(freeAgencyRow).getByRole("button", { name: /Swap with Free Agent Player/ }).click();
+    expect(onKeyboardSwap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "player-free-agency",
+        displayName: "Free Agent Player",
+        acquisition: "free_agency",
+      }),
+    );
   });
 });

@@ -109,7 +109,8 @@ export default function TeamRosterCard({
                 >
                   {captain ? "C" : "FA"}
                 </span>
-              ) : editable && !empty ? (
+              ) : null}
+              {editable && !captain && !empty ? (
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}
