@@ -145,7 +145,6 @@ export default function LeaderboardTab({ season, phase }: { season: string; phas
   }
   const [minGames, setMinGames] = useState(3);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
-  const [teamFilter, setTeamFilter] = useState<string>("All");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<ColumnKey>("kda");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -189,22 +188,18 @@ export default function LeaderboardTab({ season, phase }: { season: string; phas
     return Array.from(byPlayer.values()).map((group) => combineSeasonRows(group));
   }, [rows, season]);
 
-  // "Teams" isn't a stats_player_agg column (per-season ambiguous — see
-  // brief), so there's no server-side team filter to offer here. The filter
-  // dropdown is populated from... nothing meaningful yet without a
-  // roster/team join, so it stays a single "All" no-op option, matching the
-  // brief's instruction to skip a team *column* while still exposing the
-  // filter control the requirements list.
-  const teamOptions = useMemo(() => ["All"], []);
-
+  // No team filter: `stats_player_agg` has no team column (per-season
+  // ambiguous — see brief), and there's no roster/team join to filter by
+  // yet. A dropdown with a single permanently-selected "All" option reads
+  // as broken, so it's omitted entirely; Task 7 can reintroduce a real one
+  // if a team join lands.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return merged
       .filter((r) => r.games >= minGames)
       .filter((r) => !roleFilter || r.role_mode === roleFilter)
-      .filter(() => teamFilter === "All")
       .filter((r) => !q || playerKey(r).toLowerCase().includes(q));
-  }, [merged, minGames, roleFilter, teamFilter, query]);
+  }, [merged, minGames, roleFilter, query]);
 
   const sorted = useMemo(() => {
     const col = COLUMNS.find((c) => c.key === sortKey)!;
@@ -280,19 +275,6 @@ export default function LeaderboardTab({ season, phase }: { season: string; phas
             placeholder="Search players…"
             className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
           />
-
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm font-semibold text-white focus:border-gold focus:outline-none"
-            aria-label="Filter by team"
-          >
-            {teamOptions.map((t) => (
-              <option key={t} value={t}>
-                {t === "All" ? "All teams" : t}
-              </option>
-            ))}
-          </select>
 
           <div className="ml-auto flex gap-1">
             <button

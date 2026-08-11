@@ -73,15 +73,33 @@ export async function fetchGameLog(season?: string, phase?: string): Promise<Gam
 }
 
 /**
- * Distinct seasons present in `stats_game_log`, newest first (assumes
- * season codes sort lexicographically newest-last, e.g. S1 < S2 < S3 < S4 —
- * matches the seasons seen in local data). Used by `SeasonSelect` to build
- * its option list and default to the newest season.
+ * Comparator for season codes, newest first. Plain lexicographic sort would
+ * put "S10" between "S1" and "S2" (string comparison), so this extracts the
+ * numeric part of each code (`S10` -> 10) and compares those descending.
+ * Codes with no numeric part (or ties on the numeric part) fall back to a
+ * descending string compare, keeping the sort total and deterministic.
+ * Exported (rather than kept private) so it's unit-testable without going
+ * through the network fetcher below.
+ */
+export function compareSeasonsNewestFirst(a: string, b: string): number {
+  const numA = parseInt(a.replace(/\D+/g, ""), 10);
+  const numB = parseInt(b.replace(/\D+/g, ""), 10);
+  const aHasNum = !Number.isNaN(numA);
+  const bHasNum = !Number.isNaN(numB);
+  if (aHasNum && bHasNum && numA !== numB) return numB - numA;
+  if (aHasNum !== bHasNum) return aHasNum ? -1 : 1;
+  return b.localeCompare(a);
+}
+
+/**
+ * Distinct seasons present in `stats_game_log`, newest first (numeric-aware
+ * — see `compareSeasonsNewestFirst`). Used by `SeasonSelect` to build its
+ * option list and default to the newest season.
  */
 export async function fetchSeasons(): Promise<string[]> {
   const supabase = createClient();
   const { data, error } = await supabase.from("stats_game_log").select("season");
   if (error) throw error;
   const unique = Array.from(new Set((data ?? []).map((row) => row.season as string)));
-  return unique.sort().reverse();
+  return unique.sort(compareSeasonsNewestFirst);
 }
