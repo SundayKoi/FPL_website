@@ -879,10 +879,16 @@ def chunk(items, size):
 
 def write_to_supabase(rows, supabase_url, service_key):
     """POST rows to {SUPABASE_URL}/rest/v1/raw_stats in batches of
-    WRITE_BATCH_SIZE, with on-conflict-ignore on (match_id, summoner_name)."""
+    WRITE_BATCH_SIZE, with on-conflict-ignore on (match_id, summoner_name).
+
+    Returns True if every batch succeeded (a batch that merely skipped
+    already-present duplicate rows still counts as success), False if any
+    batch's HTTP request failed (non-2xx status or a request-level
+    exception such as a connection error) -- matches scripts/load-stats.ts's
+    loud-failure precedent rather than silently continuing on error."""
     if not rows:
         print("  No data to write.")
-        return
+        return True
 
     url = f"{supabase_url.rstrip('/')}{RAW_STATS_ENDPOINT}?on_conflict=match_id,summoner_name"
     headers = {
@@ -894,10 +900,17 @@ def write_to_supabase(rows, supabase_url, service_key):
 
     batches = chunk(rows, WRITE_BATCH_SIZE)
     inserted_total = 0
+    failed_batches = []
     for i, batch in enumerate(batches, 1):
-        resp = requests.post(url, headers=headers, data=json.dumps(batch))
+        try:
+            resp = requests.post(url, headers=headers, data=json.dumps(batch))
+        except requests.RequestException as exc:
+            print(f"  [ERROR] Batch {i}/{len(batches)} failed: request error: {exc}")
+            failed_batches.append(i)
+            continue
         if resp.status_code not in (200, 201):
             print(f"  [ERROR] Batch {i}/{len(batches)} failed: {resp.status_code} {resp.text}")
+            failed_batches.append(i)
             continue
         inserted = resp.json()
         inserted_count = len(inserted) if isinstance(inserted, list) else 0
@@ -906,6 +919,16 @@ def write_to_supabase(rows, supabase_url, service_key):
         print(f"  Batch {i}/{len(batches)}: {inserted_count} inserted, {skipped} skipped (already present).")
 
     print(f"  Done. Inserted {inserted_total} of {len(rows)} total rows.")
+
+    if failed_batches:
+        print(
+            f"  [ERROR] {len(failed_batches)}/{len(batches)} batch(es) failed to write: "
+            f"batch(es) {', '.join(str(n) for n in failed_batches)}. Re-run the ingester to retry "
+            f"(on-conflict-ignore makes re-running safe for rows that already landed)."
+        )
+        return False
+
+    return True
 
 
 # ============================================================
@@ -1045,7 +1068,9 @@ def main(argv=None):
 
     if all_rows:
         print("\nWriting to Supabase...")
-        write_to_supabase(all_rows, supabase_url, service_key)
+        write_ok = write_to_supabase(all_rows, supabase_url, service_key)
+        if not write_ok:
+            return 1
     else:
         print("No rows to write.")
 

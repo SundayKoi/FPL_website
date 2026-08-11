@@ -10,6 +10,7 @@ synthetic timeline outputs and runs them through the real mapper.
 """
 
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -21,6 +22,41 @@ from riot_stats_ingest import (  # noqa: E402
     _to_bool_or_none,
     _blank_to_none,
 )
+
+MIGRATION_PATH = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "..",
+        "supabase",
+        "migrations",
+        "20260810100001_raw_stats.sql",
+    )
+)
+
+
+def migration_columns():
+    """Parse the authoritative column list straight out of the
+    `create table ... public.raw_stats (...)` migration SQL, independent
+    of anything defined in riot_stats_ingest.py -- so this is a real
+    cross-check against the source of truth, not the module comparing
+    itself to itself."""
+    with open(MIGRATION_PATH, "r", encoding="utf-8") as f:
+        sql = f.read()
+    match = re.search(
+        r"create table if not exists public\.raw_stats\s*\((.*?)\n\);", sql, re.S
+    )
+    if not match:
+        raise AssertionError(f"Could not find raw_stats CREATE TABLE body in {MIGRATION_PATH}")
+    body = match.group(1)
+    columns = []
+    for line in body.splitlines():
+        line = line.strip().rstrip(",")
+        if not line:
+            continue
+        name = line.split()[0]
+        columns.append(name)
+    return columns
+
 
 # ============================================================
 # SYNTHETIC FIXTURE
@@ -304,7 +340,21 @@ def run_tests():
     row1 = rows[0]  # AfkBoulder, team 100, win
     row2 = rows[1]  # SomeoneElse, team 200, loss
 
-    # -- exact column set: 137 columns, matching RAW_STATS_COLUMNS exactly --
+    # -- exact column set: RAW_STATS_COLUMNS (and thus every mapped row) must
+    # match the migration's actual column list, parsed independently from
+    # the SQL file (not compared against the module's own list -- that
+    # would be tautological and wouldn't catch a typo present in both
+    # places, e.g. RAW_STATS_COLUMNS and the row dict both saying
+    # "assits" instead of "assists"). `id` is excluded: it's the identity
+    # primary key, never present in an insert payload.
+    mig_cols = set(migration_columns()) - {"id"}
+    check(len(mig_cols) == 137, f"expected 137 columns in the migration (excl. id), got {len(mig_cols)}")
+    check(
+        set(RAW_STATS_COLUMNS) == mig_cols,
+        "RAW_STATS_COLUMNS does not exactly match supabase/migrations/20260810100001_raw_stats.sql's "
+        f"column list. Only in RAW_STATS_COLUMNS: {sorted(set(RAW_STATS_COLUMNS) - mig_cols)}. "
+        f"Only in migration: {sorted(mig_cols - set(RAW_STATS_COLUMNS))}.",
+    )
     check(len(RAW_STATS_COLUMNS) == 137, f"expected 137 columns in RAW_STATS_COLUMNS, got {len(RAW_STATS_COLUMNS)}")
     check(set(row1.keys()) == set(RAW_STATS_COLUMNS), "row1 keys do not exactly match RAW_STATS_COLUMNS")
     check(len(row1) == 137, f"expected 137 keys in mapped row, got {len(row1)}")

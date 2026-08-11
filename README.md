@@ -251,7 +251,8 @@ imported is a safe no-op for existing rows.
 
 > **Riot API key regeneration warning.** The predecessor script
 > (`updated_stats.py`, since deleted) had a live Riot API key hardcoded in
-> its source and was committed to this repo's history before being
-> removed. Treat that key as permanently compromised — regenerate a new
-> key at the [Riot Developer Portal](https://developer.riotgames.com/) and
-> put it only in `.env` (gitignored), never in a script.
+> its source. That file was never committed to git, but it existed as a
+> local working file whose contents (including the key) were shared
+> outside of git. Treat that key as compromised regardless — regenerate a
+> new key at the [Riot Developer Portal](https://developer.riotgames.com/)
+> and put it only in `.env` (gitignored), never in a script.
