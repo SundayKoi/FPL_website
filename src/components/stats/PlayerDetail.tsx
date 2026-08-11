@@ -152,15 +152,33 @@ export default function PlayerDetail({
     return combineSeasonRows(mine);
   }, [aggRows, summonerName, tag]);
 
-  // Same-role cohort average for the laning block: every fetched row
-  // (already scoped to season/phase) sharing this player's role_mode,
-  // excluding this player's own row(s) so the comparison is "me vs
+  // Same-role cohort average for the laning block: every OTHER player
+  // sharing this player's role_mode, in scope for the current season/phase
+  // filter, excluding this player's own row(s) so the comparison is "me vs
   // everyone else at my role," not "me vs a cohort that includes me."
+  //
+  // Fix round: under "All seasons," `aggRows` holds one raw row PER SEASON
+  // per player (not yet combined) — averaging over those raw rows directly
+  // would let a player with more seasons of history contribute more rows
+  // (more weight) to the cohort mean than a player with fewer seasons,
+  // while `myRow` above is a single games-weighted `combineSeasonRows`
+  // result. Group by player first and combine each player's rows the same
+  // way, so the cohort is "one games-weighted row per player" — consistent
+  // with how myRow itself is computed — before averaging across players.
   const cohort = useMemo(() => {
     if (!myRow) return null;
-    const rows = aggRows.filter(
-      (r) => r.role_mode === myRow.role_mode && playerKey(r) !== playerKey({ summoner_name: summonerName, tag }),
-    );
+    const myKey = playerKey({ summoner_name: summonerName, tag });
+    const byPlayer = new Map<string, PlayerAggRow[]>();
+    for (const row of aggRows) {
+      const key = playerKey(row);
+      if (key === myKey) continue;
+      const list = byPlayer.get(key);
+      if (list) list.push(row);
+      else byPlayer.set(key, [row]);
+    }
+    const rows = Array.from(byPlayer.values())
+      .map((group) => combineSeasonRows(group))
+      .filter((r) => r.role_mode === myRow.role_mode);
     if (rows.length === 0) return null;
     const mean = (pick: (r: PlayerAggRow) => number) => rows.reduce((s, r) => s + pick(r), 0) / rows.length;
     return {
@@ -194,9 +212,14 @@ export default function PlayerDetail({
 
   const profile = useMemo(() => (myRow ? scoutingProfile(myRow) : null), [myRow]);
 
+  // Fix round: stats_records now carries `tag` (migration
+  // 20260810100003_records_tag.sql) — filtering by summoner_name alone
+  // collided for the 6 shared-name/different-tag pairs in raw_stats (e.g.
+  // Aura#5950 vs Aura#RGB0 are different people; Aura#RGB0's detail page
+  // was showing Aura#5950's records). Match both fields.
   const myRecords = useMemo(
-    () => records.filter((r) => r.summoner_name === summonerName),
-    [records, summonerName],
+    () => records.filter((r) => r.summoner_name === summonerName && r.tag === tag),
+    [records, summonerName, tag],
   );
 
   // Rank each of this player's record entries within the FULL category
@@ -337,7 +360,15 @@ export default function PlayerDetail({
 
           {/* Records held */}
           <div className="card-brand p-4 sm:p-6">
-            <span className="label-dash">Records Held</span>
+            <span className="label-dash">
+              Records Held — {summonerName}
+              {/* Fix round: name+tag disambiguation, same reasoning as
+                  RecordsTab — cheap for viewers to confirm which of a
+                  shared-name pair (e.g. Aura#5950 vs Aura#RGB0) this
+                  section belongs to, even though myRecords is already
+                  filtered by name AND tag. */}
+              <span className="text-steel">#{tag}</span>
+            </span>
             {recordsByCategory.size === 0 ? (
               <p className="mt-3 text-sm text-steel">No records held for this season/phase.</p>
             ) : (

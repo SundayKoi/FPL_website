@@ -115,6 +115,11 @@ export default function RecordsTab({ season, phase }: { season: string; phase: P
                     <span className="truncate text-sm font-semibold text-white">
                       <span className="mr-1.5 text-steel">#{i + 1}</span>
                       {entry.summoner_name}
+                      {/* Fix round: some summoner_names are shared by two
+                          distinct tags (different real players, e.g.
+                          Aura#5950 vs Aura#RGB0) — show #tag so viewers can
+                          tell them apart without opening the detail page. */}
+                      <span className="text-steel">#{entry.tag}</span>
                     </span>
                     <span className="truncate text-xs text-steel">
                       {entry.champion} · {formatDate(entry.game_date)}

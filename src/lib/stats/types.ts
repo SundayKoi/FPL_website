@@ -76,10 +76,16 @@ export interface ChampionAggRow {
  * One row of `stats_records`: top-5 single-game bests per category. Per
  * Task 3 brief's note on Task 2: category labels are whatever the view
  * emits — render verbatim, do not re-map or re-title them here.
+ *
+ * `tag` added in the Task 7 fix round (migration
+ * 20260810100003_records_tag.sql): `summoner_name` alone collides for the 6
+ * shared-name/different-tag pairs in raw_stats (e.g. Aura#5950 vs
+ * Aura#RGB0), so record attribution needs both fields.
  */
 export interface RecordRow {
   category: string;
   summoner_name: string;
+  tag: string;
   champion: string;
   team_name: string;
   season: string;

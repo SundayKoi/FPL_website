@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 -- 1-5: the five views exist
 select has_view('public', 'stats_player_agg', 'stats_player_agg view exists');
@@ -8,6 +8,12 @@ select has_view('public', 'stats_team_agg', 'stats_team_agg view exists');
 select has_view('public', 'stats_champion_agg', 'stats_champion_agg view exists');
 select has_view('public', 'stats_records', 'stats_records view exists');
 select has_view('public', 'stats_game_log', 'stats_game_log view exists');
+
+-- Fix round (Task 7 review): stats_records must carry `tag` alongside
+-- summoner_name -- 6 real summoner_names in raw_stats are shared by two
+-- distinct tags (different people, e.g. Aura#5950 vs Aura#RGB0), so
+-- attributing a record by summoner_name alone collides.
+select has_column('public', 'stats_records', 'tag', 'stats_records has a tag column (fix round: name+tag attribution)');
 
 -- Fixture: 2 synthetic games in a throwaway season 'ZZ' / phase 'Regular'.
 -- Game 1 (ZZ_G1): TestGuy (Blue, Ahri) beats FakeFoe (Red, Zed). TestGuy wins.
