@@ -278,4 +278,24 @@ describe("TeamEditor", () => {
     ).toBe(true);
     expect(screen.queryByPlaceholderText("Player name")).toBeNull();
   });
+
+  it("disables the typed setup form for two legacy captain prefills", () => {
+    render(
+      <TeamEditor
+        {...props}
+        players={[
+          ...players,
+          { ...players[0], id: "jungle-1", display_name: "Jungle One", role: "jungle", team_id: "team-a", price: 8, acquisition: "captain" },
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("option", { name: "Free Agency" })).toBeTruthy();
+    expect((screen.getByLabelText("Existing player") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Acquisition") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Point value") as HTMLInputElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Add existing player" }) as HTMLButtonElement).disabled
+    ).toBe(true);
+  });
 });

@@ -236,7 +236,7 @@ export default function TeamEditor({
                 <ExistingPrefillForm
                   players={availablePoolPlayers}
                   acquisitions={availableAcquisitions}
-                  disabled={busy}
+                  disabled={busy || prefills.length >= 2}
                   onAdd={(playerId, acquisition, price) =>
                     addExistingPrefill(team, playerId, acquisition, price)
                   }

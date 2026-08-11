@@ -48,8 +48,9 @@ select lives_ok($$ select public.admin_remove_setup_player(
   (select d from captain_case),
   (select captain_candidate from captain_ids)
 ) $$, 'admin removes a priced captain setup player');
-select is((select count(*) from public.players where id = (select captain_candidate from captain_ids)), 0::bigint,
-          'removed captain setup player is deleted');
+select ok((select team_id is null and price is null and acquisition is null
+           from public.players where id = (select captain_candidate from captain_ids)),
+          'removed captain setup player returns to the pool');
 select is((select points_remaining from public.teams where id = (select team_a from captain_ids)), 100,
           'removing a captain setup player refunds its team');
 
