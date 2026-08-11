@@ -1,5 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { RosterTeamView } from "@/lib/draft/types";
 import { PLACEHOLDER_TEAMS } from "./placeholderTeams";
 import TeamRosterCard from "./TeamRosterCard";
 
@@ -41,7 +42,7 @@ describe("TeamRosterCard", () => {
 
   it("shows a free-agency badge while keeping free-agency rows draggable", () => {
     const onKeyboardSwap = vi.fn();
-    const team = {
+    const team: RosterTeamView = {
       ...PLACEHOLDER_TEAMS[0],
       players: [
         {
