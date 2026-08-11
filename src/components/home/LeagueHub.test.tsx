@@ -1,8 +1,41 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import LeagueHub from "./LeagueHub";
 
+expect.extend({
+  toHaveClass(received: Element | null | undefined, ...classNames: string[]) {
+    const missing = classNames.filter((className) => !received?.classList.contains(className));
+
+    return {
+      pass: missing.length === 0,
+      message: () =>
+        `expected element class="${received?.getAttribute("class") ?? ""}" to include ${classNames.join(", ")}`,
+    };
+  },
+});
+
+afterEach(() => {
+  cleanup();
+});
+
 describe("LeagueHub", () => {
+  it("uses the wide directory spacing on desktop", () => {
+    render(<LeagueHub />);
+
+    const main = screen.getByRole("main");
+    expect(main.firstElementChild).toHaveClass(
+      "max-w-[1800px]",
+      "px-4",
+      "sm:px-6",
+      "py-12",
+      "sm:py-16",
+    );
+    expect(screen.getByRole("region", { name: /the league never stops/i })).toHaveClass(
+      "gap-8",
+      "xl:gap-12",
+    );
+  });
+
   it("keeps the homepage focused on league broadcasts", () => {
     render(<LeagueHub />);
 

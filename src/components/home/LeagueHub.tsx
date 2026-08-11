@@ -5,10 +5,10 @@ const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
 export default function LeagueHub() {
   return (
     <main className="bg-hash flex-1">
-      <div className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-16">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section
           aria-labelledby="league-title"
-          className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]"
+          className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] xl:gap-12"
         >
           <div className="flex flex-col justify-center py-5 sm:py-10">
             <span className="label-dash">FRANCHISE PREMIER LEAGUE</span>
