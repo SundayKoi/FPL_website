@@ -130,7 +130,15 @@ function playerKey(row: PlayerAggRow): string {
   return `${row.summoner_name}#${row.tag}`;
 }
 
-export default function LeaderboardTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function LeaderboardTab({
+  season,
+  phase,
+  onSelectPlayer,
+}: {
+  season: string;
+  phase: PhaseFilter;
+  onSelectPlayer: (player: { summonerName: string; tag: string }) => void;
+}) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see useCountdown): when the season/phase filter
@@ -386,8 +394,21 @@ export default function LeaderboardTab({ season, phase }: { season: string; phas
                 const key = playerKey(row);
                 const checked = compareKeys.includes(key);
                 return (
-                  <tr key={key} className="border-t border-line/60">
-                    <td className="px-2 py-1.5">
+                  <tr
+                    key={key}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`View ${row.summoner_name}#${row.tag} details`}
+                    onClick={() => onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag });
+                      }
+                    }}
+                    className="cursor-pointer border-t border-line/60 hover:bg-navy/60"
+                  >
+                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         checked={checked}
