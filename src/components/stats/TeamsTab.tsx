@@ -6,6 +6,7 @@ import { fetchTeamAgg } from "@/lib/stats/queries";
 import type { TeamAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { StatBar } from "./statsUi";
 
 function formatDuration(min: number): string {
   const m = Math.floor(min);
@@ -90,63 +91,59 @@ export default function TeamsTab({ season, phase }: { season: string; phase: Pha
     return b.games - a.games;
   });
 
+  const headClass =
+    "px-2 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-steel";
+
   return (
-    <div className="card-brand overflow-x-auto p-2">
-      <table className="w-full min-w-[880px] border-collapse text-sm">
+    <div className="card-neon overflow-x-auto p-2">
+      <table className="w-full min-w-[960px] border-collapse text-sm">
         <thead>
-          <tr>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Team
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Games
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              W
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              L
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              WR%
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Avg Duration
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Dragon%
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Baron%
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              FB%
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              FT%
-            </th>
-            <th className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-steel">
-              Avg Kills
-            </th>
+          <tr className="border-b border-cyan/20">
+            <th className={headClass}>Team</th>
+            <th className={headClass}>Win Rate</th>
+            <th className={headClass}>Games</th>
+            <th className={headClass}>W</th>
+            <th className={headClass}>L</th>
+            <th className={headClass}>Avg Duration</th>
+            <th className={headClass}>Dragon%</th>
+            <th className={headClass}>Baron%</th>
+            <th className={headClass}>FB%</th>
+            <th className={headClass}>FT%</th>
+            <th className={headClass}>Avg Kills</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((row, i) => (
-            <tr key={row.team_name} className="border-t border-line/60">
-              <td className="px-2 py-1.5 font-semibold text-white">
-                {i === 0 && <span className="mr-1.5 text-gold">#1</span>}
+            <tr
+              key={row.team_name}
+              className={`border-t border-line/50 transition hover:bg-cyan/5 ${i === 0 ? "row-rank-1" : ""}`}
+            >
+              <td className="px-2 py-2 font-semibold text-white">
+                {i === 0 && <span className="mr-1.5 font-mono text-gold">#1</span>}
                 {row.team_name}
               </td>
-              <td className="px-2 py-1.5 text-steel">{row.games}</td>
-              <td className="px-2 py-1.5 text-steel">{row.wins}</td>
-              <td className="px-2 py-1.5 text-steel">{row.losses}</td>
-              <td className="px-2 py-1.5 text-steel">{row.winrate_pct.toFixed(1)}%</td>
-              <td className="px-2 py-1.5 text-steel">{formatDuration(row.avg_duration_min)}</td>
-              <td className="px-2 py-1.5 text-steel">{row.dragon_rate.toFixed(1)}%</td>
-              <td className="px-2 py-1.5 text-steel">{row.baron_rate.toFixed(1)}%</td>
-              <td className="px-2 py-1.5 text-steel">{row.first_blood_rate.toFixed(1)}%</td>
-              <td className="px-2 py-1.5 text-steel">{row.first_tower_rate.toFixed(1)}%</td>
-              <td className="px-2 py-1.5 text-steel">{row.avg_team_kills.toFixed(2)}</td>
+              <td className="px-2 py-2">
+                <div className="flex min-w-[8rem] items-center gap-2">
+                  <StatBar
+                    value={row.winrate_pct}
+                    max={100}
+                    color={i === 0 ? "gold" : "cyan"}
+                    className="flex-1"
+                  />
+                  <span className="w-12 shrink-0 text-right font-mono text-xs font-bold text-white">
+                    {row.winrate_pct.toFixed(1)}%
+                  </span>
+                </div>
+              </td>
+              <td className="px-2 py-2 font-mono text-steel">{row.games}</td>
+              <td className="px-2 py-2 font-mono text-emerald-300">{row.wins}</td>
+              <td className="px-2 py-2 font-mono text-pink">{row.losses}</td>
+              <td className="px-2 py-2 font-mono text-steel">{formatDuration(row.avg_duration_min)}</td>
+              <td className="px-2 py-2 font-mono text-steel">{row.dragon_rate.toFixed(1)}%</td>
+              <td className="px-2 py-2 font-mono text-steel">{row.baron_rate.toFixed(1)}%</td>
+              <td className="px-2 py-2 font-mono text-steel">{row.first_blood_rate.toFixed(1)}%</td>
+              <td className="px-2 py-2 font-mono text-steel">{row.first_tower_rate.toFixed(1)}%</td>
+              <td className="px-2 py-2 font-mono text-steel">{row.avg_team_kills.toFixed(2)}</td>
             </tr>
           ))}
         </tbody>

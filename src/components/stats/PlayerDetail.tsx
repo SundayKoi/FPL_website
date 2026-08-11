@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { PlayerAggRow, RecordRow, ScoutingStatLine } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { RoleChip } from "./statsUi";
 
 /** One row of a player's last 10 games, read directly from `raw_stats` (public-read). */
 interface RecentGame {
@@ -243,21 +244,21 @@ export default function PlayerDetail({
       <button
         type="button"
         onClick={onBack}
-        className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel hover:text-white"
+        className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-cyan/60 hover:text-cyan"
       >
         <span aria-hidden="true">←</span> Back
       </button>
 
       {status === "loading" ? (
-        <div className="card-brand p-8 text-center text-steel" role="status">
+        <div className="card-neon p-8 text-center text-steel" role="status">
           Loading player…
         </div>
       ) : status === "error" ? (
-        <div className="card-brand p-8 text-center text-steel">
+        <div className="card-neon p-8 text-center text-steel">
           Couldn&apos;t load this player&apos;s data. Try again shortly.
         </div>
       ) : !myRow || !profile ? (
-        <div className="card-brand p-8 text-center">
+        <div className="card-neon p-8 text-center">
           <p className="type-display text-2xl">No stats yet</p>
           <p className="mt-2 text-steel">
             {summonerName}#{tag} has no data for this season/phase.
@@ -266,20 +267,25 @@ export default function PlayerDetail({
       ) : (
         <>
           {/* Identity header */}
-          <div className="card-brand flex flex-col gap-3 p-6 sm:p-8">
+          <div className="card-neon flex flex-col gap-3 p-6 sm:p-8">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="type-display text-4xl sm:text-5xl">
                   {myRow.summoner_name}
                   <span className="text-steel">#{myRow.tag}</span>
                 </p>
-                <p className="mt-2 text-sm text-steel">
-                  {myRow.role_mode} · {teams.length > 0 ? teams.join(", ") : "Unknown team"}
+                <p className="mt-2 flex items-center gap-2 text-sm text-steel">
+                  <RoleChip role={myRow.role_mode} />
+                  <span className="font-mono">
+                    {teams.length > 0 ? teams.join(", ") : "Unknown team"}
+                  </span>
                 </p>
               </div>
               <div className="text-right">
-                <p className="type-display text-3xl text-gold sm:text-4xl">{myRow.winrate_pct.toFixed(1)}%</p>
-                <p className="text-xs text-steel">
+                <p className="type-display text-3xl text-cyan sm:text-4xl [text-shadow:0_0_18px_rgb(53_230_255/0.4)]">
+                  {myRow.winrate_pct.toFixed(1)}%
+                </p>
+                <p className="font-mono text-xs text-steel">
                   {myRow.games} games · {myRow.wins}W {myRow.games - myRow.wins}L
                 </p>
               </div>
@@ -287,8 +293,8 @@ export default function PlayerDetail({
           </div>
 
           {/* Core averages grid */}
-          <div className="card-brand p-4 sm:p-6">
-            <span className="label-dash">Core Averages</span>
+          <div className="card-neon p-4 sm:p-6">
+            <span className="mono-label">Core Averages</span>
             <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {[
                 { label: "KDA", value: myRow.kda.toFixed(2) },
@@ -304,8 +310,11 @@ export default function PlayerDetail({
                 { label: "First Bloods", value: String(myRow.first_blood_involvements) },
                 { label: "Avg Duration", value: `${myRow.avg_game_duration.toFixed(1)}m` },
               ].map((stat) => (
-                <div key={stat.label} className="rounded border border-line/60 bg-navy p-3">
-                  <p className="text-lg font-bold text-white">{stat.value}</p>
+                <div
+                  key={stat.label}
+                  className="rounded border border-line/60 bg-navy/70 p-3 transition hover:border-cyan/50"
+                >
+                  <p className="font-mono text-lg font-bold text-cyan">{stat.value}</p>
                   <p className="mt-0.5 text-xs text-steel">{stat.label}</p>
                 </div>
               ))}
@@ -314,8 +323,8 @@ export default function PlayerDetail({
 
           {/* Laning block */}
           {laning && (
-            <div className="card-brand p-4 sm:p-6">
-              <span className="label-dash">
+            <div className="card-neon p-4 sm:p-6">
+              <span className="mono-label">
                 Laning Phase vs {myRow.role_mode} Average ({cohort!.size} players)
               </span>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -341,8 +350,10 @@ export default function PlayerDetail({
           {/* Scouting cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {(["core", "damage", "economy", "vision"] as const).map((key) => (
-              <div key={key} className="card-brand flex flex-col gap-2 p-4">
-                <p className="type-display text-lg">{CARD_TITLES[key]}</p>
+              <div key={key} className="card-neon flex flex-col gap-2 p-4">
+                <p className="type-display text-lg">
+                  <span className="text-cyan">{"//"}</span> {CARD_TITLES[key]}
+                </p>
                 <ul className="flex flex-col gap-1.5">
                   {profile[key].map((line) => (
                     <li
@@ -359,8 +370,8 @@ export default function PlayerDetail({
           </div>
 
           {/* Records held */}
-          <div className="card-brand p-4 sm:p-6">
-            <span className="label-dash">
+          <div className="card-neon p-4 sm:p-6">
+            <span className="mono-label">
               Records Held — {summonerName}
               {/* Fix round: name+tag disambiguation, same reasoning as
                   RecordsTab — cheap for viewers to confirm which of a
@@ -392,8 +403,8 @@ export default function PlayerDetail({
           </div>
 
           {/* Recent games */}
-          <div className="card-brand overflow-x-auto p-2">
-            <span className="label-dash block px-2 pt-2">Recent Games</span>
+          <div className="card-neon overflow-x-auto p-2">
+            <span className="mono-label block px-2 pt-2">Recent Games</span>
             {recentGames.length === 0 ? (
               <p className="p-4 text-sm text-steel">No recent games found.</p>
             ) : (

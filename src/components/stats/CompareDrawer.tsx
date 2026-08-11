@@ -57,12 +57,13 @@ export default function CompareDrawer({
       aria-label="Compare players"
       className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto border-t border-line bg-panel shadow-[0_-8px_24px_rgb(0_0_0_/_0.45)] sm:inset-x-auto sm:inset-y-0 sm:right-0 sm:max-h-none sm:w-[420px] sm:overflow-y-auto sm:border-l sm:border-t-0"
     >
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <span className="label-dash">Compare ({players.length}/3)</span>
+      <div className="relative flex items-center justify-between border-b border-line px-4 py-3">
+        <hr className="neon-rule absolute inset-x-0 top-0" />
+        <span className="mono-label">Compare ({players.length}/3)</span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-steel hover:text-white"
+          className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-steel transition hover:border-cyan/60 hover:text-cyan"
         >
           Close
         </button>
@@ -86,7 +87,7 @@ export default function CompareDrawer({
                       type="button"
                       aria-label={`Remove ${p.summoner_name} from compare`}
                       onClick={() => onRemove(p)}
-                      className="shrink-0 text-steel hover:text-gold"
+                      className="shrink-0 text-steel hover:text-pink"
                     >
                       ×
                     </button>

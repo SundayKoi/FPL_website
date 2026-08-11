@@ -6,6 +6,7 @@ import { fetchChampionAgg } from "@/lib/stats/queries";
 import type { ChampionAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { StatBar } from "./statsUi";
 
 const MIN_PICKS_OPTIONS = [1, 3, 5] as const;
 
@@ -167,16 +168,18 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card-brand flex flex-wrap items-center gap-1.5 p-4">
-        <span className="label-dash">Min picks</span>
+      <div className="card-neon flex flex-wrap items-center gap-1.5 p-4">
+        <span className="mono-label mr-1">Min picks</span>
         {MIN_PICKS_OPTIONS.map((n) => (
           <button
             key={n}
             type="button"
             aria-pressed={minPicks === n}
             onClick={() => setMinPicks(n)}
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              minPicks === n ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+              minPicks === n
+                ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                : "border border-line bg-panel text-steel hover:text-white"
             }`}
           >
             {n}+
@@ -190,10 +193,10 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
           <p className="mt-2 text-steel">No champions match this filter.</p>
         </div>
       ) : (
-        <div className="card-brand overflow-x-auto p-2">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
+        <div className="card-neon overflow-x-auto p-2">
+          <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
-              <tr>
+              <tr className="border-b border-cyan/20">
                 {COLUMNS.map((col) => {
                   const active = sortKey === col.key;
                   return (
@@ -205,8 +208,8 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
                       <button
                         type="button"
                         onClick={() => handleSort(col.key)}
-                        className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
-                          active ? "text-gold" : "text-steel hover:text-white"
+                        className={`flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${
+                          active ? "text-cyan [text-shadow:0_0_8px_rgb(53_230_255/0.4)]" : "text-steel hover:text-white"
                         }`}
                       >
                         {col.label}
@@ -219,15 +222,31 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
             </thead>
             <tbody>
               {sorted.map((row) => (
-                <tr key={row.champion} className="border-t border-line/60">
-                  {COLUMNS.map((col) => (
-                    <td
-                      key={col.key}
-                      className={`px-2 py-1.5 ${col.key === "champion" ? "font-semibold text-white" : "text-steel"}`}
-                    >
-                      {col.display(row)}
-                    </td>
-                  ))}
+                <tr key={row.champion} className="border-t border-line/50 transition hover:bg-cyan/5">
+                  {COLUMNS.map((col) => {
+                    if (col.key === "presence_pct") {
+                      return (
+                        <td key={col.key} className="px-2 py-2">
+                          <div className="flex min-w-[7rem] items-center gap-2">
+                            <StatBar value={row.presence_pct} max={100} color="purple" className="flex-1" />
+                            <span className="w-12 shrink-0 text-right font-mono text-xs text-white">
+                              {row.presence_pct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    }
+                    return (
+                      <td
+                        key={col.key}
+                        className={`px-2 py-2 ${
+                          col.key === "champion" ? "font-semibold text-white" : "font-mono text-steel"
+                        }`}
+                      >
+                        {col.display(row)}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

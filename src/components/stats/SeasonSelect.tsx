@@ -23,14 +23,14 @@ export default function SeasonSelect({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex flex-col gap-1">
-        <label htmlFor="stats-season" className="label-dash">
+        <label htmlFor="stats-season" className="mono-label">
           Season
         </label>
         <select
           id="stats-season"
           value={season}
           onChange={(e) => onSeasonChange(e.target.value)}
-          className="rounded border border-line bg-navy px-3 py-1.5 text-sm font-semibold text-white focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-3 py-1.5 text-sm font-semibold text-white focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
         >
           <option value={ALL_SEASONS}>All seasons</option>
           {seasons.map((s) => (
@@ -42,7 +42,7 @@ export default function SeasonSelect({
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="label-dash">Phase</span>
+        <span className="mono-label">Phase</span>
         <div className="flex gap-1">
           {PHASES.map((p) => (
             <button
@@ -50,8 +50,10 @@ export default function SeasonSelect({
               type="button"
               aria-pressed={phase === p}
               onClick={() => onPhaseChange(p)}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                phase === p ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                phase === p
+                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                  : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               {p}

@@ -98,22 +98,28 @@ export default function RecordsTab({ season, phase }: { season: string; phase: P
     );
   }
 
+  // Medal accent for the top three of each record category.
+  const rankColor = (i: number) =>
+    i === 0 ? "text-gold" : i === 1 ? "text-steel" : i === 2 ? "text-[#cd7f32]" : "text-steel/70";
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {categories.map((category) => {
         const entries = byCategory.get(category)!;
         return (
-          <div key={category} className="card-brand flex flex-col gap-3 p-4">
-            <p className="type-display text-lg">{category}</p>
+          <div key={category} className="card-neon flex flex-col gap-3 p-4">
+            <p className="type-display text-lg">
+              <span className="text-cyan">{"//"}</span> {category}
+            </p>
             <ol className="flex flex-col gap-2">
               {entries.map((entry, i) => (
                 <li
                   key={`${entry.match_id}-${entry.summoner_name}-${i}`}
-                  className="flex items-center justify-between gap-3 border-t border-line/60 pt-2 first:border-t-0 first:pt-0"
+                  className="flex items-center justify-between gap-3 border-t border-line/50 pt-2 first:border-t-0 first:pt-0"
                 >
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-semibold text-white">
-                      <span className="mr-1.5 text-steel">#{i + 1}</span>
+                      <span className={`mr-1.5 font-mono font-bold ${rankColor(i)}`}>#{i + 1}</span>
                       {entry.summoner_name}
                       {/* Fix round: some summoner_names are shared by two
                           distinct tags (different real players, e.g.
@@ -121,11 +127,15 @@ export default function RecordsTab({ season, phase }: { season: string; phase: P
                           tell them apart without opening the detail page. */}
                       <span className="text-steel">#{entry.tag}</span>
                     </span>
-                    <span className="truncate text-xs text-steel">
+                    <span className="truncate font-mono text-xs text-steel">
                       {entry.champion} · {formatDate(entry.game_date)}
                     </span>
                   </div>
-                  <span className="shrink-0 text-right text-base font-bold text-gold">
+                  <span
+                    className={`shrink-0 text-right font-mono text-base font-bold ${
+                      i === 0 ? "text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.4)]" : "text-cyan"
+                    }`}
+                  >
                     {formatValue(entry.value)}
                   </span>
                 </li>
