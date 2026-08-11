@@ -1,8 +1,24 @@
 import Link from "next/link";
+import TwitchShowcase from "./TwitchShowcase";
+import WeeklyStandouts from "./WeeklyStandouts";
+import { getTwitchChannelClips, getTwitchChannelStatus } from "@/lib/twitch/status";
+import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
 
 const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
+const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
 
-export default function LeagueHub() {
+export default async function LeagueHub() {
+  const twitchStatus = await getTwitchChannelStatus({
+    channelLogin: TWITCH_CHANNEL_LOGIN,
+  });
+  const twitchClips =
+    twitchStatus.state === "live"
+      ? []
+      : await getTwitchChannelClips({
+          channelLogin: TWITCH_CHANNEL_LOGIN,
+        });
+  const weeklyStandouts = await fetchLatestWeeklyStandouts(5);
+
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
@@ -39,26 +55,15 @@ export default function LeagueHub() {
               </Link>
             </div>
           </div>
-          <article className="card-brand flex min-h-80 flex-col justify-between overflow-hidden p-6 sm:p-8">
-            <div>
-              <span className="inline-flex rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-red-300">
-                Live destination
-              </span>
-              <span className="label-dash mt-8 block">ON TWITCH</span>
-              <h2 className="type-display mt-2 text-4xl">Franchise Premier League</h2>
-              <p className="mt-3 max-w-md text-sm leading-6 text-steel">
-                Watch the league unfold live, from draft night to every pivotal matchup.
-              </p>
-            </div>
-            <a
-              href={TWITCH_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-gold hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
-            >
-              Visit Twitch channel <span aria-hidden>→</span>
-            </a>
-          </article>
+          <WeeklyStandouts standouts={weeklyStandouts} />
+          <div className="lg:col-span-2">
+            <TwitchShowcase
+              channelLogin={TWITCH_CHANNEL_LOGIN}
+              clips={twitchClips}
+              streamState={twitchStatus.state}
+              twitchUrl={TWITCH_URL}
+            />
+          </div>
         </section>
       </div>
     </main>

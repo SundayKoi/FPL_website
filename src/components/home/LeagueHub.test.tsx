@@ -19,8 +19,8 @@ afterEach(() => {
 });
 
 describe("LeagueHub", () => {
-  it("uses the wide directory spacing on desktop", () => {
-    render(<LeagueHub />);
+  it("uses the wide directory spacing on desktop", async () => {
+    render(await LeagueHub());
 
     const main = screen.getByRole("main");
     expect(main.firstElementChild).toHaveClass(
@@ -36,11 +36,11 @@ describe("LeagueHub", () => {
     );
   });
 
-  it("keeps the homepage focused on league broadcasts", () => {
-    render(<LeagueHub />);
+  it("keeps the homepage focused on league broadcasts", async () => {
+    render(await LeagueHub());
 
     const twitchLinks = screen.getAllByRole("link", { name: /twitch/i });
-    expect(twitchLinks).toHaveLength(2);
+    expect(twitchLinks.length).toBeGreaterThanOrEqual(2);
 
     for (const twitchLink of twitchLinks) {
       expect(twitchLink.getAttribute("href")).toBe(
@@ -53,5 +53,19 @@ describe("LeagueHub", () => {
     expect(screen.queryByRole("heading", { name: /explore the league/i })).toBeNull();
     expect(screen.queryByRole("heading", { name: /draft central/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /explore drafts/i })).toBeNull();
+  });
+
+  it("adds the Twitch broadcast showcase to the landing page", async () => {
+    render(await LeagueHub());
+
+    expect(
+      screen.getByRole("article", { name: /franchise premier league broadcast/i }),
+    ).not.toBeNull();
+  });
+
+  it("adds the weekly standouts panel to the landing page", async () => {
+    render(await LeagueHub());
+
+    expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
   });
 });
