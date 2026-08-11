@@ -12,7 +12,7 @@ export default async function StatsPage({
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header className="relative pb-8">
           <span className="mono-label">
-            <span className="text-cyan">&gt;</span> League Data // Live from Supabase
+            <span className="text-cyan">&gt;</span> League Data
           </span>
           <h1 className="type-display text-neon mt-3 text-5xl sm:text-6xl">Stats</h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
