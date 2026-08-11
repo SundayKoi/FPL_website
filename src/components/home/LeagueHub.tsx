@@ -37,11 +37,13 @@ export default async function LeagueHub() {
               streamState={twitchStatus.state}
               twitchUrl={TWITCH_URL}
             />
-            <HomeStandings teams={standings} />
+            <UpcomingSchedule schedule={schedule} />
           </div>
-          <WeeklyStandouts standouts={weeklyStandouts} />
+          <div className="flex min-w-0 flex-col gap-6">
+            <HomeStandings teams={standings} />
+            <WeeklyStandouts standouts={weeklyStandouts} />
+          </div>
         </section>
-        <UpcomingSchedule schedule={schedule} />
       </div>
     </main>
   );
