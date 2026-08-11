@@ -104,13 +104,17 @@ export default function TeamRosterCard({
               <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-steel">
                 {roleLabels[player.role]}
               </span>
-              {!empty && !editable ? (
+              {!empty ? (
                 // Deep-link into the stats player card; StatsTabs resolves
                 // the name against stats identities (exact Name#TAG or
                 // unique bare name) and falls back to a prefilled player
                 // search when the roster spelling doesn't match.
+                // draggable={false}: anchors are natively draggable, which
+                // would hijack the admin editor's row-drag gesture — with it
+                // off, dragging the row still swaps and clicking navigates.
                 <Link
                   href={`/stats?player=${encodeURIComponent(player.displayName)}`}
+                  draggable={false}
                   className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                 >
                   {player.displayName}
