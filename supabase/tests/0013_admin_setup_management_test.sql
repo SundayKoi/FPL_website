@@ -1,7 +1,14 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(25);
+select plan(27);
+
+select ok(not has_function_privilege(
+  'anon', 'public.admin_assign_setup_player(uuid,uuid,uuid,integer,text)', 'execute'
+), 'anon cannot execute setup assignment');
+select ok(has_function_privilege(
+  'authenticated', 'public.admin_assign_setup_player(uuid,uuid,uuid,integer,text)', 'execute'
+), 'authenticated callers may reach the admin-gated setup assignment RPC');
 
 select ok(not has_function_privilege(
   'anon', 'public.admin_set_setup_team_budget(uuid,uuid,integer)', 'execute'
@@ -36,7 +43,7 @@ create temporary table ids as
 
 select tests.acting_as(tests.admin_id());
 select public.admin_assign_setup_player(
-  (select d from t), (select mid1 from ids), (select team_a from ids), 12
+  (select d from t), (select mid1 from ids), (select team_a from ids), 12, 'free_agency'
 );
 
 select tests.acting_as(tests.cap(1));
@@ -105,7 +112,8 @@ select public.admin_assign_setup_player(
   (select d from team_case),
   (select mid1 from team_case_ids),
   (select team_a from team_case_ids),
-  15
+  15,
+  'free_agency'
 );
 select lives_ok($$ select public.admin_remove_setup_team(
   (select d from team_case), (select team_a from team_case_ids)
