@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(16);
 
 -- 1-5: the five views exist
 select has_view('public', 'stats_player_agg', 'stats_player_agg view exists');
@@ -178,6 +178,38 @@ select ok(
    from public.stats_team_agg
    where team_name = 'SplitCo' and season = 'ZZ' and season_phase = 'Regular'),
   'stats_team_agg: tied split match (ZZ_SPLIT2) excluded -- avg_team_kills reflects only ZZ_SPLIT1''s majority side'
+);
+
+-- Fix round (final review item 2): rows with a NULL/blank team_name (real
+-- shape from the Riot-API ingester, which cannot derive an FPL team name
+-- from match data alone) must not form a bogus team-standings row.
+-- ZZ_NULLTEAM: a single player row with team_name left NULL.
+insert into public.raw_stats (
+  match_id, game_date, season, season_phase, team_side, team_name,
+  summoner_name, tag, champion, role, kills, deaths, assists, kda,
+  cs, gold_earned, vision_score, win,
+  team_dragons, team_first_dragon, team_barons, team_first_blood, team_first_tower
+) values
+  ('ZZ_NULLTEAM', '2026-01-05 20:00', 'ZZ', 'Regular', 'Blue', null,
+   'NoTeamGuy', 'NA1', 'Ahri', 'MIDDLE', 5, 2, 5, 5.0, 180, 11000, 20, true,
+   2, true, 1, true, true),
+  ('ZZ_NULLTEAM', '2026-01-05 20:00', 'ZZ', 'Regular', 'Red', '',
+   'BlankTeamGuy', 'NA1', 'Garen', 'TOP', 2, 5, 3, 1.0, 140, 8000, 14, false,
+   0, false, 0, false, false);
+
+select ok(
+  (select count(*) = 0
+   from public.stats_team_agg
+   where season = 'ZZ' and season_phase = 'Regular'
+     and (team_name is null or team_name = '')),
+  'stats_team_agg: null/blank team_name rows excluded from team_agg entirely (no bogus team-standings row)'
+);
+
+select ok(
+  (select blue_team = 'Unknown' and red_team = 'Unknown'
+   from public.stats_game_log
+   where match_id = 'ZZ_NULLTEAM'),
+  'stats_game_log: null/blank team_name displays as ''Unknown'' rather than blank'
 );
 
 select * from finish();

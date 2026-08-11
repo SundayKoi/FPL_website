@@ -37,6 +37,12 @@ USAGE:
     # fetch match data, then prints the first mapped row + row count):
     python scripts/riot_stats_ingest.py NA1_123 --dry-run
 
+    # OPTIONAL: fill in team_name from a JSON map of
+    # {"SummonerName#TAG": "FPL Team"} instead of leaving it blank (see
+    # README's Stats ingestion section for the file shape and the backfill
+    # alternative if you skip this):
+    python scripts/riot_stats_ingest.py NA1_123 --season S5 --phase Regular --team-map team_map.json
+
 Without python-dotenv installed, `.env` values are read via a tiny
 fallback parser (KEY=VALUE lines, no interpolation/quoting support) so
 that --dry-run and the test file still work without the dependency. See
@@ -588,6 +594,20 @@ def _to_bool_or_none(value):
 # ============================================================
 
 
+def load_team_map(path):
+    """Load an OPTIONAL --team-map JSON file: {"SummonerName#TAG": "FPL Team"}.
+    Returns {} if `path` is falsy. Raises on a missing file or invalid JSON
+    -- an explicitly-requested team map that can't be read should fail loud,
+    not silently fall back to writing null team_name for every row."""
+    if not path:
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError(f"--team-map file {path!r} must contain a JSON object, got {type(data).__name__}")
+    return data
+
+
 def extract_stats(
     match_data,
     solo_kills=None,
@@ -597,9 +617,16 @@ def extract_stats(
     level6_timestamps=None,
     season=None,
     season_phase=None,
+    team_map=None,
 ):
     """Return a list of dicts (one per participant), keyed by
-    RAW_STATS_COLUMNS, ready to POST to Supabase's raw_stats table."""
+    RAW_STATS_COLUMNS, ready to POST to Supabase's raw_stats table.
+
+    `team_map` (optional): {"SummonerName#TAG": "FPL Team"} -- when a
+    participant's "riotIdGameName#riotIdTagline" key is present, its
+    team_name column is filled in from the map instead of being left
+    blank. See README's Stats ingestion section for why this can't be
+    derived from Riot match data alone."""
     if solo_kills is None:
         solo_kills = {}
     if interval_stats is None:
@@ -608,6 +635,8 @@ def extract_stats(
         turret_plates = {}
     if level6_timestamps is None:
         level6_timestamps = {}
+    if team_map is None:
+        team_map = {}
 
     rows = []
     info = match_data.get("info", {})
@@ -680,14 +709,18 @@ def extract_stats(
         first_turret_killed = challenges.get("firstTurretKilled")
         first_turret_killed_assist = challenges.get("firstTurretKilledAssist")
 
+        summoner_name = p.get("riotIdGameName", p.get("summonerName", "Unknown"))
+        tag = p.get("riotIdTagline", "")
+        fpl_team_name = team_map.get(f"{summoner_name}#{tag}", "")
+
         row = {
             "game_date": game_date,
             "match_id": match_id,
             "game_duration_min": game_duration_min,
             "team_side": team,
-            "team_name": "",  # FPL Team -- not derivable from Riot data
-            "summoner_name": p.get("riotIdGameName", p.get("summonerName", "Unknown")),
-            "tag": p.get("riotIdTagline", ""),
+            "team_name": fpl_team_name,  # from --team-map when provided; else "" (see load_team_map)
+            "summoner_name": summoner_name,
+            "tag": tag,
             "champion": p.get("championName", "Unknown"),
             "role": p.get("teamPosition", "Unknown"),
             "champion_level": p.get("champLevel", 0),
@@ -837,7 +870,7 @@ def extract_stats(
 # ============================================================
 
 
-def fetch_and_extract(match_id, match_data, riot_api_key, season=None, season_phase=None):
+def fetch_and_extract(match_id, match_data, riot_api_key, season=None, season_phase=None, team_map=None):
     print("  Fetching timeline data...")
     timeline_data = get_match_timeline(match_id, riot_api_key)
     solo_kills, interval_stats, turret_plates, first_blood_info, level6_timestamps = parse_timeline_data(
@@ -864,6 +897,7 @@ def fetch_and_extract(match_id, match_data, riot_api_key, season=None, season_ph
         level6_timestamps=level6_timestamps,
         season=season,
         season_phase=season_phase,
+        team_map=team_map,
     )
     return stats
 
@@ -957,6 +991,13 @@ def build_arg_parser():
         "--phase", help="Season phase value to fill in every row's `season_phase` column (e.g. Regular)."
     )
     parser.add_argument(
+        "--team-map",
+        metavar="path.json",
+        help="OPTIONAL path to a JSON file mapping \"SummonerName#TAG\": \"FPL Team\" -- fills in each "
+        "row's team_name column when the participant's Riot ID matches a key. Without this, team_name "
+        "is left blank (see README's Stats ingestion section for the backfill options).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Fetch and map rows but do not write to Supabase; prints the first mapped row + row count.",
@@ -987,6 +1028,15 @@ def main(argv=None):
     supabase_url = env.get("SUPABASE_URL")
     service_key = env.get("SUPABASE_SERVICE_ROLE_KEY")
 
+    try:
+        team_map = load_team_map(args.team_map)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"[ERROR] Could not load --team-map file {args.team_map!r}: {exc}")
+        return 1
+    if team_map:
+        print(f"Loaded --team-map with {len(team_map)} player(s).")
+    print()
+
     print("Loading champion ID mappings from Data Dragon...")
     CHAMPION_ID_MAP = fetch_champion_id_map()
     print()
@@ -1013,7 +1063,9 @@ def main(argv=None):
             players = len(info.get("participants", []))
             print(f"  Date: {game_date} | Duration: {duration}m | Players: {players}")
 
-            stats = fetch_and_extract(match_id, match_data, riot_api_key, season=args.season, season_phase=args.phase)
+            stats = fetch_and_extract(
+                match_id, match_data, riot_api_key, season=args.season, season_phase=args.phase, team_map=team_map
+            )
             all_rows.extend(stats)
             print(f"  Extracted {len(stats)} player rows\n")
 
@@ -1049,7 +1101,12 @@ def main(argv=None):
             if is_inhouse_game(match_data, windows):
                 custom_count += 1
                 stats = fetch_and_extract(
-                    match_id, match_data, riot_api_key, season=args.season, season_phase=args.phase
+                    match_id,
+                    match_data,
+                    riot_api_key,
+                    season=args.season,
+                    season_phase=args.phase,
+                    team_map=team_map,
                 )
                 all_rows.extend(stats)
                 print(f"  Inhouse game! {len(stats)} players")
@@ -1071,6 +1128,23 @@ def main(argv=None):
         write_ok = write_to_supabase(all_rows, supabase_url, service_key)
         if not write_ok:
             return 1
+
+        null_team_rows = [r for r in all_rows if not r.get("team_name")]
+        if null_team_rows:
+            missing = sorted({f"{r['summoner_name']}#{r['tag']}" for r in null_team_rows})
+            print()
+            print("=" * 60)
+            print(
+                f"[WARN] {len(null_team_rows)} row(s) were written with a null/blank team_name "
+                f"({len(missing)} distinct player(s)): {', '.join(missing)}"
+            )
+            print(
+                "       The Teams tab excludes null-team rows from standings and the Timeline tab "
+                "shows 'Unknown' for them. Re-run with --team-map to fill team_name going forward, "
+                "or backfill these rows now -- see README's Stats ingestion section for a concrete "
+                "UPDATE statement."
+            )
+            print("=" * 60)
     else:
         print("No rows to write.")
 

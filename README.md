@@ -249,6 +249,57 @@ Writes are idempotent: rows POST to `raw_stats` with
 unique index, so re-running the ingester for a night you've already
 imported is a safe no-op for existing rows.
 
+### Team names (`team_name`)
+
+Riot match data has no concept of an FPL fantasy team — it only knows Riot
+IDs and in-game side (Blue/Red) — so the ingester cannot derive
+`team_name` on its own. Left unfilled, `team_name` lands `NULL` for those
+rows. Three views/tabs treat that gracefully rather than breaking: the
+Teams tab's `stats_team_agg` excludes null/blank-`team_name` rows from
+standings entirely (a player's individual/champion stats are unaffected),
+and the Timeline tab's `stats_game_log` displays `'Unknown'` in place of a
+blank team name (see migration `20260810100005_null_team_guard.sql`). But
+a player's games still won't show up under their real team on the Teams
+tab until `team_name` is filled in, one of two ways:
+
+**Option A — `--team-map` at ingest time (preferred for ongoing use).**
+Pass a JSON file mapping each player's `"SummonerName#TAG"` Riot ID to
+their FPL team name; the ingester fills `team_name` from it for every
+matched participant, leaving unmatched players blank (same as passing
+nothing):
+
+```json
+{
+  "AfkBoulder#c9win": "Blue Squad",
+  "DeFaux#ttm": "Red Squad"
+}
+```
+
+```powershell
+python scripts/riot_stats_ingest.py NA1_5558429844 --season S5 --phase Regular --team-map team_map.json
+```
+
+If any rows still end up with a null `team_name` after a real (non
+`--dry-run`) write — a player missing from the map, or `--team-map` never
+passed — the ingester prints a loud `[WARN]` block at the end listing
+exactly which players, so it isn't a silent gap.
+
+**Option B — backfill after the fact.** Update the already-written rows
+directly in Supabase once you know each player's team for that season,
+e.g. via the SQL editor or `psql`:
+
+```sql
+update raw_stats
+set team_name = 'Blue Squad'
+where summoner_name in ('AfkBoulder', 'DeFaux')
+  and season = 'S5';
+```
+
+Run one `update` per team (adjust the `summoner_name` list and
+`team_name` value), then re-check the Teams tab for that season. This is
+also the right approach for backfilling seasons ingested before
+`--team-map` existed.
+
 > **Riot API key regeneration warning.** The predecessor script
 > (`updated_stats.py`, since deleted) had a live Riot API key hardcoded in
 > its source. That file was never committed to git, but it existed as a

@@ -15,10 +15,14 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import json
+import tempfile
+
 from riot_stats_ingest import (  # noqa: E402
     RAW_STATS_COLUMNS,
     BOOLEAN_COLUMNS,
     extract_stats,
+    load_team_map,
     _to_bool_or_none,
     _blank_to_none,
 )
@@ -475,6 +479,33 @@ def run_tests():
     check(row1["gold_at_10"] == 5200, f"row1 gold_at_10 expected 5200, got {row1['gold_at_10']!r}")
     check(row1["xp_at_20"] == 13500, f"row1 xp_at_20 expected 13500, got {row1['xp_at_20']!r}")
 
+    # -- team_name is blank without a --team-map (default behavior, unchanged) --
+    check(row1["team_name"] is None, f"row1 team_name expected None (no team_map), got {row1['team_name']!r}")
+    check(row2["team_name"] is None, f"row2 team_name expected None (no team_map), got {row2['team_name']!r}")
+
+    # -- --team-map fills team_name for matched Riot IDs, leaves others blank --
+    team_map = {"AfkBoulder#c9win": "Blue Squad"}
+    rows_mapped = extract_stats(
+        match_data,
+        solo_kills=solo_kills,
+        interval_stats=interval_stats,
+        turret_plates=turret_plates,
+        first_blood_info=first_blood_info,
+        level6_timestamps=level6_timestamps,
+        season="S5",
+        season_phase="Regular",
+        team_map=team_map,
+    )
+    mapped_row1, mapped_row2 = rows_mapped
+    check(
+        mapped_row1["team_name"] == "Blue Squad",
+        f"mapped_row1 team_name expected 'Blue Squad' (matched team_map key), got {mapped_row1['team_name']!r}",
+    )
+    check(
+        mapped_row2["team_name"] is None,
+        f"mapped_row2 team_name expected None (no team_map match for SomeoneElse#na1), got {mapped_row2['team_name']!r}",
+    )
+
     if failures:
         print(f"FAILED: {len(failures)} assertion(s) failed:")
         for f in failures:
@@ -482,6 +513,67 @@ def run_tests():
         return False
 
     print(f"OK: all assertions passed ({len(rows)} synthetic rows mapped, {len(RAW_STATS_COLUMNS)} columns each).")
+    return True
+
+
+def run_team_map_tests():
+    """Tests for load_team_map() itself (the --team-map file loader), run
+    the same plain-assert way as run_tests()."""
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    # -- no path (flag omitted) -> {} --
+    check(load_team_map(None) == {}, "load_team_map(None) should return {}")
+    check(load_team_map("") == {}, "load_team_map('') should return {}")
+
+    # -- valid file loads correctly --
+    with tempfile.TemporaryDirectory() as tmpdir:
+        valid_path = os.path.join(tmpdir, "team_map.json")
+        with open(valid_path, "w", encoding="utf-8") as f:
+            json.dump({"AfkBoulder#c9win": "Blue Squad", "DeFaux#ttm": "Red Squad"}, f)
+        loaded = load_team_map(valid_path)
+        check(
+            loaded == {"AfkBoulder#c9win": "Blue Squad", "DeFaux#ttm": "Red Squad"},
+            f"load_team_map should load the file's JSON object exactly, got {loaded!r}",
+        )
+
+        # -- missing file raises (fail loud, not silent fallback) --
+        try:
+            load_team_map(os.path.join(tmpdir, "does_not_exist.json"))
+            failures.append("load_team_map on a missing file should raise, not return silently")
+        except OSError:
+            pass
+
+        # -- non-object JSON (e.g. a list) raises --
+        list_path = os.path.join(tmpdir, "list.json")
+        with open(list_path, "w", encoding="utf-8") as f:
+            json.dump(["not", "an", "object"], f)
+        try:
+            load_team_map(list_path)
+            failures.append("load_team_map on a JSON list (not object) should raise")
+        except ValueError:
+            pass
+
+        # -- invalid JSON raises --
+        bad_path = os.path.join(tmpdir, "bad.json")
+        with open(bad_path, "w", encoding="utf-8") as f:
+            f.write("{not valid json")
+        try:
+            load_team_map(bad_path)
+            failures.append("load_team_map on invalid JSON should raise")
+        except json.JSONDecodeError:
+            pass
+
+    if failures:
+        print(f"FAILED: {len(failures)} team-map assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: all load_team_map assertions passed.")
     return True
 
 
@@ -494,10 +586,14 @@ def test_mapper_end_to_end():
     assert run_tests() is True
 
 
+def test_team_map():
+    assert run_team_map_tests() is True
+
+
 # ============================================================
 # plain-python entry point
 # ============================================================
 
 if __name__ == "__main__":
-    ok = run_tests()
+    ok = run_tests() and run_team_map_tests()
     sys.exit(0 if ok else 1)
