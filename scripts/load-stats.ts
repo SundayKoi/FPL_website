@@ -3,7 +3,11 @@
  * `public.raw_stats` via the PostgREST bulk-insert endpoint, in batches of
  * 500, using `Prefer: resolution=ignore-duplicates` so re-running the loader
  * against data that's already present is a no-op (relies on the unique index
- * on (match_id, summoner_name) created by the migration).
+ * on (match_id, summoner_name) created by the migration). Once all batches
+ * finish, it calls the `sync_league_teams_from_stats` RPC so `public.
+ * league_teams` picks up any team_name not already seeded — a bare
+ * `supabase db reset` leaves raw_stats (and so league_teams) empty, so this
+ * loader run is what actually populates it in local dev.
  *
  * Same resolveConfig pattern as scripts/seed-demo.ts: env override
  * (SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY),
@@ -73,6 +77,46 @@ async function truncateTable(url: string, serviceKey: string): Promise<void> {
   console.log("Truncated public.raw_stats.");
 }
 
+/**
+ * Re-runnable seed: recomputes public.league_teams from the distinct
+ * team_name values now in public.raw_stats (see
+ * public.sync_league_teams_from_stats() in
+ * supabase/migrations/20260811100001_league_config.sql). The migration also
+ * calls this once, but that call runs against an empty raw_stats on a bare
+ * `supabase db reset` -- this is what actually populates league_teams in
+ * local dev.
+ */
+async function syncLeagueTeams(url: string, serviceKey: string): Promise<void> {
+  const res = await fetch(`${url}/rest/v1/rpc/sync_league_teams_from_stats`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`sync_league_teams_from_stats failed: ${res.status} ${body}`);
+  }
+
+  const countRes = await fetch(`${url}/rest/v1/league_teams?select=id`, {
+    method: "GET",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Prefer: "count=exact",
+    },
+  });
+  if (!countRes.ok) {
+    const body = await countRes.text();
+    throw new Error(`Could not read back league_teams count: ${countRes.status} ${body}`);
+  }
+  const teams = (await countRes.json()) as unknown[];
+  console.log(`Synced public.league_teams: ${teams.length} team(s) now on file.`);
+}
+
 async function postBatch(url: string, serviceKey: string, batch: Row[]): Promise<number> {
   // `resolution=ignore-duplicates` (ON CONFLICT (...) DO NOTHING) requires
   // PostgREST to be told which conflict target to use via `on_conflict` —
@@ -128,6 +172,8 @@ async function main() {
   }
 
   console.log(`Done. Inserted ${insertedTotal}, skipped ${skippedTotal} (of ${rows.length} total rows).`);
+
+  await syncLeagueTeams(url, serviceKey);
 }
 
 main().catch((err) => {
