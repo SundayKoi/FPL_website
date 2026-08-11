@@ -240,7 +240,11 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
         const data = await fetchSeasons();
         if (cancelled) return;
         setSeasons(data);
-        if (data.length > 0) setSeason(data[0]);
+        // With a ?player= deep link active, stay on the initial
+        // "All seasons" instead of defaulting to the newest — the resolve
+        // effect opens the card in all-seasons view and this default would
+        // race it and clobber that choice.
+        if (data.length > 0 && !initialPlayer) setSeason(data[0]);
         setSeasonsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -252,7 +256,7 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPlayer]);
 
   useEffect(() => {
     if (!initialPlayer) return;
@@ -266,6 +270,11 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
         if (cancelled) return;
         const match = resolvePlayerParam(rows, initialPlayer!);
         if (match) {
+          // Open in "All seasons / All phases" so the card is never empty
+          // for a player whose games are in an earlier season than the
+          // page's default (newest) selection.
+          setSeason(ALL_SEASONS);
+          setPhase("All");
           setSelectedPlayer(match);
         } else {
           setActiveTab("Players");
