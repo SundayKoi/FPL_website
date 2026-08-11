@@ -59,6 +59,7 @@ const teams: Team[] = [
     abbreviation: "TA",
     captain_profile_id: "profile-a",
     image_url: publicUrlFor("draft-1/team-a"),
+    banner_color: "#083344",
     nomination_position: 1,
     budget_start: 100,
     points_remaining: 75,
@@ -132,6 +133,7 @@ describe("AdminTeamEditor", () => {
 
     expect(screen.queryByText("Roster editor content")).toBeNull();
     expect(screen.getByLabelText("Team A name")).toBeTruthy();
+    expect((screen.getByLabelText("Team A banner color") as HTMLInputElement).value).toBe("#083344");
     expect(screen.getByRole("button", { name: "Done editing teams" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Done editing teams" }));
@@ -152,7 +154,7 @@ describe("AdminTeamEditor", () => {
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
     expect((await within(form).findByRole("status")).textContent).toContain(
-      "Enter a team name, an abbreviation of 1–5 characters, and an allowed image file."
+      "Enter a team name, an abbreviation of 1–5 characters, a hex banner color, and an allowed image file."
     );
     expect(upload).not.toHaveBeenCalled();
 
@@ -180,6 +182,7 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A name"), { target: { value: "Alpha" } });
     fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "alp" } });
     fireEvent.change(within(form).getByLabelText("Team A captain"), { target: { value: "profile-b" } });
+    fireEvent.change(within(form).getByLabelText("Team A banner color"), { target: { value: "#123456" } });
     fireEvent.change(within(form).getByLabelText("Team A image"), { target: { files: [image] } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
@@ -197,6 +200,7 @@ describe("AdminTeamEditor", () => {
         abbreviation: "ALP",
         captain_profile_id: "profile-b",
         image_url: publicUrlFor(objectPath),
+        banner_color: "#123456",
       })
     );
     expect(publicUrlFor(objectPath)).not.toBe(teams[0].image_url);
@@ -298,6 +302,7 @@ describe("AdminTeamEditor", () => {
       abbreviation: "TB",
       captain_profile_id: null,
       image_url: null,
+      banner_color: "#7c2d12",
     }];
     const view = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));

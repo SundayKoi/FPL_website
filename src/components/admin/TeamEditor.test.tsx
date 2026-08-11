@@ -32,6 +32,7 @@ const team: Team = {
   captain_profile_id: null,
   abbreviation: "TA",
   image_url: null,
+  banner_color: "#083344",
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 100,

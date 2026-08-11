@@ -12,9 +12,22 @@ describe("TeamRosterCard", () => {
 
     render(<TeamRosterCard team={team} />);
 
-    expect(screen.getByRole("img", { name: `${team.name} logo` })).toBeTruthy();
+    const image = screen.getByRole("img", { name: `${team.name} logo` });
+    expect(image).toBeTruthy();
+    expect(image.className).toContain("h-24");
+    expect(screen.getByText(team.abbreviation)).toBeTruthy();
     expect(screen.queryByText(/pts/)).toBeNull();
     expect(screen.queryByText(/Remaining budget/)).toBeNull();
+  });
+
+  it("uses a saved banner color when one is available", () => {
+    const team = { ...PLACEHOLDER_TEAMS[0], bannerColor: "#123456" };
+
+    render(<TeamRosterCard team={team} />);
+
+    expect(screen.getByRole("group", { name: `${team.name} banner` }).getAttribute("style")).toContain(
+      "background-color: rgb(18, 52, 86);"
+    );
   });
 
   it("renders the team abbreviation when no image is available", () => {
