@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Acquisition, Player, Profile, Team } from "@/lib/draft/types";
 
@@ -267,20 +267,15 @@ function ExistingPrefillForm({
   const [price, setPrice] = useState("");
   const validPrice = /^\d+$/.test(price);
   const formDisabled = disabled || players.length === 0 || acquisitions.length === 0;
-
-  useEffect(() => {
-    setAcquisition((current) => {
-      if (acquisitions.length === 0) return "";
-      return current && acquisitions.includes(current) ? current : acquisitions[0];
-    });
-  }, [acquisitions]);
+  const selectedAcquisition =
+    acquisition && acquisitions.includes(acquisition) ? acquisition : acquisitions[0] ?? "";
 
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!playerId || !acquisition || !validPrice) return;
-        if (await onAdd(playerId, acquisition, Number(price))) {
+        if (!playerId || !selectedAcquisition || !validPrice) return;
+        if (await onAdd(playerId, selectedAcquisition, Number(price))) {
           setPlayerId("");
           setAcquisition(acquisitions[0] ?? "");
           setPrice("");
@@ -307,7 +302,7 @@ function ExistingPrefillForm({
       <label className="flex items-center gap-1 text-xs text-steel">
         Acquisition
         <select
-          value={acquisition}
+          value={selectedAcquisition}
           onChange={(e) => setAcquisition(e.target.value as Acquisition)}
           disabled={formDisabled}
           className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
@@ -333,7 +328,7 @@ function ExistingPrefillForm({
       </label>
       <button
         type="submit"
-        disabled={formDisabled || !playerId || !acquisition || !validPrice}
+        disabled={formDisabled || !playerId || !selectedAcquisition || !validPrice}
         className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Add existing player
