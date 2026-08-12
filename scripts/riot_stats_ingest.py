@@ -59,6 +59,7 @@ import json
 import os
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -1004,6 +1005,417 @@ def write_to_supabase(rows, supabase_url, service_key):
 
 
 # ============================================================
+# FROM-REPORTS INGEST MODE
+#
+# Consumes the match_reports/match_report_games queue captains file on
+# /captain (or /matches once built) instead of explicit match ids or
+# --dates: see docs/superpowers/specs/2026-08-11-match-reporting-auto-ingest
+# -design.md's "Scheduled ingest" section for the step-by-step spec.
+# ============================================================
+
+MATCH_REPORTS_ENDPOINT = "/rest/v1/match_reports"
+MATCH_REPORT_GAMES_ENDPOINT = "/rest/v1/match_report_games"
+ROSTER_MEMBERSHIPS_ENDPOINT = "/rest/v1/roster_memberships"
+LEAGUE_TEAMS_ENDPOINT = "/rest/v1/league_teams"
+
+
+@dataclass
+class IngestConfig:
+    """Bundles the three env values + --dry-run flag every --from-reports
+    helper below needs, so call sites don't have to thread four positional
+    args through every function."""
+
+    supabase_url: str
+    service_key: str
+    riot_api_key: str
+    dry_run: bool = False
+
+
+def _supabase_headers(service_key, extra=None):
+    headers = {"apikey": service_key, "Authorization": f"Bearer {service_key}"}
+    if extra:
+        headers.update(extra)
+    return headers
+
+
+def _utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def fetch_pending_reports(cfg):
+    """GET match_reports with status in (pending, needs_sides), embedding
+    each report's match_report_games, oldest submitted_at first. Returns
+    [] (with a printed warning) on any HTTP/connection failure rather than
+    raising -- a transient Supabase hiccup shouldn't crash the nightly job
+    before it's processed anything."""
+    url = f"{cfg.supabase_url.rstrip('/')}{MATCH_REPORTS_ENDPOINT}"
+    params = {
+        "status": "in.(pending,needs_sides)",
+        "select": "*,match_report_games(*)",
+        "order": "submitted_at.asc",
+    }
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [ERROR] Could not fetch pending reports: request error: {exc}")
+        return []
+    if resp.status_code != 200:
+        print(f"  [ERROR] Could not fetch pending reports: HTTP {resp.status_code}: {resp.text[:200]}")
+        return []
+    return resp.json()
+
+
+def load_roster_map(cfg, season):
+    """GET roster_memberships for `season`, embedding each row's
+    riot_accounts, and build {(game_name.lower(), tag_line.lower()):
+    league_team_id}."""
+    url = f"{cfg.supabase_url.rstrip('/')}{ROSTER_MEMBERSHIPS_ENDPOINT}"
+    params = {
+        "season": f"eq.{season}",
+        "select": "league_team_id,riot_accounts(game_name,tag_line)",
+    }
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not load roster map for season {season!r}: request error: {exc}")
+        return {}
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not load roster map for season {season!r}: HTTP {resp.status_code}")
+        return {}
+    roster_map = {}
+    for row in resp.json():
+        account = row.get("riot_accounts") or {}
+        game_name = (account.get("game_name") or "").strip().lower()
+        tag_line = (account.get("tag_line") or "").strip().lower()
+        if game_name and tag_line:
+            roster_map[(game_name, tag_line)] = row.get("league_team_id")
+    return roster_map
+
+
+def load_league_teams(cfg):
+    """GET league_teams -> {id: name}, used to translate a resolved
+    blue/red league_team_id uuid into the team_name text raw_stats
+    expects (must match raw_stats.team_name exactly -- see design doc)."""
+    url = f"{cfg.supabase_url.rstrip('/')}{LEAGUE_TEAMS_ENDPOINT}"
+    params = {"select": "id,name"}
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not load league_teams: request error: {exc}")
+        return {}
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not load league_teams: HTTP {resp.status_code}")
+        return {}
+    return {row["id"]: row["name"] for row in resp.json()}
+
+
+def match_ids_already_ingested(cfg, ids):
+    """GET raw_stats?match_id=in.(...) -> the subset of `ids` that already
+    have at least one row in raw_stats (idempotency check)."""
+    ids = [i for i in ids if i]
+    if not ids:
+        return set()
+    url = f"{cfg.supabase_url.rstrip('/')}{RAW_STATS_ENDPOINT}"
+    params = {"match_id": "in.(" + ",".join(ids) + ")", "select": "match_id"}
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not check already-ingested match ids: request error: {exc}")
+        return set()
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not check already-ingested match ids: HTTP {resp.status_code}")
+        return set()
+    return {row["match_id"] for row in resp.json() if row.get("match_id")}
+
+
+def resolve_sides(match_data, report, game, roster_map):
+    """Return (blue_team_id, red_team_id, reason_if_unresolved).
+
+    Explicit game["blue_team_id"] wins immediately. Otherwise tally match
+    participants by teamId (100=blue, 200=red), mapping each via
+    (riotIdGameName, riotIdTagline) -> roster_map, ignoring hits that
+    aren't one of the report's two teams. Resolves when exactly one side
+    has (unanimous) hits, or both sides have hits and disagree with each
+    other (blue -> X, red -> Y, X != Y); anything else -- no hits at all,
+    a conflicting side, or both sides agreeing on the same team -- is
+    unresolved, with a human-readable reason.
+    """
+    team_a_id = report.get("team_a_id")
+    team_b_id = report.get("team_b_id")
+    report_team_ids = {team_a_id, team_b_id}
+
+    explicit_blue = game.get("blue_team_id")
+    if explicit_blue:
+        red_id = team_b_id if explicit_blue == team_a_id else team_a_id
+        return explicit_blue, red_id, None
+
+    participants = match_data.get("info", {}).get("participants", [])
+    blue_hits, red_hits = set(), set()
+    for p in participants:
+        key = (
+            (p.get("riotIdGameName") or "").strip().lower(),
+            (p.get("riotIdTagline") or "").strip().lower(),
+        )
+        team_id = roster_map.get(key)
+        if team_id is None or team_id not in report_team_ids:
+            continue
+        if p.get("teamId") == 100:
+            blue_hits.add(team_id)
+        elif p.get("teamId") == 200:
+            red_hits.add(team_id)
+
+    if len(blue_hits) > 1:
+        return None, None, f"Conflicting roster matches on the blue side: {sorted(blue_hits)}."
+    if len(red_hits) > 1:
+        return None, None, f"Conflicting roster matches on the red side: {sorted(red_hits)}."
+
+    if blue_hits and not red_hits:
+        blue_id = next(iter(blue_hits))
+        return blue_id, (team_b_id if blue_id == team_a_id else team_a_id), None
+    if red_hits and not blue_hits:
+        red_id = next(iter(red_hits))
+        return (team_b_id if red_id == team_a_id else team_a_id), red_id, None
+    if blue_hits and red_hits:
+        blue_id = next(iter(blue_hits))
+        red_id = next(iter(red_hits))
+        if blue_id == red_id:
+            return None, None, "Both sides matched to the same roster team; cannot resolve which side is which."
+        return blue_id, red_id, None
+
+    return None, None, "No roster matches found for either side (check roster_memberships for this season)."
+
+
+def update_report_status(cfg, report_id, status, error_text, warning_text, ingested_at):
+    """PATCH match_reports/<report_id>. Returns True/False; never raises."""
+    url = f"{cfg.supabase_url.rstrip('/')}{MATCH_REPORTS_ENDPOINT}"
+    params = {"id": f"eq.{report_id}"}
+    headers = _supabase_headers(cfg.service_key, {"Content-Type": "application/json", "Prefer": "return=minimal"})
+    body = {"status": status, "error_text": error_text, "warning_text": warning_text, "ingested_at": ingested_at}
+    try:
+        resp = requests.patch(url, headers=headers, params=params, data=json.dumps(body))
+    except requests.RequestException as exc:
+        print(f"  [ERROR] Could not update match_reports {report_id}: request error: {exc}")
+        return False
+    if resp.status_code not in (200, 204):
+        print(f"  [ERROR] Could not update match_reports {report_id}: HTTP {resp.status_code}: {resp.text[:200]}")
+        return False
+    return True
+
+
+def update_game_status(cfg, game_id, status, error_text, resolved_blue_team_id):
+    """PATCH match_report_games/<game_id>. Returns True/False; never raises."""
+    url = f"{cfg.supabase_url.rstrip('/')}{MATCH_REPORT_GAMES_ENDPOINT}"
+    params = {"id": f"eq.{game_id}"}
+    headers = _supabase_headers(cfg.service_key, {"Content-Type": "application/json", "Prefer": "return=minimal"})
+    body = {"status": status, "error_text": error_text, "resolved_blue_team_id": resolved_blue_team_id}
+    try:
+        resp = requests.patch(url, headers=headers, params=params, data=json.dumps(body))
+    except requests.RequestException as exc:
+        print(f"  [ERROR] Could not update match_report_games {game_id}: request error: {exc}")
+        return False
+    if resp.status_code not in (200, 204):
+        print(f"  [ERROR] Could not update match_report_games {game_id}: HTTP {resp.status_code}: {resp.text[:200]}")
+        return False
+    return True
+
+
+def rollup_report_status(game_statuses):
+    """Pure status-rollup (spec step 7): all games ingested -> 'ingested';
+    any needs_side -> 'needs_sides'; any failed -> 'failed' (a hard
+    failure outranks an unresolved side)."""
+    statuses = set(game_statuses)
+    if "failed" in statuses:
+        return "failed"
+    if "needs_side" in statuses:
+        return "needs_sides"
+    return "ingested"
+
+
+def compute_score_warning(score_a, score_b, wins_a, wins_b):
+    """Pure score cross-check (spec step 8): None when the tallied game
+    wins match the reported series score, else a human-readable mismatch
+    message, e.g. 'Reported 3-0 but games show 2-1.'"""
+    if (wins_a, wins_b) == (score_a, score_b):
+        return None
+    return f"Reported {score_a}-{score_b} but games show {wins_a}-{wins_b}."
+
+
+def _tally_report_wins(cfg, report, match_ids, team_names):
+    """Query raw_stats for the winning team_name of each of `match_ids`
+    (all belonging to this report) and tally into (wins_a, wins_b) via
+    team_names (league_team_id -> name) reversed. Returns None -- skip the
+    cross-check rather than risk a false warning -- if any game's winner
+    can't be determined (missing row, unrecognized team_name, request
+    failure)."""
+    if not match_ids:
+        return None
+    url = f"{cfg.supabase_url.rstrip('/')}{RAW_STATS_ENDPOINT}"
+    params = {"match_id": "in.(" + ",".join(match_ids) + ")", "win": "eq.true", "select": "match_id,team_name"}
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+
+    name_to_id = {name: team_id for team_id, name in team_names.items()}
+    team_a_id, team_b_id = report.get("team_a_id"), report.get("team_b_id")
+    wins_a = wins_b = 0
+    resolved_match_ids = set()
+    for row in resp.json():
+        match_id = row.get("match_id")
+        if match_id in resolved_match_ids:
+            continue
+        winner_id = name_to_id.get(row.get("team_name"))
+        if winner_id == team_a_id:
+            wins_a += 1
+            resolved_match_ids.add(match_id)
+        elif winner_id == team_b_id:
+            wins_b += 1
+            resolved_match_ids.add(match_id)
+
+    if resolved_match_ids != set(match_ids):
+        return None
+    return wins_a, wins_b
+
+
+def ingest_report(cfg, report, team_names):
+    """Ingest one match report's games per spec steps 2-8: skip games
+    already in raw_stats (idempotent), fetch+resolve+write the rest, roll
+    the per-game results up into a report status, and (once fully
+    ingested, for a real run) run the score cross-check. Never performs a
+    Supabase *write* when cfg.dry_run is set -- reads (fetching the
+    report's roster map, the already-ingested check, Riot lookups) still
+    happen so the printed plan reflects what a real run would do."""
+    report_id = report["id"]
+    season = report.get("season")
+    season_phase = report.get("season_phase")
+
+    games = sorted(report.get("match_report_games") or [], key=lambda g: g.get("game_number", 0))
+    roster_map = load_roster_map(cfg, season)
+
+    unfinished_match_ids = [g["match_id"] for g in games if g.get("status") != "ingested"]
+    already_ids = match_ids_already_ingested(cfg, unfinished_match_ids)
+
+    game_results = []
+    for game in games:
+        game_id, match_id = game["id"], game["match_id"]
+
+        if game.get("status") == "ingested":
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
+            continue
+
+        if match_id in already_ids:
+            print(f"  [{match_id}] already present in raw_stats -- marking ingested (no Riot call).")
+            if not cfg.dry_run:
+                update_game_status(cfg, game_id, "ingested", None, game.get("blue_team_id"))
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
+            continue
+
+        print(f"  [{match_id}] Fetching from Riot...")
+        match_data = get_match_details(match_id, cfg.riot_api_key)
+        time.sleep(API_DELAY)
+        if not match_data:
+            error_text = f"Could not fetch match {match_id} from the Riot API."
+            if not cfg.dry_run:
+                update_game_status(cfg, game_id, "failed", error_text, None)
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "failed", "error": error_text})
+            continue
+
+        blue_id, red_id, reason = resolve_sides(match_data, report, game, roster_map)
+        if not blue_id:
+            print(f"  [{match_id}] needs_side: {reason}")
+            if not cfg.dry_run:
+                update_game_status(cfg, game_id, "needs_side", reason, None)
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "needs_side", "error": reason})
+            continue
+
+        stats = fetch_and_extract(match_id, match_data, cfg.riot_api_key, season=season, season_phase=season_phase)
+        blue_name, red_name = team_names.get(blue_id), team_names.get(red_id)
+        for row in stats:
+            row["team_name"] = blue_name if row["team_side"] == "Blue" else red_name
+
+        if cfg.dry_run:
+            print(f"  [DRY RUN] Would write {len(stats)} row(s) for {match_id} (blue={blue_name}, red={red_name}).")
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
+            continue
+
+        if not write_to_supabase(stats, cfg.supabase_url, cfg.service_key):
+            error_text = f"Failed to write stats rows for {match_id}."
+            update_game_status(cfg, game_id, "failed", error_text, None)
+            game_results.append({"game_id": game_id, "match_id": match_id, "status": "failed", "error": error_text})
+            continue
+
+        update_game_status(cfg, game_id, "ingested", None, blue_id)
+        game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
+
+    report_status = rollup_report_status([g["status"] for g in game_results])
+    error_text = "; ".join(g["error"] for g in game_results if g["status"] == "failed" and g.get("error")) or None
+
+    warning_text = None
+    if report_status == "ingested" and not cfg.dry_run:
+        tally = _tally_report_wins(cfg, report, [g["match_id"] for g in games], team_names)
+        if tally is not None:
+            warning_text = compute_score_warning(report.get("score_a"), report.get("score_b"), tally[0], tally[1])
+
+    ingested_at = _utc_now_iso() if report_status == "ingested" and not cfg.dry_run else None
+
+    if not cfg.dry_run:
+        update_report_status(cfg, report_id, report_status, error_text, warning_text, ingested_at)
+
+    return {"status": report_status, "games": game_results, "warning": warning_text, "error": error_text}
+
+
+def run_from_reports_mode(cfg):
+    """Top-level --from-reports driver: fetch every pending/needs_sides
+    report, ingest each one, print a summary line per report, and return
+    the process exit code (1 if any report ended 'failed')."""
+    print("FROM-REPORTS MODE -- ingesting queued match reports")
+    print("=" * 60 + "\n")
+
+    team_names = load_league_teams(cfg)
+    reports = fetch_pending_reports(cfg)
+
+    if not reports:
+        print("No pending reports to ingest.")
+        return 0
+
+    print(f"Found {len(reports)} pending report(s).\n")
+
+    any_failed = False
+    for i, report in enumerate(reports, 1):
+        team_a_name = team_names.get(report.get("team_a_id"), report.get("team_a_id"))
+        team_b_name = team_names.get(report.get("team_b_id"), report.get("team_b_id"))
+        print(
+            f"[{i}/{len(reports)}] {team_a_name} {report.get('score_a')}-{report.get('score_b')} "
+            f"{team_b_name} ({report.get('season')} {report.get('season_phase')})"
+        )
+        result = ingest_report(cfg, report, team_names)
+        print(f"  -> status: {result['status']}")
+        if result.get("warning"):
+            print(f"  [WARN] {result['warning']}")
+        if result.get("error"):
+            print(f"  [ERROR] {result['error']}")
+        if result["status"] == "failed":
+            any_failed = True
+        print()
+
+    if cfg.dry_run:
+        print("[DRY RUN] No changes were written to Supabase.")
+
+    if any_failed:
+        print("[ERROR] One or more reports ended in 'failed' status. See the errors above; fix and re-run,")
+        print("        or resolve needs_sides reports on /captain, which flips them back to pending.")
+        return 1
+    return 0
+
+
+# ============================================================
 # CLI / MAIN
 # ============================================================
 
@@ -1023,6 +1435,15 @@ def build_arg_parser():
         metavar="YYYY-MM-DD",
         help="One or more game-night dates. Discovers match ids via PLAYER_RIOT_IDS' match history "
         "and keeps games in the custom-queue window(s) built from these dates.",
+    )
+    parser.add_argument(
+        "--from-reports",
+        action="store_true",
+        help="Ingest queued match reports from match_reports/match_report_games (captain-submitted, "
+        "via /captain) instead of explicit match ids or --dates. Mutually exclusive with both. Each "
+        "report carries its own season/season_phase, so this mode ignores --season/--phase and the "
+        "league_settings fallback. Requires all three env vars even with --dry-run (reports are read "
+        "from Supabase either way). Exits 1 if any report ends 'failed'.",
     )
     parser.add_argument("--season", help="Season value to fill in every row's `season` column (e.g. S5).")
     parser.add_argument(
@@ -1049,11 +1470,13 @@ def main(argv=None):
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 
-    if args.match_ids and args.dates:
-        print("[ERROR] Pass either explicit match ids or --dates, not both.")
+    if sum([bool(args.match_ids), bool(args.dates), args.from_reports]) > 1:
+        print("[ERROR] Pass only one of: explicit match ids, --dates, or --from-reports.")
         return 1
 
-    required_names = ["RIOT_API_KEY"] if args.dry_run else REQUIRED_ENV_VARS
+    # --from-reports always needs Supabase (it reads the report queue even
+    # under --dry-run); the other modes only need it for a real write.
+    required_names = REQUIRED_ENV_VARS if (args.from_reports or not args.dry_run) else ["RIOT_API_KEY"]
     env = require_env(required_names)
     if env is None:
         return 1
@@ -1063,9 +1486,13 @@ def main(argv=None):
 
     # Explicit --season/--phase win; otherwise fall back to the admin-set
     # current values in league_settings so automated runs (a bot passing
-    # only match ids) label rows correctly without being told.
+    # only match ids) label rows correctly without being told. --from-reports
+    # is exempt: every queued report already carries its own season/phase,
+    # so a single global value would be wrong for a mixed batch, and this
+    # mode must not hard-fail just because league_settings is unreadable
+    # when it never uses the result (see task-7-brief.md's MERGE AMENDMENT).
     season, phase = args.season, args.phase
-    if not args.dry_run and not (season and phase):
+    if not args.dry_run and not (season and phase) and not args.from_reports:
         print("Resolving season/phase from league_settings (flags omitted)...")
         fetched = fetch_current_season_phase(supabase_url, service_key)
         season, phase = resolve_season_phase(args.season, args.phase, fetched)
@@ -1088,6 +1515,15 @@ def main(argv=None):
     print("Loading champion ID mappings from Data Dragon...")
     CHAMPION_ID_MAP = fetch_champion_id_map()
     print()
+
+    if args.from_reports:
+        cfg = IngestConfig(
+            supabase_url=supabase_url,
+            service_key=service_key,
+            riot_api_key=riot_api_key,
+            dry_run=args.dry_run,
+        )
+        return run_from_reports_mode(cfg)
 
     all_rows = []
 

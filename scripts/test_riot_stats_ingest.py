@@ -25,6 +25,9 @@ from riot_stats_ingest import (  # noqa: E402
     load_team_map,
     _to_bool_or_none,
     _blank_to_none,
+    resolve_sides,
+    rollup_report_status,
+    compute_score_warning,
 )
 
 MIGRATION_PATH = os.path.normpath(
@@ -610,6 +613,222 @@ def run_resolve_season_phase_tests():
 
 
 # ============================================================
+# --from-reports: resolve_sides / rollup_report_status /
+# compute_score_warning (pure functions, no network)
+# ============================================================
+
+
+def make_resolve_sides_match_data():
+    """4 participants (2 per side), enough to exercise resolve_sides'
+    roster-tally logic without any Riot match/timeline data."""
+    return {
+        "info": {
+            "participants": [
+                {"teamId": 100, "riotIdGameName": "AfkBoulder", "riotIdTagline": "c9win"},
+                {"teamId": 100, "riotIdGameName": "Other1", "riotIdTagline": "tag1"},
+                {"teamId": 200, "riotIdGameName": "DeFaux", "riotIdTagline": "ttm"},
+                {"teamId": 200, "riotIdGameName": "Other2", "riotIdTagline": "tag2"},
+            ]
+        }
+    }
+
+
+def run_resolve_sides_tests():
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    report = {"team_a_id": "team-a", "team_b_id": "team-b"}
+    match_data = make_resolve_sides_match_data()
+
+    # -- explicit override wins immediately, ignoring match_data/roster_map --
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": "team-b"}, {})
+    check(blue == "team-b" and red == "team-a" and reason is None, f"explicit override: got ({blue!r}, {red!r}, {reason!r})")
+
+    # -- single roster hit on blue (blue-side player maps to team-a; no red hits) --
+    roster_map = {("afkboulder", "c9win"): "team-a"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue == "team-a" and red == "team-b" and reason is None,
+        f"single blue hit: got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- single roster hit on red (mirror case) --
+    roster_map = {("defaux", "ttm"): "team-b"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue == "team-a" and red == "team-b" and reason is None,
+        f"single red hit: got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- hits on both sides, agreeing with each other (distinct teams) --
+    roster_map = {("afkboulder", "c9win"): "team-a", ("defaux", "ttm"): "team-b"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue == "team-a" and red == "team-b" and reason is None,
+        f"both sides agreeing: got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- contradictory hits: both sides map to the SAME team -> unresolved + reason --
+    roster_map = {("afkboulder", "c9win"): "team-a", ("defaux", "ttm"): "team-a"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue is None and red is None and bool(reason),
+        f"both sides same team: expected unresolved + reason, got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- contradictory hits: two players on the SAME side map to different teams -> unresolved + reason --
+    roster_map = {("afkboulder", "c9win"): "team-a", ("other1", "tag1"): "team-b"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue is None and red is None and bool(reason),
+        f"conflicting blue-side hits: expected unresolved + reason, got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- no hits at all -> unresolved + reason --
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, {})
+    check(
+        blue is None and red is None and bool(reason),
+        f"no hits: expected unresolved + reason, got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    # -- a roster hit for a team that ISN'T one of the report's two teams is ignored --
+    roster_map = {("afkboulder", "c9win"): "some-other-team"}
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": None}, roster_map)
+    check(
+        blue is None and red is None and bool(reason),
+        f"off-report-team hit ignored: expected unresolved + reason, got ({blue!r}, {red!r}, {reason!r})",
+    )
+
+    if failures:
+        print(f"FAILED: {len(failures)} resolve_sides assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: all resolve_sides assertions passed.")
+    return True
+
+
+def run_rollup_report_status_tests():
+    failures = []
+    cases = [
+        (["ingested", "ingested"], "ingested"),
+        (["ingested"], "ingested"),
+        (["ingested", "needs_side"], "needs_sides"),
+        (["needs_side", "needs_side"], "needs_sides"),
+        (["ingested", "failed"], "failed"),
+        (["needs_side", "failed"], "failed"),
+        (["ingested", "needs_side", "failed"], "failed"),
+    ]
+    for statuses, expected in cases:
+        got = rollup_report_status(statuses)
+        if got != expected:
+            failures.append(f"rollup_report_status({statuses!r}) = {got!r}, want {expected!r}")
+
+    if failures:
+        print(f"FAILED: {len(failures)} rollup_report_status assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: all rollup_report_status assertions passed.")
+    return True
+
+
+def run_compute_score_warning_tests():
+    failures = []
+
+    # (2, 1) tallied vs reported (3, 0) -> a warning mentioning both scores
+    warning = compute_score_warning(3, 0, 2, 1)
+    if warning is None or "3-0" not in warning or "2-1" not in warning:
+        failures.append(f"compute_score_warning(3, 0, 2, 1) expected a warning mentioning '3-0' and '2-1', got {warning!r}")
+
+    # matching tally -> no warning
+    match_ok = compute_score_warning(3, 0, 3, 0)
+    if match_ok is not None:
+        failures.append(f"compute_score_warning(3, 0, 3, 0) expected None (scores match), got {match_ok!r}")
+
+    if failures:
+        print(f"FAILED: {len(failures)} compute_score_warning assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: all compute_score_warning assertions passed.")
+    return True
+
+
+def run_from_reports_bypasses_league_settings_test():
+    """MERGE AMENDMENT regression test: --from-reports must not call
+    fetch_current_season_phase() / hard-fail when league_settings is
+    unreadable -- every queued report carries its own season/phase, and
+    one global value would be wrong for a mixed batch. Simulates
+    league_settings being completely broken (HTTP 500) and asserts (a)
+    --from-reports never even queries it and (b) the run still exits 0."""
+    import riot_stats_ingest as mod
+
+    failures = []
+
+    class FakeResponse:
+        def __init__(self, status_code=200, json_data=None, text=""):
+            self.status_code = status_code
+            self._json_data = json_data if json_data is not None else []
+            self.text = text
+
+        def json(self):
+            return self._json_data
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if "ddragon" in url and "versions.json" in url:
+            return FakeResponse(200, ["14.1.1"])
+        if "ddragon" in url and "champion.json" in url:
+            return FakeResponse(200, {"data": {}})
+        if "league_settings" in url:
+            failures.append(f"--from-reports should never query league_settings, but hit: {url}")
+            return FakeResponse(500, text="simulated league_settings outage")
+        if "match_reports" in url:
+            return FakeResponse(200, [])
+        if "league_teams" in url:
+            return FakeResponse(200, [])
+        failures.append(f"Unexpected GET during --from-reports --dry-run: {url}")
+        return FakeResponse(500, text="unexpected URL")
+
+    orig_get = mod.requests.get
+    mod.requests.get = fake_get
+
+    env_names = ("RIOT_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")
+    orig_env = {name: os.environ.get(name) for name in env_names}
+    os.environ["RIOT_API_KEY"] = "fake-riot-key"
+    os.environ["SUPABASE_URL"] = "https://example.invalid"
+    os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "fake-service-key"
+
+    try:
+        exit_code = mod.main(["--from-reports", "--dry-run"])
+    finally:
+        mod.requests.get = orig_get
+        for name, value in orig_env.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+    if exit_code != 0:
+        failures.append(f"--from-reports --dry-run with broken league_settings should exit 0, got {exit_code}")
+
+    if failures:
+        print(f"FAILED: {len(failures)} assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: --from-reports bypasses the league_settings fallback even when it's unreadable.")
+    return True
+
+
+# ============================================================
 # pytest entry points (collected automatically if pytest is present)
 # ============================================================
 
@@ -626,10 +845,34 @@ def test_resolve_season_phase():
     assert run_resolve_season_phase_tests() is True
 
 
+def test_resolve_sides():
+    assert run_resolve_sides_tests() is True
+
+
+def test_rollup_report_status():
+    assert run_rollup_report_status_tests() is True
+
+
+def test_compute_score_warning():
+    assert run_compute_score_warning_tests() is True
+
+
+def test_from_reports_bypasses_league_settings():
+    assert run_from_reports_bypasses_league_settings_test() is True
+
+
 # ============================================================
 # plain-python entry point
 # ============================================================
 
 if __name__ == "__main__":
-    ok = run_tests() and run_team_map_tests() and run_resolve_season_phase_tests()
+    ok = (
+        run_tests()
+        and run_team_map_tests()
+        and run_resolve_season_phase_tests()
+        and run_resolve_sides_tests()
+        and run_rollup_report_status_tests()
+        and run_compute_score_warning_tests()
+        and run_from_reports_bypasses_league_settings_test()
+    )
     sys.exit(0 if ok else 1)

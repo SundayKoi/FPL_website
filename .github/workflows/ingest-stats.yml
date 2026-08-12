@@ -1,0 +1,22 @@
+name: Ingest match reports
+on:
+  schedule:
+    - cron: "0 7 * * *"   # 02:00 EST / 03:00 EDT — GitHub cron is UTC only
+  workflow_dispatch:
+concurrency:
+  group: ingest-stats
+  cancel-in-progress: false
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests python-dotenv
+      - run: python scripts/riot_stats_ingest.py --from-reports
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

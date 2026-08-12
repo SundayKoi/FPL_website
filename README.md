@@ -300,6 +300,59 @@ Run one `update` per team (adjust the `summoner_name` list and
 also the right approach for backfilling seasons ingested before
 `--team-map` existed.
 
+### Nightly ingest from match reports (`--from-reports`)
+
+Captains file finished series on `/captain` (or `/matches`), which queues
+rows in `match_reports`/`match_report_games`. A GitHub Actions workflow —
+[`.github/workflows/ingest-stats.yml`](.github/workflows/ingest-stats.yml)
+— runs `python scripts/riot_stats_ingest.py --from-reports` nightly at
+02:00 EST / 03:00 EDT (`cron: "0 7 * * *"`, GitHub cron is UTC-only and
+doesn't adjust for DST) and is also runnable on demand. This is now the
+normal path for game-night stats; the manual `--dates`/explicit-match-id
+invocations above stay available for one-off backfills.
+
+**Manual trigger**: GitHub → Actions tab → "Ingest match reports" → **Run
+workflow**. Useful for testing after a report is filed, or to retry after
+fixing a `failed` report on `/captain`.
+
+**Repo secrets** (Settings → Secrets and variables → Actions), same three
+values as the local `.env`:
+
+- `RIOT_API_KEY` — a **personal** Riot key (doesn't expire daily like a
+  development key).
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+**What it does**, per report with `status` in `pending`/`needs_sides`:
+for each game, skip it (and mark it `ingested`) if its match id is
+already in `raw_stats`; otherwise fetch the match from Riot, resolve
+which side (Blue/Red) is which FPL team, write the stats rows with
+`team_name` set from the resolved side and `season`/`season_phase` from
+the report itself (not `--season`/`--phase` — each report carries its
+own, since a nightly batch can span multiple), and mark the game
+`ingested`. Once every game in a report is `ingested`, it tallies game
+wins per team and compares them to the reported score, setting
+`warning_text` (shown on `/captain`) on a mismatch — this catches a
+mistyped match id without blocking the ingest.
+
+**`needs_sides`**: side resolution works two ways — a game's `blue_team_id`
+being set explicitly (from the reporting form) wins immediately; otherwise
+the ingester looks up each of the ten players' Riot ID in
+`roster_memberships` for that season and tallies which of the report's two
+teams show up on which side. If that tally comes back ambiguous (no
+roster matches, or conflicting ones), the game is marked `needs_side` and
+the report `needs_sides`. Fix it on `/captain`: a `needs_sides` report
+shows an inline "which team was blue?" picker per unresolved game for
+captains and admins to set; picking a side flips the report back to
+`pending` for the next nightly run (or a manual trigger) to pick up.
+
+A report that ends `failed` (a Riot fetch error, an unknown match id, or
+a Supabase write failure) needs an admin to fix the underlying issue and
+retry it from `/captain` — `failed` reports are **not** re-attempted
+automatically (only `pending`/`needs_sides` are re-fetched), and the
+workflow run exits non-zero (so GitHub emails the repo owner) whenever
+any report ends `failed`.
+
 > **Riot API key regeneration warning.** The predecessor script
 > (`updated_stats.py`, since deleted) had a live Riot API key hardcoded in
 > its source. That file was never committed to git, but it existed as a
