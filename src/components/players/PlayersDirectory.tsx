@@ -149,7 +149,11 @@ export default function PlayersDirectory({
                             href={player.opggUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="min-w-0 break-words whitespace-nowrap font-semibold underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                              isFreeAgency && selectedCaptain && isAvailable
+                                ? "font-extrabold text-white decoration-white/70"
+                                : "font-semibold"
+                            }`}
                           >
                             {player.name}
                           </a>

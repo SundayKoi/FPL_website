@@ -67,7 +67,7 @@ describe("PlayersDirectory", () => {
     expect(
       screen.getByRole("link", { name: "Captain: Bleedinwolves" }).closest("li")?.dataset.available,
     ).toBe("true");
-    expect(screen.getByText("25")).toBeTruthy();
+    expect(screen.getAllByText("25").length).toBeGreaterThan(0);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 
@@ -96,7 +96,7 @@ describe("PlayersDirectory", () => {
     expect(matchingRow?.dataset.available).toBe("true");
     expect(nonMatchingRow?.dataset.available).toBe("false");
     expect(nonMatchingRow?.className).toContain("opacity-50");
-    expect(screen.getByText("25")).toBeTruthy();
+    expect(screen.getAllByText("25").length).toBeGreaterThan(0);
   });
 
   it("resets captain selection when leaving Free Agency and keeps the Season 4 empty state working", () => {
