@@ -165,6 +165,7 @@ export default async function CaptainPage({
             <div className="flex flex-col gap-6">
               <NextMatchCard fixture={nextFixture} myTeamName={activeTeam.name} />
               <TourneyCodes codes={codes} />
+              <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
             </div>
             <ReportBox
               key={activeTeamId}
@@ -177,7 +178,6 @@ export default async function CaptainPage({
               myReports={myReports}
             />
           </div>
-          <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
           <MyResults teamName={activeTeam.name} games={results.games} players={results.players} />
           <Announcements announcements={announcements} />
 

@@ -82,8 +82,8 @@ describe("CaptainPage layout", () => {
     const labels = [
       "Next Match",
       "Tourney Codes",
-      "Report a Result",
       "My roster",
+      "Report a Result",
       "My results & stats",
       "Announcements",
     ];
