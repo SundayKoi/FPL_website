@@ -39,6 +39,7 @@ export default function PlayersDirectory({
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
   const [selectedCaptain, setSelectedCaptain] = useState("");
+  const [editMode, setEditMode] = useState(false);
   const [avgBids, setAvgBids] = useState(initialAvgBids);
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -59,6 +60,7 @@ export default function PlayersDirectory({
 
     if (value === "player-list") {
       setSelectedCaptain("");
+      setEditMode(false);
     }
   };
 
@@ -151,6 +153,15 @@ export default function PlayersDirectory({
                 </select>
               </div>
             ) : null}
+            {isAdmin && isFreeAgency ? (
+              <button
+                type="button"
+                onClick={() => setEditMode((editing) => !editing)}
+                className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                {editMode ? "Done Editing" : "Edit Avg Bids"}
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -207,7 +218,7 @@ export default function PlayersDirectory({
                           </a>
                           <span className="font-medium">{player.rank}</span>
                           <span className="font-medium">
-                            {isFreeAgency && isAdmin ? (
+                            {isFreeAgency && isAdmin && editMode ? (
                               <input
                                 aria-label={`Avg Bid for ${player.name}`}
                                 type="number"

@@ -89,7 +89,10 @@ describe("PlayersDirectory", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+    expect(screen.queryByLabelText("Avg Bid for Canny#rip")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Avg Bids" }));
     expect((screen.getByLabelText("Avg Bid for Canny#rip") as HTMLInputElement).value).toBe("44");
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
   });
 
   it("renders captain options from the supplied snapshot in stable order", () => {
