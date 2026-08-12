@@ -26,6 +26,30 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /**
+ * A report's link to `/schedule`'s `fixtures` table (Task 8): a steel
+ * "Schedule" chip whenever the report is attached to a fixture, plus a
+ * gold "Synced" chip once that fixture's score has (or will have, on the
+ * next ingest pass) been auto-filled from this report — i.e. the report
+ * has reached `ingested`. The fixture's own score is the source of truth
+ * on /schedule; this is just an indicator, no extra fetch needed here.
+ */
+function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status: string }) {
+  if (!fixtureId) return null;
+  return (
+    <>
+      <span className="rounded-full border border-steel/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel">
+        Schedule
+      </span>
+      {status === "ingested" && (
+        <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gold">
+          Synced
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
  * Admin panel on /captain: every match_reports row (any team, any season),
  * newest first, with status badges, error_text/warning_text, per-game rows,
  * Retry, Delete, and the needs-sides fixer. See task-6-brief.md
@@ -156,6 +180,7 @@ export default function AdminReportsQueue({
                         {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
                       </span>
                       <StatusBadge status={r.status} />
+                      <FixtureChips fixtureId={r.fixture_id} status={r.status} />
                       <span className="text-xs text-steel">
                         {r.season_phase} · {r.season}
                       </span>

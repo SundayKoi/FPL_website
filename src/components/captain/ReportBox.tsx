@@ -32,6 +32,30 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /**
+ * A report's link to `/schedule`'s `fixtures` table (Task 8): a steel
+ * "Schedule" chip whenever the report is attached to a fixture, plus a
+ * gold "Synced" chip once that fixture's score has (or will have, on the
+ * next ingest pass) been auto-filled from this report — i.e. the report
+ * has reached `ingested`. The fixture's own score is the source of truth
+ * on /schedule; this is just an indicator, no extra fetch needed here.
+ */
+function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status: string }) {
+  if (!fixtureId) return null;
+  return (
+    <>
+      <span className="rounded-full border border-steel/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel">
+        Schedule
+      </span>
+      {status === "ingested" && (
+        <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gold">
+          Synced
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
  * A bare `42501` ("new row violates row-level security policy…") is
  * meaningless to a captain — it almost always means their profile isn't (or
  * isn't yet) a season-scoped captain in `league_team_captains`, which is a
@@ -445,6 +469,7 @@ export default function ReportBox({
                     {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
                   </span>
                   <StatusBadge status={r.status} />
+                  <FixtureChips fixtureId={r.fixture_id} status={r.status} />
                   <span className="text-xs text-steel">
                     {r.season_phase} · {r.season}
                   </span>

@@ -1017,6 +1017,7 @@ MATCH_REPORTS_ENDPOINT = "/rest/v1/match_reports"
 MATCH_REPORT_GAMES_ENDPOINT = "/rest/v1/match_report_games"
 ROSTER_MEMBERSHIPS_ENDPOINT = "/rest/v1/roster_memberships"
 LEAGUE_TEAMS_ENDPOINT = "/rest/v1/league_teams"
+FIXTURES_ENDPOINT = "/rest/v1/fixtures"
 
 
 @dataclass
@@ -1223,6 +1224,49 @@ def update_game_status(cfg, game_id, status, error_text, resolved_blue_team_id):
     return True
 
 
+def sync_fixture_score(cfg, report):
+    """Auto-fill the schedule: once a report has finished `ingested` and
+    carries a `fixture_id`, PATCH that fixture's score_a/score_b from the
+    report's own score_a/score_b -- but ONLY while the fixture's scores are
+    still both null. The `score_a=is.null&score_b=is.null` filters embedded
+    in the URL are that guard: they make the write race-safe (two
+    concurrent runs can't double-apply) and, more importantly, mean an
+    admin who already hand-typed (or a previous run already auto-filled) a
+    score is never overwritten -- correction stays a manual job on
+    /schedule's AdminFixturesEditor.
+
+    Returns True iff a fixture row was actually updated. Never raises: any
+    guard miss, HTTP failure, or connection error is logged (if
+    applicable) and treated as "not updated" so a fixture-sync hiccup can
+    never take down the rest of the --from-reports run."""
+    fixture_id = report.get("fixture_id")
+    if report.get("status") != "ingested" or not fixture_id:
+        return False
+
+    url = (
+        f"{cfg.supabase_url.rstrip('/')}{FIXTURES_ENDPOINT}"
+        f"?id=eq.{fixture_id}&score_a=is.null&score_b=is.null"
+    )
+    headers = _supabase_headers(cfg.service_key, {"Content-Type": "application/json", "Prefer": "return=representation"})
+    body = {"score_a": report.get("score_a"), "score_b": report.get("score_b")}
+    try:
+        resp = requests.patch(url, headers=headers, data=json.dumps(body))
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not sync fixture {fixture_id} score: request error: {exc}")
+        return False
+    if resp.status_code not in (200, 204):
+        print(f"  [WARN] Could not sync fixture {fixture_id} score: HTTP {resp.status_code}: {resp.text[:200]}")
+        return False
+    try:
+        updated_rows = resp.json()
+    except ValueError:
+        return False
+    if updated_rows:
+        print(f"  Synced score to fixture {fixture_id}: {body['score_a']}-{body['score_b']}.")
+        return True
+    return False
+
+
 def rollup_report_status(game_statuses):
     """Pure status-rollup (spec step 7): all games ingested -> 'ingested';
     any needs_side -> 'needs_sides'; any failed -> 'failed' (a hard
@@ -1367,6 +1411,8 @@ def ingest_report(cfg, report, team_names):
 
     if not cfg.dry_run:
         update_report_status(cfg, report_id, report_status, error_text, warning_text, ingested_at)
+        if report_status == "ingested":
+            sync_fixture_score(cfg, {**report, "status": report_status})
 
     return {"status": report_status, "games": game_results, "warning": warning_text, "error": error_text}
 
