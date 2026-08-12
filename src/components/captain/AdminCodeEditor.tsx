@@ -48,12 +48,16 @@ type Status =
 /**
  * Admin panel on /captain: pick an open fixture for the current season,
  * paste tourney codes one per line, Save replaces that fixture's whole code
- * set (delete then insert, numbered 1..N in line order). team_a_id/
- * team_b_id are resolved from the fixture's free-text team names against
- * league_teams, refusing to save when a name doesn't resolve — validated
- * before any delete runs, so a bad team name never wipes an existing code
- * set. See docs/superpowers/specs/2026-08-11-captains-page-design.md ("New
- * tables" -> match_codes) and task-6-brief.md.
+ * set, numbered 1..N in line order. team_a_id/team_b_id are resolved from
+ * the fixture's free-text team names against league_teams, refusing to save
+ * when a name doesn't resolve. The actual replace (delete existing rows +
+ * insert the new set) happens inside the single `replace_match_codes` RPC
+ * (see supabase/migrations/20260811100005_replace_match_codes.sql) rather
+ * than as two separate client round-trips — a delete-then-insert pair here
+ * could leave a fixture with zero codes if the insert failed after the
+ * delete succeeded (network blip, closed tab, concurrent admin); the RPC
+ * makes that atomic. See docs/superpowers/specs/2026-08-11-captains-page-
+ * design.md ("New tables" -> match_codes) and task-6-brief.md.
  */
 export default function AdminCodeEditor({
   fixtures,
@@ -102,38 +106,26 @@ export default function AdminCodeEditor({
       return;
     }
 
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
+    // Blank/whitespace-only lines are dropped server-side by the RPC itself
+    // (see replace_match_codes) -- passed through here unfiltered so the
+    // reported count always reflects what actually got inserted.
+    const lines = text.split("\n");
     setStatus({ kind: "saving" });
 
-    const { error: deleteError } = await supabase.from("match_codes").delete().eq("fixture_id", fixture.id);
-    if (deleteError) {
-      setStatus({ kind: "error", message: deleteError.message });
+    const { data, error } = await supabase.rpc("replace_match_codes", {
+      p_fixture_id: fixture.id,
+      p_season: fixture.season,
+      p_team_a_id: teamAId,
+      p_team_b_id: teamBId,
+      p_codes: lines,
+    });
+    if (error) {
+      setStatus({ kind: "error", message: error.message });
       return;
     }
 
-    if (lines.length > 0) {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error: insertError } = await supabase.from("match_codes").insert(
-        lines.map((code, i) => ({
-          fixture_id: fixture.id,
-          season: fixture.season,
-          team_a_id: teamAId,
-          team_b_id: teamBId,
-          game_number: i + 1,
-          code,
-          created_by: userData.user?.id ?? null,
-        }))
-      );
-      if (insertError) {
-        setStatus({ kind: "error", message: insertError.message });
-        return;
-      }
-    }
-
-    setStatus({ kind: "success", message: `Saved ${lines.length} code${lines.length === 1 ? "" : "s"}.` });
+    const inserted = (data as number | null) ?? 0;
+    setStatus({ kind: "success", message: `Saved ${inserted} code${inserted === 1 ? "" : "s"}.` });
     router.refresh();
   };
 

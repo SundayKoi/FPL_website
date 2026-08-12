@@ -18,7 +18,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(12);
+select plan(18);
 
 insert into public.profiles (id, display_name, is_admin) values (tests.admin_id(), 'Captain Page Admin', true)
   on conflict (id) do nothing;
@@ -46,6 +46,12 @@ insert into public.match_codes (id, season, team_a_id, team_b_id, game_number, c
    '50000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000002',
    1, 'NA1234');
 
+-- A real fixtures row for replace_match_codes below (its match_codes rows
+-- need a non-null fixture_id -- match_codes_fixture_game_key is a partial
+-- unique index on (fixture_id, game_number) where fixture_id is not null).
+insert into public.fixtures (id, stage, team_a, team_b, best_of, season) values
+  ('50000000-0000-0000-0000-000000000020', 'week_1', 'Task4 Alpha FC', 'Task4 Bravo FC', 3, 'ZZ');
+
 -- === tables exist ============================================================
 select has_table('public', 'league_team_captains', 'league_team_captains exists');
 select has_table('public', 'match_codes', 'match_codes exists');
@@ -54,9 +60,9 @@ select has_table('public', 'announcements', 'announcements exists');
 -- === functions exist =========================================================
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('sync_league_team_captains', 'is_captain_of')),
-  2,
-  'sync_league_team_captains and is_captain_of both exist'
+   where n.nspname = 'public' and p.proname in ('sync_league_team_captains', 'is_captain_of', 'replace_match_codes')),
+  3,
+  'sync_league_team_captains, is_captain_of, and replace_match_codes all exist'
 );
 
 -- === match_codes: no anon grant at all (defence in depth beneath RLS) =======
@@ -135,6 +141,59 @@ set local role authenticated;
 select public.sync_league_team_captains('ZZ');
 select is(public.sync_league_team_captains('ZZ'), 0, 'sync_league_team_captains is re-runnable: second call inserts nothing new');
 reset role;
+
+-- === replace_match_codes: atomic delete+insert, admin-only ==================
+-- Fix round (Task 6): AdminCodeEditor previously did delete-then-insert as
+-- two separate client round-trips, which could leave a fixture with zero
+-- codes if the insert failed after the delete succeeded. Folded into one
+-- SECURITY DEFINER RPC -- see supabase/migrations/20260811100005_replace_
+-- match_codes.sql.
+select tests.acting_as(tests.admin_id());
+select is(
+  public.replace_match_codes(
+    '50000000-0000-0000-0000-000000000020', 'ZZ',
+    '50000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000002',
+    array['CODE1', 'CODE2']::text[]
+  ),
+  2,
+  'replace_match_codes inserts 2 codes and returns the inserted count'
+);
+select is(
+  (select count(*)::int from public.match_codes where fixture_id = '50000000-0000-0000-0000-000000000020'),
+  2,
+  'exactly 2 match_codes rows exist for the fixture after the first replace'
+);
+select is(
+  public.replace_match_codes(
+    '50000000-0000-0000-0000-000000000020', 'ZZ',
+    '50000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000002',
+    array['CODEA', 'CODEB', 'CODEC']::text[]
+  ),
+  3,
+  'replace_match_codes replaces the set: second call returns 3'
+);
+select is(
+  (select count(*)::int from public.match_codes where fixture_id = '50000000-0000-0000-0000-000000000020'),
+  3,
+  'exactly 3 rows remain -- the prior 2 were deleted, not accumulated to 5'
+);
+select is(
+  (select array_agg(game_number order by game_number) from public.match_codes
+   where fixture_id = '50000000-0000-0000-0000-000000000020'),
+  array[1, 2, 3],
+  'the 3 replacement codes are numbered 1..3 in array order'
+);
+
+-- A non-admin captain (of one of the fixture's own teams, no less) cannot
+-- call replace_match_codes -- writes to match_codes stay admin-only.
+select tests.acting_as(tests.cap(1));
+select throws_like($$
+  select public.replace_match_codes(
+    '50000000-0000-0000-0000-000000000020'::uuid, 'ZZ',
+    '50000000-0000-0000-0000-000000000001'::uuid, '50000000-0000-0000-0000-000000000002'::uuid,
+    array['X']::text[]
+  )
+$$, 'NOT_ADMIN%', 'a non-admin captain cannot call replace_match_codes');
 
 select * from finish();
 rollback;
