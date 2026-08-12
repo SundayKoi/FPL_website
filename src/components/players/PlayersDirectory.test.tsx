@@ -79,6 +79,19 @@ describe("PlayersDirectory", () => {
     expect(names.slice(0, 3)).toEqual(["Canny#rip", "Killer Python#NA1", "Walt#0001"]);
   });
 
+  it("shows editable Avg Bid inputs for admins", () => {
+    render(
+      <PlayersDirectory
+        seasons={PLAYER_SEASONS}
+        freeAgencyCaptains={freeAgencyCaptains}
+        isAdmin
+        initialAvgBids={{ "Canny#rip": 44 }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+    expect((screen.getByLabelText("Avg Bid for Canny#rip") as HTMLInputElement).value).toBe("44");
+  });
+
   it("renders captain options from the supplied snapshot in stable order", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
 

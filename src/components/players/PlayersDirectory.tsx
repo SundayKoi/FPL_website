@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/freeAgency";
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import {
@@ -15,6 +16,9 @@ type DirectorySection = "player-list" | "free-agency";
 type Props = {
   seasons: Record<SeasonKey, RoleSection[]>;
   freeAgencyCaptains?: FreeAgencyCaptain[];
+  isAdmin?: boolean;
+  initialAvgBids?: Record<string, number>;
+  freeAgencyPlayers?: { name: string; avgBid: number | null }[];
 };
 
 const ROLE_TONES = {
@@ -28,10 +32,16 @@ const ROLE_TONES = {
 export default function PlayersDirectory({
   seasons,
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
+  isAdmin = false,
+  initialAvgBids = {},
+  freeAgencyPlayers,
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
   const [selectedCaptain, setSelectedCaptain] = useState("");
+  const [avgBids, setAvgBids] = useState(initialAvgBids);
+  const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const sections = seasons[selectedSeason];
   const isFreeAgency = selectedSection === "free-agency";
   const displaySections = isFreeAgency
@@ -39,8 +49,7 @@ export default function PlayersDirectory({
         ...section,
         players: [...section.players].sort(
           (left, right) =>
-            (findFreeAgencyPlayer(right.name, freeAgencyCaptains)?.avgBid ?? -1) -
-            (findFreeAgencyPlayer(left.name, freeAgencyCaptains)?.avgBid ?? -1),
+            (avgBidFor(right.name) ?? -1) - (avgBidFor(left.name) ?? -1),
         ),
       }))
     : sections;
@@ -51,6 +60,29 @@ export default function PlayersDirectory({
     if (value === "player-list") {
       setSelectedCaptain("");
     }
+  };
+
+  function avgBidFor(playerName: string) {
+    const imported = findFreeAgencyPlayer(playerName, freeAgencyCaptains, freeAgencyPlayers);
+    return avgBids[imported?.name ?? playerName] ?? imported?.avgBid ?? null;
+  }
+
+  const saveAvgBid = async (playerName: string, value: string) => {
+    const avgBid = Number(value);
+    if (!Number.isInteger(avgBid) || avgBid < 0) {
+      setSaveError("Avg Bid must be a non-negative integer.");
+      return;
+    }
+    setSavingPlayer(playerName);
+    setSaveError(null);
+    const supabase = createClient();
+    const { error } = await supabase.from("free_agency_avg_bids").upsert({ player_name: playerName, avg_bid: avgBid });
+    setSavingPlayer(null);
+    if (error) {
+      setSaveError(error.message);
+      return;
+    }
+    setAvgBids((current) => ({ ...current, [playerName]: avgBid }));
   };
 
   return (
@@ -127,6 +159,7 @@ export default function PlayersDirectory({
             <p className="text-steel">Season 4 player data has not been added yet.</p>
           ) : (
             <>
+            {saveError && isAdmin && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}
             <div className="grid gap-5 sm:grid-cols-2 xl:min-w-[1500px] xl:grid-cols-5">
               {displaySections.map((section) => (
                 <section
@@ -174,7 +207,18 @@ export default function PlayersDirectory({
                           </a>
                           <span className="font-medium">{player.rank}</span>
                           <span className="font-medium">
-                            {isFreeAgency ? (freeAgencyPlayer?.avgBid ?? "—") : player.min}
+                            {isFreeAgency && isAdmin ? (
+                              <input
+                                aria-label={`Avg Bid for ${player.name}`}
+                                type="number"
+                                min="0"
+                                step="1"
+                                defaultValue={avgBidFor(player.name) ?? ""}
+                                disabled={savingPlayer === (freeAgencyPlayer?.name ?? player.name)}
+                                onBlur={(event) => void saveAvgBid(freeAgencyPlayer?.name ?? player.name, event.target.value)}
+                                className="w-16 rounded border border-line bg-navy px-1 text-right font-medium text-white focus:border-gold focus:outline-none"
+                              />
+                            ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
                           </span>
                         </li>
                       );
