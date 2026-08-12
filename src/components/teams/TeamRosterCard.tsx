@@ -3,6 +3,7 @@
 import type { DragEvent } from "react";
 import Link from "next/link";
 import type { RosterSlotView, RosterTeamView } from "@/lib/draft/types";
+import { teamSlug } from "@/lib/teams/teamPage";
 
 const roleLabels = {
   top: "TOP",
@@ -68,7 +69,19 @@ export default function TeamRosterCard({
       <div className="border-b border-line bg-navy/80 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <h2 id={headingId} className="font-display text-2xl font-semibold text-white">
-            {team.name}
+            {/* Placeholder teams (no featured draft) have synthetic ids and
+                no page to link to — render them as plain text. */}
+            {team.isPlaceholder ? (
+              team.name
+            ) : (
+              <Link
+                href={`/teams/${teamSlug(team.name)}`}
+                draggable={false}
+                className="underline-offset-4 transition hover:text-gold hover:underline"
+              >
+                {team.name}
+              </Link>
+            )}
           </h2>
         </div>
         <p className="mt-1 text-xs uppercase tracking-[0.14em] text-steel">

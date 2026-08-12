@@ -38,6 +38,7 @@ const placeholderPrices = [0, 12, 18, 14, 9] as const;
 export const PLACEHOLDER_TEAMS: RosterTeamView[] = placeholderTeamSeeds.map(
   ([name, captainName, abbreviation, accentClass, bannerColor, division], teamIndex) => ({
     id: `placeholder-team-${teamIndex + 1}`,
+    isPlaceholder: true,
     name,
     captainName,
     abbreviation,
