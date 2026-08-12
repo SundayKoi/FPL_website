@@ -1,10 +1,23 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(12);
 
 select has_table('public', 'signups', 'signups exists');
 select has_column('public', 'signups', 'season', 'season column exists');
 select has_column('public', 'signups', 'player_status', 'player_status column exists');
+
+-- Signup-window toggle (20260812000003): flag exists and the insert policy
+-- is gated on it rather than being an unconditional `true`.
+select has_column('public', 'league_settings', 'signups_open', 'signups_open column exists');
+select ok(
+  exists(
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'signups'
+      and policyname = 'signups_public_insert'
+      and with_check like '%signups_open%'
+  ),
+  'insert policy checks signups_open'
+);
 
 -- Open form: anon may insert but never read (signups carry Discord handles).
 select ok(has_table_privilege('anon', 'public.signups', 'insert'), 'anon can insert signups');
