@@ -4,7 +4,6 @@ export interface FreeAgencyCaptain { name: string; players: FreeAgencyPlayer[]; 
 // Imported from the public Google Sheet CSV export; all Avg Bid values are integers.
 export const FREE_AGENCY_PLAYER_SUMMARIES: FreeAgencyPlayer[] = [
   { name: "Canny#rip", avgBid: 46 },
-  { name: "AcidStep#na1", avgBid: 40 },
   { name: "Matrix#NA101", avgBid: 40 },
   { name: "Pinei nessa poha#00027", avgBid: 40 },
   { name: "LotusB5#999", avgBid: 39 },
@@ -158,7 +157,6 @@ export const FREE_AGENCY_CAPTAINS: FreeAgencyCaptain[] = [
   {
     name: "Sycoghost",
     players: [
-      { name: "AcidStep#na1", avgBid: 50 },
       { name: "Matrix#NA101", avgBid: 40 },
       { name: "Pinei nessa poha#00027", avgBid: 50 },
       { name: "LotusB5#999", avgBid: 40 },

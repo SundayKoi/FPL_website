@@ -1,4 +1,8 @@
-export interface FreeAgencyBidBoardRow { captain: string; bids: string[]; }
+// bids align positionally with FREE_AGENCY_BID_BOARD_HEADERS (each slot is
+// a specific point-value bid token), so a voided bid is null — an empty
+// cell — never removed, which would shift later bids into the wrong
+// point columns.
+export interface FreeAgencyBidBoardRow { captain: string; bids: (string | null)[]; }
 export const FREE_AGENCY_BID_BOARD_HEADERS = ["50pt Bid", "50pt Bid", "40pt Bid", "40pt Bid", "40pt Bid", "30pt Bid", "30pt Bid", "20pt Bid", "20pt Bid", "15pt Bid", "10pt Bid", "10pt Bid"];
 export const FREE_AGENCY_BID_BOARD: FreeAgencyBidBoardRow[] = [
   {
@@ -39,7 +43,8 @@ export const FREE_AGENCY_BID_BOARD: FreeAgencyBidBoardRow[] = [
   },
   {
     captain: "Sycoghost",
-    bids: ["Pinei nessa poha", "AcidStep", "Matrix", "JayDK", "LotusB5", "Chief", "GratxAce", "i fear nobody", "Cherrie", "FeralEevee", "ΣΠΑΡΤΙΑΤΗΣ", "Lolcavan"],
+    // Slot 2 (second 50pt bid) voided: AcidStep was removed from the league.
+    bids: ["Pinei nessa poha", null, "Matrix", "JayDK", "LotusB5", "Chief", "GratxAce", "i fear nobody", "Cherrie", "FeralEevee", "ΣΠΑΡΤΙΑΤΗΣ", "Lolcavan"],
   },
   {
     captain: "YRW",
