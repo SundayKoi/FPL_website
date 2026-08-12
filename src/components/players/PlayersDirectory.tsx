@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import PlayerPoolAdmin, { type PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { findFreeAgencyPlayer, isPlayerAvailableToCaptain, normalizePlayerName } from "@/lib/players/freeAgency";
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import {
@@ -15,6 +16,7 @@ type DirectorySection = "player-list" | "free-agency";
 
 type Props = {
   seasons: Record<SeasonKey, RoleSection[]>;
+  canonicalPlayers?: PlayerPoolRow[];
   freeAgencyCaptains?: FreeAgencyCaptain[];
   isAdmin?: boolean;
   initialAvgBids?: Record<string, number>;
@@ -32,6 +34,7 @@ const ROLE_TONES = {
 
 export default function PlayersDirectory({
   seasons,
+  canonicalPlayers = [],
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
   isAdmin = false,
   initialAvgBids = {},
@@ -46,11 +49,16 @@ export default function PlayersDirectory({
   const [avgBids, setAvgBids] = useState(initialAvgBids);
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const sections = seasons[selectedSeason];
+  const [poolEditMode, setPoolEditMode] = useState(false);
+  const [poolPlayers, setPoolPlayers] = useState(canonicalPlayers);
+  const sections = seasons[selectedSeason] ?? [];
   const emptyStateMessage =
     emptyStateMessages[selectedSeason] ?? "No player data is available for this season.";
   const hasPlayers = sections.some((section) => section.players.length > 0);
   const isFreeAgency = selectedSection === "free-agency";
+  const adminPlayers = poolPlayers
+    .filter((player) => player.season_key === selectedSeason)
+    .sort((left, right) => left.display_name.localeCompare(right.display_name));
   const displaySections = isFreeAgency
     ? sections.map((section) => ({
         ...section,
@@ -302,6 +310,15 @@ export default function PlayersDirectory({
             </>
           )}
         </section>
+
+        {isAdmin && !isFreeAgency ? (
+          <>
+            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold">
+              {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
+            </button>
+            {poolEditMode ? <PlayerPoolAdmin seasonKey={selectedSeason} players={adminPlayers} onPlayersChange={setPoolPlayers} /> : null}
+          </>
+        ) : null}
       </div>
     </main>
   );
