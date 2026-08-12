@@ -134,13 +134,24 @@ export default function AdminReportsQueue({
   const handleFixSide = async (gameId: string, blueTeamId: string) => {
     setBusyId(gameId);
     setError(null);
-    const { error: fixError } = await supabase
+    const { data, error: fixError } = await supabase
       .from("match_report_games")
       .update({ blue_team_id: blueTeamId, status: "pending" })
-      .eq("id", gameId);
+      .eq("id", gameId)
+      .select();
     setBusyId(null);
     if (fixError) {
       setError(fixError.message);
+      return;
+    }
+    // An RLS denial on UPDATE isn't an error -- the row just doesn't match
+    // the policy's USING clause (e.g. the report was ingested in the
+    // interim), so PostgREST reports success with zero rows affected.
+    // Without `.select()` above that would silently look like it worked
+    // until refresh. Treat "we asked for the row back and got none" as a
+    // denial and surface a friendly message instead of a silent no-op.
+    if (!data || data.length === 0) {
+      setError("Could not update this game.");
       return;
     }
     router.refresh();

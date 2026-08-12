@@ -704,6 +704,16 @@ def run_resolve_sides_tests():
         f"off-report-team hit ignored: expected unresolved + reason, got ({blue!r}, {red!r}, {reason!r})",
     )
 
+    # -- explicit blue_team_id naming a team that ISN'T one of the report's
+    # own two teams is rejected as unresolved, not trusted (a captain can
+    # set this via REST to attribute the game to an uninvolved team) --
+    blue, red, reason = resolve_sides(match_data, report, {"blue_team_id": "some-other-team"}, {})
+    check(
+        blue is None and red is None and reason is not None and "not one of this report's teams" in reason.lower(),
+        f"explicit blue not one of report's teams: expected unresolved + reason mentioning that, "
+        f"got ({blue!r}, {red!r}, {reason!r})",
+    )
+
     if failures:
         print(f"FAILED: {len(failures)} resolve_sides assertion(s) failed:")
         for f in failures:
@@ -724,6 +734,10 @@ def run_rollup_report_status_tests():
         (["ingested", "failed"], "failed"),
         (["needs_side", "failed"], "failed"),
         (["ingested", "needs_side", "failed"], "failed"),
+        # a report with zero games must never roll up to 'ingested' -- an
+        # empty set contains no 'failed'/'needs_side' to outrank it, so
+        # this has to be handled explicitly rather than falling through.
+        ([], "failed"),
     ]
     for statuses, expected in cases:
         got = rollup_report_status(statuses)
@@ -969,6 +983,194 @@ def run_sync_fixture_score_tests():
     return True
 
 
+def run_ingest_report_empty_games_test():
+    """CRITICAL fix regression: a report with zero games must fail loud
+    (status='failed', a meaningful error_text) instead of rolling up to
+    'ingested' and pushing its self-declared score onto the fixture. No GET
+    (roster/raw_stats) and no fixture PATCH should happen at all -- the
+    guard must trip before any of that I/O."""
+    import riot_stats_ingest as mod
+
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    class FakeResponse:
+        def __init__(self, status_code=200, json_data=None, text=""):
+            self.status_code = status_code
+            self._json_data = json_data if json_data is not None else []
+            self.text = text
+
+        def json(self):
+            return self._json_data
+
+    cfg = IngestConfig(
+        supabase_url="https://example.invalid",
+        service_key="fake-service-key",
+        riot_api_key="fake-riot-key",
+        dry_run=False,
+    )
+    report = {
+        "id": "report-empty",
+        "team_a_id": "team-a",
+        "team_b_id": "team-b",
+        "season": "S5",
+        "season_phase": "Regular",
+        "score_a": 3,
+        "score_b": 0,
+        "fixture_id": "fx-1",
+        "match_report_games": [],
+    }
+    team_names = {"team-a": "Team A", "team-b": "Team B"}
+
+    get_calls = []
+    patch_calls = []
+
+    def fake_get(url, headers=None, params=None, **kwargs):
+        get_calls.append(url)
+        return FakeResponse(200, [])
+
+    def fake_patch(url, headers=None, data=None, **kwargs):
+        patch_calls.append((url, data))
+        return FakeResponse(204)
+
+    orig_get, orig_patch = mod.requests.get, mod.requests.patch
+    mod.requests.get = fake_get
+    mod.requests.patch = fake_patch
+    try:
+        result = mod.ingest_report(cfg, report, team_names)
+    finally:
+        mod.requests.get = orig_get
+        mod.requests.patch = orig_patch
+
+    check(result["status"] == "failed", f"empty-games report should end 'failed', got {result['status']!r}")
+    check(bool(result.get("error")), "empty-games report should carry a non-empty error_text")
+    check(len(get_calls) == 0, f"empty-games report should trigger no GET calls at all, got {get_calls!r}")
+    check(
+        not any("fixtures" in url for url, _ in patch_calls),
+        f"empty-games report must never PATCH the fixtures endpoint (no score sync), got {patch_calls!r}",
+    )
+    check(len(patch_calls) == 1, f"expected exactly 1 PATCH (match_reports status), got {len(patch_calls)}")
+    if patch_calls:
+        url, data = patch_calls[0]
+        check("match_reports" in url, f"the one PATCH should target match_reports, got {url!r}")
+        body = json.loads(data)
+        check(body["status"] == "failed", f"match_reports PATCH body status should be 'failed', got {body!r}")
+        check(body["ingested_at"] is None, f"match_reports PATCH body ingested_at should be None, got {body!r}")
+
+    if failures:
+        print(f"FAILED: {len(failures)} ingest_report-empty-games assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: ingest_report on a zero-game report fails loud without syncing the fixture.")
+    return True
+
+
+def run_ingest_report_stale_ingested_status_test():
+    """IMPORTANT fix regression: a game whose match_report_games.status
+    already says 'ingested' (client-writable -- RLS restricts who, not
+    which columns) but whose match_id is NOT actually present in raw_stats
+    must still be fetched from Riot and processed, not trusted/skipped."""
+    import riot_stats_ingest as mod
+
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    class FakeResponse:
+        def __init__(self, status_code=200, json_data=None, text=""):
+            self.status_code = status_code
+            self._json_data = json_data if json_data is not None else []
+            self.text = text
+
+        def json(self):
+            return self._json_data
+
+    match_data = make_synthetic_match_data()
+    match_id = match_data["metadata"]["matchId"]
+
+    cfg = IngestConfig(
+        supabase_url="https://example.invalid",
+        service_key="fake-service-key",
+        riot_api_key="fake-riot-key",
+        dry_run=True,  # dry-run: no write/PATCH plumbing needed to prove the fetch happened
+    )
+    report = {
+        "id": "report-stale",
+        "team_a_id": "team-a",
+        "team_b_id": "team-b",
+        "season": "S5",
+        "season_phase": "Regular",
+        "score_a": 1,
+        "score_b": 0,
+        "fixture_id": None,
+        "match_report_games": [
+            {
+                "id": "game-1",
+                "match_id": match_id,
+                "game_number": 1,
+                # Falsely claims to already be ingested -- a captain-writable
+                # column, not proof. It is NOT actually in raw_stats below.
+                "status": "ingested",
+                "blue_team_id": "team-a",
+            },
+        ],
+    }
+    team_names = {"team-a": "Team A", "team-b": "Team B"}
+
+    match_detail_fetches = []
+
+    def fake_get(url, headers=None, params=None, **kwargs):
+        if "roster_memberships" in url:
+            return FakeResponse(200, [])
+        if "raw_stats" in url and params and "match_id" in params:
+            # match_ids_already_ingested: this match_id is NOT present.
+            return FakeResponse(200, [])
+        if "/timeline" in url:
+            return FakeResponse(404, text="no timeline in this synthetic fixture")
+        if "/lol/match/v5/matches/" in url:
+            match_detail_fetches.append(url)
+            return FakeResponse(200, match_data)
+        failures.append(f"unexpected GET during stale-status ingest: {url}")
+        return FakeResponse(500, text="unexpected URL")
+
+    orig_get, orig_sleep = mod.requests.get, mod.time.sleep
+    mod.requests.get = fake_get
+    mod.time.sleep = lambda *a, **k: None  # skip real API_DELAY sleeps in the test
+    try:
+        result = mod.ingest_report(cfg, report, team_names)
+    finally:
+        mod.requests.get = orig_get
+        mod.time.sleep = orig_sleep
+
+    check(
+        len(match_detail_fetches) == 1,
+        f"a stale 'ingested' status whose match_id is absent from raw_stats must still be fetched "
+        f"from Riot (not skipped), got {len(match_detail_fetches)} match-detail fetch(es)",
+    )
+    check(
+        result["games"][0]["status"] == "ingested",
+        f"the reprocessed game should end 'ingested' (synthetic match resolves via explicit blue_team_id), "
+        f"got {result['games'][0]['status']!r}",
+    )
+    check(result["status"] == "ingested", f"report should end 'ingested', got {result['status']!r}")
+
+    if failures:
+        print(f"FAILED: {len(failures)} ingest_report-stale-status assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: a client-set 'ingested' status absent from raw_stats is reprocessed, not trusted.")
+    return True
+
+
 # ============================================================
 # pytest entry points (collected automatically if pytest is present)
 # ============================================================
@@ -1006,6 +1208,14 @@ def test_sync_fixture_score():
     assert run_sync_fixture_score_tests() is True
 
 
+def test_ingest_report_empty_games():
+    assert run_ingest_report_empty_games_test() is True
+
+
+def test_ingest_report_stale_ingested_status():
+    assert run_ingest_report_stale_ingested_status_test() is True
+
+
 # ============================================================
 # plain-python entry point
 # ============================================================
@@ -1020,5 +1230,7 @@ if __name__ == "__main__":
         and run_compute_score_warning_tests()
         and run_from_reports_bypasses_league_settings_test()
         and run_sync_fixture_score_tests()
+        and run_ingest_report_empty_games_test()
+        and run_ingest_report_stale_ingested_status_test()
     )
     sys.exit(0 if ok else 1)

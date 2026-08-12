@@ -1136,14 +1136,18 @@ def match_ids_already_ingested(cfg, ids):
 def resolve_sides(match_data, report, game, roster_map):
     """Return (blue_team_id, red_team_id, reason_if_unresolved).
 
-    Explicit game["blue_team_id"] wins immediately. Otherwise tally match
-    participants by teamId (100=blue, 200=red), mapping each via
-    (riotIdGameName, riotIdTagline) -> roster_map, ignoring hits that
-    aren't one of the report's two teams. Resolves when exactly one side
-    has (unanimous) hits, or both sides have hits and disagree with each
-    other (blue -> X, red -> Y, X != Y); anything else -- no hits at all,
-    a conflicting side, or both sides agreeing on the same team -- is
-    unresolved, with a human-readable reason.
+    Explicit game["blue_team_id"] wins immediately -- PROVIDED it's one of
+    this report's own two teams; a captain can set it via REST to any
+    team's id, so an explicit id naming a third, uninvolved team is
+    rejected as unresolved rather than trusted (it would otherwise
+    attribute the game's raw_stats rows to a team that never played it).
+    Otherwise tally match participants by teamId (100=blue, 200=red),
+    mapping each via (riotIdGameName, riotIdTagline) -> roster_map,
+    ignoring hits that aren't one of the report's two teams. Resolves when
+    exactly one side has (unanimous) hits, or both sides have hits and
+    disagree with each other (blue -> X, red -> Y, X != Y); anything else
+    -- no hits at all, a conflicting side, or both sides agreeing on the
+    same team -- is unresolved, with a human-readable reason.
     """
     team_a_id = report.get("team_a_id")
     team_b_id = report.get("team_b_id")
@@ -1151,6 +1155,8 @@ def resolve_sides(match_data, report, game, roster_map):
 
     explicit_blue = game.get("blue_team_id")
     if explicit_blue:
+        if explicit_blue not in report_team_ids:
+            return None, None, "Explicit blue team is not one of this report's teams."
         red_id = team_b_id if explicit_blue == team_a_id else team_a_id
         return explicit_blue, red_id, None
 
@@ -1270,8 +1276,15 @@ def sync_fixture_score(cfg, report):
 def rollup_report_status(game_statuses):
     """Pure status-rollup (spec step 7): all games ingested -> 'ingested';
     any needs_side -> 'needs_sides'; any failed -> 'failed' (a hard
-    failure outranks an unresolved side)."""
+    failure outranks an unresolved side). A report with zero games rolls
+    up to 'failed', not 'ingested' -- there is nothing to have actually
+    verified, so an empty match_report_games set must never read as a
+    completed ingest. `ingest_report` also guards this explicitly (with a
+    meaningful error_text) before it ever reaches this function; the check
+    here is defense in depth."""
     statuses = set(game_statuses)
+    if not statuses:
+        return "failed"
     if "failed" in statuses:
         return "failed"
     if "needs_side" in statuses:
@@ -1341,23 +1354,50 @@ def ingest_report(cfg, report, team_names):
     season_phase = report.get("season_phase")
 
     games = sorted(report.get("match_report_games") or [], key=lambda g: g.get("game_number", 0))
+
+    # A report with no games has nothing to ingest -- it must never roll up
+    # to 'ingested' (rollup_report_status([]) would otherwise say so, since
+    # an empty set contains no 'failed'/'needs_side'), which would stamp
+    # ingested_at and let sync_fixture_score push the captain's
+    # self-declared score onto the public fixture with the score
+    # cross-check silently skipped (no games -> _tally_report_wins never
+    # even runs). Reachable both by accident (submitReport's compensating
+    # delete failing after the report row lands but before its games do)
+    # and deliberately (any captain can insert a bare match_reports row via
+    # REST). Fail loud instead, before touching the fixture.
+    if not games:
+        error_text = "Report has no games to ingest."
+        if not cfg.dry_run:
+            update_report_status(cfg, report_id, "failed", error_text, None, None)
+        return {"status": "failed", "games": [], "warning": None, "error": error_text}
+
     roster_map = load_roster_map(cfg, season)
 
-    unfinished_match_ids = [g["match_id"] for g in games if g.get("status") != "ingested"]
-    already_ids = match_ids_already_ingested(cfg, unfinished_match_ids)
+    # Idempotency check against raw_stats -- the only source of truth a
+    # captain cannot write. match_report_games.status IS client-writable
+    # (the update RLS policy restricts *who* may UPDATE a report's own
+    # games while it's not yet ingested, not *which* columns), so a
+    # captain could UPDATE a game's status to 'ingested' directly to skip
+    # Riot verification and the score cross-check (no raw_stats rows means
+    # _tally_report_wins never resolves a winner for that game). So every
+    # game's match_id is checked against raw_stats regardless of its
+    # stored status -- a game labelled "ingested" whose match_id is NOT
+    # actually present in raw_stats is treated as pending below and
+    # reprocessed normally (its status gets corrected once it's genuinely
+    # ingested). A match_id that IS present is still skipped without a
+    # Riot call, same as before.
+    all_match_ids = [g["match_id"] for g in games]
+    already_ids = match_ids_already_ingested(cfg, all_match_ids)
 
     game_results = []
     for game in games:
         game_id, match_id = game["id"], game["match_id"]
 
-        if game.get("status") == "ingested":
-            game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
-            continue
-
         if match_id in already_ids:
-            print(f"  [{match_id}] already present in raw_stats -- marking ingested (no Riot call).")
-            if not cfg.dry_run:
-                update_game_status(cfg, game_id, "ingested", None, game.get("blue_team_id"))
+            if game.get("status") != "ingested":
+                print(f"  [{match_id}] already present in raw_stats -- marking ingested (no Riot call).")
+                if not cfg.dry_run:
+                    update_game_status(cfg, game_id, "ingested", None, game.get("blue_team_id"))
             game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
             continue
 

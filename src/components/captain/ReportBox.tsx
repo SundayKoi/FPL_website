@@ -265,13 +265,24 @@ export default function ReportBox({
   const handleFixSide = async (gameId: string, blueTeamId: string) => {
     setFixerBusy(gameId);
     setFixerError(null);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("match_report_games")
       .update({ blue_team_id: blueTeamId, status: "pending" })
-      .eq("id", gameId);
+      .eq("id", gameId)
+      .select();
     setFixerBusy(null);
     if (error) {
       setFixerError(friendlyErrorMessage(error, "Could not update this game."));
+      return;
+    }
+    // An RLS denial on UPDATE isn't an error -- the row just doesn't match
+    // the policy's USING clause, so PostgREST reports success with zero
+    // rows affected. Without `.select()` above that would silently look
+    // like it worked until refresh. Treat "we asked for the row back and
+    // got none" as a denial and surface the same friendly fallback message
+    // the error branch above would show for an unrecognized failure.
+    if (!data || data.length === 0) {
+      setFixerError("Could not update this game.");
       return;
     }
     router.refresh();
