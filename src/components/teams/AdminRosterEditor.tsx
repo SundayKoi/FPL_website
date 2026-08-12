@@ -10,6 +10,7 @@ import {
   type Team,
 } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
+import { DIVISIONS, type Division } from "@/lib/schedule/types";
 import TeamRosterCard from "./TeamRosterCard";
 
 function errorMessage(error: unknown) {
@@ -42,6 +43,11 @@ export default function AdminRosterEditor({
   const supabase = createClient();
   const router = useRouter();
   const teamViews = useMemo(() => toRosterTeams(teams, players, profiles), [teams, players, profiles]);
+  const sections: { label: string; division: Division | null }[] = [
+    { label: DIVISIONS[1], division: DIVISIONS[1] },
+    { label: DIVISIONS[0], division: DIVISIONS[0] },
+    { label: "Unassigned", division: null },
+  ];
   const [draggedPlayerId, setDraggedPlayerId] = useState<string | null>(null);
   const [keyboardPlayerId, setKeyboardPlayerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,24 +114,37 @@ export default function AdminRosterEditor({
 
   return (
     <>
-      <div data-draft-id={draftId} className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {teamViews.map((team) => (
-          <TeamRosterCard
-            key={team.id}
-            team={team}
-            editable
-            onDragStart={(player) => {
-              setDraggedPlayerId(player.id);
-              setStatus(null);
-            }}
-            onDragEnd={() => setDraggedPlayerId(null)}
-            onDrop={handleDrop}
-            onKeyboardSwap={(player) => {
-              setKeyboardPlayerId(player.id);
-              setStatus(null);
-            }}
-          />
-        ))}
+      <div data-draft-id={draftId}>
+        {sections.map((section) => {
+          const sectionTeams = teamViews.filter((team) => (team.division ?? null) === section.division);
+          if (!sectionTeams.length) return null;
+          return (
+            <section key={section.label} className="mb-10 last:mb-0" aria-labelledby={`admin-${section.label.toLowerCase()}-heading`}>
+              <h2 id={`admin-${section.label.toLowerCase()}-heading`} className="label-dash mb-4 text-xl text-white">
+                {section.label}
+              </h2>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {sectionTeams.map((team) => (
+                  <TeamRosterCard
+                    key={team.id}
+                    team={team}
+                    editable
+                    onDragStart={(player) => {
+                      setDraggedPlayerId(player.id);
+                      setStatus(null);
+                    }}
+                    onDragEnd={() => setDraggedPlayerId(null)}
+                    onDrop={handleDrop}
+                    onKeyboardSwap={(player) => {
+                      setKeyboardPlayerId(player.id);
+                      setStatus(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
       <div role="status" aria-live="polite" className="mt-5 min-h-5 text-sm text-steel">

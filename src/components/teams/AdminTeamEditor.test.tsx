@@ -60,6 +60,7 @@ const teams: Team[] = [
     captain_profile_id: "profile-a",
     image_url: publicUrlFor("draft-1/team-a"),
     banner_color: "#083344",
+    division: null,
     nomination_position: 1,
     budget_start: 100,
     points_remaining: 75,
@@ -183,6 +184,7 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "alp" } });
     fireEvent.change(within(form).getByLabelText("Team A captain"), { target: { value: "profile-b" } });
     fireEvent.change(within(form).getByLabelText("Team A banner color"), { target: { value: "#123456" } });
+    fireEvent.change(within(form).getByLabelText("Team A division"), { target: { value: "Lunari" } });
     fireEvent.change(within(form).getByLabelText("Team A image"), { target: { files: [image] } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
@@ -201,6 +203,7 @@ describe("AdminTeamEditor", () => {
         captain_profile_id: "profile-b",
         image_url: publicUrlFor(objectPath),
         banner_color: "#123456",
+        division: "Lunari",
       })
     );
     expect(publicUrlFor(objectPath)).not.toBe(teams[0].image_url);
@@ -210,6 +213,17 @@ describe("AdminTeamEditor", () => {
     expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("saves Unassigned as a null division", async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A division"), { target: { value: "" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith(expect.objectContaining({ division: null })));
   });
 
   it("keeps the existing image object when its replacement update fails", async () => {

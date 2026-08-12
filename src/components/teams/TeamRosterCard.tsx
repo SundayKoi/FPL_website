@@ -61,7 +61,7 @@ export default function TeamRosterCard({
             {team.abbreviation}
           </span>
         </div>
-        <span className="label-dash absolute right-5 top-5 text-white/70">Roster</span>
+        <span className="label-dash absolute right-5 top-5 text-black">Roster</span>
       </div>
 
       <div className="border-b border-line bg-navy/80 px-4 py-3">

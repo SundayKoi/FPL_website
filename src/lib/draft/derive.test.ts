@@ -4,7 +4,7 @@ import type { Draft, Lot, Player, Team } from "./types";
 
 const team = (over: Partial<Team> = {}): Team => ({
   id: "t1", draft_id: "d", name: "A", captain_profile_id: "p1",
-  abbreviation: "A", image_url: null, banner_color: "#083344",
+  abbreviation: "A", image_url: null, banner_color: "#083344", division: null,
   nomination_position: 1, budget_start: 100, points_remaining: 20, ...over,
 });
 const player = (over: Partial<Player> = {}): Player => ({

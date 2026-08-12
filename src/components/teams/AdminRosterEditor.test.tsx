@@ -24,6 +24,7 @@ const teams: Team[] = [
     abbreviation: "TA",
     image_url: null,
     banner_color: "#083344",
+    division: "Lunari",
     captain_profile_id: "profile-a",
     nomination_position: 1,
     budget_start: 100,
@@ -36,6 +37,7 @@ const teams: Team[] = [
     abbreviation: "TB",
     image_url: null,
     banner_color: "#450a0a",
+    division: "Solari",
     captain_profile_id: "profile-b",
     nomination_position: 2,
     budget_start: 100,
@@ -131,6 +133,13 @@ afterEach(() => {
 });
 
 describe("AdminRosterEditor", () => {
+  it("groups editable roster cards by division", () => {
+    render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
+
+    expect(screen.getByRole("heading", { name: "Lunari" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Solari" })).toBeTruthy();
+  });
+
   it("keeps captain rows locked", () => {
     render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
