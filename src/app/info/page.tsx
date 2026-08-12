@@ -1,23 +1,28 @@
 import InfoResourceCard from "@/components/info/InfoResourceCard";
 import RulebookContent from "@/components/info/RulebookContent";
+import AdminInfoResources, { type InfoResource } from "@/components/info/AdminInfoResources";
+import { createServerSupabase } from "@/lib/supabase/server";
 
-const resources = [
+const fallbackResources = [
   {
+    slug: "payment",
     label: "Payment",
     description: "Send league payments through the official FPL Draft PayPal.",
     href: "https://www.paypal.com/paypalme/DraftFPL",
   },
   {
+    slug: "masterdoc",
     label: "MasterDoc",
     description: "Open the shared league spreadsheet for the latest working data.",
     href: "https://docs.google.com/spreadsheets/d/187hoKxxeSpSPtDAmlrTOeuDrcz5kpdwv1qgQ5kipaHY/edit?usp=sharing",
   },
   {
+    slug: "rulebook",
     label: "Rulebook",
     description: "Read the formatted Rulebook here or open the source Google Doc.",
     href: "https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7",
   },
-] as const;
+] satisfies Omit<InfoResource, "id" | "sort_order">[];
 
 const rulebookSections = [
   ["League Overview", "league-overview"],
@@ -32,7 +37,20 @@ const rulebookSections = [
   ["FPL Staff", "staff"],
 ] as const;
 
-export default function InfoPage() {
+export default async function InfoPage() {
+  const supabase = await createServerSupabase();
+  const { data: userData } = await supabase.auth.getUser();
+  const [{ data: resourceRows }, profileResult] = await Promise.all([
+    supabase.from("info_resources").select("id, slug, label, description, href, sort_order").order("sort_order"),
+    userData.user
+      ? supabase.from("profiles").select("is_admin").eq("id", userData.user.id).single()
+      : Promise.resolve({ data: null }),
+  ]);
+  const resources = ((resourceRows as InfoResource[] | null) ?? []).length > 0
+    ? (resourceRows as InfoResource[])
+    : fallbackResources.map((resource, index) => ({ ...resource, id: resource.slug, sort_order: index + 1 }));
+  const isAdmin = Boolean(userData.user && profileResult.data?.is_admin);
+  const rulebook = resources.find((resource) => resource.slug === "rulebook") ?? resources[2];
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
@@ -50,6 +68,8 @@ export default function InfoPage() {
           ))}
         </section>
 
+        {isAdmin && <AdminInfoResources resources={resources} />}
+
         <section className="mt-16 space-y-8" aria-labelledby="rulebook-heading">
           <div className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -60,7 +80,7 @@ export default function InfoPage() {
             </div>
             <a
               className="text-sm font-semibold uppercase tracking-[0.16em] text-gold underline decoration-gold/50 underline-offset-4 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
-              href={resources[2].href}
+              href={rulebook.href}
               rel="noopener noreferrer"
               target="_blank"
             >

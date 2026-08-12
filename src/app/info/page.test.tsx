@@ -1,12 +1,25 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServerSupabase: vi.fn(async () => ({
+    auth: { getUser: vi.fn(async () => ({ data: { user: null } })) },
+    from: () => ({
+      select: () => ({
+        order: async () => ({ data: null }),
+        eq: () => ({ single: async () => ({ data: null }) }),
+      }),
+    }),
+  })),
+}));
+
 import InfoPage from "./page";
 
 describe("InfoPage", () => {
   afterEach(cleanup);
 
-  it("renders all requested resources and the Rulebook navigation", () => {
-    render(<InfoPage />);
+  it("renders all requested resources and the Rulebook navigation", async () => {
+    render(await InfoPage());
 
     expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
