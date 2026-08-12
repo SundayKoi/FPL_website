@@ -98,6 +98,7 @@ export default function RosterEditor({
   const [bulkStatus, setBulkStatus] = useState<Status>({ kind: "idle" });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [syncTeamsStatus, setSyncTeamsStatus] = useState<Status>({ kind: "idle" });
   const [syncStatus, setSyncStatus] = useState<Status>({ kind: "idle" });
 
   const knownSeasons = Array.from(new Set([defaultSeason, ...memberships.map((m) => m.season)])).sort(
@@ -105,6 +106,21 @@ export default function RosterEditor({
   );
   const visible = memberships.filter((m) => m.season === season.trim() && m.league_team_id === teamId);
   const activeTeam = teams.find((t) => t.id === teamId) ?? null;
+
+  const handleSyncTeams = async () => {
+    setSyncTeamsStatus({ kind: "saving" });
+    const { data, error } = await supabase.rpc("sync_league_teams_from_draft");
+    if (error) {
+      setSyncTeamsStatus({ kind: "error", message: error.message });
+      return;
+    }
+    const inserted = (data as number | null) ?? 0;
+    setSyncTeamsStatus({
+      kind: "success",
+      message: `Synced ${inserted} team${inserted === 1 ? "" : "s"} from the draft.`,
+    });
+    router.refresh();
+  };
 
   const handleSyncCaptains = async () => {
     const seasonTrimmed = season.trim();
@@ -301,6 +317,14 @@ export default function RosterEditor({
             </label>
             <button
               type="button"
+              onClick={() => void handleSyncTeams()}
+              disabled={syncTeamsStatus.kind === "saving"}
+              className="rounded-full border border-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy disabled:opacity-50"
+            >
+              {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleSyncCaptains()}
               disabled={syncStatus.kind === "saving"}
               className="rounded-full border border-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy disabled:opacity-50"
@@ -308,6 +332,17 @@ export default function RosterEditor({
               {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
             </button>
           </div>
+          <p className="text-xs text-steel">
+            Run teams first, then captains.
+          </p>
+          {syncTeamsStatus.kind === "error" && (
+            <p role="alert" className="text-sm text-red-400">
+              {syncTeamsStatus.message}
+            </p>
+          )}
+          {syncTeamsStatus.kind === "success" && (
+            <p className="text-sm font-semibold text-emerald-400">{syncTeamsStatus.message}</p>
+          )}
           <p className="text-xs text-steel">
             Sync reads the featured draft&apos;s captains and adds a league_team_captains row for each one whose
             team name matches — without this, captains can&apos;t submit reports for their team.

@@ -18,7 +18,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(18);
+select plan(23);
 
 insert into public.profiles (id, display_name, is_admin) values (tests.admin_id(), 'Captain Page Admin', true)
   on conflict (id) do nothing;
@@ -60,9 +60,10 @@ select has_table('public', 'announcements', 'announcements exists');
 -- === functions exist =========================================================
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-   where n.nspname = 'public' and p.proname in ('sync_league_team_captains', 'is_captain_of', 'replace_match_codes')),
-  3,
-  'sync_league_team_captains, is_captain_of, and replace_match_codes all exist'
+   where n.nspname = 'public' and p.proname in
+     ('sync_league_team_captains', 'is_captain_of', 'replace_match_codes', 'sync_league_teams_from_draft')),
+  4,
+  'sync_league_team_captains, is_captain_of, replace_match_codes, and sync_league_teams_from_draft all exist'
 );
 
 -- === match_codes: no anon grant at all (defence in depth beneath RLS) =======
@@ -119,6 +120,49 @@ set local role authenticated;
 select ok(
   not public.is_captain_of('50000000-0000-0000-0000-000000000001', 'WRONG_SEASON'),
   'is_captain_of returns false for the wrong season'
+);
+reset role;
+
+-- === sync_league_teams_from_draft: seeds league_teams from the featured =====
+-- draft's own teams, independent of raw_stats history (the rollout gap this
+-- migration fixes -- most draft team names never appear in raw_stats yet).
+-- A synthetic one-off draft (not tests.fixture()'s, which is used below and
+-- has its own teams) with two teams: 'Task9 Delta FC' absent from
+-- league_teams, and a case/whitespace variant of the already-seeded 'Task4
+-- Alpha FC' (inserted above) -- so the "not duplicated" assertion is real.
+insert into public.drafts (id, name) values ('50000000-0000-0000-0000-000000000090', 'Task9 Draft');
+insert into public.teams (id, draft_id, name, abbreviation, nomination_position) values
+  ('50000000-0000-0000-0000-000000000091', '50000000-0000-0000-0000-000000000090', 'Task9 Delta FC', 'T9D', 1),
+  ('50000000-0000-0000-0000-000000000092', '50000000-0000-0000-0000-000000000090', '  task4 alpha fc  ', 'T9A', 2);
+update public.league_settings set featured_draft_id = '50000000-0000-0000-0000-000000000090' where id = 1;
+
+-- Non-admin caller cannot sync teams from the draft.
+select tests.acting_as(tests.cap(1));
+set local role authenticated;
+select throws_like($$
+  select public.sync_league_teams_from_draft()
+$$, 'NOT_ADMIN%', 'a non-admin caller cannot call sync_league_teams_from_draft');
+reset role;
+
+select tests.acting_as(tests.admin_id());
+set local role authenticated;
+select is(
+  public.sync_league_teams_from_draft(), 1,
+  'sync_league_teams_from_draft inserts only the genuinely new team (the case/whitespace variant of an existing team is skipped) and returns 1'
+);
+select is(
+  (select count(*)::int from public.league_teams where lower(trim(name)) = lower(trim('Task9 Delta FC'))),
+  1,
+  'Task9 Delta FC now exists exactly once in league_teams'
+);
+select is(
+  (select count(*)::int from public.league_teams where lower(trim(name)) = lower(trim('Task4 Alpha FC'))),
+  1,
+  'the case/whitespace variant of an existing team was NOT duplicated in league_teams'
+);
+select is(
+  public.sync_league_teams_from_draft(), 0,
+  'sync_league_teams_from_draft is re-runnable: second call inserts nothing new'
 );
 reset role;
 
