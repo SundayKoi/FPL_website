@@ -37,10 +37,24 @@ describe("PlayersDirectory", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
     const selector = screen.getByLabelText("Season");
     fireEvent.change(selector, { target: { value: "season-4" } });
-    expect(screen.getByText("Season 4 player data has not been added yet.")).toBeTruthy();
+    expect(screen.getByText("No player data is available for this season.")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Top" })).toBeNull();
     fireEvent.change(selector, { target: { value: "season-5" } });
     expect(screen.getByRole("heading", { name: "Top" })).toBeTruthy();
+  });
+
+  it("shows a season-specific unavailable message when provided", () => {
+    render(
+      <PlayersDirectory
+        seasons={{ "season-5": [], "season-4": [] }}
+        freeAgencyCaptains={freeAgencyCaptains}
+        emptyStateMessages={{
+          "season-5": "Player List data is unavailable for Season 5 right now.",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Player List data is unavailable for Season 5 right now.")).toBeTruthy();
   });
 
   it("uses new-tab security attributes for player links", () => {
@@ -147,7 +161,7 @@ describe("PlayersDirectory", () => {
     fireEvent.change(screen.getByLabelText("Captain"), { target: { value: "Captain One" } });
     fireEvent.change(screen.getByLabelText("Season"), { target: { value: "season-4" } });
 
-    expect(screen.getByText("Season 4 player data has not been added yet.")).toBeTruthy();
+    expect(screen.getByText("No player data is available for this season.")).toBeTruthy();
     expect(screen.getByLabelText("Captain")).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "player-list" } });

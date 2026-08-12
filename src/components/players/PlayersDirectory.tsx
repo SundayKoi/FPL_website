@@ -19,6 +19,7 @@ type Props = {
   isAdmin?: boolean;
   initialAvgBids?: Record<string, number>;
   freeAgencyPlayers?: { name: string; avgBid: number | null }[];
+  emptyStateMessages?: Partial<Record<SeasonKey, string>>;
 };
 
 const ROLE_TONES = {
@@ -35,6 +36,7 @@ export default function PlayersDirectory({
   isAdmin = false,
   initialAvgBids = {},
   freeAgencyPlayers,
+  emptyStateMessages = {},
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
@@ -45,6 +47,9 @@ export default function PlayersDirectory({
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const sections = seasons[selectedSeason];
+  const emptyStateMessage =
+    emptyStateMessages[selectedSeason] ?? "No player data is available for this season.";
+  const hasPlayers = sections.some((section) => section.players.length > 0);
   const isFreeAgency = selectedSection === "free-agency";
   const displaySections = isFreeAgency
     ? sections.map((section) => ({
@@ -168,8 +173,8 @@ export default function PlayersDirectory({
         </header>
 
         <section aria-label="Player directory" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
-          {sections.length === 0 ? (
-            <p className="text-steel">Season 4 player data has not been added yet.</p>
+          {!hasPlayers ? (
+            <p className="text-steel">{emptyStateMessage}</p>
           ) : (
             <>
             {saveError && isAdmin && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}

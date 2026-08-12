@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  adaptCanonicalPlayerPool,
   findFreeAgencyPlayer,
   isPlayerAvailableToCaptain,
   normalizePlayerName,
@@ -118,5 +119,41 @@ describe("free agency availability", () => {
       name: "Player Beta",
       avgBid: 0,
     });
+  });
+
+  it("adapts canonical player-pool rows into season role sections with exact op.gg links", () => {
+    const seasons = adaptCanonicalPlayerPool([
+      {
+        season_key: "season-5",
+        display_name: "Captain: Winter",
+        role: "top",
+        rank: "M10",
+        opgg_url: "https://op.gg/lol/summoners/na/Winter-Ashtn?keep=exact",
+      },
+      {
+        season_key: "season-5",
+        display_name: "WaveClear#NA1",
+        role: "support",
+        rank: null,
+        opgg_url: "https://op.gg/lol/summoners/na/WaveClear-NA1",
+      },
+    ]);
+
+    expect(seasons["season-5"][0].players).toEqual([
+      {
+        name: "Captain: Winter",
+        rank: "M10",
+        min: 30,
+        opggUrl: "https://op.gg/lol/summoners/na/Winter-Ashtn?keep=exact",
+      },
+    ]);
+    expect(seasons["season-5"][4].players).toEqual([
+      {
+        name: "WaveClear#NA1",
+        rank: "—",
+        min: 0,
+        opggUrl: "https://op.gg/lol/summoners/na/WaveClear-NA1",
+      },
+    ]);
   });
 });
