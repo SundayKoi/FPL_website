@@ -137,6 +137,40 @@ export function groupByStage(rows: FixtureRow[]): { meta: StageMeta; fixtures: F
 }
 
 /**
+ * The next thing happening in the season, for the schedule's "Up Next"
+ * banner: the earliest future-dated unplayed fixture's stage (with its
+ * kickoff and how many series share that stage), else the active
+ * regular-season week with no date yet (kickoff null), else null when the
+ * season's played out. `now` is injected for testability.
+ */
+export function nextUp(
+  rows: FixtureRow[],
+  now: Date,
+): { stage: FixtureStage; kickoff: string | null; count: number } | null {
+  const unplayed = rows.filter((r) => !hasResult(r));
+  const dated = unplayed
+    .filter((r) => r.scheduled_at && new Date(r.scheduled_at).getTime() >= now.getTime())
+    .sort((a, b) => a.scheduled_at!.localeCompare(b.scheduled_at!));
+  if (dated.length > 0) {
+    const stage = dated[0].stage;
+    return {
+      stage,
+      kickoff: dated[0].scheduled_at,
+      count: unplayed.filter((r) => r.stage === stage).length,
+    };
+  }
+  const activeStage = selectActiveRegularSeasonStage(rows);
+  if (activeStage) {
+    return {
+      stage: activeStage,
+      kickoff: null,
+      count: unplayed.filter((r) => r.stage === activeStage).length,
+    };
+  }
+  return null;
+}
+
+/**
  * League time is Eastern (matches play Mondays 8pm ET per the rulebook), so
  * dates render pinned to America/New_York with an explicit "ET" suffix
  * rather than floating to the viewer's timezone.

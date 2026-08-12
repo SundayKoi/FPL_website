@@ -392,7 +392,11 @@ export default function LeaderboardTab({
                   return (
                     <th
                       key={col.key}
-                      className="px-2 py-2 text-left"
+                      // Player column sticks while stats scroll sideways on
+                      // phones (solid bg so scrolling cells pass beneath it).
+                      className={`px-2 py-2 text-left ${
+                        col.key === "player" ? "sticky left-0 z-10 bg-panel" : ""
+                      }`}
                       aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                     >
                       <button
@@ -481,7 +485,9 @@ export default function LeaderboardTab({
                         <td
                           key={col.key}
                           className={`px-2 py-1.5 ${
-                            col.key === "player" ? "font-semibold text-white" : "font-mono text-steel"
+                            col.key === "player"
+                              ? "sticky left-0 z-10 bg-panel font-semibold text-white"
+                              : "font-mono text-steel"
                           }`}
                         >
                           {col.display(row)}

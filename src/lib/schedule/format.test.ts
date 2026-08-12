@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { etInputToIso, isoToEtInput } from "@/components/schedule/AdminFixturesEditor";
+import { countdownLabel } from "@/components/schedule/UpNextBanner";
 import {
   STAGE_META,
   formatKickoff,
   groupByStage,
   hasResult,
+  nextUp,
   resolveSeason,
   selectActiveRegularSeasonStage,
   seasonsOf,
@@ -153,6 +155,49 @@ describe("selectActiveRegularSeasonStage", () => {
       fixture({ stage, score_a: 2, score_b: 1 }),
     );
     expect(selectActiveRegularSeasonStage(rows)).toBeNull();
+  });
+});
+
+describe("countdownLabel", () => {
+  const now = Date.parse("2026-08-20T00:00:00Z");
+  it("renders days+hours, hours+minutes, minutes, and live states", () => {
+    expect(countdownLabel(Date.parse("2026-08-23T05:30:00Z"), now)).toBe("in 3d 5h");
+    expect(countdownLabel(Date.parse("2026-08-20T02:15:00Z"), now)).toBe("in 2h 15m");
+    expect(countdownLabel(Date.parse("2026-08-20T00:40:00Z"), now)).toBe("in 40m");
+    expect(countdownLabel(Date.parse("2026-08-19T23:00:00Z"), now)).toBe("live now");
+  });
+});
+
+describe("nextUp", () => {
+  const now = new Date("2026-08-20T00:00:00Z");
+
+  it("picks the earliest future-dated unplayed fixture's stage with its series count", () => {
+    const rows = [
+      fixture({ stage: "week_1", score_a: 2, score_b: 0, scheduled_at: "2026-08-18T00:00:00Z" }),
+      fixture({ stage: "week_2", scheduled_at: "2026-08-25T00:00:00Z" }),
+      fixture({ stage: "week_2", scheduled_at: "2026-08-25T00:00:00Z" }),
+      fixture({ stage: "week_3", scheduled_at: "2026-09-01T00:00:00Z" }),
+    ];
+    expect(nextUp(rows, now)).toEqual({
+      stage: "week_2",
+      kickoff: "2026-08-25T00:00:00Z",
+      count: 2,
+    });
+  });
+
+  it("ignores past-dated fixtures and falls back to the active undated week", () => {
+    const rows = [
+      fixture({ stage: "week_1", score_a: 2, score_b: 1, scheduled_at: "2026-08-18T00:00:00Z" }),
+      fixture({ stage: "week_2" }),
+    ];
+    expect(nextUp(rows, now)).toEqual({ stage: "week_2", kickoff: null, count: 1 });
+  });
+
+  it("returns null when every regular-season week is complete and nothing is dated", () => {
+    const rows = (["week_1", "week_2", "week_3", "week_4", "week_5"] as const).map((stage) =>
+      fixture({ stage, score_a: 2, score_b: 0 }),
+    );
+    expect(nextUp(rows, now)).toBeNull();
   });
 });
 
