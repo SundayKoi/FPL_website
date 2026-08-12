@@ -31,6 +31,22 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/**
+ * A bare `42501` ("new row violates row-level security policy…") is
+ * meaningless to a captain — it almost always means their profile isn't (or
+ * isn't yet) a season-scoped captain in `league_team_captains`, which is a
+ * fixable, nameable admin action rather than a generic failure. Any other
+ * error still shows its real message (e.g. a duplicate match id's unique-
+ * index violation), unchanged.
+ */
+function friendlyErrorMessage(err: unknown, fallback: string): string {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === "42501") {
+    return "Your account isn't set up as a captain for this season yet — ask an admin to run the captain sync.";
+  }
+  return err instanceof Error ? err.message : fallback;
+}
+
 interface GameFormRow {
   key: string;
   gameNumber: number;
@@ -108,6 +124,7 @@ export default function ReportBox({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [fixerBusy, setFixerBusy] = useState<string | null>(null);
+  const [fixerError, setFixerError] = useState<string | null>(null);
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "Unknown team";
   const teamAbbr = (id: string | null) => teams.find((t) => t.id === id)?.abbreviation ?? "—";
@@ -215,7 +232,7 @@ export default function ReportBox({
       router.refresh();
     } catch (err) {
       setSuccess(false);
-      setErrors([err instanceof Error ? err.message : "Could not submit the report."]);
+      setErrors([friendlyErrorMessage(err, "Could not submit the report.")]);
     } finally {
       setSubmitting(false);
     }
@@ -223,12 +240,17 @@ export default function ReportBox({
 
   const handleFixSide = async (gameId: string, blueTeamId: string) => {
     setFixerBusy(gameId);
+    setFixerError(null);
     const { error } = await supabase
       .from("match_report_games")
       .update({ blue_team_id: blueTeamId, status: "pending" })
       .eq("id", gameId);
     setFixerBusy(null);
-    if (!error) router.refresh();
+    if (error) {
+      setFixerError(friendlyErrorMessage(error, "Could not update this game."));
+      return;
+    }
+    router.refresh();
   };
 
   return (
@@ -407,6 +429,11 @@ export default function ReportBox({
 
       <div className="mt-6 border-t border-line pt-4">
         <h3 className="label-dash">My reports</h3>
+        {fixerError && (
+          <p role="alert" className="mt-2 text-sm text-red-400">
+            {fixerError}
+          </p>
+        )}
         {myReports.length === 0 ? (
           <p className="mt-3 text-sm text-steel">No reports submitted yet.</p>
         ) : (

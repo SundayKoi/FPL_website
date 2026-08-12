@@ -81,24 +81,32 @@ select throws_ok($$
 $$, null, 'riot_accounts key is case-insensitively unique on (game_name, tag_line)');
 
 -- === roster_memberships: one team per riot account per season, cascades =====
+-- Season is the synthetic 'ZZ' (matching this file's own "Zulu Zone"/"Zany
+-- Zebras" naming), not the real current season ('S5'): the cascade
+-- assertion below scans the WHOLE table by season, not just this test's own
+-- row, so a real 'S5' scan is not self-contained -- it broke locally the
+-- first time real S5 roster_memberships existed in the database (seeded for
+-- Task 5's /captain page browser verification, unrelated to this test). A
+-- season no real seed data would ever use keeps this test correct
+-- regardless of what else is in the database.
 insert into public.roster_memberships (riot_account_id, season, league_team_id)
 values (
   (select id from public.riot_accounts where game_name = 'ZZTest'),
-  'S5',
+  'ZZ',
   (select id from public.league_teams where name = 'Zulu Zone')
 );
 select throws_ok($$
   insert into public.roster_memberships (riot_account_id, season, league_team_id)
   values (
     (select id from public.riot_accounts where game_name = 'ZZTest'),
-    'S5',
+    'ZZ',
     (select id from public.league_teams where name = 'Zany Zebras')
   )
 $$, null, 'roster_memberships allows only one team per riot account per season');
 
 delete from public.riot_accounts where game_name = 'ZZTest';
 select ok(
-  not exists (select 1 from public.roster_memberships where season = 'S5'),
+  not exists (select 1 from public.roster_memberships where season = 'ZZ'),
   'deleting a riot_account cascades to its roster_memberships'
 );
 

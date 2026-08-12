@@ -15,10 +15,16 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(14);
+select plan(16);
 
 -- tests.fixture() builds a draft with 4 teams whose captains are
--- tests.cap(1..4), so tests.cap(1) satisfies is_captain() once it has run.
+-- tests.cap(1..4) at the DRAFT level (teams.captain_profile_id) -- this used
+-- to be exactly what is_captain() checked, but match_reports/
+-- match_report_games write RLS is now season-scoped to league_team_captains
+-- via is_captain_of() instead (see 20260811100004_report_rls_season_captains.sql).
+-- Draft captaincy alone is kept here on purpose: tests.cap(3) (Team C's
+-- draft captain, given NO league_team_captains row below) is exactly what
+-- proves draft captaincy alone is no longer sufficient.
 select tests.fixture();
 
 -- raw_stats is empty inside the test transaction, so league_teams rows must
@@ -27,7 +33,18 @@ select tests.fixture();
 -- "Zulu Zone"/"Zany Zebras") so they cannot collide with real committed teams.
 insert into public.league_teams (id, name, abbreviation) values
   ('10000000-0000-0000-0000-000000000001', 'Zeta Test Alpha', 'ZTA'),
-  ('10000000-0000-0000-0000-000000000002', 'Zeta Test Beta', 'ZTB');
+  ('10000000-0000-0000-0000-000000000002', 'Zeta Test Beta', 'ZTB'),
+  ('10000000-0000-0000-0000-000000000003', 'Zeta Test Gamma', 'ZTG');
+
+-- Season-scoped captaincy (league_team_captains) -- the model report writes
+-- are gated on as of the fix-round migration: tests.cap(1) captains Zeta
+-- Test Alpha (team_a_id of the report below) for season 'S5'; tests.cap(2)
+-- captains Zeta Test Gamma, a team wholly unrelated to that report, same
+-- season -- used below to prove captaining *some* team isn't enough on its
+-- own.
+insert into public.league_team_captains (league_team_id, season, profile_id) values
+  ('10000000-0000-0000-0000-000000000001', 'S5', tests.cap(1)),
+  ('10000000-0000-0000-0000-000000000003', 'S5', tests.cap(2));
 
 -- === tables + helper exist ===================================================
 select has_table('public', 'match_reports', 'match_reports exists');
@@ -39,18 +56,43 @@ select ok(has_table_privilege('anon', 'public.match_reports', 'select'), 'anon r
 select ok(has_table_privilege('anon', 'public.match_report_games', 'select'), 'anon reads match_report_games');
 select ok(not has_table_privilege('anon', 'public.match_reports', 'insert'), 'anon cannot insert match_reports');
 
--- === captain: can insert a report and its games ==============================
+-- === season-scoped captain of team A: can insert a report and its games =====
 select tests.acting_as(tests.cap(1));
 set local role authenticated;
 select lives_ok($$
   insert into public.match_reports (id, season, season_phase, team_a_id, team_b_id, score_a, score_b)
   values ('20000000-0000-0000-0000-000000000001', 'S5', 'Regular',
           '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 3, 0)
-$$, 'captain can insert a match report');
+$$, 'season-scoped captain of team A can insert a match report for A-vs-B');
 select lives_ok($$
   insert into public.match_report_games (report_id, game_number, match_id)
   values ('20000000-0000-0000-0000-000000000001', 1, 'NA1_5568297187')
-$$, 'captain can insert a match report game');
+$$, 'season-scoped captain of team A can insert a match report game');
+reset role;
+
+-- === season-scoped captain of an UNRELATED team: cannot insert ==============
+-- tests.cap(2) captains Zeta Test Gamma -- neither team_a_id nor team_b_id
+-- of the report above -- so is_captain_of() is false for both and this must
+-- be denied even though cap(2) legitimately captains some team this season.
+select tests.acting_as(tests.cap(2));
+set local role authenticated;
+select throws_ok($$
+  insert into public.match_reports (season, season_phase, team_a_id, team_b_id)
+  values ('S5', 'Regular', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002')
+$$, '42501', null, 'captain of an unrelated team cannot insert a match report for A-vs-B');
+reset role;
+
+-- === draft-only captain (teams.captain_profile_id, no league_team_captains row): cannot insert ===
+-- tests.cap(3) is Team C's DRAFT captain (tests.fixture() sets
+-- teams.captain_profile_id = tests.cap(3)), which used to satisfy the old
+-- is_captain() check on its own -- but has no league_team_captains row at
+-- all, proving draft captaincy alone no longer grants report-write access.
+select tests.acting_as(tests.cap(3));
+set local role authenticated;
+select throws_ok($$
+  insert into public.match_reports (season, season_phase, team_a_id, team_b_id)
+  values ('S5', 'Regular', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002')
+$$, '42501', null, 'draft-only captain (no league_team_captains row) cannot insert a match report');
 reset role;
 
 -- === non-captain, non-admin: cannot insert ====================================
