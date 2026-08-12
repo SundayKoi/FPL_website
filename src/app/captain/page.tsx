@@ -53,7 +53,7 @@ export default async function CaptainPage({
   // Admins: the requested (validated) team, defaulting to the first; a
   // regular captain always sees their own team, ignoring ?team=.
   const activeTeamId = context.isAdmin
-    ? (requested && context.teams.some((t) => t.id === requested) ? requested : context.teams[0]?.id) ?? null
+    ? (requested && context.teams.some((t) => t.id === requested) ? requested : context.activeTeams[0]?.id ?? context.teams[0]?.id) ?? null
     : context.myTeamId;
   const activeTeam = activeTeamId ? (context.teams.find((t) => t.id === activeTeamId) ?? null) : null;
 
@@ -134,7 +134,7 @@ export default async function CaptainPage({
           </p>
         </header>
 
-        {context.isAdmin && context.teams.length > 1 && (
+        {context.isAdmin && context.activeTeams.length > 1 && (
           <form action="/captain" method="get" className="mt-6 flex flex-wrap items-end gap-2">
             <label htmlFor="team-switch" className="flex flex-col gap-1 text-xs text-steel">
               Viewing team (admin)
@@ -144,7 +144,7 @@ export default async function CaptainPage({
                 defaultValue={activeTeamId}
                 className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
               >
-                {context.teams.map((t) => (
+                {context.activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
@@ -165,7 +165,7 @@ export default async function CaptainPage({
           <TourneyCodes codes={codes} />
           <ReportBox
             key={activeTeamId}
-            teams={context.teams}
+            teams={context.activeTeams}
             defaultSeason={context.season}
             defaultPhase={defaultPhase}
             fixtureId={nextFixture?.id ?? null}
@@ -186,7 +186,7 @@ export default async function CaptainPage({
               <AdminCodeEditor fixtures={fixtures} teams={context.teams} codes={allCodes} />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
               <LeagueTeamsEditor teams={context.teams} />
-              <RosterEditor teams={context.teams} defaultSeason={context.season} memberships={allMemberships} />
+              <RosterEditor teams={context.activeTeams} defaultSeason={context.season} memberships={allMemberships} />
             </div>
           )}
         </div>

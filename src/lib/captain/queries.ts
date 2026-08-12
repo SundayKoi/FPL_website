@@ -55,7 +55,10 @@ export interface Announcement {
 export interface CaptainContext {
   profileId: string | null;
   isAdmin: boolean;
+  /** Every league team ever recorded — use for resolving historical names. */
   teams: LeagueTeam[];
+  /** Teams still in use — use for anything a human picks from. */
+  activeTeams: LeagueTeam[];
   myTeamId: string | null;
   season: string;
 }
@@ -96,6 +99,25 @@ export interface SubmitReportInput {
  * a signed-out visitor rather than throwing — src/app/captain/page.tsx
  * decides what to render from the shape, including the gate.
  */
+/**
+ * Key for matching a roster entry to a stats row. Riot game names may contain
+ * spaces but never "#", so "name#tag" is unambiguous (and greppable -- an
+ * earlier version used a literal NUL byte, which made this file read as binary).
+ */
+export function rosterKey(summonerName: string, tag: string): string {
+  return `${summonerName}#${tag}`;
+}
+
+/**
+ * Teams offered in human-facing pickers. `league_teams` accumulates every name
+ * the league has ever used (historical stats seasons plus each draft), so
+ * admins retire old ones with `active = false`; resolution paths still use the
+ * full list so historical names keep matching.
+ */
+export function activeOnly(teams: LeagueTeam[]): LeagueTeam[] {
+  return teams.filter((t) => t.active !== false);
+}
+
 export async function fetchCaptainContext(supabase: SupabaseClient): Promise<CaptainContext> {
   const { data: userData } = await supabase.auth.getUser();
   const profileId = userData.user?.id ?? null;
@@ -110,6 +132,7 @@ export async function fetchCaptainContext(supabase: SupabaseClient): Promise<Cap
 
   const isAdmin = profileResult.data?.is_admin ?? false;
   const teams = (teamsResult.data as LeagueTeam[]) ?? [];
+  const activeTeams = activeOnly(teams);
   const season = settingsResult.data?.current_season ?? "";
 
   let myTeamId: string | null = null;
@@ -122,7 +145,7 @@ export async function fetchCaptainContext(supabase: SupabaseClient): Promise<Cap
     myTeamId = (captainRows as { league_team_id: string }[] | null)?.[0]?.league_team_id ?? null;
   }
 
-  return { profileId, isAdmin, teams, myTeamId, season };
+  return { profileId, isAdmin, teams, activeTeams, myTeamId, season };
 }
 
 /** Tourney codes for one fixture, ordered by game number. */
@@ -260,11 +283,11 @@ export async function fetchMyResults(
 
   const rosterKeys = new Set(
     ((rosterResult.data as { summoner_name: string; tag: string }[]) ?? []).map(
-      (r) => `${r.summoner_name} ${r.tag}`
+      (r) => rosterKey(r.summoner_name, r.tag)
     )
   );
   const players = ((playerAggResult.data as PlayerAggRow[]) ?? []).filter((p) =>
-    rosterKeys.has(`${p.summoner_name} ${p.tag}`)
+    rosterKeys.has(rosterKey(p.summoner_name, p.tag))
   );
 
   return { games, players };
