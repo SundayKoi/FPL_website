@@ -60,11 +60,13 @@ describe("free agency availability", () => {
     ])).toBe(false);
   });
 
-  it("imports twelve bids for each of the twelve captains", () => {
+  it("imports the expected bid count for each of the twelve captains", () => {
     expect(FREE_AGENCY_CAPTAINS).toHaveLength(12);
-    expect(FREE_AGENCY_CAPTAINS.map((captain) => captain.players.length)).toEqual(
-      Array(12).fill(12),
-    );
+    // Every captain placed 12 bids; Sycoghost's AcidStep bid was voided
+    // when AcidStep was removed from the league mid-split, leaving 11.
+    for (const captain of FREE_AGENCY_CAPTAINS) {
+      expect(captain.players.length, captain.name).toBe(captain.name === "Sycoghost" ? 11 : 12);
+    }
   });
 
   it("matches real season labels against imported free-agency labels", () => {

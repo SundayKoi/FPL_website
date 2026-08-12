@@ -61,7 +61,7 @@ const season5Sections: RoleSection[] = [
     players: [
       { name: "Captain: YRW", rank: "D4", min: 20, opggUrl: "https://op.gg/lol/summoners/na/YRW-NA1" },
       { name: "Captain: Flying Squirtle", rank: "D4", min: 15, opggUrl: "https://op.gg/lol/summoners/na/Flyinq%20Squirtle-NA1" },
-      { name: "AcidStep#na1", rank: "M", min: 30, opggUrl: "https://op.gg/lol/multisearch/na?summoners=AcidStep%23na1%2C%20StepAcid%23na1" },
+      { name: "SlimPimpin77#epic", rank: "D1", min: 30, opggUrl: "https://op.gg/lol/summoners/na/SlimPimpin77-epic" },
       { name: "JayDK#NA1", rank: "D3", min: 25, opggUrl: "https://op.gg/lol/summoners/na/JayDK-NA1" },
       { name: "LotusB5#999", rank: "D2", min: 25, opggUrl: "https://op.gg/lol/summoners/na/LotusB5-999" },
       { name: "Zoodiac#すべて同じ", rank: "D2", min: 25, opggUrl: "https://op.gg/lol/summoners/na/Zoodiac-%E3%81%99%E3%81%B9%E3%81%A6%E5%90%8C%E3%81%98" },
