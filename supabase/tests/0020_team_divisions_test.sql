@@ -4,7 +4,10 @@ create extension if not exists pgtap with schema extensions;
 select plan(6);
 
 select has_column('public', 'teams', 'division', 'teams has division column');
-select col_default_is('public', 'teams', 'division', 'NULL',
+-- The column deliberately has NO default, so col_default_is() cannot express
+-- this ("Column public.teams.division has no default") — col_hasnt_default is
+-- pgTAP's assertion for exactly that, and an absent default IS null-by-default.
+select col_hasnt_default('public', 'teams', 'division',
                      'teams division defaults to null');
 select ok(exists(
   select 1

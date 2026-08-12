@@ -44,3 +44,6 @@ out/
 /playwright-report/
 /playwright/.cache/
 e2e/.draft-id
+
+# Local scratch scripts (never committed)
+scratchpad/
