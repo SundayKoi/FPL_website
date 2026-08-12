@@ -8,7 +8,9 @@ select has_column('public', 'fixtures', 'scheduled_at', 'scheduled_at column exi
 select has_column('public', 'fixtures', 'season', 'season column exists');
 
 -- season defaults so current-split inserts don't need to pass it.
-select col_default_is('public', 'fixtures', 'season', '''S5''::text', 'season defaults to S5');
+-- col_default_is compares the EVALUATED default, so the expectation is the
+-- value ('S5'), not the expression text ('''S5''::text').
+select col_default_is('public', 'fixtures', 'season', 'S5', 'season defaults to S5');
 
 -- Public read, no anonymous writes.
 select ok(has_table_privilege('anon', 'public.fixtures', 'select'), 'anon reads fixtures');

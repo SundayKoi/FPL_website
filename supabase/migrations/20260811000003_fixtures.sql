@@ -29,10 +29,15 @@ create table public.fixtures (
   -- a nonsense "2–null" card.
   check ((score_a is null) = (score_b is null)),
   sort_order int not null default 0,
+  -- Season lives here (not only in 20260811000002_fixtures_season.sql) so a
+  -- fresh reset produces the same table as an incrementally-migrated one:
+  -- that migration's version sorts earlier, so it no-ops on a clean database.
+  season text not null default 'S5',
   created_at timestamptz not null default now()
 );
 
-create index fixtures_stage_idx on public.fixtures (stage, sort_order);
+create index if not exists fixtures_season_stage_idx
+  on public.fixtures (season, stage, sort_order);
 
 alter table public.fixtures enable row level security;
 

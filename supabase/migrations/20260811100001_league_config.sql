@@ -16,11 +16,27 @@
 -- admin-only write via is_admin(); insert/update/delete -> authenticated,
 -- RLS-gated; all -> service_role -- see 20260810000001), so they are left
 -- untouched here.
-alter table public.league_settings
-  alter column id type smallint,
-  alter column id set default 1,
-  add column current_season text not null default 'S5',
-  add column current_phase text not null default 'Regular';
+-- UPDATE (merge with main, 2026-08-11): current_season/current_phase are now
+-- supplied by 20260811000005_league_settings_season.sql, which landed on main
+-- in parallel with this work and already feeds riot_stats_ingest.py's season
+-- fallback plus an admin editor. This migration therefore adds nothing to
+-- league_settings; the statements below only assert the shape this feature
+-- depends on, so a drift in either direction fails loudly at migrate time
+-- instead of silently at report time.
+do $$
+begin
+  if to_regclass('public.league_settings') is null then
+    raise exception 'league_settings missing: expected 20260810000001_teams_featured.sql';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'league_settings'
+      and column_name in ('current_season', 'current_phase')
+    having count(*) = 2
+  ) then
+    raise exception 'league_settings.current_season/current_phase missing: expected 20260811000005_league_settings_season.sql';
+  end if;
+end $$;
 
 insert into public.league_settings (id) values (1) on conflict (id) do nothing;
 
