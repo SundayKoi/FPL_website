@@ -26,6 +26,7 @@ export interface Team {
 export interface Player {
   id: string; draft_id: string; display_name: string; role: LolRole;
   rank: string | null; opgg_url: string | null; notes: string | null;
+  canonical_player_id?: string | null;
   team_id: string | null; price: number | null; acquisition: Acquisition | null;
 }
 
