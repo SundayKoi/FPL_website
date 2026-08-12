@@ -13,7 +13,10 @@ export default async function PlayersPage() {
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("free_agency_avg_bids").select("player_name, avg_bid"),
-    supabase.from("player_pool").select("id, season_key, display_name, role, rank, opgg_url"),
+    supabase
+      .from("player_pool")
+      .select("id, season_key, display_name, role, rank, opgg_url")
+      .eq("season_key", "season-5"),
   ]);
 
   let isAdmin = false;

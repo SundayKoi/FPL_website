@@ -11,6 +11,7 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 function orderableQuery(result: unknown) {
   const builder = {
     select: () => builder,
+    eq: () => builder,
     order: () => builder,
     then: (onFulfilled: (value: unknown) => unknown) => Promise.resolve(result).then(onFulfilled),
   };
@@ -26,7 +27,7 @@ describe("PlayersPage", () => {
   it("renders canonical player-pool rows with exact op.gg links", async () => {
     const from = vi.fn((table: string) => {
       if (table === "player_pool") {
-        return orderableQuery({
+        const query = orderableQuery({
           data: [
             {
               season_key: "season-5",
@@ -45,6 +46,8 @@ describe("PlayersPage", () => {
           ],
           error: null,
         });
+        query.eq = vi.fn(() => query);
+        return query;
       }
 
       if (table === "free_agency_avg_bids") {
@@ -61,6 +64,10 @@ describe("PlayersPage", () => {
 
     render(await PlayersPage());
 
+    expect(from).toHaveBeenCalledWith("player_pool");
+    const playerPoolQuery = from.mock.results.find((result) => result.value?.eq)?.value;
+    expect(playerPoolQuery.eq).toHaveBeenCalledWith("season_key", "season-5");
+
     expect(screen.getByRole("heading", { name: "Players", level: 1 })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Season 5" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "RiftMaker#NA1" }).getAttribute("href")).toBe(
@@ -72,7 +79,9 @@ describe("PlayersPage", () => {
   it("shows a clear unavailable state when canonical Season 5 rows are missing", async () => {
     const from = vi.fn((table: string) => {
       if (table === "player_pool") {
-        return orderableQuery({ data: [], error: null });
+        const query = orderableQuery({ data: [], error: null });
+        query.eq = vi.fn(() => query);
+        return query;
       }
 
       if (table === "free_agency_avg_bids") {
