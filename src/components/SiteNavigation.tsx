@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: "/draft", label: "Draft" },
   { href: "/teams", label: "Teams" },
   { href: "/info", label: "Info" },
+  { href: "/signup", label: "Sign Up" },
 ] as const;
 
 const linkBase =
