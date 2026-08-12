@@ -60,7 +60,7 @@ export default async function CaptainPage({
   if (!activeTeamId || !activeTeam) {
     return (
       <main className="bg-hash flex-1">
-        <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
+        <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
           <header className="border-b border-line pb-8">
             <span className="label-dash">Captain hub</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Captain</h1>
@@ -125,7 +125,7 @@ export default async function CaptainPage({
 
   return (
     <main className="bg-hash flex-1">
-      <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="border-b border-line pb-8">
           <span className="label-dash">Captain hub · {context.season}</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">{activeTeam.name}</h1>
@@ -161,18 +161,22 @@ export default async function CaptainPage({
         )}
 
         <div className="mt-8 flex flex-col gap-6">
-          <NextMatchCard fixture={nextFixture} myTeamName={activeTeam.name} />
-          <TourneyCodes codes={codes} />
-          <ReportBox
-            key={activeTeamId}
-            teams={context.activeTeams}
-            defaultSeason={context.season}
-            defaultPhase={defaultPhase}
-            fixtureId={nextFixture?.id ?? null}
-            prefillTeamAId={prefillTeamAId}
-            prefillTeamBId={prefillTeamBId}
-            myReports={myReports}
-          />
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <div className="flex flex-col gap-6">
+              <NextMatchCard fixture={nextFixture} myTeamName={activeTeam.name} />
+              <TourneyCodes codes={codes} />
+            </div>
+            <ReportBox
+              key={activeTeamId}
+              teams={context.activeTeams}
+              defaultSeason={context.season}
+              defaultPhase={defaultPhase}
+              fixtureId={nextFixture?.id ?? null}
+              prefillTeamAId={prefillTeamAId}
+              prefillTeamBId={prefillTeamBId}
+              myReports={myReports}
+            />
+          </div>
           <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
           <MyResults teamName={activeTeam.name} games={results.games} players={results.players} />
           <Announcements announcements={announcements} />
