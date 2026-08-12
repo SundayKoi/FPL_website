@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/freeAgency";
+import { findFreeAgencyPlayer, isPlayerAvailableToCaptain, normalizePlayerName } from "@/lib/players/freeAgency";
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import {
   FREE_AGENCY_BID_BOARD,
@@ -39,6 +39,7 @@ export default function PlayersDirectory({
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
   const [selectedCaptain, setSelectedCaptain] = useState("");
+  const [selectedBidBoardPlayer, setSelectedBidBoardPlayer] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [avgBids, setAvgBids] = useState(initialAvgBids);
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export default function PlayersDirectory({
     if (value === "player-list") {
       setSelectedCaptain("");
       setEditMode(false);
+      setSelectedBidBoardPlayer(null);
     }
   };
 
@@ -249,9 +251,32 @@ export default function PlayersDirectory({
                     ))}
                     {FREE_AGENCY_BID_BOARD.flatMap((row) => [
                       <span key={`${row.captain}-name`} className="bg-panel px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
-                      ...row.bids.map((player, index) => (
-                        <span key={`${row.captain}-${index}`} className="bg-panel px-2 py-3 font-medium text-steel">{player}</span>
-                      )),
+                      ...row.bids.map((player, index) => {
+                        const isHighlighted =
+                          selectedBidBoardPlayer !== null &&
+                          normalizePlayerName(player) === normalizePlayerName(selectedBidBoardPlayer);
+                        return (
+                          <button
+                            key={`${row.captain}-${index}`}
+                            type="button"
+                            aria-pressed={isHighlighted}
+                            onClick={() =>
+                              setSelectedBidBoardPlayer((current) =>
+                                current !== null && normalizePlayerName(current) === normalizePlayerName(player)
+                                  ? null
+                                  : player,
+                              )
+                            }
+                            className={`bg-panel px-2 py-3 text-left transition-colors hover:bg-gold/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold ${
+                              isHighlighted
+                                ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-gold)]"
+                                : "font-medium text-steel"
+                            }`}
+                          >
+                            {player}
+                          </button>
+                        );
+                      }),
                     ])}
                   </div>
                 </div>

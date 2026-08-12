@@ -95,6 +95,23 @@ describe("PlayersDirectory", () => {
     expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
   });
 
+  it("highlights every matching bid-board name when selected", () => {
+    render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+
+    const matchingBids = screen.getAllByRole("button", { name: "Canny" });
+    expect(matchingBids.length).toBeGreaterThan(1);
+    fireEvent.click(matchingBids[0]);
+
+    for (const bid of screen.getAllByRole("button", { name: "Canny" })) {
+      expect(bid.getAttribute("aria-pressed")).toBe("true");
+      expect(bid.className).toContain("font-extrabold");
+    }
+
+    fireEvent.click(matchingBids[0]);
+    expect(screen.getAllByRole("button", { name: "Canny" }).every((bid) => bid.getAttribute("aria-pressed") === "false")).toBe(true);
+  });
+
   it("renders captain options from the supplied snapshot in stable order", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
 
