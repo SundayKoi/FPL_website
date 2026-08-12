@@ -1,3 +1,5 @@
+import HiddenCoin from "./HiddenCoin";
+
 const sectionHeadingClass =
   "scroll-mt-24 border-b border-line pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
 const subsectionHeadingClass =
@@ -114,7 +116,9 @@ export default function RulebookContent() {
         <h3 className={subsectionHeadingClass}>Entry Fees &amp; Prizes</h3>
         <ul className={listClass}>
           <li>Captains Entry Fee: $25</li>
-          <li>1st Place: $200</li>
+          <li>
+            1st Place: $200 <HiddenCoin />
+          </li>
           <li>2nd Place: $100</li>
           <li>Players Entry Fee: $15</li>
           <li>1st Place: $260 (divided among the 4 players)</li>
