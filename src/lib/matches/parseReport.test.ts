@@ -151,4 +151,59 @@ XYZ 9-9 ABC`;
       warnings: [],
     });
   });
+
+  // Fix round: Discord noise must never manufacture phantom games. These
+  // three inputs are the exact adversarial cases review demonstrated live —
+  // a CDN screenshot link, prose with a plausible-length number, and a
+  // message permalink — each pasted alongside the 3 real game lines.
+  describe("ignores Discord noise alongside real game lines", () => {
+    const REAL_LINES = `https://drafter.lol/draft/T4cB_WHp?game=1 5568297187
+https://drafter.lol/draft/T4cB_WHp?game=2 5568352310
+https://drafter.lol/draft/T4cB_WHp?game=3 5568409447`;
+    const EXPECTED_GAMES = [
+      { gameNumber: 1, matchId: "NA1_5568297187" },
+      { gameNumber: 2, matchId: "NA1_5568352310" },
+      { gameNumber: 3, matchId: "NA1_5568409447" },
+    ];
+
+    it("a Discord CDN screenshot link (18-digit snowflakes) adds no phantom games", () => {
+      const text = `MIC 3-0 BBC
+https://cdn.discordapp.com/attachments/123456789012345678/234567890123456789/screenshot.png
+${REAL_LINES}`;
+      const result = parseReport(text, [mic, bbc]);
+      expect(result.games).toEqual(EXPECTED_GAMES);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("prose containing a plausible-length number is excluded and warned about, not counted as a game", () => {
+      const text = `MIC 3-0 BBC
+we hit 123456789 damage
+${REAL_LINES}`;
+      const result = parseReport(text, [mic, bbc]);
+      expect(result.games).toEqual(EXPECTED_GAMES);
+      expect(result.warnings).toEqual(["Ignored 1 number(s) outside the match lines"]);
+    });
+
+    it("a Discord message permalink (three 18-digit snowflakes) adds no phantom games", () => {
+      const text = `MIC 3-0 BBC
+https://discord.com/channels/123456789012345678/234567890123456789/345678901234567890
+${REAL_LINES}`;
+      const result = parseReport(text, [mic, bbc]);
+      expect(result.games).toEqual(EXPECTED_GAMES);
+      expect(result.warnings).toEqual([]);
+    });
+  });
+
+  it("renumbers games and warns when two entries would share a gameNumber", () => {
+    const text = `MIC 2-0 BBC
+https://drafter.lol/draft/abc?game=1 5568297187
+https://drafter.lol/draft/abc?game=1 5568352310`;
+    const result = parseReport(text, [mic, bbc]);
+    expect(result.games).toEqual([
+      { gameNumber: 1, matchId: "NA1_5568297187" },
+      { gameNumber: 2, matchId: "NA1_5568352310" },
+    ]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toMatch(/renumber/i);
+  });
 });
