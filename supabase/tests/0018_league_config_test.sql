@@ -132,7 +132,6 @@ reset role;
 
 select tests.acting_as(tests.cap(1));
 set local role authenticated;
-set local row_security = off;
 select throws_ok(
   $$ insert into public.league_teams (name, abbreviation) values ('Rogue FC', 'RFC') $$,
   '42501',

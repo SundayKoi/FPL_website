@@ -58,7 +58,6 @@ insert into public.profiles (id, display_name) values (tests.cap(9), 'Bystander'
   on conflict (id) do nothing;
 select tests.acting_as(tests.cap(9));
 set local role authenticated;
-set local row_security = off;
 select throws_ok($$
   insert into public.match_reports (season, season_phase, team_a_id, team_b_id)
   values ('S5', 'Regular', '10000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002')
