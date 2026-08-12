@@ -1,21 +1,12 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import InfoPage from "./page";
-
-// InfoPage now checks auth server-side for the admin coin-finders panel;
-// cookies() (inside createServerSupabase) throws outside a request scope,
-// so the test stubs a signed-out visitor.
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabase: async () => ({
-    auth: { getUser: async () => ({ data: { user: null } }) },
-  }),
-}));
 
 describe("InfoPage", () => {
   afterEach(cleanup);
 
-  it("renders all requested resources and the Rulebook navigation", async () => {
-    render(await InfoPage());
+  it("renders all requested resources and the Rulebook navigation", () => {
+    render(<InfoPage />);
 
     expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
