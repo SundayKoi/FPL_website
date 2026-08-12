@@ -1,3 +1,4 @@
+import AdminCoinFinds, { type CoinFinder } from "@/components/info/AdminCoinFinds";
 import InfoResourceCard from "@/components/info/InfoResourceCard";
 import RulebookContent from "@/components/info/RulebookContent";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -33,11 +34,6 @@ const rulebookSections = [
   ["FPL Staff", "staff"],
 ] as const;
 
-interface CoinFinder {
-  found_at: string;
-  display_name: string;
-}
-
 export default async function InfoPage() {
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
@@ -61,6 +57,7 @@ export default async function InfoPage() {
         : { data: [] };
       const names = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string]));
       coinFinders = (finds ?? []).map((f) => ({
+        profile_id: f.profile_id as string,
         found_at: f.found_at as string,
         display_name: names.get(f.profile_id as string) ?? "Unknown",
       }));
@@ -78,39 +75,7 @@ export default async function InfoPage() {
           </p>
         </header>
 
-        {coinFinders !== null && (
-          <section aria-label="Coin hunt finders" className="card-brand mt-10 p-5">
-            <span className="label-dash">Admin — hidden coin finders</span>
-            {coinFinders.length === 0 ? (
-              <p className="mt-2 text-sm text-steel">Nobody has found the coin yet.</p>
-            ) : (
-              <ol className="mt-3 flex flex-col gap-1.5">
-                {coinFinders.map((finder, i) => (
-                  <li key={`${finder.display_name}-${finder.found_at}`} className="flex items-center gap-3 text-sm">
-                    <span
-                      className={`w-8 shrink-0 font-bold ${i < 3 ? "text-gold" : "text-steel"}`}
-                    >
-                      #{i + 1}
-                    </span>
-                    <span className={i < 3 ? "font-semibold text-white" : "text-steel"}>
-                      {finder.display_name}
-                    </span>
-                    <span className="ml-auto shrink-0 text-xs text-steel">
-                      {new Date(finder.found_at).toLocaleString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </span>
-                    {i < 3 && <span aria-hidden="true">🏆</span>}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-        )}
+        {coinFinders !== null && <AdminCoinFinds finders={coinFinders} />}
 
         <section aria-label="League resources" className="mt-10 grid gap-5 md:grid-cols-3">
           {resources.map((resource) => (
