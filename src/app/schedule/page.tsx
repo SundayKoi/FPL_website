@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { groupByStage, resolveSeason, seasonsOf } from "@/lib/schedule/format";
+import {
+  formatKickoff,
+  groupByStage,
+  nextUp,
+  resolveSeason,
+  seasonsOf,
+  stageMeta,
+} from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import FixtureCard from "@/components/schedule/FixtureCard";
+import UpNextBanner from "@/components/schedule/UpNextBanner";
 
 export default async function SchedulePage({
   searchParams,
@@ -47,6 +55,7 @@ export default async function SchedulePage({
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : [];
 
   const grouped = groupByStage(fixtures);
+  const upNext = nextUp(fixtures, new Date());
   const groups = ["Regular Season", "Gauntlet", "Playoffs"] as const;
 
   return (
@@ -70,6 +79,16 @@ export default async function SchedulePage({
             ))}
           </div>
         </header>
+
+        {upNext && (
+          <UpNextBanner
+            stageId={upNext.stage}
+            stageLabel={stageMeta(upNext.stage).label}
+            kickoffText={formatKickoff(upNext.kickoff)}
+            kickoff={upNext.kickoff}
+            count={upNext.count}
+          />
+        )}
 
         {seasons.length > 1 && (
           <nav aria-label="Season" className="mt-8 flex flex-wrap items-center gap-1.5">

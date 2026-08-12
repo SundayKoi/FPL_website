@@ -214,11 +214,27 @@ function PlayersTab({
   );
 }
 
-export default function StatsTabs({ initialPlayer }: { initialPlayer?: string }) {
-  const [activeTab, setActiveTab] = useState<Tab>("Leaderboard");
+const PHASES: PhaseFilter[] = ["All", "Regular", "Playoffs"];
+
+export default function StatsTabs({
+  initialPlayer,
+  initialTab,
+  initialSeason,
+  initialPhase,
+}: {
+  initialPlayer?: string;
+  initialTab?: string;
+  initialSeason?: string;
+  initialPhase?: string;
+}) {
+  const [activeTab, setActiveTab] = useState<Tab>(
+    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "Leaderboard",
+  );
   const [seasons, setSeasons] = useState<string[]>([]);
-  const [season, setSeason] = useState<string>(ALL_SEASONS);
-  const [phase, setPhase] = useState<PhaseFilter>("All");
+  const [season, setSeason] = useState<string>(initialSeason || ALL_SEASONS);
+  const [phase, setPhase] = useState<PhaseFilter>(
+    PHASES.includes(initialPhase as PhaseFilter) ? (initialPhase as PhaseFilter) : "All",
+  );
   const [seasonsLoaded, setSeasonsLoaded] = useState(false);
   // Selection state lives here, one level above both entry points
   // (LeaderboardTab row click and the Players tab list), so either one
@@ -240,11 +256,11 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
         const data = await fetchSeasons();
         if (cancelled) return;
         setSeasons(data);
-        // With a ?player= deep link active, stay on the initial
-        // "All seasons" instead of defaulting to the newest — the resolve
-        // effect opens the card in all-seasons view and this default would
-        // race it and clobber that choice.
-        if (data.length > 0 && !initialPlayer) setSeason(data[0]);
+        // Default to the newest season — but not when a ?player= deep link
+        // is active (the resolve effect opens the card in all-seasons view
+        // and this default would race it) and not when the URL asked for a
+        // specific season (?season=).
+        if (data.length > 0 && !initialPlayer && !initialSeason) setSeason(data[0]);
         setSeasonsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -256,7 +272,12 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
     return () => {
       cancelled = true;
     };
-  }, [initialPlayer]);
+  }, [initialPlayer, initialSeason]);
+
+  // True while a ?player= deep link is still resolving — the URL-sync
+  // effect below holds off so it doesn't strip the player param before the
+  // card opens (a refresh in that window would otherwise lose the link).
+  const [deepLinkPending, setDeepLinkPending] = useState(Boolean(initialPlayer));
 
   useEffect(() => {
     if (!initialPlayer) return;
@@ -284,6 +305,8 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
         if (cancelled) return;
         setActiveTab("Players");
         setPlayersPrefill(initialPlayer!);
+      } finally {
+        if (!cancelled) setDeepLinkPending(false);
       }
     }
 
@@ -292,6 +315,21 @@ export default function StatsTabs({ initialPlayer }: { initialPlayer?: string })
       cancelled = true;
     };
   }, [initialPlayer]);
+
+  // Mirror the view state into the URL (history.replaceState — no
+  // navigation, no re-render) so any stats view is shareable: the active
+  // tab, non-default season/phase, and the open player card. Defaults are
+  // omitted to keep pasted links clean.
+  useEffect(() => {
+    if (!seasonsLoaded || deepLinkPending) return;
+    const params = new URLSearchParams();
+    if (activeTab !== "Leaderboard") params.set("tab", activeTab);
+    if (!(seasons.length > 0 && season === seasons[0])) params.set("season", season);
+    if (phase !== "All") params.set("phase", phase);
+    if (selectedPlayer) params.set("player", `${selectedPlayer.summonerName}#${selectedPlayer.tag}`);
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+  }, [seasonsLoaded, deepLinkPending, activeTab, season, phase, selectedPlayer, seasons]);
 
   return (
     <div className="flex flex-col gap-6">

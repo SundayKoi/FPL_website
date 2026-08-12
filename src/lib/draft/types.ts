@@ -50,6 +50,8 @@ export interface RosterTeamView {
   monogram: string;
   accentClass: string;
   players: RosterSlotView[];
+  /** Demo row shown when no draft is featured — has no team page to link to. */
+  isPlaceholder?: boolean;
 }
 export interface Lot {
   id: string; draft_id: string; player_id: string; nominated_by_team_id: string;

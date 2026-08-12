@@ -5,8 +5,12 @@ export default async function StatsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const playerRaw = (await searchParams).player;
-  const player = Array.isArray(playerRaw) ? playerRaw[0] : playerRaw;
+  const params = await searchParams;
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const player = first(params.player);
+  const tab = first(params.tab);
+  const season = first(params.season);
+  const phase = first(params.phase);
   return (
     <main className="grid-neon flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
@@ -22,7 +26,12 @@ export default async function StatsPage({
         </header>
 
         <div className="mt-10">
-          <StatsTabs initialPlayer={player} />
+          <StatsTabs
+            initialPlayer={player}
+            initialTab={tab}
+            initialSeason={season}
+            initialPhase={phase}
+          />
         </div>
       </div>
     </main>
