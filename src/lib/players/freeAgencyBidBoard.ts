@@ -39,7 +39,7 @@ export const FREE_AGENCY_BID_BOARD: FreeAgencyBidBoardRow[] = [
   },
   {
     captain: "Sycoghost",
-    bids: ["Pinei nessa poha", "AcidStep", "Matrix", "JayDK", "LotusB5", "Chief", "GratxAce", "i fear nobody", "Cherrie", "FeralEevee", "ΣΠΑΡΤΙΑΤΗΣ", "Lolcavan"],
+    bids: ["Pinei nessa poha", "Matrix", "JayDK", "LotusB5", "Chief", "GratxAce", "i fear nobody", "Cherrie", "FeralEevee", "ΣΠΑΡΤΙΑΤΗΣ", "Lolcavan"],
   },
   {
     captain: "YRW",
