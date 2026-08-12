@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/freeAgency";
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
+import {
+  FREE_AGENCY_BID_BOARD,
+  FREE_AGENCY_BID_BOARD_HEADERS,
+} from "@/lib/players/freeAgencyBidBoard";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
 
@@ -30,6 +34,16 @@ export default function PlayersDirectory({
   const [selectedCaptain, setSelectedCaptain] = useState("");
   const sections = seasons[selectedSeason];
   const isFreeAgency = selectedSection === "free-agency";
+  const displaySections = isFreeAgency
+    ? sections.map((section) => ({
+        ...section,
+        players: [...section.players].sort(
+          (left, right) =>
+            (findFreeAgencyPlayer(right.name, freeAgencyCaptains)?.avgBid ?? -1) -
+            (findFreeAgencyPlayer(left.name, freeAgencyCaptains)?.avgBid ?? -1),
+        ),
+      }))
+    : sections;
 
   const handleSectionChange = (value: DirectorySection) => {
     setSelectedSection(value);
@@ -112,8 +126,9 @@ export default function PlayersDirectory({
           {sections.length === 0 ? (
             <p className="text-steel">Season 4 player data has not been added yet.</p>
           ) : (
+            <>
             <div className="grid gap-5 sm:grid-cols-2 xl:min-w-[1500px] xl:grid-cols-5">
-              {sections.map((section) => (
+              {displaySections.map((section) => (
                 <section
                   key={section.key}
                   className={`overflow-hidden rounded border ${ROLE_TONES[section.key]}`}
@@ -168,6 +183,26 @@ export default function PlayersDirectory({
                 </section>
               ))}
             </div>
+            {isFreeAgency ? (
+              <section aria-label="Free Agency bid board" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
+                <h2 className="type-display text-2xl text-white">Bid Board</h2>
+                <div className="mt-4 min-w-[1100px]">
+                  <div className="grid grid-cols-[minmax(12rem,1.2fr)_repeat(12,minmax(5.5rem,1fr))] gap-px bg-line text-center text-[0.6rem] font-bold uppercase tracking-[0.08em] text-steel">
+                    <span className="bg-navy px-2 py-2 text-left">Captain</span>
+                    {FREE_AGENCY_BID_BOARD_HEADERS.map((header, index) => (
+                      <span key={`${header}-${index}`} className="bg-navy px-2 py-2">{header}</span>
+                    ))}
+                    {FREE_AGENCY_BID_BOARD.flatMap((row) => [
+                      <span key={`${row.captain}-name`} className="bg-panel px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
+                      ...row.bids.map((player, index) => (
+                        <span key={`${row.captain}-${index}`} className="bg-panel px-2 py-3 font-medium text-steel">{player}</span>
+                      )),
+                    ])}
+                  </div>
+                </div>
+              </section>
+            ) : null}
+            </>
           )}
         </section>
       </div>

@@ -67,6 +67,16 @@ describe("PlayersDirectory", () => {
     ).toBe("true");
     expect(screen.getAllByText("25").length).toBeGreaterThan(0);
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Bid Board" })).toBeTruthy();
+    expect(screen.getAllByText("Pinei nessa poha").length).toBeGreaterThan(0);
+  });
+
+  it("sorts Free Agency players by descending average bid within each role", () => {
+    render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+    const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
+    const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    expect(names.slice(0, 3)).toEqual(["Canny#rip", "Killer Python#NA1", "Walt#0001"]);
   });
 
   it("renders captain options from the supplied snapshot in stable order", () => {
