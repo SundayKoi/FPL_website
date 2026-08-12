@@ -8,7 +8,7 @@
 
 **Tech Stack:** Existing Next.js 16 + Tailwind brand system, Supabase (Postgres RLS), pgTAP, Vitest, Python 3 (`requests` + `python-dotenv`), GitHub Actions.
 
-**Spec:** `docs/superpowers/specs/2026-08-11-match-reporting-auto-ingest-design.md` — read it first; its schema and report-format sections are canonical.
+**Specs:** `docs/superpowers/specs/2026-08-11-match-reporting-auto-ingest-design.md` (schema, report format, ingest pipeline — canonical) AND `docs/superpowers/specs/2026-08-11-captains-page-design.md` (**SCOPE CHANGE, 2026-08-11**: the public `/matches` UI is replaced by a private `/captain` page; read it before any UI task).
 
 ## Global Constraints
 
@@ -36,14 +36,13 @@ src/lib/matches/parseReport.ts                         (T3 — pure paste parser
 src/lib/matches/parseReport.test.ts                    (T3)
 src/lib/matches/types.ts                               (T3 — row types for the six tables)
 src/lib/matches/queries.ts                             (T4 — fetch/insert helpers)
-src/app/matches/page.tsx                               (T5 — public report list)
-src/app/matches/report/page.tsx                        (T4 — report form)
-src/components/matches/ReportForm.tsx                  (T4)
-src/components/matches/ReportList.tsx                  (T5)
-src/components/matches/NeedsSidesFixer.tsx             (T5)
-src/components/SiteNavigation.tsx                      (T5 — add Matches entry)
-src/components/matches/LeagueTeamsEditor.tsx           (T6 — LeagueSettingsEditor DROPPED, see T6)
-src/components/matches/RosterEditor.tsx                (T6; both mount on /matches, not /admin)
+supabase/migrations/20260811100003_captain_page.sql     (T4 — codes, captains, announcements)
+supabase/tests/0020_captain_page_test.sql              (T4)
+src/lib/captain/{queries,nextMatch}.ts                 (T5)
+src/app/captain/page.tsx                               (T5 — private page, role-aware)
+src/components/captain/*.tsx                           (T5 sections; T6 admin panels)
+src/components/matches/{LeagueTeamsEditor,RosterEditor}.tsx (T6)
+src/components/SiteNavigation.tsx                      (T5 — add Captain entry)
 scripts/riot_stats_ingest.py                           (T7 — --from-reports mode)
 scripts/test_riot_stats_ingest.py                      (T7 — side-resolution + status tests)
 .github/workflows/ingest-stats.yml                     (T7)
@@ -193,45 +192,62 @@ Grants: `select` to anon+authenticated; `insert, update, delete` to authenticate
 - [ ] **Step 2: Implement** `types.ts` + `parseReport.ts` per Interfaces. `npm test` green.
 - [ ] **Step 3: Gates + commit** `feat: match report paste parser`.
 
-### Task 4: Report form page
+### Task 4: Captain-page tables (codes, captains, announcements)
+
+**SCOPE CHANGE (2026-08-11):** the public `/matches` page and its nav entry are NOT built. All reporting UI moves onto a private `/captain` page. Read `docs/superpowers/specs/2026-08-11-captains-page-design.md` — its "New tables" section is canonical for this task.
 
 **Files:**
-- Create: `src/lib/matches/queries.ts`, `src/app/matches/report/page.tsx`, `src/components/matches/ReportForm.tsx`
-- Modify: none
+- Create: `supabase/migrations/20260811100003_captain_page.sql`
+- Test: `supabase/tests/0020_captain_page_test.sql`
 
 **Interfaces:**
-- Consumes: `parseReport`, types (T3), `createClient` from `@/lib/supabase/client`, `createServerSupabase` from `@/lib/supabase/server`.
-- Produces: `queries.ts` exports `fetchLeagueTeams(): Promise<LeagueTeam[]>`, `fetchLeagueSettings(): Promise<LeagueSettings | null>`, `fetchReports(limit?: number): Promise<(MatchReport & { games: MatchReportGame[] })[]>`, `fetchExistingMatchIds(ids: string[]): Promise<string[]>` (checks `match_report_games` AND `raw_stats`), `fetchOpenFixtures(season: string): Promise<Fixture[]>` (rows from `public.fixtures` for that season whose `score_a` is null, ordered by `sort_order`; `Fixture` mirrors that table's columns), `submitReport(input: SubmitReportInput): Promise<{ reportId: string }>` where `SubmitReportInput = { season: string; phase: string; teamAId: string; teamBId: string; scoreA: number; scoreB: number; draftUrl: string | null; fixtureId: string | null; games: { gameNumber: number; matchId: string; blueTeamId: string | null }[] }` (inserts the report then its games; on failure of the games insert, deletes the report row so no orphan queue entry survives).
-- Form behaviour: page is a server component that gates on sign-in (`createServerSupabase().auth.getUser()`; signed-out shows a branded "Sign in to report" card with a `/login` link) and renders `ReportForm` with teams + settings fetched server-side. `ReportForm` (client): paste textarea → "Parse" button → fills team selects, score inputs, season/phase (defaults from settings), draft url, and a game row list (game number, match id, blue-side select with options Auto-detect / Team A / Team B). Rows are addable/removable manually. **MERGE AMENDMENT:** the form also carries an optional "Attach to schedule fixture" select, populated by `fetchOpenFixtures(season)` and labelled `<stage> — <team_a> vs <team_b>` (default "Not on the schedule"), whose value becomes `fixtureId` in the submit payload; Task 8 uses it to fill that fixture's score automatically. Submit validates: both teams set and different, ≥1 game, every match id matching `^NA1_\d+$`, no duplicate ids within the form, and none already known (`fetchExistingMatchIds`) — each failure shown inline. Success → redirect to `/matches`.
+- Consumes: `league_teams`, `profiles`, `public.fixtures`, `league_settings` (`current_season`, `featured_draft_id`), `public.teams`/`players` (draft rosters), `public.is_admin()`.
+- Produces:
+  - `league_team_captains(id uuid pk default gen_random_uuid(), league_team_id uuid not null references league_teams(id) on delete cascade, season text not null, profile_id uuid not null references profiles(id) on delete cascade, unique (league_team_id, season, profile_id))`. RLS: public `select`; admin-only write.
+  - `public.sync_league_team_captains(p_season text) returns int` — `security definer`, `set search_path = public`: for the draft in `league_settings.featured_draft_id`, insert a `league_team_captains` row for every `teams.captain_profile_id is not null` whose `lower(trim(teams.name))` equals `lower(trim(league_teams.name))`, `on conflict do nothing`; returns the number of rows inserted. Re-runnable.
+  - `public.is_captain_of(p_league_team_id uuid, p_season text) returns boolean` — `stable security definer`, `set search_path = public`: `exists (select 1 from league_team_captains where league_team_id = p_league_team_id and season = p_season and profile_id = auth.uid())`.
+  - `match_codes(id uuid pk default gen_random_uuid(), fixture_id uuid references public.fixtures(id) on delete set null, season text not null, team_a_id uuid not null references league_teams(id), team_b_id uuid not null references league_teams(id), game_number int not null, code text not null, note text, created_by uuid references profiles(id), created_at timestamptz not null default now(), check (team_a_id <> team_b_id))` + `create unique index match_codes_fixture_game_key on match_codes (fixture_id, game_number) where fixture_id is not null`. RLS: **select** `using (public.is_admin() or public.is_captain_of(team_a_id, season) or public.is_captain_of(team_b_id, season))`; **all writes** admin-only. This is the only non-public table in the app.
+  - `announcements(id uuid pk default gen_random_uuid(), title text not null, body text not null, pinned boolean not null default false, created_by uuid references profiles(id), created_at timestamptz not null default now())`. RLS: select for `authenticated` where `public.is_admin() or exists (select 1 from league_team_captains where profile_id = auth.uid())`; admin-only write.
+  - Grants: `league_team_captains` select → `anon, authenticated`; `match_codes` and `announcements` select → `authenticated` ONLY (no anon grant at all — defence in depth beneath RLS); `insert, update, delete` → `authenticated` on all three; `all` → `service_role`.
 
-- [ ] Steps: write `queries.ts` → server page + gate → `ReportForm` → manual browser check with the exact Discord paste (scratch playwright, signed in as an admin/captain; verify the row lands in `match_reports` + 3 games via psql) → gates incl. one `npm run e2e` → commit `feat: match report form`.
+- [ ] **Step 1: Failing pgTAP** — `supabase/tests/0020_captain_page_test.sql`, `plan(12)`. Build fixtures inside the transaction: three `league_teams` (Alpha, Bravo, Gamma); `league_team_captains` rows making `tests.cap(1)` captain of Alpha and `tests.cap(2)` captain of Gamma for season `'ZZ'`; a `match_codes` row for an Alpha-vs-Bravo fixture in `'ZZ'`. Assertions: the three tables exist; `has_function` for `sync_league_team_captains` and `is_captain_of`; anon CANNOT select `match_codes`; `tests.acting_as(tests.cap(1))` CAN select that row; `tests.acting_as(tests.cap(2))` (captain of an unrelated team) CANNOT; `tests.acting_as(tests.admin_id())` CAN; a captain CANNOT insert into `match_codes`; an admin CAN; `is_captain_of` returns false for the wrong season; `sync_league_team_captains('ZZ')` runs and is re-runnable (call twice; the second returns 0). **Do NOT use `set local row_security = off` anywhere** — it masks policy evaluation and makes denial assertions vacuous (this bit us in Task 2).
+- [ ] **Step 2: Write the migration** per Interfaces.
+- [ ] **Step 3:** `npx supabase db reset` → `npx tsx scripts/load-stats.ts` → `npx supabase test db` green.
+- [ ] **Step 4: Gates + commit** `feat: captain page tables (codes, captains, announcements)`.
 
-### Task 5: Matches list + needs-sides fixer + nav
+### Task 5: `/captain` page — gate, captain sections, report box
 
 **Files:**
-- Create: `src/app/matches/page.tsx`, `src/components/matches/ReportList.tsx`, `src/components/matches/NeedsSidesFixer.tsx`
-- Modify: `src/components/SiteNavigation.tsx` (add `Matches` → `/matches` into the existing `NAV_LINKS` array, positioned immediately after `Schedule` since they are the same concept; the desktop bar and mobile hamburger both already tolerate another item)
+- Create: `src/lib/captain/queries.ts`, `src/lib/captain/nextMatch.ts`, `src/lib/captain/nextMatch.test.ts`, `src/app/captain/page.tsx`, `src/components/captain/CaptainGate.tsx`, `src/components/captain/NextMatchCard.tsx`, `src/components/captain/TourneyCodes.tsx`, `src/components/captain/ReportBox.tsx`, `src/components/captain/MyRoster.tsx`, `src/components/captain/MyResults.tsx`, `src/components/captain/Announcements.tsx`
+- Modify: `src/components/SiteNavigation.tsx` (add `Captain` → `/captain` after `Schedule`)
 
 **Interfaces:**
-- Consumes: `queries.ts` (T4), types (T3).
-- Produces: `ReportList` — public, newest first: each report a `card-brand` showing `TEAM_A_ABBREV score-score TEAM_B_ABBREV`, season/phase, submitter display name, submitted date, a status pill (pending steel / ingested emerald / needs_sides gold / failed red), per-game rows (game number, match id, per-game status, resolved blue team when known), and `error_text`/`warning_text` when present. Admins additionally get "Retry" (sets report `status='pending'`, clears `error_text`, and sets each non-ingested game back to `pending`) and "Delete". When `status = 'needs_sides'`, `NeedsSidesFixer` renders inline for admins **and** captains: a select per unresolved game (Team A / Team B) that writes `blue_team_id` and sets the game `status='pending'`, then flips the report to `pending` once no game remains unresolved.
-- `queries.ts` gains `setGameBlueTeam(gameId: string, blueTeamId: string): Promise<void>`, `retryReport(reportId: string): Promise<void>`, `deleteReport(reportId: string): Promise<void>`.
+- Consumes: Task 3's `parseReport` + `src/lib/matches/types.ts`, Task 2's report tables, Task 4's new tables, `stats_game_log`/`stats_player_agg`, `createServerSupabase`, `createClient`.
+- Produces:
+  - `nextMatch.ts`: `export function pickNextFixture(fixtures: Fixture[], teamName: string): Fixture | null` — pure: keep rows whose `score_a` is null and whose `team_a` or `team_b` equals `teamName` case-insensitively after trimming; sort by `scheduled_at` ascending with nulls last, tie-break `sort_order`; return the first or null. Unit-tested.
+  - `queries.ts`: `fetchCaptainContext()` → `{ profileId, isAdmin, teams: LeagueTeam[], myTeamId: string | null, season: string }`; plus `fetchCodes(fixtureId)`, `fetchMyReports(teamId, season)`, `fetchMyRoster(teamId, season)`, `fetchMyResults(teamName, season)`, `fetchAnnouncements()`, and `submitReport(input)` where `SubmitReportInput = { season: string; phase: string; teamAId: string; teamBId: string; scoreA: number; scoreB: number; draftUrl: string | null; fixtureId: string | null; games: { gameNumber: number; matchId: string; blueTeamId: string | null }[] }` (insert the report, then its games; delete the report if the games insert fails so no orphan queue entry survives; always set `submitted_by` so the submitter-delete policy is reachable).
+  - `src/app/captain/page.tsx`: server component. Resolves signed-in profile, admin flag, `league_settings.current_season`, and the captain's `league_team` via `league_team_captains`; admins get all teams plus a `?team=<id>` switcher. Renders `CaptainGate` (branded "captains only" card + `/login` link) when neither captain nor admin — never a 404.
+  - Sections in spec order: `NextMatchCard` (opponent, kickoff, `Bo{n}`, stage, empty state "No upcoming match scheduled."), `TourneyCodes` (codes for that fixture ordered by game number, copy button each, empty state "No codes posted yet — your admin will add them before the match."), `ReportBox` (Task 3 paste parser + editable form pre-filled with season/phase/teams/`fixture_id` from the resolved fixture, plus that captain's own reports with status badges and the needs-sides fixer), `MyRoster` (draft roster rows + Riot IDs on record, read-only, with a "tell an admin if one is wrong" note), `MyResults` (`stats_game_log` rows for their team name + their players' `stats_player_agg` lines), `Announcements` (pinned first then newest, plus links to `/info` and `/schedule`).
+- Report-box validation (unchanged from the superseded plan): both teams set and different, ≥1 game, every id matching `^NA1_\d+$`, no duplicates within the form, none already in `match_report_games` or `raw_stats`; each failure shown inline; success clears the paste box and refreshes the captain's report list.
 
-- [ ] Steps: list page + component → fixer → nav entry → browser check (seed a report via psql in each status; verify badges + admin actions; verify a captain can set sides and an anonymous visitor sees no controls) → gates → commit `feat: matches list with needs-sides fixing`.
+- [ ] Steps: `nextMatch.ts` + unit tests → `queries.ts` → server page + gate → the six section components → nav entry → browser verification with scratch Playwright as (a) signed-out visitor, (b) a captain (seed `league_team_captains` + a fixture + codes via psql), (c) an admin using the switcher — explicitly confirming a captain of another team CANNOT see the first team's codes → full gates incl. one `npm run e2e` → commit `feat: private captain page with codes, reporting and team info`.
 
-### Task 6: Admin editors (league teams, rosters)
-
-**MERGE AMENDMENT (2026-08-11):** `LeagueSettingsEditor` is **DROPPED** — `src/components/schedule/AdminSeasonSettings.tsx`, already mounted on `/schedule`, already edits `league_settings.current_season/current_phase` with the same upsert-on-`id=1` pattern this task specified. Building a second one duplicates shipped work. The two remaining editors mount on **`/matches`** (behind the page's own `isAdmin` check), not `/admin`, following the co-developer's established precedent of embedding admin controls on the page they configure (`AdminFixturesEditor` and `AdminSeasonSettings` both live on `/schedule`).
+### Task 6: Admin panels on `/captain` (codes, teams, rosters, all-reports)
 
 **Files:**
-- Create: `src/components/matches/LeagueTeamsEditor.tsx`, `src/components/matches/RosterEditor.tsx`
-- Modify: `src/app/matches/page.tsx` (mount both for admins, each in a `card-brand` section with a `label-dash` heading, below the report list)
+- Create: `src/components/captain/AdminCodeEditor.tsx`, `src/components/captain/AdminReportsQueue.tsx`, `src/components/matches/LeagueTeamsEditor.tsx`, `src/components/matches/RosterEditor.tsx`
+- Modify: `src/app/captain/page.tsx` (mount the four for admins, below the captain sections)
 
 **Interfaces:**
-- Consumes: types (T3), browser Supabase client; the `/matches` page's `isAdmin` flag (same server-side pattern `src/app/schedule/page.tsx` uses).
-- Produces: `LeagueTeamsEditor` — table of `league_teams` with editable name/abbreviation/active, add row, delete row (guarded: refuse delete when the team is referenced by a report, surfacing the DB error message). `RosterEditor` — season selector (defaults to `league_settings.current_season`), team selector, list of that team's memberships showing `Name#TAG`, an add box accepting `Name#TAG` (splits on the last `#`; creates the `riot_accounts` row when absent via upsert on the lower-cased pair, then the membership), and a remove button per row; a paste-multiple textarea accepting one `Name#TAG` per line for bulk add.
+- Consumes: Task 4 tables, Task 2 report tables, Task 1's `league_teams`/`riot_accounts`/`roster_memberships`.
+- Produces:
+  - `AdminCodeEditor` — pick a fixture (open fixtures for the current season, labelled `<stage> — <team_a> vs <team_b>`), a textarea for codes one per line, Save. Saving replaces that fixture's code set (delete then insert, numbering games 1..N in line order), resolving `team_a_id`/`team_b_id` from the fixture's team names against `league_teams` (case-insensitive, trimmed) and refusing with a clear message when a name doesn't resolve.
+  - `AdminReportsQueue` — every report newest first with status badges, `error_text`/`warning_text`, per-game rows, plus Retry (report `status='pending'`, clear `error_text`, non-ingested games back to `pending`) and Delete; and the needs-sides fixer for any game lacking a resolved side.
+  - `LeagueTeamsEditor` — table of `league_teams` with editable name/abbreviation/active, add row, delete row (surfacing the DB error verbatim when the team is still referenced).
+  - `RosterEditor` — season selector (defaults to `current_season`), team selector, that team's memberships shown as `Name#TAG`, an add box accepting `Name#TAG` (split on the last `#`, upsert `riot_accounts` on the lower-cased pair, then the membership), a remove button per row, and a bulk paste textarea (one `Name#TAG` per line).
+- **DROPPED from the original plan:** `LeagueSettingsEditor` — a co-developer's `AdminSeasonSettings` on `/schedule` already edits `league_settings.current_season/current_phase`.
 
-- [ ] Steps: teams editor → roster editor → browser check as admin (add a roster entry, confirm rows in psql; confirm a signed-out visitor sees neither editor) → gates → commit `feat: admin editors for league teams and rosters`.
+- [ ] Steps: code editor → reports queue → teams editor → roster editor → browser check as admin (paste codes for a fixture, confirm rows in psql AND that the two assigned captains can see them while a third captain cannot; add a roster entry; retry a failed report) → gates → commit `feat: admin panels on the captain page`.
 
 ### Task 7: `--from-reports` ingest mode + GitHub Actions workflow
 
@@ -288,7 +304,7 @@ jobs:
 ### Task 8: Auto-fill schedule scores from ingested reports (NEW — merge amendment)
 
 **Files:**
-- Modify: `scripts/riot_stats_ingest.py`, `scripts/test_riot_stats_ingest.py`, `src/components/matches/ReportList.tsx`
+- Modify: `scripts/riot_stats_ingest.py`, `scripts/test_riot_stats_ingest.py`, `src/components/captain/ReportBox.tsx` (captain's own report list) and `src/components/captain/AdminReportsQueue.tsx`
 
 **Interfaces:**
 - Consumes: `match_reports.fixture_id` (T2), `ingest_report` (T7), `public.fixtures` (co-developer's schedule table: `score_a int`, `score_b int`, paired null check).
@@ -296,14 +312,14 @@ jobs:
 
 - [ ] **Step 1: Failing Python tests** — `sync_fixture_score` fills an empty fixture (asserts the PATCH URL carries both `is.null` filters and the body carries both scores); no-ops when `fixture_id` is null (no request made); treats an empty PostgREST response (fixture already scored) as "not updated" without raising. Use the existing monkeypatched-`requests` harness style; no network.
 - [ ] **Step 2: Implement** and call it from the report loop right after a report is marked `ingested`.
-- [ ] **Step 3: ReportList indicator** — when a report has `fixture_id`, show a small steel "Schedule" chip; add a gold "Synced" chip once the report is `ingested` (the fixture's own score is the source of truth on `/schedule`; no extra fetch needed here).
+- [ ] **Step 3: Report list indicators** — in both the captain's own report list and the admin queue: when a report has `fixture_id`, show a small steel "Schedule" chip; add a gold "Synced" chip once the report is `ingested` (the fixture's own score is the source of truth on `/schedule`; no extra fetch needed here).
 - [ ] **Step 4: Local rehearsal** — insert a fixture with null scores plus a report linked to it, run the ingest against local, confirm via psql that the fixture's scores now match the report and that re-running does not change an admin-edited score.
 - [ ] **Step 5: Gates + commit** `feat: fill schedule fixture scores from ingested reports`.
 
 ### Task 9: Verification + production rollout
 
 - [ ] **Step 1: Full gates** — build, lint, `npm test`, `npx supabase test db`, both Python test styles, one `npm run e2e` (retry once on the known flake).
-- [ ] **Step 2: Screenshot sweep** — `/matches` (empty state + populated with each status, incl. the Schedule/Synced chips), `/matches/report` (paste → parsed form, incl. the fixture-attach select), the admin editors on `/matches`, and the new nav entry; desktop 1600w plus one 390w mobile shot of `/matches`. Also confirm `/schedule` still renders correctly with its own admin editors and that its `?season=` query param does not collide with any `/matches` filter. Read every screenshot; fix styling-only issues found.
+- [ ] **Step 2: Screenshot sweep** — `/captain` as a signed-out visitor (gate card), as a captain (all six sections incl. codes and the report box with Schedule/Synced chips), and as an admin (team switcher + the four admin panels), plus the new nav entry; desktop 1600w plus one 390w mobile shot of `/matches`. Also confirm `/schedule` still renders correctly with its own admin editors and that its `?season=` query param does not collide with any `/matches` filter. Read every screenshot; fix styling-only issues found.
 - [ ] **Step 3: Production migrations** — verify `Get-Content supabase\.temp\project-ref` is `tyywoneobreracfnujdk`, then `npx supabase db push`. Confirm via REST that `league_teams` is populated in production (the loader's sync RPC has not run there — call `POST /rest/v1/rpc/sync_league_teams_from_stats` with the service key once and re-check).
 - [ ] **Step 4: Report the manual steps the user must do** (they hold the credentials): add the three GitHub repo secrets, and confirm the first scheduled/manual workflow run. Do NOT attempt to set secrets.
 - [ ] **Step 5: Commit any fixes; push `main` is the controller's job at merge time.**
