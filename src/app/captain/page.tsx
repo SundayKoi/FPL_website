@@ -6,10 +6,11 @@ import {
   fetchMyReports,
   fetchMyResults,
   fetchMyRoster,
+  type MatchCode,
 } from "@/lib/captain/queries";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
 import type { FixtureRow } from "@/lib/schedule/types";
-import type { LeagueTeam } from "@/lib/matches/types";
+import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
 import CaptainGate from "@/components/captain/CaptainGate";
 import NextMatchCard from "@/components/captain/NextMatchCard";
 import TourneyCodes from "@/components/captain/TourneyCodes";
@@ -17,6 +18,10 @@ import ReportBox from "@/components/captain/ReportBox";
 import MyRoster from "@/components/captain/MyRoster";
 import MyResults from "@/components/captain/MyResults";
 import Announcements from "@/components/captain/Announcements";
+import AdminCodeEditor from "@/components/captain/AdminCodeEditor";
+import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
+import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
+import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -95,6 +100,29 @@ export default async function CaptainPage({
     fetchAnnouncements(supabase),
   ]);
 
+  // Admin-only data for the four panels below the captain sections. Fetched
+  // inline here (rather than via src/lib/captain/queries.ts) and unfiltered
+  // by team/season -- admins manage the whole league, not just one team --
+  // see task-6-brief.md.
+  let allReports: MatchReport[] = [];
+  let allGames: MatchReportGame[] = [];
+  let allCodes: MatchCode[] = [];
+  let allMemberships: RosterMembershipRow[] = [];
+  if (context.isAdmin) {
+    const [reportsResult, gamesResult, codesResult, membershipsResult] = await Promise.all([
+      supabase.from("match_reports").select("*").order("submitted_at", { ascending: false }),
+      supabase.from("match_report_games").select("*"),
+      supabase.from("match_codes").select("*"),
+      supabase
+        .from("roster_memberships")
+        .select("id, season, league_team_id, riot_accounts(id, game_name, tag_line, display_name)"),
+    ]);
+    allReports = (reportsResult.data as MatchReport[]) ?? [];
+    allGames = (gamesResult.data as MatchReportGame[]) ?? [];
+    allCodes = (codesResult.data as MatchCode[]) ?? [];
+    allMemberships = (membershipsResult.data as RosterMembershipRow[]) ?? [];
+  }
+
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
@@ -148,6 +176,19 @@ export default async function CaptainPage({
           <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
           <MyResults teamName={activeTeam.name} games={results.games} players={results.players} />
           <Announcements announcements={announcements} />
+
+          {context.isAdmin && (
+            <div className="mt-4 flex flex-col gap-6 border-t border-line pt-8">
+              <div>
+                <span className="label-dash">Admin</span>
+                <h2 className="type-display mt-2 text-3xl">League admin</h2>
+              </div>
+              <AdminCodeEditor fixtures={fixtures} teams={context.teams} codes={allCodes} />
+              <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
+              <LeagueTeamsEditor teams={context.teams} />
+              <RosterEditor teams={context.teams} defaultSeason={context.season} memberships={allMemberships} />
+            </div>
+          )}
         </div>
       </div>
     </main>
