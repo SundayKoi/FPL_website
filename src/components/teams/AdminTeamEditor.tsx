@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Team } from "@/lib/draft/types";
+import { isHexBannerColor, normalizeBannerColor } from "@/lib/teams/bannerColor";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -17,6 +18,7 @@ type FormStatus =
 type TeamFormState = {
   name: string;
   abbreviation: string;
+  bannerColor: string;
   captainProfileId: string;
   currentImageUrl: string | null;
   selectedFile: File | null;
@@ -37,6 +39,7 @@ function formStateFor(teams: Team[]): Record<string, TeamFormState> {
       {
         name: team.name,
         abbreviation: team.abbreviation.toUpperCase(),
+        bannerColor: normalizeBannerColor(team.banner_color),
         captainProfileId: team.captain_profile_id ?? "",
         currentImageUrl: team.image_url,
         selectedFile: null,
@@ -97,12 +100,14 @@ function DraftTeamEditor({
 
     const name = form.name.trim();
     const abbreviation = form.abbreviation.trim().toUpperCase();
-    if (!name || !/^[A-Z0-9]{1,5}$/.test(abbreviation)) {
+    const bannerColor = form.bannerColor.trim().toLowerCase();
+    if (!name || !/^[A-Z0-9]{1,5}$/.test(abbreviation) || !isHexBannerColor(bannerColor)) {
       setForm(team.id, {
         abbreviation,
+        bannerColor,
         status: {
           kind: "error",
-          message: "Enter a team name, an abbreviation of 1–5 characters, and an allowed image file.",
+          message: "Enter a team name, an abbreviation of 1–5 characters, a hex banner color, and an allowed image file.",
         },
       });
       return;
@@ -123,7 +128,7 @@ function DraftTeamEditor({
     const previousObjectPath = managedObjectPath(form.currentImageUrl, draftId, team.id);
     let imageUrl = form.currentImageUrl;
     let uploadedObjectPath: string | null = null;
-    setForm(team.id, { abbreviation, status: { kind: "saving" } });
+    setForm(team.id, { abbreviation, bannerColor, status: { kind: "saving" } });
 
     try {
       if (form.selectedFile) {
@@ -146,6 +151,7 @@ function DraftTeamEditor({
           abbreviation,
           captain_profile_id: form.captainProfileId || null,
           image_url: imageUrl,
+          banner_color: bannerColor,
         })
         .eq("id", team.id)
         .eq("draft_id", draftId)
@@ -179,6 +185,7 @@ function DraftTeamEditor({
       setForm(team.id, {
         name,
         abbreviation,
+        bannerColor,
         currentImageUrl: imageUrl,
         selectedFile: null,
         status: { kind: "success", message: "Team saved." },
@@ -273,6 +280,9 @@ function DraftTeamEditor({
         const form = forms[team.id];
         const isSaving = form.status.kind === "saving";
         const prefix = `team-${team.id}`;
+        const colorPickerValue = isHexBannerColor(form.bannerColor)
+          ? form.bannerColor
+          : normalizeBannerColor(team.banner_color);
         return (
           <form
             key={team.id}
@@ -283,7 +293,7 @@ function DraftTeamEditor({
             }}
             className="card-brand flex flex-col gap-4 p-4"
           >
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-name`}>
                 Team name
                 <input
@@ -328,6 +338,35 @@ function DraftTeamEditor({
                   ))}
                 </select>
               </label>
+              <div className="flex flex-col gap-1 text-xs text-steel">
+                <span>Banner color</span>
+                <div className="flex gap-2">
+                  <input
+                    id={`${prefix}-banner-color`}
+                    aria-label={`${team.name} banner color`}
+                    type="color"
+                    value={colorPickerValue}
+                    disabled={isSaving}
+                    onChange={(event) =>
+                      setForm(team.id, { bannerColor: event.target.value, status: { kind: "idle" } })
+                    }
+                    className="h-10 w-12 shrink-0 cursor-pointer rounded border border-line bg-navy p-1 disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <input
+                    id={`${prefix}-banner-hex-code`}
+                    aria-label={`${team.name} banner hex code`}
+                    value={form.bannerColor}
+                    disabled={isSaving}
+                    maxLength={7}
+                    placeholder="#083344"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      setForm(team.id, { bannerColor: event.target.value, status: { kind: "idle" } })
+                    }
+                    className="min-w-0 flex-1 rounded border border-line bg-navy px-3 py-2 font-mono text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
+                  />
+                </div>
+              </div>
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-image`}>
                 Team image
                 <input

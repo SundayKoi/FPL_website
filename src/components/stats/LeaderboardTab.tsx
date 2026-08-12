@@ -7,6 +7,7 @@ import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
 import CompareDrawer from "./CompareDrawer";
+import { RoleChip } from "./statsUi";
 
 const MIN_GAMES_OPTIONS = [1, 3, 5, 8, 10] as const;
 const ROLES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] as const;
@@ -222,6 +223,14 @@ export default function LeaderboardTab({
     return edge === "top" ? sorted.slice(0, 10) : sorted.slice(-10).reverse();
   }, [sorted, edge]);
 
+  const sortCol = COLUMNS.find((c) => c.key === sortKey)!;
+  // Peak value of the active numeric sort column across visible rows — used
+  // to scale the inline neon bar drawn behind that column's cells.
+  const sortMax = useMemo(() => {
+    if (!sortCol.numeric) return 0;
+    return visible.reduce((m, r) => Math.max(m, Number(sortCol.sortValue(r))), 0);
+  }, [visible, sortCol]);
+
   const handleSort = (key: ColumnKey) => {
     if (key === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -271,14 +280,14 @@ export default function LeaderboardTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card-brand flex flex-col gap-3 p-4">
+      <div className="card-neon flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center gap-3">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search players…"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
           />
 
           <div className="ml-auto flex gap-1">
@@ -286,8 +295,10 @@ export default function LeaderboardTab({
               type="button"
               aria-pressed={edge === "top"}
               onClick={() => setEdge((e) => (e === "top" ? null : "top"))}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                edge === "top" ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                edge === "top"
+                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                  : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               Top 10
@@ -296,8 +307,10 @@ export default function LeaderboardTab({
               type="button"
               aria-pressed={edge === "bottom"}
               onClick={() => setEdge((e) => (e === "bottom" ? null : "bottom"))}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                edge === "bottom" ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                edge === "bottom"
+                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                  : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               Bottom 10
@@ -307,15 +320,17 @@ export default function LeaderboardTab({
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="label-dash">Min games</span>
+            <span className="mono-label mr-1">Min games</span>
             {MIN_GAMES_OPTIONS.map((n) => (
               <button
                 key={n}
                 type="button"
                 aria-pressed={minGames === n}
                 onClick={() => setMinGames(n)}
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  minGames === n ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                  minGames === n
+                    ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                    : "border border-line bg-panel text-steel hover:text-white"
                 }`}
               >
                 {n}+
@@ -324,13 +339,15 @@ export default function LeaderboardTab({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="label-dash">Role</span>
+            <span className="mono-label mr-1">Role</span>
             <button
               type="button"
               aria-pressed={roleFilter === null}
               onClick={() => setRoleFilter(null)}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                roleFilter === null ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                roleFilter === null
+                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                  : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               All
@@ -341,8 +358,10 @@ export default function LeaderboardTab({
                 type="button"
                 aria-pressed={roleFilter === r}
                 onClick={() => setRoleFilter((cur) => (cur === r ? null : r))}
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${
-                  roleFilter === r ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase transition ${
+                  roleFilter === r
+                    ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                    : "border border-line bg-panel text-steel hover:text-white"
                 }`}
               >
                 {r}
@@ -358,11 +377,16 @@ export default function LeaderboardTab({
           <p className="mt-2 text-steel">No players match these filters.</p>
         </div>
       ) : (
-        <div className="card-brand overflow-x-auto p-2">
+        <div className="card-neon overflow-x-auto p-2">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
-              <tr>
-                <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">Compare</th>
+              <tr className="border-b border-cyan/20">
+                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                  vs
+                </th>
+                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                  #
+                </th>
                 {COLUMNS.map((col) => {
                   const active = sortKey === col.key;
                   return (
@@ -374,8 +398,8 @@ export default function LeaderboardTab({
                       <button
                         type="button"
                         onClick={() => handleSort(col.key)}
-                        className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide ${
-                          active ? "text-gold" : "text-steel hover:text-white"
+                        className={`flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${
+                          active ? "text-cyan [text-shadow:0_0_8px_rgb(53_230_255/0.4)]" : "text-steel hover:text-white"
                         }`}
                       >
                         {col.label}
@@ -387,9 +411,20 @@ export default function LeaderboardTab({
               </tr>
             </thead>
             <tbody>
-              {visible.map((row) => {
+              {visible.map((row, i) => {
                 const key = playerKey(row);
                 const checked = compareKeys.includes(key);
+                // Top-3 shimmer only applies to a descending sort (an actual
+                // ranking) with no edge/bottom filter reversing the order.
+                const rankHighlight = !edge && sortDir === "desc" ? i + 1 : 0;
+                const rankClass =
+                  rankHighlight === 1
+                    ? "row-rank-1"
+                    : rankHighlight === 2
+                      ? "row-rank-2"
+                      : rankHighlight === 3
+                        ? "row-rank-3"
+                        : "";
                 return (
                   <tr
                     key={key}
@@ -403,7 +438,7 @@ export default function LeaderboardTab({
                         onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag });
                       }
                     }}
-                    className="cursor-pointer border-t border-line/60 hover:bg-navy/60"
+                    className={`cursor-pointer border-t border-line/50 transition hover:bg-cyan/5 ${rankClass}`}
                   >
                     <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input
@@ -412,17 +447,47 @@ export default function LeaderboardTab({
                         onChange={() => toggleCompare(row)}
                         disabled={!checked && compareKeys.length >= MAX_COMPARE}
                         aria-label={`Compare ${row.summoner_name}`}
-                        className="h-4 w-4 accent-gold"
+                        className="h-4 w-4 accent-cyan"
                       />
                     </td>
-                    {COLUMNS.map((col) => (
-                      <td
-                        key={col.key}
-                        className={`px-2 py-1.5 ${col.key === "player" ? "text-white" : "text-steel"}`}
-                      >
-                        {col.display(row)}
-                      </td>
-                    ))}
+                    <td className="px-2 py-1.5 font-mono text-xs text-steel">{i + 1}</td>
+                    {COLUMNS.map((col) => {
+                      if (col.key === "role_mode") {
+                        return (
+                          <td key={col.key} className="px-2 py-1.5">
+                            <RoleChip role={row.role_mode} />
+                          </td>
+                        );
+                      }
+                      // The active numeric sort column gets a faint neon bar
+                      // behind its value, scaled to the peak in view.
+                      const isSortedNumeric = col.key === sortKey && col.numeric && sortMax > 0;
+                      if (isSortedNumeric) {
+                        const pct = Math.max(0, Math.min(100, (Number(col.sortValue(row)) / sortMax) * 100));
+                        return (
+                          <td key={col.key} className="relative px-2 py-1.5">
+                            <span
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-y-1 left-0 rounded-r bg-cyan/15"
+                              style={{ width: `${pct}%` }}
+                            />
+                            <span className="relative font-mono font-semibold text-white">
+                              {col.display(row)}
+                            </span>
+                          </td>
+                        );
+                      }
+                      return (
+                        <td
+                          key={col.key}
+                          className={`px-2 py-1.5 ${
+                            col.key === "player" ? "font-semibold text-white" : "font-mono text-steel"
+                          }`}
+                        >
+                          {col.display(row)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}

@@ -577,6 +577,38 @@ def run_team_map_tests():
     return True
 
 
+def run_resolve_season_phase_tests():
+    """resolve_season_phase merges explicit flags with the league_settings
+    pair: flags win, fetched fills gaps, holes stay None."""
+    from riot_stats_ingest import resolve_season_phase
+
+    failures = []
+    cases = [
+        # (flag_season, flag_phase, fetched, expected)
+        ("S5", "Regular", None, ("S5", "Regular")),  # flags alone
+        (None, None, ("S6", "Playoffs"), ("S6", "Playoffs")),  # fetched alone
+        ("S7", None, ("S6", "Playoffs"), ("S7", "Playoffs")),  # flag overrides season
+        (None, "Regular", ("S6", "Playoffs"), ("S6", "Regular")),  # flag overrides phase
+        (None, None, None, (None, None)),  # nothing anywhere
+        ("S5", None, None, ("S5", None)),  # hole stays None
+    ]
+    for flag_season, flag_phase, fetched, expected in cases:
+        got = resolve_season_phase(flag_season, flag_phase, fetched)
+        if got != expected:
+            failures.append(
+                f"resolve_season_phase({flag_season!r}, {flag_phase!r}, {fetched!r}) = {got!r}, want {expected!r}"
+            )
+
+    if failures:
+        print(f"FAILED: {len(failures)} resolve_season_phase assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: all resolve_season_phase assertions passed.")
+    return True
+
+
 # ============================================================
 # pytest entry points (collected automatically if pytest is present)
 # ============================================================
@@ -590,10 +622,14 @@ def test_team_map():
     assert run_team_map_tests() is True
 
 
+def test_resolve_season_phase():
+    assert run_resolve_season_phase_tests() is True
+
+
 # ============================================================
 # plain-python entry point
 # ============================================================
 
 if __name__ == "__main__":
-    ok = run_tests() and run_team_map_tests()
+    ok = run_tests() and run_team_map_tests() and run_resolve_season_phase_tests()
     sys.exit(0 if ok else 1)

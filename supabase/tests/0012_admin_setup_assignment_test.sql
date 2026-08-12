@@ -15,7 +15,7 @@ create temporary table ids as
 
 select tests.acting_as(tests.admin_id());
 select lives_ok($$ select public.admin_assign_setup_player(
-  (select d from t), (select mid1 from ids), (select team_a from ids), 12
+  (select d from t), (select mid1 from ids), (select team_a from ids), 12, 'free_agency'
 ) $$, 'admin assigns an existing pool player during setup');
 select is((select team_id from public.players where id = (select mid1 from ids)),
           (select team_a from ids), 'setup player is assigned to the selected team');
@@ -32,18 +32,18 @@ select tests.acting_as(tests.cap(1));
 select throws_like($$ select public.admin_assign_setup_player(
   (select d from t),
   (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
-  (select team_a from ids), 1
+  (select team_a from ids), 1, 'free_agency'
 ) $$, 'NOT_ADMIN%', 'captain cannot assign during setup');
 
 select tests.acting_as(tests.admin_id());
 select throws_like($$ select public.admin_assign_setup_player(
-  (select d from t), (select other_mid1 from ids), (select team_a from ids), 1
+  (select d from t), (select other_mid1 from ids), (select team_a from ids), 1, 'free_agency'
 ) $$, 'PLAYER_INVALID%', 'wrong-draft player is rejected');
 select ok((select team_id is null and price is null and acquisition is null
            from public.players where id = (select other_mid1 from ids)),
           'cross-draft rejection leaves the other draft player unchanged');
 select throws_like($$ select public.admin_assign_setup_player(
-  (select d from t), (select mid1 from ids), (select team_a from ids), 1
+  (select d from t), (select mid1 from ids), (select team_a from ids), 1, 'free_agency'
 ) $$, 'PLAYER_TAKEN%', 'occupied player is rejected');
 select ok((select team_id = (select team_a from ids) and price = 12
                   and acquisition::text = 'free_agency'
@@ -52,7 +52,7 @@ select ok((select team_id = (select team_a from ids) and price = 12
 select throws_like($$ select public.admin_assign_setup_player(
   (select d from t),
   (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
-  (select team_a from ids), 1
+  (select team_a from ids), 1, 'free_agency'
 ) $$, 'SETUP_FULL%', 'full prefill team is rejected');
 select ok((select team_id is null and price is null from public.players
            where draft_id = (select d from t) and display_name = 'Mid2'),
@@ -63,7 +63,8 @@ select throws_like($$ select public.admin_assign_setup_player(
   (select d from t),
   (select id from public.players where draft_id = (select d from t) and display_name = 'Adc2'),
   (select id from public.teams where draft_id = (select d from t) and nomination_position = 2),
-  999
+  999,
+  'free_agency'
 ) $$, 'INSUFFICIENT_POINTS%', 'insufficient setup points are rejected');
 select is((select points_remaining from public.teams
            where draft_id = (select d from t) and nomination_position = 2), 90,
@@ -78,7 +79,8 @@ select throws_like($$ select public.admin_assign_setup_player(
   (select d from role_case),
   (select id from public.players where draft_id = (select d from role_case) and display_name = 'Pool Top'),
   (select id from public.teams where draft_id = (select d from role_case) and nomination_position = 1),
-  5
+  5,
+  'free_agency'
 ) $$, 'ROLE_FILLED%', 'filled setup role is rejected before mutation');
 select ok((select team_id is null and price is null and acquisition is null
            from public.players

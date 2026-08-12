@@ -3,23 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchPlayerAgg, fetchSeasons } from "@/lib/stats/queries";
+import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
-import MvpTab from "./MvpTab";
 import PlayerDetail from "./PlayerDetail";
 import PowerRankingsTab from "./PowerRankingsTab";
 import RecordsTab from "./RecordsTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
+import { RoleChip, StatBar, roleColor } from "./statsUi";
 import TeamsTab from "./TeamsTab";
 import TimelineTab from "./TimelineTab";
 
+// No separate MVP tab: mvpScores and powerRanking are near-identical
+// weighted percentile ladders (see formulas.ts) and produced the same names
+// in a slightly different order. Power Rankings absorbed the concept — its
+// #1 player carries the MVP crown in the hero card.
 const TABS = [
   "Leaderboard",
   "Teams",
   "Champions",
   "Records",
-  "MVP",
   "Power Rankings",
   "Timeline",
   "Players",
@@ -46,10 +50,12 @@ function PlayersTab({
   season,
   phase,
   onSelectPlayer,
+  initialQuery = "",
 }: {
   season: string;
   phase: PhaseFilter;
   onSelectPlayer: (player: SelectedPlayer) => void;
+  initialQuery?: string;
 }) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -62,7 +68,9 @@ function PlayersTab({
     setPrevFilterKey(filterKey);
     setStatus("loading");
   }
-  const [query, setQuery] = useState("");
+  // Deep-link prefill: search on the name half only — "Name#TAG" as a
+  // whole won't substring-match when the roster tag is stale.
+  const [query, setQuery] = useState(initialQuery.split("#")[0] ?? "");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
 
   useEffect(() => {
@@ -174,20 +182,29 @@ function PlayersTab({
           <p className="mt-2 text-steel">No players match these filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((row) => (
             <button
               key={playerKey(row)}
               type="button"
               onClick={() => onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag })}
-              className="card-brand flex flex-col gap-1 p-3 text-left hover:border-gold"
+              className="card-neon group flex flex-col gap-2 p-3 text-left transition hover:border-cyan/60"
             >
-              <span className="truncate text-sm font-semibold text-white">
-                {row.summoner_name}
-                <span className="text-steel">#{row.tag}</span>
-              </span>
-              <span className="text-xs text-steel">
-                {row.role_mode} · {row.games}g · {row.winrate_pct.toFixed(1)}% WR
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold text-white group-hover:text-cyan">
+                  {row.summoner_name}
+                  <span className="text-steel">#{row.tag}</span>
+                </span>
+                <RoleChip role={row.role_mode} />
+              </div>
+              <div className="flex items-center gap-2">
+                <StatBar value={row.winrate_pct} max={100} color={roleColor(row.role_mode)} />
+                <span className="shrink-0 font-mono text-xs text-steel">
+                  {row.winrate_pct.toFixed(0)}%
+                </span>
+              </div>
+              <span className="font-mono text-[11px] text-steel">
+                {row.games}G · {row.kda.toFixed(2)} KDA
               </span>
             </button>
           ))}
@@ -197,7 +214,7 @@ function PlayersTab({
   );
 }
 
-export default function StatsTabs() {
+export default function StatsTabs({ initialPlayer }: { initialPlayer?: string }) {
   const [activeTab, setActiveTab] = useState<Tab>("Leaderboard");
   const [seasons, setSeasons] = useState<string[]>([]);
   const [season, setSeason] = useState<string>(ALL_SEASONS);
@@ -209,6 +226,11 @@ export default function StatsTabs() {
   // callback — simplest consistent approach per the brief, rather than
   // duplicating detail-view state inside each tab.
   const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayer | null>(null);
+  // ?player= deep links (e.g. roster names on the teams page). Resolved
+  // against stats identities once on mount; a hit opens PlayerDetail, a
+  // miss lands on the Players tab with the query prefilled so the visitor
+  // can pick the right person instead of us guessing.
+  const [playersPrefill, setPlayersPrefill] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -218,7 +240,11 @@ export default function StatsTabs() {
         const data = await fetchSeasons();
         if (cancelled) return;
         setSeasons(data);
-        if (data.length > 0) setSeason(data[0]);
+        // With a ?player= deep link active, stay on the initial
+        // "All seasons" instead of defaulting to the newest — the resolve
+        // effect opens the card in all-seasons view and this default would
+        // race it and clobber that choice.
+        if (data.length > 0 && !initialPlayer) setSeason(data[0]);
         setSeasonsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -230,30 +256,68 @@ export default function StatsTabs() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPlayer]);
+
+  useEffect(() => {
+    if (!initialPlayer) return;
+    let cancelled = false;
+
+    async function resolve() {
+      try {
+        // Unfiltered fetch (every season/phase) so the deep link works even
+        // for players with no games in the default season.
+        const rows = await fetchPlayerAgg();
+        if (cancelled) return;
+        const match = resolvePlayerParam(rows, initialPlayer!);
+        if (match) {
+          // Open in "All seasons / All phases" so the card is never empty
+          // for a player whose games are in an earlier season than the
+          // page's default (newest) selection.
+          setSeason(ALL_SEASONS);
+          setPhase("All");
+          setSelectedPlayer(match);
+        } else {
+          setActiveTab("Players");
+          setPlayersPrefill(initialPlayer!);
+        }
+      } catch {
+        if (cancelled) return;
+        setActiveTab("Players");
+        setPlayersPrefill(initialPlayer!);
+      }
+    }
+
+    void resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPlayer]);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <nav aria-label="Stats sections" className="flex flex-wrap gap-1.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              aria-pressed={activeTab === tab}
-              onClick={() => {
-                setActiveTab(tab);
-                setSelectedPlayer(null);
-              }}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-                activeTab === tab
-                  ? "bg-gold text-navy"
-                  : "border border-line bg-panel text-steel hover:text-white"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line/70">
+        <nav aria-label="Stats sections" className="flex flex-wrap gap-x-5 gap-y-1">
+          {TABS.map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  setActiveTab(tab);
+                  setSelectedPlayer(null);
+                }}
+                className={`relative -mb-px border-b-2 px-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+                  active
+                    ? "border-cyan text-cyan [text-shadow:0_0_10px_rgb(53_230_255/0.5)]"
+                    : "border-transparent text-steel hover:text-white"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
         </nav>
 
         <SeasonSelect
@@ -285,14 +349,18 @@ export default function StatsTabs() {
         <ChampionsTab season={season} phase={phase} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} />
-      ) : activeTab === "MVP" ? (
-        <MvpTab season={season} phase={phase} />
       ) : activeTab === "Power Rankings" ? (
         <PowerRankingsTab season={season} phase={phase} />
       ) : activeTab === "Timeline" ? (
         <TimelineTab season={season} phase={phase} />
       ) : activeTab === "Players" ? (
-        <PlayersTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} />
+        <PlayersTab
+          key={playersPrefill}
+          season={season}
+          phase={phase}
+          onSelectPlayer={setSelectedPlayer}
+          initialQuery={playersPrefill}
+        />
       ) : null}
     </div>
   );

@@ -6,6 +6,7 @@ import { fetchPlayerAgg } from "@/lib/stats/queries";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { RoleChip, StatBar, tierFor } from "./statsUi";
 
 // Legacy `renderPower()`'s own min-games <select> defaults to 5+
 // (`id="prMinG"`, `<option value="5" selected>` — see formulas.ts doc
@@ -57,7 +58,7 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with
-  // phase="All" — same pattern as LeaderboardTab/MvpTab, applied BEFORE
+  // phase="All" — same pattern as LeaderboardTab, applied BEFORE
   // feeding the formula.
   const merged = useMemo(() => {
     if (season !== ALL_SEASONS && phase !== "All") return rows;
@@ -99,16 +100,18 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="card-brand flex flex-wrap items-center gap-1.5 p-4">
-        <span className="label-dash">Min games</span>
+      <div className="card-neon flex flex-wrap items-center gap-1.5 p-4">
+        <span className="mono-label mr-1">Min games</span>
         {MIN_GAMES_OPTIONS.map((n) => (
           <button
             key={n}
             type="button"
             aria-pressed={minGames === n}
             onClick={() => setMinGames(n)}
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              minGames === n ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+              minGames === n
+                ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
+                : "border border-line bg-panel text-steel hover:text-white"
             }`}
           >
             {n}+
@@ -124,51 +127,71 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
       ) : (
         (() => {
           const [leader, ...rest] = ranked;
+          const leaderTier = tierFor(leader.score);
           return (
             <>
-              <div className="card-brand overflow-hidden p-6 sm:p-8">
-                <span className="label-dash">Power Ranking #1</span>
+              <div className="card-neon p-6 sm:p-8">
+                <div className="flex items-center gap-2">
+                  {/* The MVP tab was folded into this one (near-identical
+                      formulas) — the #1 power-ranked player wears the crown. */}
+                  <span className="float-soft text-2xl" aria-hidden="true">
+                    👑
+                  </span>
+                  <span className="mono-label">Power Ranking #1 · MVP</span>
+                  <span className={`font-display text-sm font-black ${leaderTier.className}`}>
+                    {leaderTier.label}-TIER
+                  </span>
+                </div>
                 <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
                   <div>
                     <p className="type-display text-4xl sm:text-5xl">{leader.summoner_name}</p>
-                    <p className="mt-1 text-sm text-steel">
-                      {leader.role_mode} · {leader.games} games · {leader.winrate_pct.toFixed(1)}% WR
+                    <p className="mt-2 flex items-center gap-2 text-sm text-steel">
+                      <RoleChip role={leader.role_mode} />
+                      <span className="font-mono">
+                        {leader.games} games · {leader.winrate_pct.toFixed(1)}% WR
+                      </span>
                     </p>
                   </div>
-                  <p className="type-display text-6xl text-gold sm:text-7xl">{leader.score.toFixed(1)}</p>
+                  <p className="type-display glow-pulse text-6xl text-cyan sm:text-7xl [text-shadow:0_0_24px_rgb(53_230_255/0.5)]">
+                    {leader.score.toFixed(1)}
+                  </p>
                 </div>
-                <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-navy">
-                  <div
-                    className="h-full rounded-full bg-gold"
-                    style={{ width: `${Math.max(0, Math.min(100, leader.score))}%` }}
-                  />
-                </div>
+                <StatBar value={leader.score} max={100} color="cyan" className="mt-4" />
               </div>
 
-              <div className="card-brand flex flex-col gap-1 p-2">
-                {rest.map((entry, i) => (
-                  <div
-                    key={playerKey(entry)}
-                    className="flex flex-wrap items-center gap-3 border-t border-line/60 px-3 py-2.5 first:border-t-0 sm:flex-nowrap"
-                  >
-                    <span className="w-8 shrink-0 text-sm font-semibold text-steel">#{i + 2}</span>
-                    <div className="min-w-[10rem] flex-1">
-                      <p className="truncate text-sm font-semibold text-white">{entry.summoner_name}</p>
-                      <p className="truncate text-xs text-steel">
-                        {entry.role_mode} · {entry.games}g · {entry.winrate_pct.toFixed(1)}% WR
-                      </p>
-                    </div>
-                    <div className="h-2 w-full max-w-xs flex-1 overflow-hidden rounded-full bg-navy">
-                      <div
-                        className="h-full rounded-full bg-gold/80"
-                        style={{ width: `${Math.max(0, Math.min(100, entry.score))}%` }}
+              <div className="card-neon flex flex-col gap-1 p-2">
+                {rest.map((entry, i) => {
+                  const tier = tierFor(entry.score);
+                  return (
+                    <div
+                      key={playerKey(entry)}
+                      className="flex flex-wrap items-center gap-3 border-t border-line/50 px-3 py-2.5 first:border-t-0 sm:flex-nowrap"
+                    >
+                      <span className="w-8 shrink-0 font-mono text-sm font-semibold text-steel">#{i + 2}</span>
+                      <span className={`w-5 shrink-0 text-center font-display text-sm font-black ${tier.className}`}>
+                        {tier.label}
+                      </span>
+                      <div className="min-w-[9rem] flex-1">
+                        <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-white">
+                          {entry.summoner_name}
+                          <RoleChip role={entry.role_mode} />
+                        </p>
+                        <p className="truncate font-mono text-xs text-steel">
+                          {entry.games}g · {entry.winrate_pct.toFixed(1)}% WR
+                        </p>
+                      </div>
+                      <StatBar
+                        value={entry.score}
+                        max={100}
+                        color="cyan"
+                        className="w-full max-w-xs flex-1"
                       />
+                      <span className="w-12 shrink-0 text-right font-mono text-base font-bold text-cyan">
+                        {entry.score.toFixed(1)}
+                      </span>
                     </div>
-                    <span className="w-12 shrink-0 text-right text-base font-bold text-gold">
-                      {entry.score.toFixed(1)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           );

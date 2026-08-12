@@ -8,6 +8,7 @@ const team: Team = {
   name: "Alpha League",
   abbreviation: "ALP",
   image_url: "https://img.test/alpha",
+  banner_color: "#123456",
   captain_profile_id: "profile-1",
   nomination_position: 1,
   budget_start: 100,
@@ -42,6 +43,7 @@ describe("toRosterTeams", () => {
 
     expect(view.abbreviation).toBe("ALP");
     expect(view.imageUrl).toBe("https://img.test/alpha");
+    expect(view.bannerColor).toBe("#123456");
     expect(view.captainName).toBe("Captain Profile");
     expect(view.players).toHaveLength(5);
     expect(view.players.map((slot) => slot.role)).toEqual([
