@@ -1,4 +1,5 @@
 import {
+  FREE_AGENCY_CAPTAIN_NAMES,
   FREE_AGENCY_PLAYER_SUMMARIES,
   type FreeAgencyCaptain,
   type FreeAgencyPlayer,
@@ -33,13 +34,16 @@ export function isPlayerAvailableToCaptain(
     return true;
   }
 
+  const normalizedName = normalizePlayerName(playerName);
+  if (FREE_AGENCY_CAPTAIN_NAMES.some((name) => normalizePlayerName(name) === normalizedName)) {
+    return false;
+  }
+
   const captain = captains.find((candidate) => candidate.name === captainName);
 
   if (!captain) {
     return false;
   }
-
-  const normalizedName = normalizePlayerName(playerName);
 
   return captain.players.some((player) => normalizePlayerName(player.name) === normalizedName);
 }

@@ -5,6 +5,7 @@ import {
   isPlayerAvailableToCaptain,
   normalizePlayerName,
 } from "./freeAgency";
+import { FREE_AGENCY_CAPTAINS } from "./freeAgencyData";
 
 const captains = [
   {
@@ -53,11 +54,24 @@ describe("free agency availability", () => {
     expect(isPlayerAvailableToCaptain("Player Alpha", "Missing Captain", captains)).toBe(false);
   });
 
+  it("keeps captain rows unavailable to every selected captain", () => {
+    expect(isPlayerAvailableToCaptain("Captain: Winter", "Captain One", [
+      { name: "Captain One", players: [{ name: "Winter", avgBid: 50 }] },
+    ])).toBe(false);
+  });
+
+  it("imports twelve bids for each of the twelve captains", () => {
+    expect(FREE_AGENCY_CAPTAINS).toHaveLength(12);
+    expect(FREE_AGENCY_CAPTAINS.map((captain) => captain.players.length)).toEqual(
+      Array(12).fill(12),
+    );
+  });
+
   it("matches real season labels against imported free-agency labels", () => {
-    expect(isPlayerAvailableToCaptain("Captain: Winter", "Captain Two", captains)).toBe(true);
+    expect(isPlayerAvailableToCaptain("Captain: Winter", "Captain Two", captains)).toBe(false);
     expect(isPlayerAvailableToCaptain("Conguitos#01203", "Captain Two", captains)).toBe(true);
     expect(isPlayerAvailableToCaptain("Pinei nessa poha#00027", "Captain Two", captains)).toBe(true);
-    expect(isPlayerAvailableToCaptain("Captain: Flying Squirtle", "Captain Two", captains)).toBe(true);
+    expect(isPlayerAvailableToCaptain("Captain: Flying Squirtle", "Captain Two", captains)).toBe(false);
     expect(isPlayerAvailableToCaptain("Beg#DU1", "Captain Two", captains)).toBe(true);
     expect(isPlayerAvailableToCaptain("08 Mitsu Eclipse#Chime", "Captain Two", captains)).toBe(true);
   });

@@ -9,7 +9,7 @@ afterEach(cleanup);
 const freeAgencyCaptains: FreeAgencyCaptain[] = [
   {
     name: "Captain One",
-    players: [{ name: "Captain: Winter", avgBid: 25 }],
+    players: [{ name: "Canny#rip", avgBid: 25 }],
   },
   {
     name: "Captain Two",
@@ -30,9 +30,7 @@ describe("PlayersDirectory", () => {
     expect(screen.getByRole("link", { name: "Captain: Winter" }).getAttribute("href")).toBe(
       "https://op.gg/lol/summoners/na/Winter-Ashtn",
     );
-    expect(screen.getByRole("link", { name: "Captain: Winter" }).closest("li")?.dataset.available).toBe(
-      "true",
-    );
+    expect(screen.getByRole("link", { name: "Canny#rip" }).closest("li")?.dataset.available).toBe("true");
   });
 
   it("shows the blank Season 4 state and restores Season 5", () => {
@@ -90,7 +88,7 @@ describe("PlayersDirectory", () => {
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
     fireEvent.change(screen.getByLabelText("Captain"), { target: { value: "Captain One" } });
 
-    const matchingRow = screen.getByRole("link", { name: "Captain: Winter" }).closest("li");
+    const matchingRow = screen.getByRole("link", { name: "Canny#rip" }).closest("li");
     const nonMatchingRow = screen.getByRole("link", { name: "Captain: Bleedinwolves" }).closest("li");
 
     expect(matchingRow?.dataset.available).toBe("true");
@@ -114,8 +112,6 @@ describe("PlayersDirectory", () => {
     fireEvent.change(screen.getByLabelText("Season"), { target: { value: "season-5" } });
 
     expect((screen.getByLabelText("Captain") as HTMLSelectElement).value).toBe("");
-    expect(screen.getByRole("link", { name: "Captain: Winter" }).closest("li")?.dataset.available).toBe(
-      "true",
-    );
+    expect(screen.getByRole("link", { name: "Canny#rip" }).closest("li")?.dataset.available).toBe("true");
   });
 });

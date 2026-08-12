@@ -258,3 +258,5 @@ export const FREE_AGENCY_CAPTAINS: FreeAgencyCaptain[] = [
     ],
   },
 ];
+
+export const FREE_AGENCY_CAPTAIN_NAMES = FREE_AGENCY_CAPTAINS.map((captain) => captain.name);
