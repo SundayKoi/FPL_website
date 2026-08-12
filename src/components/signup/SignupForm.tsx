@@ -76,9 +76,17 @@ const inputClass =
 const labelClass = "flex flex-col gap-1.5 text-sm font-semibold text-white";
 const hintClass = "text-xs font-normal text-steel";
 
-export default function SignupForm({ season }: { season: string }) {
+export default function SignupForm({
+  season,
+  initialDiscord = "",
+}: {
+  season: string;
+  initialDiscord?: string;
+}) {
   const supabase = createClient();
-  const [form, setForm] = useState<FormState>(EMPTY);
+  // Signed-in players get their Discord username prefilled from the
+  // profile the OAuth login created; still editable in case theirs differs.
+  const [form, setForm] = useState<FormState>({ ...EMPTY, discord: initialDiscord });
   const [status, setStatus] = useState<
     { kind: "idle" } | { kind: "saving" } | { kind: "done" } | { kind: "error"; message: string }
   >({ kind: "idle" });
@@ -121,7 +129,7 @@ export default function SignupForm({ season }: { season: string }) {
         <button
           type="button"
           onClick={() => {
-            setForm(EMPTY);
+            setForm({ ...EMPTY, discord: initialDiscord });
             setStatus({ kind: "idle" });
           }}
           className="mt-6 rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel hover:text-white"

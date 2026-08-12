@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { duplicateSignupIds, signupsToCsv } from "@/lib/signup/admin";
 import type { SignupRow } from "@/lib/signup/types";
 
 function formatDate(iso: string): string {
@@ -29,6 +30,21 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
     () => (seasonFilter === "all" ? signups : signups.filter((s) => s.season === seasonFilter)),
     [signups, seasonFilter],
   );
+  // Flagged across ALL signups, not just the visible slice, so a duplicate
+  // stays flagged while a season filter is applied.
+  const duplicates = useMemo(() => duplicateSignupIds(signups), [signups]);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCsv = async () => {
+    setError(null);
+    try {
+      await navigator.clipboard.writeText(signupsToCsv(visible));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Couldn't copy to the clipboard — check browser permissions.");
+    }
+  };
 
   const handleDelete = async (id: string) => {
     setError(null);
@@ -47,21 +63,32 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
           Admin — signups ({visible.length}
           {seasonFilter === "all" ? " total" : ` in ${seasonFilter}`})
         </span>
-        {seasons.length > 1 && (
-          <select
-            value={seasonFilter}
-            onChange={(e) => setSeasonFilter(e.target.value)}
-            aria-label="Filter signups by season"
-            className="rounded border border-line bg-navy px-2 py-1 text-xs font-semibold text-white focus:border-gold focus:outline-none"
-          >
-            <option value="all">All seasons</option>
-            {seasons.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {visible.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleCopyCsv()}
+              className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold"
+            >
+              {copied ? "Copied!" : "Copy CSV"}
+            </button>
+          )}
+          {seasons.length > 1 && (
+            <select
+              value={seasonFilter}
+              onChange={(e) => setSeasonFilter(e.target.value)}
+              aria-label="Filter signups by season"
+              className="rounded border border-line bg-navy px-2 py-1 text-xs font-semibold text-white focus:border-gold focus:outline-none"
+            >
+              <option value="all">All seasons</option>
+              {seasons.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -92,12 +119,27 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
             </thead>
             <tbody>
               {visible.map((s) => (
-                <tr key={s.id} className="border-t border-line/60 align-top">
+                <tr
+                  key={s.id}
+                  className={`border-t border-line/60 align-top ${
+                    duplicates.has(s.id) ? "bg-red-500/5" : ""
+                  }`}
+                >
                   <td className="whitespace-nowrap px-2 py-1.5 text-xs text-steel">
                     {formatDate(s.created_at)}
                   </td>
                   <td className="px-2 py-1.5 text-steel">{s.season}</td>
-                  <td className="px-2 py-1.5 font-semibold text-white">{s.discord}</td>
+                  <td className="px-2 py-1.5 font-semibold text-white">
+                    {s.discord}
+                    {duplicates.has(s.id) && (
+                      <span
+                        title="Another signup this season shares this Discord or Riot ID"
+                        className="ml-1.5 rounded-full border border-red-400/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-400"
+                      >
+                        Dup
+                      </span>
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-2 py-1.5 text-steel">{s.riot_id}</td>
                   <td className="max-w-[16rem] px-2 py-1.5">
                     {/* First link only in the cell; full text in the title tooltip. */}

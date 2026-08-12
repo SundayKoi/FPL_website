@@ -8,14 +8,18 @@ export default async function SignupPage() {
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
   let isAdmin = false;
+  let discordName = "";
 
   if (userData.user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_admin")
+      .select("is_admin, display_name")
       .eq("id", userData.user.id)
       .single();
     isAdmin = profile?.is_admin ?? false;
+    // Discord OAuth fills display_name with the Discord username — prefill
+    // the form for signed-in players.
+    discordName = profile?.display_name ?? "";
   }
 
   const [settingsResult, signupsResult] = await Promise.all([
@@ -56,7 +60,7 @@ export default async function SignupPage() {
 
         <div className="mt-8">
           {signupsOpen ? (
-            <SignupForm season={season} />
+            <SignupForm season={season} initialDiscord={discordName} />
           ) : (
             <div className="card-brand p-8 text-center">
               <p className="type-display text-3xl">Signups are closed</p>
