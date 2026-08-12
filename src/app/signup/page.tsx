@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { SignupRow } from "@/lib/signup/types";
 import AdminSignupsTable from "@/components/signup/AdminSignupsTable";
+import AdminSignupsToggle from "@/components/signup/AdminSignupsToggle";
 import SignupForm from "@/components/signup/SignupForm";
 
 export default async function SignupPage() {
@@ -18,7 +19,11 @@ export default async function SignupPage() {
   }
 
   const [settingsResult, signupsResult] = await Promise.all([
-    supabase.from("league_settings").select("current_season").eq("id", 1).single(),
+    supabase
+      .from("league_settings")
+      .select("current_season, signups_open")
+      .eq("id", 1)
+      .single(),
     // RLS hides rows from non-admins anyway; skipping the query avoids the
     // noise of a permission-shaped empty result.
     isAdmin
@@ -27,6 +32,7 @@ export default async function SignupPage() {
   ]);
 
   const season = settingsResult.data?.current_season ?? "S5";
+  const signupsOpen = settingsResult.data?.signups_open ?? true;
   const signups = (signupsResult.data as SignupRow[]) ?? [];
 
   return (
@@ -42,13 +48,24 @@ export default async function SignupPage() {
         </header>
 
         {isAdmin && (
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col gap-4">
+            <AdminSignupsToggle signupsOpen={signupsOpen} />
             <AdminSignupsTable signups={signups} />
           </div>
         )}
 
         <div className="mt-8">
-          <SignupForm season={season} />
+          {signupsOpen ? (
+            <SignupForm season={season} />
+          ) : (
+            <div className="card-brand p-8 text-center">
+              <p className="type-display text-3xl">Signups are closed</p>
+              <p className="mt-3 text-steel">
+                The {season} signup window isn&apos;t open right now. Keep an eye on Discord for
+                the next split&apos;s announcement.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </main>

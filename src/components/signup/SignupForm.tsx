@@ -96,7 +96,15 @@ export default function SignupForm({ season }: { season: string }) {
     setStatus({ kind: "saving" });
     const { error } = await supabase.from("signups").insert(signupPayload(form, season));
     if (error) {
-      setStatus({ kind: "error", message: error.message });
+      // A row-level security rejection here means the signup window closed
+      // while the form was open — translate the DB jargon for players.
+      const closed = /row-level security/i.test(error.message);
+      setStatus({
+        kind: "error",
+        message: closed
+          ? "Signups just closed — keep an eye on Discord for the next window."
+          : error.message,
+      });
       return;
     }
     setStatus({ kind: "done" });
