@@ -8,9 +8,6 @@ create table public.coin_finds (
 
 alter table public.coin_finds enable row level security;
 
--- Staff-only visibility: finders learn their own placement from the RPC's
--- return value, not by reading the table (which would leak who else found
--- it and when the hunt is still live).
 create policy coin_finds_admin_select on public.coin_finds
   for select using (public.is_admin());
 create policy coin_finds_admin_delete on public.coin_finds
@@ -19,11 +16,6 @@ create policy coin_finds_admin_delete on public.coin_finds
 grant select, delete on public.coin_finds to authenticated;
 grant all on public.coin_finds to service_role;
 
--- All claims go through this SECURITY DEFINER wrapper (there is no INSERT
--- grant on the table), so the row always carries auth.uid() and the
--- server clock — no client-supplied identity or timestamps. Returns the
--- caller's placement (1 = first finder); repeat clicks return the
--- original placement instead of inserting again.
 create function public.claim_coin() returns int
 language plpgsql security definer set search_path = public as $$
 declare v_rank int;
