@@ -64,6 +64,7 @@ const selectedTeam = {
   captain_profile_id: "profile-live",
   abbreviation: "LT",
   image_url: "https://img.test/live",
+  banner_color: "#123456",
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 72,

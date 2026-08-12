@@ -5,6 +5,7 @@ import {
   type RosterTeamView,
   type Team,
 } from "@/lib/draft/types";
+import { normalizeBannerColor } from "@/lib/teams/bannerColor";
 
 const accentClasses = [
   "bg-cyan-950",
@@ -37,6 +38,7 @@ export function toRosterTeams(
       name: team.name,
       abbreviation: team.abbreviation,
       imageUrl: team.image_url,
+      bannerColor: normalizeBannerColor(team.banner_color),
       captainName: profileNames.get(team.captain_profile_id ?? "") ?? captain?.display_name ?? "Unassigned",
       monogram: derivedMonogram,
       accentClass: accentClasses[teamIndex % accentClasses.length],

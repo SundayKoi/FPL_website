@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_ORDER, type LolRole, type Player } from "@/lib/draft/types";
+import { currentPlayerPointValue } from "@/lib/players/pointValues";
 
 interface ParsedRow {
   line: number;
@@ -163,6 +164,7 @@ export default function PlayerPoolEditor({
                 <th className="py-1">Name</th>
                 <th className="py-1">Role</th>
                 <th className="py-1">Rank</th>
+                <th className="py-1">Points</th>
                 <th className="py-1">op.gg</th>
                 <th className="py-1" />
               </tr>
@@ -173,6 +175,9 @@ export default function PlayerPoolEditor({
                   <td className="py-1 text-white">{p.display_name}</td>
                   <td className="py-1 text-steel">{p.role}</td>
                   <td className="py-1 text-steel">{p.rank ?? "—"}</td>
+                  <td className="py-1 font-display font-semibold not-italic text-gold">
+                    {currentPlayerPointValue(p.display_name) ?? "-"}
+                  </td>
                   <td className="py-1 text-steel">
                     {p.opgg_url ? (
                       <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-gold underline">

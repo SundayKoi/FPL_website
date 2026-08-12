@@ -6,8 +6,16 @@
   --color-line: #1b4263;
   --color-steel: #a7c0d8;
   --color-gold: #f5b62e;
+  /* Neon accent set — layered over the navy brand base for the stats
+     "command center" look. Bare color names (no numeric scale) so they read
+     as text-cyan / bg-pink/10 / border-purple/40 without clobbering
+     Tailwind's built-in numbered cyan/pink/purple color scales. */
+  --color-cyan: #35e6ff;
+  --color-pink: #ff3d84;
+  --color-purple: #b06bff;
   --font-display: var(--font-chakra), "Segoe UI", sans-serif;
   --font-body: var(--font-saira), "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
 }
 
 :root { color-scheme: dark; }
@@ -71,4 +79,138 @@ body {
   border: 1px solid var(--color-line);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Neon-brand stats surface — cyan/pink accents on the navy base.
+   Scoped to the stats page via these opt-in utilities; the rest of
+   the site keeps the plain brand look.
+   ───────────────────────────────────────────────────────────── */
+
+/* Faint cyberpunk grid backdrop for the stats section. */
+@utility grid-neon {
+  background-color: var(--color-navy);
+  background-image:
+    linear-gradient(90deg, rgb(53 230 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(53 230 255 / 0.04) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+
+/* Cyan→pink→cyan hairline used to underline section headers. */
+@utility neon-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-cyan),
+    var(--color-pink),
+    var(--color-cyan),
+    transparent
+  );
+}
+
+/* Gradient neon heading text. */
+@utility text-neon {
+  background: linear-gradient(
+    120deg,
+    #ffffff 0%,
+    var(--color-cyan) 42%,
+    var(--color-pink) 74%,
+    var(--color-purple) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Monospace terminal-style label (season/phase, meta counters). */
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-steel);
+}
+
+/* Card with a neon top accent + soft glow, built on the brand panel. */
+@utility card-neon {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0b2c49, #061a2c);
+  border: 1px solid var(--color-line);
+  border-radius: 0.6rem;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-cyan), var(--color-pink), transparent);
+    opacity: 0.55;
+  }
+}
+
+/* Bar-graph track + fill (fill color/glow supplied inline by StatBar). */
+@utility bar-track {
+  position: relative;
+  height: 0.5rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(2 12 22 / 0.9);
+  box-shadow: inset 0 0 0 1px rgb(53 230 255 / 0.08);
+}
+@utility bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.9s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Top-rank row shimmer for leaderboards. */
+@keyframes neonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@utility row-rank-1 {
+  background: linear-gradient(90deg, rgb(245 182 46 / 0.04), rgb(245 182 46 / 0.12), rgb(245 182 46 / 0.04));
+  background-size: 200% 100%;
+  animation: neonShimmer 3s linear infinite;
+}
+@utility row-rank-2 {
+  background: linear-gradient(90deg, rgb(167 192 216 / 0.03), rgb(167 192 216 / 0.09), rgb(167 192 216 / 0.03));
+  background-size: 200% 100%;
+  animation: neonShimmer 3.6s linear infinite;
+}
+@utility row-rank-3 {
+  background: linear-gradient(90deg, rgb(205 127 50 / 0.03), rgb(205 127 50 / 0.09), rgb(205 127 50 / 0.03));
+  background-size: 200% 100%;
+  animation: neonShimmer 4.2s linear infinite;
+}
+
+/* Soft pulsing glow for hero score numbers. */
+@keyframes neonPulse {
+  0%, 100% { opacity: 0.85; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.15); }
+}
+@utility glow-pulse {
+  animation: neonPulse 2.6s ease-in-out infinite;
+}
+
+/* Gentle bob for the MVP crown. */
+@keyframes floatSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@utility float-soft {
+  display: inline-block;
+  animation: floatSoft 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row-rank-1, .row-rank-2, .row-rank-3, .glow-pulse, .float-soft { animation: none; }
+  .bar-fill { transition: none; }
 }
