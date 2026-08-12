@@ -102,7 +102,7 @@ describe("PlayersDirectory", () => {
     fireEvent.change(sortSelect, { target: { value: "name" } });
     const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
     const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
-    expect(names.slice(0, 3)).toEqual(["all gucci#gamer", "Canny#rip", "Captain: Bleedinwolves"]);
+    expect(names.slice(0, 3)).toEqual(["Captain: Bleedinwolves", "Captain: KingOfSpades", "Captain: Sycoghost"]);
 
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "value" } });
@@ -113,7 +113,19 @@ describe("PlayersDirectory", () => {
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "player-list" } });
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "rank" } });
     const rankNames = Array.from(screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
-    expect(rankNames.slice(0, 3)).toEqual(["Canny#rip", "Captain: Winter", "Walt#0001"]);
+    expect(rankNames.slice(0, 3)).toEqual(["Captain: Winter", "Captain: Bleedinwolves", "Captain: Sycoghost"]);
+  });
+
+  it("keeps captains at the top of every Player List role section", () => {
+    render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "name" } });
+
+    const topNames = Array.from(
+      screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a") ?? [],
+    ).map((link) => link.textContent ?? "");
+
+    expect(topNames.slice(0, 4).every((name) => name.startsWith("Captain:"))).toBe(true);
+    expect(topNames.slice(4)).toContain("Canny#rip");
   });
 
   it("shows editable Avg Bid inputs for admins", () => {

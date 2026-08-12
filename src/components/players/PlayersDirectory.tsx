@@ -64,6 +64,11 @@ export default function PlayersDirectory({
   const displaySections = sections.map((section) => ({
     ...section,
     players: [...section.players].sort((left, right) => {
+      if (!isFreeAgency) {
+        const leftIsCaptain = /^captain:/i.test(left.name);
+        const rightIsCaptain = /^captain:/i.test(right.name);
+        if (leftIsCaptain !== rightIsCaptain) return leftIsCaptain ? -1 : 1;
+      }
       if (sortOption === "name") return left.name.localeCompare(right.name);
       if (sortOption === "rank") return rankValue(right.rank) - rankValue(left.rank) || left.name.localeCompare(right.name);
       const rightValue = isFreeAgency ? avgBidFor(right.name) : right.min;
