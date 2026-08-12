@@ -1,5 +1,6 @@
 import InfoResourceCard from "@/components/info/InfoResourceCard";
 import RulebookContent from "@/components/info/RulebookContent";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 const resources = [
   {
@@ -32,7 +33,40 @@ const rulebookSections = [
   ["FPL Staff", "staff"],
 ] as const;
 
-export default function InfoPage() {
+interface CoinFinder {
+  found_at: string;
+  display_name: string;
+}
+
+export default async function InfoPage() {
+  const supabase = await createServerSupabase();
+  const { data: userData } = await supabase.auth.getUser();
+  let coinFinders: CoinFinder[] | null = null;
+
+  if (userData.user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", userData.user.id)
+      .single();
+    if (profile?.is_admin) {
+      // RLS limits coin_finds to admins; profiles are public-read.
+      const { data: finds } = await supabase
+        .from("coin_finds")
+        .select("profile_id, found_at")
+        .order("found_at");
+      const ids = (finds ?? []).map((f) => f.profile_id as string);
+      const { data: profiles } = ids.length
+        ? await supabase.from("profiles").select("id, display_name").in("id", ids)
+        : { data: [] };
+      const names = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string]));
+      coinFinders = (finds ?? []).map((f) => ({
+        found_at: f.found_at as string,
+        display_name: names.get(f.profile_id as string) ?? "Unknown",
+      }));
+    }
+  }
+
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
@@ -43,6 +77,40 @@ export default function InfoPage() {
             League resources, payment information, and the complete FPL Rulebook.
           </p>
         </header>
+
+        {coinFinders !== null && (
+          <section aria-label="Coin hunt finders" className="card-brand mt-10 p-5">
+            <span className="label-dash">Admin — hidden coin finders</span>
+            {coinFinders.length === 0 ? (
+              <p className="mt-2 text-sm text-steel">Nobody has found the coin yet.</p>
+            ) : (
+              <ol className="mt-3 flex flex-col gap-1.5">
+                {coinFinders.map((finder, i) => (
+                  <li key={`${finder.display_name}-${finder.found_at}`} className="flex items-center gap-3 text-sm">
+                    <span
+                      className={`w-8 shrink-0 font-bold ${i < 3 ? "text-gold" : "text-steel"}`}
+                    >
+                      #{i + 1}
+                    </span>
+                    <span className={i < 3 ? "font-semibold text-white" : "text-steel"}>
+                      {finder.display_name}
+                    </span>
+                    <span className="ml-auto shrink-0 text-xs text-steel">
+                      {new Date(finder.found_at).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                    {i < 3 && <span aria-hidden="true">🏆</span>}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+        )}
 
         <section aria-label="League resources" className="mt-10 grid gap-5 md:grid-cols-3">
           {resources.map((resource) => (
