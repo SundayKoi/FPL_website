@@ -77,7 +77,7 @@ describe("CaptainPage layout", () => {
 
     render(await CaptainPage({ searchParams: Promise.resolve({}) }));
 
-    expect(document.querySelector(".max-w-7xl")).not.toBeNull();
+    expect(document.querySelector(".max-w-\\[1800px\\]")).not.toBeNull();
     expect(document.querySelector(".lg\\:grid-cols-2")).not.toBeNull();
     const labels = [
       "Next Match",
