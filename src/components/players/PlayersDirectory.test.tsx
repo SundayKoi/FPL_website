@@ -23,7 +23,7 @@ describe("PlayersDirectory", () => {
     expect((screen.getByLabelText("Season") as HTMLSelectElement).value).toBe("season-5");
     expect((screen.getByLabelText("Section") as HTMLSelectElement).value).toBe("player-list");
     expect(screen.queryByLabelText("Captain")).toBeNull();
-    expect(screen.getAllByText("Min")).toHaveLength(5);
+    expect(screen.getAllByText("Min")).toHaveLength(6);
     for (const role of ["Top", "Jungle", "Mid", "ADC", "Support"]) {
       expect(screen.getByRole("heading", { name: role })).toBeTruthy();
     }
@@ -72,7 +72,7 @@ describe("PlayersDirectory", () => {
     expect((screen.getByLabelText("Section") as HTMLSelectElement).value).toBe("free-agency");
     expect((screen.getByLabelText("Captain") as HTMLSelectElement).value).toBe("");
     expect(screen.queryByText("Min")).toBeNull();
-    expect(screen.getAllByText("Avg Bid")).toHaveLength(5);
+    expect(screen.getAllByText("Avg Bid")).toHaveLength(6);
     expect(screen.getByRole("link", { name: "Captain: Winter" }).closest("li")?.dataset.available).toBe(
       "true",
     );
@@ -91,6 +91,29 @@ describe("PlayersDirectory", () => {
     const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
     const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
     expect(names.slice(0, 3)).toEqual(["Canny#rip", "Killer Python#NA1", "Walt#0001"]);
+  });
+
+  it("sorts both sections by the selected field", () => {
+    render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
+
+    const sortSelect = screen.getByLabelText("Sort by") as HTMLSelectElement;
+    expect(sortSelect.value).toBe("value");
+
+    fireEvent.change(sortSelect, { target: { value: "name" } });
+    const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
+    const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    expect(names.slice(0, 3)).toEqual(["all gucci#gamer", "Canny#rip", "Captain: Bleedinwolves"]);
+
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "value" } });
+    const freeAgencyTop = screen.getByRole("heading", { name: "Top" }).closest("section");
+    const freeAgencyNames = Array.from(freeAgencyTop?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    expect(freeAgencyNames.slice(0, 2)).toEqual(["Canny#rip", "Killer Python#NA1"]);
+
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "player-list" } });
+    fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "rank" } });
+    const rankNames = Array.from(screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    expect(rankNames.slice(0, 3)).toEqual(["Canny#rip", "Captain: Winter", "Walt#0001"]);
   });
 
   it("shows editable Avg Bid inputs for admins", () => {

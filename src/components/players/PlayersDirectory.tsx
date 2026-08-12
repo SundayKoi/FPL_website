@@ -13,6 +13,7 @@ import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
 
 type DirectorySection = "player-list" | "free-agency";
+type SortOption = "name" | "rank" | "value";
 
 type Props = {
   seasons: Record<SeasonKey, RoleSection[]>;
@@ -43,6 +44,7 @@ export default function PlayersDirectory({
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
+  const [sortOption, setSortOption] = useState<SortOption>("value");
   const [selectedCaptain, setSelectedCaptain] = useState("");
   const [selectedBidBoardPlayer, setSelectedBidBoardPlayer] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -59,15 +61,23 @@ export default function PlayersDirectory({
   const adminPlayers = poolPlayers
     .filter((player) => player.season_key === selectedSeason)
     .sort((left, right) => left.display_name.localeCompare(right.display_name));
-  const displaySections = isFreeAgency
-    ? sections.map((section) => ({
-        ...section,
-        players: [...section.players].sort(
-          (left, right) =>
-            (avgBidFor(right.name) ?? -1) - (avgBidFor(left.name) ?? -1),
-        ),
-      }))
-    : sections;
+  const displaySections = sections.map((section) => ({
+    ...section,
+    players: [...section.players].sort((left, right) => {
+      if (sortOption === "name") return left.name.localeCompare(right.name);
+      if (sortOption === "rank") return rankValue(right.rank) - rankValue(left.rank) || left.name.localeCompare(right.name);
+      const rightValue = isFreeAgency ? avgBidFor(right.name) : right.min;
+      const leftValue = isFreeAgency ? avgBidFor(left.name) : left.min;
+      return (rightValue ?? -1) - (leftValue ?? -1) || left.name.localeCompare(right.name);
+    }),
+  }));
+
+  function rankValue(rank: string) {
+    const normalized = rank.trim().toUpperCase();
+    const tier = normalized.startsWith("M") ? 5 : normalized.startsWith("D") ? 4 : normalized.startsWith("E") ? 3 : normalized.startsWith("P") ? 2 : normalized.startsWith("G") ? 1 : 0;
+    const division = Number(normalized.replace(/^[A-Z]+/, "")) || 0;
+    return tier * 100 + division;
+  }
 
   const handleSectionChange = (value: DirectorySection) => {
     setSelectedSection(value);
@@ -130,6 +140,22 @@ export default function PlayersDirectory({
                     {option.label}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto">
+              <label htmlFor="player-sort" className="label-dash">
+                Sort by
+              </label>
+              <select
+                id="player-sort"
+                value={sortOption}
+                onChange={(event) => setSortOption(event.target.value as SortOption)}
+                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option>
+                <option value="name">Name</option>
+                <option value="rank">Rank</option>
               </select>
             </div>
 
