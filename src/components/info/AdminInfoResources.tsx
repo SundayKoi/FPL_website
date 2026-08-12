@@ -16,6 +16,7 @@ export type InfoResource = {
 export default function AdminInfoResources({ resources }: { resources: InfoResource[] }) {
   const router = useRouter();
   const [drafts, setDrafts] = useState(resources);
+  const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -48,9 +49,14 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
 
   return (
     <section className="card-brand mt-10 p-5" aria-label="Edit league resources">
-      <span className="label-dash">Admin</span>
-      <h2 className="type-display mt-2 text-3xl">Edit linked resources</h2>
-      <div className="mt-5 flex flex-col gap-5">
+      <button type="button" onClick={() => setOpen((current) => !current)} aria-label="Edit linked resources" aria-expanded={open} className="flex w-full items-center justify-between text-left">
+        <span>
+          <span className="label-dash">Admin</span>
+          <span className="type-display mt-2 block text-3xl">Edit linked resources</span>
+        </span>
+        <span aria-hidden="true" className="text-steel">{open ? "▴" : "▾"}</span>
+      </button>
+      {open && <div className="mt-5 flex flex-col gap-5">
         {drafts.map((resource) => (
           <fieldset key={resource.id} className="grid gap-3 border-t border-line pt-4 md:grid-cols-3">
             <legend className="label-dash">{resource.slug}</legend>
@@ -68,11 +74,11 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
             </label>
           </fieldset>
         ))}
-      </div>
-      {status && <p className="mt-4 text-sm text-steel" role="status">{status}</p>}
-      <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50">
-        {saving ? "Saving…" : "Save resources"}
-      </button>
+        {status && <p className="mt-4 text-sm text-steel" role="status">{status}</p>}
+        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50">
+          {saving ? "Saving…" : "Save resources"}
+        </button>
+      </div>}
     </section>
   );
 }

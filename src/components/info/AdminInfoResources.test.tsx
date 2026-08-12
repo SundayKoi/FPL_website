@@ -29,6 +29,8 @@ describe("AdminInfoResources", () => {
     update.mockResolvedValue({ error: null });
     render(<AdminInfoResources resources={[resource]} />);
 
+    expect(screen.queryByLabelText("Label")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit linked resources" }));
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Fees" } });
     fireEvent.click(screen.getByRole("button", { name: "Save resources" }));
 
