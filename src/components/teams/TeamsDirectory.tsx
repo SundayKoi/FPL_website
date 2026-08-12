@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { RosterTeamView } from "@/lib/draft/types";
+import { DIVISIONS, type Division } from "@/lib/schedule/types";
 import TeamRosterCard from "./TeamRosterCard";
 
 export default function TeamsDirectory({
@@ -15,6 +16,12 @@ export default function TeamsDirectory({
   adminControls?: ReactNode;
   rosterContent?: ReactNode;
 }) {
+  const sections: { label: string; division: Division | null }[] = [
+    { label: DIVISIONS[1], division: DIVISIONS[1] },
+    { label: DIVISIONS[0], division: DIVISIONS[0] },
+    { label: "Unassigned", division: null },
+  ];
+
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
@@ -35,13 +42,20 @@ export default function TeamsDirectory({
         </header>
 
         <section aria-label="Team rosters" className="mt-10">
-          {rosterContent ?? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {teams.map((team) => (
-                <TeamRosterCard key={team.id} team={team} />
-              ))}
-            </div>
-          )}
+          {rosterContent ?? sections.map((section) => {
+            const sectionTeams = teams.filter((team) => (team.division ?? null) === section.division);
+            if (!sectionTeams.length) return null;
+            return (
+              <div key={section.label} className="mb-10 last:mb-0">
+                <h2 className="label-dash mb-4 text-xl text-white">{section.label}</h2>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {sectionTeams.map((team) => (
+                    <TeamRosterCard key={team.id} team={team} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </section>
       </div>
     </main>

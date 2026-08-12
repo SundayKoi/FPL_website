@@ -39,6 +39,7 @@ export function toRosterTeams(
       abbreviation: team.abbreviation,
       imageUrl: team.image_url,
       bannerColor: normalizeBannerColor(team.banner_color),
+      division: team.division ?? null,
       captainName: profileNames.get(team.captain_profile_id ?? "") ?? captain?.display_name ?? "Unassigned",
       monogram: derivedMonogram,
       accentClass: accentClasses[teamIndex % accentClasses.length],

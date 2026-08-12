@@ -33,6 +33,7 @@ const team: Team = {
   abbreviation: "TA",
   image_url: null,
   banner_color: "#083344",
+  division: null,
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 100,

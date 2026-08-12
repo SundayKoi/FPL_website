@@ -18,6 +18,7 @@ type FormStatus =
 type TeamFormState = {
   name: string;
   abbreviation: string;
+  division: "" | "Lunari" | "Solari";
   bannerColor: string;
   captainProfileId: string;
   currentImageUrl: string | null;
@@ -39,6 +40,7 @@ function formStateFor(teams: Team[]): Record<string, TeamFormState> {
       {
         name: team.name,
         abbreviation: team.abbreviation.toUpperCase(),
+        division: team.division ?? "",
         bannerColor: normalizeBannerColor(team.banner_color),
         captainProfileId: team.captain_profile_id ?? "",
         currentImageUrl: team.image_url,
@@ -150,6 +152,7 @@ function DraftTeamEditor({
           name,
           abbreviation,
           captain_profile_id: form.captainProfileId || null,
+          division: form.division || null,
           image_url: imageUrl,
           banner_color: bannerColor,
         })
@@ -336,6 +339,26 @@ function DraftTeamEditor({
                       {profile.display_name}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-division`}>
+                Division
+                <select
+                  id={`${prefix}-division`}
+                  aria-label={`${team.name} division`}
+                  value={form.division}
+                  disabled={isSaving}
+                  onChange={(event) =>
+                    setForm(team.id, {
+                      division: event.target.value as TeamFormState["division"],
+                      status: { kind: "idle" },
+                    })
+                  }
+                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  <option value="">Unassigned</option>
+                  <option value="Lunari">Lunari</option>
+                  <option value="Solari">Solari</option>
                 </select>
               </label>
               <div className="flex flex-col gap-1 text-xs text-steel">
