@@ -252,6 +252,18 @@ export default function PlayersDirectory({
                     {FREE_AGENCY_BID_BOARD.flatMap((row) => [
                       <span key={`${row.captain}-name`} className="bg-panel px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
                       ...row.bids.map((player, index) => {
+                        // Voided bid (player removed from the league): keep
+                        // the slot as an empty cell so later bids stay in
+                        // their point-value columns.
+                        if (player === null) {
+                          return (
+                            <span
+                              key={`${row.captain}-${index}`}
+                              aria-label="Voided bid"
+                              className="bg-panel/60 px-2 py-3"
+                            />
+                          );
+                        }
                         const isHighlighted =
                           selectedBidBoardPlayer !== null &&
                           normalizePlayerName(player) === normalizePlayerName(selectedBidBoardPlayer);
