@@ -1,6 +1,18 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayersPage from "./page";
+
+// PlayersPage now fetches auth + free-agency bids server-side; cookies()
+// (inside createServerSupabase) throws outside a real request scope, so the
+// test supplies a minimal stub: signed-out user, no bids.
+vi.mock("@/lib/supabase/server", () => ({
+  createServerSupabase: async () => ({
+    auth: { getUser: async () => ({ data: { user: null } }) },
+    from: () => ({
+      select: async () => ({ data: [] }),
+    }),
+  }),
+}));
 
 describe("PlayersPage", () => {
   afterEach(cleanup);
