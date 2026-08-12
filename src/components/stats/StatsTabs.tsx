@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchPlayerAgg, fetchSeasons } from "@/lib/stats/queries";
+import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
@@ -49,10 +50,12 @@ function PlayersTab({
   season,
   phase,
   onSelectPlayer,
+  initialQuery = "",
 }: {
   season: string;
   phase: PhaseFilter;
   onSelectPlayer: (player: SelectedPlayer) => void;
+  initialQuery?: string;
 }) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -65,7 +68,9 @@ function PlayersTab({
     setPrevFilterKey(filterKey);
     setStatus("loading");
   }
-  const [query, setQuery] = useState("");
+  // Deep-link prefill: search on the name half only — "Name#TAG" as a
+  // whole won't substring-match when the roster tag is stale.
+  const [query, setQuery] = useState(initialQuery.split("#")[0] ?? "");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
 
   useEffect(() => {
@@ -209,7 +214,7 @@ function PlayersTab({
   );
 }
 
-export default function StatsTabs() {
+export default function StatsTabs({ initialPlayer }: { initialPlayer?: string }) {
   const [activeTab, setActiveTab] = useState<Tab>("Leaderboard");
   const [seasons, setSeasons] = useState<string[]>([]);
   const [season, setSeason] = useState<string>(ALL_SEASONS);
@@ -221,6 +226,11 @@ export default function StatsTabs() {
   // callback — simplest consistent approach per the brief, rather than
   // duplicating detail-view state inside each tab.
   const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayer | null>(null);
+  // ?player= deep links (e.g. roster names on the teams page). Resolved
+  // against stats identities once on mount; a hit opens PlayerDetail, a
+  // miss lands on the Players tab with the query prefilled so the visitor
+  // can pick the right person instead of us guessing.
+  const [playersPrefill, setPlayersPrefill] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -230,7 +240,11 @@ export default function StatsTabs() {
         const data = await fetchSeasons();
         if (cancelled) return;
         setSeasons(data);
-        if (data.length > 0) setSeason(data[0]);
+        // With a ?player= deep link active, stay on the initial
+        // "All seasons" instead of defaulting to the newest — the resolve
+        // effect opens the card in all-seasons view and this default would
+        // race it and clobber that choice.
+        if (data.length > 0 && !initialPlayer) setSeason(data[0]);
         setSeasonsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -242,7 +256,42 @@ export default function StatsTabs() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPlayer]);
+
+  useEffect(() => {
+    if (!initialPlayer) return;
+    let cancelled = false;
+
+    async function resolve() {
+      try {
+        // Unfiltered fetch (every season/phase) so the deep link works even
+        // for players with no games in the default season.
+        const rows = await fetchPlayerAgg();
+        if (cancelled) return;
+        const match = resolvePlayerParam(rows, initialPlayer!);
+        if (match) {
+          // Open in "All seasons / All phases" so the card is never empty
+          // for a player whose games are in an earlier season than the
+          // page's default (newest) selection.
+          setSeason(ALL_SEASONS);
+          setPhase("All");
+          setSelectedPlayer(match);
+        } else {
+          setActiveTab("Players");
+          setPlayersPrefill(initialPlayer!);
+        }
+      } catch {
+        if (cancelled) return;
+        setActiveTab("Players");
+        setPlayersPrefill(initialPlayer!);
+      }
+    }
+
+    void resolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialPlayer]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -305,7 +354,13 @@ export default function StatsTabs() {
       ) : activeTab === "Timeline" ? (
         <TimelineTab season={season} phase={phase} />
       ) : activeTab === "Players" ? (
-        <PlayersTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} />
+        <PlayersTab
+          key={playersPrefill}
+          season={season}
+          phase={phase}
+          onSelectPlayer={setSelectedPlayer}
+          initialQuery={playersPrefill}
+        />
       ) : null}
     </div>
   );
