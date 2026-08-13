@@ -1,5 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { fmtPoints } from "@/lib/betting/format";
 import { grantPoints } from "@/lib/betting/admin-actions";
@@ -72,9 +73,14 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
 }
 
 export default function UsersAdmin({ balances: initialBalances, audit }: { balances: BalanceRow[]; audit: AuditRow[] }) {
+  const router = useRouter();
   const supabase = createClient();
-  const [balances, setBalances] = useState(initialBalances);
+  // `null` = no active search, so a router.refresh() after a grant (which
+  // re-fetches `initialBalances` server-side with the updated balance) shows
+  // up immediately without a separate effect re-syncing local state.
+  const [searchResults, setSearchResults] = useState<BalanceRow[] | null>(null);
   const [query, setQuery] = useState("");
+  const balances = searchResults ?? initialBalances;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -82,7 +88,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
   const search = async (q: string) => {
     setQuery(q);
     if (!q.trim()) {
-      setBalances(initialBalances);
+      setSearchResults(null);
       return;
     }
     const { data } = await supabase
@@ -91,7 +97,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
       .or(`username.ilike.%${q}%,discord_id.ilike.%${q}%`)
       .order("balance", { ascending: false })
       .limit(50);
-    setBalances((data as BalanceRow[] | null) ?? []);
+    setSearchResults((data as BalanceRow[] | null) ?? []);
   };
 
   return (
@@ -101,10 +107,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
 
       <section className="flex flex-col gap-3">
         <h2 className="label-dash">Grant / deduct</h2>
-        <p className="text-xs text-steel">
-          Not available yet — no admin balance-adjustment RPC has been ported for this build (see task-9-report.md). Submitting
-          below is staff-gated and validated, but will not move any balance.
-        </p>
+        <p className="text-xs text-steel">Positive amounts credit the wallet, negative amounts deduct — every change is audited below.</p>
         <GrantForm
           busy={pending}
           onSubmit={(discordId, delta, reason) =>
@@ -117,6 +120,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
               }
               setError(null);
               setNotice("Balance adjusted.");
+              router.refresh();
             })
           }
         />

@@ -309,24 +309,50 @@ describe("closeSeason", () => {
   });
 });
 
-// === grantPoints: no admin_grant-equivalent RPC was ported for this task ===
-// (see task-9-report.md) — money must flow through an RPC, never a direct
-// balance write, so this deliberately refuses rather than improvising one.
+// === grantPoints: admin_grant (20260813000007_betting_admin_grant.sql) =====
 describe("grantPoints", () => {
-  it("is staff-gated but never touches the database — no grant RPC exists yet", async () => {
+  it("rejects a non-staff caller before touching the RPC (covered again here for clarity)", async () => {
+    requireBettingStaff.mockRejectedValue(new Error("betting: staff only"));
+
     const result = await grantPoints("42", 500, "tournament prize");
 
-    expect(requireBettingStaff).toHaveBeenCalled();
     expect(result.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
-    expect(from).not.toHaveBeenCalled();
   });
 
-  it("still validates input before reporting unavailability", async () => {
-    const result = await grantPoints("", 0, "");
+  it("calls admin_grant with the actor and p_note=reason", async () => {
+    rpc.mockResolvedValue({ data: 900, error: null });
+
+    const result = await grantPoints("42", 500, "tournament prize");
+
+    expect(rpc).toHaveBeenCalledWith("admin_grant", {
+      p_actor: "staff-1",
+      p_target: "42",
+      p_amount: 500,
+      p_note: "tournament prize",
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("rejects a zero delta without calling the RPC", async () => {
+    const result = await grantPoints("42", 0, "oops");
 
     expect(result.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank discord id or reason without calling the RPC", async () => {
+    expect((await grantPoints("", 100, "reason")).ok).toBe(false);
+    expect((await grantPoints("42", 100, "")).ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("surfaces the RPC's own guard errors", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "grant would make balance negative" } });
+
+    const result = await grantPoints("42", -5000, "oops");
+
+    expect(result).toEqual({ ok: false, error: "grant would make balance negative" });
   });
 });
 

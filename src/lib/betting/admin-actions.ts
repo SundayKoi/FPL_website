@@ -23,12 +23,10 @@ import { createBettingServiceClient } from "./service-client";
 // migration (out of scope for this task), preserving the audit invariant by
 // calling the already-ported `_audit` RPC ourselves right after.
 //
-// grantPoints is the one exception: the source's `admin_grant` RPC
-// (004_admin_rpcs.sql) was NOT ported either, but it moves money, so per the
-// controller ruling this function does not improvise a direct balance write.
-// It validates input and is staff-gated like everything else, then reports
-// the gap instead of touching betting_profiles/betting_ledger. See
-// task-9-report.md's NEEDS_CONTEXT note.
+// grantPoints calls `admin_grant` (supabase/migrations/
+// 20260813000007_betting_admin_grant.sql — ported after the controller
+// resolved task-9-report.md's NEEDS_CONTEXT note: the missing RPC was a plan
+// gap, not a reason to improvise a direct balance write).
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 type IdResult = { ok: true; id: number } | { ok: false; error: string };
@@ -504,20 +502,16 @@ export async function closeSeason(seasonId: number, resetTo: number): Promise<Ac
   return { ok: true };
 }
 
-// === Users: grant/deduct — BLOCKED, see this file's header note ==============
+// === Users: grant/deduct (admin_grant, 20260813000007_betting_admin_grant.sql) ==
 
 /**
- * NOT IMPLEMENTED: the source's `admin_grant(p_actor, p_target, p_amount,
- * p_note)` (c:\fpl_gambling\db\migrations\004_admin_rpcs.sql) was never
- * ported into this repo's migrations (confirmed — no grant/adjust-balance
- * RPC exists anywhere under supabase/migrations). Money must flow through an
- * RPC, never a direct `betting_profiles.balance` write from the app layer —
- * so rather than improvise one, this still runs the staff gate and input
- * validation (per this task's TDD requirements) and then refuses. See
- * task-9-report.md's NEEDS_CONTEXT note: a follow-up task needs to port
- * `admin_grant` as a SQL migration (renamed to this repo's `betting_`
- * prefix, mirroring how every other admin RPC in Task 3/4 was ported)
- * before this can move real balance.
+ * Grants (positive delta) or deducts (negative delta) a wallet's balance via
+ * `admin_grant`, with `reason` carried through as the RPC's `p_note` (stored
+ * in the audit row's `after.note`, alongside the ledger's fixed
+ * `admin_grant` reason string). The RPC itself refuses a deduction that
+ * would take the balance below zero ('grant would make balance negative')
+ * and an unknown target ('unknown user %') — surfaced here as the RPC's own
+ * error message, same as every other action in this file.
  */
 export async function grantPoints(discordId: string, delta: number, reason: string): Promise<ActionResult> {
   const ctx = await staffOnly();
@@ -527,8 +521,15 @@ export async function grantPoints(discordId: string, delta: number, reason: stri
   if (!isFiniteInt(delta) || delta === 0) return { ok: false, error: "Enter a non-zero whole-number amount." };
   if (!reason || !reason.trim()) return { ok: false, error: "Enter a reason for the audit trail." };
 
-  return {
-    ok: false,
-    error: "Grant/deduct is unavailable: no admin_grant RPC has been ported for this task (NEEDS_CONTEXT — see task-9-report.md).",
-  };
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("admin_grant", {
+    p_actor: ctx.discordId,
+    p_target: discordId.trim(),
+    p_amount: delta,
+    p_note: reason.trim(),
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateBetting();
+  return { ok: true };
 }
