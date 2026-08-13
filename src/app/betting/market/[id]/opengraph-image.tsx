@@ -68,16 +68,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const marketId = Number(id);
   const model = Number.isInteger(marketId) ? await shareModel(marketId) : null;
 
-  if (!model) {
-    return new ImageResponse(
-      (
-        <CardFrame tag="" tagColor={PALETTE.steel}>
-          <div style={{ display: "flex", fontSize: 48, fontWeight: 700, color: PALETTE.steel }}>Market not found</div>
-        </CardFrame>
-      ),
-      { ...size }
-    );
-  }
+  // Same null->404 contract as the /open and /result routes (share.ts's
+  // shareModel returns null for an unknown market): the page itself 404s
+  // for a missing market, so a graceful "not found" card here would just
+  // paper over that with a misleading 200.
+  if (!model) return new Response("not found", { status: 404 });
 
   const { tag, color } = STATUS_TAG[model.status] ?? { tag: model.status, color: PALETTE.steel };
 

@@ -26,6 +26,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // of RESOLVED) shouldn't crash — fall back to a neutral "pending" card.
   const resolve = model.resolve;
 
+  // RESOLVED/CANCELLED are terminal statuses (see the market RPCs' status
+  // check constraint) — once there, this card's content can never change
+  // again, so it's safe to cache it forever. Anything still open (the
+  // "pending" fallback above) keeps the route's force-dynamic, uncached
+  // behavior instead, since its content is still live.
+  const immutable = model.status === "RESOLVED" || model.status === "CANCELLED";
+  const headers = { "Cache-Control": immutable ? "public, max-age=31536000, immutable" : "no-store" };
+
   return new ImageResponse(
     (
       <CardFrame tag="RESULT" tagColor="#7cc4ff">
@@ -66,6 +74,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         <CardFooter text={model.title} />
       </CardFrame>
     ),
-    { ...size }
+    { ...size, headers }
   );
 }

@@ -5,9 +5,9 @@ vi.mock("server-only", () => ({}));
 
 // See src/app/api/betting/share/[id]/open/route.test.tsx's header comment:
 // ImageResponse can't actually be rendered under vitest/jsdom, so this is a
-// wiring smoke test — shareModel gets the right id, a miss still renders a
-// (fallback) card instead of throwing, and a hit hands ImageResponse a
-// card-sized element.
+// wiring smoke test — shareModel gets the right id, a miss 404s (same
+// null->404 contract as the /open and /result routes), and a hit hands
+// ImageResponse a card-sized element.
 const { ImageResponseMock } = vi.hoisted(() => ({
   ImageResponseMock: vi.fn(function ImageResponseStub(this: { el: unknown; opts: unknown }, el: unknown, opts: unknown) {
     this.el = el;
@@ -36,11 +36,12 @@ describe("betting/market/[id] opengraph-image", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 
-  it("calls shareModel with the parsed market id and renders a fallback card on a miss", async () => {
+  it("404s when shareModel finds no market", async () => {
     shareModelMock.mockResolvedValueOnce(null);
-    await Image({ params: Promise.resolve({ id: "99" }) });
+    const res = await Image({ params: Promise.resolve({ id: "99" }) });
     expect(shareModelMock).toHaveBeenCalledWith(99);
-    expect(ImageResponseMock).toHaveBeenCalledTimes(1);
+    expect(res.status).toBe(404);
+    expect(ImageResponseMock).not.toHaveBeenCalled();
   });
 
   it("renders an OPEN market's odds bar into the card", async () => {

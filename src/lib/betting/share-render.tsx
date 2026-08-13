@@ -9,15 +9,22 @@
 // flexbox divs for Satori (next/og's renderer) instead.
 //
 // No external fonts or images: next/og falls back to its own bundled sans
-// font when no `fonts` option is passed to ImageResponse, and site colors
-// come from globals.css's @theme tokens (hex values duplicated here since
-// ImageResponse can't read CSS custom properties).
+// font when no `fonts` option is passed to ImageResponse, and colors come
+// from two sources duplicated here as hex (ImageResponse can't read CSS
+// custom properties, and discord/respond.ts's colors are 0xRRGGBB ints, not
+// CSS strings): navy/panel/line/steel/gold/white are globals.css's `@theme`
+// tokens; win/lose match discord/respond.ts's GREEN/RED (0x34e98a/0xff5063)
+// — both ported from the same c:\fpl_gambling\bot\main.py source, so they
+// coincide, but they're independent constants for two different concerns
+// (Discord embed colors vs. this card's palette) and aren't imported from
+// there: respond.ts has no CSS-string form of its ints, and keeping these
+// hardcoded means an unrelated future change to Discord's embed color can't
+// silently reflow this card's palette.
 
 import type { ReactNode } from "react";
 
 export const CARD_SIZE = { width: 1200, height: 630 };
 
-/** Hex values ported from src/app/globals.css's `@theme` block. */
 export const PALETTE = {
   navy: "#001f34",
   panel: "#0a2a47",
