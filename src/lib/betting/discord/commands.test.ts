@@ -154,6 +154,7 @@ describe("/buy", () => {
     process.env.DISCORD_GUILD_ID = "guild-1";
     process.env.DISCORD_BOT_TOKEN = "bot-token";
     global.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 403 } as Response));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     rpcImpl.current = vi.fn((fn: string, args: Record<string, unknown>) => {
       if (fn === "grant_signup_bonus") return Promise.resolve({ data: null, error: null });
@@ -181,6 +182,44 @@ describe("/buy", () => {
     );
     expect(res.data.embeds[0].description).toContain("Couldn't grant **VIP Role**");
     expect(res.data.embeds[0].description).toContain("refunded (balance $700)");
+    // the original fulfillment failure is logged (main.py's log.exception
+    // port); the refund succeeded, so only that one console.error fires.
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy.mock.calls[0][0]).toContain("purchase 55");
+  });
+
+  it("does not claim a refund and logs both failures when the refund RPC itself fails", async () => {
+    process.env.DISCORD_GUILD_ID = "guild-1";
+    process.env.DISCORD_BOT_TOKEN = "bot-token";
+    global.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500 } as Response));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "grant_signup_bonus") return Promise.resolve({ data: null, error: null });
+      if (fn === "start_purchase") return Promise.resolve({ data: 88, error: null });
+      if (fn === "refund_purchase") {
+        return Promise.resolve({ data: null, error: { message: "purchase 88 already fulfilled" } });
+      }
+      if (fn === "fulfill_purchase") throw new Error("fulfill_purchase should not be called on grant failure");
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromImpl.current = makeFrom({
+      betting_store_items: [{ data: { name: "VIP Role", type: "discord_role", payload: { role_id: "999" }, cost: 500 } }],
+    });
+
+    const interaction = baseInteraction({
+      data: { name: "buy", options: [{ name: "item", value: 7 }] } as unknown as DiscordInteraction["data"],
+    });
+
+    const res = (await commandHandlers.buy(interaction)) as { data: { embeds: Array<{ description: string }> } };
+
+    expect(res.data.embeds[0].description).not.toContain("you were refunded");
+    expect(res.data.embeds[0].description).not.toContain("refunded");
+    expect(res.data.embeds[0].description).toContain("contact staff");
+    expect(res.data.embeds[0].description).toContain("purchase #88");
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+    expect(errorSpy.mock.calls[0][0]).toContain("fulfillment failed for purchase 88");
+    expect(errorSpy.mock.calls[1][0]).toContain("refund_purchase also failed for purchase 88");
   });
 });
 

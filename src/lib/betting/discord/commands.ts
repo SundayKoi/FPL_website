@@ -328,8 +328,11 @@ interface OpenMarketRow {
   team_b_id: number;
 }
 
+/** SITE_URL is the spec'd/primary name; NEXT_PUBLIC_SITE_URL (the rest of
+ * the repo's canonical-origin var — see auth/siteOrigin.ts) is accepted as a
+ * fallback so a deploy only has to set one of the two. */
 function siteUrl(): string {
-  return process.env.SITE_URL ?? "";
+  return process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
 }
 
 async function handleExchange(interaction: DiscordInteraction): Promise<object> {
@@ -487,9 +490,28 @@ async function handleBuy(interaction: DiscordInteraction): Promise<object> {
       });
       if (fulfillError) throw new Error(fulfillError.message);
     }
-  } catch {
-    const { data: balanceData } = await service.rpc("refund_purchase", { p_purchase: purchaseId });
-    const balance = (balanceData as number | null) ?? 0;
+  } catch (fulfillErr) {
+    // Port of main.py's `log.exception("fulfillment failed for purchase
+    // %s — refunding", p["purchase_id"])` — the original failure (role
+    // grant threw, or fulfill_purchase itself returned an RPC error) must
+    // not be silently swallowed just because the code below tries to
+    // recover from it.
+    console.error(`buy: fulfillment failed for purchase ${purchaseId} — refunding`, fulfillErr);
+
+    const { data: balanceData, error: refundError } = await service.rpc("refund_purchase", {
+      p_purchase: purchaseId,
+    });
+    if (refundError) {
+      // The refund itself failed (e.g. the purchase was already fulfilled
+      // by a concurrent retry) — do NOT tell the user they were refunded
+      // when they weren't. The purchase row is left as-is for staff to
+      // resolve manually from the admin area.
+      console.error(`buy: refund_purchase also failed for purchase ${purchaseId}`, refundError);
+      return errMsg(
+        `Couldn't grant **${item.name}** and the automatic refund failed — contact staff with purchase #${purchaseId} for a manual refund.`
+      );
+    }
+    const balance = balanceData as number;
     return errMsg(`Couldn't grant **${item.name}** — you were refunded (balance ${fmtPoints(balance)}).`);
   }
 
