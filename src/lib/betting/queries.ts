@@ -212,20 +212,50 @@ interface PickemRow {
   lock_at: string;
 }
 
-/** The currently open (or locked-but-unresolved) pick'em, soonest-to-lock
- * first — rendered above markets on the betting index page. `null` when
- * there's no live pick'em right now. */
-export async function fetchOpenPickem(discordId?: string): Promise<PickemData | null> {
-  const service = createBettingServiceClient();
+/** How long a resolved/cancelled pick'em's result stays visible on the
+ * betting index after the fact, once no pick'em is OPEN/LOCKED — long enough
+ * that players who miss the live window still catch the perfect-card banner
+ * / their own card's payout before it's replaced by the next night's card.
+ * Not ported from the source (c:\fpl_gambling's /events/{id}/pickem is
+ * scoped to one event and has no such window); chosen for this task. */
+const PICKEM_RESULT_GRACE_HOURS = 48;
 
-  const { data: pickemData } = await service
+/** The pick'em row to show on the betting index: the currently OPEN/LOCKED
+ * one if there is one (soonest-to-lock first), otherwise the most recently
+ * RESOLVED/CANCELLED one within PICKEM_RESULT_GRACE_HOURS. `null` when
+ * neither exists — see fetchOpenPickem's own comment for why this fallback
+ * matters (without it, a resolved pick'em's result is unreachable). */
+async function fetchPickemRow(service: ReturnType<typeof createBettingServiceClient>): Promise<PickemRow | null> {
+  const { data: openData } = await service
     .from("betting_pickems")
     .select("id, title, status, carryover, lock_at")
     .in("status", ["OPEN", "LOCKED"])
     .order("lock_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  const pickem = pickemData as PickemRow | null;
+  if (openData) return openData as PickemRow;
+
+  const since = new Date(Date.now() - PICKEM_RESULT_GRACE_HOURS * 60 * 60 * 1000).toISOString();
+  const { data: recentData } = await service
+    .from("betting_pickems")
+    .select("id, title, status, carryover, lock_at")
+    .in("status", ["RESOLVED", "CANCELLED"])
+    .gte("resolved_at", since)
+    .order("resolved_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (recentData as PickemRow | null) ?? null;
+}
+
+/** The pick'em to render above markets on the betting index page: the live
+ * OPEN/LOCKED one, or — for a grace window after it settles — its result,
+ * so players who bet on it can still see the outcome instead of the panel
+ * simply vanishing the instant it resolves. `null` when there's nothing to
+ * show at all. See fetchPickemRow/PICKEM_RESULT_GRACE_HOURS above. */
+export async function fetchOpenPickem(discordId?: string): Promise<PickemData | null> {
+  const service = createBettingServiceClient();
+
+  const pickem = await fetchPickemRow(service);
   if (!pickem) return null;
 
   const { data: legRows } = await service.from("betting_pickem_legs").select("market_id").eq("pickem_id", pickem.id);

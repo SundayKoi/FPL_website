@@ -75,6 +75,11 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
   if (pickem.my_card !== prevCard) {
     setPrevCard(pickem.my_card);
     setPicks(pickem.my_card?.picks ?? {});
+    // `a || ...` only refills amount when it's currently falsy — deliberate,
+    // so a resync doesn't clobber an in-progress edit to the stake. Edge
+    // case accepted: if the user has cleared the field to 0 right as a
+    // resync fires, it repopulates from the server's card amount instead of
+    // staying at 0.
     setAmount((a) => a || pickem.my_card?.amount || 0);
   }
 
