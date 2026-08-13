@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_table('public', 'betting_profiles', 'betting_profiles exists');
+select has_table('public', 'betting_ledger',   'betting_ledger exists');
+select has_table('public', 'betting_markets',  'betting_markets exists');
+select has_table('public', 'betting_bets',     'betting_bets exists');
+select has_table('public', 'betting_pickems',  'betting_pickems exists');
+select col_is_pk('public', 'betting_profiles', 'discord_id', 'wallet keyed by discord id');
+select ok((select relrowsecurity from pg_class where relname='betting_markets'), 'RLS on betting_markets');
+select ok((select relrowsecurity from pg_class where relname='betting_ledger'), 'RLS on betting_ledger');
+select * from finish();
+rollback;

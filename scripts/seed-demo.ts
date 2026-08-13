@@ -19,6 +19,7 @@
  */
 import { execSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { seedBettingFixture, BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL } from "./betting-fixture";
 
 const DRAFT_NAME = "Demo Draft (12 Teams)";
 const PASSWORD = "password123";
@@ -172,6 +173,10 @@ async function main() {
     const needs = ALL_ROLES.filter((r) => r !== t.capRole && r !== t.faRole).join("/");
     console.log(`  pos ${String(i + 1).padStart(2)}  ${t.name.padEnd(17)} ${t.email.padEnd(23)} needs ${needs}${i === 0 ? "  (admin)" : ""}`);
   });
+
+  const bettingMemberId = await ensureUser(supabase.auth.admin, BETTING_MEMBER_EMAIL);
+  const bettingAdminId = await ensureUser(supabase.auth.admin, BETTING_ADMIN_EMAIL);
+  await seedBettingFixture(supabase, bettingMemberId, bettingAdminId);
 }
 
 main().catch((err) => {

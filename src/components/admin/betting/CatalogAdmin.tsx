@@ -1,0 +1,302 @@
+"use client";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { BettingTeam } from "@/lib/betting/types";
+import { fmtPoints } from "@/lib/betting/format";
+import {
+  upsertTeam,
+  deleteTeam,
+  upsertEvent,
+  deleteEvent,
+  upsertStoreItem,
+  deleteStoreItem,
+} from "@/lib/betting/admin-actions";
+
+export interface StoreItemRow {
+  id: number;
+  name: string;
+  description: string | null;
+  cost: number;
+  type: string;
+  active: boolean;
+}
+
+type Result = { ok: true } | { ok: false; error: string } | { ok: true; id: number };
+/** Runs an admin action inside the shared transition, surfacing its error or
+ * refreshing the page on success — passed down so `busy` (React's isPending)
+ * actually covers the network round trip, not just the local state update. */
+type Runner = (action: () => Promise<Result>, onSuccess?: () => void) => void;
+
+function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolean; run: Runner }) {
+  const [name, setName] = useState("");
+  const [shortCode, setShortCode] = useState("");
+  const [color, setColor] = useState("#888780");
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="label-dash">Teams</h2>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim() || !shortCode.trim()) return;
+          run(
+            () => upsertTeam({ name, shortCode, color }),
+            () => {
+              setName("");
+              setShortCode("");
+            },
+          );
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Short code
+          <input
+            value={shortCode}
+            onChange={(e) => setShortCode(e.target.value)}
+            maxLength={8}
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Color
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-line bg-navy" />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !name.trim() || !shortCode.trim()}
+          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        >
+          Add team
+        </button>
+      </form>
+      <ul className="flex flex-col gap-1.5">
+        {teams.map((t) => (
+          <li key={t.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+            <span className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
+              <span className="font-medium text-white">{t.name}</span>
+              <span className="text-xs text-steel">{t.short_code}</span>
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (confirm(`Delete team "${t.name}"? Only possible if no market references it.`)) {
+                  run(() => deleteTeam(t.id));
+                }
+              }}
+              className="rounded border border-red-500/60 px-2 py-0.5 text-xs font-semibold text-red-400 disabled:opacity-40"
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+        {teams.length === 0 && <p className="text-sm text-steel">No teams yet.</p>}
+      </ul>
+    </section>
+  );
+}
+
+function EventsSection({
+  events,
+  busy,
+  run,
+}: {
+  events: { id: number; name: string; description: string | null }[];
+  busy: boolean;
+  run: Runner;
+}) {
+  const [name, setName] = useState("");
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="label-dash">Events</h2>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim()) return;
+          run(
+            () => upsertEvent({ name }),
+            () => setName(""),
+          );
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !name.trim()}
+          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        >
+          Add event
+        </button>
+      </form>
+      <ul className="flex flex-col gap-1.5">
+        {events.map((ev) => (
+          <li key={ev.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+            <span className="font-medium text-white">{ev.name}</span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (confirm(`Delete event "${ev.name}"? Only possible if it has no markets.`)) {
+                  run(() => deleteEvent(ev.id));
+                }
+              }}
+              className="rounded border border-red-500/60 px-2 py-0.5 text-xs font-semibold text-red-400 disabled:opacity-40"
+            >
+              Delete
+            </button>
+          </li>
+        ))}
+        {events.length === 0 && <p className="text-sm text-steel">No events yet.</p>}
+      </ul>
+    </section>
+  );
+}
+
+function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boolean; run: Runner }) {
+  const [name, setName] = useState("");
+  const [cost, setCost] = useState(500);
+  const [type, setType] = useState("role");
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="label-dash">Store</h2>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!name.trim() || !type.trim() || cost <= 0) return;
+          run(
+            () => upsertStoreItem({ name, cost, type, active: true }),
+            () => setName(""),
+          );
+        }}
+        className="flex flex-wrap items-end gap-2"
+      >
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Name
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Cost
+          <input
+            type="number"
+            min={1}
+            value={cost}
+            onChange={(e) => setCost(Math.max(1, Number(e.target.value) || 0))}
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Type
+          <input
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={busy || !name.trim() || !type.trim() || cost <= 0}
+          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        >
+          Add item
+        </button>
+      </form>
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+            <span className="flex items-center gap-2">
+              <span className="font-medium text-white">{item.name}</span>
+              <span className="text-xs text-steel">
+                {fmtPoints(item.cost)} · {item.type} · {item.active ? "active" : "inactive"}
+              </span>
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(() => upsertStoreItem({ id: item.id, name: item.name, cost: item.cost, type: item.type, active: !item.active }))
+                }
+                className="rounded border border-line px-2 py-0.5 text-xs text-steel hover:border-gold hover:text-gold disabled:opacity-40"
+              >
+                {item.active ? "Deactivate" : "Activate"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  if (confirm(`Delete "${item.name}"? Only possible if it was never purchased.`)) {
+                    run(() => deleteStoreItem(item.id));
+                  }
+                }}
+                className="rounded border border-red-500/60 px-2 py-0.5 text-xs font-semibold text-red-400 disabled:opacity-40"
+              >
+                Delete
+              </button>
+            </div>
+          </li>
+        ))}
+        {items.length === 0 && <p className="text-sm text-steel">No store items yet.</p>}
+      </ul>
+    </section>
+  );
+}
+
+export default function CatalogAdmin({
+  teams,
+  events,
+  storeItems,
+}: {
+  teams: BettingTeam[];
+  events: { id: number; name: string; description: string | null }[];
+  storeItems: StoreItemRow[];
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const run: Runner = (action, onSuccess) => {
+    startTransition(async () => {
+      const result = await action();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      onSuccess?.();
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-8">
+      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      <TeamsSection teams={teams} busy={pending} run={run} />
+      <EventsSection events={events} busy={pending} run={run} />
+      <StoreSection items={storeItems} busy={pending} run={run} />
+    </div>
+  );
+}

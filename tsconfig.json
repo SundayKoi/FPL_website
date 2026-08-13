@@ -30,5 +30,14 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // Deno edge functions (supabase/functions/**) run under the Deno runtime,
+    // not Node — they use Deno globals and jsr:/npm: specifiers this
+    // project's Node-targeted tsconfig can't resolve. Excluded from the
+    // Next.js/vitest type-check surface the same way eslint.config.mjs
+    // already excludes all of supabase/** from lint; Deno's own `deno check`
+    // (run via the Supabase CLI) is this file's type-checking tool instead.
+    "supabase/functions"
+  ]
 }

@@ -385,6 +385,13 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# discord-announcer is never called through Supabase Auth — pg_cron posts to
+# it directly (20260813000008_betting_announcer_cron.sql) and the function
+# authenticates the caller itself via the x-announcer-secret header, so JWT
+# verification must be off or every cron POST would 401 before reaching it.
+[functions.discord-announcer]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

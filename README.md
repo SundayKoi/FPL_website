@@ -81,7 +81,7 @@ update profiles set is_admin = true where id = '<your auth user uuid>';
 ```powershell
 npx supabase test db   # pgTAP suite against the local DB (needs supabase start)
 npm test                # Vitest unit test suite
-npm run e2e              # Playwright: end-to-end auction smoke test
+npm run e2e              # Playwright: end-to-end smoke tests (auction + betting)
 ```
 
 Notes on `npm run e2e`:
@@ -89,11 +89,14 @@ Notes on `npm run e2e`:
   dev server reachable at `http://localhost:3000` (Playwright's
   `webServer` config will start `npm run dev` for you if it isn't already
   running).
-- It seeds itself: the spec shells out to `npx tsx e2e/seed.ts`, which
-  builds a fresh "E2E Draft" with two captains and a small player pool
-  using the local Supabase **service_role** key. It resolves that key
-  itself by calling `npx supabase status -o json` (no need to set anything
-  by hand, unless you've already exported
+- Both specs seed themselves — no manual `npm run seed:demo` needed first:
+  `draft.spec.ts` shells out to `npx tsx e2e/seed.ts`, which builds a fresh
+  "E2E Draft" with two captains and a small player pool, and
+  `betting.spec.ts` shells out to `npx tsx e2e/seed-betting.ts`, which
+  builds a member + admin dev-login user and a two-team betting market
+  (`scripts/betting-fixture.ts`). Both resolve the local Supabase
+  **service_role** key themselves by calling `npx supabase status -o json`
+  (no need to set anything by hand, unless you've already exported
   `SUPABASE_SERVICE_ROLE_KEY` in your shell).
 - Playwright is configured single-worker / not fully parallel
   (`playwright.config.ts`), since the test drives two real browser
