@@ -29,6 +29,12 @@ import "@/lib/betting/discord/components";
 const NO_ACCESS_MSG =
   "FPL Exchange is for **FPL Better** members — ask the staff about getting access.";
 
+// Replay guard per Discord docs
+// (https://discord.com/developers/docs/interactions/receiving-and-responding#security-and-authorization):
+// a captured, still-validly-signed request must not be replayable forever —
+// reject anything whose timestamp has drifted too far from "now".
+const TIMESTAMP_TOLERANCE_S = 300;
+
 const INTERACTION_TYPE = {
   PING: 1,
   APPLICATION_COMMAND: 2,
@@ -84,6 +90,11 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!signature || !timestamp || !(await verifyDiscordSignature(publicKey, signature, timestamp, rawBody))) {
     return new NextResponse("invalid request signature", { status: 401 });
+  }
+
+  const timestampS = Number(timestamp);
+  if (!Number.isFinite(timestampS) || Math.abs(Date.now() / 1000 - timestampS) > TIMESTAMP_TOLERANCE_S) {
+    return new NextResponse("stale request timestamp", { status: 401 });
   }
 
   const interaction = JSON.parse(rawBody) as DiscordInteraction;

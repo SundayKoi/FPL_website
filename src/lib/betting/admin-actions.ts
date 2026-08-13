@@ -92,8 +92,12 @@ export async function createMarket(input: CreateMarketInput): Promise<IdResult> 
   if (!input.title || !input.title.trim()) {
     return { ok: false, error: "Enter a market title." };
   }
-  if (Number.isNaN(new Date(input.gameAt).getTime())) {
+  const gameAtMs = new Date(input.gameAt).getTime();
+  if (Number.isNaN(gameAtMs)) {
     return { ok: false, error: "Invalid game time." };
+  }
+  if (gameAtMs <= Date.now()) {
+    return { ok: false, error: "game time must be in the future" };
   }
   const rakeBps = input.rakeBps ?? 0;
   if (!isFiniteInt(rakeBps) || rakeBps < 0 || rakeBps > 10000) {

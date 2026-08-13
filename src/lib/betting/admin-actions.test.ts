@@ -219,6 +219,20 @@ describe("createMarket", () => {
     });
     expect(result).toEqual({ ok: true, id: 42 });
   });
+
+  it("rejects a game time in the past, without calling the RPC", async () => {
+    const result = await createMarket({
+      eventId: 1,
+      teamAId: 1,
+      teamBId: 2,
+      title: "Grand Final",
+      gameAt: "2020-01-01T00:00:00Z",
+      drawEnabled: false,
+    });
+
+    expect(result).toEqual({ ok: false, error: "game time must be in the future" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });
 
 describe("upsertTeam", () => {

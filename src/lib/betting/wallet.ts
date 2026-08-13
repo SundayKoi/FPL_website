@@ -47,13 +47,14 @@ export async function getBettingUser(): Promise<BettingUser | null> {
   const avatar = (metadata.avatar_url as string | undefined) ?? null;
 
   const service = createBettingServiceClient();
-  await service.rpc("grant_signup_bonus", {
+  const { error } = await service.rpc("grant_signup_bonus", {
     p_user: discordId,
     p_username: username,
     p_avatar: avatar,
     p_amount: SIGNUP_BONUS_AMOUNT,
     p_profile_id: user.id,
   });
+  if (error) console.error("betting: grant_signup_bonus failed", error);
 
   const { data: profile } = await service
     .from("betting_profiles")

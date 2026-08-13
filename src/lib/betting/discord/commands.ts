@@ -457,19 +457,24 @@ async function handleBuy(interaction: DiscordInteraction): Promise<object> {
   const service = createBettingServiceClient();
   await ensureUser(service, member);
 
-  const { data: purchaseId, error: startError } = await service.rpc("start_purchase", {
-    p_user: member.id,
-    p_item: itemId,
-  });
-  if (startError) return errMsg(friendlyBettingError(startError.message));
-
-  const { data: itemData } = await service
+  // Fetch the item BEFORE charging the wallet: start_purchase (below) debits
+  // the user immediately, and this endpoint has no way to distinguish "the
+  // item doesn't exist" from "the read failed" after the fact — either way,
+  // charging first and then bailing out here would leave the user out of
+  // pocket with nothing granted and no refund issued.
+  const { data: itemData, error: itemError } = await service
     .from("betting_store_items")
     .select("name, type, payload, cost")
     .eq("id", itemId)
     .maybeSingle();
   const item = itemData as PurchasableItem | null;
-  if (!item) return errMsg("That item doesn't exist.");
+  if (itemError || !item) return errMsg("That item doesn't exist.");
+
+  const { data: purchaseId, error: startError } = await service.rpc("start_purchase", {
+    p_user: member.id,
+    p_item: itemId,
+  });
+  if (startError) return errMsg(friendlyBettingError(startError.message));
 
   // Fulfill — and refund if granting fails, so nobody pays for nothing.
   // Ports main.py's buy() try/except around the fulfillment step verbatim.

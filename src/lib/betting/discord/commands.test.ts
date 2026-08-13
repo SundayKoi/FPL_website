@@ -221,6 +221,42 @@ describe("/buy", () => {
     expect(errorSpy.mock.calls[0][0]).toContain("fulfillment failed for purchase 88");
     expect(errorSpy.mock.calls[1][0]).toContain("refund_purchase also failed for purchase 88");
   });
+
+  it("returns an error without calling start_purchase when the item fetch fails", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "start_purchase") throw new Error("start_purchase should not be called when the item read failed");
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromImpl.current = makeFrom({
+      betting_store_items: [{ data: null, error: { message: "connection reset" } }],
+    });
+
+    const interaction = baseInteraction({
+      data: { name: "buy", options: [{ name: "item", value: 7 }] } as unknown as DiscordInteraction["data"],
+    });
+
+    const res = (await commandHandlers.buy(interaction)) as { data: { embeds: Array<{ description: string }> } };
+
+    expect(res.data.embeds[0].description).toContain("doesn't exist");
+  });
+
+  it("returns an error without calling start_purchase when the item does not exist", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "start_purchase") throw new Error("start_purchase should not be called for a missing item");
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromImpl.current = makeFrom({
+      betting_store_items: [{ data: null }],
+    });
+
+    const interaction = baseInteraction({
+      data: { name: "buy", options: [{ name: "item", value: 999 }] } as unknown as DiscordInteraction["data"],
+    });
+
+    const res = (await commandHandlers.buy(interaction)) as { data: { embeds: Array<{ description: string }> } };
+
+    expect(res.data.embeds[0].description).toContain("doesn't exist");
+  });
 });
 
 describe("registration", () => {

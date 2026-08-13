@@ -67,6 +67,10 @@ begin
   if v_status = 'RESOLVED' then return; end if;  -- idempotency guard
   if v_status = 'CANCELLED' then raise exception 'market % already cancelled', p_market; end if;
 
+  -- serialize against cashout_bet (locks its bet row): prevents a concurrent
+  -- cashout from double-paying a bet we are about to settle
+  perform 1 from betting_bets where market_id = p_market for update;
+
   if v_is_draw then
     if not v_draw then raise exception 'market % has no draw option', p_market; end if;
   elsif p_winning_team not in (v_team_a, v_team_b) then
@@ -141,6 +145,10 @@ begin
   if not found then raise exception 'unknown market %', p_market; end if;
   if v_status = 'CANCELLED' then return; end if;  -- idempotent
   if v_status = 'RESOLVED' then raise exception 'market % already resolved', p_market; end if;
+
+  -- serialize against cashout_bet (locks its bet row): prevents a concurrent
+  -- cashout from double-paying a bet we are about to settle
+  perform 1 from betting_bets where market_id = p_market for update;
 
   for r in select id, discord_id, amount from betting_bets where market_id = p_market and not settled loop
     insert into betting_ledger(discord_id, delta, reason, ref_table, ref_id)

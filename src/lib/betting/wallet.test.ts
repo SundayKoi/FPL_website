@@ -17,7 +17,7 @@ const { rpc, single, from } = vi.hoisted(() => {
   const from = vi.fn(() => ({
     select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })),
   }));
-  const rpc = vi.fn(async () => ({ data: null, error: null }));
+  const rpc = vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({ data: null, error: null }));
   return { rpc, single, from };
 });
 
@@ -99,6 +99,23 @@ describe("getBettingUser", () => {
 
     expect(result?.username).toBe("42");
     expect(result?.balance).toBe(0);
+  });
+
+  it("logs (but does not throw or block) when grant_signup_bonus errors", async () => {
+    getUser.mockResolvedValue({
+      data: {
+        user: { id: "p1", identities: [{ provider: "discord", id: "42" }], user_metadata: {} },
+      },
+    });
+    rpc.mockResolvedValue({ data: null, error: { message: "connection reset" } });
+    single.mockResolvedValue({ data: { balance: 250 } });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await getBettingUser();
+
+    expect(errorSpy).toHaveBeenCalledWith("betting: grant_signup_bonus failed", { message: "connection reset" });
+    expect(result?.balance).toBe(250);
+    errorSpy.mockRestore();
   });
 
   it("prefers custom_claims.global_name over the plain name field", async () => {

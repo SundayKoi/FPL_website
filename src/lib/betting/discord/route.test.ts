@@ -26,7 +26,7 @@ async function sign(timestamp: string, body: string): Promise<string> {
 }
 
 async function signedRequest(body: object, opts?: { timestamp?: string; signatureOverride?: string }) {
-  const timestamp = opts?.timestamp ?? "1699999999";
+  const timestamp = opts?.timestamp ?? String(Math.floor(Date.now() / 1000));
   const raw = JSON.stringify(body);
   const signature = opts?.signatureOverride ?? (await sign(timestamp, raw));
   return new Request("https://example.com/api/discord/interactions", {
@@ -108,6 +108,23 @@ describe("POST /api/discord/interactions", () => {
 
   it("rejects non-hex garbage in the signature header with 401", async () => {
     const req = await signedRequest({ type: 1 }, { signatureOverride: "zz".repeat(64) });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a validly-signed but stale timestamp with 401 (replay guard)", async () => {
+    const staleTimestamp = String(Math.floor(Date.now() / 1000) - 301);
+    const req = await signedRequest({ type: 1 }, { timestamp: staleTimestamp });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a non-numeric timestamp with 401", async () => {
+    const req = await signedRequest({ type: 1 }, { timestamp: "not-a-number" });
 
     const res = await POST(req);
 
