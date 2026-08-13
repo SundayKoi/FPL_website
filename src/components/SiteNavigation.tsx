@@ -25,7 +25,11 @@ type DropdownLink = {
 type DropdownKey = "info" | "premium";
 
 const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
-  info: [{ href: "/signup", label: "Sign Up" }],
+  info: [
+    { href: "/signup", label: "Sign Up" },
+    { href: "/info#league-resources", label: "League Links" },
+    { href: "/info#rulebook-heading", label: "Rulebook" },
+  ],
   premium: [
     { href: "/betting", label: "Betting" },
     {
@@ -38,8 +42,8 @@ const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
 };
 
 const DROPDOWNS = [
-  { key: "info", label: "Info", links: DROPDOWN_LINKS.info },
   { key: "premium", label: "Premium", links: DROPDOWN_LINKS.premium },
+  { key: "info", label: "Info", links: DROPDOWN_LINKS.info },
 ] as const;
 
 const linkBase =

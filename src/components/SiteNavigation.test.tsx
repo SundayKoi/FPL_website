@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import SiteNavigation from "./SiteNavigation";
 
@@ -25,6 +25,11 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("link", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "Primary" }))
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Premium menu", "Info menu"]);
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Sign Up$/ })).toBeNull();
     expect(screen.getByText("Account")).toBeTruthy();
@@ -46,6 +51,12 @@ describe("SiteNavigation", () => {
 
     expect(infoMenu.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("menuitem", { name: /^Sign Up$/ }).getAttribute("href")).toBe("/signup");
+    expect(screen.getByRole("menuitem", { name: /^League Links$/ }).getAttribute("href")).toBe(
+      "/info#league-resources",
+    );
+    expect(screen.getByRole("menuitem", { name: /^Rulebook$/ }).getAttribute("href")).toBe(
+      "/info#rulebook-heading",
+    );
 
     fireEvent.click(infoMenu);
     expect(infoMenu.getAttribute("aria-expanded")).toBe("false");

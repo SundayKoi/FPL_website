@@ -23,6 +23,7 @@ describe("InfoPage", () => {
 
     expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "League resources" }).id).toBe("league-resources");
     expect(
       within(screen.getByRole("article", { name: "Rulebook resource" })).getByRole(
         "heading",

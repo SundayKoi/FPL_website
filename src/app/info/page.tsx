@@ -62,7 +62,11 @@ export default async function InfoPage() {
           </p>
         </header>
 
-        <section aria-label="League resources" className="mt-10 grid gap-5 md:grid-cols-3">
+        <section
+          id="league-resources"
+          aria-label="League resources"
+          className="mt-10 grid gap-5 md:grid-cols-3"
+        >
           {resources.map((resource) => (
             <InfoResourceCard key={resource.label} {...resource} />
           ))}
