@@ -70,6 +70,16 @@ export async function fetchGuildMember(discordId: string): Promise<GuildMember |
  *   holding `DISCORD_STAFF_ROLE_ID`.
  */
 export async function bettingAccess(discordId: string): Promise<BettingAccessResult> {
+  // Dev escape hatch (e2e/local only — never in production): skips the
+  // Discord round trip entirely, so a seeded fixture with no real Discord
+  // guild membership can still exercise the betting flow end to end.
+  // Deliberately checked BEFORE the guild/bot-token short-circuit below (so
+  // it works even when Discord *is* configured) but gated on NODE_ENV so a
+  // misconfigured production deploy can never open the gate this way.
+  if (process.env.BETTING_GATE_DISABLED === "1" && process.env.NODE_ENV !== "production") {
+    return { allowed: true, staff: false, inconclusive: false };
+  }
+
   const guildId = process.env.DISCORD_GUILD_ID;
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!guildId || !botToken) {

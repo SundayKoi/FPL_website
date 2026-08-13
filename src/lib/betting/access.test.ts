@@ -36,6 +36,7 @@ beforeEach(() => {
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -217,6 +218,28 @@ describe("bettingAccess", () => {
       inconclusive: false,
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("BETTING_GATE_DISABLED=1 bypasses the gate without contacting Discord (non-production dev escape hatch)", async () => {
+    process.env.BETTING_GATE_DISABLED = "1";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await bettingAccess("42")).toEqual({ allowed: true, staff: false, inconclusive: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("ignores BETTING_GATE_DISABLED=1 in production — falls through to the real guild-role check", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.BETTING_GATE_DISABLED = "1";
+    // beforeEach already configures DISCORD_REQUIRED_ROLE_ID/DISCORD_STAFF_ROLE_ID; roles: []
+    // means "not holding the required role" if the real check actually ran.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { roles: [] })),
+    );
+
+    expect(await bettingAccess("42")).toEqual({ allowed: false, staff: false, inconclusive: false });
   });
 });
 
