@@ -2,6 +2,7 @@ import "server-only";
 import { createBettingServiceClient } from "./service-client";
 import { computePools } from "./pools";
 import type {
+  PropSuggestion,
   BettingTeam,
   MarketDetailData,
   MarketCardData,
@@ -474,4 +475,45 @@ export async function fetchRecentBets(discordId: string, limit = 50): Promise<Be
   const titles = new Map(((marketsData as { id: number; title: string | null }[] | null) ?? []).map((m) => [m.id, m.title]));
 
   return bets.map((b) => ({ ...b, market_title: titles.get(b.market_id) ?? null }));
+}
+
+// === prop suggestions ========================================================
+
+
+/** The signed-in member's own suggestions, newest first (status chips UI). */
+export async function fetchMySuggestions(discordId: string, limit = 10): Promise<PropSuggestion[]> {
+  const service = createBettingServiceClient();
+  const { data } = await service
+    .from("betting_prop_suggestions")
+    .select("id, question, side_a, side_b, note, status, reason, market_id, created_at")
+    .eq("discord_id", discordId)
+    .order("id", { ascending: false })
+    .limit(limit);
+  return (data as PropSuggestion[] | null) ?? [];
+}
+
+export interface PendingSuggestionRow extends PropSuggestion {
+  discord_id: string;
+  username: string;
+}
+
+/** The staff review queue: every PENDING suggestion, oldest first. */
+export async function fetchPendingSuggestions(): Promise<PendingSuggestionRow[]> {
+  const service = createBettingServiceClient();
+  const { data } = await service
+    .from("betting_prop_suggestions")
+    .select("id, discord_id, question, side_a, side_b, note, status, reason, market_id, created_at")
+    .eq("status", "PENDING")
+    .order("id", { ascending: true })
+    .limit(100);
+  const rows = (data as (PropSuggestion & { discord_id: string })[] | null) ?? [];
+  if (rows.length === 0) return [];
+
+  const ids = [...new Set(rows.map((r) => r.discord_id))];
+  const { data: profiles } = await service
+    .from("betting_profiles")
+    .select("discord_id, username")
+    .in("discord_id", ids);
+  const names = new Map(((profiles as { discord_id: string; username: string }[] | null) ?? []).map((p) => [p.discord_id, p.username]));
+  return rows.map((r) => ({ ...r, username: names.get(r.discord_id) ?? r.discord_id }));
 }

@@ -77,7 +77,8 @@ export default async function AdminBettingMarketsPage() {
   const service = createBettingServiceClient();
   const [markets, teamsRes, eventsRes] = await Promise.all([
     fetchAdminMarkets(),
-    service.from("betting_teams").select("*").order("name"),
+    // match-market team picker: real teams only, not prop-outcome rows
+    service.from("betting_teams").select("*").eq("is_prop_outcome", false).order("name"),
     service.from("betting_events").select("*").order("id"),
   ]);
   const teams = (teamsRes.data as BettingTeam[] | null) ?? [];

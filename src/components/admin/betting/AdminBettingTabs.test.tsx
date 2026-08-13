@@ -19,6 +19,9 @@ describe("AdminBettingTabs", () => {
     expect(screen.getByRole("link", { name: /^Markets$/ }).getAttribute("href")).toBe(
       "/admin/betting",
     );
+    expect(screen.getByRole("link", { name: /^Props$/ }).getAttribute("href")).toBe(
+      "/admin/betting/props",
+    );
     expect(screen.getByRole("link", { name: /^Pick'em$/ }).getAttribute("href")).toBe(
       "/admin/betting/pickems",
     );

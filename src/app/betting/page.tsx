@@ -1,14 +1,19 @@
-import { fetchMarketCards, fetchOpenPickem } from "@/lib/betting/queries";
+import { fetchMarketCards, fetchMySuggestions, fetchOpenPickem } from "@/lib/betting/queries";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { MarketCard } from "@/components/betting/MarketCard";
 import { PickemPanel } from "@/components/betting/PickemPanel";
+import { SuggestBetPanel } from "@/components/betting/SuggestBetPanel";
 
 /** Betting index — the open pick'em (if any), then every market currently
  * open for bets or about to lock. (Resolved/cancelled history belongs to the
  * leaderboard/profile pages.) */
 export default async function BettingIndexPage() {
   const user = await getBettingUser();
-  const [markets, pickem] = await Promise.all([fetchMarketCards(), fetchOpenPickem(user?.discordId)]);
+  const [markets, pickem, suggestions] = await Promise.all([
+    fetchMarketCards(),
+    fetchOpenPickem(user?.discordId),
+    user ? fetchMySuggestions(user.discordId) : Promise.resolve([]),
+  ]);
 
   return (
     <div>
@@ -33,6 +38,10 @@ export default async function BettingIndexPage() {
           ))}
         </div>
       )}
+
+      <div className="mt-10">
+        <SuggestBetPanel suggestions={suggestions} />
+      </div>
     </div>
   );
 }

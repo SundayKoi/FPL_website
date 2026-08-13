@@ -120,3 +120,52 @@ export async function placePickemCard(pickemId: number, picks: Record<number, nu
   revalidatePath("/betting");
   return { ok: true, balance: data as number };
 }
+
+/** `suggest_prop`'s exception messages → friendly copy. */
+function friendlySuggestPropError(message: string): string {
+  if (/pending suggestions/i.test(message)) return "You already have 3 suggestions waiting for review.";
+  if (/unknown user/i.test(message)) return "Account not found — try signing in again.";
+  return "Something went wrong sending that suggestion.";
+}
+
+/**
+ * Files a prop-bet suggestion ("How much will X go for?" + two sides) for
+ * staff review. Length limits mirror the table's check constraints so users
+ * get a friendly message instead of a constraint error.
+ */
+export async function suggestProp(
+  question: string,
+  sideA: string,
+  sideB: string,
+  note?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const q = question?.trim() ?? "";
+  const a = sideA?.trim() ?? "";
+  const b = sideB?.trim() ?? "";
+  const n = note?.trim() || undefined;
+  if (q.length < 5 || q.length > 200) return { ok: false, error: "Question must be 5–200 characters." };
+  if (!a || a.length > 40 || !b || b.length > 40) {
+    return { ok: false, error: "Each side needs a label of at most 40 characters." };
+  }
+  if (a.toLowerCase() === b.toLowerCase()) {
+    return { ok: false, error: "The two sides must be different." };
+  }
+  if (n && n.length > 300) return { ok: false, error: "Note must be at most 300 characters." };
+
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in to suggest a bet." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("suggest_prop", {
+    p_user: user.discordId,
+    p_question: q,
+    p_side_a: a,
+    p_side_b: b,
+    p_note: n ?? null,
+  });
+  if (error) return { ok: false, error: friendlySuggestPropError(error.message) };
+
+  revalidatePath("/betting");
+  return { ok: true };
+}

@@ -47,6 +47,22 @@ export interface BettingTeam {
   short_code: string;
   color: string;
   logo_url: string | null;
+  /** true for synthetic prop-bet outcome rows ("Over 500") — hidden from the
+   * team catalog and match-market team pickers, but rendered like any side. */
+  is_prop_outcome?: boolean;
+}
+
+/** A member's prop-bet suggestion (betting_prop_suggestions row). */
+export interface PropSuggestion {
+  id: number;
+  question: string;
+  side_a: string;
+  side_b: string;
+  note: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reason: string | null;
+  market_id: number | null;
+  created_at: string;
 }
 
 /** Synthetic pseudo-team for the "Draw" outcome (id -1, the RPC-boundary

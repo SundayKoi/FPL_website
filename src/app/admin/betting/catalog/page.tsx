@@ -13,7 +13,8 @@ export default async function AdminBettingCatalogPage() {
 
   const service = createBettingServiceClient();
   const [teamsRes, eventsRes, storeRes] = await Promise.all([
-    service.from("betting_teams").select("*").order("name"),
+    // synthetic prop-bet outcome rows are engine plumbing, not catalog entries
+    service.from("betting_teams").select("*").eq("is_prop_outcome", false).order("name"),
     service.from("betting_events").select("*").order("id"),
     service.from("betting_store_items").select("*").order("id"),
   ]);

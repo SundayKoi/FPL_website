@@ -50,7 +50,7 @@ function isStaffCtx(x: { discordId: string } | { ok: false; error: string }): x 
   return "discordId" in x;
 }
 
-const BETTING_ADMIN_PATHS = ["/admin/betting", "/admin/betting/pickems", "/admin/betting/catalog", "/admin/betting/seasons", "/betting"];
+const BETTING_ADMIN_PATHS = ["/admin/betting", "/admin/betting/pickems", "/admin/betting/catalog", "/admin/betting/seasons", "/admin/betting/props", "/betting"];
 function revalidateBetting(): void {
   for (const path of BETTING_ADMIN_PATHS) revalidatePath(path);
 }
@@ -533,6 +533,63 @@ export async function grantPoints(discordId: string, delta: number, reason: stri
     p_note: reason.trim(),
   });
   if (error) return { ok: false, error: error.message };
+
+  revalidateBetting();
+  return { ok: true };
+}
+
+// === prop suggestions (supabase/migrations/20260814000001) ==================
+
+/**
+ * Approves a member's prop suggestion into a real market: the RPC creates two
+ * synthetic outcome teams and calls create_market_admin, so announcements and
+ * the whole money path are the standard ones.
+ */
+export async function approveProp(suggestionId: number, eventId: number, gameAt: string): Promise<IdResult> {
+  const ctx = await staffOnly();
+  if (!isStaffCtx(ctx)) return ctx;
+
+  if (!isFiniteInt(suggestionId) || !isFiniteInt(eventId)) {
+    return { ok: false, error: "Invalid suggestion or event." };
+  }
+  const gameAtMs = new Date(gameAt).getTime();
+  if (Number.isNaN(gameAtMs)) return { ok: false, error: "Invalid game time." };
+  if (gameAtMs <= Date.now()) return { ok: false, error: "game time must be in the future" };
+
+  const service = createBettingServiceClient();
+  const { data, error } = await service.rpc("approve_prop_admin", {
+    p_actor: ctx.discordId,
+    p_suggestion: suggestionId,
+    p_event: eventId,
+    p_game_at: new Date(gameAtMs).toISOString(),
+  });
+  if (error) {
+    if (/not pending/i.test(error.message)) return { ok: false, error: "That suggestion was already reviewed." };
+    return { ok: false, error: "Something went wrong approving that suggestion." };
+  }
+
+  revalidateBetting();
+  return { ok: true, id: data as number };
+}
+
+/** Rejects a pending prop suggestion, optionally with a reason the member sees. */
+export async function rejectProp(suggestionId: number, reason?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ctx = await staffOnly();
+  if (!isStaffCtx(ctx)) return ctx;
+
+  if (!isFiniteInt(suggestionId)) return { ok: false, error: "Invalid suggestion." };
+  const trimmed = reason?.trim() || undefined;
+
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("reject_prop_admin", {
+    p_actor: ctx.discordId,
+    p_suggestion: suggestionId,
+    p_reason: trimmed ?? null,
+  });
+  if (error) {
+    if (/not pending/i.test(error.message)) return { ok: false, error: "That suggestion was already reviewed." };
+    return { ok: false, error: "Something went wrong rejecting that suggestion." };
+  }
 
   revalidateBetting();
   return { ok: true };

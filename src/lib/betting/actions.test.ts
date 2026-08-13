@@ -11,7 +11,7 @@ vi.mock("./service-client", () => ({
 const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { placeBet, cashoutBet, placePickemCard } from "./actions";
+import { placeBet, cashoutBet, placePickemCard, suggestProp } from "./actions";
 
 const ALLOWED_USER = {
   discordId: "42",
@@ -200,5 +200,54 @@ describe("placePickemCard", () => {
 
     expect(result).toEqual({ ok: false, error: friendly });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("suggestProp", () => {
+  it("rejects a signed-out caller without touching the RPC", async () => {
+    getBettingUser.mockResolvedValue(null);
+
+    const result = await suggestProp("How much will Chime go for?", "Over 500", "Under 500");
+
+    expect(result).toEqual({ ok: false, error: "Sign in to suggest a bet." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a too-short question before any RPC", async () => {
+    const result = await suggestProp("Hi?", "Yes", "No");
+
+    expect(result).toEqual({ ok: false, error: "Question must be 5–200 characters." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects identical sides before any RPC", async () => {
+    const result = await suggestProp("Will it happen tonight?", "Yes", "yes");
+
+    expect(result).toEqual({ ok: false, error: "The two sides must be different." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("files the suggestion with trimmed args and revalidates", async () => {
+    rpc.mockResolvedValue({ data: 7, error: null });
+
+    const result = await suggestProp("  How much will Chime go for?  ", " Over 500 ", "Under 500", "  ");
+
+    expect(result).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("suggest_prop", {
+      p_user: "42",
+      p_question: "How much will Chime go for?",
+      p_side_a: "Over 500",
+      p_side_b: "Under 500",
+      p_note: null,
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+  });
+
+  it("maps the pending-cap error to friendly copy", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "you already have 3 pending suggestions — wait for a review" } });
+
+    const result = await suggestProp("Will it happen tonight?", "Yes", "No");
+
+    expect(result).toEqual({ ok: false, error: "You already have 3 suggestions waiting for review." });
   });
 });

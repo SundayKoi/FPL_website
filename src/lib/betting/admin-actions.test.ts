@@ -28,6 +28,8 @@ import {
   createSeason,
   closeSeason,
   grantPoints,
+  approveProp,
+  rejectProp,
 } from "./admin-actions";
 
 const STAFF_CTX = { discordId: "staff-1", profileId: "profile-1" };
@@ -92,6 +94,8 @@ describe("authorization (non-staff rejected before any RPC/table call)", () => {
     ["createSeason", () => createSeason("Season 1")],
     ["closeSeason", () => closeSeason(1, 0)],
     ["grantPoints", () => grantPoints("42", 100, "correcting a bug")],
+    ["approveProp", () => approveProp(1, 1, "2027-01-01T00:00:00Z")],
+    ["rejectProp", () => rejectProp(1, "too vague")],
   ];
 
   it.each(cases)("%s rejects a non-staff caller without an RPC or table call", async (_name, run) => {
@@ -420,5 +424,52 @@ describe("RPC error surfacing", () => {
     const result = await cancelMarket(5);
 
     expect(result).toEqual({ ok: false, error: "market 5 already resolved" });
+  });
+});
+
+describe("approveProp", () => {
+  it("rejects a past game time before any RPC", async () => {
+    const result = await approveProp(3, 1, "2020-01-01T00:00:00Z");
+
+    expect(result).toEqual({ ok: false, error: "game time must be in the future" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("approves with the reviewer's identity and exact RPC args", async () => {
+    rpc.mockResolvedValue({ data: 55, error: null });
+    const gameAt = new Date(Date.now() + 3_600_000).toISOString();
+
+    const result = await approveProp(3, 2, gameAt);
+
+    expect(result).toEqual({ ok: true, id: 55 });
+    expect(rpc).toHaveBeenCalledWith("approve_prop_admin", {
+      p_actor: "staff-1",
+      p_suggestion: 3,
+      p_event: 2,
+      p_game_at: gameAt,
+    });
+  });
+
+  it("maps the already-reviewed error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "suggestion 3 is not pending" } });
+
+    const result = await approveProp(3, 2, new Date(Date.now() + 3_600_000).toISOString());
+
+    expect(result).toEqual({ ok: false, error: "That suggestion was already reviewed." });
+  });
+});
+
+describe("rejectProp", () => {
+  it("rejects with reason via the RPC", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    const result = await rejectProp(4, " too vague ");
+
+    expect(result).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("reject_prop_admin", {
+      p_actor: "staff-1",
+      p_suggestion: 4,
+      p_reason: "too vague",
+    });
   });
 });
