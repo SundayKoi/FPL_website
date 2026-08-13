@@ -21,6 +21,7 @@ vi.mock("@/lib/home/preseason", () => ({
         draftedPlayers: [
           { id: "player-2", displayName: "Captain Player", role: "jungle", rank: "D3", price: 0, acquisition: "captain" },
         ],
+        captainName: "Captain Alpha",
       },
     ],
     players: [
@@ -43,6 +44,7 @@ describe("PreseasonHomePage", () => {
     expect(screen.getByText("Open Player")).not.toBeNull();
     expect(screen.getAllByText("Captain Player").length).toBeGreaterThan(0);
     expect(screen.getByText("DRAFTED PLAYERS")).not.toBeNull();
+    expect(screen.getByText("Captain Captain Alpha")).not.toBeNull();
     expect(screen.getAllByText(/captain/i).length).toBeGreaterThan(0);
   });
 });

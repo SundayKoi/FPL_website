@@ -60,6 +60,7 @@ export default async function PreseasonHomePage() {
                       <div>
                         <span className="font-mono text-xs font-semibold text-steel">#{team.nominationPosition} · {team.abbreviation}</span>
                         <h3 className="mt-2 text-xl font-semibold text-white">{team.name}</h3>
+                        <p className="mt-1 text-xs uppercase tracking-[0.12em] text-steel">Captain {team.captainName}</p>
                       </div>
                       <span className="rounded-full border border-cyan/40 bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan">{team.rosterCount}/5</span>
                     </div>

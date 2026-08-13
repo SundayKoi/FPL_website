@@ -87,7 +87,10 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                           <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-steel">{player.lockLabel}</span>
                         </span>
                       )}
-                      <span className="font-medium text-steel">{player.rank ?? "—"}</span>
+                      <span className="flex items-center gap-1.5 whitespace-nowrap rounded border border-line/80 bg-navy/70 px-2 py-1 font-mono text-xs font-bold text-gold">
+                        <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-steel">Rank</span>
+                        {player.rank ?? "Unranked"}
+                      </span>
                     </li>
                   ))}
                   {rolePlayers.length === 0 ? (

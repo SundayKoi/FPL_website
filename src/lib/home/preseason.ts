@@ -8,6 +8,7 @@ export type PreseasonTeamSummary = {
   division: string | null;
   imageUrl: string | null;
   bannerColor: string;
+  captainName: string;
   nominationPosition: number;
   pointsRemaining: number;
   budgetStart: number;
@@ -34,6 +35,17 @@ export type PreseasonPlayer = {
   available: boolean;
   lockLabel: string | null;
 };
+
+function normalizePlayerName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .trim()
+    .replace(/^captain:\s*/i, "")
+    .split("#")[0]
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase();
+}
 
 export type PreseasonHomeData = {
   draftId: string | null;
@@ -69,18 +81,20 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
   const draftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id ?? null;
   if (!draftId) return EMPTY_DATA;
 
-  const [draftResult, teamsResult, playersResult] = await Promise.all([
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult] = await Promise.all([
     supabase.from("drafts").select("id, name").eq("id", draftId).single(),
     supabase
       .from("teams")
-      .select("id, name, abbreviation, division, image_url, banner_color, nomination_position, budget_start, points_remaining")
+      .select("id, name, abbreviation, division, image_url, banner_color, captain_profile_id, nomination_position, budget_start, points_remaining")
       .eq("draft_id", draftId)
       .order("nomination_position", { ascending: true }),
     supabase
       .from("players")
-      .select("id, display_name, role, rank, opgg_url, team_id, price, acquisition")
+      .select("id, display_name, role, rank, opgg_url, team_id, price, acquisition, canonical_player_id")
       .eq("draft_id", draftId)
       .order("display_name", { ascending: true }),
+    supabase.from("profiles").select("id, display_name"),
+    supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
   ]);
 
   if (teamsResult.error) throw teamsResult.error;
@@ -95,7 +109,23 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
     team_id: string | null;
     price: number | null;
     acquisition: Acquisition | null;
+    canonical_player_id?: string | null;
   }>;
+
+  const profiles = ((profilesResult.data ?? []) as Array<{ id: string; display_name: string }>);
+  const profilesById = new Map(profiles.map((profile) => [profile.id, profile.display_name]));
+  const canonicalPlayers = ((canonicalResult.data ?? []) as Array<{
+    id: string;
+    display_name: string;
+    rank: string | null;
+    opgg_url: string | null;
+  }>);
+  const canonicalById = new Map(canonicalPlayers.map((player) => [player.id, player]));
+  const canonicalByName = new Map(canonicalPlayers.map((player) => [normalizePlayerName(player.display_name), player]));
+
+  const playerMetadata = (player: (typeof players)[number]) =>
+    (player.canonical_player_id ? canonicalById.get(player.canonical_player_id) : undefined) ??
+    canonicalByName.get(normalizePlayerName(player.display_name));
 
   return {
     draftId,
@@ -110,6 +140,7 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       nomination_position: number;
       budget_start: number;
       points_remaining: number;
+      captain_profile_id: string | null;
     }>).map((team) => ({
       id: team.id,
       name: team.name,
@@ -117,6 +148,10 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       division: team.division,
       imageUrl: team.image_url,
       bannerColor: team.banner_color ?? "#24324d",
+      captainName:
+        profilesById.get(team.captain_profile_id ?? "") ??
+        players.find((player) => player.team_id === team.id && player.acquisition === "captain")?.display_name ??
+        "Unassigned",
       nominationPosition: team.nomination_position,
       pointsRemaining: team.points_remaining,
       budgetStart: team.budget_start,
@@ -127,7 +162,7 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
           id: player.id,
           displayName: player.display_name,
           role: player.role,
-          rank: player.rank,
+          rank: player.rank ?? playerMetadata(player)?.rank ?? null,
           price: player.price,
           acquisition: player.acquisition,
         })),
@@ -138,8 +173,8 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
         id: player.id,
         displayName: player.display_name,
         role: player.role,
-        rank: player.rank,
-        opggUrl: player.opgg_url ?? "#",
+        rank: player.rank ?? playerMetadata(player)?.rank ?? null,
+        opggUrl: player.opgg_url ?? playerMetadata(player)?.opgg_url ?? "#",
         price: player.price,
         available: label === null,
         lockLabel: label,
