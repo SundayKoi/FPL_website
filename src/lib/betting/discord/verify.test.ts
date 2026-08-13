@@ -58,4 +58,68 @@ describe("verifyDiscordSignature", () => {
 
     expect(ok).toBe(false);
   });
+
+  // Regression coverage: signatureHex/publicKeyHex are untrusted request
+  // headers, so malformed shapes must resolve to `false`, never throw —
+  // the bare `s.match(/.{2}/g)!` from the brief's snippet throws on a
+  // 1-char string (null! deref) and silently truncates odd-length input.
+  it("returns false for a 1-char signature", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { publicKeyHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature(publicKeyHex, "a", timestamp, body);
+
+    expect(ok).toBe(false);
+  });
+
+  it("returns false for an odd-length signature", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { publicKeyHex, signatureHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature(publicKeyHex, signatureHex.slice(0, -1), timestamp, body);
+
+    expect(ok).toBe(false);
+  });
+
+  it("returns false for a well-formed but wrong-length hex signature (32 bytes instead of 64)", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { publicKeyHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature(publicKeyHex, "ab".repeat(32), timestamp, body);
+
+    expect(ok).toBe(false);
+  });
+
+  it("returns false for a well-formed but wrong-length hex public key (16 bytes instead of 32)", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { signatureHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature("ab".repeat(16), signatureHex, timestamp, body);
+
+    expect(ok).toBe(false);
+  });
+
+  it("returns false for non-hex garbage in the signature", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { publicKeyHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature(publicKeyHex, "zz".repeat(64), timestamp, body);
+
+    expect(ok).toBe(false);
+  });
+
+  it("returns false for an empty signature", async () => {
+    const timestamp = "1699999999";
+    const body = JSON.stringify({ type: 1 });
+    const { publicKeyHex } = await makeSignedRequest(timestamp, body);
+
+    const ok = await verifyDiscordSignature(publicKeyHex, "", timestamp, body);
+
+    expect(ok).toBe(false);
+  });
 });

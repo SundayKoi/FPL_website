@@ -68,6 +68,44 @@ describe("POST /api/discord/interactions", () => {
     expect(res.status).toBe(401);
   });
 
+  // Regression coverage: malformed (not just tampered-but-valid-shape)
+  // signature headers must produce the ordinary 401, never an uncaught 500
+  // from a crypto-layer throw.
+  it("rejects a 1-char signature header with 401", async () => {
+    const req = await signedRequest({ type: 1 }, { signatureOverride: "a" });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects an odd-length signature header with 401", async () => {
+    const timestamp = "1699999999";
+    const raw = JSON.stringify({ type: 1 });
+    const fullSignature = await sign(timestamp, raw);
+    const req = await signedRequest({ type: 1 }, { timestamp, signatureOverride: fullSignature.slice(0, -1) });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a well-formed but wrong-length hex signature (32 bytes) with 401", async () => {
+    const req = await signedRequest({ type: 1 }, { signatureOverride: "ab".repeat(32) });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects non-hex garbage in the signature header with 401", async () => {
+    const req = await signedRequest({ type: 1 }, { signatureOverride: "zz".repeat(64) });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(401);
+  });
+
   it("answers a signed PING with {type: 1}", async () => {
     const req = await signedRequest({ type: 1 });
 
