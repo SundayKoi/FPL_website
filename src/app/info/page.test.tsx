@@ -1,50 +1,23 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabase: vi.fn(async () => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null } })) },
-    from: () => ({
-      select: () => ({
-        order: async () => ({ data: null }),
-        eq: () => ({ single: async () => ({ data: null }) }),
-      }),
-    }),
-  })),
-}));
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import InfoPage from "./page";
 
 describe("InfoPage", () => {
   afterEach(cleanup);
 
-  it("renders all requested resources and the Rulebook navigation", async () => {
+  it("links to the standalone Info destinations", async () => {
     render(await InfoPage());
 
-    expect(screen.getByRole("heading", { name: "Payment", level: 2 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "MasterDoc", level: 2 })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "League resources" }).id).toBe("league-resources");
-    expect(
-      within(screen.getByRole("article", { name: "Rulebook resource" })).getByRole(
-        "heading",
-        { name: "Rulebook", level: 2 },
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "League Structure" }).getAttribute("href"),
-    ).toBe("#league-structure");
-    expect(
-      within(screen.getByRole("article", { name: "Rulebook resource" })).getByRole(
-        "link",
-        { name: /open resource/i },
-      ).getAttribute("href"),
-    ).toBe(
-      "https://docs.google.com/document/d/1rtYs_uhNwp7lwMaUfprRLKlOy0UuXWTs/edit#heading=h.k95um6blnxq7",
+    expect(screen.getByRole("heading", { name: "Info", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "League Links" }).getAttribute("href")).toBe(
+      "/league-links",
     );
-    expect(
-      screen
-        .getByRole("link", { name: /back to rulebook sections/i })
-        .getAttribute("href"),
-    ).toBe("#rulebook-sections");
+    expect(screen.getByRole("link", { name: "Rulebook" }).getAttribute("href")).toBe(
+      "/rulebook",
+    );
+    expect(screen.getByRole("link", { name: "Sign Up" }).getAttribute("href")).toBe(
+      "/signup",
+    );
   });
 });

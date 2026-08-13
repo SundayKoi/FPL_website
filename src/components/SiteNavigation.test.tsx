@@ -52,10 +52,10 @@ describe("SiteNavigation", () => {
     expect(infoMenu.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("menuitem", { name: /^Sign Up$/ }).getAttribute("href")).toBe("/signup");
     expect(screen.getByRole("menuitem", { name: /^League Links$/ }).getAttribute("href")).toBe(
-      "/info#league-resources",
+      "/league-links",
     );
     expect(screen.getByRole("menuitem", { name: /^Rulebook$/ }).getAttribute("href")).toBe(
-      "/info#rulebook-heading",
+      "/rulebook",
     );
 
     fireEvent.click(infoMenu);
