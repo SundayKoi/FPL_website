@@ -8,17 +8,11 @@ import { useIsLocked } from "@/hooks/useIsLocked";
 import { OddsBar } from "./OddsBar";
 import { BetPanel } from "./BetPanel";
 import { LockCountdown } from "./LockCountdown";
+import { StatusPill } from "./StatusPill";
 import { placeBet, cashoutBet } from "@/lib/betting/actions";
 import { fmtPoints } from "@/lib/betting/format";
 import { displayedShareA, americanOdds } from "@/lib/betting/parimutuel";
 import { DRAW_TEAM, type BettingTeam, type MarketDetailData, type OpenBetRow } from "@/lib/betting/types";
-
-const STATUS_STYLE: Record<string, string> = {
-  OPEN: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
-  LOCKED: "border-gold/40 bg-gold/10 text-gold",
-  RESOLVED: "border-steel/40 bg-steel/10 text-steel",
-  CANCELLED: "border-red-400/40 bg-red-400/10 text-red-300",
-};
 
 /** The viewer's open stake(s) on this market, with a projected win at
  * current pools and (while open) a cashout button per side held. */
@@ -141,14 +135,7 @@ export function MarketDetail({
           <Link href="/betting" className="text-xs uppercase tracking-wide text-steel hover:text-gold">
             Events
           </Link>
-          <span
-            className={
-              "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-              (STATUS_STYLE[market.status] ?? STATUS_STYLE.RESOLVED)
-            }
-          >
-            {market.status}
-          </span>
+          <StatusPill status={market.status} />
           <LockCountdown lockAt={market.lock_at} status={market.status} />
           <span className="text-xs text-steel">{new Date(market.game_at).toLocaleString()}</span>
         </div>

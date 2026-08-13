@@ -3,6 +3,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { clientSiteOrigin } from "@/lib/auth/siteOrigin";
+import { safeNextPath } from "@/lib/auth/safeNextPath";
 import { createClient } from "@/lib/supabase/client";
 
 const isLocal =
@@ -16,10 +17,10 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
   // Where to send the visitor after Discord auth completes — e.g. the
   // betting gate links here as `/login?redirect=/betting` so a signed-out
-  // visitor lands back where they started. Only a same-site path is ever
-  // honored (see auth/callback/route.ts's validation); anything else falls
-  // back to "/".
-  const redirect = useSearchParams().get("redirect");
+  // visitor lands back where they started. Validated with the same
+  // same-site-only rule the callback route enforces server-side (see
+  // lib/auth/safeNextPath.ts) — anything else falls back to "/".
+  const redirect = safeNextPath(useSearchParams().get("redirect"));
 
   return (
     <main className="bg-hash flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
@@ -40,9 +41,10 @@ export default function LoginPage() {
               // back to Supabase's Site URL after Discord auth — see
               // lib/auth/siteOrigin.ts.
               options: {
-                redirectTo: redirect
-                  ? `${clientSiteOrigin()}/auth/callback?next=${encodeURIComponent(redirect)}`
-                  : `${clientSiteOrigin()}/auth/callback`,
+                redirectTo:
+                  redirect !== "/"
+                    ? `${clientSiteOrigin()}/auth/callback?next=${encodeURIComponent(redirect)}`
+                    : `${clientSiteOrigin()}/auth/callback`,
               },
             })
           }
@@ -56,7 +58,7 @@ export default function LoginPage() {
               e.preventDefault();
               const { error } = await supabase.auth.signInWithPassword({ email, password });
               if (error) setErr(error.message);
-              else location.href = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
+              else location.href = redirect;
             }}
           >
             <p className="text-sm text-steel">Dev sign-in (local only)</p>

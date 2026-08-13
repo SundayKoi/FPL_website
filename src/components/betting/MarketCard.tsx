@@ -3,13 +3,7 @@ import type { CSSProperties } from "react";
 import type { BettingTeam, MarketCardData } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
 import { displayedShareA, americanOdds } from "@/lib/betting/parimutuel";
-
-const STATUS_STYLE: Record<string, string> = {
-  OPEN: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
-  LOCKED: "border-gold/40 bg-gold/10 text-gold",
-  RESOLVED: "border-steel/40 bg-steel/10 text-steel",
-  CANCELLED: "border-red-400/40 bg-red-400/10 text-red-300",
-};
+import { StatusPill } from "./StatusPill";
 
 function TeamRow({ team, pct, odds }: { team: BettingTeam; pct: number; odds: string }) {
   return (
@@ -44,14 +38,7 @@ export function MarketCard({ market }: { market: MarketCardData }) {
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={
-            "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide " +
-            (STATUS_STYLE[market.status] ?? STATUS_STYLE.RESOLVED)
-          }
-        >
-          {market.status}
-        </span>
+        <StatusPill status={market.status} />
         <span className="font-mono text-xs text-steel">VOL {fmtPoints(total)}</span>
       </div>
       <TeamRow team={market.team_a} pct={pctA} odds={americanOdds(shareA)} />
