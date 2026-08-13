@@ -66,17 +66,21 @@ create table public.betting_markets (
 );
 create index on public.betting_markets (event_id, status);
 
--- team_id has no FK to betting_teams: -1 is the sentinel for "the Draw" (see
--- 018_draws.sql), which is never a real team id, so a hard FK would reject it.
+-- team_id is nullable + is_draw (018_draws.sql): a draw bet stores
+-- team_id = NULL, is_draw = true, keeping the FK to betting_teams intact.
+-- The -1 sentinel for "the Draw" is an RPC-boundary convention only (a later
+-- task), never a stored value.
 create table public.betting_bets (
   id          bigint generated always as identity primary key,
   market_id   bigint not null references public.betting_markets(id),
   discord_id  text not null references public.betting_profiles(discord_id),
-  team_id     bigint not null,
+  team_id     bigint references public.betting_teams(id),
+  is_draw     boolean not null default false,
   amount      bigint not null check (amount > 0),
   payout      bigint,
   settled     boolean not null default false,
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  constraint bets_team_or_draw check ((is_draw and team_id is null) or (not is_draw and team_id is not null))
 );
 create index on public.betting_bets (market_id, team_id);
 create index on public.betting_bets (discord_id);
@@ -207,18 +211,18 @@ alter table public.betting_season_results enable row level security;
 
 -- Public read: everything a spectator/leaderboard view needs. Profiles read
 -- exposes username/balance for the leaderboard — matches the old site.
-create policy betting_public_read on public.betting_markets        for select using (true);
-create policy betting_public_read on public.betting_teams          for select using (true);
-create policy betting_public_read on public.betting_events         for select using (true);
-create policy betting_public_read on public.betting_bets           for select using (true);
-create policy betting_public_read on public.betting_pickems        for select using (true);
-create policy betting_public_read on public.betting_pickem_legs    for select using (true);
-create policy betting_public_read on public.betting_pickem_cards   for select using (true);
-create policy betting_public_read on public.betting_pickem_bank    for select using (true);
-create policy betting_public_read on public.betting_store_items    for select using (true);
-create policy betting_public_read on public.betting_seasons        for select using (true);
-create policy betting_public_read on public.betting_season_results for select using (true);
-create policy betting_public_read on public.betting_profiles       for select using (true);
+create policy betting_markets_public_read        on public.betting_markets        for select using (true);
+create policy betting_teams_public_read          on public.betting_teams          for select using (true);
+create policy betting_events_public_read         on public.betting_events         for select using (true);
+create policy betting_bets_public_read           on public.betting_bets           for select using (true);
+create policy betting_pickems_public_read        on public.betting_pickems        for select using (true);
+create policy betting_pickem_legs_public_read    on public.betting_pickem_legs    for select using (true);
+create policy betting_pickem_cards_public_read   on public.betting_pickem_cards   for select using (true);
+create policy betting_pickem_bank_public_read    on public.betting_pickem_bank    for select using (true);
+create policy betting_store_items_public_read    on public.betting_store_items    for select using (true);
+create policy betting_seasons_public_read        on public.betting_seasons        for select using (true);
+create policy betting_season_results_public_read on public.betting_season_results for select using (true);
+create policy betting_profiles_public_read       on public.betting_profiles       for select using (true);
 
 -- No read policy on betting_ledger, betting_admin_audit, betting_purchases,
 -- betting_announcements — server/RPC (service_role) only.
