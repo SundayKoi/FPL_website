@@ -103,3 +103,80 @@ export interface OpenBetRow {
   is_draw: boolean;
   amount: number;
 }
+
+// === UI/query-facing shapes (Task 8: pick'em, leaderboard, profile) =========
+// Shaped to match c:\fpl_gambling\web\src\api\types.ts's Pickem/PickemLeg/
+// PickemCard/LeaderRow/MyStats/BetRow for UI logic parity, same convention
+// as the Task 7 block above.
+
+/** One leg (market) of a pick'em card. */
+export interface PickemLegData {
+  market_id: number;
+  title: string;
+  team_a: BettingTeam;
+  team_b: BettingTeam;
+  status: MarketStatus;
+  winning_team_id: number | null;
+}
+
+/** The signed-in viewer's own card on a pick'em, if they have one.
+ * `picks` is keyed by market_id (unlike the RPC's jsonb, which keys by the
+ * market_id's *text* representation — queries.ts converts on read). */
+export interface PickemCardData {
+  amount: number;
+  picks: Record<number, number>;
+  correct: number | null;
+  payout: number | null;
+  settled: boolean;
+}
+
+/** A pick'em — the open/locked series-picking event rendered on the betting
+ * index page above markets. */
+export interface PickemData {
+  id: number;
+  title: string;
+  status: MarketStatus;
+  carryover: number;
+  lock_at: string;
+  /** Sum of every card's stake plus the carryover — matches the source's
+   * `pool = sum(amount) + carryover` (routes_pickems.py's _pickem_payload). */
+  pool: number;
+  cards: number;
+  legs: PickemLegData[];
+  my_card: PickemCardData | null;
+}
+
+/** One row of the public leaderboard (betting_leaderboard view). */
+export interface LeaderboardRow {
+  rank: number;
+  discord_id: string;
+  username: string;
+  avatar_url: string | null;
+  balance: number;
+  profit: number;
+  badges: string[];
+}
+
+/** Player stats for the profile page — ported from c:\fpl_gambling\api\stats.py's player_stats(). */
+export interface ProfileStats {
+  wins: number;
+  losses: number;
+  profit: number;
+  biggest_win: number;
+  current_streak: number;
+  best_streak: number;
+  perfect_pickems: number;
+}
+
+/** One row of a bettor's bet history (open or settled) for the profile page. */
+export interface BetHistoryRow {
+  id: number;
+  market_id: number;
+  market_title: string | null;
+  team_id: number | null;
+  is_draw: boolean;
+  amount: number;
+  payout: number | null;
+  settled: boolean;
+  created_at: string;
+}

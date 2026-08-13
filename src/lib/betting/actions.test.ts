@@ -11,7 +11,7 @@ vi.mock("./service-client", () => ({
 const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { placeBet, cashoutBet } from "./actions";
+import { placeBet, cashoutBet, placePickemCard } from "./actions";
 
 const ALLOWED_USER = {
   discordId: "42",
@@ -136,5 +136,69 @@ describe("cashoutBet", () => {
     const result = await cashoutBet(9);
 
     expect(result).toEqual({ ok: false, error: friendly });
+  });
+});
+
+describe("placePickemCard", () => {
+  it("rejects a signed-out caller without touching the RPC", async () => {
+    getBettingUser.mockResolvedValue(null);
+
+    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
+
+    expect(result).toEqual({ ok: false, error: "Sign in to play the pick'em." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a caller without betting access", async () => {
+    getBettingUser.mockResolvedValue({ ...ALLOWED_USER, allowed: false });
+
+    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
+
+    expect(result).toEqual({ ok: false, error: "FPL Better members only." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-positive amount without touching the RPC", async () => {
+    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 0);
+
+    expect(result).toEqual({ ok: false, error: "Enter a valid card amount." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty picks map without touching the RPC", async () => {
+    const result = await placePickemCard(7, {}, 300);
+
+    expect(result).toEqual({ ok: false, error: "Pick a team for every series." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("re-derives the discord id server-side and calls place_pickem_card", async () => {
+    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
+
+    expect(rpc).toHaveBeenCalledWith("place_pickem_card", {
+      p_user: "42",
+      p_pickem: 7,
+      p_picks: { "1": 11, "2": 14 },
+      p_amount: 300,
+    });
+    expect(result).toEqual({ ok: true, balance: 800 });
+    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+  });
+
+  it.each([
+    ["insufficient balance", "Insufficient balance."],
+    ["amount must be positive", "Enter a valid card amount."],
+    ["picks must choose a team for every series", "Pick a team for every series."],
+    ["pick-em is locked", "This pick'em has locked — entries are closed."],
+    ["unknown pick-em 7", "Pick'em not found."],
+    ["unknown user 42", "Account not found — try signing in again."],
+    ["something totally unexpected", "Something went wrong placing that card."],
+  ])("maps the RPC error %j to a friendly message", async (rpcMessage, friendly) => {
+    rpc.mockResolvedValue({ data: null, error: { message: rpcMessage } });
+
+    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
+
+    expect(result).toEqual({ ok: false, error: friendly });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

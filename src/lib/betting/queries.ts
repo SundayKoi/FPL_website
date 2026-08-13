@@ -1,7 +1,19 @@
 import "server-only";
 import { createBettingServiceClient } from "./service-client";
 import { computePools } from "./pools";
-import type { BettingTeam, MarketDetailData, MarketCardData, OpenBetRow, TopBet } from "./types";
+import type {
+  BettingTeam,
+  MarketDetailData,
+  MarketCardData,
+  OpenBetRow,
+  TopBet,
+  PickemData,
+  PickemLegData,
+  PickemCardData,
+  LeaderboardRow,
+  ProfileStats,
+  BetHistoryRow,
+} from "./types";
 
 // Data layer for the betting index/detail pages. Reads go through the
 // service client, not the cookie-bound createServerSupabase() — per the
@@ -181,4 +193,253 @@ export async function fetchOpenBets(discordId: string, marketId: number): Promis
     .eq("market_id", marketId)
     .eq("settled", false);
   return (data as OpenBetRow[] | null) ?? [];
+}
+
+// === Task 8: pick'em, leaderboard, profile ===================================
+// No dedicated pick'em SQL view exists (same reasoning as the market cards
+// above) — assembled here from betting_pickems/betting_pickem_legs/
+// betting_pickem_cards/betting_markets/betting_teams, shaped to match
+// c:\fpl_gambling\api\routes_pickems.py's _pickem_payload for parity.
+// betting_leaderboard (20260813000006_betting_leaderboard_view.sql) IS a
+// real view, per the controller ruling — leaderboard reads go straight
+// through it.
+
+interface PickemRow {
+  id: number;
+  title: string;
+  status: MarketDetailData["status"];
+  carryover: number;
+  lock_at: string;
+}
+
+/** The currently open (or locked-but-unresolved) pick'em, soonest-to-lock
+ * first — rendered above markets on the betting index page. `null` when
+ * there's no live pick'em right now. */
+export async function fetchOpenPickem(discordId?: string): Promise<PickemData | null> {
+  const service = createBettingServiceClient();
+
+  const { data: pickemData } = await service
+    .from("betting_pickems")
+    .select("id, title, status, carryover, lock_at")
+    .in("status", ["OPEN", "LOCKED"])
+    .order("lock_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const pickem = pickemData as PickemRow | null;
+  if (!pickem) return null;
+
+  const { data: legRows } = await service.from("betting_pickem_legs").select("market_id").eq("pickem_id", pickem.id);
+  const marketIds = ((legRows as { market_id: number }[] | null) ?? []).map((l) => l.market_id);
+  if (marketIds.length === 0) return null;
+
+  const [marketsResult, cardsResult] = await Promise.all([
+    service.from("betting_markets").select("*").in("id", marketIds),
+    service.from("betting_pickem_cards").select("amount").eq("pickem_id", pickem.id),
+  ]);
+  const markets = (marketsResult.data as MarketRow[] | null) ?? [];
+  const teamIds = [...new Set(markets.flatMap((m) => [m.team_a_id, m.team_b_id]))];
+  const { data: teamsData } = await service.from("betting_teams").select("*").in("id", teamIds);
+  const teams = teamMap((teamsData as BettingTeam[] | null) ?? []);
+
+  const legs: PickemLegData[] = markets
+    .filter((m) => teams.has(m.team_a_id) && teams.has(m.team_b_id))
+    .sort((a, b) => new Date(a.game_at).getTime() - new Date(b.game_at).getTime() || a.id - b.id)
+    .map((m) => {
+      const teamA = teams.get(m.team_a_id)!;
+      const teamB = teams.get(m.team_b_id)!;
+      return {
+        market_id: m.id,
+        title: m.title ?? `${teamA.short_code} vs ${teamB.short_code}`,
+        team_a: teamA,
+        team_b: teamB,
+        status: m.status,
+        winning_team_id: m.winning_team_id,
+      };
+    });
+
+  const cards = (cardsResult.data as { amount: number }[] | null) ?? [];
+  const pool = cards.reduce((sum, c) => sum + c.amount, 0) + pickem.carryover;
+
+  let myCard: PickemCardData | null = null;
+  if (discordId) {
+    const { data: cardData } = await service
+      .from("betting_pickem_cards")
+      .select("amount, picks, correct, payout, settled")
+      .eq("pickem_id", pickem.id)
+      .eq("discord_id", discordId)
+      .maybeSingle();
+    if (cardData) {
+      const c = cardData as { amount: number; picks: Record<string, number>; correct: number | null; payout: number | null; settled: boolean };
+      myCard = {
+        amount: c.amount,
+        picks: Object.fromEntries(Object.entries(c.picks).map(([k, v]) => [Number(k), v])),
+        correct: c.correct,
+        payout: c.payout,
+        settled: c.settled,
+      };
+    }
+  }
+
+  return {
+    id: pickem.id,
+    title: pickem.title,
+    status: pickem.status,
+    carryover: pickem.carryover,
+    lock_at: pickem.lock_at,
+    pool,
+    cards: cards.length,
+    legs,
+    my_card: myCard,
+  };
+}
+
+interface LeaderboardViewRow {
+  discord_id: string;
+  username: string;
+  avatar_url: string | null;
+  balance: number;
+  profit: number;
+  wins: number;
+  losses: number;
+  current_streak: number;
+  perfect_pickems: number;
+}
+
+/** Compact emoji flair from a leaderboard row — ports
+ * c:\fpl_gambling\api\stats.py's badges_for()/leaderboard_badges(). */
+function badgesFor(currentStreak: number, perfectPickems: number): string[] {
+  const badges: string[] = [];
+  if (currentStreak >= 3) badges.push(`🔥${currentStreak}`);
+  if (perfectPickems >= 1) badges.push(`🎯${perfectPickems}`);
+  return badges;
+}
+
+/** The public leaderboard — ranked by wallet balance or lifetime net
+ * gambling profit, matching c:\fpl_gambling\api\routes_extra.py's GET
+ * /leaderboard (`by` query param becomes the ranking column here). */
+export async function fetchLeaderboard(by: "balance" | "profit" = "balance", limit = 25): Promise<LeaderboardRow[]> {
+  const service = createBettingServiceClient();
+  const { data } = await service
+    .from("betting_leaderboard")
+    .select("*")
+    .order(by, { ascending: false })
+    .order("discord_id", { ascending: true })
+    .limit(limit);
+  const rows = (data as LeaderboardViewRow[] | null) ?? [];
+  return rows.map((r, i) => ({
+    rank: i + 1,
+    discord_id: r.discord_id,
+    username: r.username,
+    avatar_url: r.avatar_url,
+    balance: r.balance,
+    profit: r.profit,
+    badges: badgesFor(r.current_streak, r.perfect_pickems),
+  }));
+}
+
+/** (current, best) win streaks from a chronological win/loss list. Ports
+ * c:\fpl_gambling\api\stats.py's `_streaks()` exactly. */
+function streaksOf(results: boolean[]): { current: number; best: number } {
+  let best = 0;
+  let run = 0;
+  for (const won of results) {
+    run = won ? run + 1 : 0;
+    best = Math.max(best, run);
+  }
+  let current = 0;
+  for (let i = results.length - 1; i >= 0; i--) {
+    if (!results[i]) break;
+    current++;
+  }
+  return { current, best };
+}
+
+/** Ledger reasons that net into "profit" — see the leaderboard view
+ * migration's header note for the full rationale; kept in sync with it. */
+const PROFIT_REASONS = [
+  "bet_place",
+  "bet_payout",
+  "cashout",
+  "refund",
+  "pickem_place",
+  "pickem_payout",
+  "pickem_refund",
+  "pickem_cancel",
+];
+
+/** The signed-in viewer's own record/profit/streaks/biggest-win for the
+ * profile page — ports c:\fpl_gambling\api\stats.py's player_stats(). Not a
+ * SQL view (only the public leaderboard needed one per the controller
+ * ruling): assembled here the same way fetchMarketDetail/fetchMarketCards
+ * assemble market data, since this is a single viewer's private read. */
+export async function fetchProfileStats(discordId: string): Promise<ProfileStats> {
+  const service = createBettingServiceClient();
+
+  const { data: betsData } = await service
+    .from("betting_bets")
+    .select("payout, amount, created_at, id")
+    .eq("discord_id", discordId)
+    .eq("settled", true)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+  const rows = (betsData as { payout: number | null; amount: number; created_at: string; id: number }[] | null) ?? [];
+  const graded = rows.filter((r) => r.payout !== r.amount);
+  const results = graded.map((r) => (r.payout ?? 0) - r.amount > 0);
+  const wins = results.filter(Boolean).length;
+  const losses = results.length - wins;
+  const biggestWin = graded.reduce((max, r) => Math.max(max, (r.payout ?? 0) - r.amount), 0);
+  const { current, best } = streaksOf(results);
+
+  const { data: cardsData } = await service
+    .from("betting_pickem_cards")
+    .select("pickem_id")
+    .eq("discord_id", discordId)
+    .gt("payout", 0)
+    .not("correct", "is", null);
+  const paidCards = (cardsData as { pickem_id: number }[] | null) ?? [];
+  let perfectPickems = 0;
+  if (paidCards.length > 0) {
+    const { data: resolvedPickems } = await service
+      .from("betting_pickems")
+      .select("id")
+      .in(
+        "id",
+        paidCards.map((c) => c.pickem_id)
+      )
+      .eq("status", "RESOLVED");
+    perfectPickems = ((resolvedPickems as { id: number }[] | null) ?? []).length;
+  }
+
+  const { data: ledgerData } = await service.from("betting_ledger").select("delta").eq("discord_id", discordId).in("reason", PROFIT_REASONS);
+  const profit = ((ledgerData as { delta: number }[] | null) ?? []).reduce((sum, r) => sum + r.delta, 0);
+
+  return {
+    wins,
+    losses,
+    profit,
+    biggest_win: biggestWin,
+    current_streak: current,
+    best_streak: best,
+    perfect_pickems: perfectPickems,
+  };
+}
+
+/** The signed-in viewer's bet history (open + settled), most recent first —
+ * drives the profile page's open-bets/recent-settled lists. */
+export async function fetchRecentBets(discordId: string, limit = 50): Promise<BetHistoryRow[]> {
+  const service = createBettingServiceClient();
+  const { data } = await service
+    .from("betting_bets")
+    .select("id, market_id, team_id, is_draw, amount, payout, settled, created_at")
+    .eq("discord_id", discordId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const bets = (data as Omit<BetHistoryRow, "market_title">[] | null) ?? [];
+  if (bets.length === 0) return [];
+
+  const marketIds = [...new Set(bets.map((b) => b.market_id))];
+  const { data: marketsData } = await service.from("betting_markets").select("id, title").in("id", marketIds);
+  const titles = new Map(((marketsData as { id: number; title: string | null }[] | null) ?? []).map((m) => [m.id, m.title]));
+
+  return bets.map((b) => ({ ...b, market_title: titles.get(b.market_id) ?? null }));
 }
