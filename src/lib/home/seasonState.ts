@@ -2,9 +2,14 @@ export const DRAFT_DAY_AT = "2026-08-15T20:00:00-05:00";
 export const FIRST_GAME_AT = "2026-08-17T00:00:00-04:00";
 
 export type HomepagePhase = "preseason" | "regular";
+export type HomepageMode = "auto" | HomepagePhase;
 
 export function getHomepagePhase(now = new Date()): HomepagePhase {
   return now.getTime() >= new Date(FIRST_GAME_AT).getTime() ? "regular" : "preseason";
+}
+
+export function resolveHomepagePhase(mode: HomepageMode, now = new Date()): HomepagePhase {
+  return mode === "auto" ? getHomepagePhase(now) : mode;
 }
 
 export function getCountdownParts(target: Date, now = new Date()) {

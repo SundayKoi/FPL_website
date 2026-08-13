@@ -12,6 +12,16 @@ export type PreseasonTeamSummary = {
   pointsRemaining: number;
   budgetStart: number;
   rosterCount: number;
+  draftedPlayers: PreseasonDraftedPlayer[];
+};
+
+export type PreseasonDraftedPlayer = {
+  id: string;
+  displayName: string;
+  role: LolRole;
+  rank: string | null;
+  price: number | null;
+  acquisition: Acquisition | null;
 };
 
 export type PreseasonPlayer = {
@@ -111,6 +121,16 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       pointsRemaining: team.points_remaining,
       budgetStart: team.budget_start,
       rosterCount: players.filter((player) => player.team_id === team.id).length,
+      draftedPlayers: players
+        .filter((player) => player.team_id === team.id)
+        .map((player) => ({
+          id: player.id,
+          displayName: player.display_name,
+          role: player.role,
+          rank: player.rank,
+          price: player.price,
+          acquisition: player.acquisition,
+        })),
     })),
     players: players.map((player) => {
       const label = lockLabel(player.acquisition, player.team_id);

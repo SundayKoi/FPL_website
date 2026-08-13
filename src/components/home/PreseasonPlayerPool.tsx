@@ -18,6 +18,13 @@ const ROLE_TONES: Record<LolRole, string> = {
 };
 
 export default function PreseasonPlayerPool({ players }: { players: PreseasonPlayer[] }) {
+  function rankValue(rank: string | null) {
+    const normalized = rank?.trim().toUpperCase() ?? "";
+    const tier = normalized.startsWith("M") ? 5 : normalized.startsWith("D") ? 4 : normalized.startsWith("E") ? 3 : normalized.startsWith("P") ? 2 : normalized.startsWith("G") ? 1 : 0;
+    const division = Number(normalized.replace(/^[A-Z]+/, "")) || 0;
+    return tier * 100 + division;
+  }
+
   return (
     <section aria-labelledby="preseason-player-pool-title" className="card-brand mt-6 overflow-hidden p-5 sm:p-6 xl:mt-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -26,7 +33,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
           <h2 id="preseason-player-pool-title" className="type-display mt-2 text-4xl sm:text-5xl">Who is still on the board?</h2>
         </div>
         <p className="max-w-md text-right text-sm leading-6 text-steel">
-          Available players stay clear. Captains, free-agency signings, and completed picks remain visible but locked.
+          Remaining players are open for the draft. Captains stay at the top, with every player ranked for quick scouting.
         </p>
       </div>
 
@@ -37,7 +44,15 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {ROLE_ORDER.map((role) => {
-            const rolePlayers = players.filter((player) => player.role === role);
+            const rolePlayers = players
+              .filter((player) => player.role === role)
+              .sort((left, right) => {
+                const leftCaptain = left.lockLabel === "Captain";
+                const rightCaptain = right.lockLabel === "Captain";
+                if (leftCaptain !== rightCaptain) return leftCaptain ? -1 : 1;
+                if (left.available !== right.available) return left.available ? -1 : 1;
+                return rankValue(right.rank) - rankValue(left.rank) || left.displayName.localeCompare(right.displayName);
+              });
             return (
               <section key={role} className={`overflow-hidden rounded border ${ROLE_TONES[role]}`}>
                 <h3 className="px-4 py-3 text-lg font-bold uppercase tracking-wide">{ROLE_LABELS[role]}</h3>
@@ -66,8 +81,8 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                           aria-label={`${player.displayName}, unavailable: ${player.lockLabel}`}
                           className="min-w-0 truncate font-semibold text-white"
                         >
-                          <span aria-hidden="true" className="inline-block select-none blur-[3px]">{player.displayName}</span>
-                          <span className="ml-2 text-[10px] uppercase tracking-[0.12em] text-steel">{player.lockLabel}</span>
+                          <span>{player.displayName}</span>
+                          <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-steel">{player.lockLabel}</span>
                         </span>
                       )}
                       <span className="font-medium text-steel">{player.rank ?? "—"}</span>
@@ -84,7 +99,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
       )}
 
       <p className="mt-4 text-[10px] uppercase tracking-[0.1em] text-steel/70">
-        Locked names are shown for league context and cannot be drafted again.
+        Remaining players are sorted by rank. Committed players remain visible with their acquisition status.
       </p>
     </section>
   );

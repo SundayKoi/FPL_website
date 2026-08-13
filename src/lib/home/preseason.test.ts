@@ -57,7 +57,15 @@ describe("fetchPreseasonHomeData", () => {
     await expect(fetchPreseasonHomeData()).resolves.toMatchObject({
       draftId: "draft-s5",
       draftName: "Season 5 Draft",
-      teams: [{ name: "Alpha", pointsRemaining: 74, rosterCount: 2 }],
+      teams: [{
+        name: "Alpha",
+        pointsRemaining: 74,
+        rosterCount: 2,
+        draftedPlayers: [
+          expect.objectContaining({ displayName: "Captain Player", acquisition: "captain" }),
+          expect.objectContaining({ displayName: "Free Agent Player", acquisition: "free_agency" }),
+        ],
+      }],
       players: [
         expect.objectContaining({ displayName: "Open Player", available: true }),
         expect.objectContaining({ displayName: "Captain Player", available: false, lockLabel: "Captain" }),

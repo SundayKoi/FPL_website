@@ -18,6 +18,9 @@ vi.mock("@/lib/home/preseason", () => ({
         pointsRemaining: 74,
         budgetStart: 100,
         rosterCount: 2,
+        draftedPlayers: [
+          { id: "player-2", displayName: "Captain Player", role: "jungle", rank: "D3", price: 0, acquisition: "captain" },
+        ],
       },
     ],
     players: [
@@ -38,7 +41,8 @@ describe("PreseasonHomePage", () => {
     expect(screen.getByText("Monday, August 17")).not.toBeNull();
     expect(screen.getByText("74 pts left")).not.toBeNull();
     expect(screen.getByText("Open Player")).not.toBeNull();
-    expect(screen.getByText("Captain Player")).not.toBeNull();
+    expect(screen.getAllByText("Captain Player").length).toBeGreaterThan(0);
+    expect(screen.getByText("DRAFTED PLAYERS")).not.toBeNull();
     expect(screen.getAllByText(/captain/i).length).toBeGreaterThan(0);
   });
 });

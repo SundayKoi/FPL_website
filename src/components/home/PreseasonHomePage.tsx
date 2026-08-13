@@ -73,6 +73,27 @@ export default async function PreseasonHomePage() {
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-line">
                       <div className="h-full rounded-full bg-gold" style={{ width: `${Math.max(0, Math.min(100, (team.pointsRemaining / Math.max(team.budgetStart, 1)) * 100))}%` }} />
                     </div>
+                    <div className="mt-5 border-t border-line/60 pt-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="label-dash">DRAFTED PLAYERS</span>
+                        <span className="text-xs text-steel">{team.rosterCount}/5</span>
+                      </div>
+                      {team.draftedPlayers.length > 0 ? (
+                        <ul className="mt-2 space-y-2">
+                          {team.draftedPlayers.map((player) => (
+                            <li key={player.id} className="flex items-center justify-between gap-3 text-sm">
+                              <span className="min-w-0 truncate font-semibold text-white">
+                                <span className="mr-2 font-mono text-[10px] text-steel">{player.role.toUpperCase()}</span>
+                                {player.displayName}
+                              </span>
+                              <span className="shrink-0 font-mono text-xs text-gold">{player.price ?? 0} pts</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-steel">No players drafted yet.</p>
+                      )}
+                    </div>
                   </div>
                 </article>
               ))}
@@ -84,7 +105,7 @@ export default async function PreseasonHomePage() {
 
         <section aria-label="Preseason notes" className="mt-6 grid gap-4 md:grid-cols-3 xl:mt-8">
           <div className="card-brand p-5"><span className="label-dash">01 · DRAFT DAY</span><p className="mt-3 text-sm leading-6 text-steel">Join the draft room Saturday night and follow every nomination as the board takes shape.</p></div>
-          <div className="card-brand p-5"><span className="label-dash">02 · PLAYER POOL</span><p className="mt-3 text-sm leading-6 text-steel">Clear names are still available. Blurred names have already been claimed through captain or free-agency setup.</p></div>
+          <div className="card-brand p-5"><span className="label-dash">02 · PLAYER POOL</span><p className="mt-3 text-sm leading-6 text-steel">Remaining players are clearly visible and sorted by rank. Captains stay pinned at the top of each role.</p></div>
           <div className="card-brand p-5"><span className="label-dash">03 · OPENING WEEK</span><p className="mt-3 text-sm leading-6 text-steel">The first regular-season games begin Monday, August 17. The full league dashboard takes over then.</p></div>
         </section>
       </div>

@@ -4,6 +4,7 @@ import {
   DRAFT_DAY_AT,
   getHomepagePhase,
   getCountdownParts,
+  resolveHomepagePhase,
 } from "./seasonState";
 
 describe("homepage season state", () => {
@@ -22,5 +23,15 @@ describe("homepage season state", () => {
     expect(
       getCountdownParts(new Date("2026-08-15T20:00:00-04:00"), new Date("2026-08-15T19:58:29-04:00")),
     ).toEqual({ days: 0, hours: 0, minutes: 1, seconds: 31, complete: false });
+  });
+
+  it("lets an explicit admin override win over the calendar", () => {
+    const beforeOpening = new Date("2026-08-14T12:00:00-05:00");
+    const afterOpening = new Date("2026-08-18T12:00:00-05:00");
+
+    expect(resolveHomepagePhase("regular", beforeOpening)).toBe("regular");
+    expect(resolveHomepagePhase("preseason", afterOpening)).toBe("preseason");
+    expect(resolveHomepagePhase("auto", beforeOpening)).toBe("preseason");
+    expect(resolveHomepagePhase("auto", afterOpening)).toBe("regular");
   });
 });

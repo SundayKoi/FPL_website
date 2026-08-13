@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
+import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
+import type { HomepageMode } from "@/lib/home/seasonState";
 
 /**
  * Admin hub: the league's controls are spread across their feature pages
@@ -26,7 +28,7 @@ export default async function AdminPage() {
     supabase.from("drafts").select("*").order("created_at", { ascending: false }),
     supabase
       .from("league_settings")
-      .select("current_season, current_phase, signups_open")
+      .select("current_season, current_phase, signups_open, homepage_mode")
       .eq("id", 1)
       .single(),
     supabase.from("signups").select("*", { count: "exact", head: true }),
@@ -38,6 +40,7 @@ export default async function AdminPage() {
     current_season: string;
     current_phase: string;
     signups_open: boolean;
+    homepage_mode: HomepageMode;
   } | null;
   const signupCount = signupCountResult.count ?? 0;
   const fixtureCount = fixtureCountResult.count ?? 0;
@@ -103,6 +106,11 @@ export default async function AdminPage() {
             <p className="text-sm text-steel">{card.description}</p>
           </Link>
         ))}
+      </section>
+
+      <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
+        <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
+        <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
       </section>
 
       <section aria-label="Drafts" className="flex flex-col gap-4">
