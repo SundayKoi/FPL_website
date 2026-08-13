@@ -19,6 +19,10 @@ import { verifyDiscordSignature } from "@/lib/betting/discord/verify";
 // registration to run at all, and this file is the interactions webhook's
 // single entrypoint.
 import "@/lib/betting/discord/commands";
+// Side-effect import only: components.ts registers the bet-button/stake-modal
+// handlers into componentHandlers/modalHandlers (registry.ts) at module load
+// — same reasoning as the commands.ts import above.
+import "@/lib/betting/discord/components";
 
 // Exact copy of the old bot's NO_ACCESS_MSG (bot/main.py) — same wording
 // users already saw from the gateway bot's paid-access gate.
