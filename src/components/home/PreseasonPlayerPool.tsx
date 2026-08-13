@@ -65,7 +65,9 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                     <li
                       key={player.id}
                       data-available={player.available ? "true" : "false"}
-                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-current/15 px-4 py-3 text-sm"
+                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-current/15 px-4 py-3 text-sm ${
+                        player.available ? "bg-white/[0.02]" : "bg-black/35 opacity-55"
+                      }`}
                     >
                       {player.available ? (
                         <a

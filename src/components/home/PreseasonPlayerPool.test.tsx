@@ -24,5 +24,9 @@ describe("PreseasonPlayerPool", () => {
       expect.stringContaining("Diamond Player"),
     ]);
     expect(screen.getByText("Captain Player").className).not.toContain("blur");
+    expect(players[0].className).toContain("opacity-55");
+    expect(players[0].textContent).toContain("E1");
+    expect(players[1].textContent).toContain("M10");
+    expect(players[2].textContent).toContain("D2");
   });
 });
