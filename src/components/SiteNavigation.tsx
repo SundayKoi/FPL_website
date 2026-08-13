@@ -1,22 +1,45 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
-  { href: "/", label: "Home" },
   { href: "/stats", label: "Stats" },
   { href: "/players", label: "Players" },
   { href: "/schedule", label: "Schedule" },
   { href: "/captain", label: "Captain" },
   { href: "/draft", label: "Draft" },
   { href: "/teams", label: "Teams" },
-  { href: "/betting", label: "Betting" },
-  { href: "/info", label: "Info" },
-  { href: "/signup", label: "Sign Up" },
+] as const;
+
+type DropdownLink = {
+  href: string;
+  label: string;
+  target?: "_blank";
+  rel?: "noopener noreferrer";
+};
+
+type DropdownKey = "info" | "premium";
+
+const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
+  info: [{ href: "/signup", label: "Sign Up" }],
+  premium: [
+    { href: "/betting", label: "Betting" },
+    {
+      href: "https://www.draftleague.lol/",
+      label: "Draft League",
+      target: "_blank",
+      rel: "noopener noreferrer",
+    },
+  ],
+};
+
+const DROPDOWNS = [
+  { key: "info", label: "Info", links: DROPDOWN_LINKS.info },
+  { key: "premium", label: "Premium", links: DROPDOWN_LINKS.premium },
 ] as const;
 
 const linkBase =
@@ -30,28 +53,50 @@ function isActive(pathname: string | null, href: string) {
 export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
   const menuId = useId();
+  const navRef = useRef<HTMLElement | null>(null);
+
+  const closeMenus = () => {
+    setOpen(false);
+    setOpenDropdown(null);
+  };
 
   // Close the mobile menu whenever the route changes (e.g. browser
   // back/forward), adjusting state during render rather than in an effect.
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (pathname !== prevPathname) {
     setPrevPathname(pathname);
-    setOpen(false);
+    closeMenus();
   }
 
-  // Let Escape dismiss the open menu.
+  // Let Escape dismiss the open dropdown or mobile menu.
   useEffect(() => {
-    if (!open) return;
+    if (!open && !openDropdown) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      if (openDropdown) {
+        setOpenDropdown(null);
+      } else {
+        setOpen(false);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [open, openDropdown]);
+
+  useEffect(() => {
+    if (!openDropdown) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!navRef.current?.contains(event.target as Node)) setOpenDropdown(null);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [openDropdown]);
 
   return (
     <header
+      ref={navRef}
       className="sticky top-0 z-40 border-b border-line backdrop-blur"
       style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
@@ -83,7 +128,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                onClick={() => setOpen(false)}
+                onClick={closeMenus}
                 className={`${linkBase} rounded px-3 py-2 sm:px-0 sm:py-1 ${
                   active ? "text-white sm:text-gold" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
                 }`}
@@ -92,13 +137,69 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
               </Link>
             );
           })}
+          {DROPDOWNS.map((dropdown) => {
+            const dropdownOpen = openDropdown === dropdown.key;
+            const dropdownMenuId = `${menuId}-${dropdown.key}`;
+            const active = dropdown.links.some((link) => isActive(pathname, link.href));
+
+            return (
+              <div key={dropdown.key} className="relative flex flex-col sm:items-center">
+                <button
+                  type="button"
+                  aria-label={`${dropdown.label} menu`}
+                  aria-haspopup="menu"
+                  aria-expanded={dropdownOpen}
+                  aria-controls={dropdownMenuId}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() =>
+                    setOpenDropdown((current) => (current === dropdown.key ? null : dropdown.key))
+                  }
+                  className={`${linkBase} inline-flex items-center gap-1 rounded px-3 py-2 sm:px-0 sm:py-1 ${
+                    active || dropdownOpen
+                      ? "text-white sm:text-gold"
+                      : "text-steel hover:bg-line/40 hover:text-white sm:hover:bg-transparent"
+                  }`}
+                >
+                  {dropdown.label}
+                  <span aria-hidden="true" className="text-[0.7em]">
+                    ▾
+                  </span>
+                </button>
+                {dropdownOpen ? (
+                  <div
+                    id={dropdownMenuId}
+                    role="menu"
+                    className="flex flex-col gap-1 pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-line sm:bg-navy sm:p-2 sm:shadow-lg"
+                  >
+                    {dropdown.links.map((dropdownLink) => (
+                      <Link
+                        key={dropdownLink.href}
+                        href={dropdownLink.href}
+                        role="menuitem"
+                        target={dropdownLink.target}
+                        rel={dropdownLink.rel}
+                        aria-current={isActive(pathname, dropdownLink.href) ? "page" : undefined}
+                        onClick={closeMenus}
+                        className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                      >
+                        {dropdownLink.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <div className="shrink-0">{authSlot}</div>
           <button
             type="button"
-            onClick={() => setOpen((value) => !value)}
+            onClick={() => {
+              setOpen((value) => !value);
+              setOpenDropdown(null);
+            }}
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
