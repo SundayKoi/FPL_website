@@ -14,6 +14,7 @@ import BidControls from "./BidControls";
 import NominationPicker from "./NominationPicker";
 import AdminStrip from "./AdminStrip";
 import DraftChat from "./DraftChat";
+import NominationAlert from "./NominationAlert";
 import Toast from "./Toast";
 
 export default function DraftBoard({
@@ -66,6 +67,12 @@ export default function DraftBoard({
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <DraftHeader draft={draft} connected={s.connected} />
+
+      <NominationAlert
+        isMyNomination={isMyNomination}
+        round={draft.current_round}
+        minimumBid={draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1]}
+      />
 
       {myTeam && (
         <div className="card-brand px-4 py-3 text-sm text-steel">
