@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { clientSiteOrigin } from "@/lib/auth/siteOrigin";
 import { createClient } from "@/lib/supabase/client";
 
@@ -13,6 +14,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  // Where to send the visitor after Discord auth completes — e.g. the
+  // betting gate links here as `/login?redirect=/betting` so a signed-out
+  // visitor lands back where they started. Only a same-site path is ever
+  // honored (see auth/callback/route.ts's validation); anything else falls
+  // back to "/".
+  const redirect = useSearchParams().get("redirect");
 
   return (
     <main className="bg-hash flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
@@ -32,7 +39,11 @@ export default function LoginPage() {
               // non-allowlisted host (old vercel.app links) were falling
               // back to Supabase's Site URL after Discord auth — see
               // lib/auth/siteOrigin.ts.
-              options: { redirectTo: `${clientSiteOrigin()}/auth/callback` },
+              options: {
+                redirectTo: redirect
+                  ? `${clientSiteOrigin()}/auth/callback?next=${encodeURIComponent(redirect)}`
+                  : `${clientSiteOrigin()}/auth/callback`,
+              },
             })
           }
         >
@@ -45,7 +56,7 @@ export default function LoginPage() {
               e.preventDefault();
               const { error } = await supabase.auth.signInWithPassword({ email, password });
               if (error) setErr(error.message);
-              else location.href = "/";
+              else location.href = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
             }}
           >
             <p className="text-sm text-steel">Dev sign-in (local only)</p>
