@@ -24,6 +24,32 @@ vi.mock("@/lib/home/schedule", () => ({
   })),
 }));
 
+vi.mock("@/lib/home/awards", () => ({
+  fetchHomepageAwards: vi.fn(async () => ({
+    season: "S4",
+    periodLabel: "Week of Apr 27",
+    playerOfWeek: {
+      title: "Player of the Week",
+      name: "Ace",
+      tag: "FPL",
+      teamName: "Alpha",
+      detail: "Alpha · MIDDLE · 2 games",
+      value: "91",
+    },
+    teamOfWeek: {
+      title: "Team of the Week",
+      name: null,
+      tag: null,
+      teamName: "Alpha",
+      detail: "100% weekly win rate",
+      value: "2–0",
+    },
+    individualAwards: [],
+    teamAwards: [],
+    standings: [],
+  })),
+}));
+
 expect.extend({
   toHaveClass(received: Element | null | undefined, ...classNames: string[]) {
     const missing = classNames.filter((className) => !received?.classList.contains(className));
@@ -52,10 +78,7 @@ describe("LeagueHub", () => {
       "py-12",
       "sm:py-16",
     );
-    expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass(
-      "lg:grid-cols-[2fr_1fr]",
-      "xl:gap-8",
-    );
+    expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
   });
 
   it("keeps the homepage focused on league broadcasts", async () => {
@@ -85,20 +108,21 @@ describe("LeagueHub", () => {
     ).not.toBeNull();
   });
 
-  it("adds the weekly standouts panel to the landing page", async () => {
+  it("adds the awards desk to the landing page", async () => {
     render(await LeagueHub());
 
-    expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
+    expect(screen.getByRole("region", { name: /awards desk/i })).not.toBeNull();
+    expect(screen.queryByRole("article", { name: /latest week's standouts/i })).toBeNull();
   });
 
   it("adds the team standings panel to the landing page", async () => {
     render(await LeagueHub());
 
     expect(screen.getByRole("article", { name: /team standings/i })).not.toBeNull();
-    expect(screen.getByText("Alpha")).not.toBeNull();
+    expect(screen.getAllByText("Alpha").length).toBeGreaterThan(0);
   });
 
-  it("places the schedule below the broadcast and standings in the right rail", async () => {
+  it("places the awards desk below standings and above the schedule", async () => {
     render(await LeagueHub());
 
     const broadcast = screen.getByRole("article", {
@@ -106,19 +130,16 @@ describe("LeagueHub", () => {
     });
     const schedule = screen.getByRole("article", { name: /upcoming schedule/i });
     const standings = screen.getByRole("article", { name: /team standings/i });
-    const standouts = screen.getByRole("article", { name: /latest week's standouts/i });
+    const awards = screen.getByRole("region", { name: /awards desk/i });
 
-    expect(broadcast.parentElement).toBe(schedule.parentElement);
-    expect(standings.parentElement).toBe(standouts.parentElement);
-    expect(broadcast.parentElement).not.toBe(standings.parentElement);
     expect(
-      broadcast.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
+      broadcast.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      schedule.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
+      standings.compareDocumentPosition(awards) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      standings.compareDocumentPosition(standouts) & Node.DOCUMENT_POSITION_FOLLOWING,
+      awards.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 

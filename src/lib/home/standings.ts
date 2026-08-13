@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { bundledSeason4Rows, deriveStandings, fetchSeason4RawStats } from "./awards";
 
 export interface HomeStandingTeam {
   id: string;
@@ -7,6 +8,7 @@ export interface HomeStandingTeam {
   nomination_position: number;
   wins: number;
   losses: number;
+  winrate_pct?: number;
 }
 
 type TeamRow = Pick<HomeStandingTeam, "id" | "name" | "abbreviation" | "nomination_position">;
@@ -23,6 +25,21 @@ export async function fetchHomepageStandings(): Promise<HomeStandingTeam[]> {
 
   const featuredDraftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id;
   if (!featuredDraftId) return [];
+
+  try {
+    const season4Rows = await fetchSeason4RawStats();
+    if (season4Rows.length > 0) {
+      return deriveStandings(season4Rows);
+    }
+  } catch {
+    // Use the checked-in Season 4 snapshot when the live historical table is
+    // unavailable, then fall back to the current draft only as a last resort.
+  }
+
+  const bundledRows = bundledSeason4Rows();
+  if (bundledRows.length > 0) {
+    return deriveStandings(bundledRows);
+  }
 
   const { data: teams, error: teamsError } = await supabase
     .from("teams")

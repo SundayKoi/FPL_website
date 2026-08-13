@@ -1,6 +1,8 @@
 import type { HomeStandingTeam } from "@/lib/home/standings";
 
 export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) {
+  const hasHistoricalStats = teams.some((team) => team.winrate_pct !== undefined);
+
   return (
     <article
       aria-labelledby="home-standings-title"
@@ -14,7 +16,7 @@ export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) 
           </h2>
         </div>
         <span className="shrink-0 rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-gold">
-          0–0 start
+          {hasHistoricalStats ? "Season 4 standings" : "0–0 start"}
         </span>
       </div>
 
@@ -27,7 +29,7 @@ export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) 
           {teams.map((team) => (
             <div
               key={team.id}
-              className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 border-t border-line/50 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-line/50 py-3 first:border-t-0 first:pt-0 last:pb-0"
             >
               <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position}</span>
               <div className="flex min-w-0 items-center gap-2">
@@ -37,6 +39,11 @@ export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) 
               <span className="whitespace-nowrap font-mono text-sm font-semibold text-steel">
                 {team.wins}–{team.losses}
               </span>
+              {hasHistoricalStats ? (
+                <span className="whitespace-nowrap font-mono text-xs font-semibold text-cyan">
+                  {team.winrate_pct ?? 0}%
+                </span>
+              ) : null}
             </div>
           ))}
         </div>

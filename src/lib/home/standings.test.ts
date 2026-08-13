@@ -13,6 +13,7 @@ function query(result: unknown) {
     eq: () => builder,
     order: () => Promise.resolve(result),
     single: () => Promise.resolve(result),
+    then: (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve),
   };
   return builder;
 }
@@ -26,7 +27,39 @@ describe("fetchHomepageStandings", () => {
     const from = vi.fn((table: string) =>
       table === "league_settings"
         ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
-        : query({
+        : table === "raw_stats"
+          ? query({
+              data: [
+                {
+                  game_date: "2026-04-27 20:00:00",
+                  match_id: "match-1",
+                  team_side: "Blue",
+                  team_name: "Alpha",
+                  summoner_name: "Ace",
+                  tag: "FPL",
+                  champion: "Ahri",
+                  role: "MIDDLE",
+                  kills: 8,
+                  deaths: 1,
+                  assists: 7,
+                  kill_participation_pct: 78,
+                  total_damage_to_champions: 25000,
+                  cs: 240,
+                  gold_earned: 14000,
+                  vision_score: 25,
+                  win: true,
+                  season: "S4",
+                  season_phase: "Regular",
+                  game_duration_min: 30,
+                  team_dragons: 3,
+                  team_barons: 1,
+                  team_first_blood: true,
+                  team_first_tower: true,
+                },
+              ],
+              error: null,
+            })
+          : query({
             data: [
               { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1 },
               { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2 },
@@ -38,20 +71,13 @@ describe("fetchHomepageStandings", () => {
 
     await expect(fetchHomepageStandings()).resolves.toEqual([
       {
-        id: "team-1",
+        id: "season4-alpha",
         name: "Alpha",
-        abbreviation: "AL",
+        abbreviation: "ALP",
         nomination_position: 1,
-        wins: 0,
+        wins: 1,
         losses: 0,
-      },
-      {
-        id: "team-2",
-        name: "Bravo",
-        abbreviation: "BR",
-        nomination_position: 2,
-        wins: 0,
-        losses: 0,
+        winrate_pct: 100,
       },
     ]);
   });

@@ -1,0 +1,50 @@
+import FeaturedMatchup from "./FeaturedMatchup";
+import HomeStandings from "./HomeStandings";
+import AwardsDesk from "./AwardsDesk";
+import UpcomingSchedule from "./UpcomingSchedule";
+import { getTwitchChannelClips, getTwitchChannelStatus } from "@/lib/twitch/status";
+import { fetchHomepageStandings } from "@/lib/home/standings";
+import { fetchHomepageSchedule } from "@/lib/home/schedule";
+import { fetchHomepageAwards } from "@/lib/home/awards";
+
+const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
+const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
+
+/** The approved post-opening homepage, stored as the Regular Season Home Page. */
+export default async function RegularSeasonHomePage() {
+  const [twitchStatus, awards, standings, schedule] = await Promise.all([
+    getTwitchChannelStatus({
+      channelLogin: TWITCH_CHANNEL_LOGIN,
+    }),
+    fetchHomepageAwards(),
+    fetchHomepageStandings(),
+    fetchHomepageSchedule(),
+  ]);
+  const twitchClips =
+    twitchStatus.state === "live"
+      ? []
+      : await getTwitchChannelClips({
+          channelLogin: TWITCH_CHANNEL_LOGIN,
+        });
+
+  return (
+    <main className="bg-hash flex-1">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+        <section aria-label="Homepage dashboard" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
+            <FeaturedMatchup
+              fixture={schedule.fixtures[0] ?? null}
+              channelLogin={TWITCH_CHANNEL_LOGIN}
+              clips={twitchClips}
+              streamState={twitchStatus.state}
+              twitchUrl={TWITCH_URL}
+            />
+            <HomeStandings teams={standings} />
+          </div>
+          <AwardsDesk awards={awards} />
+          <UpcomingSchedule schedule={schedule} />
+        </section>
+      </div>
+    </main>
+  );
+}
