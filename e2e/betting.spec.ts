@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { execSync } from "node:child_process";
+import { BETTING_MEMBER_EMAIL, BETTING_ADMIN_EMAIL, BETTING_PASSWORD } from "../scripts/betting-fixture";
 
 /**
  * Markets betting, end to end against the real running app + local
@@ -10,20 +12,24 @@ import { expect, test, type Page } from "@playwright/test";
  * (No cashoutPickem coverage here — pick'em cash-out was dropped from this
  * repo entirely; this spec covers the markets flow the brief describes.)
  *
- * Fixture (scripts/seed-demo.ts's betting section): "Betting FC" (BFC) vs
- * "Wager United" (WUN", one OPEN market, rake_bps 0, lock_at ~1h55m out, and
- * a third seeded user already holding a 500 stake on Wager United. That
- * pre-existing losing stake is what makes the member's own bet pay out
- * something other than a flat refund (see _resolve_market in
+ * Self-seeding, same contract as draft.spec.ts/e2e/seed.ts: shells out to
+ * `npx tsx e2e/seed-betting.ts` below, so `npm run e2e`/`npx playwright test`
+ * works from a clean checkout without `npm run seed:demo` run by hand first.
+ *
+ * Fixture (scripts/betting-fixture.ts): "Betting FC" (BFC) vs "Wager United"
+ * (WUN), one OPEN market, rake_bps 0, lock_at ~1h55m out, and a third seeded
+ * user already holding a 500 stake on Wager United. That pre-existing
+ * losing stake is what makes the member's own bet pay out something other
+ * than a flat refund (see _resolve_market in
  * 20260813000003_betting_market_rpcs.sql: an empty losing pool just refunds
  * everyone) — with rake 0, resolving for Betting FC pays the member
  * 100 (stake back) + 100 * 500 / 100 (100% of the solo-loser pool,
  * pro-rata over a solo winner) = 600, i.e. +500 profit.
  */
 
-const MEMBER_EMAIL = "e2e-betting-member@test.local";
-const ADMIN_EMAIL = "e2e-betting-admin@test.local";
-const PASSWORD = "password123";
+const MEMBER_EMAIL = BETTING_MEMBER_EMAIL;
+const ADMIN_EMAIL = BETTING_ADMIN_EMAIL;
+const PASSWORD = BETTING_PASSWORD;
 const MARKET_TITLE = "Betting FC vs Wager United";
 
 async function signIn(page: Page, email: string, redirect: string) {
@@ -40,6 +46,8 @@ async function signOut(page: Page) {
 }
 
 test("member bets, admin resolves, member's profile shows the payout", async ({ page }) => {
+  execSync("npx tsx e2e/seed-betting.ts", { stdio: "inherit" });
+
   // === Member: sign in, open the market, stake 100 on Betting FC ===========
   await signIn(page, MEMBER_EMAIL, "/betting");
 
