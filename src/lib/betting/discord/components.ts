@@ -16,6 +16,7 @@
 import "server-only";
 import { createBettingServiceClient } from "../service-client";
 import { fmtPoints } from "../format";
+import { friendlyPlaceBetError } from "../bet-errors";
 import { componentHandlers, modalHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, embed, errMsg, modal } from "./respond";
@@ -82,19 +83,13 @@ function requireMember(interaction: DiscordInteraction): DiscordUser | null {
   return user?.id ? user : null;
 }
 
-/** Maps `place_bet`'s raw `raise exception` text to friendly copy — same
- * mapping actions.ts's (unexported) friendlyPlaceBetError uses for the web
- * betting form, duplicated here for the Discord modal's own error replies. */
-function friendlyPlaceBetError(message: string): string {
-  if (/insufficient balance/i.test(message)) return "Insufficient balance.";
-  if (/amount must be positive/i.test(message)) return "Enter a valid bet amount.";
-  if (/no draw option/i.test(message)) return "This market has no draw option.";
-  if (/not in market/i.test(message)) return "Invalid team selection.";
-  if (/not open/i.test(message)) return "This market isn't open for betting.";
-  if (/locked/i.test(message)) return "This market has locked — betting is closed.";
-  if (/unknown market/i.test(message)) return "Market not found.";
-  if (/unknown user/i.test(message)) return "Account not found — try again.";
-  return "Something went wrong placing that bet.";
+/** The bettor's display name for the public shout's author strip — prefers
+ * the per-server nickname (interaction.member.nick), then the account's
+ * global display name, then its username. Mirrors discord.py's
+ * `Member.display_name` resolution order, which main.py's public shout
+ * (bot/main.py:118) used via `interaction.user.display_name`. */
+function displayName(interaction: DiscordInteraction, member: DiscordUser): string {
+  return interaction.member?.nick ?? member.global_name ?? member.username ?? member.id;
 }
 
 // ---- bet:<marketId>:<teamId>:<code> — button press ---------------------------
@@ -117,7 +112,10 @@ async function handleBetButton(interaction: DiscordInteraction): Promise<object>
   }
 
   return modal(`betmodal:${parsed.marketId}:${parsed.teamId}:${parsed.code}`, `Bet on ${parsed.code}`, [
-    { custom_id: "amount", label: "Amount", placeholder: "e.g. 500" },
+    // max_length 12 — port of main.py's BetAmountModal TextInput
+    // (bot/main.py:84): caps the raw input client-side so an absurdly long
+    // digit string can't parse to Infinity/overflow before parseAmount runs.
+    { custom_id: "amount", label: "Amount", placeholder: "e.g. 500", max_length: 12 },
   ]);
 }
 
@@ -141,11 +139,17 @@ function parseAmount(raw: string): number | null {
 
 /** Posts the public "🎲 ... bet $N on CODE!" shout to the channel the
  * interaction fired in — port of main.py's `interaction.channel.send(...)`
- * try/except HTTPException: pass. Best-effort only: the private confirmation
- * has already been decided by the time this runs, so any failure here
- * (missing perms, network error, missing channel id/bot token) is swallowed
- * rather than surfaced — the bettor still sees their confirmation. */
-async function postPublicShout(channelId: string | undefined, description: string): Promise<void> {
+ * try/except HTTPException: pass, including the author strip main.py set
+ * via `pub.set_author(name=..., icon_url=...)` (bot/main.py:118-119).
+ * Best-effort only: the private confirmation has already been decided by the
+ * time this runs, so any failure here (missing perms, network error, missing
+ * channel id/bot token) is swallowed rather than surfaced — the bettor still
+ * sees their confirmation. */
+async function postPublicShout(
+  channelId: string | undefined,
+  description: string,
+  author: { name: string; icon_url: string | null },
+): Promise<void> {
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!channelId || !botToken) return;
   try {
@@ -155,7 +159,9 @@ async function postPublicShout(channelId: string | undefined, description: strin
         Authorization: `Bot ${botToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ embeds: [{ description, color: BRAND }] }),
+      body: JSON.stringify({
+        embeds: [{ description, color: BRAND, author: { name: author.name, icon_url: author.icon_url } }],
+      }),
     });
   } catch {
     // network failure — non-fatal, matches main.py's `pass`
@@ -193,7 +199,11 @@ async function handleBetModalSubmit(interaction: DiscordInteraction): Promise<ob
     color: GREEN,
   };
 
-  await postPublicShout(interaction.channel_id, `🎲 <@${member.id}> bet **${fmtPoints(amount)}** on **${parsed.code}**!`);
+  await postPublicShout(
+    interaction.channel_id,
+    `🎲 <@${member.id}> bet **${fmtPoints(amount)}** on **${parsed.code}**!`,
+    { name: displayName(interaction, member), icon_url: avatarUrl(member) },
+  );
 
   return embed(confirmEmbed, true);
 }

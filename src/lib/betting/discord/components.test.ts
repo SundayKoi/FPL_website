@@ -85,7 +85,7 @@ describe("bet button (componentHandlers.bet)", () => {
     expect(res.type).toBe(9); // MODAL
     expect(res.data.custom_id).toBe("betmodal:42:-1:ARS");
     expect(res.data.title).toBe("Bet on ARS");
-    expect(res.data.components[0].components[0]).toMatchObject({ custom_id: "amount", label: "Amount" });
+    expect(res.data.components[0].components[0]).toMatchObject({ custom_id: "amount", label: "Amount", max_length: 12 });
   });
 
   it("returns an ephemeral closed error when the market is not OPEN", async () => {
@@ -165,14 +165,22 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
     expect(res.data.embeds[0].description.toLowerCase()).toContain("locked");
   });
 
-  it("posts a public shout to the interaction's channel via the Discord REST API", async () => {
+  it("posts a public shout with an author strip to the interaction's channel via the Discord REST API", async () => {
     rpcImpl.current = vi.fn((fn: string) => {
       if (fn === "place_bet") return Promise.resolve({ data: 500, error: null });
       return Promise.resolve({ data: null, error: null });
     });
     global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
 
-    await modalHandlers.betmodal(modalInteraction("500"));
+    await modalHandlers.betmodal(
+      modalInteraction("500", {
+        member: {
+          user: { id: "bettor-1", username: "Bettor", global_name: "Bettor Global", avatar: "avatarhash" },
+          nick: "Bettor Nick",
+          roles: [],
+        },
+      })
+    );
 
     expect(global.fetch).toHaveBeenCalledWith(
       "https://discord.com/api/v10/channels/chan-1/messages",
@@ -184,6 +192,27 @@ describe("bet amount modal (modalHandlers.betmodal)", () => {
     const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
     expect(body.embeds[0].description).toBe("🎲 <@bettor-1> bet **$500** on **ARS**!");
+    // author strip — port of main.py's `pub.set_author(name=..., icon_url=...)`;
+    // nick takes priority over global_name/username.
+    expect(body.embeds[0].author).toEqual({
+      name: "Bettor Nick",
+      icon_url: "https://cdn.discordapp.com/avatars/bettor-1/avatarhash.png",
+    });
+  });
+
+  it("falls back to global_name, then username, when no server nickname is set", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "place_bet") return Promise.resolve({ data: 500, error: null });
+      return Promise.resolve({ data: null, error: null });
+    });
+    global.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
+
+    // no nick, no global_name, no avatar — falls all the way back to username
+    await modalHandlers.betmodal(modalInteraction("500"));
+
+    const [, init] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.embeds[0].author).toEqual({ name: "Bettor", icon_url: null });
   });
 
   it("still returns the private confirmation when the public shout POST fails", async () => {

@@ -3,26 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "./wallet";
 import { createBettingServiceClient } from "./service-client";
+import { friendlyPlaceBetError } from "./bet-errors";
 
 type ActionResult = { ok: true; balance: number } | { ok: false; error: string };
-
-/**
- * `place_bet` (supabase/migrations/20260813000003_betting_market_rpcs.sql)
- * raises plain-text exceptions — map the ones a bettor can actually trigger
- * to friendly copy; anything unrecognized falls back to a generic message
- * (never surface a raw Postgres error to the UI).
- */
-function friendlyPlaceBetError(message: string): string {
-  if (/insufficient balance/i.test(message)) return "Insufficient balance.";
-  if (/amount must be positive/i.test(message)) return "Enter a valid bet amount.";
-  if (/no draw option/i.test(message)) return "This market has no draw option.";
-  if (/not in market/i.test(message)) return "Invalid team selection.";
-  if (/not open/i.test(message)) return "This market isn't open for betting.";
-  if (/locked/i.test(message)) return "This market has locked — betting is closed.";
-  if (/unknown market/i.test(message)) return "Market not found.";
-  if (/unknown user/i.test(message)) return "Account not found — try signing in again.";
-  return "Something went wrong placing that bet.";
-}
 
 /** Same idea for `cashout_bet`'s exception messages. */
 function friendlyCashoutError(message: string): string {

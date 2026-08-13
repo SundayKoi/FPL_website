@@ -21,13 +21,17 @@ export interface DiscordInteraction {
     components?: Array<{ components?: Array<{ custom_id: string; value: string }> }>;
   };
   /** Guild member context — present when the interaction fires inside a
-   * guild; absent for DMs (`user` is set instead). */
+   * guild; absent for DMs (`user` is set instead). `nick` is the member's
+   * per-server display name override (Discord's guild member object), used
+   * by components.ts's public bet shout to prefer the name shown in-server
+   * over the account-wide username/global_name. */
   member?: {
-    user?: { id: string; username?: string; global_name?: string };
+    user?: { id: string; username?: string; global_name?: string; avatar?: string | null };
+    nick?: string | null;
     roles: string[];
   };
   /** Present for DM interactions (no `member`). */
-  user?: { id: string; username?: string; global_name?: string };
+  user?: { id: string; username?: string; global_name?: string; avatar?: string | null };
   guild_id?: string;
   channel_id?: string;
   message?: Record<string, unknown>;
