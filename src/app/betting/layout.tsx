@@ -56,9 +56,19 @@ export default async function BettingLayout({ children }: { children: ReactNode 
               Profile
             </Link>
           </div>
-          <span className="ml-auto rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-sm font-semibold text-gold">
-            {fmtPoints(user.balance)}
-          </span>
+          <div className="ml-auto flex items-center gap-3">
+            {user.staff && (
+              <Link
+                href="/admin/betting"
+                className="rounded-full border border-line px-3 py-1 text-sm text-steel transition hover:border-gold/40 hover:text-gold"
+              >
+                Admin
+              </Link>
+            )}
+            <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-sm font-semibold text-gold">
+              {fmtPoints(user.balance)}
+            </span>
+          </div>
         </div>
       </nav>
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</div>

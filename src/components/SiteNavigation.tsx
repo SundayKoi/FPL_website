@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "/captain", label: "Captain" },
   { href: "/draft", label: "Draft" },
   { href: "/teams", label: "Teams" },
+  { href: "/betting", label: "Betting" },
   { href: "/info", label: "Info" },
   { href: "/signup", label: "Sign Up" },
 ] as const;

@@ -9,7 +9,9 @@ export default defineConfig({
     // e2e/ holds Playwright specs, run via `npm run e2e`, not vitest — without
     // this exclusion vitest's default *.spec.ts glob picks them up too and
     // fails immediately (Playwright's test() isn't valid outside its runner).
-    exclude: [...configDefaults.exclude, "e2e/**"],
+    // .worktrees/ holds linked git worktrees (whole checkouts of this repo);
+    // crawling them duplicates every suite and runs their e2e specs too.
+    exclude: [...configDefaults.exclude, "e2e/**", ".worktrees/**"],
   },
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
 });

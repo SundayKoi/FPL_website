@@ -22,6 +22,7 @@ describe("SiteNavigation", () => {
     );
     expect(screen.getByRole("link", { name: /^Draft$/ }).getAttribute("href")).toBe("/draft");
     expect(screen.getByRole("link", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
+    expect(screen.getByRole("link", { name: /^Betting$/ }).getAttribute("href")).toBe("/betting");
     expect(screen.getByRole("link", { name: /^Info$/ }).getAttribute("href")).toBe("/info");
     expect(screen.getByText("Account")).toBeTruthy();
   });
