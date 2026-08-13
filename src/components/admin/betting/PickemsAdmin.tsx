@@ -1,0 +1,204 @@
+"use client";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { StatusPill } from "@/components/betting/StatusPill";
+import { fmtPoints } from "@/lib/betting/format";
+import type { MarketStatus } from "@/lib/betting/types";
+import { createPickem, resolvePickem, cancelPickem } from "@/lib/betting/admin-actions";
+
+export interface AdminPickemRow {
+  id: number;
+  title: string;
+  status: MarketStatus;
+  carryover: number;
+  lock_at: string;
+  pool: number;
+  legCount: number;
+  legLabels: string[];
+  /** true once every leg market is RESOLVED/CANCELLED — resolve_pickem will
+   * otherwise raise "pick-em has unresolved series". */
+  readyToResolve: boolean;
+}
+
+export interface LegOption {
+  id: number;
+  label: string;
+}
+
+function CreatePickemForm({
+  events,
+  legOptions,
+  busy,
+  onCreate,
+}: {
+  events: { id: number; name: string }[];
+  legOptions: LegOption[];
+  busy: boolean;
+  onCreate: (input: { eventId: number; title: string; marketIds: number[] }) => void;
+}) {
+  const [eventId, setEventId] = useState(events[0]?.id ?? 0);
+  const [title, setTitle] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
+
+  const toggle = (id: number) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const canSubmit = eventId && title.trim() && selected.length >= 2;
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!canSubmit) return;
+        onCreate({ eventId, title: title.trim(), marketIds: selected });
+      }}
+      className="card-brand flex flex-col gap-3 p-4"
+    >
+      <h2 className="label-dash">New pick&apos;em</h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Event
+          <select
+            value={eventId}
+            onChange={(e) => setEventId(Number(e.target.value))}
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+          >
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Title
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Night 1"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+        </label>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-steel">Series (pick at least 2 OPEN, non-draw markets)</span>
+        {legOptions.length === 0 ? (
+          <p className="text-xs text-steel">No eligible markets — create one on the Markets page first.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {legOptions.map((leg) => (
+              <label
+                key={leg.id}
+                className={
+                  "cursor-pointer rounded border px-2 py-1 text-xs " +
+                  (selected.includes(leg.id) ? "border-gold bg-gold/10 text-gold" : "border-line text-steel")
+                }
+              >
+                <input type="checkbox" className="mr-1" checked={selected.includes(leg.id)} onChange={() => toggle(leg.id)} />
+                {leg.label}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <button
+        type="submit"
+        disabled={!canSubmit || busy}
+        className="self-start rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+      >
+        Create pick&apos;em
+      </button>
+    </form>
+  );
+}
+
+export default function PickemsAdmin({
+  pickems,
+  events,
+  legOptions,
+  bank,
+}: {
+  pickems: AdminPickemRow[];
+  events: { id: number; name: string }[];
+  legOptions: LegOption[];
+  bank: number;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function after(result: { ok: true } | { ok: false; error: string } | { ok: true; id: number }) {
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="text-sm text-steel">
+        Jackpot bank: <span className="font-semibold text-gold">{fmtPoints(bank)}</span>
+      </div>
+      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+
+      <CreatePickemForm
+        events={events}
+        legOptions={legOptions}
+        busy={pending}
+        onCreate={(input) => startTransition(async () => after(await createPickem(input)))}
+      />
+
+      <div className="flex flex-col gap-2">
+        <h2 className="label-dash">Pick&apos;ems ({pickems.length})</h2>
+        {pickems.length === 0 ? (
+          <p className="text-sm text-steel">No pick&apos;ems yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {pickems.map((p) => (
+              <li key={p.id} className="card-brand flex flex-wrap items-center justify-between gap-3 p-3">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusPill status={p.status} />
+                    <span className="truncate font-medium text-white">{p.title}</span>
+                  </div>
+                  <div className="text-xs text-steel">
+                    {p.legCount} legs · Pool {fmtPoints(p.pool)} · {p.legLabels.join(", ")}
+                  </div>
+                </div>
+                {(p.status === "OPEN" || p.status === "LOCKED") && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={pending || !p.readyToResolve}
+                      title={p.readyToResolve ? undefined : "Resolve/cancel every leg market first"}
+                      onClick={() => {
+                        if (confirm(`Resolve "${p.title}"? This pays out cards immediately.`)) {
+                          startTransition(async () => after(await resolvePickem(p.id)));
+                        }
+                      }}
+                      className="rounded border border-emerald-500/60 px-2 py-1 text-xs font-semibold text-emerald-400 disabled:opacity-40"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        if (confirm(`Cancel "${p.title}"? Every card is refunded and the carryover returns to the bank.`)) {
+                          startTransition(async () => after(await cancelPickem(p.id)));
+                        }
+                      }}
+                      className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-red-400 hover:text-red-300 disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}

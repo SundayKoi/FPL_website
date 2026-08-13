@@ -71,6 +71,13 @@ export default async function AdminPage() {
       description: "Edit team names, logos, captains, and roster swaps.",
       href: "/teams",
     },
+    {
+      label: "Betting",
+      stat: "Markets, pick'ems & catalog",
+      statTone: "text-gold",
+      description: "Create/resolve markets and pick'ems, manage the catalog, seasons, and balances.",
+      href: "/admin/betting",
+    },
   ] as const;
 
   return (
