@@ -3,7 +3,11 @@ import { createBettingServiceClient } from "./service-client";
 import type { BettingAccessResult, BettingStaffContext, GuildMember } from "./types";
 
 const MEMBER_CACHE_TTL_MS = 60_000;
+const MEMBER_FETCH_TIMEOUT_MS = 5_000;
 
+// Inconclusive (null) results are deliberately cached for the full TTL too —
+// during a Discord outage this stops every request from re-hitting (and
+// re-timing-out against) Discord for the same 60s window.
 const memberCache = new Map<string, { at: number; value: GuildMember | null }>();
 
 /** Test-only: clears the module-level guild-member cache between cases. */
@@ -29,8 +33,12 @@ export async function fetchGuildMember(discordId: string): Promise<GuildMember |
 
   let value: GuildMember | null;
   try {
+    // Bounded so a hung Discord response can't block the calling request
+    // indefinitely — a timeout lands in the catch below, same as any other
+    // network failure, and resolves to the inconclusive (null) path.
     const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`, {
       headers: { Authorization: `Bot ${botToken}` },
+      signal: AbortSignal.timeout(MEMBER_FETCH_TIMEOUT_MS),
     });
     if (res.status === 200) {
       const body = (await res.json()) as { roles?: string[] };

@@ -49,7 +49,31 @@ describe("fetchGuildMember", () => {
     expect(result).toEqual({ inGuild: true, roles: ["r1", "r2"] });
     expect(fetchMock).toHaveBeenCalledWith("https://discord.com/api/v10/guilds/g1/members/42", {
       headers: { Authorization: "Bot BTOKEN" },
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  it("bounds the request with a timeout signal", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, { roles: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchGuildMember("42");
+
+    const [, options] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("treats a timeout/abort the same as any other network failure (inconclusive)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new DOMException("The operation was aborted.", "TimeoutError");
+      }),
+    );
+
+    const result = await fetchGuildMember("42");
+
+    expect(result).toBeNull();
   });
 
   it("returns not-in-guild on a 404", async () => {
@@ -95,6 +119,23 @@ describe("fetchGuildMember", () => {
     await fetchGuildMember("42");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-fetches once the 60s cache entry has expired", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(200, { roles: ["r1"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const now = vi.spyOn(Date, "now");
+
+    now.mockReturnValue(1_000_000);
+    await fetchGuildMember("42"); // caches at t=1,000,000
+
+    now.mockReturnValue(1_000_000 + 60_000 - 1);
+    await fetchGuildMember("42"); // still within the 60s window
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    now.mockReturnValue(1_000_000 + 60_000 + 1);
+    await fetchGuildMember("42"); // past the window — re-fetches
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
