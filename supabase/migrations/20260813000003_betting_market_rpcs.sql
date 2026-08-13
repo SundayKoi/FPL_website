@@ -12,11 +12,14 @@
 --
 -- resolve_market/cancel_market are not in this task's public RPC interface
 -- (only their _admin wrappers, plus void_one_sided_markets, are) — ported as
--- `_resolve_market`/`_cancel_market` internal helpers, revoked from
--- PostgREST-callable roles at the end alongside `_audit`, matching the
--- `_`-prefixed-helper convention from 20260807000009_revoke_internal_fns.sql.
+-- `_resolve_market`/`_cancel_market` internal helpers.
 -- Audit target labels are updated to the renamed table prefixes
 -- (e.g. 'betting_markets:' instead of source's 'markets:').
+--
+-- Controller ruling: the entire betting RPC surface (every function in this
+-- file, plus task 2's grant_signup_bonus/claim_daily_streak/daily_next_at/
+-- tip_points) is service_role-only — see the lockdown block at the end.
+-- Authorization lives in the app layer, not in these functions.
 
 -- === _audit: ported verbatim (table rename only) ============================
 
@@ -413,14 +416,61 @@ begin
 end;
 $$;
 
--- === revoke internal helpers ==================================================
--- Only the SECURITY DEFINER wrappers (place_bet, cashout_bet,
--- void_one_sided_markets, resolve_market_admin, cancel_market_admin,
--- create_market_admin, delete_market_admin) may reach these; they must not be
--- directly PostgREST-callable. Matches 20260807000009_revoke_internal_fns.sql.
+-- === lockdown: entire betting RPC surface is service_role-only ==============
+-- Controller ruling (supersedes an earlier draft that only revoked the
+-- `_`-prefixed internal helpers): every betting RPC — public wrapper and
+-- internal helper alike — moves real money or writes an audit row, and none
+-- of them check who is calling. Authorization lives in the app layer
+-- (server actions / the Discord interactions endpoint), which authenticates
+-- the caller and derives their Discord ID server-side before invoking the
+-- RPC with the service_role key; PostgREST must never let anon/authenticated
+-- reach any of them directly. Reads stay on the RLS select policies from
+-- 20260813000001_betting_schema.sql (betting_markets/betting_bets/etc. are
+-- still publicly readable).
+--
+-- Every function below already carries Postgres's default PUBLIC execute
+-- grant (new functions get it automatically); revoke that, then grant back
+-- to service_role only.
 
 revoke execute on function
   public._audit(text, text, text, jsonb, jsonb),
   public._resolve_market(bigint, bigint),
-  public._cancel_market(bigint)
+  public._cancel_market(bigint),
+  public.place_bet(text, bigint, bigint, bigint),
+  public.cashout_bet(text, bigint),
+  public.lock_due_markets(),
+  public.void_one_sided_markets(),
+  public.resolve_market_admin(text, bigint, bigint),
+  public.cancel_market_admin(text, bigint),
+  public.create_market_admin(text, bigint, bigint, bigint, text, text, timestamptz, int, numeric, boolean),
+  public.delete_market_admin(text, bigint)
 from public, anon, authenticated;
+
+grant execute on function
+  public._audit(text, text, text, jsonb, jsonb),
+  public._resolve_market(bigint, bigint),
+  public._cancel_market(bigint),
+  public.place_bet(text, bigint, bigint, bigint),
+  public.cashout_bet(text, bigint),
+  public.lock_due_markets(),
+  public.void_one_sided_markets(),
+  public.resolve_market_admin(text, bigint, bigint),
+  public.cancel_market_admin(text, bigint),
+  public.create_market_admin(text, bigint, bigint, bigint, text, text, timestamptz, int, numeric, boolean),
+  public.delete_market_admin(text, bigint)
+to service_role;
+
+-- lockdown of task-2 wallet RPCs (controller ruling: service_role-only betting RPC surface)
+revoke execute on function
+  public.grant_signup_bonus(text, text, text, bigint, uuid),
+  public.claim_daily_streak(text, bigint, bigint, int),
+  public.daily_next_at(text),
+  public.tip_points(text, text, bigint)
+from public, anon, authenticated;
+
+grant execute on function
+  public.grant_signup_bonus(text, text, text, bigint, uuid),
+  public.claim_daily_streak(text, bigint, bigint, int),
+  public.daily_next_at(text),
+  public.tip_points(text, text, bigint)
+to service_role;

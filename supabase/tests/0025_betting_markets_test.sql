@@ -35,7 +35,7 @@ language sql as $$
   returning id;
 $$;
 
-select plan(46);
+select plan(59);
 
 -- shared read-only fixtures: one event, three teams (a/b in-market, "other"
 -- to exercise the not-in-market rejection). Markets/wallets are created
@@ -141,6 +141,10 @@ select throws_like(
   format('select place_bet(%L,%s,-1,100)', (select u from s9), (select m from s9off)),
   '%no draw option%', 'draw bet rejected when draw_enabled=false'
 );
+select throws_like(
+  format('select resolve_market_admin(%L,%s,-1)', (select actor from act), (select m from s9off)),
+  '%no draw option%', 'resolve_market_admin rejects draw winner on a non-draw market'
+);
 
 create temp table s10 as select test_profile(1000) as d1, test_profile(1000) as d2, test_profile(1000) as ta;
 create temp table s10m as select test_market((select event_id from fx),(select team_a from fx),(select team_b from fx), 0, interval '1 hour', 'OPEN', true) as m;
@@ -216,6 +220,30 @@ select throws_like(
   '%cancel it instead%', 'delete_market_admin refuses a market with bets'
 );
 select cancel_market_admin((select actor from act), (select m from s17m));
+
+-- ==== execute privilege lockdown: entire betting RPC surface is service_role-only
+-- Controller ruling: authorization lives in the app layer (server actions /
+-- interactions endpoint), which authenticates the caller and derives their
+-- Discord ID server-side, then calls the RPC with the service_role key.
+-- PostgREST must never let anon/authenticated reach any betting RPC
+-- directly. pgTAP runs as the postgres superuser, so calling the RPCs
+-- elsewhere in this file is unaffected by these grants.
+
+select is(has_function_privilege('anon', 'public.place_bet(text,bigint,bigint,bigint)', 'execute'), false, 'anon cannot execute place_bet');
+select is(has_function_privilege('authenticated', 'public.place_bet(text,bigint,bigint,bigint)', 'execute'), false, 'authenticated cannot execute place_bet');
+select is(has_function_privilege('service_role', 'public.place_bet(text,bigint,bigint,bigint)', 'execute'), true, 'service_role can execute place_bet');
+
+select is(has_function_privilege('anon', 'public.resolve_market_admin(text,bigint,bigint)', 'execute'), false, 'anon cannot execute resolve_market_admin');
+select is(has_function_privilege('authenticated', 'public.resolve_market_admin(text,bigint,bigint)', 'execute'), false, 'authenticated cannot execute resolve_market_admin');
+select is(has_function_privilege('service_role', 'public.resolve_market_admin(text,bigint,bigint)', 'execute'), true, 'service_role can execute resolve_market_admin');
+
+select is(has_function_privilege('anon', 'public.tip_points(text,text,bigint)', 'execute'), false, 'anon cannot execute tip_points');
+select is(has_function_privilege('authenticated', 'public.tip_points(text,text,bigint)', 'execute'), false, 'authenticated cannot execute tip_points');
+select is(has_function_privilege('service_role', 'public.tip_points(text,text,bigint)', 'execute'), true, 'service_role can execute tip_points');
+
+select is(has_function_privilege('anon', 'public.grant_signup_bonus(text,text,text,bigint,uuid)', 'execute'), false, 'anon cannot execute grant_signup_bonus');
+select is(has_function_privilege('authenticated', 'public.grant_signup_bonus(text,text,text,bigint,uuid)', 'execute'), false, 'authenticated cannot execute grant_signup_bonus');
+select is(has_function_privilege('service_role', 'public.grant_signup_bonus(text,text,text,bigint,uuid)', 'execute'), true, 'service_role can execute grant_signup_bonus');
 
 -- ==== invariant: sum(ledger.delta) = balance for every wallet touched ===========
 
