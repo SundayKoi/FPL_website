@@ -214,3 +214,18 @@ body {
   .row-rank-1, .row-rank-2, .row-rank-3, .glow-pulse, .float-soft { animation: none; }
   .bar-fill { transition: none; }
 }
+
+/* Broadcast stage: the up-next rail's active card fills over the clip's real
+   duration — the rundown's "on air" indicator. */
+@keyframes progress-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+.progress-fill {
+  animation-name: progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill { animation: none; width: 100%; }
+}

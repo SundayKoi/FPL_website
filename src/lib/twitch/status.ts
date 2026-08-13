@@ -4,6 +4,9 @@ export type TwitchClip = {
   slug: string;
   title: string;
   durationSeconds: number;
+  thumbnailUrl: string | null;
+  creatorName: string | null;
+  viewCount: number;
 };
 
 export type TwitchChannelStatus =
@@ -31,6 +34,9 @@ type TwitchClipsResponse = {
     duration?: number;
     id?: string;
     title?: string;
+    thumbnail_url?: string;
+    creator_name?: string;
+    view_count?: number;
   }>;
 };
 
@@ -136,29 +142,46 @@ export async function getTwitchChannelClips({
       return [];
     }
 
-    const clipsParams = new URLSearchParams({
-      broadcaster_id: broadcasterId,
-      first: "6",
-    });
-    const clipsResponse = await fetcher(
-      `https://api.twitch.tv/helix/clips?${clipsParams.toString()}`,
-      { headers, next: { revalidate: 300 } } as RequestInit,
-    );
+    const fetchClips = async (windowDays?: number): Promise<TwitchClip[]> => {
+      const clipsParams = new URLSearchParams({
+        broadcaster_id: broadcasterId,
+        first: "10",
+      });
+      if (windowDays) {
+        clipsParams.set("started_at", new Date(Date.now() - windowDays * 86_400_000).toISOString());
+      }
+      const clipsResponse = await fetcher(
+        `https://api.twitch.tv/helix/clips?${clipsParams.toString()}`,
+        { headers, next: { revalidate: 300 } } as RequestInit,
+      );
 
-    if (!clipsResponse.ok) {
-      return [];
+      if (!clipsResponse.ok) {
+        return [];
+      }
+
+      const clipsBody = (await clipsResponse.json()) as TwitchClipsResponse;
+      return (
+        clipsBody.data
+          ?.filter((clip) => clip.id)
+          .map((clip) => ({
+            slug: clip.id ?? "",
+            title: clip.title?.trim() || "FPL Twitch clip",
+            durationSeconds: clip.duration ? Math.ceil(clip.duration) : 30,
+            thumbnailUrl: clip.thumbnail_url ?? null,
+            creatorName: clip.creator_name?.trim() || null,
+            viewCount: clip.view_count ?? 0,
+          })) ?? []
+      );
+    };
+
+    // prefer this month's highlights; fall back to all-time when the recent
+    // window is too thin to make a reel
+    const recent = await fetchClips(30);
+    if (recent.length >= 3) {
+      return recent;
     }
-
-    const clipsBody = (await clipsResponse.json()) as TwitchClipsResponse;
-    return (
-      clipsBody.data
-        ?.filter((clip) => clip.id)
-        .map((clip) => ({
-          slug: clip.id ?? "",
-          title: clip.title?.trim() || "FPL Twitch clip",
-          durationSeconds: clip.duration ? Math.ceil(clip.duration) : 30,
-        })) ?? []
-    );
+    const allTime = await fetchClips();
+    return allTime.length > recent.length ? allTime : recent;
   } catch {
     return [];
   }
