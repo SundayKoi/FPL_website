@@ -13,6 +13,7 @@ import DraftHeader from "./DraftHeader";
 import BidControls from "./BidControls";
 import NominationPicker from "./NominationPicker";
 import AdminStrip from "./AdminStrip";
+import DraftChat from "./DraftChat";
 import Toast from "./Toast";
 
 export default function DraftBoard({
@@ -141,6 +142,8 @@ export default function DraftBoard({
                   />
                 )}
                 {adminControls}
+
+                <DraftChat draftId={draftId} profileId={s.profileId} isAdmin={s.isAdmin} />
 
                 <PlayerPool players={players} teams={teams} />
 
