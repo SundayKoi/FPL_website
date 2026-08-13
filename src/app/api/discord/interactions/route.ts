@@ -12,6 +12,13 @@ import type { DiscordInteraction, Handler } from "@/lib/betting/discord/registry
 import { commandHandlers, componentHandlers, modalHandlers } from "@/lib/betting/discord/registry";
 import { errMsg, pong } from "@/lib/betting/discord/respond";
 import { verifyDiscordSignature } from "@/lib/betting/discord/verify";
+// Side-effect import only: commands.ts registers its slash-command handlers
+// into `commandHandlers` (registry.ts) at module load — see its own header
+// comment. Nothing here references the module's exports directly; it must
+// still be imported somewhere reachable from this route for that
+// registration to run at all, and this file is the interactions webhook's
+// single entrypoint.
+import "@/lib/betting/discord/commands";
 
 // Exact copy of the old bot's NO_ACCESS_MSG (bot/main.py) — same wording
 // users already saw from the gateway bot's paid-access gate.

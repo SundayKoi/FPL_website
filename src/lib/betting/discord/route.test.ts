@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// route.ts imports commands.ts for its registration side effect, which
+// transitively imports service-client.ts (`import "server-only"`) — same
+// stub as commands.test.ts/queries.test.ts (vitest resolves that package's
+// default "throws by design" export, not the "react-server" condition
+// Next.js's bundler swaps it for).
+vi.mock("server-only", () => ({}));
+
 import { POST } from "@/app/api/discord/interactions/route";
 import { commandHandlers, componentHandlers, modalHandlers } from "./registry";
 

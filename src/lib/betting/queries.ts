@@ -336,8 +336,10 @@ interface LeaderboardViewRow {
 }
 
 /** Compact emoji flair from a leaderboard row — ports
- * c:\fpl_gambling\api\stats.py's badges_for()/leaderboard_badges(). */
-function badgesFor(currentStreak: number, perfectPickems: number): string[] {
+ * c:\fpl_gambling\api\stats.py's badges_for()/leaderboard_badges(). Exported
+ * for reuse by the /leaderboard slash-command handler (discord/commands.ts),
+ * which renders the same badges next to the same rows via its own query. */
+export function badgesFor(currentStreak: number, perfectPickems: number): string[] {
   const badges: string[] = [];
   if (currentStreak >= 3) badges.push(`🔥${currentStreak}`);
   if (perfectPickems >= 1) badges.push(`🎯${perfectPickems}`);

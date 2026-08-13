@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "e2e": "playwright test",
-    "seed:demo": "tsx scripts/seed-demo.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "register:discord-commands": "tsx scripts/register-discord-commands.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
