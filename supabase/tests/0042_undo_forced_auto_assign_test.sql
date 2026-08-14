@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(13);
+select plan(16);
 
 select has_column('public', 'players', 'auto_assigned_from_lot_id',
                   'players records the lot that forced an auto-assignment');
@@ -160,6 +160,56 @@ select is(
     where draft_id = (select d3 from t3) and nomination_position = 4),
   (select points_remaining from pre_cascade_d),
   'team D is refunded both cascade points, not just one');
+
+-- === swap_roster_players severs the auto-assign stamp (Finding 5): once
+-- Finding 1 makes undo reachable post-completion (exactly when swaps happen),
+-- a swap that left the stamp in place would let a later undo of the old
+-- triggering lot yank the swapped-in player back out of their new team.
+create temporary table t5 as select tests.fixture() as d5;
+select tests.go_live((select d5 from t5));
+
+do $$
+declare v_guard int := 0;
+begin
+  while (select status from public.drafts where id = (select d5 from t5)) = 'live' loop
+    v_guard := v_guard + 1;
+    exit when v_guard > 12;
+    perform tests.sell_open_role((select d5 from t5));
+  end loop;
+end $$;
+
+create temporary table swap_forced as
+  select id, role, team_id from public.players
+   where draft_id = (select d5 from t5) and auto_assigned_from_lot_id is not null
+   limit 1;
+
+create temporary table swap_partner as
+  select id from public.players
+   where draft_id = (select d5 from t5)
+     and role = (select role from swap_forced)
+     and team_id is not null
+     and team_id <> (select team_id from swap_forced)
+     and acquisition <> 'captain'
+   limit 1;
+
+select tests.acting_as(tests.admin_id());
+select lives_ok(
+  $$select public.swap_roster_players(
+    (select id from swap_forced), (select id from swap_partner)
+  )$$,
+  'admin swaps the cascaded player with a same-role player on another team'
+);
+
+select is(
+  (select auto_assigned_from_lot_id from public.players where id = (select id from swap_forced)),
+  null,
+  'swapping clears the auto-assign stamp on the previously cascaded player'
+);
+select is(
+  (select auto_assigned_from_lot_id from public.players where id = (select id from swap_partner)),
+  null,
+  'the other swapped player still has no stamp afterwards (regression guard)'
+);
 
 select * from finish();
 rollback;
