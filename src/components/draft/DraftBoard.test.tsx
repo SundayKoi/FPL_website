@@ -4,6 +4,7 @@ import DraftBoard from "./DraftBoard";
 import { useDraftState } from "@/hooks/useDraftState";
 
 vi.mock("@/hooks/useDraftState", () => ({ useDraftState: vi.fn() }));
+vi.mock("@/hooks/useNemesisPicks", () => ({ useNemesisPicks: vi.fn(() => ({ picks: [] })) }));
 
 const baseState = {
   draft: null,
