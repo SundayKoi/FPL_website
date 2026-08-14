@@ -17,6 +17,11 @@ create temporary table lot as
 
 select ok(public._close_lot((select id from lot), true), 'the lot closes as sold');
 
+-- lots_announce_draft_sale is a deferrable-initially-deferred constraint trigger,
+-- so it fires at COMMIT. A pgTAP test never commits (it ends in rollback), so
+-- without this the assertions below run before the trigger has posted anything.
+set constraints all immediate;
+
 select ok(
   exists (
     select 1 from public.draft_chat

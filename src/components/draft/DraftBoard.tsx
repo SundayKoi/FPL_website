@@ -3,12 +3,14 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useCountdown } from "@/hooks/useCountdown";
+import { useNemesisPicks } from "@/hooks/useNemesisPicks";
 import { maxBid } from "@/lib/draft/derive";
 import CenterStage from "./CenterStage";
 import TeamColumn from "./TeamColumn";
 import PlayerPool from "./PlayerPool";
 import BidFeed from "./BidFeed";
 import FinalRosters from "./FinalRosters";
+import NemesisBoard from "./NemesisBoard";
 import DraftHeader from "./DraftHeader";
 import BidControls from "./BidControls";
 import NominationPicker from "./NominationPicker";
@@ -27,6 +29,7 @@ export default function DraftBoard({
   adminControls?: ReactNode;
 }) {
   const s = useDraftState(draftId);
+  const { picks: nemesisPicks } = useNemesisPicks(draftId);
   const { secondsLeft } = useCountdown(
     s.draft?.status === "live" ? (s.openLot?.closes_at ?? null) : null,
     s.offsetMs
@@ -106,7 +109,27 @@ export default function DraftBoard({
           )}
 
           {draft.status === "complete" ? (
-            <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
+            <div className="flex flex-col gap-4">
+              <NemesisBoard
+                draftId={draftId}
+                teams={teams}
+                picks={nemesisPicks}
+                myTeamId={myTeam?.id ?? null}
+                isAdmin={s.isAdmin}
+                onError={setToast}
+              />
+              {s.isAdmin && (
+                <AdminStrip
+                  draft={draft}
+                  teams={teams}
+                  players={players}
+                  lots={lots}
+                  openLot={openLot}
+                  onError={setToast}
+                />
+              )}
+              <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
+            </div>
           ) : (
             <div
               className={`relative grid gap-4 xl:items-start ${
@@ -176,6 +199,7 @@ export default function DraftBoard({
                     draft={draft}
                     teams={teams}
                     players={players}
+                    lots={lots}
                     openLot={openLot}
                     onError={setToast}
                   />
