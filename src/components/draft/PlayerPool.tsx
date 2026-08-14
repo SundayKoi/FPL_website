@@ -2,6 +2,14 @@
 import { useState } from "react";
 import { ROLE_ORDER, type LolRole, type Player, type Team } from "@/lib/draft/types";
 
+const ROLE_LABEL: Record<LolRole, string> = {
+  top: "Top",
+  jungle: "Jungle",
+  mid: "Mid",
+  adc: "ADC",
+  support: "Support",
+};
+
 export default function PlayerPool({
   players,
   teams,
@@ -20,6 +28,12 @@ export default function PlayerPool({
     .filter((p) => !role || p.role === role)
     .filter((p) => p.display_name.toLowerCase().includes(query.trim().toLowerCase()))
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+  const roleSections = ROLE_ORDER.map((role) => ({
+    role,
+    label: ROLE_LABEL[role],
+    players: filtered.filter((player) => player.role === role),
+  }));
 
   return (
     <section className={`card-brand flex flex-col ${compact ? "gap-2 p-3" : "gap-3 p-4"}`}>
@@ -58,35 +72,42 @@ export default function PlayerPool({
         </div>
       </div>
 
-      <ul className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${compact ? "gap-0.5 lg:grid-cols-5" : "gap-1 lg:grid-cols-6"}`}>
-        {filtered.map((p) => {
-          const sold = p.team_id !== null;
-          return (
-            <li
-              key={p.id}
-              className={`flex items-center justify-between gap-2 rounded border border-line ${
-                compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
-              } ${
-                sold ? "bg-navy/40" : "bg-navy/70"
-              }`}
-            >
-              <span className={`truncate ${sold ? "text-steel/60 line-through" : "text-white"}`}>
-                {p.display_name}
-              </span>
-              {sold ? (
-                <span className={`shrink-0 text-steel/60 ${compact ? "text-[9px]" : "text-[10px]"}`}>
-                  {teamName(p.team_id)} · <span className="text-gold">{p.price ?? 0}</span>
-                </span>
-              ) : (
-                <span className="shrink-0 text-[10px] uppercase text-steel">{p.role}</span>
+      <div className={`grid gap-2 ${compact ? "lg:grid-cols-5" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+        {roleSections.map((section) => (
+          <section key={section.role} className="overflow-hidden rounded border border-line">
+            <h3 className="border-b border-line bg-navy px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-steel">
+              {section.label}
+            </h3>
+            <ul className="flex flex-col gap-px bg-line/40">
+              {section.players.map((p) => {
+                const sold = p.team_id !== null;
+                return (
+                  <li
+                    key={p.id}
+                    className={`flex items-center justify-between gap-2 bg-panel ${
+                      compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs"
+                    }`}
+                  >
+                    <span className={`truncate ${sold ? "text-steel/60 line-through" : "text-white"}`}>
+                      {p.display_name}
+                    </span>
+                    {sold ? (
+                      <span className={`shrink-0 text-steel/60 ${compact ? "text-[9px]" : "text-[10px]"}`}>
+                        {teamName(p.team_id)} · <span className="text-gold">{p.price ?? 0}</span>
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[10px] uppercase text-steel">{p.role}</span>
+                    )}
+                  </li>
+                );
+              })}
+              {section.players.length === 0 && (
+                <li className="px-2 py-3 text-center text-[10px] text-steel">No players</li>
               )}
-            </li>
-          );
-        })}
-        {filtered.length === 0 && (
-          <li className="col-span-full py-4 text-center text-xs text-steel">No players match.</li>
-        )}
-      </ul>
+            </ul>
+          </section>
+        ))}
+      </div>
     </section>
   );
 }

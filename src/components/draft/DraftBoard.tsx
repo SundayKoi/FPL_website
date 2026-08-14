@@ -100,7 +100,7 @@ export default function DraftBoard({
           {draft.status === "complete" ? (
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
+            <div className="grid gap-4 lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
               <aside
                 aria-label="Draft teams"
                 className="order-4 lg:col-start-1 lg:row-span-2 lg:row-start-1"
@@ -116,7 +116,7 @@ export default function DraftBoard({
                       {collapseAllTeams ? "Expand all" : "Collapse all"}
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     {teams.map((team) => (
                       <TeamColumn
                         key={`${team.id}-${collapseAllTeams}`}
