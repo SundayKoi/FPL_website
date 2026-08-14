@@ -28,6 +28,7 @@ export interface Player {
   rank: string | null; opgg_url: string | null; notes: string | null;
   canonical_player_id?: string | null;
   team_id: string | null; price: number | null; acquisition: Acquisition | null;
+  auto_assigned_from_lot_id?: string | null;
 }
 
 export interface RosterSlotView {
@@ -57,6 +58,7 @@ export interface Lot {
   id: string; draft_id: string; player_id: string; nominated_by_team_id: string;
   round: number; opening_bid: number; current_bid: number; leading_team_id: string;
   closes_at: string; status: LotStatus; created_at: string; closed_at: string | null;
+  sale_action_sequence?: number | null;
 }
 export interface NemesisPick {
   id: string; draft_id: string; pick_number: number;

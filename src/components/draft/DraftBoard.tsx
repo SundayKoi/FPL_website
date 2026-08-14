@@ -157,6 +157,7 @@ export default function DraftBoard({
                     draft={draft}
                     teams={teams}
                     players={players}
+                    lots={lots}
                     openLot={openLot}
                     onError={setToast}
                   />

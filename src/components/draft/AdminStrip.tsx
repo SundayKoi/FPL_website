@@ -9,12 +9,14 @@ export default function AdminStrip({
   draft,
   teams,
   players,
+  lots,
   openLot,
   onError,
 }: {
   draft: Draft;
   teams: Team[];
   players: Player[];
+  lots: Lot[];
   openLot: Lot | null;
   onError: (msg: string) => void;
 }) {
@@ -35,6 +37,20 @@ export default function AdminStrip({
 
   const isPaused = draft.status === "paused";
   const isLive = draft.status === "live";
+
+  // The server undoes the sale with the highest sale_action_sequence; match it
+  // exactly so the prompt cannot name the wrong players.
+  const lastSold = lots
+    .filter((l) => l.status === "sold")
+    .sort((a, b) => (b.sale_action_sequence ?? 0) - (a.sale_action_sequence ?? 0))[0] ?? null;
+  const cascaded = lastSold
+    ? players.filter((p) => p.auto_assigned_from_lot_id === lastSold.id)
+    : [];
+  const undoLabel =
+    cascaded.length > 0
+      ? `Undo the last sale? ${cascaded.map((p) => p.display_name).join(", ")} ` +
+        `${cascaded.length === 1 ? "was" : "were"} auto-assigned as a result and will also return to the pool.`
+      : "Undo the last sale? The player returns to the pool and points are refunded.";
 
   return (
     <section className="card-brand flex flex-col gap-3 p-3">
@@ -67,9 +83,7 @@ export default function AdminStrip({
           disabled={busy}
           className="rounded border border-gold text-gold px-3 py-1.5 text-xs font-semibold hover:bg-gold/10 disabled:opacity-40"
           onClick={() =>
-            run("Undo the last sale? The player returns to the pool and points are refunded.", () =>
-              supabase.rpc("undo_last_sale", { p_draft_id: draft.id })
-            )
+            run(undoLabel, () => supabase.rpc("undo_last_sale", { p_draft_id: draft.id }))
           }
         >
           Undo last sale
