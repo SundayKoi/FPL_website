@@ -14,10 +14,12 @@ export default function PlayerPool({
   players,
   teams,
   compact = false,
+  showFilters = true,
 }: {
   players: Player[];
   teams: Team[];
   compact?: boolean;
+  showFilters?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<LolRole | null>(null);
@@ -37,40 +39,42 @@ export default function PlayerPool({
 
   return (
     <section className={`card-brand flex flex-col ${compact ? "gap-2 p-3" : "gap-3 p-4"}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search players…"
-          className={`rounded border border-line bg-navy text-white placeholder:text-steel/60 focus:border-gold focus:outline-none ${
-            compact ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-sm"
-          }`}
-        />
-        <div className="flex flex-wrap gap-1">
-          <button
-            onClick={() => setRole(null)}
-            aria-pressed={role === null}
-            className={`rounded-full text-xs font-semibold ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
-              role === null ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
+      {showFilters && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search players…"
+            className={`rounded border border-line bg-navy text-white placeholder:text-steel/60 focus:border-gold focus:outline-none ${
+              compact ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-sm"
             }`}
-          >
-            All
-          </button>
-          {ROLE_ORDER.map((r) => (
+          />
+          <div className="flex flex-wrap gap-1">
             <button
-              key={r}
-              onClick={() => setRole(r)}
-              aria-pressed={role === r}
-            className={`rounded-full text-xs font-semibold uppercase ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
-                role === r ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
+              onClick={() => setRole(null)}
+              aria-pressed={role === null}
+              className={`rounded-full text-xs font-semibold ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
+                role === null ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
               }`}
             >
-              {r}
+              All
             </button>
-          ))}
+            {ROLE_ORDER.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRole(r)}
+                aria-pressed={role === r}
+                className={`rounded-full text-xs font-semibold uppercase ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
+                  role === r ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={`grid gap-2 ${compact ? "lg:grid-cols-5" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
         {roleSections.map((section) => (

@@ -206,7 +206,7 @@ export default function DraftBoard({
               )}
 
               <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
-                <PlayerPool players={players} teams={teams} compact />
+                <PlayerPool players={players} teams={teams} compact showFilters={false} />
               </div>
             </div>
           )}
