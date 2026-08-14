@@ -5,9 +5,16 @@
 --
 -- Stamp each auto-assignment with the lot whose closure forced it, then reverse
 -- the cascade with the sale.
+--
+-- ON DELETE SET NULL matches the rule from 20260814000006_draft_delete_cascades:
+-- lots_player_id_fkey cascades a lot away when its own player is deleted (e.g.
+-- PlayerPoolEditor removing a player), and a deleted lot has nothing left to
+-- undo -- the stamped player should just lose the dangling reference, not
+-- block the delete with a raw FK violation.
 
 alter table public.players
-  add column auto_assigned_from_lot_id uuid references public.lots(id);
+  add column auto_assigned_from_lot_id uuid
+    references public.lots(id) on delete set null;
 
 -- The parameter list changes, so this is a NEW function rather than a replace.
 -- Drop the old one or _close_lot could keep calling a version that stamps
@@ -128,13 +135,22 @@ begin
     raise exception 'UNDO_BLOCKED_NEWER_ASSIGNMENT: a newer direct assignment must remain in place';
   end if;
 
-  -- Reverse the cascade this sale forced, before the sale itself.
+  -- Reverse the cascade this sale forced, before the sale itself. Aggregate
+  -- refunds per team before the join: `UPDATE ... FROM` collapses to one
+  -- arbitrary source row per target row when the join yields several source
+  -- rows for it, so a plain per-player join under-pays a team that received
+  -- two or more cascaded players from this same lot.
   select string_agg(display_name, ', ') into v_forced
     from public.players where auto_assigned_from_lot_id = v_lot.id;
   update public.teams t
-    set points_remaining = t.points_remaining + coalesce(p.price, 0)
-    from public.players p
-    where p.auto_assigned_from_lot_id = v_lot.id and p.team_id = t.id;
+    set points_remaining = t.points_remaining + agg.refund
+    from (
+      select team_id, sum(coalesce(price, 0)) as refund
+        from public.players
+        where auto_assigned_from_lot_id = v_lot.id
+        group by team_id
+    ) agg
+    where agg.team_id = t.id;
   update public.players
     set team_id = null, price = null, acquisition = null, auto_assigned_from_lot_id = null
     where auto_assigned_from_lot_id = v_lot.id;

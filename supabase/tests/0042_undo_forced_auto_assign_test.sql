@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(7);
+select plan(13);
 
 select has_column('public', 'players', 'auto_assigned_from_lot_id',
                   'players records the lot that forced an auto-assignment');
@@ -91,6 +91,75 @@ select is(
   (select coalesce(sum(points_remaining), 0) from public.teams where draft_id = (select d from t)),
   (select points + forced_spend from totals) + (select current_bid from undo_target),
   'the league is refunded both the sale and every point its cascade cost');
+
+-- === Multi-player cascade: two players force-assigned to the SAME team by
+-- the SAME lot close. This is where a naive `UPDATE ... FROM` refund (which
+-- Postgres collapses to one arbitrary source row per target row when the
+-- join yields several source rows) under-pays: it must aggregate per team,
+-- not join row-for-row against the stamped players.
+create temporary table t3 as select tests.fixture() as d3;
+select tests.go_live((select d3 from t3));
+
+-- Fill adc and support directly for teams A, B, C (positions 1-3), leaving
+-- Adc4/Support4 unassigned and needed only by team D (position 4). Both
+-- conditions are already true before any lot closes.
+update public.players set team_id = tm.id, price = 5, acquisition = 'auction'
+  from public.teams tm
+  where public.players.draft_id = (select d3 from t3)
+    and tm.draft_id = (select d3 from t3)
+    and ((public.players.display_name, tm.nomination_position) in
+         (('Adc1', 1), ('Adc2', 2), ('Adc3', 3),
+          ('Support1', 1), ('Support2', 2), ('Support3', 3)));
+
+create temporary table pre_cascade_d as
+  select points_remaining from public.teams
+   where draft_id = (select d3 from t3) and nomination_position = 4;
+
+-- Team A (the live nominator, now only missing mid) sells a mid player: an
+-- ordinary, unrelated sale that merely pokes _auto_assign_forced into
+-- re-checking every role, discovering BOTH pending forced conditions in the
+-- same call.
+select tests.acting_as(tests.cap(1));
+create temporary table mid_lot as
+  select public.nominate((select d3 from t3),
+    (select id from public.players
+      where draft_id = (select d3 from t3) and display_name = 'Mid1')) as id;
+update public.lots set closes_at = now() - interval '1 second'
+  where id = (select id from mid_lot);
+
+select ok(public.close_lot((select id from mid_lot)), 'the poking mid lot closes');
+
+select is(
+  (select count(*) from public.players
+    where draft_id = (select d3 from t3)
+      and display_name in ('Adc4', 'Support4')
+      and auto_assigned_from_lot_id = (select id from mid_lot)),
+  2::bigint,
+  'closing the mid lot cascades both Adc4 and Support4 to team D in one go');
+
+select is(
+  (select points_remaining from public.teams
+    where draft_id = (select d3 from t3) and nomination_position = 4),
+  (select points_remaining from pre_cascade_d) - 2,
+  'team D is charged 1 point per cascaded player');
+
+select tests.acting_as(tests.admin_id());
+select lives_ok($$ select public.undo_last_sale((select d3 from t3)) $$,
+  'admin undoes the mid sale that triggered the double cascade');
+
+select is(
+  (select count(*) from public.players
+    where draft_id = (select d3 from t3)
+      and display_name in ('Adc4', 'Support4')
+      and (team_id is not null or auto_assigned_from_lot_id is not null)),
+  0::bigint,
+  'both cascaded players return to the pool');
+
+select is(
+  (select points_remaining from public.teams
+    where draft_id = (select d3 from t3) and nomination_position = 4),
+  (select points_remaining from pre_cascade_d),
+  'team D is refunded both cascade points, not just one');
 
 select * from finish();
 rollback;
