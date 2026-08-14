@@ -109,6 +109,16 @@ export default function DraftBoard({
                 isAdmin={s.isAdmin}
                 onError={setToast}
               />
+              {s.isAdmin && (
+                <AdminStrip
+                  draft={draft}
+                  teams={teams}
+                  players={players}
+                  lots={lots}
+                  openLot={openLot}
+                  onError={setToast}
+                />
+              )}
               <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
             </div>
           ) : (

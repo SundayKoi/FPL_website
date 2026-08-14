@@ -37,6 +37,7 @@ export default function AdminStrip({
 
   const isPaused = draft.status === "paused";
   const isLive = draft.status === "live";
+  const isComplete = draft.status === "complete";
 
   // The server undoes the sale with the highest sale_action_sequence; match it
   // exactly so the prompt cannot name the wrong players.
@@ -57,27 +58,28 @@ export default function AdminStrip({
       <h3 className="label-dash">Admin</h3>
 
       <div className="flex flex-wrap gap-2">
-        {isPaused ? (
-          <button
-            disabled={busy}
-            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
-            onClick={() =>
-              run("Resume the draft?", () => supabase.rpc("resume_draft", { p_draft_id: draft.id }))
-            }
-          >
-            Resume
-          </button>
-        ) : (
-          <button
-            disabled={busy || !isLive}
-            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
-            onClick={() =>
-              run("Pause the draft?", () => supabase.rpc("pause_draft", { p_draft_id: draft.id }))
-            }
-          >
-            Pause
-          </button>
-        )}
+        {!isComplete &&
+          (isPaused ? (
+            <button
+              disabled={busy}
+              className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+              onClick={() =>
+                run("Resume the draft?", () => supabase.rpc("resume_draft", { p_draft_id: draft.id }))
+              }
+            >
+              Resume
+            </button>
+          ) : (
+            <button
+              disabled={busy || !isLive}
+              className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+              onClick={() =>
+                run("Pause the draft?", () => supabase.rpc("pause_draft", { p_draft_id: draft.id }))
+              }
+            >
+              Pause
+            </button>
+          ))}
 
         <button
           disabled={busy}
@@ -117,42 +119,46 @@ export default function AdminStrip({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <label htmlFor="countdown-seconds" className="text-xs text-steel">
-          Countdown (s)
-        </label>
-        <input
-          id="countdown-seconds"
-          type="number"
-          min={5}
-          max={300}
-          value={countdown}
-          onChange={(e) => setCountdown(e.target.value)}
-          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
-        />
-        <button
-          disabled={busy}
-          className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
-          onClick={() =>
-            run(`Set countdown to ${countdown}s?`, () =>
-              supabase.rpc("update_draft_settings", {
-                p_draft_id: draft.id,
-                p_countdown_seconds: Number(countdown),
-              })
-            )
-          }
-        >
-          Save
-        </button>
-      </div>
+      {!isComplete && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="countdown-seconds" className="text-xs text-steel">
+            Countdown (s)
+          </label>
+          <input
+            id="countdown-seconds"
+            type="number"
+            min={5}
+            max={300}
+            value={countdown}
+            onChange={(e) => setCountdown(e.target.value)}
+            className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          />
+          <button
+            disabled={busy}
+            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+            onClick={() =>
+              run(`Set countdown to ${countdown}s?`, () =>
+                supabase.rpc("update_draft_settings", {
+                  p_draft_id: draft.id,
+                  p_countdown_seconds: Number(countdown),
+                })
+              )
+            }
+          >
+            Save
+          </button>
+        </div>
+      )}
 
-      <AdminAssignmentPanel
-        draft={draft}
-        teams={teams}
-        players={players}
-        openLot={openLot}
-        onError={onError}
-      />
+      {!isComplete && (
+        <AdminAssignmentPanel
+          draft={draft}
+          teams={teams}
+          players={players}
+          openLot={openLot}
+          onError={onError}
+        />
+      )}
     </section>
   );
 }
