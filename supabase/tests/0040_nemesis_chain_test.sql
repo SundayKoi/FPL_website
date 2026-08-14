@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(12);
+select plan(13);
 
 select ok(not has_function_privilege('anon', 'public.nemesis_pick(uuid,uuid)', 'execute'),
           'anon cannot pick');
@@ -65,6 +65,26 @@ select is(
 select tests.acting_as(tests.cap(4));
 select throws_like($$ select public.nemesis_pick((select d from t), (select a from ids)) $$,
   'NEMESIS_COMPLETE%', 'no picks once every team is placed');
+
+-- Fail-closed captain check: a captainless team on the clock (nemesis_start
+-- happily seeds one) must not let an unauthenticated caller (auth.uid() null)
+-- pick on its behalf just because "null = null" would otherwise look like a
+-- match under a naive `is distinct from` guard.
+create temporary table t2 as select tests.fixture() as d;
+update public.drafts set status = 'complete' where id = (select d from t2);
+update public.teams set captain_profile_id = null
+  where draft_id = (select d from t2) and nomination_position = 1;
+create temporary table ids2 as
+  select
+    (select id from public.teams where draft_id = (select d from t2) and nomination_position = 1) as a,
+    (select id from public.teams where draft_id = (select d from t2) and nomination_position = 2) as b;
+
+select tests.acting_as(tests.admin_id());
+select public.nemesis_start((select d from t2), (select a from ids2), 'Lunari');
+
+select set_config('request.jwt.claims', '{}', true);
+select throws_like($$ select public.nemesis_pick((select d from t2), (select b from ids2)) $$,
+  'NOT_YOUR_TURN%', 'a captainless team on the clock still fails closed against a null caller');
 
 select * from finish();
 rollback;

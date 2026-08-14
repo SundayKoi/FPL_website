@@ -37,8 +37,12 @@ begin
   end if;
 
   select * into v_chooser from public.teams where id = v_last.chosen_team_id;
+  -- Fail closed like every other captain gate (see caller_team()): a plain
+  -- `is distinct from` treats "both null" as equal, which would let an
+  -- unauthenticated caller (auth.uid() null) pick for a captainless team
+  -- (nemesis_start allows seeding one). coalesce(..., false) denies that case.
   if not public.is_admin()
-     and v_chooser.captain_profile_id is distinct from auth.uid() then
+     and not coalesce(v_chooser.captain_profile_id = auth.uid(), false) then
     raise exception 'NOT_YOUR_TURN: it is not your turn to pick';
   end if;
 

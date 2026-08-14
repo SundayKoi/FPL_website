@@ -19,8 +19,6 @@ create table public.nemesis_picks (
   check ((pick_number = 0) = (chooser_team_id is null))
 );
 
-create index on public.nemesis_picks (draft_id, pick_number);
-
 alter table public.nemesis_picks enable row level security;
 
 -- Spectators watch the chain unfold; all writes go through the RPCs.
@@ -28,5 +26,11 @@ create policy nemesis_picks_public_read on public.nemesis_picks for select using
 
 grant select on public.nemesis_picks to anon, authenticated;
 grant all on public.nemesis_picks to service_role;
+
+-- Realtime evaluates a DELETE subscription filter against old_record, which
+-- under the default replica identity (primary key only) carries just `id` --
+-- `draft_id` would be absent and the filter would never match, so undo/reset
+-- deletes would never stream. Carry every column on delete so the filter sees it.
+alter table public.nemesis_picks replica identity full;
 
 alter publication supabase_realtime add table public.nemesis_picks;
