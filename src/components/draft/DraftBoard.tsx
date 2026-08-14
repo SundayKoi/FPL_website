@@ -33,6 +33,7 @@ export default function DraftBoard({
   );
   const [toast, setToast] = useState<string | null>(null);
   const [collapseAllTeams, setCollapseAllTeams] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
 
   if (!s.draft)
     return (
@@ -66,7 +67,7 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
+    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <DraftHeader draft={draft} connected={s.connected} />
 
       <NominationAlert
@@ -100,7 +101,13 @@ export default function DraftBoard({
           {draft.status === "complete" ? (
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
+            <div
+              className={`relative grid gap-4 lg:items-start ${
+                chatCollapsed
+                  ? "lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)]"
+                  : "lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)]"
+              }`}
+            >
               <aside
                 aria-label="Draft teams"
                 className="order-4 lg:col-start-1 lg:row-span-2 lg:row-start-1"
@@ -172,15 +179,31 @@ export default function DraftBoard({
 
               <aside
                 aria-label="Draft chat rail"
-                className="order-2 min-w-0 self-start lg:sticky lg:top-16 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:overflow-hidden"
+                className={`order-2 min-w-0 self-start ${
+                  chatCollapsed
+                    ? "lg:hidden"
+                    : "lg:sticky lg:top-16 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:overflow-hidden"
+                }`}
               >
                 <DraftChat
                   draftId={draftId}
                   profileId={s.profileId}
                   isAdmin={s.isAdmin}
                   className="h-full"
+                  chatCollapsed={chatCollapsed}
+                  onToggle={() => setChatCollapsed((current) => !current)}
                 />
               </aside>
+
+              {chatCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setChatCollapsed(false)}
+                  className="hidden rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold lg:absolute lg:right-0 lg:top-0 lg:block"
+                >
+                  Open chat
+                </button>
+              )}
 
               <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
                 <PlayerPool players={players} teams={teams} compact />

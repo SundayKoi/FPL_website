@@ -26,11 +26,15 @@ export default function DraftChat({
   profileId,
   isAdmin,
   className = "",
+  chatCollapsed = false,
+  onToggle,
 }: {
   draftId: string;
   profileId: string | null;
   isAdmin: boolean;
   className?: string;
+  chatCollapsed?: boolean;
+  onToggle?: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [messages, setMessages] = useState<ChatRow[]>([]);
@@ -132,8 +136,18 @@ export default function DraftChat({
 
   return (
     <section aria-label="Draft chat" className={`card-brand flex flex-col p-0 ${className}`}>
-      <div className="border-b border-line px-4 py-2">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
         <span className="label-dash">CHAT</span>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={chatCollapsed ? "Expand chat" : "Collapse chat"}
+            className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+          >
+            {chatCollapsed ? "Expand" : "Collapse"}
+          </button>
+        )}
       </div>
 
       <ul

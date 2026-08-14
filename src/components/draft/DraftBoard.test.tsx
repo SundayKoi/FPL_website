@@ -1,11 +1,15 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import DraftBoard from "./DraftBoard";
 import { useDraftState } from "@/hooks/useDraftState";
 
 vi.mock("@/hooks/useDraftState", () => ({ useDraftState: vi.fn() }));
 vi.mock("./DraftChat", () => ({
-  default: () => <section aria-label="Draft chat" />,
+  default: ({ onToggle }: { onToggle?: () => void }) => (
+    <section aria-label="Draft chat">
+      {onToggle && <button type="button" onClick={onToggle}>Collapse chat</button>}
+    </section>
+  ),
 }));
 vi.mock("./TeamColumn", () => ({
   default: ({ team }: { team: { name: string } }) => <article>{team.name}</article>,
@@ -103,5 +107,8 @@ describe("DraftBoard live layout", () => {
     expect(screen.getByRole("region", { name: "Draft chat" })).toBeTruthy();
     expect(screen.getByText("Alpha")).toBeTruthy();
     expect(screen.getByText("Bravo")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse chat" }));
+    expect(screen.getByRole("button", { name: "Open chat" })).toBeTruthy();
   });
 });
