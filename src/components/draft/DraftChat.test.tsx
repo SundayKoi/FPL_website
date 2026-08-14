@@ -79,9 +79,19 @@ describe("DraftChat", () => {
 
     const input = (await screen.findByLabelText("Chat message")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "clip that " } });
-    fireEvent.click(screen.getByRole("button", { name: "Add 🔥" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add 🤡" }));
 
-    expect(input.value).toBe("clip that 🔥");
+    expect(input.value).toBe("clip that 🤡");
+  });
+
+  it("offers the league's quick-pick emoji, including multi-codepoint ones", async () => {
+    render(<DraftChat draftId="d1" profileId="u1" isAdmin={false} />);
+
+    // 🗣️ carries a variation selector and 🇮🇱 is a regional-indicator pair, so
+    // both are easy to mangle when the list is edited.
+    for (const emoji of ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱"]) {
+      expect(await screen.findByRole("button", { name: `Add ${emoji}` })).toBeTruthy();
+    }
   });
 
   it("surfaces the rate-limit error as friendly copy", async () => {

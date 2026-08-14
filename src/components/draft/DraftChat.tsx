@@ -10,7 +10,8 @@ type ChatRow = {
   created_at: string;
 };
 
-const QUICK_EMOJI = ["🔥", "😂", "💀", "👑", "🐐", "💰"] as const;
+// The set the league actually reacts with on Discord.
+const QUICK_EMOJI = ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱"] as const;
 
 function friendlyChatError(message: string): string {
   if (message.includes("TOO_FAST")) return "Slow down a little — one message every couple of seconds.";
