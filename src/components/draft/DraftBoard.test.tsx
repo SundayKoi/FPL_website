@@ -99,7 +99,7 @@ describe("DraftBoard live layout", () => {
     render(<DraftBoard draftId="draft-1" />);
 
     expect(screen.getByRole("complementary", { name: "Draft teams" })).toBeTruthy();
-    expect(screen.getByRole("banner").parentElement?.className).toContain("xl:mr-[23rem]");
+    expect(screen.getByRole("banner").parentElement?.className).toContain("xl:mr-[22rem]");
     const chatRail = screen.getByRole("complementary", { name: "Draft chat rail" });
     expect(chatRail.className).toContain("xl:top-[5.5rem]");
     expect(chatRail.className).toContain("xl:h-[calc(100dvh-5.5rem)]");

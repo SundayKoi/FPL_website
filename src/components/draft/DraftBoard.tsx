@@ -34,7 +34,7 @@ export default function DraftBoard({
   const [toast, setToast] = useState<string | null>(null);
   const [collapseAllTeams, setCollapseAllTeams] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
-  const chatTopReserve = chatCollapsed ? "" : "xl:mr-[23rem]";
+  const chatTopReserve = chatCollapsed ? "" : "xl:mr-[22rem]";
 
   if (!s.draft)
     return (
