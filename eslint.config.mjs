@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated/config files we don't lint:
     "supabase/**",
+    // Checked-out git worktrees: each is a full copy of the repo on another
+    // branch, so linting them reports every finding a second time.
+    ".worktrees/**",
   ]),
 ]);
 

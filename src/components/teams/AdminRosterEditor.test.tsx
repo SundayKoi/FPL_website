@@ -185,10 +185,23 @@ describe("AdminRosterEditor", () => {
     expect(within(dialog).queryByRole("button", { name: /Captain B/ })).toBeNull();
   });
 
-  it("uses the selected captain profile name on normal admin roster cards", () => {
+  it("names the captain by their roster player, not their login profile", () => {
     render(<AdminRosterEditor draftId="draft-1" teams={teams} players={players} profiles={profiles} />);
 
+    expect(screen.getByText("Captain Captain A")).toBeTruthy();
+    expect(screen.queryByText("Captain Selected Captain A")).toBeNull();
+  });
+
+  it("falls back to the linked profile name when a team has no captain player", () => {
+    render(
+      <AdminRosterEditor
+        draftId="draft-1"
+        teams={teams}
+        players={players.filter((p) => p.id !== "captain-a")}
+        profiles={profiles}
+      />
+    );
+
     expect(screen.getByText("Captain Selected Captain A")).toBeTruthy();
-    expect(screen.queryByText("Captain Captain A")).toBeNull();
   });
 });

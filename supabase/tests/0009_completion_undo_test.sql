@@ -29,20 +29,25 @@ begin
   perform public.close_lot(v_lot);
 end $f$;
 
--- === (a) Draft completion: sell all 12 pool players ===
+-- === (a) Draft completion: clear the 12-player pool ===
 create temporary table t as select tests.fixture() as d;
 select tests.go_live((select d from t));
 
+-- Sell until the board empties rather than counting to 12: forced auto-assign
+-- (20260814000004) hands out the last player in a role without running a lot,
+-- so the pool can drain in fewer than 12 explicit sales.
 do $$
-declare i int;
+declare v_guard int := 0;
 begin
-  for i in 1..12 loop
+  while (select status from public.drafts where id=(select d from t)) = 'live' loop
+    v_guard := v_guard + 1;
+    exit when v_guard > 12;  -- 12 pool players is the ceiling on lots
     perform tests.sell_open_role((select d from t));
   end loop;
 end $$;
 
 select is((select status from public.drafts where id=(select d from t)), 'complete',
-  'draft status is complete after all 12 sales');
+  'draft status is complete once the pool is exhausted');
 select ok((select current_nominator_team_id is null from public.drafts where id=(select d from t)),
   'current_nominator_team_id is null on completion');
 select is((select count(*) from public.teams tm
