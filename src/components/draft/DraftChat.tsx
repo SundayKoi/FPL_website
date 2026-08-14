@@ -135,7 +135,7 @@ export default function DraftChat({
   }
 
   return (
-    <section aria-label="Draft chat" className={`card-brand flex flex-col p-0 ${className}`}>
+    <section aria-label="Draft chat" className={`card-brand flex min-h-0 flex-col p-0 ${className}`}>
       <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
         <span className="label-dash">CHAT</span>
         {onToggle && (
