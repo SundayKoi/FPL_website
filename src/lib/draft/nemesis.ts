@@ -25,24 +25,25 @@ export function nemesisState(teams: Team[], picks: NemesisPick[]): NemesisState 
 
   const placed: Team[] = [];
   const byDivision: Record<Division, Team[]> = { Lunari: [], Solari: [] };
+  let lastValidPick: NemesisPick | null = null;
   for (const p of inOrder) {
     const t = byId.get(p.chosen_team_id);
     if (!t) continue; // a pick for a team since removed from the draft
     placed.push(t);
     byDivision[p.division].push(t);
+    lastValidPick = p;
   }
 
   const placedIds = new Set(placed.map((t) => t.id));
   const unplaced = teams.filter((t) => !placedIds.has(t.id));
 
-  const last = inOrder.length ? inOrder[inOrder.length - 1] : null;
   const phase: NemesisPhase =
     inOrder.length === 0 ? "not_started" : placed.length >= teams.length ? "complete" : "live";
 
   return {
     phase,
-    onTheClockTeamId: phase === "live" && last ? last.chosen_team_id : null,
-    nextDivision: phase === "live" && last ? otherDivision(last.division) : null,
+    onTheClockTeamId: phase === "live" && lastValidPick ? lastValidPick.chosen_team_id : null,
+    nextDivision: phase === "live" && lastValidPick ? otherDivision(lastValidPick.division) : null,
     placed,
     unplaced,
     byDivision,

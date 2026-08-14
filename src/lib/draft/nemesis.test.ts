@@ -82,15 +82,32 @@ describe("nemesisState", () => {
   it("orders placed teams by pick number regardless of input order", () => {
     const s = nemesisState(teams, [pick(1, "b", "Solari", "a"), pick(0, "a", "Lunari", null)]);
     expect(s.placed.map((t) => t.id)).toEqual(["a", "b"]);
+    expect(s.onTheClockTeamId).toBe("b");
+    expect(s.nextDivision).toBe("Lunari");
   });
 
   it("ignores picks naming a team the draft no longer holds", () => {
     const s = nemesisState(teams, [pick(0, "a", "Lunari", null), pick(1, "gone", "Solari", "a")]);
     expect(s.placed.map((t) => t.id)).toEqual(["a"]);
     expect(s.unplaced.map((t) => t.id)).toEqual(["b", "c", "d"]);
+    expect(s.onTheClockTeamId).toBe("a");
+    expect(s.nextDivision).toBe("Solari");
   });
 
   it("treats an empty draft as not started", () => {
     expect(nemesisState([], []).phase).toBe("not_started");
+  });
+
+  it("uses valid placement count, not raw pick count, for phase determination", () => {
+    const s = nemesisState(teams, [
+      pick(0, "a", "Lunari", null),
+      pick(1, "b", "Solari", "a"),
+      pick(2, "c", "Lunari", "b"),
+      pick(3, "gone", "Solari", "c"),
+    ]);
+    expect(s.phase).toBe("live");
+    expect(s.placed.map((t) => t.id)).toEqual(["a", "b", "c"]);
+    expect(s.onTheClockTeamId).toBe("c");
+    expect(s.nextDivision).toBe("Solari");
   });
 });
