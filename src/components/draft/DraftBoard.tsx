@@ -170,7 +170,10 @@ export default function DraftBoard({
 
               </div>
 
-              <aside className="order-2 min-w-0 self-start lg:sticky lg:top-20 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100vh-6rem)] lg:overflow-hidden">
+              <aside
+                aria-label="Draft chat rail"
+                className="order-2 min-w-0 self-start lg:sticky lg:top-16 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:overflow-hidden"
+              >
                 <DraftChat
                   draftId={draftId}
                   profileId={s.profileId}

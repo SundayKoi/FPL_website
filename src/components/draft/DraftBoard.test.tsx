@@ -95,6 +95,10 @@ describe("DraftBoard live layout", () => {
     render(<DraftBoard draftId="draft-1" />);
 
     expect(screen.getByRole("complementary", { name: "Draft teams" })).toBeTruthy();
+    const chatRail = screen.getByRole("complementary", { name: "Draft chat rail" });
+    expect(chatRail.className).toContain("lg:sticky");
+    expect(chatRail.className).toContain("lg:top-16");
+    expect(chatRail.className).toContain("lg:h-[calc(100dvh-4rem)]");
     expect(screen.getByRole("button", { name: "Collapse all" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Draft chat" })).toBeTruthy();
     expect(screen.getByText("Alpha")).toBeTruthy();
