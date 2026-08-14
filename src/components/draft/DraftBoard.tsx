@@ -34,6 +34,7 @@ export default function DraftBoard({
   const [toast, setToast] = useState<string | null>(null);
   const [collapseAllTeams, setCollapseAllTeams] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const chatTopReserve = chatCollapsed ? "" : "xl:mr-[23rem]";
 
   if (!s.draft)
     return (
@@ -68,7 +69,9 @@ export default function DraftBoard({
 
   return (
     <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
-      <DraftHeader draft={draft} connected={s.connected} />
+      <div className={chatTopReserve}>
+        <DraftHeader draft={draft} connected={s.connected} />
+      </div>
 
       <NominationAlert
         isMyNomination={isMyNomination}
@@ -77,11 +80,13 @@ export default function DraftBoard({
       />
 
       {myTeam && (
-        <div className="card-brand px-4 py-3 text-sm text-steel">
-          You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
-          <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
-          max bid{" "}
-          <span className="font-display font-semibold not-italic text-gold">{maxBid(myTeam, players)}</span>
+        <div className={chatTopReserve}>
+          <div className="card-brand px-4 py-3 text-sm text-steel">
+            You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
+            <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
+            max bid{" "}
+            <span className="font-display font-semibold not-italic text-gold">{maxBid(myTeam, players)}</span>
+          </div>
         </div>
       )}
 
@@ -93,8 +98,10 @@ export default function DraftBoard({
       ) : (
         <>
           {draft.status === "paused" && (
-            <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
-              <span className="label-dash !text-gold">Paused by admin</span>
+            <div className={chatTopReserve}>
+              <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
+                <span className="label-dash !text-gold">Paused by admin</span>
+              </div>
             </div>
           )}
 
