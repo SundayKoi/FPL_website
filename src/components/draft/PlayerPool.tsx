@@ -76,7 +76,7 @@ export default function PlayerPool({
         </div>
       )}
 
-      <div className={`grid gap-2 ${compact ? "lg:grid-cols-5" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
+      <div className={`grid gap-2 ${compact ? "xl:grid-cols-5" : "sm:grid-cols-2 xl:grid-cols-5"}`}>
         {roleSections.map((section) => (
           <section key={section.role} className="overflow-hidden rounded border border-line">
             <h3 className="border-b border-line bg-navy px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-steel">

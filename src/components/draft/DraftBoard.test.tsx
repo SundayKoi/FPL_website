@@ -100,9 +100,9 @@ describe("DraftBoard live layout", () => {
 
     expect(screen.getByRole("complementary", { name: "Draft teams" })).toBeTruthy();
     const chatRail = screen.getByRole("complementary", { name: "Draft chat rail" });
-    expect(chatRail.className).toContain("lg:top-[5.5rem]");
-    expect(chatRail.className).toContain("lg:h-[calc(100dvh-5.5rem)]");
-    expect(chatRail.className).toContain("lg:fixed");
+    expect(chatRail.className).toContain("xl:top-[5.5rem]");
+    expect(chatRail.className).toContain("xl:h-[calc(100dvh-5.5rem)]");
+    expect(chatRail.className).toContain("xl:fixed");
     expect(screen.getByRole("button", { name: "Collapse all" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Draft chat" })).toBeTruthy();
     expect(screen.getByText("Alpha")).toBeTruthy();

@@ -102,17 +102,17 @@ export default function DraftBoard({
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
             <div
-              className={`relative grid gap-4 lg:items-start ${
+              className={`relative grid gap-4 xl:items-start ${
                 chatCollapsed
-                  ? "lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)]"
-                  : "lg:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)]"
+                  ? "xl:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)]"
+                  : "xl:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)]"
               }`}
             >
               <aside
                 aria-label="Draft teams"
-                className="order-4 lg:col-start-1 lg:row-span-2 lg:row-start-1"
+                className="order-4 xl:col-start-1 xl:row-span-2 xl:row-start-1"
               >
-                <section className="lg:sticky lg:top-20">
+                <section className="xl:sticky xl:top-20">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <h2 className="label-dash">TEAMS</h2>
                     <button
@@ -123,7 +123,7 @@ export default function DraftBoard({
                       {collapseAllTeams ? "Expand all" : "Collapse all"}
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
                     {teams.map((team) => (
                       <TeamColumn
                         key={`${team.id}-${collapseAllTeams}`}
@@ -138,8 +138,8 @@ export default function DraftBoard({
                 </section>
               </aside>
 
-              <div className="order-1 min-w-0 space-y-4 lg:col-start-2 lg:row-start-1">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
+              <div className="order-1 min-w-0 space-y-4 xl:col-start-2 xl:row-start-1">
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
                   <CenterStage
                     lot={openLot}
                     player={lotPlayer}
@@ -181,8 +181,8 @@ export default function DraftBoard({
                 aria-label="Draft chat rail"
                 className={`order-2 min-w-0 self-start ${
                   chatCollapsed
-                    ? "lg:hidden"
-                    : "lg:fixed lg:right-4 lg:top-[5.5rem] lg:z-30 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-5.5rem)] lg:w-[21rem] lg:overflow-hidden"
+                    ? "xl:hidden"
+                    : "xl:fixed xl:right-4 xl:top-[5.5rem] xl:z-30 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:h-[calc(100dvh-5.5rem)] xl:w-[21rem] xl:overflow-hidden"
                 }`}
               >
                 <DraftChat
@@ -199,13 +199,13 @@ export default function DraftBoard({
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(false)}
-                  className="hidden rounded border border-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gold hover:bg-gold/10 lg:absolute lg:right-0 lg:top-0 lg:block"
+                  className="hidden rounded border border-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gold hover:bg-gold/10 xl:absolute xl:right-0 xl:top-0 xl:block"
                 >
                   Open chat
                 </button>
               )}
 
-              <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
+              <div className="order-3 min-w-0 xl:col-start-2 xl:row-start-2">
                 <PlayerPool players={players} teams={teams} compact showFilters={false} />
               </div>
             </div>
