@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Acquisition, Player, Profile, Team } from "@/lib/draft/types";
+import { errMessage, type Acquisition, type Player, type Profile, type Team } from "@/lib/draft/types";
+import { applyOrder, moveItem } from "@/lib/draft/reorder";
 
 function initials(name: string): string {
   return name
@@ -28,6 +29,42 @@ export default function TeamEditor({
   const supabase = createClient();
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Nomination order shown while a reorder is saving, so the list does not snap
+  // back to the old order for the round trip.
+  const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  // Drop the local order the moment the server's own order lands (adjusting
+  // state during render rather than in an effect — see src/hooks/useCountdown).
+  const serverOrder = teams.map((t) => t.id).join(",");
+  const [seenOrder, setSeenOrder] = useState(serverOrder);
+  if (seenOrder !== serverOrder) {
+    setSeenOrder(serverOrder);
+    setPendingOrder(null);
+  }
+  const ordered = applyOrder(teams, pendingOrder);
+
+  const reorder = async (from: number, to: number) => {
+    if (busy || from === to) return;
+    const next = moveItem(ordered, from, to);
+    if (next === ordered) return;
+    const ids = next.map((t) => t.id);
+    setBusy(true);
+    setErr(null);
+    setPendingOrder(ids);
+    const { error } = await supabase.rpc("admin_reorder_setup_teams", {
+      p_draft_id: draftId,
+      p_team_ids: ids,
+    });
+    setBusy(false);
+    if (error) {
+      setPendingOrder(null);
+      setErr(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      return;
+    }
+    await onChanged();
+  };
 
   const addTeam = async () => {
     if (busy) return; // guards double-clicks that land before React commits `busy`
@@ -132,7 +169,12 @@ export default function TeamEditor({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="label-dash">Teams</h2>
+        <div>
+          <h2 className="label-dash">Teams</h2>
+          <p className="mt-1 text-xs text-steel">
+            Drag a team by its handle to set the round-one nomination order.
+          </p>
+        </div>
         <button
           disabled={busy}
           onClick={addTeam}
@@ -144,7 +186,7 @@ export default function TeamEditor({
       {err && <p className="text-sm text-red-400">{err}</p>}
 
       <div className="flex flex-col gap-4">
-        {teams.map((team) => {
+        {ordered.map((team, index) => {
           const prefills = players.filter((p) => p.team_id === team.id);
           const committedSpend = prefills.reduce((sum, player) => sum + (player.price ?? 0), 0);
           const setupAcquisitions: Acquisition[] = ["captain", "free_agency"];
@@ -158,25 +200,75 @@ export default function TeamEditor({
               !prefills.some((prefill) => prefill.role === p.role)
           );
           return (
-            <div key={team.id} className="card-brand flex flex-col gap-3 p-4">
+            <div
+              key={team.id}
+              onDragOver={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault(); // required, or the browser refuses the drop
+                setOverIndex(index);
+              }}
+              onDragLeave={() => setOverIndex((i) => (i === index ? null : i))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const from = dragIndex;
+                setDragIndex(null);
+                setOverIndex(null);
+                if (from !== null) void reorder(from, index);
+              }}
+              className={`card-brand flex flex-col gap-3 p-4 ${
+                dragIndex === index ? "opacity-50" : ""
+              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-gold" : ""}`}
+            >
               <div className="flex flex-wrap items-center gap-3">
+                <span
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    // Firefox starts no drag at all without payload data.
+                    e.dataTransfer.setData("text/plain", team.id);
+                    setDragIndex(index);
+                  }}
+                  onDragEnd={() => {
+                    setDragIndex(null);
+                    setOverIndex(null);
+                  }}
+                  aria-label={`Drag ${team.name}`}
+                  title="Drag to reorder"
+                  className="cursor-grab select-none rounded border border-line px-2 py-1 text-sm leading-none text-steel active:cursor-grabbing"
+                >
+                  ⠿
+                </span>
+                <span
+                  aria-label={`Nomination position for ${team.name}`}
+                  className="w-6 text-center font-display text-sm not-italic text-gold"
+                >
+                  {index + 1}
+                </span>
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    disabled={busy || index === 0}
+                    onClick={() => reorder(index, index - 1)}
+                    aria-label={`Move ${team.name} up`}
+                    className="px-1 text-[10px] leading-tight text-steel hover:text-gold disabled:opacity-30"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || index === ordered.length - 1}
+                    onClick={() => reorder(index, index + 1)}
+                    aria-label={`Move ${team.name} down`}
+                    className="px-1 text-[10px] leading-tight text-steel hover:text-gold disabled:opacity-30"
+                  >
+                    ▼
+                  </button>
+                </div>
                 <input
                   value={team.name}
                   onChange={(e) => updateTeam(team, { name: e.target.value })}
                   className="w-40 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
                 />
-                <label className="flex items-center gap-1 text-xs text-steel">
-                  Position
-                  <input
-                    type="number"
-                    min={1}
-                    value={team.nomination_position}
-                    onChange={(e) =>
-                      updateTeam(team, { nomination_position: Number(e.target.value) })
-                    }
-                    className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
-                  />
-                </label>
                 <label className="flex items-center gap-1 text-xs text-steel">
                   Budget
                   <input

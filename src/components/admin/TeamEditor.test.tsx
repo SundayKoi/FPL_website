@@ -300,6 +300,76 @@ describe("TeamEditor", () => {
     );
   });
 
+  describe("nomination order", () => {
+    const three: Team[] = [
+      { ...team, id: "team-a", name: "Team A", nomination_position: 1 },
+      { ...team, id: "team-b", name: "Team B", nomination_position: 2 },
+      { ...team, id: "team-c", name: "Team C", nomination_position: 3 },
+    ];
+
+    it("replaces the typed position field with a drag handle", () => {
+      render(<TeamEditor {...props} teams={three} />);
+
+      expect(screen.queryByLabelText("Position")).toBeNull();
+      expect(screen.getByLabelText("Drag Team A")).toBeTruthy();
+      expect(screen.getByLabelText("Nomination position for Team B").textContent).toBe("2");
+    });
+
+    it("sends the whole new order when a team is dragged onto another slot", async () => {
+      const { container } = render(<TeamEditor {...props} teams={three} />);
+      const cards = container.querySelectorAll(".card-brand");
+
+      fireEvent.dragStart(screen.getByLabelText("Drag Team C"), {
+        dataTransfer: { setData: vi.fn(), effectAllowed: "" },
+      });
+      fireEvent.dragOver(cards[0]);
+      fireEvent.drop(cards[0]);
+
+      await waitFor(() =>
+        expect(rpc).toHaveBeenCalledWith("admin_reorder_setup_teams", {
+          p_draft_id: "draft-1",
+          p_team_ids: ["team-c", "team-a", "team-b"],
+        })
+      );
+      expect(onChanged).toHaveBeenCalled();
+    });
+
+    it("reorders from the keyboard-reachable move buttons too", async () => {
+      render(<TeamEditor {...props} teams={three} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Move Team A down" }));
+
+      await waitFor(() =>
+        expect(rpc).toHaveBeenCalledWith("admin_reorder_setup_teams", {
+          p_draft_id: "draft-1",
+          p_team_ids: ["team-b", "team-a", "team-c"],
+        })
+      );
+    });
+
+    it("cannot move the first team up or the last team down", () => {
+      render(<TeamEditor {...props} teams={three} />);
+
+      expect(
+        (screen.getByRole("button", { name: "Move Team A up" }) as HTMLButtonElement).disabled
+      ).toBe(true);
+      expect(
+        (screen.getByRole("button", { name: "Move Team C down" }) as HTMLButtonElement).disabled
+      ).toBe(true);
+    });
+
+    it("shows the new order while saving, then restores it when the RPC fails", async () => {
+      rpc.mockResolvedValue({ error: { message: "ORDER_INVALID: order repeats a team" } });
+      render(<TeamEditor {...props} teams={three} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "Move Team C up" }));
+
+      await screen.findByText("order repeats a team");
+      expect(screen.getByLabelText("Nomination position for Team C").textContent).toBe("3");
+      expect(onChanged).not.toHaveBeenCalled();
+    });
+  });
+
   it("removes a setup team through the origin-aware RPC", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<TeamEditor {...props} />);
