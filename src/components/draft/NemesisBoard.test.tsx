@@ -95,7 +95,7 @@ describe("NemesisBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Send Bravo to Solari" }));
 
-    await waitFor(() => expect(onError).toHaveBeenCalled());
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("it is not your turn to pick"));
   });
 
   it("undoes and resets from the admin controls", async () => {
@@ -107,6 +107,16 @@ describe("NemesisBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset nemesis draft" }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("nemesis_reset", { p_draft_id: "d1" }));
+  });
+
+  it("does not undo or reset when the confirmation is declined", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<NemesisBoard {...props} picks={[pick(0, "a", "Lunari", null)]} isAdmin />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Undo last pick" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset nemesis draft" }));
+
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("shows the final divisions and pick order when complete", () => {
