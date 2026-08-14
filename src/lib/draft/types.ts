@@ -58,6 +58,11 @@ export interface Lot {
   round: number; opening_bid: number; current_bid: number; leading_team_id: string;
   closes_at: string; status: LotStatus; created_at: string; closed_at: string | null;
 }
+export interface NemesisPick {
+  id: string; draft_id: string; pick_number: number;
+  chooser_team_id: string | null; chosen_team_id: string;
+  division: Division; created_at: string;
+}
 export interface Bid {
   id: number; lot_id: string; team_id: string; amount: number; created_at: string;
 }
