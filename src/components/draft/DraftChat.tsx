@@ -26,10 +26,16 @@ export default function DraftChat({
   draftId,
   profileId,
   isAdmin,
+  className = "",
+  chatCollapsed = false,
+  onToggle,
 }: {
   draftId: string;
   profileId: string | null;
   isAdmin: boolean;
+  className?: string;
+  chatCollapsed?: boolean;
+  onToggle?: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [messages, setMessages] = useState<ChatRow[]>([]);
@@ -130,12 +136,25 @@ export default function DraftChat({
   }
 
   return (
-    <section aria-label="Draft chat" className="card-brand flex flex-col p-0">
-      <div className="border-b border-line px-4 py-2">
+    <section aria-label="Draft chat" className={`card-brand flex min-h-0 flex-col p-0 ${className}`}>
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
         <span className="label-dash">CHAT</span>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={chatCollapsed ? "Expand chat" : "Collapse chat"}
+            className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+          >
+            {chatCollapsed ? "Expand" : "Collapse"}
+          </button>
+        )}
       </div>
 
-      <ul ref={listRef} className="max-h-64 min-h-32 space-y-1.5 overflow-y-auto px-4 py-3 text-sm">
+      <ul
+        ref={listRef}
+        className="max-h-64 min-h-32 space-y-1.5 overflow-y-auto px-4 py-3 text-sm lg:min-h-0 lg:max-h-none lg:flex-1"
+      >
         {messages.length === 0 && <li className="text-steel">Nothing yet — say something.</li>}
         {messages.map((m) =>
           m.profile_id === null ? (

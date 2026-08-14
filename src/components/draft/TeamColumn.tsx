@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ROLE_ORDER, type Player, type Team } from "@/lib/draft/types";
 
 const ACQ_BADGE: Record<string, string> = {
@@ -11,12 +12,16 @@ export default function TeamColumn({
   players,
   isNominator,
   isMyTeam,
+  initialCollapsed = false,
 }: {
   team: Team;
   players: Player[];
   isNominator: boolean;
   isMyTeam: boolean;
+  initialCollapsed?: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
+
   return (
     <section
       className={`card-brand flex flex-col gap-2 p-3 ${isNominator ? "border-l-4 border-l-gold" : ""} ${
@@ -25,53 +30,64 @@ export default function TeamColumn({
     >
       <header className="flex items-center justify-between gap-2">
         <h3 className="type-display truncate text-sm text-white">{team.name}</h3>
-        {isNominator && (
-          <span className="label-dash shrink-0 !text-gold">
-            Nominating
-          </span>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {isNominator && <span className="label-dash !text-gold">Nominating</span>}
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-label={`${collapsed ? "Expand" : "Collapse"} team ${team.name}`}
+            onClick={() => setCollapsed((current) => !current)}
+            className="rounded border border-line px-1.5 py-0.5 text-sm leading-none text-steel hover:border-gold hover:text-gold"
+          >
+            {collapsed ? "+" : "−"}
+          </button>
+        </div>
       </header>
 
-      <ul className="flex flex-col gap-1">
-        {ROLE_ORDER.map((role) => {
-          const player = players.find((p) => p.team_id === team.id && p.role === role);
-          return (
-            <li
-              key={role}
-              className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${
-                player ? "border border-line bg-navy/40" : "border border-dashed border-line text-steel/60"
-              }`}
-            >
-              <span className="w-16 shrink-0 uppercase tracking-wide text-steel">{role}</span>
-              {player ? (
-                <span className="flex flex-1 items-center justify-between gap-2 truncate">
-                  <span className="truncate text-white">{player.display_name}</span>
-                  <span className="flex shrink-0 items-center gap-1">
-                    {player.acquisition && ACQ_BADGE[player.acquisition] && (
-                      <span className="rounded border border-steel/50 px-1 py-0.5 text-[10px] font-bold text-steel">
-                        {ACQ_BADGE[player.acquisition]}
+      {!collapsed && (
+        <>
+          <ul className="flex flex-col gap-1">
+            {ROLE_ORDER.map((role) => {
+              const player = players.find((p) => p.team_id === team.id && p.role === role);
+              return (
+                <li
+                  key={role}
+                  className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${
+                    player ? "border border-line bg-navy/40" : "border border-dashed border-line text-steel/60"
+                  }`}
+                >
+                  <span className="w-16 shrink-0 uppercase tracking-wide text-steel">{role}</span>
+                  {player ? (
+                    <span className="flex flex-1 items-center justify-between gap-2 truncate">
+                      <span className="truncate text-white">{player.display_name}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {player.acquisition && ACQ_BADGE[player.acquisition] && (
+                          <span className="rounded border border-steel/50 px-1 py-0.5 text-[10px] font-bold text-steel">
+                            {ACQ_BADGE[player.acquisition]}
+                          </span>
+                        )}
+                        <span className="font-display font-semibold not-italic text-[11px] text-gold">
+                          {player.price ?? 0}
+                        </span>
                       </span>
-                    )}
-                    <span className="font-display font-semibold not-italic text-[11px] text-gold">
-                      {player.price ?? 0}
                     </span>
-                  </span>
-                </span>
-              ) : (
-                <span className="flex-1 text-steel/60">—</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                  ) : (
+                    <span className="flex-1 text-steel/60">—</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
 
-      <footer className="mt-1 flex items-center justify-between border-t border-line pt-2 text-xs text-steel">
-        <span>Budget</span>
-        <span className="font-display font-semibold not-italic">
-          <span className="text-gold">{team.points_remaining}</span>{" "}
-          <span className="text-steel">/ {team.budget_start}</span>
-        </span>
-      </footer>
+          <footer className="mt-1 flex items-center justify-between border-t border-line pt-2 text-xs text-steel">
+            <span>Budget</span>
+            <span className="font-display font-semibold not-italic">
+              <span className="text-gold">{team.points_remaining}</span>{" "}
+              <span className="text-steel">/ {team.budget_start}</span>
+            </span>
+          </footer>
+        </>
+      )}
     </section>
   );
 }

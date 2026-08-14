@@ -32,6 +32,9 @@ export default function DraftBoard({
     s.offsetMs
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [collapseAllTeams, setCollapseAllTeams] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const chatTopReserve = chatCollapsed ? "" : "xl:mr-[22rem]";
 
   if (!s.draft)
     return (
@@ -65,8 +68,10 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
-      <DraftHeader draft={draft} connected={s.connected} />
+    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
+      <div className={chatTopReserve}>
+        <DraftHeader draft={draft} connected={s.connected} />
+      </div>
 
       <NominationAlert
         isMyNomination={isMyNomination}
@@ -75,11 +80,13 @@ export default function DraftBoard({
       />
 
       {myTeam && (
-        <div className="card-brand px-4 py-3 text-sm text-steel">
-          You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
-          <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
-          max bid{" "}
-          <span className="font-display font-semibold not-italic text-gold">{maxBid(myTeam, players)}</span>
+        <div className={chatTopReserve}>
+          <div className="card-brand px-4 py-3 text-sm text-steel">
+            You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
+            <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
+            max bid{" "}
+            <span className="font-display font-semibold not-italic text-gold">{maxBid(myTeam, players)}</span>
+          </div>
         </div>
       )}
 
@@ -91,30 +98,55 @@ export default function DraftBoard({
       ) : (
         <>
           {draft.status === "paused" && (
-            <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
-              <span className="label-dash !text-gold">Paused by admin</span>
+            <div className={chatTopReserve}>
+              <div className="rounded-lg border border-gold/50 bg-gold/10 px-4 py-2 text-center text-sm font-semibold text-gold">
+                <span className="label-dash !text-gold">Paused by admin</span>
+              </div>
             </div>
           )}
 
           {draft.status === "complete" ? (
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
-            <div className="flex gap-4">
-              {myTeam && (
-                <aside className="hidden w-64 shrink-0 lg:block">
-                  <div className="sticky top-20">
-                    <TeamColumn
-                      team={myTeam}
-                      players={players}
-                      isNominator={draft.current_nominator_team_id === myTeam.id}
-                      isMyTeam
-                    />
+            <div
+              className={`relative grid gap-4 xl:items-start ${
+                chatCollapsed
+                  ? "xl:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)]"
+                  : "xl:grid-cols-[minmax(30rem,36rem)_minmax(0,1fr)_minmax(18rem,21rem)]"
+              }`}
+            >
+              <aside
+                aria-label="Draft teams"
+                className="order-4 xl:col-start-1 xl:row-span-2 xl:row-start-1"
+              >
+                <section className="xl:sticky xl:top-20">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="label-dash">TEAMS</h2>
+                    <button
+                      type="button"
+                      onClick={() => setCollapseAllTeams((current) => !current)}
+                      className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+                    >
+                      {collapseAllTeams ? "Expand all" : "Collapse all"}
+                    </button>
                   </div>
-                </aside>
-              )}
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                    {teams.map((team) => (
+                      <TeamColumn
+                        key={`${team.id}-${collapseAllTeams}`}
+                        team={team}
+                        players={players}
+                        isNominator={team.id === draft.current_nominator_team_id}
+                        isMyTeam={myTeam?.id === team.id}
+                        initialCollapsed={collapseAllTeams}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </aside>
 
-              <div className="min-w-0 flex-1 space-y-4">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
+              <div className="order-1 min-w-0 space-y-4 xl:col-start-2 xl:row-start-1">
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
                   <CenterStage
                     lot={openLot}
                     player={lotPlayer}
@@ -150,24 +182,38 @@ export default function DraftBoard({
                 )}
                 {adminControls}
 
-                <DraftChat draftId={draftId} profileId={s.profileId} isAdmin={s.isAdmin} />
+              </div>
 
-                <PlayerPool players={players} teams={teams} />
+              <aside
+                aria-label="Draft chat rail"
+                className={`order-2 min-w-0 self-start ${
+                  chatCollapsed
+                    ? "xl:hidden"
+                    : "xl:fixed xl:right-4 xl:top-[5.5rem] xl:z-30 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:h-[calc(100dvh-5.5rem)] xl:w-[21rem] xl:overflow-hidden"
+                }`}
+              >
+                <DraftChat
+                  draftId={draftId}
+                  profileId={s.profileId}
+                  isAdmin={s.isAdmin}
+                  className="h-full"
+                  chatCollapsed={chatCollapsed}
+                  onToggle={() => setChatCollapsed((current) => !current)}
+                />
+              </aside>
 
-                <section>
-                  <h2 className="label-dash mb-2">TEAMS</h2>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {teams.map((team) => (
-                      <TeamColumn
-                        key={team.id}
-                        team={team}
-                        players={players}
-                        isNominator={team.id === draft.current_nominator_team_id}
-                        isMyTeam={myTeam?.id === team.id}
-                      />
-                    ))}
-                  </div>
-                </section>
+              {chatCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setChatCollapsed(false)}
+                  className="hidden rounded border border-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gold hover:bg-gold/10 xl:absolute xl:right-0 xl:top-0 xl:block"
+                >
+                  Open chat
+                </button>
+              )}
+
+              <div className="order-3 min-w-0 xl:col-start-2 xl:row-start-2">
+                <PlayerPool players={players} teams={teams} compact showFilters={false} />
               </div>
             </div>
           )}
