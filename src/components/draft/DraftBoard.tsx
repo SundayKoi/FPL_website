@@ -182,7 +182,7 @@ export default function DraftBoard({
                 className={`order-2 min-w-0 self-start ${
                   chatCollapsed
                     ? "lg:hidden"
-                    : "lg:fixed lg:right-4 lg:top-16 lg:z-30 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-4rem)] lg:w-[21rem] lg:overflow-hidden"
+                    : "lg:fixed lg:right-4 lg:top-[5.5rem] lg:z-30 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100dvh-5.5rem)] lg:w-[21rem] lg:overflow-hidden"
                 }`}
               >
                 <DraftChat
