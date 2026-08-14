@@ -146,10 +146,12 @@ describe("TeamsPage", () => {
 
     render(await TeamsPage());
 
-    expect(screen.getByText("Captain Captain Profile")).toBeTruthy();
+    expect(
+      screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live"),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
 
-    expect(screen.getByText(/Captain Profile/)).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Captain Profile" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Available Captain" })).toBeTruthy();
     expect(profileIdsIn).not.toHaveBeenCalled();
     expect(profileOrder).toHaveBeenCalledWith("display_name");
@@ -172,7 +174,8 @@ describe("TeamsPage", () => {
     expect(screen.queryByText("PREVIEW DATA")).toBeNull();
     expect(screen.getByText("Live Team")).toBeTruthy();
     expect(screen.queryByLabelText("Display draft")).toBeNull();
-    expect(screen.getByText(/Captain Profile/)).toBeTruthy();
+    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.trim() === "Captain Captain Live"))
+      .toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit teams" })).toBeNull();
   });
 });

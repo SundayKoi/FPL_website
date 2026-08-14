@@ -149,8 +149,8 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       imageUrl: team.image_url,
       bannerColor: team.banner_color ?? "#24324d",
       captainName:
-        profilesById.get(team.captain_profile_id ?? "") ??
         players.find((player) => player.team_id === team.id && player.acquisition === "captain")?.display_name ??
+        profilesById.get(team.captain_profile_id ?? "") ??
         "Unassigned",
       nominationPosition: team.nomination_position,
       pointsRemaining: team.points_remaining,

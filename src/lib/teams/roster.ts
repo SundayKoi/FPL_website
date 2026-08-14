@@ -40,7 +40,9 @@ export function toRosterTeams(
       imageUrl: team.image_url,
       bannerColor: normalizeBannerColor(team.banner_color),
       division: team.division ?? null,
-      captainName: profileNames.get(team.captain_profile_id ?? "") ?? captain?.display_name ?? "Unassigned",
+      // The profile id remains the auth/permissions link, but the roster's
+      // captain player is the public league identity shown on team pages.
+      captainName: captain?.display_name ?? profileNames.get(team.captain_profile_id ?? "") ?? "Unassigned",
       monogram: derivedMonogram,
       accentClass: accentClasses[teamIndex % accentClasses.length],
       players: ROLE_ORDER.map((role) => {

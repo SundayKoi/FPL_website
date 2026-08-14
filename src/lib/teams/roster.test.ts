@@ -46,7 +46,7 @@ describe("toRosterTeams", () => {
     expect(view.imageUrl).toBe("https://img.test/alpha");
     expect(view.bannerColor).toBe("#123456");
     expect(view.division).toBe("Lunari");
-    expect(view.captainName).toBe("Captain Profile");
+    expect(view.captainName).toBe("Roster Captain");
     expect(view.players).toHaveLength(5);
     expect(view.players.map((slot) => slot.role)).toEqual([
       "top",

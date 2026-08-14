@@ -68,7 +68,7 @@ describe("fetchPreseasonHomeData", () => {
       draftName: "Season 5 Draft",
       teams: [{
         name: "Alpha",
-        captainName: "Captain Alpha",
+        captainName: "Captain Player",
         pointsRemaining: 74,
         rosterCount: 2,
         draftedPlayers: [
