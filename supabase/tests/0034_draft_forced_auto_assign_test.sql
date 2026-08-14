@@ -19,7 +19,7 @@ update public.players set team_id = tm.id, price = 10, acquisition = 'auction'
     and ((public.players.display_name, tm.nomination_position) in
          (('Mid1', 1), ('Mid2', 2), ('Mid3', 3)));
 
-select public._auto_assign_forced((select d from t));
+select public._auto_assign_forced((select d from t), null);
 
 select is(
   (select tm.nomination_position from public.players p join public.teams tm on tm.id = p.team_id
@@ -52,7 +52,7 @@ update public.players set team_id = tm.id, price = 5, acquisition = 'auction'
     and ((public.players.display_name, tm.nomination_position) in
          (('Support1', 1), ('Support2', 2)));
 
-select public._auto_assign_forced((select d from t));
+select public._auto_assign_forced((select d from t), null);
 
 select ok(
   (select team_id from public.players
