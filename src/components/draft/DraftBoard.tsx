@@ -199,7 +199,7 @@ export default function DraftBoard({
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(false)}
-                  className="hidden rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold lg:absolute lg:right-0 lg:top-0 lg:block"
+                  className="hidden rounded border border-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gold hover:bg-gold/10 lg:absolute lg:right-0 lg:top-0 lg:block"
                 >
                   Open chat
                 </button>
