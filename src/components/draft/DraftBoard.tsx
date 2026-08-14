@@ -65,7 +65,7 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
+    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <DraftHeader draft={draft} connected={s.connected} />
 
       <NominationAlert
@@ -99,21 +99,28 @@ export default function DraftBoard({
           {draft.status === "complete" ? (
             <FinalRosters teams={teams} players={players} myTeamId={myTeam?.id ?? null} />
           ) : (
-            <div className="flex gap-4">
-              {myTeam && (
-                <aside className="hidden w-64 shrink-0 lg:block">
-                  <div className="sticky top-20">
-                    <TeamColumn
-                      team={myTeam}
-                      players={players}
-                      isNominator={draft.current_nominator_team_id === myTeam.id}
-                      isMyTeam
-                    />
+            <div className="grid gap-4 lg:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start">
+              <aside
+                aria-label="Draft teams"
+                className="order-4 lg:col-start-1 lg:row-span-2 lg:row-start-1"
+              >
+                <section className="lg:sticky lg:top-20">
+                  <h2 className="label-dash mb-2">TEAMS</h2>
+                  <div className="grid grid-cols-1 gap-3">
+                    {teams.map((team) => (
+                      <TeamColumn
+                        key={team.id}
+                        team={team}
+                        players={players}
+                        isNominator={team.id === draft.current_nominator_team_id}
+                        isMyTeam={myTeam?.id === team.id}
+                      />
+                    ))}
                   </div>
-                </aside>
-              )}
+                </section>
+              </aside>
 
-              <div className="min-w-0 flex-1 space-y-4">
+              <div className="order-1 min-w-0 space-y-4 lg:col-start-2 lg:row-start-1">
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr]">
                   <CenterStage
                     lot={openLot}
@@ -150,24 +157,19 @@ export default function DraftBoard({
                 )}
                 {adminControls}
 
-                <DraftChat draftId={draftId} profileId={s.profileId} isAdmin={s.isAdmin} />
+              </div>
 
+              <aside className="order-2 min-w-0 lg:col-start-3 lg:row-span-2 lg:row-start-1">
+                <DraftChat
+                  draftId={draftId}
+                  profileId={s.profileId}
+                  isAdmin={s.isAdmin}
+                  className="lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:overflow-hidden"
+                />
+              </aside>
+
+              <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
                 <PlayerPool players={players} teams={teams} />
-
-                <section>
-                  <h2 className="label-dash mb-2">TEAMS</h2>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {teams.map((team) => (
-                      <TeamColumn
-                        key={team.id}
-                        team={team}
-                        players={players}
-                        isNominator={team.id === draft.current_nominator_team_id}
-                        isMyTeam={myTeam?.id === team.id}
-                      />
-                    ))}
-                  </div>
-                </section>
               </div>
             </div>
           )}
