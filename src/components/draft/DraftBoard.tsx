@@ -32,6 +32,7 @@ export default function DraftBoard({
     s.offsetMs
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [collapseAllTeams, setCollapseAllTeams] = useState(false);
 
   if (!s.draft)
     return (
@@ -105,15 +106,25 @@ export default function DraftBoard({
                 className="order-4 lg:col-start-1 lg:row-span-2 lg:row-start-1"
               >
                 <section className="lg:sticky lg:top-20">
-                  <h2 className="label-dash mb-2">TEAMS</h2>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="label-dash">TEAMS</h2>
+                    <button
+                      type="button"
+                      onClick={() => setCollapseAllTeams((current) => !current)}
+                      className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+                    >
+                      {collapseAllTeams ? "Expand all" : "Collapse all"}
+                    </button>
+                  </div>
                   <div className="grid grid-cols-1 gap-3">
                     {teams.map((team) => (
                       <TeamColumn
-                        key={team.id}
+                        key={`${team.id}-${collapseAllTeams}`}
                         team={team}
                         players={players}
                         isNominator={team.id === draft.current_nominator_team_id}
                         isMyTeam={myTeam?.id === team.id}
+                        initialCollapsed={collapseAllTeams}
                       />
                     ))}
                   </div>
@@ -159,17 +170,17 @@ export default function DraftBoard({
 
               </div>
 
-              <aside className="order-2 min-w-0 lg:col-start-3 lg:row-span-2 lg:row-start-1">
+              <aside className="order-2 min-w-0 self-start lg:sticky lg:top-20 lg:col-start-3 lg:row-span-2 lg:row-start-1 lg:h-[calc(100vh-6rem)] lg:overflow-hidden">
                 <DraftChat
                   draftId={draftId}
                   profileId={s.profileId}
                   isAdmin={s.isAdmin}
-                  className="lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:overflow-hidden"
+                  className="h-full"
                 />
               </aside>
 
               <div className="order-3 min-w-0 lg:col-start-2 lg:row-start-2">
-                <PlayerPool players={players} teams={teams} />
+                <PlayerPool players={players} teams={teams} compact />
               </div>
             </div>
           )}

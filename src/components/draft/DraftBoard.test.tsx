@@ -95,6 +95,7 @@ describe("DraftBoard live layout", () => {
     render(<DraftBoard draftId="draft-1" />);
 
     expect(screen.getByRole("complementary", { name: "Draft teams" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Collapse all" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Draft chat" })).toBeTruthy();
     expect(screen.getByText("Alpha")).toBeTruthy();
     expect(screen.getByText("Bravo")).toBeTruthy();
