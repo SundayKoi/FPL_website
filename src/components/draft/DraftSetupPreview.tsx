@@ -43,6 +43,35 @@ export default function DraftSetupPreview({
         </div>
       </section>
 
+      <section aria-labelledby="preview-pool-title" className="card-brand p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <span className="label-dash">THE PLAYER POOL</span>
+            <h3 id="preview-pool-title" className="type-display mt-2 text-2xl text-white">Available players</h3>
+          </div>
+          <span className="text-xs uppercase tracking-wide text-steel">{availablePlayers.length} available</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {ROLE_ORDER.map((role) => {
+            const rolePlayers = availablePlayers.filter((player) => player.role === role);
+            return (
+              <section key={role} className="overflow-hidden rounded border border-line">
+                <h4 className="border-b border-line bg-navy px-3 py-2 text-xs font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[role]}</h4>
+                <ul className="divide-y divide-line/60">
+                  {rolePlayers.map((player) => (
+                    <li key={player.id} className="flex items-center justify-between gap-2 bg-panel px-3 py-2 text-xs">
+                      <span className="min-w-0 truncate font-semibold text-white">{player.display_name}</span>
+                      <span className="shrink-0 text-[10px] uppercase text-steel">{player.rank ?? "Unranked"}</span>
+                    </li>
+                  ))}
+                  {rolePlayers.length === 0 && <li className="bg-panel px-3 py-3 text-center text-[10px] text-steel">No players</li>}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      </section>
+
       <section aria-labelledby="preview-teams-title">
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
@@ -70,45 +99,29 @@ export default function DraftSetupPreview({
                   <span className="font-mono font-bold text-gold">{team.points_remaining} / {team.budget_start}</span>
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-1.5">
-                  {ROLE_ORDER.map((role) => (
-                    <li key={role} className="rounded border border-dashed border-line px-2 py-1.5 text-xs text-steel/70">
+                  {ROLE_ORDER.map((role) => {
+                    const rosterPlayer = players.find((player) => player.team_id === team.id && player.role === role);
+                    return (
+                    <li
+                      key={role}
+                      className={`rounded px-2 py-1.5 text-xs ${rosterPlayer ? "border border-line bg-navy/40 text-white" : "border border-dashed border-line text-steel/70"}`}
+                    >
                       <span className="uppercase tracking-wide">{ROLE_LABELS[role]}</span>
-                      <span className="ml-1 text-steel">—</span>
+                      {rosterPlayer ? (
+                        <span className="mt-1 flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate font-semibold">{rosterPlayer.display_name}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-gold">{rosterPlayer.price ?? 0}</span>
+                        </span>
+                      ) : (
+                        <span className="ml-1 text-steel">—</span>
+                      )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </div>
             </article>
           ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="preview-pool-title" className="card-brand p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <span className="label-dash">THE PLAYER POOL</span>
-            <h3 id="preview-pool-title" className="type-display mt-2 text-2xl text-white">Available players</h3>
-          </div>
-          <span className="text-xs uppercase tracking-wide text-steel">{availablePlayers.length} available</span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {ROLE_ORDER.map((role) => {
-            const rolePlayers = availablePlayers.filter((player) => player.role === role);
-            return (
-              <section key={role} className="overflow-hidden rounded border border-line">
-                <h4 className="border-b border-line bg-navy px-3 py-2 text-xs font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[role]}</h4>
-                <ul className="divide-y divide-line/60">
-                  {rolePlayers.map((player) => (
-                    <li key={player.id} className="flex items-center justify-between gap-2 bg-panel px-3 py-2 text-xs">
-                      <span className="min-w-0 truncate font-semibold text-white">{player.display_name}</span>
-                      <span className="shrink-0 text-[10px] uppercase text-steel">{player.rank ?? "Unranked"}</span>
-                    </li>
-                  ))}
-                  {rolePlayers.length === 0 && <li className="bg-panel px-3 py-3 text-center text-[10px] text-steel">No players</li>}
-                </ul>
-              </section>
-            );
-          })}
         </div>
       </section>
 

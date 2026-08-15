@@ -43,17 +43,35 @@ const player: Player = {
   acquisition: null,
 };
 
+const assignedPlayer: Player = {
+  ...player,
+  id: "player-assigned-top",
+  display_name: "Assigned Top",
+  team_id: team.id,
+  price: 0,
+  acquisition: "captain",
+};
+
 afterEach(cleanup);
 
 describe("DraftSetupPreview", () => {
   it("renders a read-only scheduled preview without draft controls", () => {
-    render(<DraftSetupPreview draft={setupDraft} teams={[team]} players={[player]} />);
+    render(<DraftSetupPreview draft={setupDraft} teams={[team]} players={[player, assignedPlayer]} />);
 
     expect(screen.getByText(/spectator preview/i)).toBeTruthy();
     expect(screen.getByText("Team Alpha")).toBeTruthy();
     expect(screen.getByText("#1 · ALP")).toBeTruthy();
     expect(screen.getByText("Top Prospect")).toBeTruthy();
     expect(screen.getByText("Diamond I")).toBeTruthy();
+    expect(screen.getByText("Assigned Top")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /bid|nominate/i })).toBeNull();
+  });
+
+  it("shows available players above the team cards", () => {
+    render(<DraftSetupPreview draft={setupDraft} teams={[team]} players={[player, assignedPlayer]} />);
+
+    const poolHeading = screen.getByRole("heading", { name: "Available players" });
+    const teamsHeading = screen.getByRole("heading", { name: "Draft order & budgets" });
+    expect(poolHeading.compareDocumentPosition(teamsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
