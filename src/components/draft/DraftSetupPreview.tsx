@@ -109,7 +109,10 @@ export default function DraftSetupPreview({
                       <span className="uppercase tracking-wide">{ROLE_LABELS[role]}</span>
                       {rosterPlayer ? (
                         <span className="mt-1 flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate font-semibold">{rosterPlayer.display_name}</span>
+                          <span className="min-w-0 truncate font-semibold">
+                            {rosterPlayer.display_name}
+                            <span className="ml-1 font-normal text-steel">· {rosterPlayer.rank ?? "Unranked"}</span>
+                          </span>
                           <span className="shrink-0 font-mono text-[10px] text-gold">{rosterPlayer.price ?? 0}</span>
                         </span>
                       ) : (

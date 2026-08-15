@@ -47,6 +47,7 @@ const assignedPlayer: Player = {
   ...player,
   id: "player-assigned-top",
   display_name: "Assigned Top",
+  rank: "Master I",
   team_id: team.id,
   price: 0,
   acquisition: "captain",
@@ -64,6 +65,7 @@ describe("DraftSetupPreview", () => {
     expect(screen.getByText("Top Prospect")).toBeTruthy();
     expect(screen.getByText("Diamond I")).toBeTruthy();
     expect(screen.getByText("Assigned Top")).toBeTruthy();
+    expect(screen.getByText(/Master I/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /bid|nominate/i })).toBeNull();
   });
 
