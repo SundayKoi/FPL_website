@@ -16,6 +16,7 @@ const draft: Draft = {
 // so the cap is 60 - 2 = 58.
 const team: Team = {
   id: "t1", draft_id: "d1", name: "Alpha", captain_profile_id: "me", abbreviation: "AL",
+  captain_profile_id_2: null,
   image_url: null, banner_color: null, division: null, nomination_position: 1,
   budget_start: 100, points_remaining: 60,
 };
