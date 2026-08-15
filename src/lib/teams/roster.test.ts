@@ -11,6 +11,7 @@ const team: Team = {
   banner_color: "#123456",
   division: "Lunari",
   captain_profile_id: "profile-1",
+  captain_profile_id_2: null,
   nomination_position: 1,
   budget_start: 100,
   points_remaining: 80,

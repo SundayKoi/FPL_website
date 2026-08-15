@@ -284,6 +284,21 @@ describe("TeamEditor", () => {
     expect(within(secondCaptainSelect).getByRole("option", { name: "Secondary" })).toBeTruthy();
   });
 
+  it("renders a captain selector that excludes the selected second captain", () => {
+    render(
+      <TeamEditor
+        {...props}
+        teams={[{ ...team, captain_profile_id_2: "profile-secondary" }]}
+        profiles={profiles}
+      />
+    );
+
+    const captainSelect = screen.getByLabelText("Captain");
+    expect(captainSelect).toBeTruthy();
+    expect(within(captainSelect).getByRole("option", { name: "Primary" })).toBeTruthy();
+    expect(within(captainSelect).queryByRole("option", { name: "Secondary" })).toBeNull();
+  });
+
   it("assigns a second captain through the existing team update flow", async () => {
     render(
       <TeamEditor
