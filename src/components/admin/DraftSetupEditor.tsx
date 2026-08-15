@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { errCode, errMessage, type Draft, type Player, type Profile, type Team } from "@/lib/draft/types";
 import TeamEditor from "./TeamEditor";
 import PlayerPoolEditor from "./PlayerPoolEditor";
+import DraftScheduleEditor from "./DraftScheduleEditor";
 
 export default function DraftSetupEditor({
   draft: initialDraft,
@@ -65,6 +66,7 @@ export default function DraftSetupEditor({
 
   return (
     <div className="flex flex-col gap-8">
+      <DraftScheduleEditor draft={draft} onSaved={(startsAt) => setDraft((current) => ({ ...current, starts_at: startsAt }))} />
       <TeamEditor draftId={draft.id} teams={teams} players={players} profiles={profiles} onChanged={refetch} />
       <PlayerPoolEditor draftId={draft.id} players={players} onChanged={refetch} />
 
