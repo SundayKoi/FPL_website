@@ -64,8 +64,40 @@ describe("AdminForceNominate", () => {
       expect(rpc).toHaveBeenCalledWith("admin_nominate", {
         p_draft_id: "d1",
         p_player_id: "free-mid",
+        // Blank field means the round minimum, which the RPC resolves itself.
+        p_opening_bid: null,
       })
     );
+  });
+
+  it("forces a nomination above the round minimum when an amount is given", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<AdminForceNominate {...props} />);
+
+    fireEvent.change(screen.getByLabelText("Player"), { target: { value: "free-mid" } });
+    fireEvent.change(screen.getByLabelText("Opening bid"), { target: { value: "30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nominate for Alpha" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("admin_nominate", {
+        p_draft_id: "d1",
+        p_player_id: "free-mid",
+        p_opening_bid: 30,
+      })
+    );
+  });
+
+  it("rejects a non-numeric amount before calling the RPC", () => {
+    render(<AdminForceNominate {...props} />);
+
+    fireEvent.change(screen.getByLabelText("Player"), { target: { value: "free-mid" } });
+    fireEvent.change(screen.getByLabelText("Opening bid"), { target: { value: "lots" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nominate for Alpha" }));
+
+    expect(onError).toHaveBeenCalledWith(
+      "Enter a whole number of points, or leave it blank for the minimum"
+    );
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("does nothing when the confirmation is declined", () => {

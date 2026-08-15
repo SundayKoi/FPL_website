@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { nominateBlockReason, openRoles } from "@/lib/draft/derive";
+import { maxBid, nominateBlockReason, openRoles } from "@/lib/draft/derive";
 import { errCode, ROLE_ORDER, type Draft, type LolRole, type Player, type Team } from "@/lib/draft/types";
 import { friendly } from "./Toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -21,10 +21,14 @@ export default function NominationPicker({
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<LolRole | null>(null);
   const [pending, setPending] = useState<Player | null>(null);
+  // String, not number: a numeric input bound to a number forces a leading zero
+  // the moment the field is cleared.
+  const [opening, setOpening] = useState("");
 
   const roles = openRoles(team.id, players);
   const minimum =
     draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1] ?? 0;
+  const cap = maxBid(team, players);
 
   const available = players
     .filter((p) => !p.team_id)
@@ -38,12 +42,24 @@ export default function NominationPicker({
   const requestNominate = (player: Player) => {
     const blocked = nominateBlockReason(team, player, draft, players);
     if (blocked) return onError(blocked);
+    setOpening(String(minimum));
     setPending(player);
   };
 
   const nominate = async (player: Player) => {
+    // Kept in sync with the server, which rejects below the round minimum and
+    // above the same cap that limits any bid.
+    if (!/^\d+$/.test(opening)) return onError("Enter a whole number of points");
+    const amount = Number(opening);
+    if (amount < minimum) return onError(`Round ${draft.current_round} opens at ${minimum} or more`);
+    if (amount > cap) return onError(`Your max is ${cap}`);
+
     setPending(null);
-    const { error } = await supabase.rpc("nominate", { p_draft_id: draft.id, p_player_id: player.id });
+    const { error } = await supabase.rpc("nominate", {
+      p_draft_id: draft.id,
+      p_player_id: player.id,
+      p_opening_bid: amount,
+    });
     if (error) onError(friendly(errCode(error)));
   };
 
@@ -142,9 +158,20 @@ export default function NominationPicker({
             <span className="uppercase">{pending.role}</span>
             {pending.rank ? ` · ${pending.rank}` : ""}
           </p>
-          <p className="mt-3 text-sm">
-            You open the bidding at{" "}
-            <span className="font-display font-bold not-italic text-gold">{minimum}</span> points.
+          <label className="mt-4 flex items-center justify-center gap-2 text-sm text-steel">
+            Open the bidding at
+            <input
+              type="text"
+              inputMode="numeric"
+              value={opening}
+              onChange={(e) => setOpening(e.target.value)}
+              aria-label="Opening bid"
+              className="w-20 rounded border border-line bg-navy px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-gold focus:outline-none"
+            />
+            points
+          </label>
+          <p className="mt-1 text-xs text-steel">
+            minimum {minimum} · your max {cap}
           </p>
         </ConfirmDialog>
       )}

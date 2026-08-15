@@ -3,12 +3,12 @@ create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
 select plan(12);
 
-select ok(not has_function_privilege('anon', 'public.admin_nominate(uuid,uuid)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.admin_nominate(uuid,uuid,integer)', 'execute'),
           'anon cannot force a nomination');
-select ok(has_function_privilege('authenticated', 'public.admin_nominate(uuid,uuid)', 'execute'),
+select ok(has_function_privilege('authenticated', 'public.admin_nominate(uuid,uuid,integer)', 'execute'),
           'authenticated callers may reach the admin-gated RPC');
 select ok(not has_function_privilege('authenticated',
-          'public._open_nomination(uuid,uuid,uuid)', 'execute'),
+          'public._open_nomination(uuid,uuid,uuid,integer)', 'execute'),
           'the shared nomination body is not client-callable');
 
 create temporary table t as select tests.fixture() as d;

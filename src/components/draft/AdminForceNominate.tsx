@@ -20,7 +20,11 @@ export default function AdminForceNominate({
 }) {
   const supabase = createClient();
   const [playerId, setPlayerId] = useState("");
+  const [opening, setOpening] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const minimum =
+    draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1] ?? 0;
 
   // Only players this team could legally take — the RPC enforces the same rule,
   // this just keeps the list honest.
@@ -33,15 +37,23 @@ export default function AdminForceNominate({
     if (!playerId || busy) return;
     const player = available.find((p) => p.id === playerId);
     if (!player) return;
+    // Blank means the round minimum, matching the RPC's default.
+    if (opening !== "" && !/^\d+$/.test(opening)) {
+      onError("Enter a whole number of points, or leave it blank for the minimum");
+      return;
+    }
+    const amount = opening === "" ? null : Number(opening);
     if (
       !confirm(
-        `Nominate ${player.display_name} for ${nominatorTeam.name}? The auction opens as if they had nominated.`
+        `Nominate ${player.display_name} for ${nominatorTeam.name} at ${amount ?? minimum} points? ` +
+          `The auction opens as if they had nominated.`
       )
     ) return;
     setBusy(true);
     const { error } = await supabase.rpc("admin_nominate", {
       p_draft_id: draft.id,
       p_player_id: playerId,
+      p_opening_bid: amount,
     });
     setBusy(false);
     if (error) {
@@ -73,6 +85,19 @@ export default function AdminForceNominate({
               </option>
             ))}
           </select>
+        </label>
+        <label className="flex items-center gap-1 text-xs text-steel">
+          Opens at
+          <input
+            type="text"
+            inputMode="numeric"
+            value={opening}
+            onChange={(e) => setOpening(e.target.value)}
+            placeholder={String(minimum)}
+            aria-label="Opening bid"
+            disabled={busy}
+            className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
+          />
         </label>
         <button
           type="button"
