@@ -14,6 +14,39 @@ function normalizePlayerName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+type ParsedRank = {
+  priority: number;
+  division: number;
+};
+
+function parseRank(rank: string | null): ParsedRank {
+  if (!rank) return { priority: 0, division: Number.POSITIVE_INFINITY };
+
+  const match = rank.trim().toUpperCase().match(/^([MDE])(\d+)$/);
+  if (!match) return { priority: 0, division: Number.POSITIVE_INFINITY };
+
+  const tierPriority = { M: 3, D: 2, E: 1 } as const;
+  return {
+    priority: tierPriority[match[1] as keyof typeof tierPriority],
+    division: Number(match[2]),
+  };
+}
+
+export function comparePlayerRanks(left: string | null, right: string | null) {
+  const leftRank = parseRank(left);
+  const rightRank = parseRank(right);
+
+  if (leftRank.priority !== rightRank.priority) {
+    return rightRank.priority - leftRank.priority;
+  }
+
+  if (leftRank.division !== rightRank.division) {
+    return leftRank.division - rightRank.division;
+  }
+
+  return 0;
+}
+
 export function resolvePlayerRank(
   player: PlayerRankSource,
   canonicalPlayers: CanonicalPlayerMetadata[],
