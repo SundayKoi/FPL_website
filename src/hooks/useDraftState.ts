@@ -90,7 +90,11 @@ export function useDraftState(draftId: string) {
 
   const openLot = useMemo(() => lots.find((l) => l.status === "open") ?? null, [lots]);
   const myTeam = useMemo(
-    () => (profileId ? teams.find((t) => t.captain_profile_id === profileId) ?? null : null),
+    () => (
+      profileId
+        ? teams.find((t) => t.captain_profile_id === profileId || t.captain_profile_id_2 === profileId) ?? null
+        : null
+    ),
     [teams, profileId]
   );
 
