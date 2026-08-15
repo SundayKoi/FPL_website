@@ -89,9 +89,10 @@ describe("DraftChat", () => {
 
     // 🗣️ carries a variation selector and 🇮🇱 is a regional-indicator pair, so
     // both are easy to mangle when the list is edited.
-    for (const emoji of ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱"]) {
+    for (const emoji of ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱", "🔥", "💀", "😭", "👎"]) {
       expect(await screen.findByRole("button", { name: `Add ${emoji}` })).toBeTruthy();
     }
+    expect(screen.getByRole("button", { name: "Add 🔥" }).parentElement?.className).toContain("flex-wrap");
   });
 
   it("surfaces the rate-limit error as friendly copy", async () => {

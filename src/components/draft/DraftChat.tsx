@@ -11,7 +11,7 @@ type ChatRow = {
 };
 
 // The set the league actually reacts with on Discord.
-const QUICK_EMOJI = ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱"] as const;
+const QUICK_EMOJI = ["♿", "🫃", "🗣️", "💣", "❓", "🤡", "🇮🇱", "🔥", "💀", "😭", "👎"] as const;
 
 function friendlyChatError(message: string): string {
   if (message.includes("TOO_FAST")) return "Slow down a little — one message every couple of seconds.";
@@ -184,7 +184,7 @@ export default function DraftChat({
 
       {profileId ? (
         <div className="border-t border-line p-3">
-          <div className="mb-2 flex gap-1">
+          <div className="mb-2 flex flex-wrap gap-1">
             {QUICK_EMOJI.map((emoji) => (
               <button
                 key={emoji}
