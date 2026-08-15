@@ -21,6 +21,7 @@ const team: Team = {
   draft_id: setupDraft.id,
   name: "Team Alpha",
   captain_profile_id: "profile-a",
+  captain_profile_id_2: null,
   abbreviation: "ALP",
   image_url: null,
   banner_color: "#f0b429",
@@ -67,6 +68,33 @@ describe("DraftSetupPreview", () => {
     expect(screen.getByText("Assigned Top")).toBeTruthy();
     expect(screen.getByText(/Master I/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /bid|nominate/i })).toBeNull();
+  });
+
+  it("shows both primary and second-captain setup indicators when the second captain is assigned", () => {
+    render(
+      <DraftSetupPreview
+        draft={setupDraft}
+        teams={[{ ...team, captain_profile_id_2: "profile-b" }]}
+        players={[player, assignedPlayer]}
+      />
+    );
+
+    expect(screen.getByText("Captain assigned")).toBeTruthy();
+    expect(screen.getByText("Second captain assigned")).toBeTruthy();
+    expect(screen.queryByText(/profile-b/i)).toBeNull();
+  });
+
+  it("keeps the pending primary-captain status when no primary captain is assigned", () => {
+    render(
+      <DraftSetupPreview
+        draft={setupDraft}
+        teams={[{ ...team, captain_profile_id: null, captain_profile_id_2: null }]}
+        players={[player, assignedPlayer]}
+      />
+    );
+
+    expect(screen.getByText("Captain pending")).toBeTruthy();
+    expect(screen.queryByText("Second captain assigned")).toBeNull();
   });
 
   it("shows available players above the team cards", () => {

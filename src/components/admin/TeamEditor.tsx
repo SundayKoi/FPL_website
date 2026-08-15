@@ -199,6 +199,7 @@ export default function TeamEditor({
               p.team_id === null &&
               !prefills.some((prefill) => prefill.role === p.role)
           );
+          const secondCaptainOptions = profiles.filter((profile) => profile.id !== team.captain_profile_id);
           return (
             <div
               key={team.id}
@@ -292,6 +293,23 @@ export default function TeamEditor({
                     {profiles.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1 text-xs text-steel">
+                  Second captain
+                  <select
+                    value={team.captain_profile_id_2 ?? ""}
+                    onChange={(e) =>
+                      updateTeam(team, { captain_profile_id_2: e.target.value || null })
+                    }
+                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                  >
+                    <option value="">— none —</option>
+                    {secondCaptainOptions.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.display_name}
                       </option>
                     ))}
                   </select>

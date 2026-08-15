@@ -98,6 +98,11 @@ export default function DraftSetupPreview({
                   <div>
                     <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position} · {team.abbreviation}</span>
                     <h4 className="mt-1 text-lg font-semibold text-white">{team.name}</h4>
+                    {team.captain_profile_id_2 && (
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-cyan">
+                        Second captain assigned
+                      </p>
+                    )}
                   </div>
                   <span className="rounded-full border border-cyan/40 bg-cyan/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan">
                     {team.captain_profile_id ? "Captain assigned" : "Captain pending"}
