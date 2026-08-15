@@ -44,7 +44,7 @@ Use `supabase/migrations/` for the new timestamped migration, `supabase/tests/` 
 ### Task 2: Add the second-captain schema and database authorization
 
 **Files:**
-- Create: `supabase/migrations/20260815000006_optional_second_draft_captain.sql`
+- Create: `supabase/migrations/20260818000001_optional_second_draft_captain.sql`
 - Create: `supabase/tests/0039_optional_second_draft_captain_test.sql`
 
 **Interfaces:**
@@ -114,7 +114,7 @@ Expected: optional assignment, duplicate rejection, second-captain `caller_team`
 - [ ] **Step 5: Commit the database change.**
 
 ```bash
-git add supabase/migrations/20260815000006_optional_second_draft_captain.sql supabase/tests/0039_optional_second_draft_captain_test.sql
+git add supabase/migrations/20260818000001_optional_second_draft_captain.sql supabase/tests/0039_optional_second_draft_captain_test.sql
 git commit -m "feat: authorize optional second draft captains"
 ```
 
@@ -252,6 +252,6 @@ Verify that:
 - [ ] **Step 7: Commit any final verified fixes separately.**
 
 ```bash
-git add supabase/migrations/20260815000006_optional_second_draft_captain.sql supabase/tests/0039_optional_second_draft_captain_test.sql src/lib/draft/types.ts src/hooks/useDraftState.ts src/hooks/useDraftState.test.ts src/components/admin/TeamEditor.tsx src/components/admin/TeamEditor.test.tsx src/components/draft/DraftSetupPreview.tsx src/components/draft/DraftSetupPreview.test.tsx
+git add supabase/migrations/20260818000001_optional_second_draft_captain.sql supabase/tests/0039_optional_second_draft_captain_test.sql src/lib/draft/types.ts src/hooks/useDraftState.ts src/hooks/useDraftState.test.ts src/components/admin/TeamEditor.tsx src/components/admin/TeamEditor.test.tsx src/components/draft/DraftSetupPreview.tsx src/components/draft/DraftSetupPreview.test.tsx
 git commit -m "fix: address second captain verification findings"
 ```
