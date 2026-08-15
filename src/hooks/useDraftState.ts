@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchServerOffset, remainingMs } from "@/lib/time";
+import { removeRow, upsertRow } from "@/lib/draft/realtimeRows";
 import type { Bid, Draft, Lot, Player, Team } from "@/lib/draft/types";
 
 export function useDraftState(draftId: string) {
@@ -48,13 +49,7 @@ export function useDraftState(draftId: string) {
     });
     fetchServerOffset(supabase).then(setOffsetMs);
 
-    // Realtime DELETE payloads carry an empty `new`, so `row.id` would be
-    // undefined; skip those instead of upserting a corrupt row into state.
-    const upsert = <T extends { id: unknown }>(rows: T[], row: T) => {
-      if (row.id == null) return rows;
-      const i = rows.findIndex((r) => r.id === row.id);
-      return i === -1 ? [...rows, row] : rows.map((r, j) => (j === i ? row : r));
-    };
+    const upsert = upsertRow;
     const channel = supabase
       .channel(`draft:${draftId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "drafts", filter: `id=eq.${draftId}` },
@@ -67,6 +62,18 @@ export function useDraftState(draftId: string) {
         (m) => setLots((cur) => upsert(cur, m.new as Lot)))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "bids" },
         (m) => setBids((cur) => upsert(cur, m.new as Bid)))
+      // DELETEs need their own handlers, and unfiltered ones. Postgres sends
+      // only the primary key in a DELETE's old record, so a `draft_id=eq.`
+      // filter can never match and the event above is dropped — which is why a
+      // deleted player used to linger on every board that was already open
+      // while fresh loads never saw them. Removing by id is safe unfiltered:
+      // ids are UUIDs, so another draft's id is simply absent from state.
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "players" },
+        (m) => setPlayers((cur) => removeRow(cur, m.old as { id?: string })))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "teams" },
+        (m) => setTeams((cur) => removeRow(cur, m.old as { id?: string })))
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "lots" },
+        (m) => setLots((cur) => removeRow(cur, m.old as { id?: string })))
       .subscribe((status) => {
         const ok = status === "SUBSCRIBED";
         setConnected(ok);
