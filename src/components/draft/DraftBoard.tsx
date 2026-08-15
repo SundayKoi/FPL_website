@@ -18,6 +18,7 @@ import AdminStrip from "./AdminStrip";
 import DraftChat from "./DraftChat";
 import NominationAlert from "./NominationAlert";
 import Toast from "./Toast";
+import DraftSetupPreview from "./DraftSetupPreview";
 
 export default function DraftBoard({
   draftId,
@@ -94,10 +95,7 @@ export default function DraftBoard({
       )}
 
       {draft.status === "setup" ? (
-        <section className="card-brand flex flex-1 flex-col items-center justify-center gap-2 p-16 text-center">
-          <p className="type-display text-2xl text-white">Draft hasn&apos;t started</p>
-          <p className="text-sm text-steel">Check back once the admin goes live.</p>
-        </section>
+        <DraftSetupPreview draft={draft} teams={teams} players={players} />
       ) : (
         <>
           {draft.status === "paused" && (

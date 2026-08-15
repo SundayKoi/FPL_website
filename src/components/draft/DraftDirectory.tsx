@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type { Draft } from "@/lib/draft/types";
+import UpcomingDraftCard from "./UpcomingDraftCard";
 
 export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
+  const upcomingDrafts = drafts
+    .filter((draft) => draft.status === "setup" && draft.starts_at)
+    .sort((left, right) => new Date(left.starts_at!).getTime() - new Date(right.starts_at!).getTime());
+
   return (
     <main className="bg-hash flex-1">
       <section
@@ -15,7 +20,7 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
               Draft Central
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-steel">
-              Follow active boards and revisit every completed draft.
+              Get ready for the next room, follow active boards, and revisit every completed draft.
             </p>
           </div>
           <Link
@@ -26,10 +31,29 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
           </Link>
         </div>
 
+        {upcomingDrafts.length > 0 && (
+          <section aria-labelledby="upcoming-drafts-title" className="mb-8">
+            <div className="mb-4">
+              <span className="label-dash text-gold">THE NEXT ROOMS</span>
+              <h2 id="upcoming-drafts-title" className="type-display mt-2 text-3xl sm:text-4xl">
+                Countdown to draft night
+              </h2>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {upcomingDrafts.map((draft) => <UpcomingDraftCard key={draft.id} draft={draft} />)}
+            </div>
+          </section>
+        )}
+
         {drafts.length === 0 ? (
           <p className="text-sm text-steel">No drafts yet.</p>
         ) : (
-          <ul className="grid gap-4 md:grid-cols-2">
+          <section aria-labelledby="all-drafts-title">
+            <div className="mb-4">
+              <span className="label-dash">DRAFT ARCHIVE</span>
+              <h2 id="all-drafts-title" className="type-display mt-2 text-3xl sm:text-4xl">All drafts</h2>
+            </div>
+            <ul className="grid gap-4 md:grid-cols-2">
             {drafts.map((draft) => (
               <li key={draft.id}>
                 <Link
@@ -44,7 +68,8 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
                 </Link>
               </li>
             ))}
-          </ul>
+            </ul>
+          </section>
         )}
       </section>
     </main>

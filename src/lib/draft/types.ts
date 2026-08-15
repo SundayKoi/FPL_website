@@ -15,7 +15,7 @@ export interface Draft {
   id: string; name: string; status: DraftStatus; countdown_seconds: number;
   round_minimums: number[]; current_round: number;
   current_nominator_team_id: string | null; paused_time_remaining: string | null;
-  created_at: string;
+  created_at: string; starts_at?: string | null;
 }
 export interface Team {
   id: string; draft_id: string; name: string; captain_profile_id: string | null;
