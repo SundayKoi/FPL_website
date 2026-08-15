@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errCode, type Draft, type Lot, type Player, type Team } from "@/lib/draft/types";
 import AdminAssignmentPanel from "./AdminAssignmentPanel";
+import AdminForceNominate from "./AdminForceNominate";
 import { friendly } from "./Toast";
 
 export default function AdminStrip({
@@ -38,6 +39,7 @@ export default function AdminStrip({
   const isPaused = draft.status === "paused";
   const isLive = draft.status === "live";
   const isComplete = draft.status === "complete";
+  const nominatorTeam = teams.find((t) => t.id === draft.current_nominator_team_id) ?? null;
 
   // The server undoes the sale with the highest sale_action_sequence; match it
   // exactly so the prompt cannot name the wrong players.
@@ -148,6 +150,15 @@ export default function AdminStrip({
             Save
           </button>
         </div>
+      )}
+
+      {isLive && !openLot && nominatorTeam && (
+        <AdminForceNominate
+          draft={draft}
+          nominatorTeam={nominatorTeam}
+          players={players}
+          onError={onError}
+        />
       )}
 
       {!isComplete && (
