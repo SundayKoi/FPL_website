@@ -9,6 +9,44 @@ alter table public.teams
   add constraint teams_distinct_captains
   check (captain_profile_id_2 is null or captain_profile_id_2 <> captain_profile_id);
 
+create or replace function public.teams_enforce_captain_uniqueness() returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_conflict_profile uuid;
+begin
+  select captain_profile
+    into v_conflict_profile
+  from (
+    values (new.captain_profile_id), (new.captain_profile_id_2)
+  ) as proposed(captain_profile)
+  where captain_profile is not null
+    and exists (
+      select 1
+      from public.teams t
+      where t.draft_id = new.draft_id
+        and t.id <> new.id
+        and (
+          t.captain_profile_id = proposed.captain_profile
+          or t.captain_profile_id_2 = proposed.captain_profile
+        )
+    )
+  limit 1;
+
+  if v_conflict_profile is not null then
+    raise exception 'CAPTAIN_CONFLICT: captain profile is already assigned to another team in this draft';
+  end if;
+
+  return new;
+end $$;
+
+create trigger teams_enforce_captain_uniqueness
+before insert or update of draft_id, captain_profile_id, captain_profile_id_2
+on public.teams
+for each row
+execute function public.teams_enforce_captain_uniqueness();
+
 create or replace function public.caller_team(p_draft_id uuid) returns public.teams
 language plpgsql stable security definer set search_path = public as $$
 declare v_team public.teams;

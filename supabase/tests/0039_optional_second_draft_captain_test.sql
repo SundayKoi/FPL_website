@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
 
-select plan(10);
+select plan(11);
 
 insert into public.profiles (id, display_name)
 values
@@ -36,6 +36,17 @@ select throws_ok($$ update public.teams
               order by nomination_position
               limit 1)
 $$, '23514', null, 'primary and second captain cannot be the same profile');
+
+select throws_like($$ update public.teams
+  set captain_profile_id_2 = (select captain_profile_id from public.teams
+                              where draft_id = (select d from t)
+                              order by nomination_position
+                              limit 1)
+  where id = (select id from public.teams
+              where draft_id = (select d from t)
+              order by nomination_position
+              offset 1 limit 1)
+$$, 'CAPTAIN_CONFLICT:%', 'a primary captain cannot also be a second captain on another team in the same draft');
 
 select lives_ok($$ select tests.acting_as((select id from public.profiles where display_name = 'Second')) $$,
   'second captain can authenticate');
