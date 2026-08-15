@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ROLE_ORDER, type Draft, type Player, type Team } from "@/lib/draft/types";
+import { comparePlayerRanks } from "@/lib/draft/playerMetadata";
 import DraftScheduleCountdown from "./DraftScheduleCountdown";
 
 const ROLE_LABELS = {
@@ -53,7 +54,15 @@ export default function DraftSetupPreview({
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {ROLE_ORDER.map((role) => {
-            const rolePlayers = availablePlayers.filter((player) => player.role === role);
+            const rolePlayers = availablePlayers
+              .filter((player) => player.role === role)
+              .slice()
+              .sort((left, right) => {
+                const rankOrder = comparePlayerRanks(left.rank, right.rank);
+                if (rankOrder !== 0) return rankOrder;
+
+                return left.display_name.toLowerCase().localeCompare(right.display_name.toLowerCase());
+              });
             return (
               <section key={role} className="overflow-hidden rounded border border-line">
                 <h4 className="border-b border-line bg-navy px-3 py-2 text-xs font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[role]}</h4>

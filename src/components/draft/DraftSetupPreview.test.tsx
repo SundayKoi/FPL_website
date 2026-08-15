@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Draft, Player, Team } from "@/lib/draft/types";
 import DraftSetupPreview from "./DraftSetupPreview";
@@ -75,5 +75,81 @@ describe("DraftSetupPreview", () => {
     const poolHeading = screen.getByRole("heading", { name: "Available players" });
     const teamsHeading = screen.getByRole("heading", { name: "Draft order & budgets" });
     expect(poolHeading.compareDocumentPosition(teamsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("sorts each role column by rank with unranked players last", () => {
+    const emeraldTop: Player = {
+      ...player,
+      id: "player-top-emerald",
+      display_name: "Emerald Entry",
+      rank: "E1",
+    };
+    const diamondTwoTop: Player = {
+      ...player,
+      id: "player-top-diamond-two",
+      display_name: "Diamond Two",
+      rank: "D2",
+    };
+    const diamondOneTop: Player = {
+      ...player,
+      id: "player-top-diamond-one",
+      display_name: "Diamond One",
+      rank: "D1",
+    };
+    const unrankedTop: Player = {
+      ...player,
+      id: "player-top-unranked",
+      display_name: "Unranked Prospect",
+      rank: null,
+    };
+
+    render(
+      <DraftSetupPreview
+        draft={setupDraft}
+        teams={[team]}
+        players={[emeraldTop, diamondTwoTop, unrankedTop, diamondOneTop, assignedPlayer]}
+      />,
+    );
+
+    const topColumn = screen.getByRole("heading", { name: "Top" }).closest("section");
+    const rows = within(topColumn as HTMLElement).getAllByRole("listitem");
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "Diamond OneD1",
+      "Diamond TwoD2",
+      "Emerald EntryE1",
+      "Unranked ProspectUnranked",
+    ]);
+  });
+
+  it("breaks equal ranks alphabetically by display name", () => {
+    const zuluTop: Player = {
+      ...player,
+      id: "player-top-zulu",
+      display_name: "Zulu Top",
+      rank: "D1",
+    };
+    const alphaTop: Player = {
+      ...player,
+      id: "player-top-alpha",
+      display_name: "Alpha Top",
+      rank: "D1",
+    };
+
+    render(
+      <DraftSetupPreview
+        draft={setupDraft}
+        teams={[team]}
+        players={[zuluTop, alphaTop, assignedPlayer]}
+      />,
+    );
+
+    const topColumn = screen.getByRole("heading", { name: "Top" }).closest("section");
+    const rows = within(topColumn as HTMLElement).getAllByRole("listitem");
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      "Alpha TopD1",
+      "Zulu TopD1",
+    ]);
   });
 });
