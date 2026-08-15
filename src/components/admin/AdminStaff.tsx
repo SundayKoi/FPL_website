@@ -1,0 +1,118 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { errMessage } from "@/lib/draft/types";
+
+export interface StaffProfile {
+  id: string;
+  display_name: string;
+  is_admin: boolean;
+  is_owner: boolean;
+}
+
+/** Owner-only staff management. Owners grant and revoke admin; admins have
+ *  every other admin power but never reach this panel, and the RPC refuses
+ *  them anyway. Owners are seeded in the database and cannot be changed here,
+ *  which is what makes escalation unreachable from the site. */
+export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
+  const supabase = createClient();
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  const setAdmin = async (profile: StaffProfile, next: boolean) => {
+    if (busy) return;
+    if (
+      !next &&
+      !confirm(`Remove admin access from ${profile.display_name}?`)
+    ) return;
+    setBusy(profile.id);
+    setErr(null);
+    const { error } = await supabase.rpc("set_profile_admin", {
+      p_profile_id: profile.id,
+      p_is_admin: next,
+    });
+    setBusy(null);
+    if (error) {
+      setErr(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      return;
+    }
+    router.refresh();
+  };
+
+  const needle = query.trim().toLowerCase();
+  // Every Discord sign-in creates a profile, so the list gets long fast:
+  // show staff always, and everyone else only once searched for.
+  const staff = profiles.filter((p) => p.is_owner || p.is_admin);
+  const matches = needle
+    ? profiles.filter(
+        (p) => !p.is_owner && !p.is_admin && p.display_name.toLowerCase().includes(needle)
+      )
+    : [];
+
+  const row = (p: StaffProfile) => (
+    <li
+      key={p.id}
+      className="flex items-center justify-between gap-3 rounded border border-line bg-navy/40 px-3 py-2 text-sm"
+    >
+      <span className="min-w-0 truncate text-white">
+        {p.display_name}
+        {p.is_owner && (
+          <span className="ml-2 rounded border border-gold/60 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold">
+            Owner
+          </span>
+        )}
+      </span>
+      {p.is_owner ? (
+        <span className="shrink-0 text-xs text-steel">Managed in the database</span>
+      ) : (
+        <button
+          type="button"
+          disabled={busy !== null}
+          onClick={() => setAdmin(p, !p.is_admin)}
+          aria-label={`${p.is_admin ? "Remove admin from" : "Make admin"} ${p.display_name}`}
+          className={`shrink-0 rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
+            p.is_admin
+              ? "border border-red-500/60 text-red-400"
+              : "bg-gold text-navy hover:brightness-110"
+          }`}
+        >
+          {p.is_admin ? "Remove admin" : "Make admin"}
+        </button>
+      )}
+    </li>
+  );
+
+  return (
+    <section className="card-brand flex flex-col gap-3 p-4">
+      <div>
+        <h2 className="label-dash">Staff</h2>
+        <p className="mt-1 text-xs text-steel">
+          Owners can grant and revoke admin. Admins cannot change anyone&apos;s access.
+        </p>
+      </div>
+      {err && <p className="text-sm text-red-400">{err}</p>}
+
+      <ul className="flex flex-col gap-1">{staff.map(row)}</ul>
+
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Add someone
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name…"
+          aria-label="Search people"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+        />
+      </label>
+      {needle && (
+        <ul className="flex flex-col gap-1">
+          {matches.map(row)}
+          {matches.length === 0 && <li className="text-sm text-steel">Nobody matches that.</li>}
+        </ul>
+      )}
+    </section>
+  );
+}

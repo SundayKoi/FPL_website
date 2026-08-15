@@ -4,6 +4,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
+import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
 import type { HomepageMode } from "@/lib/home/seasonState";
 
 /**
@@ -19,10 +20,24 @@ export default async function AdminPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, is_owner")
     .eq("id", userData.user.id)
     .single();
   if (!profile?.is_admin) redirect("/");
+
+  // Owners see the staff panel. This gate is presentation only — set_profile_admin
+  // re-checks ownership server-side, so an admin who forges their way here can
+  // still change nothing.
+  const staffProfiles = profile.is_owner
+    ? (
+        (
+          await supabase
+            .from("profiles")
+            .select("id, display_name, is_admin, is_owner")
+            .order("display_name")
+        ).data as StaffProfile[]
+      ) ?? []
+    : [];
 
   const [draftsResult, settingsResult, signupCountResult, fixtureCountResult] = await Promise.all([
     supabase.from("drafts").select("*").order("created_at", { ascending: false }),
@@ -117,6 +132,8 @@ export default async function AdminPage() {
         <h2 className="type-display text-2xl">Drafts</h2>
         <DraftListClient initialDrafts={drafts} />
       </section>
+
+      {profile.is_owner && <AdminStaff profiles={staffProfiles} />}
     </main>
   );
 }
