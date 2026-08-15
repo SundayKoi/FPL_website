@@ -15,7 +15,7 @@ describe("homepage season state", () => {
   });
 
   it("exposes the published draft and first-game event times", () => {
-    expect(DRAFT_DAY_AT).toBe("2026-08-15T20:00:00-05:00");
+    expect(DRAFT_DAY_AT).toBe("2026-08-15T20:00:00-04:00");
     expect(FIRST_GAME_AT).toBe("2026-08-17T00:00:00-04:00");
   });
 

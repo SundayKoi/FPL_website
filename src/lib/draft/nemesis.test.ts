@@ -7,6 +7,7 @@ const team = (id: string, name: string, captain: string | null = null): Team => 
   draft_id: "d1",
   name,
   captain_profile_id: captain,
+  captain_profile_id_2: null,
   abbreviation: name.slice(0, 2).toUpperCase(),
   image_url: null,
   banner_color: null,

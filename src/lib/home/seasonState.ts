@@ -1,4 +1,4 @@
-export const DRAFT_DAY_AT = "2026-08-15T20:00:00-05:00";
+export const DRAFT_DAY_AT = "2026-08-15T20:00:00-04:00";
 export const FIRST_GAME_AT = "2026-08-17T00:00:00-04:00";
 
 export type HomepagePhase = "preseason" | "regular";

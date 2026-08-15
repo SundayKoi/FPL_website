@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Player, Profile, Team } from "@/lib/draft/types";
 import TeamEditor from "./TeamEditor";
@@ -30,6 +30,7 @@ const team: Team = {
   draft_id: "draft-1",
   name: "Team A",
   captain_profile_id: null,
+  captain_profile_id_2: null,
   abbreviation: "TA",
   image_url: null,
   banner_color: "#083344",
@@ -75,6 +76,23 @@ const players: Player[] = [
     team_id: "team-a",
     price: 0,
     acquisition: "captain",
+  },
+];
+
+const profiles: Profile[] = [
+  {
+    id: "profile-primary",
+    display_name: "Primary",
+    discord_id: null,
+    avatar_url: null,
+    is_admin: false,
+  },
+  {
+    id: "profile-secondary",
+    display_name: "Secondary",
+    discord_id: null,
+    avatar_url: null,
+    is_admin: false,
   },
 ];
 
@@ -249,6 +267,72 @@ describe("TeamEditor", () => {
         p_budget: 120,
       })
     );
+  });
+
+  it("renders a second-captain selector that excludes the selected primary captain", () => {
+    render(
+      <TeamEditor
+        {...props}
+        teams={[{ ...team, captain_profile_id: "profile-primary" }]}
+        profiles={profiles}
+      />
+    );
+
+    const secondCaptainSelect = screen.getByLabelText("Second captain");
+    expect(secondCaptainSelect).toBeTruthy();
+    expect(within(secondCaptainSelect).queryByRole("option", { name: "Primary" })).toBeNull();
+    expect(within(secondCaptainSelect).getByRole("option", { name: "Secondary" })).toBeTruthy();
+  });
+
+  it("renders a captain selector that excludes the selected second captain", () => {
+    render(
+      <TeamEditor
+        {...props}
+        teams={[{ ...team, captain_profile_id_2: "profile-secondary" }]}
+        profiles={profiles}
+      />
+    );
+
+    const captainSelect = screen.getByLabelText("Captain");
+    expect(captainSelect).toBeTruthy();
+    expect(within(captainSelect).getByRole("option", { name: "Primary" })).toBeTruthy();
+    expect(within(captainSelect).queryByRole("option", { name: "Secondary" })).toBeNull();
+  });
+
+  it("assigns a second captain through the existing team update flow", async () => {
+    render(
+      <TeamEditor
+        {...props}
+        profiles={profiles}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Second captain"), {
+      target: { value: "profile-secondary" },
+    });
+
+    await waitFor(() =>
+      expect(chain.update).toHaveBeenCalledWith({ captain_profile_id_2: "profile-secondary" })
+    );
+    expect(chain.eq).toHaveBeenCalledWith("id", "team-a");
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("clears a second captain back to null", async () => {
+    render(
+      <TeamEditor
+        {...props}
+        teams={[{ ...team, captain_profile_id_2: "profile-secondary" }]}
+        profiles={profiles}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Second captain"), {
+      target: { value: "" },
+    });
+
+    await waitFor(() => expect(chain.update).toHaveBeenCalledWith({ captain_profile_id_2: null }));
+    expect(onChanged).toHaveBeenCalled();
   });
 
   it("shows and edits the remaining setup budget after prefilled spend", async () => {

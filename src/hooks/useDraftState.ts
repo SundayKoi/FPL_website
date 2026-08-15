@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchServerOffset, remainingMs } from "@/lib/time";
 import { removeRow, upsertRow } from "@/lib/draft/realtimeRows";
+import { resolvePlayerRank, type CanonicalPlayerMetadata } from "@/lib/draft/playerMetadata";
 import type { Bid, Draft, Lot, Player, Team } from "@/lib/draft/types";
 
 export function useDraftState(draftId: string) {
@@ -19,15 +20,20 @@ export function useDraftState(draftId: string) {
   const [loaded, setLoaded] = useState(false);
 
   const refetch = useCallback(async () => {
-    const [d, t, p, l] = await Promise.all([
+    const [d, t, p, l, canonical] = await Promise.all([
       supabase.from("drafts").select("*").eq("id", draftId).single(),
       supabase.from("teams").select("*").eq("draft_id", draftId).order("nomination_position"),
       supabase.from("players").select("*").eq("draft_id", draftId).order("display_name"),
       supabase.from("lots").select("*").eq("draft_id", draftId).order("created_at"),
+      supabase.from("player_pool").select("id, display_name, rank").eq("season_key", "season-5"),
     ]);
     setDraft((d.data as Draft) ?? null);
     setTeams((t.data as Team[]) ?? []);
-    setPlayers((p.data as Player[]) ?? []);
+    const canonicalPlayers = (canonical.data as CanonicalPlayerMetadata[]) ?? [];
+    setPlayers(((p.data as Player[]) ?? []).map((player) => ({
+      ...player,
+      rank: resolvePlayerRank(player, canonicalPlayers),
+    })));
     const lotRows = (l.data as Lot[]) ?? [];
     setLots(lotRows);
     if (lotRows.length) {
@@ -84,7 +90,11 @@ export function useDraftState(draftId: string) {
 
   const openLot = useMemo(() => lots.find((l) => l.status === "open") ?? null, [lots]);
   const myTeam = useMemo(
-    () => (profileId ? teams.find((t) => t.captain_profile_id === profileId) ?? null : null),
+    () => (
+      profileId
+        ? teams.find((t) => t.captain_profile_id === profileId || t.captain_profile_id_2 === profileId) ?? null
+        : null
+    ),
     [teams, profileId]
   );
 

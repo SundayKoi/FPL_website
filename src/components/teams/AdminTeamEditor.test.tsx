@@ -58,6 +58,7 @@ const teams: Team[] = [
     name: "Team A",
     abbreviation: "TA",
     captain_profile_id: "profile-a",
+    captain_profile_id_2: null,
     image_url: publicUrlFor("draft-1/team-a"),
     banner_color: "#083344",
     division: null,

@@ -14,7 +14,7 @@ const draft: Draft = {
 
 const nominatorTeam: Team = {
   id: "t1", draft_id: "d1", name: "Alpha", captain_profile_id: null, abbreviation: "AL",
-  image_url: null, banner_color: null, division: null, nomination_position: 1,
+  captain_profile_id_2: null, image_url: null, banner_color: null, division: null, nomination_position: 1,
   budget_start: 100, points_remaining: 60,
 };
 

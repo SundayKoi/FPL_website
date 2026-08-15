@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ROLE_ORDER, type Draft, type Player, type Team } from "@/lib/draft/types";
+import { comparePlayerRanks } from "@/lib/draft/playerMetadata";
 import DraftScheduleCountdown from "./DraftScheduleCountdown";
 
 const ROLE_LABELS = {
@@ -53,7 +54,15 @@ export default function DraftSetupPreview({
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {ROLE_ORDER.map((role) => {
-            const rolePlayers = availablePlayers.filter((player) => player.role === role);
+            const rolePlayers = availablePlayers
+              .filter((player) => player.role === role)
+              .slice()
+              .sort((left, right) => {
+                const rankOrder = comparePlayerRanks(left.rank, right.rank);
+                if (rankOrder !== 0) return rankOrder;
+
+                return left.display_name.toLowerCase().localeCompare(right.display_name.toLowerCase());
+              });
             return (
               <section key={role} className="overflow-hidden rounded border border-line">
                 <h4 className="border-b border-line bg-navy px-3 py-2 text-xs font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[role]}</h4>
@@ -89,6 +98,11 @@ export default function DraftSetupPreview({
                   <div>
                     <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position} · {team.abbreviation}</span>
                     <h4 className="mt-1 text-lg font-semibold text-white">{team.name}</h4>
+                    {team.captain_profile_id_2 && (
+                      <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-cyan">
+                        Second captain assigned
+                      </p>
+                    )}
                   </div>
                   <span className="rounded-full border border-cyan/40 bg-cyan/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan">
                     {team.captain_profile_id ? "Captain assigned" : "Captain pending"}
@@ -109,7 +123,10 @@ export default function DraftSetupPreview({
                       <span className="uppercase tracking-wide">{ROLE_LABELS[role]}</span>
                       {rosterPlayer ? (
                         <span className="mt-1 flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate font-semibold">{rosterPlayer.display_name}</span>
+                          <span className="min-w-0 truncate font-semibold">
+                            {rosterPlayer.display_name}
+                            <span className="ml-1 font-normal text-steel">· {rosterPlayer.rank ?? "Unranked"}</span>
+                          </span>
                           <span className="shrink-0 font-mono text-[10px] text-gold">{rosterPlayer.price ?? 0}</span>
                         </span>
                       ) : (
