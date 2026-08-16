@@ -24,10 +24,13 @@ export default function DraftBoard({
   draftId,
   captainControls = null,
   adminControls = null,
+  nemesisEnabled = true,
 }: {
   draftId: string;
   captainControls?: ReactNode;
   adminControls?: ReactNode;
+  /** Academy runs one division, so it holds no nemesis draft. */
+  nemesisEnabled?: boolean;
 }) {
   const s = useDraftState(draftId);
   const { picks: nemesisPicks } = useNemesisPicks(draftId);
@@ -108,14 +111,16 @@ export default function DraftBoard({
 
           {draft.status === "complete" ? (
             <div className="flex flex-col gap-4">
-              <NemesisBoard
-                draftId={draftId}
-                teams={teams}
-                picks={nemesisPicks}
-                myTeamId={myTeam?.id ?? null}
-                isAdmin={s.isAdmin}
-                onError={setToast}
-              />
+              {nemesisEnabled && (
+                <NemesisBoard
+                  draftId={draftId}
+                  teams={teams}
+                  picks={nemesisPicks}
+                  myTeamId={myTeam?.id ?? null}
+                  isAdmin={s.isAdmin}
+                  onError={setToast}
+                />
+              )}
               {s.isAdmin && (
                 <AdminStrip
                   draft={draft}
