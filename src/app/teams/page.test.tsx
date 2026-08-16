@@ -121,6 +121,9 @@ describe("TeamsPage", () => {
     expect(screen.getByText("PREVIEW DATA")).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(12);
     expect(screen.getByLabelText("Display draft")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Team rosters" }).querySelector(".grid")?.classList).toContain(
+      "2xl:grid-cols-6",
+    );
   });
 
   it("shows the selected captain profile in the admin team editor", async () => {
