@@ -30,7 +30,7 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
   const [settingsResult, academyDraftResult, draftsResult] = await Promise.all([
     supabase
       .from("league_settings")
-      .select("featured_draft_id")
+      .select("featured_draft_id, academy_draft_id")
       .eq("id", 1)
       .single(),
     supabase.from("drafts").select("id, name").eq("name", "S1 Academy").maybeSingle(),
@@ -40,8 +40,9 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
   ]);
 
   const featuredDraftId = settingsResult.data?.featured_draft_id ?? null;
-  const academyDraft = (academyDraftResult.data as { id: string; name: string } | null) ?? null;
-  const selectedDraftId = isAcademy ? academyDraft?.id ?? null : featuredDraftId;
+  const fallbackAcademyDraft = (academyDraftResult.data as { id: string; name: string } | null) ?? null;
+  const academyDraftId = settingsResult.data?.academy_draft_id ?? fallbackAcademyDraft?.id ?? null;
+  const selectedDraftId = isAcademy ? academyDraftId : featuredDraftId;
   let selectedDraft: Draft | null = null;
   let selectedTeams: Team[] = [];
   let selectedPlayers: Player[] = [];
@@ -82,13 +83,14 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
       draftName={selectedDraft?.name ?? null}
       isPreview={!hasSelectedDraft}
       league={isAcademy ? "academy" : "premier"}
-      academyAvailable={Boolean(academyDraft)}
+      academyAvailable={Boolean(academyDraftId)}
       teams={teams}
       adminControls={
-        isAdmin && !isAcademy ? (
+        isAdmin ? (
           <FeaturedDraftSelector
             drafts={(draftsResult.data as { id: string; name: string }[]) ?? []}
-            selectedDraftId={selectedDraft?.id ?? null}
+            premierDraftId={featuredDraftId}
+            academyDraftId={academyDraftId}
           />
         ) : null
       }
