@@ -100,6 +100,7 @@ export default function RosterEditor({
   const [rowError, setRowError] = useState<string | null>(null);
   const [syncTeamsStatus, setSyncTeamsStatus] = useState<Status>({ kind: "idle" });
   const [syncStatus, setSyncStatus] = useState<Status>({ kind: "idle" });
+  const [academySyncStatus, setAcademySyncStatus] = useState<Status>({ kind: "idle" });
 
   const knownSeasons = Array.from(new Set([defaultSeason, ...memberships.map((m) => m.season)])).sort(
     compareSeasonsNewestFirst
@@ -138,6 +139,27 @@ export default function RosterEditor({
     setSyncStatus({
       kind: "success",
       message: `Synced ${inserted} captain${inserted === 1 ? "" : "s"} from the draft for ${seasonTrimmed}.`,
+    });
+    router.refresh();
+  };
+
+  const handleSyncAcademy = async () => {
+    setAcademySyncStatus({ kind: "saving" });
+    const { data: teamsInserted, error: teamsError } = await supabase.rpc("sync_academy_teams_from_draft");
+    if (teamsError) {
+      setAcademySyncStatus({ kind: "error", message: teamsError.message });
+      return;
+    }
+    const { data: captainsInserted, error: captainsError } = await supabase.rpc("sync_academy_team_captains", {
+      p_season: season.trim(),
+    });
+    if (captainsError) {
+      setAcademySyncStatus({ kind: "error", message: captainsError.message });
+      return;
+    }
+    setAcademySyncStatus({
+      kind: "success",
+      message: `Synced ${(teamsInserted as number | null) ?? 0} Academy teams and ${(captainsInserted as number | null) ?? 0} captains.`,
     });
     router.refresh();
   };
@@ -325,6 +347,14 @@ export default function RosterEditor({
             </button>
             <button
               type="button"
+              onClick={() => void handleSyncAcademy()}
+              disabled={academySyncStatus.kind === "saving"}
+              className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold disabled:opacity-50"
+            >
+              {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleSyncCaptains()}
               disabled={syncStatus.kind === "saving"}
               className="rounded-full border border-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy disabled:opacity-50"
@@ -354,6 +384,10 @@ export default function RosterEditor({
           )}
           {syncStatus.kind === "success" && (
             <p className="text-sm font-semibold text-emerald-400">{syncStatus.message}</p>
+          )}
+          {academySyncStatus.kind === "error" && <p role="alert" className="text-sm text-red-400">{academySyncStatus.message}</p>}
+          {academySyncStatus.kind === "success" && (
+            <p className="text-sm font-semibold text-emerald-400">{academySyncStatus.message}</p>
           )}
 
           {teams.length === 0 ? (

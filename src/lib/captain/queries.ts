@@ -108,6 +108,11 @@ export function rosterKey(summonerName: string, tag: string): string {
   return `${summonerName}#${tag}`;
 }
 
+export function findDraftTeamId(teamName: string, draftTeams: { id: string; name: string }[]): string | null {
+  const normalized = teamName.trim().toLowerCase();
+  return draftTeams.find((team) => team.name.trim().toLowerCase() === normalized)?.id ?? null;
+}
+
 /**
  * Teams offered in human-facing pickers. `league_teams` accumulates every name
  * the league has ever used (historical stats seasons plus each draft), so
@@ -209,30 +214,26 @@ export async function fetchMyRoster(
   if (teamName) {
     const { data: settings } = await supabase
       .from("league_settings")
-      .select("featured_draft_id")
+      .select("featured_draft_id, academy_draft_id")
       .eq("id", 1)
       .single();
-    const featuredDraftId = (settings as { featured_draft_id: string | null } | null)?.featured_draft_id ?? null;
+    const settingRows = (settings as { featured_draft_id: string | null; academy_draft_id?: string | null } | null) ?? null;
+    const draftIds = [settingRows?.featured_draft_id, settingRows?.academy_draft_id].filter(
+      (id): id is string => Boolean(id),
+    );
+    const { data: draftTeams } = draftIds.length
+      ? await supabase.from("teams").select("id, name").in("draft_id", draftIds)
+      : { data: [] };
+    const draftTeamId = findDraftTeamId(teamName, (draftTeams as { id: string; name: string }[] | null) ?? []);
 
-    if (featuredDraftId) {
-      const { data: draftTeams } = await supabase
-        .from("teams")
-        .select("id, name")
-        .eq("draft_id", featuredDraftId);
-      const normalized = teamName.trim().toLowerCase();
-      const draftTeamId = ((draftTeams as { id: string; name: string }[] | null) ?? []).find(
-        (t) => t.name.trim().toLowerCase() === normalized
-      )?.id;
-
-      if (draftTeamId) {
-        const { data: playerRows, error: playersError } = await supabase
-          .from("players")
-          .select("*")
-          .eq("team_id", draftTeamId)
-          .order("role");
-        if (playersError) throw playersError;
-        draftPlayers = (playerRows as Player[]) ?? [];
-      }
+    if (draftTeamId) {
+      const { data: playerRows, error: playersError } = await supabase
+        .from("players")
+        .select("*")
+        .eq("team_id", draftTeamId)
+        .order("role");
+      if (playersError) throw playersError;
+      draftPlayers = (playerRows as Player[]) ?? [];
     }
   }
 
