@@ -51,9 +51,13 @@ export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
           }`}
         />
         {played ? (
-          <span className="shrink-0 rounded border border-line bg-navy px-2 py-0.5 font-bold text-white">
+          <Link
+            href={`/match/${fixture.id}`}
+            aria-label={`Post-game for ${teamA} versus ${teamB}`}
+            className="shrink-0 rounded border border-line bg-navy px-2 py-0.5 font-bold text-white hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
             {fixture.score_a}–{fixture.score_b}
-          </span>
+          </Link>
         ) : (
           <span className="shrink-0 text-xs font-semibold uppercase text-steel">vs</span>
         )}
