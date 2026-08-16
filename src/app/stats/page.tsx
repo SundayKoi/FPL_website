@@ -1,4 +1,5 @@
 import StatsTabs from "@/components/stats/StatsTabs";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 export default async function StatsPage({
   searchParams,
@@ -14,7 +15,7 @@ export default async function StatsPage({
   return (
     <main className="grid-neon flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="relative pb-8">
+        <header className="relative flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <span className="mono-label">
             <span className="text-cyan">&gt;</span> League Data
           </span>
@@ -22,7 +23,7 @@ export default async function StatsPage({
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
             League records, player form, and standings.
           </p>
-          <hr className="neon-rule absolute inset-x-0 bottom-0" />
+          <LeaguePageToggle page="stats" view="premier" params={{ player, tab, season, phase }} />
         </header>
 
         <div className="mt-10">

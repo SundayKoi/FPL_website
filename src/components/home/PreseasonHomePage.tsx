@@ -2,6 +2,7 @@ import { DRAFT_DAY_AT } from "@/lib/home/seasonState";
 import { fetchPreseasonHomeData } from "@/lib/home/preseason";
 import PreseasonCountdown from "./PreseasonCountdown";
 import PreseasonPlayerPool from "./PreseasonPlayerPool";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 export default async function PreseasonHomePage() {
   const data = await fetchPreseasonHomeData();
@@ -10,6 +11,7 @@ export default async function PreseasonHomePage() {
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section aria-labelledby="preseason-home-title" className="card-brand overflow-hidden p-5 sm:p-8 xl:p-10">
+          <div className="mb-6 flex justify-end"><LeaguePageToggle page="home" view="premier" /></div>
           <div className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
             <div>
               <span className="label-dash">SEASON 5 · PRESEASON BRIEFING</span>

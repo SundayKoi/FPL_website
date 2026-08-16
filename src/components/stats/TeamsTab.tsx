@@ -14,7 +14,7 @@ function formatDuration(min: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function TeamsTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function TeamsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
   const [rows, setRows] = useState<TeamAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see LeaderboardTab): flip back to "loading"
@@ -34,7 +34,7 @@ export default function TeamsTab({ season, phase }: { season: string; phase: Pha
       try {
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchTeamAgg(seasonParam, phaseParam);
+        const data = await fetchTeamAgg(seasonParam, phaseParam, teamNames);
         if (cancelled) return;
         setRows(data);
         setStatus("loaded");
@@ -48,7 +48,7 @@ export default function TeamsTab({ season, phase }: { season: string; phase: Pha
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   if (status === "loading") {
     return (

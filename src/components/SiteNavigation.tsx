@@ -5,15 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const NAV_LINKS = [
-  { href: "/stats", label: "Stats" },
-  { href: "/players", label: "Players" },
-  { href: "/schedule", label: "Schedule" },
-  { href: "/captain", label: "Captain" },
-  { href: "/draft", label: "Draft" },
-  { href: "/teams", label: "Teams" },
-] as const;
+import { leaguePath, type LeaguePage } from "@/lib/league/links";
 
 type DropdownLink = {
   href: string;
@@ -22,9 +14,17 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "info" | "premium";
+type DropdownKey = "premier" | "academy" | "info" | "premium";
 
 const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
+  premier: (["home", "players", "stats", "schedule", "teams", "captain"] as const).map((page) => ({
+    href: leaguePath(page as LeaguePage, "premier"),
+    label: page === "home" ? "Home" : page[0].toUpperCase() + page.slice(1),
+  })),
+  academy: (["home", "players", "stats", "schedule", "teams", "captain"] as const).map((page) => ({
+    href: leaguePath(page as LeaguePage, "academy"),
+    label: page === "home" ? "Home" : page[0].toUpperCase() + page.slice(1),
+  })),
   info: [
     { href: "/signup", label: "Sign Up" },
     { href: "/league-links", label: "League Links" },
@@ -42,6 +42,8 @@ const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
 };
 
 const DROPDOWNS = [
+  { key: "premier", label: "Premier", links: DROPDOWN_LINKS.premier },
+  { key: "academy", label: "Academy", links: DROPDOWN_LINKS.academy },
   { key: "premium", label: "Premium", links: DROPDOWN_LINKS.premium },
   { key: "info", label: "Info", links: DROPDOWN_LINKS.info },
 ] as const;
@@ -125,22 +127,6 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
           style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
-          {NAV_LINKS.map((link) => {
-            const active = isActive(pathname, link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={active ? "page" : undefined}
-                onClick={closeMenus}
-                className={`${linkBase} rounded px-3 py-2 sm:px-0 sm:py-1 ${
-                  active ? "text-white sm:text-gold" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
           {DROPDOWNS.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;

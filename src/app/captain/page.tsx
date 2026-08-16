@@ -22,6 +22,7 @@ import AdminCodeEditor from "@/components/captain/AdminCodeEditor";
 import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
 import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -34,13 +35,15 @@ function matchTeamId(teams: LeagueTeam[], name: string | null): string | null {
   return teams.find((t) => normalizeName(t.name) === target)?.id ?? null;
 }
 
-export default async function CaptainPage({
+export async function CaptainPageView({
   searchParams,
+  league = "premier",
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  league?: "premier" | "academy";
 }) {
   const supabase = await createServerSupabase();
-  const context = await fetchCaptainContext(supabase);
+  const context = await fetchCaptainContext(supabase, league);
 
   // Server-side gate: signed in AND (a captain this season OR an admin).
   // Always a 200 with the branded card below — never a 404/redirect.
@@ -61,9 +64,10 @@ export default async function CaptainPage({
     return (
       <main className="bg-hash flex-1">
         <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-          <header className="border-b border-line pb-8">
+          <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
             <span className="label-dash">Captain hub</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Captain</h1>
+            <LeaguePageToggle page="captain" view={league} />
           </header>
           <p className="mt-8 text-sm text-steel">No league teams are configured yet — ask an admin to add one.</p>
         </div>
@@ -75,7 +79,11 @@ export default async function CaptainPage({
     supabase.from("fixtures").select("*").eq("season", context.season),
     supabase.from("league_settings").select("current_phase").eq("id", 1).single(),
   ]);
-  const fixtures = (fixturesResult.data as FixtureRow[]) ?? [];
+  const leagueNames = new Set(context.teams.map((team) => normalizeName(team.name)));
+  const allSeasonFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
+  const fixtures = league === "academy"
+    ? allSeasonFixtures.filter((fixture) => leagueNames.has(normalizeName(fixture.team_a)) || leagueNames.has(normalizeName(fixture.team_b)))
+    : allSeasonFixtures;
   const defaultPhase = (phaseResult.data as { current_phase: string } | null)?.current_phase ?? "Regular";
 
   const nextFixture = pickNextFixture(fixtures, activeTeam.name);
@@ -117,21 +125,23 @@ export default async function CaptainPage({
         .from("roster_memberships")
         .select("id, season, league_team_id, riot_accounts(id, game_name, tag_line, display_name)"),
     ]);
-    allReports = (reportsResult.data as MatchReport[]) ?? [];
+    const teamIds = new Set(context.teams.map((team) => team.id));
+    allReports = ((reportsResult.data as MatchReport[]) ?? []).filter((report) => league === "academy" ? teamIds.has(report.team_a_id) || teamIds.has(report.team_b_id) : true);
     allGames = (gamesResult.data as MatchReportGame[]) ?? [];
-    allCodes = (codesResult.data as MatchCode[]) ?? [];
-    allMemberships = (membershipsResult.data as RosterMembershipRow[]) ?? [];
+    allCodes = ((codesResult.data as MatchCode[]) ?? []).filter((code) => league === "academy" ? teamIds.has(code.team_a_id) || teamIds.has(code.team_b_id) : true);
+    allMemberships = ((membershipsResult.data as RosterMembershipRow[]) ?? []).filter((membership) => league === "academy" ? teamIds.has(membership.league_team_id) : true);
   }
 
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
+        <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <span className="label-dash">Captain hub · {context.season}</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">{activeTeam.name}</h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
             Your next match, tourney codes, result reporting, roster, and stats — all in one place.
           </p>
+          <LeaguePageToggle page="captain" view={league} />
         </header>
 
         {context.isAdmin && context.activeTeams.length > 1 && (
@@ -197,4 +207,8 @@ export default async function CaptainPage({
       </div>
     </main>
   );
+}
+
+export default async function CaptainPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  return CaptainPageView({ searchParams });
 }

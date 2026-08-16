@@ -221,11 +221,13 @@ export default function StatsTabs({
   initialTab,
   initialSeason,
   initialPhase,
+  teamNames,
 }: {
   initialPlayer?: string;
   initialTab?: string;
   initialSeason?: string;
   initialPhase?: string;
+  teamNames?: string[];
 }) {
   const [activeTab, setActiveTab] = useState<Tab>(
     TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "Leaderboard",
@@ -382,11 +384,11 @@ export default function StatsTabs({
       ) : activeTab === "Leaderboard" ? (
         <LeaderboardTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} />
       ) : activeTab === "Teams" ? (
-        <TeamsTab season={season} phase={phase} />
+        <TeamsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Champions" ? (
         <ChampionsTab season={season} phase={phase} />
       ) : activeTab === "Records" ? (
-        <RecordsTab season={season} phase={phase} />
+        <RecordsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Power Rankings" ? (
         <PowerRankingsTab season={season} phase={phase} />
       ) : activeTab === "Timeline" ? (

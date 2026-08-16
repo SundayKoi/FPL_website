@@ -11,6 +11,7 @@ import {
 } from "@/lib/players/freeAgencyBidBoard";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
@@ -23,6 +24,7 @@ type Props = {
   initialAvgBids?: Record<string, number>;
   freeAgencyPlayers?: { name: string; avgBid: number | null }[];
   emptyStateMessages?: Partial<Record<SeasonKey, string>>;
+  pageView?: "premier" | "academy";
 };
 
 const ROLE_TONES = {
@@ -41,6 +43,7 @@ export default function PlayersDirectory({
   initialAvgBids = {},
   freeAgencyPlayers,
   emptyStateMessages = {},
+  pageView = "premier",
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
@@ -130,6 +133,7 @@ export default function PlayersDirectory({
           </div>
 
           <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
+            <LeaguePageToggle page="players" view={pageView} />
             <div className="flex w-full flex-col gap-2 sm:w-auto">
               <label htmlFor="player-season" className="label-dash">
                 Season

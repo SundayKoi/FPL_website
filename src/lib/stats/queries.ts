@@ -32,11 +32,13 @@ export async function fetchPlayerAgg(season?: string, phase?: string): Promise<P
   return (data ?? []) as PlayerAggRow[];
 }
 
-export async function fetchTeamAgg(season?: string, phase?: string): Promise<TeamAggRow[]> {
+export async function fetchTeamAgg(season?: string, phase?: string, teamNames?: string[]): Promise<TeamAggRow[]> {
+  if (teamNames && teamNames.length === 0) return [];
   const supabase = createClient();
   let query = supabase.from("stats_team_agg").select("*");
   if (season) query = query.eq("season", season);
   if (phase && phase !== "All") query = query.eq("season_phase", phase);
+  if (teamNames?.length) query = query.in("team_name", teamNames);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as TeamAggRow[];
@@ -52,11 +54,13 @@ export async function fetchChampionAgg(season?: string, phase?: string): Promise
   return (data ?? []) as ChampionAggRow[];
 }
 
-export async function fetchRecords(season?: string, phase?: string): Promise<RecordRow[]> {
+export async function fetchRecords(season?: string, phase?: string, teamNames?: string[]): Promise<RecordRow[]> {
+  if (teamNames && teamNames.length === 0) return [];
   const supabase = createClient();
   let query = supabase.from("stats_records").select("*");
   if (season) query = query.eq("season", season);
   if (phase && phase !== "All") query = query.eq("season_phase", phase);
+  if (teamNames?.length) query = query.in("team_name", teamNames);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as RecordRow[];

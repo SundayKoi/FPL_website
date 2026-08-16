@@ -16,7 +16,7 @@ function formatValue(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-export default function RecordsTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function RecordsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see LeaderboardTab): flip back to "loading"
@@ -36,7 +36,7 @@ export default function RecordsTab({ season, phase }: { season: string; phase: P
       try {
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchRecords(seasonParam, phaseParam);
+        const data = await fetchRecords(seasonParam, phaseParam, teamNames);
         if (cancelled) return;
         setRows(data);
         setStatus("loaded");
@@ -50,7 +50,7 @@ export default function RecordsTab({ season, phase }: { season: string; phase: P
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // "All seasons": stats_records is already a top-5-per-(season,phase)
   // view, so with no season filter the fetch returns top-5 *per season*

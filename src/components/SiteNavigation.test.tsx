@@ -11,25 +11,20 @@ afterEach(() => {
 });
 
 describe("SiteNavigation", () => {
-  it("keeps Home in the logo and exposes only the intended primary controls", () => {
+  it("keeps Home in the logo and exposes Premier and Academy controls", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     expect(screen.queryByRole("link", { name: /^Home$/ })).toBeNull();
     expect(screen.getByRole("link", { name: /fpl home/i }).getAttribute("href")).toBe("/");
-    expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
-    expect(screen.getByRole("link", { name: /^Players$/ }).getAttribute("href")).toBe("/players");
-    expect(screen.getByRole("link", { name: /^Schedule$/ }).getAttribute("href")).toBe(
-      "/schedule",
-    );
-    expect(screen.getByRole("link", { name: /^Draft$/ }).getAttribute("href")).toBe("/draft");
-    expect(screen.getByRole("link", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
+    expect(screen.getByRole("button", { name: /premier menu/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /academy menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
     expect(
       within(screen.getByRole("navigation", { name: "Primary" }))
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Premium menu", "Info menu"]);
+    ).toEqual(["Premier menu", "Academy menu", "Premium menu", "Info menu"]);
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Sign Up$/ })).toBeNull();
     expect(screen.getByText("Account")).toBeTruthy();
@@ -38,7 +33,7 @@ describe("SiteNavigation", () => {
   it("marks the active route with aria-current", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
-    expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("button", { name: /premier menu/i }).getAttribute("aria-current")).toBe("page");
   });
 
   it("opens the Info dropdown with the Sign Up link", () => {
@@ -60,6 +55,22 @@ describe("SiteNavigation", () => {
 
     fireEvent.click(infoMenu);
     expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("opens league dropdowns with paired destinations", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /academy menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe(
+      "/academy/players",
+    );
+    expect(screen.getByRole("menuitem", { name: /^Stats$/ }).getAttribute("href")).toBe(
+      "/academy/stats",
+    );
+    expect(screen.getByRole("menuitem", { name: /^Home$/ }).getAttribute("href")).toBe("/academy");
+
+    fireEvent.click(screen.getByRole("button", { name: /premier menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
   });
 
   it("opens the Premium dropdown with internal and external destinations", () => {
@@ -108,8 +119,8 @@ describe("SiteNavigation", () => {
     expect(logo?.getAttribute("height")).toBe("44");
     expect(brandLink.querySelector("span")?.className).toContain("sm:text-2xl");
 
-    const statsLink = screen.getByRole("link", { name: /^Stats$/ });
-    expect(statsLink.className).toContain("sm:text-sm");
+    const premierMenu = screen.getByRole("button", { name: /premier menu/i });
+    expect(premierMenu.className).toContain("sm:text-sm");
   });
 
   it("toggles the mobile menu open and closed via the hamburger button", () => {
@@ -135,7 +146,8 @@ describe("SiteNavigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /open menu/i }));
     expect(screen.getByRole("button", { name: /close menu/i })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("link", { name: /^Teams$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /premier menu/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Teams$/ }));
     expect(screen.getByRole("button", { name: /open menu/i })).toBeTruthy();
   });
 });

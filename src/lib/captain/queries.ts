@@ -123,20 +123,32 @@ export function activeOnly(teams: LeagueTeam[]): LeagueTeam[] {
   return teams.filter((t) => t.active !== false);
 }
 
-export async function fetchCaptainContext(supabase: SupabaseClient): Promise<CaptainContext> {
+export async function fetchCaptainContext(supabase: SupabaseClient, league: "premier" | "academy" = "premier"): Promise<CaptainContext> {
   const { data: userData } = await supabase.auth.getUser();
   const profileId = userData.user?.id ?? null;
 
-  const [profileResult, teamsResult, settingsResult] = await Promise.all([
+  const [profileResult, teamsResult, settingsResult, academySettingsResult] = await Promise.all([
     profileId
       ? supabase.from("profiles").select("is_admin").eq("id", profileId).single()
       : Promise.resolve({ data: null as { is_admin: boolean } | null }),
     supabase.from("league_teams").select("*").order("name"),
     supabase.from("league_settings").select("current_season").eq("id", 1).single(),
+    league === "academy"
+      ? supabase.from("league_settings").select("academy_draft_id").eq("id", 1).single()
+      : Promise.resolve({ data: null }),
   ]);
 
   const isAdmin = profileResult.data?.is_admin ?? false;
-  const teams = (teamsResult.data as LeagueTeam[]) ?? [];
+  let teams = (teamsResult.data as LeagueTeam[]) ?? [];
+  if (league === "academy") {
+    const draftId = (academySettingsResult.data as { academy_draft_id?: string | null } | null)?.academy_draft_id;
+    if (!draftId) teams = [];
+    else {
+      const { data: academyRows } = await supabase.from("teams").select("name").eq("draft_id", draftId);
+      const names = new Set(((academyRows as { name: string }[]) ?? []).map((team) => team.name.trim().toLowerCase()));
+      teams = teams.filter((team) => names.has(team.name.trim().toLowerCase()));
+    }
+  }
   const activeTeams = activeOnly(teams);
   const season = settingsResult.data?.current_season ?? "";
 
@@ -147,7 +159,8 @@ export async function fetchCaptainContext(supabase: SupabaseClient): Promise<Cap
       .select("league_team_id")
       .eq("profile_id", profileId)
       .eq("season", season);
-    myTeamId = (captainRows as { league_team_id: string }[] | null)?.[0]?.league_team_id ?? null;
+    const allowedTeamIds = new Set(teams.map((team) => team.id));
+    myTeamId = (captainRows as { league_team_id: string }[] | null)?.find((row) => allowedTeamIds.has(row.league_team_id))?.league_team_id ?? null;
   }
 
   return { profileId, isAdmin, teams, activeTeams, myTeamId, season };

@@ -15,6 +15,7 @@ import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 export default async function SchedulePage({
   searchParams,
@@ -64,7 +65,7 @@ export default async function SchedulePage({
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
+        <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
           <span className="label-dash">LEAGUE CALENDAR</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Schedule</h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
@@ -81,6 +82,7 @@ export default async function SchedulePage({
               </span>
             ))}
           </div>
+          <LeaguePageToggle page="schedule" view="premier" params={{ season: requested }} />
         </header>
 
         {upNext && (

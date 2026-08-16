@@ -83,7 +83,6 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
       draftName={selectedDraft?.name ?? null}
       isPreview={!hasSelectedDraft}
       league={isAcademy ? "academy" : "premier"}
-      academyAvailable={Boolean(academyDraftId)}
       teams={teams}
       adminControls={
         isAdmin ? (

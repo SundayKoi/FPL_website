@@ -11,6 +11,7 @@ import HomeBrief from "./HomeBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import WeeklyStandouts from "./WeeklyStandouts";
 import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
+import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
 const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
@@ -39,6 +40,7 @@ export default async function RegularSeasonHomePage() {
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section aria-label="Homepage dashboard" className="space-y-6">
+          <div className="flex justify-end"><LeaguePageToggle page="home" view="premier" /></div>
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
               fixture={schedule.fixtures[0] ?? null}
