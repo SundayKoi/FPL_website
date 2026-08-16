@@ -127,7 +127,8 @@ describe("TeamsPage", () => {
 
     expect(screen.getByText("PREVIEW DATA")).toBeTruthy();
     expect(screen.getAllByRole("article")).toHaveLength(12);
-    expect(screen.getByLabelText("Display draft")).toBeTruthy();
+    expect(screen.getByLabelText("Premier draft")).toBeTruthy();
+    expect(screen.getByLabelText("Academy draft")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Team rosters" }).querySelector(".grid")?.classList).toContain(
       "sm:grid-cols-3",
     );

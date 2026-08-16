@@ -24,19 +24,20 @@ afterEach(() => {
   refresh.mockClear();
 });
 
-describe("FeaturedDraftSelector", () => {
-  it("persists the selected draft and refreshes the route", async () => {
+describe("DraftLeagueSelector", () => {
+  it("persists the selected league draft and refreshes the route", async () => {
     render(
       <FeaturedDraftSelector
         drafts={[
           { id: "draft-1", name: "Split 5" },
           { id: "draft-2", name: "Split 4" },
         ]}
-        selectedDraftId={null}
+        premierDraftId={null}
+        academyDraftId="draft-2"
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Display draft"), { target: { value: "draft-1" } });
+    fireEvent.change(screen.getByLabelText("Premier draft"), { target: { value: "draft-1" } });
 
     await waitFor(() => {
       expect(upsert).toHaveBeenCalledWith({
@@ -45,6 +46,26 @@ describe("FeaturedDraftSelector", () => {
         updated_at: expect.any(String),
       });
       expect(refresh).toHaveBeenCalled();
+    });
+  });
+
+  it("persists the Academy mapping independently", async () => {
+    render(
+      <FeaturedDraftSelector
+        drafts={[{ id: "draft-1", name: "S1 Academy" }]}
+        premierDraftId="premier"
+        academyDraftId={null}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Academy draft"), { target: { value: "draft-1" } });
+
+    await waitFor(() => {
+      expect(upsert).toHaveBeenCalledWith({
+        id: 1,
+        academy_draft_id: "draft-1",
+        updated_at: expect.any(String),
+      });
     });
   });
 });
