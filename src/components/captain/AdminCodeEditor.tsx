@@ -7,6 +7,7 @@ import { hasResult, stageMeta, teamLabel } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { LeagueTeam } from "@/lib/matches/types";
 import type { MatchCode } from "@/lib/captain/queries";
+import AdminCodeImporter from "./AdminCodeImporter";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -77,6 +78,7 @@ export default function AdminCodeEditor({
   const openFixtures = [...fixtures]
     .filter((f) => !hasResult(f))
     .sort((a, b) => (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? "") || a.sort_order - b.sort_order);
+  const season = fixtures[0]?.season ?? "";
 
   const [fixtureId, setFixtureId] = useState(() => openFixtures[0]?.id ?? "");
   const [text, setText] = useState(() => codesTextFor(codes, openFixtures[0]?.id));
@@ -196,6 +198,7 @@ export default function AdminCodeEditor({
               >
                 {status.kind === "saving" ? "Saving…" : "Save codes"}
               </button>
+              <AdminCodeImporter fixtures={fixtures} season={season} />
             </>
           )}
         </div>
