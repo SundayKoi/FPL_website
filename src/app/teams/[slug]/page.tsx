@@ -142,9 +142,6 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                       {player.displayName}
                     </Link>
                   )}
-                  <span className="shrink-0 text-sm font-semibold text-gold">
-                    {player.isEmpty ? "—" : player.price}
-                  </span>
                 </li>
               ))}
             </ul>

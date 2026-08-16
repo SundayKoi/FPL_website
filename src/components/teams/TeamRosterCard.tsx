@@ -137,9 +137,6 @@ export default function TeamRosterCard({
                   {player.displayName}
                 </span>
               )}
-              <span className="shrink-0 text-sm font-semibold text-gold">
-                {empty ? "—" : player.price}
-              </span>
               {captain || freeAgency ? (
                 <span
                   aria-label={captain ? "Captain, cannot be traded" : "Free agency"}
