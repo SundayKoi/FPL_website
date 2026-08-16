@@ -43,7 +43,10 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
     let fixtures;
     try {
       fixtures = generateRegularSeason((teamRows as GeneratorTeam[]) ?? [], {
-        startsAt: startDate ? new Date(`${startDate}T00:00:00Z`) : null,
+        // Parsed without a Z so it is read in your own timezone. Appending Z
+        // made a Monday kickoff land at midnight UTC, which the site renders
+        // as 8pm the Sunday before.
+        startsAt: startDate ? new Date(startDate) : null,
       });
     } catch (e) {
       // Thrown for missing divisions, duplicate names, or a division too big
@@ -99,12 +102,12 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
       {done && <p className="text-sm text-emerald-400">{done}</p>}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-steel">
-          Week 1 date (optional)
+          Week 1 kickoff (optional)
           <input
-            type="date"
+            type="datetime-local"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            aria-label="Week 1 date"
+            aria-label="Week 1 kickoff"
             className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
           />
         </label>
@@ -118,8 +121,9 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
         </button>
       </div>
       <p className="text-xs text-steel">
-        Later weeks fall on the same weekday, seven days apart. Leave the date blank to schedule
-        the matchups without kickoff times.
+        Set the first kickoff in your own time (the league plays Mondays 8pm ET). Later weeks
+        fall on the same day and time, seven days apart. Leave it blank to schedule the matchups
+        without kickoff times.
       </p>
     </section>
   );
