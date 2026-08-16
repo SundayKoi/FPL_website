@@ -117,7 +117,11 @@ export default async function SchedulePage({
               currentSeason={settings?.current_season ?? ""}
               currentPhase={settings?.current_phase ?? "Regular"}
             />
-            {season && <AdminGenerateSchedule season={season} />}
+            {/* season is null until fixtures exist, which is exactly when the
+                draw is needed — fall back to the league's current season. */}
+            {(season ?? settings?.current_season) && (
+              <AdminGenerateSchedule season={(season ?? settings?.current_season) as string} />
+            )}
             <AdminFixturesEditor fixtures={fixtures} season={season} />
           </div>
         )}
