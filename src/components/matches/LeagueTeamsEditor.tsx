@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam } from "@/lib/matches/types";
-import type { League } from "@/lib/captain/league";
 
 interface TeamForm {
   name: string;
@@ -37,7 +36,7 @@ type RowStatus = { kind: "idle" } | { kind: "saving" } | { kind: "error"; messag
  * on top of that so a newly added/removed row just works without any manual
  * resync. See task-6-brief.md ("LeagueTeamsEditor").
  */
-export default function LeagueTeamsEditor({ teams, league = "premier" }: { teams: LeagueTeam[]; league?: League }) {
+export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
   const supabase = createClient();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -107,7 +106,6 @@ export default function LeagueTeamsEditor({ teams, league = "premier" }: { teams
       name: addForm.name.trim(),
       abbreviation: addForm.abbreviation.trim().toUpperCase(),
       active: addForm.active,
-      league,
     });
     if (error) {
       setAddStatus({ kind: "error", message: error.message });

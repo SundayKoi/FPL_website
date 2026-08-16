@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { parseReport } from "@/lib/matches/parseReport";
 import type { LeagueTeam } from "@/lib/matches/types";
 import { submitReport, type MyReportRow } from "@/lib/captain/queries";
-import type { League } from "@/lib/captain/league";
 
 const MATCH_ID_RE = /^NA1_\d+$/;
 const PHASES = ["Regular", "Playoffs"] as const;
@@ -128,7 +127,6 @@ export default function ReportBox({
   prefillTeamAId,
   prefillTeamBId,
   myReports,
-  league,
 }: {
   teams: LeagueTeam[];
   defaultSeason: string;
@@ -137,7 +135,6 @@ export default function ReportBox({
   prefillTeamAId: string | null;
   prefillTeamBId: string | null;
   myReports: MyReportRow[];
-  league?: League;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -239,7 +236,6 @@ export default function ReportBox({
     try {
       await submitReport(supabase, {
         season: form.season,
-        league: league ?? "premier",
         phase: form.phase,
         teamAId: form.teamAId,
         teamBId: form.teamBId,
