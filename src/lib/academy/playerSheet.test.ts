@@ -17,6 +17,10 @@ describe("Academy player sheet", () => {
     expect(parseAcademyPlayers("name,role,opgg\nWinter,Top,Winter")[0]?.opggUrl).toBeNull();
   });
 
+  it("extracts a URL from a sheet HYPERLINK formula", () => {
+    expect(parseAcademyPlayers('name,role,rank,op.gg\nWinter,Top,D2,"=HYPERLINK(\"https://op.gg/from-sheet\",\"OP.GG\")"')[0]?.opggUrl).toBe("https://op.gg/from-sheet");
+  });
+
   it("keeps the Academy draft pool populated when sheet names differ", () => {
     const players = mergeAcademyPlayers(
       [{ display_name: "Winter", role: "top" }],

@@ -49,6 +49,8 @@ function headerIndex(headers: string[], names: string[]): number {
 
 function sheetUrl(value: string | undefined): string | null {
   if (!value) return null;
+  const hyperlink = /^=HYPERLINK\(\s*["']?([^,"')]+)["']?/i.exec(value.trim());
+  if (hyperlink) value = hyperlink[1];
   try {
     const url = new URL(value.trim());
     return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;

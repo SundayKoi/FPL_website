@@ -25,6 +25,8 @@ type Props = {
   freeAgencyPlayers?: { name: string; avgBid: number | null }[];
   emptyStateMessages?: Partial<Record<SeasonKey, string>>;
   pageView?: "premier" | "academy";
+  showFreeAgency?: boolean;
+  showMinSort?: boolean;
 };
 
 const ROLE_TONES = {
@@ -44,10 +46,12 @@ export default function PlayersDirectory({
   freeAgencyPlayers,
   emptyStateMessages = {},
   pageView = "premier",
+  showFreeAgency = true,
+  showMinSort = true,
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
-  const [sortOption, setSortOption] = useState<SortOption>("value");
+  const [sortOption, setSortOption] = useState<SortOption>(showMinSort ? "value" : "rank");
   const [selectedCaptain, setSelectedCaptain] = useState("");
   const [selectedBidBoardPlayer, setSelectedBidBoardPlayer] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -60,7 +64,8 @@ export default function PlayersDirectory({
   const emptyStateMessage =
     emptyStateMessages[selectedSeason] ?? "No player data is available for this season.";
   const hasPlayers = sections.some((section) => section.players.length > 0);
-  const isFreeAgency = selectedSection === "free-agency";
+  const isFreeAgency = showFreeAgency && selectedSection === "free-agency";
+  const hasValueColumn = isFreeAgency || showMinSort;
   const adminPlayers = poolPlayers
     .filter((player) => player.season_key === selectedSeason)
     .sort((left, right) => left.display_name.localeCompare(right.display_name));
@@ -162,7 +167,7 @@ export default function PlayersDirectory({
                 onChange={(event) => setSortOption(event.target.value as SortOption)}
                 className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
-                <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option>
+                {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
                 <option value="name">Name</option>
                 <option value="rank">Rank</option>
               </select>
@@ -179,7 +184,7 @@ export default function PlayersDirectory({
                 className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
                 <option value="player-list">Player List</option>
-                <option value="free-agency">Free Agency</option>
+                {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
               </select>
             </div>
 
@@ -228,10 +233,10 @@ export default function PlayersDirectory({
                   className={`overflow-hidden rounded border ${ROLE_TONES[section.key]}`}
                 >
                   <h2 className="px-4 py-3 text-lg font-bold uppercase tracking-wide">{section.label}</h2>
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 bg-navy px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-steel">
+                  <div className={`grid ${hasValueColumn ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} gap-3 bg-navy px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-steel`}>
                     <span>Player Name</span>
                     <span>Rank</span>
-                    <span>{isFreeAgency ? "Avg Bid" : "Min"}</span>
+                    {hasValueColumn ? <span>{isFreeAgency ? "Avg Bid" : "Min"}</span> : null}
                   </div>
                   <ul>
                     {section.players.map((player) => {
@@ -248,9 +253,9 @@ export default function PlayersDirectory({
 
                       return (
                         <li
-                          key={player.opggUrl}
+                          key={player.name}
                           data-available={isAvailable ? "true" : "false"}
-                          className={`grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 border-t border-current/15 px-4 py-3 text-sm transition-opacity ${
+                          className={`grid ${hasValueColumn ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} gap-3 border-t border-current/15 px-4 py-3 text-sm transition-opacity ${
                             isAvailable ? "opacity-100" : "opacity-50"
                           }`}
                         >
@@ -267,7 +272,7 @@ export default function PlayersDirectory({
                             {player.name}
                           </a> : <span className="min-w-0 break-words whitespace-nowrap font-semibold">{player.name}</span>}
                           <span className="font-medium">{player.rank}</span>
-                          <span className="font-medium">
+                          {hasValueColumn ? <span className="font-medium">
                             {isFreeAgency && isAdmin && editMode ? (
                               <input
                                 aria-label={`Avg Bid for ${player.name}`}
@@ -280,7 +285,7 @@ export default function PlayersDirectory({
                                 className="w-16 rounded border border-line bg-navy px-1 text-right font-medium text-white focus:border-gold focus:outline-none"
                               />
                             ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
-                          </span>
+                          </span> : null}
                         </li>
                       );
                     })}

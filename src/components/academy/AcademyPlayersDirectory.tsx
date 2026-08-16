@@ -20,6 +20,8 @@ export default function AcademyPlayersDirectory({ players }: { players: AcademyS
       seasons={{ "season-5": sections, "season-4": [] }}
       isAdmin={false}
       pageView="academy"
+      showFreeAgency={false}
+      showMinSort={false}
       emptyStateMessages={{ "season-5": "Academy player data is unavailable right now." }}
     />
   );
