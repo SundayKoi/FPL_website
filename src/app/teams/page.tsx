@@ -7,7 +7,13 @@ import FeaturedDraftSelector from "@/components/teams/FeaturedDraftSelector";
 import { PLACEHOLDER_TEAMS } from "@/components/teams/placeholderTeams";
 import TeamsDirectory from "@/components/teams/TeamsDirectory";
 
-export default async function TeamsPage() {
+type TeamsPageProps = {
+  searchParams: Promise<{ view?: string | string[] }>;
+};
+
+export default async function TeamsPage({ searchParams }: TeamsPageProps) {
+  const view = (await searchParams)?.view;
+  const isAcademy = view === "academy";
   const supabase = await createServerSupabase();
   const { data: userData } = await supabase.auth.getUser();
   let isAdmin = false;
@@ -21,35 +27,38 @@ export default async function TeamsPage() {
     isAdmin = profile?.is_admin ?? false;
   }
 
-  const [settingsResult, draftsResult] = await Promise.all([
+  const [settingsResult, academyDraftResult, draftsResult] = await Promise.all([
     supabase
       .from("league_settings")
       .select("featured_draft_id")
       .eq("id", 1)
       .single(),
+    supabase.from("drafts").select("id, name").eq("name", "S1 Academy").maybeSingle(),
     isAdmin
       ? supabase.from("drafts").select("id, name").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
   ]);
 
   const featuredDraftId = settingsResult.data?.featured_draft_id ?? null;
+  const academyDraft = (academyDraftResult.data as { id: string; name: string } | null) ?? null;
+  const selectedDraftId = isAcademy ? academyDraft?.id ?? null : featuredDraftId;
   let selectedDraft: Draft | null = null;
   let selectedTeams: Team[] = [];
   let selectedPlayers: Player[] = [];
   let profiles: Profile[] = [];
 
-  if (featuredDraftId) {
+  if (selectedDraftId) {
     const [draftResult, teamsResult, playersResult] = await Promise.all([
-      supabase.from("drafts").select("*").eq("id", featuredDraftId).single(),
+      supabase.from("drafts").select("*").eq("id", selectedDraftId).single(),
       supabase
         .from("teams")
         .select("*")
-        .eq("draft_id", featuredDraftId)
+        .eq("draft_id", selectedDraftId)
         .order("nomination_position"),
       supabase
         .from("players")
         .select("*")
-        .eq("draft_id", featuredDraftId)
+        .eq("draft_id", selectedDraftId)
         .order("display_name"),
     ]);
     selectedDraft = (draftResult.data as Draft) ?? null;
@@ -72,9 +81,11 @@ export default async function TeamsPage() {
     <TeamsDirectory
       draftName={selectedDraft?.name ?? null}
       isPreview={!hasSelectedDraft}
+      league={isAcademy ? "academy" : "premier"}
+      academyAvailable={Boolean(academyDraft)}
       teams={teams}
       adminControls={
-        isAdmin ? (
+        isAdmin && !isAcademy ? (
           <FeaturedDraftSelector
             drafts={(draftsResult.data as { id: string; name: string }[]) ?? []}
             selectedDraftId={selectedDraft?.id ?? null}
@@ -82,7 +93,7 @@ export default async function TeamsPage() {
         ) : null
       }
       rosterContent={
-        hasSelectedDraft && isAdmin ? (
+        hasSelectedDraft && isAdmin && !isAcademy ? (
           <AdminTeamEditor
             key={selectedDraft!.id}
             draftId={selectedDraft!.id}

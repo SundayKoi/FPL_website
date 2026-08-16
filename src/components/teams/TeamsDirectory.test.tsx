@@ -47,7 +47,7 @@ describe("TeamsDirectory", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Teams" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Premier Teams" })).toBeTruthy();
     expect(screen.getByText("PREVIEW DATA")).toBeTruthy();
 
     const cards = screen.getAllByRole("article");
@@ -79,5 +79,25 @@ describe("TeamsDirectory", () => {
     expect(screen.queryByText("PREVIEW DATA")).toBeNull();
     expect(screen.getByText("Display draft")).toBeTruthy();
     expect(screen.getByText("Editing enabled")).toBeTruthy();
+  });
+
+  it("emphasizes Academy and links back to Premier from the Academy view", () => {
+    render(
+      <TeamsDirectory
+        draftName="S1 Academy"
+        isPreview={false}
+        league="academy"
+        teams={[PLACEHOLDER_TEAMS[0]]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
+    const premierLink = screen.getByRole("link", { name: "Premier" });
+    const academyLink = screen.getByRole("link", { name: "Academy" });
+    expect(premierLink.getAttribute("href")).toBe("/teams");
+    expect(academyLink.getAttribute("href")).toBe("/teams?view=academy");
+    expect(academyLink.className).toContain("bg-gold");
+    expect(academyLink.className).toContain("font-bold");
+    expect(premierLink.className).toContain("bg-navy");
   });
 });
