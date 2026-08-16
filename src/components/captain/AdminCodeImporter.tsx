@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { stageMeta, teamLabel, hasResult } from "@/lib/schedule/format";
@@ -31,10 +31,16 @@ export default function AdminCodeImporter({
   const [preview, setPreview] = useState<CodeImportPreview | null>(null);
   const [parsedCodes, setParsedCodes] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const fileRequestToken = useRef(0);
+  const saving = useRef(false);
 
   const hasTargets = fixtures.some((fixture) => !hasResult(fixture));
+  const isBusy = status.kind === "parsing" || status.kind === "saving";
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (saving.current) return;
+
+    const requestToken = ++fileRequestToken.current;
     const file = event.target.files?.[0];
     if (!file) {
       setPreview(null);
@@ -43,12 +49,12 @@ export default function AdminCodeImporter({
       return;
     }
 
-    setPreview(null);
-    setParsedCodes([]);
     setStatus({ kind: "parsing" });
 
     try {
       const input = await file.text();
+      if (requestToken !== fileRequestToken.current) return;
+
       const codes = parseTournamentCodes(input);
       const nextPreview = buildCodeImportPreview(fixtures, codes);
 
@@ -60,6 +66,8 @@ export default function AdminCodeImporter({
       setPreview(nextPreview);
       setStatus({ kind: "preview" });
     } catch (error) {
+      if (requestToken !== fileRequestToken.current) return;
+
       setStatus({
         kind: "error",
         message: error instanceof Error ? error.message : "Could not parse the uploaded file.",
@@ -68,11 +76,14 @@ export default function AdminCodeImporter({
   };
 
   const handleConfirm = async () => {
+    if (saving.current || status.kind === "parsing" || status.kind === "saving") return;
+
     if (!preview || parsedCodes.length === 0) {
       setStatus({ kind: "error", message: "Upload a file to preview before confirming the import." });
       return;
     }
 
+    saving.current = true;
     setStatus({ kind: "saving" });
 
     const { data, error } = await supabase.rpc("bulk_replace_match_codes", {
@@ -80,6 +91,7 @@ export default function AdminCodeImporter({
       p_fixture_ids: preview.fixtures.map((fixture) => fixture.fixtureId),
       p_codes: parsedCodes,
     });
+    saving.current = false;
 
     if (error) {
       setStatus({ kind: "error", message: error.message });
@@ -87,9 +99,10 @@ export default function AdminCodeImporter({
     }
 
     const inserted = (data as number | null) ?? 0;
+    const fixtureCount = preview.fixtures.length;
     setStatus({
       kind: "success",
-      message: `Imported ${inserted} codes. ${unusedLabel(preview.unusedCount)} ${preview.unusedCount === 1 ? "was" : "were"} left unused.`,
+      message: `Populated ${fixtureCount} fixture${fixtureCount === 1 ? "" : "s"} with ${inserted} code${inserted === 1 ? "" : "s"}. ${unusedLabel(preview.unusedCount)} ${preview.unusedCount === 1 ? "was" : "were"} left unused.`,
     });
     router.refresh();
   };
@@ -113,6 +126,7 @@ export default function AdminCodeImporter({
         <input
           type="file"
           accept=".csv,.txt,text/csv,text/plain"
+          disabled={isBusy}
           onChange={(event) => {
             void handleFileChange(event);
           }}
@@ -179,7 +193,7 @@ export default function AdminCodeImporter({
             <button
               type="button"
               onClick={() => void handleConfirm()}
-              disabled={status.kind === "saving"}
+              disabled={isBusy}
               className="w-fit rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
             >
               {status.kind === "saving" ? "Importing…" : "Confirm import"}

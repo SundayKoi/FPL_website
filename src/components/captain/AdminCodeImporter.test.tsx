@@ -45,6 +45,21 @@ async function uploadCodes(input: HTMLElement, text: string, name = "codes.csv")
   fireEvent.change(input, { target: { files: [file] } });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
+
+function deferredFile(promise: Promise<string>, name: string) {
+  const file = new File([], name, { type: "text/csv" });
+  const text = vi.fn(() => promise);
+  Object.defineProperty(file, "text", { value: text });
+  return { file, text };
+}
+
 afterEach(() => {
   cleanup();
   rpc.mockReset();
@@ -82,7 +97,7 @@ describe("AdminCodeImporter", () => {
       expect(refresh).toHaveBeenCalled();
     });
 
-    expect(screen.getByText(/imported 6 codes/i)).toBeTruthy();
+    expect(screen.getByText(/populated 2 fixtures with 6 codes/i)).toBeTruthy();
   });
 
   it("shows a validation error when the file does not contain enough codes", async () => {
@@ -109,5 +124,83 @@ describe("AdminCodeImporter", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("RPC failed");
     expect(screen.getByRole("table", { name: /import preview/i })).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("retains the previous valid preview when a replacement upload fails validation", async () => {
+    render(<AdminCodeImporter fixtures={fixtures} season="S5" />);
+
+    const input = screen.getByLabelText(/upload tournament code file/i);
+
+    await uploadCodes(input, "A1,A2,A3,B1,B2,B3");
+
+    const preview = await screen.findByRole("table", { name: /import preview/i });
+    expect(within(preview).getByText("Week 1 A vs Week 1 B")).toBeTruthy();
+    expect(within(preview).getByText("B1, B2, B3")).toBeTruthy();
+
+    await uploadCodes(input, "X1,X2,X3,Y1,Y2");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Need at least 6 tournament codes for 2 target fixtures.");
+    expect(screen.getByRole("table", { name: /import preview/i })).toBeTruthy();
+    expect(screen.getByText("A1, A2, A3")).toBeTruthy();
+    expect(screen.getByText("B1, B2, B3")).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("disables confirmation while parsing and ignores out-of-order file reads", async () => {
+    render(<AdminCodeImporter fixtures={fixtures} season="S5" />);
+
+    const input = screen.getByLabelText(/upload tournament code file/i) as HTMLInputElement;
+    await uploadCodes(input, "BASE1,BASE2,BASE3,BASE4,BASE5,BASE6");
+    expect(await screen.findByText("BASE1, BASE2, BASE3")).toBeTruthy();
+
+    const slow = deferred<string>();
+    const fast = deferred<string>();
+    const slowFile = deferredFile(slow.promise, "slow.csv");
+    const fastFile = deferredFile(fast.promise, "fast.csv");
+
+    fireEvent.change(input, { target: { files: [slowFile.file] } });
+
+    expect(input.disabled).toBe(true);
+    expect((screen.getByRole("button", { name: /confirm import/i }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /confirm import/i }));
+    expect(rpc).not.toHaveBeenCalled();
+
+    // Simulate a second change event that was already queued when the control
+    // became disabled. Its newer request must win even if the first read ends last.
+    fireEvent.change(input, { target: { files: [fastFile.file] } });
+    fast.resolve("FAST1,FAST2,FAST3,FAST4,FAST5,FAST6");
+    expect(await screen.findByText("FAST1, FAST2, FAST3")).toBeTruthy();
+
+    slow.resolve("SLOW1,SLOW2,SLOW3,SLOW4,SLOW5,SLOW6");
+    await waitFor(() => {
+      expect(screen.queryByText("SLOW1, SLOW2, SLOW3")).toBeNull();
+      expect(screen.getByText("FAST1, FAST2, FAST3")).toBeTruthy();
+    });
+  });
+
+  it("blocks replacement selection and repeated confirmation while saving", async () => {
+    const save = deferred<{ data: number; error: null }>();
+    rpc.mockReturnValue(save.promise);
+    render(<AdminCodeImporter fixtures={fixtures} season="S5" />);
+
+    const input = screen.getByLabelText(/upload tournament code file/i) as HTMLInputElement;
+    await uploadCodes(input, "A1,A2,A3,B1,B2,B3");
+    expect(await screen.findByText("A1, A2, A3")).toBeTruthy();
+
+    const confirm = screen.getByRole("button", { name: /confirm import/i }) as HTMLButtonElement;
+    fireEvent.click(confirm);
+
+    expect(input.disabled).toBe(true);
+    expect(confirm.disabled).toBe(true);
+    const replacement = deferredFile(Promise.resolve("X1,X2,X3,Y1,Y2,Y3"), "replacement.csv");
+    fireEvent.change(input, { target: { files: [replacement.file] } });
+    fireEvent.click(confirm);
+
+    expect(replacement.text).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
+
+    save.resolve({ data: 6, error: null });
+    expect(await screen.findByText(/populated 2 fixtures with 6 codes/i)).toBeTruthy();
+    expect(screen.getByText("A1, A2, A3")).toBeTruthy();
   });
 });

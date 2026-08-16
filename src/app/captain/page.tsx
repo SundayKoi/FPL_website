@@ -83,7 +83,7 @@ export async function CaptainPageView({
   const allSeasonFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
   const fixtures = league === "academy"
     ? allSeasonFixtures.filter((fixture) => leagueNames.has(normalizeName(fixture.team_a)) || leagueNames.has(normalizeName(fixture.team_b)))
-    : allSeasonFixtures;
+    : allSeasonFixtures.filter((fixture) => leagueNames.has(normalizeName(fixture.team_a)) && leagueNames.has(normalizeName(fixture.team_b)));
   const defaultPhase = (phaseResult.data as { current_phase: string } | null)?.current_phase ?? "Regular";
 
   const nextFixture = pickNextFixture(fixtures, activeTeam.name);
@@ -197,7 +197,12 @@ export async function CaptainPageView({
                 <span className="label-dash">Admin</span>
                 <h2 className="type-display mt-2 text-3xl">League admin</h2>
               </div>
-              <AdminCodeEditor fixtures={fixtures} teams={context.teams} codes={allCodes} />
+              <AdminCodeEditor
+                fixtures={fixtures}
+                teams={context.teams}
+                codes={allCodes}
+                enableBulkImporter={league === "premier"}
+              />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
               <LeagueTeamsEditor teams={context.teams} />
               <RosterEditor teams={context.activeTeams} defaultSeason={context.season} memberships={allMemberships} />

@@ -64,10 +64,12 @@ export default function AdminCodeEditor({
   fixtures,
   teams,
   codes,
+  enableBulkImporter,
 }: {
   fixtures: FixtureRow[];
   teams: LeagueTeam[];
   codes: MatchCode[];
+  enableBulkImporter: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -198,7 +200,7 @@ export default function AdminCodeEditor({
               >
                 {status.kind === "saving" ? "Saving…" : "Save codes"}
               </button>
-              <AdminCodeImporter fixtures={fixtures} season={season} />
+              {enableBulkImporter && <AdminCodeImporter fixtures={fixtures} season={season} />}
             </>
           )}
         </div>
