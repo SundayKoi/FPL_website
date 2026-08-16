@@ -96,6 +96,8 @@ function DraftTeamEditor({
     }));
   };
 
+  const isSavingAll = Object.values(forms).some((form) => form.status.kind === "saving");
+
   const saveTeam = async (team: Team) => {
     const form = forms[team.id];
     if (!form || form.status.kind === "saving") return;
@@ -249,6 +251,10 @@ function DraftTeamEditor({
     }
   };
 
+  const saveAll = () => {
+    void Promise.all(teams.map((team) => saveTeam(team)));
+  };
+
   if (!editing) {
     return (
       <>
@@ -268,15 +274,25 @@ function DraftTeamEditor({
 
   return (
     <section className="flex flex-col gap-4" aria-label="Edit teams">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="label-dash">Edit teams</h2>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="rounded border border-line px-3 py-2 text-sm font-semibold text-white hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-        >
-          Done editing teams
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={saveAll}
+            disabled={isSavingAll}
+            className="rounded bg-gold px-3 py-2 text-sm font-semibold text-navy hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            {isSavingAll ? "Saving all…" : "Save all"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded border border-line px-3 py-2 text-sm font-semibold text-white hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            Done editing teams
+          </button>
+        </div>
       </div>
 
       {teams.map((team) => {

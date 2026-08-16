@@ -143,6 +143,25 @@ describe("AdminTeamEditor", () => {
     expect(screen.getByText("Roster editor content")).toBeTruthy();
   });
 
+  it("saves all teams independently", async () => {
+    const secondTeam = { ...teams[0], id: "team-b", name: "Team B", abbreviation: "TB" };
+    teamQuery.single
+      .mockImplementationOnce(() => Promise.resolve({ data: { id: "team-a" }, error: null }))
+      .mockImplementationOnce(() => Promise.resolve({ data: null, error: { message: "Team B failed" } }));
+    renderEditor({ teamRows: [teams[0], secondTeam] });
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save all" }));
+
+    expect((await within(screen.getByRole("form", { name: "Edit Team A" })).findByRole("status")).textContent).toContain(
+      "Team saved.",
+    );
+    expect((await within(screen.getByRole("form", { name: "Edit Team B" })).findByRole("status")).textContent).toContain(
+      "Team B failed",
+    );
+    expect(screen.getByRole("region", { name: "Edit teams" })).toBeTruthy();
+  });
+
   it("rejects invalid name, abbreviation, and image files before upload", async () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
