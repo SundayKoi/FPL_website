@@ -121,4 +121,35 @@ describe("rankLatestWeeklyStandoutsFromRows", () => {
     expect(standouts).toHaveLength(1);
     expect(standouts[0].summoner_name).toBe("Latest");
   });
+
+  it("ignores newer rows from historical seasons", () => {
+    const season5 = raw({
+      summoner_name: "Season5Player",
+      game_date: "2026-04-27 21:16:00",
+      kills: 4,
+      deaths: 2,
+      assists: 8,
+    });
+    const season4 = raw({
+      summoner_name: "Season4Player",
+      season: "S4",
+      game_date: "2026-05-04 21:16:00",
+      kills: 20,
+      deaths: 0,
+      assists: 20,
+    });
+
+    const standouts = rankLatestWeeklyStandoutsFromRows([season5, season4], 5);
+
+    expect(standouts).toHaveLength(1);
+    expect(standouts[0].summoner_name).toBe("Season5Player");
+  });
+
+  it("returns no standouts when rows only exist for another season", () => {
+    expect(
+      rankLatestWeeklyStandoutsFromRows([
+        raw({ season: "S4", game_date: "2026-05-04 21:16:00" }),
+      ]),
+    ).toEqual([]);
+  });
 });

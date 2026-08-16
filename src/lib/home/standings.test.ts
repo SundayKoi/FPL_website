@@ -48,7 +48,7 @@ describe("fetchHomepageStandings", () => {
                   gold_earned: 14000,
                   vision_score: 25,
                   win: true,
-                  season: "S4",
+                  season: "S5",
                   season_phase: "Regular",
                   game_duration_min: 30,
                   team_dragons: 3,
@@ -71,7 +71,7 @@ describe("fetchHomepageStandings", () => {
 
     await expect(fetchHomepageStandings()).resolves.toEqual([
       {
-        id: "season4-alpha",
+        id: "season5-alpha",
         name: "Alpha",
         abbreviation: "ALP",
         nomination_position: 1,
@@ -79,6 +79,33 @@ describe("fetchHomepageStandings", () => {
         losses: 0,
         winrate_pct: 100,
       },
+    ]);
+  });
+
+  it("ignores historical raw stats when preparing current standings", async () => {
+    const from = vi.fn((table: string) =>
+      table === "league_settings"
+        ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
+        : table === "raw_stats"
+          ? query({
+              data: [
+                {
+                  game_date: "2026-04-27 20:00:00",
+                  match_id: "match-s4",
+                  team_side: "Blue",
+                  team_name: "Historical Team",
+                  win: true,
+                  season: "S4",
+                },
+              ],
+              error: null,
+            })
+          : query({ data: [{ id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1 }], error: null }),
+    );
+    createServerSupabase.mockResolvedValue({ from });
+
+    await expect(fetchHomepageStandings()).resolves.toEqual([
+      { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0 },
     ]);
   });
 

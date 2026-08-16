@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bundledSeason4Rows, deriveHomepageAwards, type HomepageRawStatRow } from "./awards";
+import { deriveHomepageAwards, type HomepageRawStatRow } from "./awards";
 
 type RowOverrides = Partial<HomepageRawStatRow>;
 
@@ -22,7 +22,7 @@ function row(overrides: RowOverrides = {}): HomepageRawStatRow {
     gold_earned: 14000,
     vision_score: 25,
     win: true,
-    season: "S4",
+    season: "S5",
     season_phase: "Regular",
     game_duration_min: 30,
     team_dragons: 3,
@@ -65,10 +65,10 @@ const rows = [
 ];
 
 describe("deriveHomepageAwards", () => {
-  it("selects the latest Season 4 player and team performers", () => {
+  it("selects the latest Season 5 player and team performers", () => {
     const result = deriveHomepageAwards(rows, new Map([["Ace#FPL", 8]]));
 
-    expect(result.season).toBe("S4");
+    expect(result.season).toBe("S5");
     expect(result.playerOfWeek.name).toBe("Ace");
     expect(result.teamOfWeek.teamName).toBe("MetaShift League");
     expect(result.periodLabel).toMatch(/Week/);
@@ -86,12 +86,26 @@ describe("deriveHomepageAwards", () => {
     expect(result.teamAwards.find((award) => award.title === "Most Reliable")?.teamName).toBe("Wildcats");
   });
 
-  it("derives populated honors from the stored Season 4 stats bundle", () => {
-    const result = deriveHomepageAwards(bundledSeason4Rows(), new Map());
+  it("ignores rows from other seasons", () => {
+    const result = deriveHomepageAwards(
+      [
+        row({ season: "S4", team_name: "Historical Team", summoner_name: "Historical Player" }),
+        row({ season: "S5", team_name: "Current Team", summoner_name: "Current Player" }),
+      ],
+      new Map(),
+    );
 
-    expect(result.standings.length).toBeGreaterThan(0);
-    expect(result.playerOfWeek.name).toBeTruthy();
-    expect(result.teamOfWeek.teamName).toBeTruthy();
-    expect(result.periodLabel).toMatch(/Week of/);
+    expect(result.standings.map((standing) => standing.name)).toEqual(["Current Team"]);
+    expect(result.playerOfWeek.name).toBeNull();
+    expect(result.teamOfWeek.teamName).toBe("Current Team");
+  });
+
+  it("returns an unavailable S5 result when no S5 rows exist", () => {
+    const result = deriveHomepageAwards([row({ season: "S4" })], new Map());
+
+    expect(result.season).toBe("S5");
+    expect(result.standings).toEqual([]);
+    expect(result.playerOfWeek.name).toBeNull();
+    expect(result.teamOfWeek.teamName).toBeNull();
   });
 });

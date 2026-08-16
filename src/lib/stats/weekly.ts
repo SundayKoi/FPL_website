@@ -1,7 +1,8 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import bundledRawStats from "../../../scripts/data/raw_stats.json";
 import { powerRanking } from "./formulas";
 import type { PlayerAggRow, RankedPlayer } from "./types";
+
+const HOMEPAGE_SEASON = "S5" as const;
 
 export type WeeklyStandout = RankedPlayer;
 
@@ -205,7 +206,8 @@ export function rankLatestWeeklyStandoutsFromRows(
   rows: WeeklyRawStatRow[],
   limit = 5,
 ): WeeklyStandout[] {
-  const latestGameDate = rows
+  const seasonRows = rows.filter((row) => row.season === HOMEPAGE_SEASON);
+  const latestGameDate = seasonRows
     .map((row) => row.game_date)
     .filter((date): date is string => Boolean(date))
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
@@ -215,15 +217,8 @@ export function rankLatestWeeklyStandoutsFromRows(
   }
 
   const bounds = latestWeekBounds(latestGameDate);
-  const latestRows = rows.filter((row) => isWithinBounds(row, bounds));
+  const latestRows = seasonRows.filter((row) => isWithinBounds(row, bounds));
   return rankWeeklyStandouts(aggregateWeeklyPlayerRows(latestRows), limit);
-}
-
-function bundledLatestWeeklyStandouts(limit: number): WeeklyStandout[] {
-  return rankLatestWeeklyStandoutsFromRows(
-    (bundledRawStats as unknown) as WeeklyRawStatRow[],
-    limit,
-  );
 }
 
 export async function fetchLatestWeeklyStandouts(limit = 5): Promise<WeeklyStandout[]> {
@@ -232,23 +227,25 @@ export async function fetchLatestWeeklyStandouts(limit = 5): Promise<WeeklyStand
     const { data: latest, error: latestError } = await supabase
       .from("raw_stats")
       .select("game_date")
+      .eq("season", HOMEPAGE_SEASON)
       .order("game_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (latestError || !latest?.game_date) {
-      return bundledLatestWeeklyStandouts(limit);
+      return [];
     }
 
     const bounds = latestWeekBounds(String(latest.game_date));
     const { data, error } = await supabase
       .from("raw_stats")
       .select(RAW_WEEKLY_COLUMNS)
+      .eq("season", HOMEPAGE_SEASON)
       .gte("game_date", bounds.start)
       .lt("game_date", bounds.end);
 
     if (error) {
-      return bundledLatestWeeklyStandouts(limit);
+      return [];
     }
 
     return rankWeeklyStandouts(
@@ -256,6 +253,6 @@ export async function fetchLatestWeeklyStandouts(limit = 5): Promise<WeeklyStand
       limit,
     );
   } catch {
-    return bundledLatestWeeklyStandouts(limit);
+    return [];
   }
 }

@@ -8,12 +8,12 @@ const award = (title: string, name: string | null, teamName: string | null, valu
   name,
   tag: name ? "FPL" : null,
   teamName,
-  detail: "Season 4 metric",
+  detail: "Season 5 metric",
   value,
 });
 
 const awards: HomepageAwardsData = {
-  season: "S4",
+  season: "S5",
   periodLabel: "Week of Apr 27",
   playerOfWeek: award("Player of the Week", "Ace", "MetaShift League", "91"),
   teamOfWeek: award("Team of the Week", null, "MetaShift League", "2–0"),
@@ -60,7 +60,7 @@ describe("AwardsDesk", () => {
       />,
     );
 
-    expect(screen.getAllByText(/season 4 metric/i).length).toBeGreaterThan(1);
+    expect(screen.getAllByText(/season 5 metric/i).length).toBeGreaterThan(1);
     expect(screen.getByText("—")).toBeTruthy();
   });
 });

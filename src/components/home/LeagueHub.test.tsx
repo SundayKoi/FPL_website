@@ -37,7 +37,7 @@ vi.mock("@/lib/teams/identity", () => ({
 
 vi.mock("@/lib/home/awards", () => ({
   fetchHomepageAwards: vi.fn(async () => ({
-    season: "S4",
+    season: "S5",
     periodLabel: "Week of Apr 27",
     playerOfWeek: {
       title: "Player of the Week",
@@ -59,6 +59,10 @@ vi.mock("@/lib/home/awards", () => ({
     teamAwards: [],
     standings: [],
   })),
+}));
+
+vi.mock("@/lib/stats/weekly", () => ({
+  fetchLatestWeeklyStandouts: vi.fn(async () => []),
 }));
 
 expect.extend({
@@ -123,7 +127,8 @@ describe("LeagueHub", () => {
     render(await LeagueHub());
 
     expect(screen.getByRole("region", { name: /awards desk/i })).not.toBeNull();
-    expect(screen.queryByRole("article", { name: /latest week's standouts/i })).toBeNull();
+    expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
+    expect(screen.getByText(/weekly standouts will appear/i)).not.toBeNull();
   });
 
   it("adds the team standings panel to the landing page", async () => {
@@ -142,6 +147,7 @@ describe("LeagueHub", () => {
     const schedule = screen.getByRole("article", { name: /upcoming schedule/i });
     const standings = screen.getByRole("article", { name: /team standings/i });
     const awards = screen.getByRole("region", { name: /awards desk/i });
+    const standouts = screen.getByRole("article", { name: /latest week's standouts/i });
 
     expect(
       broadcast.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -151,6 +157,12 @@ describe("LeagueHub", () => {
     ).toBeTruthy();
     expect(
       awards.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      awards.compareDocumentPosition(standouts) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      standouts.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 

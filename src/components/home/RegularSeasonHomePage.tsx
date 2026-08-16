@@ -9,13 +9,15 @@ import { fetchHomepageAwards } from "@/lib/home/awards";
 import { fetchActiveBrief } from "@/lib/home/fetchBrief";
 import HomeBrief from "./HomeBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
+import WeeklyStandouts from "./WeeklyStandouts";
+import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
 
 const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
 const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitchStatus, awards, standings, schedule, brief, identities] = await Promise.all([
+  const [twitchStatus, awards, standings, schedule, brief, identities, standouts] = await Promise.all([
     getTwitchChannelStatus({
       channelLogin: TWITCH_CHANNEL_LOGIN,
     }),
@@ -24,6 +26,7 @@ export default async function RegularSeasonHomePage() {
     fetchHomepageSchedule(),
     fetchActiveBrief(),
     fetchTeamIdentities(),
+    fetchLatestWeeklyStandouts(),
   ]);
   const twitchClips =
     twitchStatus.state === "live"
@@ -50,6 +53,7 @@ export default async function RegularSeasonHomePage() {
               published; without one the page keeps the calculated version
               rather than going blank. */}
           {brief ? <HomeBrief brief={brief} /> : <AwardsDesk awards={awards} />}
+          <WeeklyStandouts standouts={standouts} />
           <UpcomingSchedule schedule={schedule} identities={identities} />
         </section>
       </div>

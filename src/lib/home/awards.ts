@@ -1,7 +1,6 @@
-import bundledRawStats from "../../../scripts/data/raw_stats.json";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-const SEASON = "S4" as const;
+const SEASON = "S5" as const;
 const MIN_PLAYER_GAMES = 2;
 const MIN_CHAMPION_PICKS = 2;
 
@@ -326,7 +325,7 @@ function deriveStandingsFromGames(games: TeamGame[]): HomepageSeasonStanding[] {
   return aggregateTeams(games)
     .sort((a, b) => b.winrate - a.winrate || b.wins - a.wins || a.teamName.localeCompare(b.teamName))
     .map((team, index) => ({
-      id: `season4-${teamSlug(team.teamName)}`,
+      id: `season5-${teamSlug(team.teamName)}`,
       name: team.teamName,
       abbreviation: teamAbbreviation(team.teamName),
       nomination_position: index + 1,
@@ -419,18 +418,18 @@ export function deriveHomepageAwards(
 
   return {
     season: SEASON,
-    periodLabel: latest?.label ?? "Season 4",
+    periodLabel: latest?.label ?? "Season 5",
     playerOfWeek: playerAward(
       "Player of the Week",
       playerOfWeek,
       playerOfWeek ? String(playerPower(playerOfWeek)) : "—",
-      playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : "Season 4 player data unavailable",
+      playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : "Season 5 player data unavailable",
     ),
     teamOfWeek: teamAward(
       "Team of the Week",
       teamOfWeek,
       teamOfWeek ? `${teamOfWeek.wins}–${teamOfWeek.losses}` : "—",
-      teamOfWeek ? `${teamOfWeek.winrate}% weekly win rate` : "Season 4 team data unavailable",
+      teamOfWeek ? `${teamOfWeek.winrate}% weekly win rate` : "Season 5 team data unavailable",
     ),
     individualAwards: [
       championOfWeek
@@ -468,18 +467,14 @@ export function deriveHomepageAwards(
   };
 }
 
-function bundledSeason4Rows(): HomepageRawStatRow[] {
-  return ((bundledRawStats as unknown) as HomepageRawStatRow[]).filter((row) => row.season === SEASON);
-}
-
-export async function fetchSeason4RawStats(): Promise<HomepageRawStatRow[]> {
+export async function fetchHomepageRawStats(): Promise<HomepageRawStatRow[]> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", SEASON);
   if (error) throw error;
   return ((data ?? []) as unknown) as HomepageRawStatRow[];
 }
 
-async function fetchSeason4Prices(): Promise<Map<string, number>> {
+async function fetchHomepagePrices(): Promise<Map<string, number>> {
   const supabase = await createServerSupabase();
   const { data: settings } = await supabase
     .from("league_settings")
@@ -500,15 +495,14 @@ async function fetchSeason4Prices(): Promise<Map<string, number>> {
 export async function fetchHomepageAwards(): Promise<HomepageAwardsData> {
   let rows: HomepageRawStatRow[];
   try {
-    rows = await fetchSeason4RawStats();
-    if (rows.length === 0) rows = bundledSeason4Rows();
+    rows = await fetchHomepageRawStats();
   } catch {
-    rows = bundledSeason4Rows();
+    rows = [];
   }
 
   let prices = new Map<string, number>();
   try {
-    prices = await fetchSeason4Prices();
+    prices = await fetchHomepagePrices();
   } catch {
     prices = new Map();
   }
@@ -518,5 +512,3 @@ export async function fetchHomepageAwards(): Promise<HomepageAwardsData> {
 export function deriveStandings(inputRows: HomepageRawStatRow[]): HomepageSeasonStanding[] {
   return deriveStandingsFromGames(chooseTeamGames(rowsForSeason(inputRows)));
 }
-
-export { bundledSeason4Rows };
