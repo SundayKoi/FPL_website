@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { compareSeasonsNewestFirst } from "@/lib/stats/queries";
 import type { LeagueTeam, RiotAccount } from "@/lib/matches/types";
+import type { League } from "@/lib/captain/league";
 
 /**
  * A `roster_memberships` row with its Riot account embedded via PostgREST
@@ -82,10 +83,12 @@ export default function RosterEditor({
   teams,
   defaultSeason,
   memberships,
+  league = "premier",
 }: {
   teams: LeagueTeam[];
   defaultSeason: string;
   memberships: RosterMembershipRow[];
+  league?: League;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -109,7 +112,10 @@ export default function RosterEditor({
 
   const handleSyncTeams = async () => {
     setSyncTeamsStatus({ kind: "saving" });
-    const { data, error } = await supabase.rpc("sync_league_teams_from_draft");
+    const { data, error } = await supabase.rpc(
+      "sync_league_teams_from_draft",
+      league === "academy" ? { p_league: league } : {},
+    );
     if (error) {
       setSyncTeamsStatus({ kind: "error", message: error.message });
       return;
@@ -129,7 +135,10 @@ export default function RosterEditor({
       return;
     }
     setSyncStatus({ kind: "saving" });
-    const { data, error } = await supabase.rpc("sync_league_team_captains", { p_season: seasonTrimmed });
+    const { data, error } = await supabase.rpc(
+      "sync_league_team_captains",
+      league === "academy" ? { p_season: seasonTrimmed, p_league: league } : { p_season: seasonTrimmed },
+    );
     if (error) {
       setSyncStatus({ kind: "error", message: error.message });
       return;
@@ -189,7 +198,7 @@ export default function RosterEditor({
 
     const { error: memberError } = await supabase
       .from("roster_memberships")
-      .insert({ riot_account_id: account.id, season: seasonTrimmed, league_team_id: teamId });
+      .insert({ riot_account_id: account.id, season: seasonTrimmed, league_team_id: teamId, ...(league === "academy" ? { league } : {}) });
     if (memberError) {
       setAddStatus({
         kind: "error",
@@ -249,9 +258,9 @@ export default function RosterEditor({
         account = created as RiotAccount;
         known.push(account);
       }
-      const { error: memberError } = await supabase
-        .from("roster_memberships")
-        .insert({ riot_account_id: account.id, season: seasonTrimmed, league_team_id: teamId });
+        const { error: memberError } = await supabase
+          .from("roster_memberships")
+          .insert({ riot_account_id: account.id, season: seasonTrimmed, league_team_id: teamId, ...(league === "academy" ? { league } : {}) });
       if (memberError) {
         errors.push(
           `${parsed.gameName}#${parsed.tagLine}: ${

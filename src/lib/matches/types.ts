@@ -12,6 +12,8 @@
 //
 // .superpowers/sdd/2026-08-11-match-reporting-auto-ingest/task-3-brief.md
 
+import type { League } from "@/lib/captain/league";
+
 /** `match_reports.status` check constraint. */
 export type ReportStatus = "pending" | "ingested" | "needs_sides" | "failed";
 
@@ -22,6 +24,7 @@ export type GameStatus = "pending" | "ingested" | "needs_side" | "failed";
 export interface LeagueSettings {
   id: number;
   featured_draft_id: string | null;
+  academy_draft_id?: string | null;
   updated_at: string;
   current_season: string;
   current_phase: string;
@@ -30,6 +33,7 @@ export interface LeagueSettings {
 /** The canonical team list for reporting — decoupled from the per-draft `teams` table. */
 export interface LeagueTeam {
   id: string;
+  league?: League;
   name: string;
   abbreviation: string;
   active: boolean;
@@ -48,12 +52,14 @@ export interface RosterMembership {
   id: string;
   riot_account_id: string;
   season: string;
+  league?: League;
   league_team_id: string;
 }
 
 /** A reported series between two `league_teams`. */
 export interface MatchReport {
   id: string;
+  league?: League;
   season: string;
   season_phase: string;
   team_a_id: string;

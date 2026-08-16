@@ -18,10 +18,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/lib/matches/types";
 import type { Player } from "@/lib/draft/types";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
+import { draftSettingColumn, type League } from "@/lib/captain/league";
 
 /** One row of `league_team_captains`. */
 export interface LeagueTeamCaptain {
   id: string;
+  league?: League;
   league_team_id: string;
   season: string;
   profile_id: string;
@@ -30,6 +32,7 @@ export interface LeagueTeamCaptain {
 /** One row of `match_codes` — the one genuinely private table in the app. */
 export interface MatchCode {
   id: string;
+  league?: League;
   fixture_id: string | null;
   season: string;
   team_a_id: string;
@@ -44,6 +47,7 @@ export interface MatchCode {
 /** One row of `announcements`. */
 export interface Announcement {
   id: string;
+  league?: League;
   title: string;
   body: string;
   pinned: boolean;
@@ -53,6 +57,8 @@ export interface Announcement {
 
 /** Resolved server-side context for the signed-in visitor. */
 export interface CaptainContext {
+  league: League;
+  academyConfigured: boolean;
   profileId: string | null;
   isAdmin: boolean;
   /** Every league team ever recorded — use for resolving historical names. */
@@ -81,6 +87,7 @@ export interface MyResultsData {
 }
 
 export interface SubmitReportInput {
+  league: League;
   season: string;
   phase: string;
   teamAId: string;
@@ -118,7 +125,7 @@ export function activeOnly(teams: LeagueTeam[]): LeagueTeam[] {
   return teams.filter((t) => t.active !== false);
 }
 
-export async function fetchCaptainContext(supabase: SupabaseClient): Promise<CaptainContext> {
+export async function fetchCaptainContext(supabase: SupabaseClient, league: League = "premier"): Promise<CaptainContext> {
   const { data: userData } = await supabase.auth.getUser();
   const profileId = userData.user?.id ?? null;
 
@@ -127,13 +134,13 @@ export async function fetchCaptainContext(supabase: SupabaseClient): Promise<Cap
       ? supabase.from("profiles").select("is_admin").eq("id", profileId).single()
       : Promise.resolve({ data: null as { is_admin: boolean } | null }),
     supabase.from("league_teams").select("*").order("name"),
-    supabase.from("league_settings").select("current_season").eq("id", 1).single(),
+    supabase.from("league_settings").select(`current_season, ${draftSettingColumn(league)}`).eq("id", 1).single(),
   ]);
 
   const isAdmin = profileResult.data?.is_admin ?? false;
   const teams = (teamsResult.data as LeagueTeam[]) ?? [];
-  const activeTeams = activeOnly(teams);
   const season = settingsResult.data?.current_season ?? "";
+  const academyConfigured = league === "premier" || Boolean((settingsResult.data as Record<string, unknown> | null)?.academy_draft_id);
 
   let myTeamId: string | null = null;
   if (profileId && season) {
@@ -141,19 +148,22 @@ export async function fetchCaptainContext(supabase: SupabaseClient): Promise<Cap
       .from("league_team_captains")
       .select("league_team_id")
       .eq("profile_id", profileId)
-      .eq("season", season);
+      .eq("season", season)
+      .eq("league", league);
     myTeamId = (captainRows as { league_team_id: string }[] | null)?.[0]?.league_team_id ?? null;
   }
 
-  return { profileId, isAdmin, teams, activeTeams, myTeamId, season };
+  const scopedTeams = teams.filter((team) => (team.league ?? "premier") === league);
+  return { league, academyConfigured, profileId, isAdmin, teams: scopedTeams, activeTeams: activeOnly(scopedTeams), myTeamId, season };
 }
 
 /** Tourney codes for one fixture, ordered by game number. */
-export async function fetchCodes(supabase: SupabaseClient, fixtureId: string): Promise<MatchCode[]> {
+export async function fetchCodes(supabase: SupabaseClient, fixtureId: string, league: League = "premier"): Promise<MatchCode[]> {
   const { data, error } = await supabase
     .from("match_codes")
     .select("*")
     .eq("fixture_id", fixtureId)
+    .eq("league", league)
     .order("game_number");
   if (error) throw error;
   return (data as MatchCode[]) ?? [];
@@ -163,12 +173,14 @@ export async function fetchCodes(supabase: SupabaseClient, fixtureId: string): P
 export async function fetchMyReports(
   supabase: SupabaseClient,
   teamId: string,
-  season: string
+  season: string,
+  league: League = "premier"
 ): Promise<MyReportRow[]> {
   const { data: reports, error } = await supabase
     .from("match_reports")
     .select("*")
     .eq("season", season)
+    .eq("league", league)
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order("submitted_at", { ascending: false });
   if (error) throw error;
@@ -200,7 +212,8 @@ export async function fetchMyReports(
 export async function fetchMyRoster(
   supabase: SupabaseClient,
   teamId: string,
-  season: string
+  season: string,
+  league: League = "premier"
 ): Promise<MyRosterData> {
   const { data: teamRow } = await supabase.from("league_teams").select("name").eq("id", teamId).single();
   const teamName = (teamRow as { name: string } | null)?.name ?? null;
@@ -209,10 +222,10 @@ export async function fetchMyRoster(
   if (teamName) {
     const { data: settings } = await supabase
       .from("league_settings")
-      .select("featured_draft_id")
+      .select(draftSettingColumn(league))
       .eq("id", 1)
       .single();
-    const featuredDraftId = (settings as { featured_draft_id: string | null } | null)?.featured_draft_id ?? null;
+    const featuredDraftId = (settings as Record<string, string | null> | null)?.[draftSettingColumn(league)] ?? null;
 
     if (featuredDraftId) {
       const { data: draftTeams } = await supabase
@@ -240,7 +253,8 @@ export async function fetchMyRoster(
     .from("roster_memberships")
     .select("id, riot_accounts(id, game_name, tag_line, display_name)")
     .eq("league_team_id", teamId)
-    .eq("season", season);
+    .eq("season", season)
+    .eq("league", league);
   if (membershipsError) throw membershipsError;
 
   const riotAccounts = (
@@ -266,12 +280,13 @@ export async function fetchMyRoster(
 export async function fetchMyResults(
   supabase: SupabaseClient,
   teamName: string,
-  season: string
+  season: string,
+  league: League = "premier"
 ): Promise<MyResultsData> {
   const [gameLogResult, rosterResult, playerAggResult] = await Promise.all([
-    supabase.from("stats_game_log").select("*").eq("season", season),
-    supabase.from("raw_stats").select("summoner_name, tag").eq("team_name", teamName).eq("season", season),
-    supabase.from("stats_player_agg").select("*").eq("season", season),
+    supabase.from("captain_stats_game_log").select("*").eq("season", season).eq("league", league),
+    supabase.from("raw_stats").select("summoner_name, tag").eq("team_name", teamName).eq("season", season).eq("league", league),
+    supabase.from("captain_stats_player_agg").select("*").eq("season", season).eq("league", league),
   ]);
   if (gameLogResult.error) throw gameLogResult.error;
   if (rosterResult.error) throw rosterResult.error;
@@ -294,10 +309,11 @@ export async function fetchMyResults(
 }
 
 /** Announcements, pinned first then newest. */
-export async function fetchAnnouncements(supabase: SupabaseClient): Promise<Announcement[]> {
+export async function fetchAnnouncements(supabase: SupabaseClient, league: League = "premier"): Promise<Announcement[]> {
   const { data, error } = await supabase
     .from("announcements")
     .select("*")
+    .eq("league", league)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -321,6 +337,7 @@ export async function submitReport(
   const { data: report, error: reportError } = await supabase
     .from("match_reports")
     .insert({
+      league: input.league,
       season: input.season,
       season_phase: input.phase,
       team_a_id: input.teamAId,

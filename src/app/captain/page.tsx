@@ -22,6 +22,7 @@ import AdminCodeEditor from "@/components/captain/AdminCodeEditor";
 import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
 import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
+import { leagueLabel, normalizeLeague, type League } from "@/lib/captain/league";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -40,7 +41,23 @@ export default async function CaptainPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const supabase = await createServerSupabase();
-  const context = await fetchCaptainContext(supabase);
+  const rawLeague = (await searchParams).league;
+  const league: League = normalizeLeague(rawLeague);
+  const context = await fetchCaptainContext(supabase, league);
+
+  if (league === "academy" && !context.academyConfigured) {
+    return (
+      <main className="bg-hash flex-1">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+          <span className="label-dash">Academy captain hub</span>
+          <h1 className="type-display mt-3 text-5xl sm:text-6xl">Academy not configured</h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+            An admin needs to select the Academy draft before Academy captains can use this page.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   // Server-side gate: signed in AND (a captain this season OR an admin).
   // Always a 200 with the branded card below — never a 404/redirect.
@@ -72,7 +89,7 @@ export default async function CaptainPage({
   }
 
   const [fixturesResult, phaseResult] = await Promise.all([
-    supabase.from("fixtures").select("*").eq("season", context.season),
+    supabase.from("fixtures").select("*").eq("season", context.season).eq("league", league),
     supabase.from("league_settings").select("current_phase").eq("id", 1).single(),
   ]);
   const fixtures = (fixturesResult.data as FixtureRow[]) ?? [];
@@ -93,11 +110,11 @@ export default async function CaptainPage({
   }
 
   const [codes, myReports, roster, results, announcements] = await Promise.all([
-    nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
-    fetchMyReports(supabase, activeTeamId, context.season),
-    fetchMyRoster(supabase, activeTeamId, context.season),
-    fetchMyResults(supabase, activeTeam.name, context.season),
-    fetchAnnouncements(supabase),
+    nextFixture ? fetchCodes(supabase, nextFixture.id, league) : Promise.resolve([]),
+    fetchMyReports(supabase, activeTeamId, context.season, league),
+    fetchMyRoster(supabase, activeTeamId, context.season, league),
+    fetchMyResults(supabase, activeTeam.name, context.season, league),
+    fetchAnnouncements(supabase, league),
   ]);
 
   // Admin-only data for the four panels below the captain sections. Fetched
@@ -110,12 +127,13 @@ export default async function CaptainPage({
   let allMemberships: RosterMembershipRow[] = [];
   if (context.isAdmin) {
     const [reportsResult, gamesResult, codesResult, membershipsResult] = await Promise.all([
-      supabase.from("match_reports").select("*").order("submitted_at", { ascending: false }),
+      supabase.from("match_reports").select("*").eq("league", league).order("submitted_at", { ascending: false }),
       supabase.from("match_report_games").select("*"),
-      supabase.from("match_codes").select("*"),
+      supabase.from("match_codes").select("*").eq("league", league),
       supabase
         .from("roster_memberships")
-        .select("id, season, league_team_id, riot_accounts(id, game_name, tag_line, display_name)"),
+        .select("id, season, league, league_team_id, riot_accounts(id, game_name, tag_line, display_name)")
+        .eq("league", league),
     ]);
     allReports = (reportsResult.data as MatchReport[]) ?? [];
     allGames = (gamesResult.data as MatchReportGame[]) ?? [];
@@ -127,12 +145,17 @@ export default async function CaptainPage({
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header className="border-b border-line pb-8">
-          <span className="label-dash">Captain hub · {context.season}</span>
+          <span className="label-dash">{leagueLabel(league)} captain hub · {context.season}</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">{activeTeam.name}</h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
             Your next match, tourney codes, result reporting, roster, and stats — all in one place.
           </p>
         </header>
+
+        <nav aria-label="Captain league" className="mt-6 flex gap-2 text-xs font-semibold uppercase tracking-wide">
+          <a href="/captain" className={league === "premier" ? "rounded bg-gold px-3 py-1.5 text-navy" : "rounded border border-line px-3 py-1.5 text-steel"}>Premier</a>
+          <a href="/captain?league=academy" className={league === "academy" ? "rounded bg-gold px-3 py-1.5 text-navy" : "rounded border border-line px-3 py-1.5 text-steel"}>Academy</a>
+        </nav>
 
         {context.isAdmin && context.activeTeams.length > 1 && (
           <form action="/captain" method="get" className="mt-6 flex flex-wrap items-end gap-2">
@@ -176,6 +199,7 @@ export default async function CaptainPage({
               prefillTeamAId={prefillTeamAId}
               prefillTeamBId={prefillTeamBId}
               myReports={myReports}
+              league={league}
             />
           </div>
           <MyResults teamName={activeTeam.name} games={results.games} players={results.players} />
@@ -187,10 +211,10 @@ export default async function CaptainPage({
                 <span className="label-dash">Admin</span>
                 <h2 className="type-display mt-2 text-3xl">League admin</h2>
               </div>
-              <AdminCodeEditor fixtures={fixtures} teams={context.teams} codes={allCodes} />
+              <AdminCodeEditor fixtures={fixtures} teams={context.teams} codes={allCodes} league={league} />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
-              <LeagueTeamsEditor teams={context.teams} />
-              <RosterEditor teams={context.activeTeams} defaultSeason={context.season} memberships={allMemberships} />
+              <LeagueTeamsEditor teams={context.teams} league={league} />
+              <RosterEditor teams={context.activeTeams} defaultSeason={context.season} memberships={allMemberships} league={league} />
             </div>
           )}
         </div>

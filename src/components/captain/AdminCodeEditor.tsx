@@ -7,6 +7,7 @@ import { hasResult, stageMeta, teamLabel } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { LeagueTeam } from "@/lib/matches/types";
 import type { MatchCode } from "@/lib/captain/queries";
+import type { League } from "@/lib/captain/league";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -63,10 +64,12 @@ export default function AdminCodeEditor({
   fixtures,
   teams,
   codes,
+  league = "premier",
 }: {
   fixtures: FixtureRow[];
   teams: LeagueTeam[];
   codes: MatchCode[];
+  league?: League;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -112,13 +115,17 @@ export default function AdminCodeEditor({
     const lines = text.split("\n");
     setStatus({ kind: "saving" });
 
-    const { data, error } = await supabase.rpc("replace_match_codes", {
+    const rpcPayload = {
       p_fixture_id: fixture.id,
       p_season: fixture.season,
       p_team_a_id: teamAId,
       p_team_b_id: teamBId,
       p_codes: lines,
-    });
+    };
+    const { data, error } = await supabase.rpc(
+      league === "academy" ? "replace_match_codes" : "replace_match_codes",
+      league === "academy" ? { ...rpcPayload, p_league: league } : rpcPayload,
+    );
     if (error) {
       setStatus({ kind: "error", message: error.message });
       return;

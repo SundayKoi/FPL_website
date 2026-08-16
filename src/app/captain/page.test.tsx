@@ -92,4 +92,32 @@ describe("CaptainPage layout", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     )).toBe(true);
   });
+
+  it("renders the parallel Academy captain page when selected", async () => {
+    const team = { id: "academy-1", name: "Academy One", league: "academy" as const };
+    fetchCaptainContext.mockResolvedValue({
+      profileId: "profile-1",
+      isAdmin: false,
+      academyConfigured: true,
+      teams: [team],
+      activeTeams: [team],
+      myTeamId: team.id,
+      season: "S5",
+      league: "academy",
+    });
+    fetchCodes.mockResolvedValue([]);
+    fetchMyReports.mockResolvedValue([]);
+    fetchMyRoster.mockResolvedValue({ draftPlayers: [], riotAccounts: [] });
+    fetchMyResults.mockResolvedValue({ games: [], players: [] });
+    fetchAnnouncements.mockResolvedValue([]);
+    from.mockImplementation((table: string) =>
+      table === "fixtures" ? query({ data: [] }) : query({ data: { current_phase: "Regular" } }),
+    );
+
+    render(await CaptainPage({ searchParams: Promise.resolve({ league: "academy" }) }));
+
+    expect(screen.getByText("Academy captain hub · S5")).toBeTruthy();
+    expect(screen.getByText("Academy One")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Academy" }).getAttribute("href")).toBe("/captain?league=academy");
+  });
 });

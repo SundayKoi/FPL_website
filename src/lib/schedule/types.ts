@@ -2,6 +2,8 @@
 // (supabase/migrations/20260811000001_fixtures.sql). Do not rename fields
 // here without updating the table.
 
+import type { League } from "@/lib/captain/league";
+
 export const FIXTURE_STAGES = [
   "week_1",
   "week_2",
@@ -22,6 +24,7 @@ export type Division = (typeof DIVISIONS)[number];
 
 export interface FixtureRow {
   id: string;
+  league?: League;
   season: string;
   stage: FixtureStage;
   division: Division | null;
