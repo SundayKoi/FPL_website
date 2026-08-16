@@ -208,4 +208,29 @@ describe("TeamsPage", () => {
     expect(screen.getByRole("link", { name: "Premier" }).getAttribute("href")).toBe("/teams");
     expect(screen.getByRole("link", { name: "Academy" }).className).toContain("bg-gold");
   });
+
+  it("lets admins edit Academy teams", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
+    from.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return profilesQuery({ data: { is_admin: true } }, { data: [selectedCaptainProfile] });
+      }
+      if (table === "league_settings") {
+        return query({ data: { featured_draft_id: "draft-live", academy_draft_id: "draft-academy" } });
+      }
+      if (table === "drafts") return query({ data: [academyDraft] });
+      if (table === "teams") return query({ data: [academyTeam] });
+      if (table === "players") {
+        return query({
+          data: selectedPlayers.map((player) => ({ ...player, draft_id: "draft-academy", team_id: "team-academy" })),
+        });
+      }
+      return query({ data: null });
+    });
+
+    render(await TeamsPage({ searchParams: Promise.resolve({ view: "academy" }) }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    expect(screen.getByLabelText("Academy Team name")).toBeTruthy();
+  });
 });

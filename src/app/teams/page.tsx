@@ -95,7 +95,7 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
         ) : null
       }
       rosterContent={
-        hasSelectedDraft && isAdmin && !isAcademy ? (
+        hasSelectedDraft && isAdmin ? (
           <AdminTeamEditor
             key={selectedDraft!.id}
             draftId={selectedDraft!.id}
