@@ -254,7 +254,7 @@ export default function PlayersDirectory({
                             isAvailable ? "opacity-100" : "opacity-50"
                           }`}
                         >
-                          <a
+                          {player.opggUrl ? <a
                             href={player.opggUrl}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -265,7 +265,7 @@ export default function PlayersDirectory({
                             }`}
                           >
                             {player.name}
-                          </a>
+                          </a> : <span className="min-w-0 break-words whitespace-nowrap font-semibold">{player.name}</span>}
                           <span className="font-medium">{player.rank}</span>
                           <span className="font-medium">
                             {isFreeAgency && isAdmin && editMode ? (

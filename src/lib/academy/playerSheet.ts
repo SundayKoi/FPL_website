@@ -1,18 +1,21 @@
+import { normalizePlayerName } from "@/lib/players/freeAgency";
+
 export const ACADEMY_PLAYER_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/1GRCjWINa6k2JgW10L8Bs05tr1jkIAFfCFhb7wTh-GWc/export?format=csv&gid=1133886891";
 
-export type AcademySheetPlayer = { name: string; role: string; opggUrl: string | null };
+export type AcademySheetPlayer = { name: string; role: string; rank: string; opggUrl: string | null };
 
 export function mergeAcademyPlayers(
-  draftPlayers: Array<{ display_name: string; role: string }>,
+  draftPlayers: Array<{ display_name: string; role: string; rank?: string | null }>,
   sheetPlayers: AcademySheetPlayer[],
 ): AcademySheetPlayer[] {
-  const sheetByName = new Map(sheetPlayers.map((player) => [player.name.trim().toLowerCase().split("#")[0].trim(), player]));
+  const sheetByName = new Map(sheetPlayers.map((player) => [normalizePlayerName(player.name), player]));
   return draftPlayers.map((player) => {
-    const sheetPlayer = sheetByName.get(player.display_name.trim().toLowerCase().split("#")[0].trim());
+    const sheetPlayer = sheetByName.get(normalizePlayerName(player.display_name));
     return {
       name: player.display_name,
-      role: player.role[0].toUpperCase() + player.role.slice(1),
+      role: sheetPlayer?.role ?? (player.role[0].toUpperCase() + player.role.slice(1)),
+      rank: sheetPlayer?.rank || player.rank || "Unranked",
       opggUrl: sheetPlayer?.opggUrl ?? null,
     };
   });
@@ -60,6 +63,7 @@ export function parseAcademyPlayers(csv: string): AcademySheetPlayer[] {
   const headers = parseCsvLine(lines[0]);
   const nameColumn = headerIndex(headers, ["name", "player", "player name", "display name"]);
   const roleColumn = headerIndex(headers, ["role", "position"]);
+  const rankColumn = headerIndex(headers, ["rank", "tier", "elo"]);
   const opggColumn = headerIndex(headers, ["op.gg", "opgg", "op.gg link", "opgg link", "op.gg url", "opgg url"]);
   if (nameColumn < 0) return [];
 
@@ -67,7 +71,7 @@ export function parseAcademyPlayers(csv: string): AcademySheetPlayer[] {
     const values = parseCsvLine(line);
     const name = values[nameColumn]?.trim();
     if (!name) return [];
-    return [{ name, role: values[roleColumn]?.trim() || "Unassigned", opggUrl: sheetUrl(values[opggColumn]) }];
+    return [{ name, role: values[roleColumn]?.trim() || "Unassigned", rank: values[rankColumn]?.trim() || "Unranked", opggUrl: sheetUrl(values[opggColumn]) }];
   });
 }
 
