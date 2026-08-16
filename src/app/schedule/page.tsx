@@ -11,6 +11,7 @@ import {
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
+import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 
@@ -116,6 +117,7 @@ export default async function SchedulePage({
               currentSeason={settings?.current_season ?? ""}
               currentPhase={settings?.current_phase ?? "Regular"}
             />
+            {season && <AdminGenerateSchedule season={season} />}
             <AdminFixturesEditor fixtures={fixtures} season={season} />
           </div>
         )}
