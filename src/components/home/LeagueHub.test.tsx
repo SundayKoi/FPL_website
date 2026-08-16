@@ -24,6 +24,12 @@ vi.mock("@/lib/home/schedule", () => ({
   })),
 }));
 
+// No published brief, so the page keeps the computed award lists these tests
+// assert on. Without this the server-side fetch runs outside a request scope.
+vi.mock("@/lib/home/fetchBrief", () => ({
+  fetchActiveBrief: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/home/awards", () => ({
   fetchHomepageAwards: vi.fn(async () => ({
     season: "S4",

@@ -1,0 +1,28 @@
+name: Weekly homepage brief
+
+on:
+  schedule:
+    # 14:00 UTC Tuesday = 9am EST / 10am EDT, after Monday night's games have
+    # been ingested by the nightly stats job.
+    - cron: "0 14 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: homepage-brief
+  cancel-in-progress: false
+
+jobs:
+  write:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/generate-homepage-brief.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -5,6 +5,8 @@ import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
+import AdminBriefEditor from "@/components/admin/AdminBriefEditor";
+import type { HomepageBrief } from "@/lib/home/brief";
 import type { HomepageMode } from "@/lib/home/seasonState";
 
 /**
@@ -59,6 +61,15 @@ export default async function AdminPage() {
   } | null;
   const signupCount = signupCountResult.count ?? 0;
   const fixtureCount = fixtureCountResult.count ?? 0;
+
+  // Newest brief regardless of published state, so a pulled one can be edited
+  // and put back up from here.
+  const { data: briefRows } = await supabase
+    .from("homepage_briefs")
+    .select("*")
+    .order("generated_at", { ascending: false })
+    .limit(1);
+  const latestBrief = ((briefRows as HomepageBrief[]) ?? [])[0] ?? null;
 
   const cards = [
     {
@@ -121,6 +132,10 @@ export default async function AdminPage() {
             <p className="text-sm text-steel">{card.description}</p>
           </Link>
         ))}
+      </section>
+
+      <section aria-label="Homepage write-up" className="flex flex-col gap-3">
+        <AdminBriefEditor brief={latestBrief} />
       </section>
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
