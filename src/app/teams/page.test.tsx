@@ -129,7 +129,7 @@ describe("TeamsPage", () => {
     expect(screen.getAllByRole("article")).toHaveLength(12);
     expect(screen.getByLabelText("Display draft")).toBeTruthy();
     expect(screen.getByRole("region", { name: "Team rosters" }).querySelector(".grid")?.classList).toContain(
-      "2xl:grid-cols-6",
+      "sm:grid-cols-3",
     );
   });
 
