@@ -22,6 +22,50 @@ import type {
   TeamAggRow,
 } from "./types";
 
+export async function fetchPlayerKeysForTeams(teamNames: string[]): Promise<Set<string>> {
+  if (!teamNames.length) return new Set();
+  const supabase = createClient();
+  const { data, error } = await supabase.from("raw_stats").select("summoner_name, tag").in("team_name", teamNames);
+  if (error) throw error;
+  return new Set(((data as { summoner_name: string; tag: string }[]) ?? []).map((row) => `${row.summoner_name}#${row.tag}`.toLowerCase()));
+}
+
+export async function fetchChampionAggForTeams(season?: string, phase?: string, teamNames?: string[]): Promise<ChampionAggRow[]> {
+  if (!teamNames) return fetchChampionAgg(season, phase);
+  if (!teamNames.length) return [];
+  const supabase = createClient();
+  let query = supabase.from("raw_stats").select("champion, season, season_phase, match_id, win, kills, assists, deaths, ban_1, ban_2, ban_3, ban_4, ban_5").in("team_name", teamNames);
+  if (season) query = query.eq("season", season);
+  if (phase && phase !== "All") query = query.eq("season_phase", phase);
+  const { data, error } = await query;
+  if (error) throw error;
+  const rows = (data as Array<{ champion: string | null; season: string; season_phase: string; match_id: string; win: boolean; kills: number; assists: number; deaths: number; ban_1: string | null; ban_2: string | null; ban_3: string | null; ban_4: string | null; ban_5: string | null }>) ?? [];
+  const groups = new Map<string, { champion: string; season: string; season_phase: string; picks: number; wins: number; kills: number; assists: number; deaths: number; bans: Set<string> }>();
+  const games = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const scope = `${row.season}::${row.season_phase}`;
+    const gameSet = games.get(scope) ?? new Set<string>();
+    gameSet.add(row.match_id);
+    games.set(scope, gameSet);
+    const champions = [row.champion, row.ban_1, row.ban_2, row.ban_3, row.ban_4, row.ban_5].filter((value): value is string => Boolean(value));
+    for (const champion of champions) {
+      const key = `${champion}::${scope}`;
+      const group = groups.get(key) ?? { champion, season: row.season, season_phase: row.season_phase, picks: 0, wins: 0, kills: 0, assists: 0, deaths: 0, bans: new Set<string>() };
+      if (champion === row.champion) {
+        group.picks += 1; group.wins += row.win ? 1 : 0; group.kills += row.kills; group.assists += row.assists; group.deaths += row.deaths;
+      }
+      if (champion !== row.champion) group.bans.add(`${row.match_id}::${champion}`);
+      groups.set(key, group);
+    }
+  }
+  return [...groups.values()].map((group) => {
+    const gamesInScope = games.get(`${group.season}::${group.season_phase}`)?.size ?? 0;
+    const bans = group.bans.size;
+    const total = group.picks + bans;
+    return { champion: group.champion, season: group.season, season_phase: group.season_phase, picks: group.picks, wins: group.wins, winrate_pct: group.picks ? Number((100 * group.wins / group.picks).toFixed(1)) : 0, avg_kda: Number(((group.kills + group.assists) / Math.max(group.deaths, 1)).toFixed(2)), bans, games_in_scope: gamesInScope, presence_pct: gamesInScope ? Number((100 * total / gamesInScope).toFixed(1)) : 0 };
+  });
+}
+
 export async function fetchPlayerAgg(season?: string, phase?: string): Promise<PlayerAggRow[]> {
   const supabase = createClient();
   let query = supabase.from("stats_player_agg").select("*");

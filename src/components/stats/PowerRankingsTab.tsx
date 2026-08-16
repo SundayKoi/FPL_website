@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows, powerRanking } from "@/lib/stats/formulas";
-import { fetchPlayerAgg } from "@/lib/stats/queries";
+import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
+import { filterStatsRowsByPlayerKeys } from "@/lib/stats/scope";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
@@ -19,7 +20,7 @@ function playerKey(row: PlayerAggRow): string {
   return `${row.summoner_name}#${row.tag}`;
 }
 
-export default function PowerRankingsTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function PowerRankingsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see LeaderboardTab): flip back to "loading"
@@ -41,8 +42,9 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
         const data = await fetchPlayerAgg(seasonParam, phaseParam);
+        const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
         if (cancelled) return;
-        setRows(data);
+        setRows(keys ? filterStatsRowsByPlayerKeys(data, keys) : data);
         setStatus("loaded");
       } catch {
         if (cancelled) return;
@@ -54,7 +56,7 @@ export default function PowerRankingsTab({ season, phase }: { season: string; ph
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with

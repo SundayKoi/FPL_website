@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
-import { fetchPlayerAgg, fetchSeasons } from "@/lib/stats/queries";
+import { fetchPlayerAgg, fetchPlayerKeysForTeams, fetchSeasons } from "@/lib/stats/queries";
+import { filterStatsRowsByPlayerKeys } from "@/lib/stats/scope";
 import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import ChampionsTab from "./ChampionsTab";
@@ -51,11 +52,13 @@ function PlayersTab({
   phase,
   onSelectPlayer,
   initialQuery = "",
+  teamNames,
 }: {
   season: string;
   phase: PhaseFilter;
   onSelectPlayer: (player: SelectedPlayer) => void;
   initialQuery?: string;
+  teamNames?: string[];
 }) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -81,8 +84,9 @@ function PlayersTab({
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
         const data = await fetchPlayerAgg(seasonParam, phaseParam);
+        const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
         if (cancelled) return;
-        setRows(data);
+        setRows(keys ? filterStatsRowsByPlayerKeys(data, keys) : data);
         setStatus("loaded");
       } catch {
         if (cancelled) return;
@@ -94,7 +98,7 @@ function PlayersTab({
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with
@@ -382,17 +386,17 @@ export default function StatsTabs({
           onBack={() => setSelectedPlayer(null)}
         />
       ) : activeTab === "Leaderboard" ? (
-        <LeaderboardTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} />
+        <LeaderboardTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} teamNames={teamNames} />
       ) : activeTab === "Teams" ? (
         <TeamsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Champions" ? (
-        <ChampionsTab season={season} phase={phase} />
+        <ChampionsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Power Rankings" ? (
-        <PowerRankingsTab season={season} phase={phase} />
+        <PowerRankingsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Timeline" ? (
-        <TimelineTab season={season} phase={phase} />
+        <TimelineTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Players" ? (
         <PlayersTab
           key={playersPrefill}
@@ -400,6 +404,7 @@ export default function StatsTabs({
           phase={phase}
           onSelectPlayer={setSelectedPlayer}
           initialQuery={playersPrefill}
+          teamNames={teamNames}
         />
       ) : null}
     </div>

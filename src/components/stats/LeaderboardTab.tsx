@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
-import { fetchPlayerAgg } from "@/lib/stats/queries";
+import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
+import { filterStatsRowsByPlayerKeys } from "@/lib/stats/scope";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
@@ -135,10 +136,12 @@ export default function LeaderboardTab({
   season,
   phase,
   onSelectPlayer,
+  teamNames,
 }: {
   season: string;
   phase: PhaseFilter;
   onSelectPlayer: (player: { summonerName: string; tag: string }) => void;
+  teamNames?: string[];
 }) {
   const [rows, setRows] = useState<PlayerAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
@@ -168,8 +171,9 @@ export default function LeaderboardTab({
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
         const data = await fetchPlayerAgg(seasonParam, phaseParam);
+        const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
         if (cancelled) return;
-        setRows(data);
+        setRows(keys ? filterStatsRowsByPlayerKeys(data, keys) : data);
         setStatus("loaded");
       } catch {
         if (cancelled) return;
@@ -181,7 +185,7 @@ export default function LeaderboardTab({
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with

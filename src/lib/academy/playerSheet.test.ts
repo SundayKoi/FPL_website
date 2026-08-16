@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAcademyPlayers } from "./playerSheet";
+import { mergeAcademyPlayers, parseAcademyPlayers } from "./playerSheet";
 
 describe("Academy player sheet", () => {
   it("maps player and OP.GG columns without constructing links", () => {
@@ -15,5 +15,13 @@ describe("Academy player sheet", () => {
 
   it("rejects malformed OP.GG values rather than guessing", () => {
     expect(parseAcademyPlayers("name,role,opgg\nWinter,Top,Winter")[0]?.opggUrl).toBeNull();
+  });
+
+  it("keeps the Academy draft pool populated when sheet names differ", () => {
+    const players = mergeAcademyPlayers(
+      [{ display_name: "Winter", role: "top" }],
+      [{ name: "Winter#NA1", role: "Top", opggUrl: "https://op.gg/from-sheet" }],
+    );
+    expect(players).toEqual([{ name: "Winter", role: "Top", opggUrl: "https://op.gg/from-sheet" }]);
   });
 });

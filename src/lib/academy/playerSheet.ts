@@ -3,6 +3,21 @@ export const ACADEMY_PLAYER_SHEET_URL =
 
 export type AcademySheetPlayer = { name: string; role: string; opggUrl: string | null };
 
+export function mergeAcademyPlayers(
+  draftPlayers: Array<{ display_name: string; role: string }>,
+  sheetPlayers: AcademySheetPlayer[],
+): AcademySheetPlayer[] {
+  const sheetByName = new Map(sheetPlayers.map((player) => [player.name.trim().toLowerCase().split("#")[0].trim(), player]));
+  return draftPlayers.map((player) => {
+    const sheetPlayer = sheetByName.get(player.display_name.trim().toLowerCase().split("#")[0].trim());
+    return {
+      name: player.display_name,
+      role: player.role[0].toUpperCase() + player.role.slice(1),
+      opggUrl: sheetPlayer?.opggUrl ?? null,
+    };
+  });
+}
+
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
   let value = "";
@@ -57,7 +72,11 @@ export function parseAcademyPlayers(csv: string): AcademySheetPlayer[] {
 }
 
 export async function fetchAcademyPlayers(): Promise<AcademySheetPlayer[]> {
-  const response = await fetch(ACADEMY_PLAYER_SHEET_URL, { next: { revalidate: 300 } });
-  if (!response.ok) return [];
-  return parseAcademyPlayers(await response.text());
+  try {
+    const response = await fetch(ACADEMY_PLAYER_SHEET_URL, { next: { revalidate: 300 } });
+    if (!response.ok) return [];
+    return parseAcademyPlayers(await response.text());
+  } catch {
+    return [];
+  }
 }

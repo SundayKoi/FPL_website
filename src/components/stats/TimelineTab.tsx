@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { fetchGameLog } from "@/lib/stats/queries";
+import { filterTimelineRowsByTeams } from "@/lib/stats/scope";
+import { normalizeTeamName } from "@/lib/league/context";
 import type { GameLogRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
@@ -25,7 +27,7 @@ function formatDuration(min: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function TimelineTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function TimelineTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
   const [rows, setRows] = useState<GameLogRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see LeaderboardTab): flip back to "loading"
@@ -47,7 +49,8 @@ export default function TimelineTab({ season, phase }: { season: string; phase: 
         const phaseParam = phase === "All" ? undefined : phase;
         const data = await fetchGameLog(seasonParam, phaseParam);
         if (cancelled) return;
-        setRows(data);
+        const names = teamNames ? new Set(teamNames.map(normalizeTeamName)) : null;
+        setRows(names ? filterTimelineRowsByTeams(data, names) : data);
         setStatus("loaded");
       } catch {
         if (cancelled) return;
@@ -59,7 +62,7 @@ export default function TimelineTab({ season, phase }: { season: string; phase: 
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // Group by calendar date ("game night"), newest night first; within a
   // night, games ordered newest-first by their own timestamp.

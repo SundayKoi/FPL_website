@@ -127,21 +127,19 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
   const { data: userData } = await supabase.auth.getUser();
   const profileId = userData.user?.id ?? null;
 
-  const [profileResult, teamsResult, settingsResult, academySettingsResult] = await Promise.all([
+  const [profileResult, teamsResult, settingsResult] = await Promise.all([
     profileId
       ? supabase.from("profiles").select("is_admin").eq("id", profileId).single()
       : Promise.resolve({ data: null as { is_admin: boolean } | null }),
     supabase.from("league_teams").select("*").order("name"),
-    supabase.from("league_settings").select("current_season").eq("id", 1).single(),
-    league === "academy"
-      ? supabase.from("league_settings").select("academy_draft_id").eq("id", 1).single()
-      : Promise.resolve({ data: null }),
+    supabase.from("league_settings").select("current_season, featured_draft_id, academy_draft_id").eq("id", 1).single(),
   ]);
 
   const isAdmin = profileResult.data?.is_admin ?? false;
   let teams = (teamsResult.data as LeagueTeam[]) ?? [];
-  if (league === "academy") {
-    const draftId = (academySettingsResult.data as { academy_draft_id?: string | null } | null)?.academy_draft_id;
+  if (league === "academy" || league === "premier") {
+    const settings = settingsResult.data as { featured_draft_id?: string | null; academy_draft_id?: string | null } | null;
+    const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
     if (!draftId) teams = [];
     else {
       const { data: academyRows } = await supabase.from("teams").select("name").eq("draft_id", draftId);

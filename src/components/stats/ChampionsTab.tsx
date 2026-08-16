@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { combineChampionRows, mergeRows } from "@/lib/stats/formulas";
-import { fetchChampionAgg } from "@/lib/stats/queries";
+import { fetchChampionAggForTeams } from "@/lib/stats/queries";
 import type { ChampionAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
@@ -67,7 +67,7 @@ const COLUMNS: Column[] = [
 
 type SortDir = "asc" | "desc";
 
-export default function ChampionsTab({ season, phase }: { season: string; phase: PhaseFilter }) {
+export default function ChampionsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
   const [rows, setRows] = useState<ChampionAggRow[]>([]);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   // Render-phase adjust (see LeaderboardTab): flip back to "loading"
@@ -90,7 +90,7 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
       try {
         const seasonParam = season === ALL_SEASONS ? undefined : season;
         const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchChampionAgg(seasonParam, phaseParam);
+        const data = await fetchChampionAggForTeams(seasonParam, phaseParam, teamNames);
         if (cancelled) return;
         setRows(data);
         setStatus("loaded");
@@ -104,7 +104,7 @@ export default function ChampionsTab({ season, phase }: { season: string; phase:
     return () => {
       cancelled = true;
     };
-  }, [season, phase]);
+  }, [season, phase, teamNames]);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with

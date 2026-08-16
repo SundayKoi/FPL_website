@@ -10,6 +10,10 @@ export function academyTeamNames(rows: LeagueTeamNameRow[]): Set<string> {
   return new Set(rows.map((row) => normalizeTeamName(row.name)).filter(Boolean));
 }
 
+export function filterTeamsByNames<T extends LeagueTeamNameRow>(rows: T[], names: Set<string>): T[] {
+  return rows.filter((row) => names.has(normalizeTeamName(row.name)));
+}
+
 export function resolveLeagueView(value: string | string[] | undefined): LeagueView {
   return (Array.isArray(value) ? value[0] : value) === "academy" ? "academy" : "premier";
 }
