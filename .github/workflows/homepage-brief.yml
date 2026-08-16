@@ -22,7 +22,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22+, not 20: supabase-js builds a realtime client on createClient
+          # even when nothing subscribes, and that needs a native WebSocket.
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npx tsx scripts/generate-homepage-brief.ts
