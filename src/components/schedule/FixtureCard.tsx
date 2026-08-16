@@ -1,5 +1,21 @@
+import Link from "next/link";
 import { formatKickoff, hasResult, teamLabel } from "@/lib/schedule/format";
+import { teamSlug } from "@/lib/teams/teamPage";
 import type { FixtureRow } from "@/lib/schedule/types";
+
+/** Team names are free text on fixtures, so a placeholder like "TBD" has no
+ *  page to link to — those render as plain text. */
+function TeamName({ name, className }: { name: string; className: string }) {
+  if (name === "TBD") return <span className={className}>{name}</span>;
+  return (
+    <Link
+      href={`/teams/${teamSlug(name)}`}
+      className={`${className} underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold`}
+    >
+      {name}
+    </Link>
+  );
+}
 
 function divisionChipClass(division: FixtureRow["division"]): string {
   switch (division) {
@@ -28,13 +44,12 @@ export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
       </span>
 
       <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-sm">
-        <span
+        <TeamName
+          name={teamA}
           className={`min-w-0 flex-1 truncate text-right font-semibold ${
             aWon ? "text-gold" : teamA === "TBD" ? "text-steel/70" : "text-white"
           }`}
-        >
-          {teamA}
-        </span>
+        />
         {played ? (
           <span className="shrink-0 rounded border border-line bg-navy px-2 py-0.5 font-bold text-white">
             {fixture.score_a}–{fixture.score_b}
@@ -42,13 +57,12 @@ export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
         ) : (
           <span className="shrink-0 text-xs font-semibold uppercase text-steel">vs</span>
         )}
-        <span
+        <TeamName
+          name={teamB}
           className={`min-w-0 flex-1 truncate text-left font-semibold ${
             bWon ? "text-gold" : teamB === "TBD" ? "text-steel/70" : "text-white"
           }`}
-        >
-          {teamB}
-        </span>
+        />
       </div>
 
       <div className="flex shrink-0 items-center gap-2 text-xs text-steel">
