@@ -92,12 +92,13 @@ describe("TeamsDirectory", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Team league" }).className).toContain("rounded");
     const premierLink = screen.getByRole("link", { name: "Premier" });
     const academyLink = screen.getByRole("link", { name: "Academy" });
     expect(premierLink.getAttribute("href")).toBe("/teams");
     expect(academyLink.getAttribute("href")).toBe("/teams?view=academy");
     expect(academyLink.className).toContain("bg-gold");
     expect(academyLink.className).toContain("font-bold");
-    expect(premierLink.className).toContain("bg-navy");
+    expect(screen.getByRole("navigation", { name: "Team league" }).className).toContain("bg-navy");
   });
 });
