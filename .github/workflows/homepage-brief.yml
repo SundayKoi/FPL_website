@@ -14,6 +14,10 @@ concurrency:
 jobs:
   write:
     runs-on: ubuntu-latest
+    # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are environment secrets, and a
+    # job only sees those when it declares the environment. ANTHROPIC_API_KEY is
+    # a repository secret, which is visible either way.
+    environment: Production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
