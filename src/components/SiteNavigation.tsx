@@ -16,6 +16,8 @@ type DropdownLink = {
 
 type DropdownKey = "premier" | "academy" | "info" | "premium";
 
+const PRIMARY_LINKS = [{ href: "/draft", label: "Draft" }] as const;
+
 const DROPDOWN_LINKS: Record<DropdownKey, readonly DropdownLink[]> = {
   premier: (["home", "players", "stats", "schedule", "teams", "captain"] as const).map((page) => ({
     href: leaguePath(page as LeaguePage, "premier"),
@@ -127,6 +129,22 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
           } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
           style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
+          {PRIMARY_LINKS.map((link) => {
+            const active = isActive(pathname, link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                onClick={closeMenus}
+                className={`${linkBase} rounded px-3 py-2 sm:px-0 sm:py-1 ${
+                  active ? "text-white sm:text-gold" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
           {DROPDOWNS.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;

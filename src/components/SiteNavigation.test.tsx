@@ -18,6 +18,7 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("link", { name: /fpl home/i }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("button", { name: /premier menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /academy menu/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Draft$/ }).getAttribute("href")).toBe("/draft");
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
     expect(
