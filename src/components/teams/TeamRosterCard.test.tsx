@@ -16,6 +16,7 @@ describe("TeamRosterCard", () => {
     expect(image).toBeTruthy();
     expect(image.className).toContain("h-24");
     expect(screen.getByText(team.abbreviation)).toBeTruthy();
+    expect(screen.queryByText("Roster")).toBeNull();
     expect(screen.queryByText(/pts/)).toBeNull();
     expect(screen.queryByText(/Remaining budget/)).toBeNull();
   });

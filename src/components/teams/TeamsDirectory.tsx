@@ -27,10 +27,10 @@ export default function TeamsDirectory({
   const leagueLabel = isAcademy ? "Academy" : "Premier";
   const title = `${leagueLabel} Teams`;
   const toggleLinkClass = (active: boolean) =>
-    `inline-flex items-center justify-center border px-4 py-2 text-xs uppercase tracking-[0.14em] transition first:rounded-l last:rounded-r ${
+    `inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
       active
-        ? "border-gold bg-gold font-bold text-navy"
-        : "border-line bg-navy text-steel/60 hover:border-steel hover:text-steel"
+        ? "bg-gold font-bold text-navy"
+        : "text-steel/60 hover:bg-panel hover:text-steel"
     }`;
   const sections: { label: string; division: Division | null }[] = [
     { label: DIVISIONS[1], division: DIVISIONS[1] },
@@ -55,7 +55,7 @@ export default function TeamsDirectory({
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-3">
-            <nav aria-label="Team league" className="inline-flex">
+            <nav aria-label="Team league" className="inline-flex gap-1 rounded-md border border-line bg-navy p-1">
               <Link
                 href="/teams"
                 aria-current={!isAcademy ? "page" : undefined}
