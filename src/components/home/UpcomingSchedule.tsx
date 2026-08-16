@@ -2,8 +2,15 @@ import Link from "next/link";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import { stageMeta } from "@/lib/schedule/format";
 import type { HomepageScheduleData } from "@/lib/home/schedule";
+import type { TeamIdentity } from "@/lib/teams/identity";
 
-export default function UpcomingSchedule({ schedule }: { schedule: HomepageScheduleData }) {
+export default function UpcomingSchedule({
+  schedule,
+  identities = {},
+}: {
+  schedule: HomepageScheduleData;
+  identities?: Record<string, TeamIdentity>;
+}) {
   const activeStage = schedule.activeStage;
   const meta = activeStage ? stageMeta(activeStage) : null;
   const scheduleHref = activeStage
@@ -44,7 +51,7 @@ export default function UpcomingSchedule({ schedule }: { schedule: HomepageSched
       ) : (
         <div className="border-t border-line/60">
           {schedule.fixtures.map((fixture) => (
-            <FixtureCard key={fixture.id} fixture={fixture} />
+            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} />
           ))}
         </div>
       )}

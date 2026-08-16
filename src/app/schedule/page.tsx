@@ -13,6 +13,7 @@ import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
+import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 
 export default async function SchedulePage({
@@ -33,7 +34,7 @@ export default async function SchedulePage({
     isAdmin = profile?.is_admin ?? false;
   }
 
-  const [fixturesResult, settingsResult] = await Promise.all([
+  const [fixturesResult, settingsResult, identities] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
     isAdmin
       ? supabase
@@ -42,6 +43,7 @@ export default async function SchedulePage({
           .eq("id", 1)
           .single()
       : Promise.resolve({ data: null }),
+    fetchTeamIdentities(),
   ]);
   const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
   const settings = settingsResult.data as {
@@ -145,7 +147,7 @@ export default async function SchedulePage({
                         </p>
                       ) : (
                         stageFixtures.map((fixture) => (
-                          <FixtureCard key={fixture.id} fixture={fixture} />
+                          <FixtureCard key={fixture.id} fixture={fixture} identities={identities} />
                         ))
                       )}
                     </div>

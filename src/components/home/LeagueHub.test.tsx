@@ -30,6 +30,11 @@ vi.mock("@/lib/home/fetchBrief", () => ({
   fetchActiveBrief: vi.fn(async () => null),
 }));
 
+// Crest lookup is another server-side query; without a request scope it throws.
+vi.mock("@/lib/teams/identity", () => ({
+  fetchTeamIdentities: vi.fn(async () => ({})),
+}));
+
 vi.mock("@/lib/home/awards", () => ({
   fetchHomepageAwards: vi.fn(async () => ({
     season: "S4",

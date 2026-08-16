@@ -1,21 +1,8 @@
 import Link from "next/link";
 import { formatKickoff, hasResult, teamLabel } from "@/lib/schedule/format";
 import { teamSlug } from "@/lib/teams/teamPage";
+import type { TeamIdentity } from "@/lib/teams/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
-
-/** Team names are free text on fixtures, so a placeholder like "TBD" has no
- *  page to link to — those render as plain text. */
-function TeamName({ name, className }: { name: string; className: string }) {
-  if (name === "TBD") return <span className={className}>{name}</span>;
-  return (
-    <Link
-      href={`/teams/${teamSlug(name)}`}
-      className={`${className} underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold`}
-    >
-      {name}
-    </Link>
-  );
-}
 
 function divisionChipClass(division: FixtureRow["division"]): string {
   switch (division) {
@@ -28,7 +15,57 @@ function divisionChipClass(division: FixtureRow["division"]): string {
   }
 }
 
-export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
+/** Crest and short name. The full name is the accessible label, so screen
+ *  readers and hover still get it while the row stays compact. */
+function TeamCrest({
+  name,
+  identity,
+  align,
+  highlight,
+}: {
+  name: string;
+  identity?: TeamIdentity;
+  align: "left" | "right";
+  highlight: boolean;
+}) {
+  const unknown = name === "TBD";
+  const short = identity?.abbreviation ?? name;
+  const body = (
+    <>
+      {identity?.imageUrl ? (
+        // Supabase Storage hosts vary per deployment, which makes next/image
+        // remotePatterns brittle here.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={identity.imageUrl} alt="" className="h-7 w-7 shrink-0 rounded object-contain" />
+      ) : null}
+      <span className="truncate font-display text-base font-semibold not-italic">{short}</span>
+    </>
+  );
+
+  const layout = `flex min-w-0 items-center gap-2 ${
+    align === "right" ? "flex-row-reverse text-right" : "text-left"
+  } ${highlight ? "text-gold" : unknown ? "text-steel/70" : "text-white"}`;
+
+  if (unknown) return <span className={layout}>{body}</span>;
+  return (
+    <Link
+      href={`/teams/${teamSlug(name)}`}
+      title={name}
+      aria-label={name}
+      className={`${layout} underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold`}
+    >
+      {body}
+    </Link>
+  );
+}
+
+export default function FixtureCard({
+  fixture,
+  identities = {},
+}: {
+  fixture: FixtureRow;
+  identities?: Record<string, TeamIdentity>;
+}) {
   const played = hasResult(fixture);
   const teamA = teamLabel(fixture.team_a);
   const teamB = teamLabel(fixture.team_b);
@@ -43,13 +80,12 @@ export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
         {fixture.division ?? "Cross"}
       </span>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-sm">
-        <TeamName
-          name={teamA}
-          className={`min-w-0 flex-1 truncate text-right font-semibold ${
-            aWon ? "text-gold" : teamA === "TBD" ? "text-steel/70" : "text-white"
-          }`}
-        />
+      {/* Its own line below the meta on narrow screens. Sharing a row is what
+          squeezed the matchup to zero width and hid it entirely on mobile. */}
+      <div className="order-last flex w-full min-w-0 items-center justify-center gap-3 text-sm sm:order-none sm:w-auto sm:flex-1">
+        <div className="flex min-w-0 flex-1 justify-end">
+          <TeamCrest name={teamA} identity={identities[teamSlug(teamA)]} align="right" highlight={aWon} />
+        </div>
         {played ? (
           <Link
             href={`/match/${fixture.id}`}
@@ -61,15 +97,12 @@ export default function FixtureCard({ fixture }: { fixture: FixtureRow }) {
         ) : (
           <span className="shrink-0 text-xs font-semibold uppercase text-steel">vs</span>
         )}
-        <TeamName
-          name={teamB}
-          className={`min-w-0 flex-1 truncate text-left font-semibold ${
-            bWon ? "text-gold" : teamB === "TBD" ? "text-steel/70" : "text-white"
-          }`}
-        />
+        <div className="flex min-w-0 flex-1 justify-start">
+          <TeamCrest name={teamB} identity={identities[teamSlug(teamB)]} align="left" highlight={bWon} />
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 text-xs text-steel">
+      <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-steel">
         <span className="rounded-full border border-line bg-panel px-2 py-0.5 font-semibold uppercase">
           Bo{fixture.best_of}
         </span>
