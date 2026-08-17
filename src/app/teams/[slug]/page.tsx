@@ -78,9 +78,18 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             academyOpggUrlForPlayer(player.display_name)
           : null),
     }));
+  const draftPlayers = ((playersResult.data as Player[]) ?? []).map((player) => ({
+    ...player,
+    opgg_url:
+      player.opgg_url ??
+      (league === "academy"
+        ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
+          academyOpggUrlForPlayer(player.display_name)
+        : null),
+  }));
   const rosterTeams = toRosterTeams(
     (teamsResult.data as Team[]) ?? [],
-    (playersResult.data as Player[]) ?? [],
+    draftPlayers,
     (profilesResult.data as Profile[]) ?? [],
     canonicalPlayers,
   );
