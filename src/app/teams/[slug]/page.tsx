@@ -29,29 +29,29 @@ const roleLabels = {
  * stats both store team names as text rather than FKs (see the fixtures
  * migration), so name is the only join key available.
  */
-export default async function TeamPage({ params }: { params: Promise<{ slug: string }> }) {
+async function TeamPageContent({ params, league = "premier" }: { params: Promise<{ slug: string }>; league?: "premier" | "academy" }) {
   const { slug } = await params;
   const supabase = await createServerSupabase();
 
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("featured_draft_id, current_season")
+    .select("featured_draft_id, academy_draft_id, current_season, academy_season")
     .eq("id", 1)
     .single();
-  const featuredDraftId = settings?.featured_draft_id ?? null;
-  if (!featuredDraftId) notFound();
+  const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
+  if (!draftId) notFound();
 
   const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
     await Promise.all([
-      supabase.from("drafts").select("*").eq("id", featuredDraftId).single(),
+      supabase.from("drafts").select("*").eq("id", draftId).single(),
       supabase
         .from("teams")
         .select("*")
-        .eq("draft_id", featuredDraftId)
+        .eq("draft_id", draftId)
         .order("nomination_position"),
-      supabase.from("players").select("*").eq("draft_id", featuredDraftId).order("display_name"),
+      supabase.from("players").select("*").eq("draft_id", draftId).order("display_name"),
       supabase.from("profiles").select("id, display_name").order("display_name"),
-      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
+      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
     ]);
 
@@ -68,7 +68,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
   // Scope the schedule to the season the featured draft belongs to when we
   // know it, so an old team page doesn't mix in a later split's fixtures.
   const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
-  const season = settings?.current_season ?? null;
+  const season = (league === "academy" ? settings?.academy_season : settings?.current_season) ?? null;
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : allFixtures;
 
   const record = teamRecord(fixtures, team.name);
@@ -81,7 +81,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <Link
-          href="/teams"
+          href={league === "academy" ? "/academy/teams" : "/teams"}
           className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
         >
           <span aria-hidden="true">←</span> All teams
@@ -150,7 +150,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                     </span>
                   ) : (
                     <Link
-                      href={`/stats?player=${encodeURIComponent(player.displayName)}`}
+                      href={`${league === "academy" ? "/academy/stats" : "/stats"}?player=${encodeURIComponent(player.displayName)}`}
                       className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
                     >
                       {player.displayName}
@@ -236,4 +236,9 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
       </div>
     </main>
   );
+}
+
+export default async function TeamPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ league?: string }> }) {
+  const league = (await searchParams)?.league === "academy" ? "academy" : "premier";
+  return <TeamPageContent params={params} league={league} />;
 }
