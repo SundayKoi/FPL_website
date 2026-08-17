@@ -61,6 +61,16 @@ describe("AcademyPlayersDirectory", () => {
     expect(screen.queryByRole("button", { name: "Edit Player Pool" })).toBeNull();
   });
 
+  it("opens a sheet-backed Academy player's OP.GG link in a new tab", () => {
+    render(<AcademyPlayersDirectory players={[fallbackPlayer]} canonicalPlayers={[]} />);
+
+    const link = screen.getByRole("link", { name: "Sheet Fallback" });
+
+    expect(link.getAttribute("href")).toBe("https://op.gg/sheet-fallback");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
   it("submits a valid Academy player through the rendered admin editor", async () => {
     const insert = vi.fn(() => ({
       select: vi.fn(() => ({
