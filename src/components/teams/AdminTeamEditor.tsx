@@ -148,21 +148,13 @@ function DraftTeamEditor({
         imageUrl = data.publicUrl;
       }
 
-      const { data: updatedTeam, error } = await supabase
-        .from("teams")
-        .update({
-          name,
-          abbreviation,
-          captain_profile_id: form.captainProfileId || null,
-          division: form.division || null,
-          image_url: imageUrl,
-          banner_color: bannerColor,
-        })
-        .eq("id", team.id)
-        .eq("draft_id", draftId)
-        .select("id")
-        .single();
-      if (error || updatedTeam?.id !== team.id) {
+      const { error: identityError } = await supabase.rpc("set_team_identity", {
+        p_team_id: team.id,
+        p_image_url: imageUrl,
+        p_banner_color: bannerColor,
+        p_abbreviation: abbreviation,
+      });
+      if (identityError) {
         if (uploadedObjectPath) {
           try {
             await supabase.storage.from("team-images").remove([uploadedObjectPath]);
@@ -170,6 +162,22 @@ function DraftTeamEditor({
             // Cleanup is best-effort; retain the database update error.
           }
         }
+        setForm(team.id, { status: { kind: "error", message: messageFor(identityError) } });
+        return;
+      }
+
+      const { data: updatedTeam, error } = await supabase
+        .from("teams")
+        .update({
+          name,
+          captain_profile_id: form.captainProfileId || null,
+          division: form.division || null,
+        })
+        .eq("id", team.id)
+        .eq("draft_id", draftId)
+        .select("id")
+        .single();
+      if (error || updatedTeam?.id !== team.id) {
         setForm(team.id, {
           status: {
             kind: "error",
@@ -215,20 +223,14 @@ function DraftTeamEditor({
     const objectPath = managedObjectPath(form.currentImageUrl, draftId, team.id);
     setForm(team.id, { status: { kind: "saving" } });
     try {
-      const { data: updatedTeam, error } = await supabase
-        .from("teams")
-        .update({ image_url: null })
-        .eq("id", team.id)
-        .eq("draft_id", draftId)
-        .select("id")
-        .single();
-      if (error || updatedTeam?.id !== team.id) {
-        setForm(team.id, {
-          status: {
-            kind: "error",
-            message: error ? messageFor(error) : "No matching team row was updated.",
-          },
-        });
+      const { error } = await supabase.rpc("set_team_identity", {
+        p_team_id: team.id,
+        p_image_url: null,
+        p_banner_color: null,
+        p_abbreviation: null,
+      });
+      if (error) {
+        setForm(team.id, { status: { kind: "error", message: messageFor(error) } });
         return;
       }
 

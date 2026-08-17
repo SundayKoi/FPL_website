@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Profile, Team } from "@/lib/draft/types";
 import AdminTeamEditor from "./AdminTeamEditor";
 
-const { from, upload, getPublicUrl, remove, refresh } = vi.hoisted(() => ({
+const { from, rpc, upload, getPublicUrl, remove, refresh } = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   upload: vi.fn(),
   getPublicUrl: vi.fn(),
   remove: vi.fn(),
@@ -17,6 +18,7 @@ const publicUrlFor = (objectPath: string) =>
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
     from,
+    rpc,
     storage: { from: () => ({ upload, getPublicUrl, remove }) },
   }),
 }));
@@ -50,6 +52,7 @@ teamQuery.eq.mockReturnValue(teamQuery);
 teamQuery.select.mockReturnValue(teamQuery);
 teamQuery.single.mockImplementation(() => Promise.resolve(teamUpdateResult));
 from.mockReturnValue(teamQuery);
+rpc.mockResolvedValue({ data: null, error: null });
 
 const teams: Team[] = [
   {
@@ -106,6 +109,8 @@ function configuredUpdate(result: TeamUpdateResult) {
 afterEach(() => {
   cleanup();
   from.mockClear();
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: null, error: null });
   upload.mockReset();
   upload.mockResolvedValue({ error: null });
   getPublicUrl.mockReset();
@@ -194,7 +199,7 @@ describe("AdminTeamEditor", () => {
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it("uploads a valid image and updates only the team identity fields", async () => {
+  it("uploads a valid image, saves identity through the RPC, and saves the rest via a direct update", async () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
@@ -217,18 +222,24 @@ describe("AdminTeamEditor", () => {
       expect.objectContaining({ upsert: false, contentType: "image/png" }),
     );
     await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("set_team_identity", {
+        p_team_id: "team-a",
+        p_image_url: publicUrlFor(objectPath),
+        p_banner_color: "#123456",
+        p_abbreviation: "ALP",
+      })
+    );
+    await waitFor(() =>
       expect(teamQuery.update).toHaveBeenCalledWith({
         name: "Alpha",
-        abbreviation: "ALP",
         captain_profile_id: "profile-b",
-        image_url: publicUrlFor(objectPath),
-        banner_color: "#123456",
         division: "Lunari",
       })
     );
     expect(publicUrlFor(objectPath)).not.toBe(teams[0].image_url);
     expect(teamQuery.eq).toHaveBeenNthCalledWith(1, "id", "team-a");
     expect(teamQuery.eq).toHaveBeenNthCalledWith(2, "draft_id", "draft-1");
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(teamQuery.update.mock.invocationCallOrder[0]);
     expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]);
     expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
@@ -247,7 +258,7 @@ describe("AdminTeamEditor", () => {
   });
 
   it("keeps the existing image object when its replacement update fails", async () => {
-    configuredUpdate({ data: null, error: { message: "Update denied" } });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "Update denied" } });
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
@@ -265,6 +276,7 @@ describe("AdminTeamEditor", () => {
     expect(remove).toHaveBeenCalledWith([replacementPath]);
     expect(remove).not.toHaveBeenCalledWith(["draft-1/team-a"]);
     expect(remove).toHaveBeenCalledTimes(1);
+    expect(teamQuery.update).not.toHaveBeenCalled();
     expect((within(form).getByLabelText("Team A name") as HTMLInputElement).value).toBe("Alpha");
     expect((within(form).getByLabelText("Team A abbreviation") as HTMLInputElement).value).toBe("ALP");
     expect(refresh).not.toHaveBeenCalled();
@@ -277,17 +289,22 @@ describe("AdminTeamEditor", () => {
 
     fireEvent.click(within(form).getByRole("button", { name: "Remove picture" }));
 
-    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith({ image_url: null }));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("set_team_identity", {
+        p_team_id: "team-a",
+        p_image_url: null,
+        p_banner_color: null,
+        p_abbreviation: null,
+      })
+    );
     await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
-    expect(teamQuery.eq).toHaveBeenNthCalledWith(1, "id", "team-a");
-    expect(teamQuery.eq).toHaveBeenNthCalledWith(2, "draft_id", "draft-1");
-    expect(teamQuery.update.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0]);
     expect((await within(form).findByRole("status")).textContent).toContain("Picture removed.");
     expect(refresh).toHaveBeenCalled();
   });
 
   it("does not remove the existing image object when clearing its URL fails", async () => {
-    configuredUpdate({ data: null, error: { message: "Update denied" } });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "Update denied" } });
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
@@ -321,8 +338,9 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "t1" } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ abbreviation: "T1" }),
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith(
+      "set_team_identity",
+      expect.objectContaining({ p_abbreviation: "T1" }),
     ));
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
   });
@@ -335,8 +353,9 @@ describe("AdminTeamEditor", () => {
     fireEvent.change(within(form).getByLabelText("Team A banner hex code"), { target: { value: "#ABCDEF" } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    await waitFor(() => expect(teamQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({ banner_color: "#abcdef" }),
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith(
+      "set_team_identity",
+      expect.objectContaining({ p_banner_color: "#abcdef" }),
     ));
     expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
   });
