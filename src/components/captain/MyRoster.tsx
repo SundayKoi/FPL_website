@@ -25,9 +25,11 @@ const ACQUISITION_LABELS: Record<string, string> = {
 export default function MyRoster({
   draftPlayers,
   riotAccounts,
+  multiOpggUrl = null,
 }: {
   draftPlayers: Player[];
   riotAccounts: (RiotAccount & { membershipId: string })[];
+  multiOpggUrl?: string | null;
 }) {
   const byRole = [...draftPlayers].sort(
     (a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)
@@ -35,7 +37,19 @@ export default function MyRoster({
 
   return (
     <section className="card-brand p-5">
-      <h2 className="label-dash">My roster</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="label-dash">My roster</h2>
+        {multiOpggUrl ? (
+          <a
+            href={multiOpggUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-fit rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            My Team OP.GG Multi
+          </a>
+        ) : null}
+      </div>
 
       {byRole.length === 0 ? (
         <p className="mt-3 text-sm text-steel">No draft roster on record yet for this team.</p>

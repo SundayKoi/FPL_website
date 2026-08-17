@@ -115,6 +115,9 @@ export async function CaptainPageView({
     ? opggMultiSearchUrlFromRosterPlayers(opponentRoster.draftPlayers) ??
       opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
     : null;
+  const myMultiOpggUrl =
+    opggMultiSearchUrlFromRosterPlayers(roster.draftPlayers) ??
+    opggMultiSearchUrlFromRiotIds(roster.riotAccounts);
 
   // Admin-only data for the four panels below the captain sections. Fetched
   // inline here (rather than via src/lib/captain/queries.ts) and unfiltered
@@ -187,7 +190,11 @@ export async function CaptainPageView({
                 opponentMultiOpggUrl={opponentMultiOpggUrl}
               />
               <TourneyCodes codes={codes} />
-              <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
+              <MyRoster
+                draftPlayers={roster.draftPlayers}
+                riotAccounts={roster.riotAccounts}
+                multiOpggUrl={myMultiOpggUrl}
+              />
             </div>
             <ReportBox
               key={activeTeamId}
