@@ -12,6 +12,8 @@ import {
 } from "@/lib/teams/teamPage";
 import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
+import { fetchAcademyPlayers, individualOpggUrl } from "@/lib/academy/playerSheet";
+import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -49,7 +51,7 @@ async function TeamPageContent({ params, league = "premier" }: { params: Promise
     : settings?.featured_draft_id;
   if (!draftId) notFound();
 
-  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult, academySheetPlayers] =
     await Promise.all([
       supabase.from("drafts").select("*").eq("id", draftId).single(),
       supabase
@@ -61,13 +63,20 @@ async function TeamPageContent({ params, league = "premier" }: { params: Promise
       supabase.from("profiles").select("id, display_name").order("display_name"),
       supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
+      league === "academy" ? fetchAcademyPlayers() : Promise.resolve([]),
     ]);
 
   const draft = draftResult.data as Draft | null;
+  const academySheetByName = new Map(academySheetPlayers.map((player) => [normalizePlayerName(player.name), player.opggUrl]));
   const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
     .map((player) => ({
       ...player,
-      opgg_url: player.opgg_url ?? (league === "academy" ? academyOpggUrlForPlayer(player.display_name) : null),
+      opgg_url:
+        player.opgg_url ??
+        (league === "academy"
+          ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
+            academyOpggUrlForPlayer(player.display_name)
+          : null),
     }));
   const rosterTeams = toRosterTeams(
     (teamsResult.data as Team[]) ?? [],
