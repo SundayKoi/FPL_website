@@ -64,7 +64,7 @@ describe("placeBet", () => {
       p_amount: 100,
     });
     expect(result).toEqual({ ok: true, balance: 800 });
-    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+    expect(revalidatePath).toHaveBeenCalledWith("/betting", "layout");
   });
 
   it("accepts -1 as the draw team sentinel", async () => {
@@ -121,7 +121,7 @@ describe("cashoutBet", () => {
 
     expect(rpc).toHaveBeenCalledWith("cashout_bet", { p_user: "42", p_bet: 9 });
     expect(result).toEqual({ ok: true, balance: 800 });
-    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+    expect(revalidatePath).toHaveBeenCalledWith("/betting", "layout");
   });
 
   it.each([
@@ -182,7 +182,7 @@ describe("placePickemCard", () => {
       p_amount: 300,
     });
     expect(result).toEqual({ ok: true, balance: 800 });
-    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+    expect(revalidatePath).toHaveBeenCalledWith("/betting", "layout");
   });
 
   it.each([
@@ -240,7 +240,7 @@ describe("suggestProp", () => {
       p_side_b: "Under 500",
       p_note: null,
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/betting");
+    expect(revalidatePath).toHaveBeenCalledWith("/betting", "layout");
   });
 
   it("maps the pending-cap error to friendly copy", async () => {

@@ -63,9 +63,12 @@ async function ownerOnly(): Promise<{ discordId: string } | { ok: false; error: 
   }
 }
 
-const BETTING_ADMIN_PATHS = ["/admin/betting", "/admin/betting/pickems", "/admin/betting/catalog", "/admin/betting/seasons", "/admin/betting/props", "/betting"];
+const BETTING_ADMIN_PATHS = ["/admin/betting", "/admin/betting/pickems", "/admin/betting/catalog", "/admin/betting/seasons", "/admin/betting/props"];
 function revalidateBetting(): void {
   for (const path of BETTING_ADMIN_PATHS) revalidatePath(path);
+  // Layout-scoped so the events index, every /betting/event/[id] page, and
+  // every /betting/market/[id] page refresh together.
+  revalidatePath("/betting", "layout");
 }
 
 // === Markets ==================================================================
