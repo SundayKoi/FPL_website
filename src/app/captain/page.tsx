@@ -220,7 +220,7 @@ export async function CaptainPageView({
                 fixtures={fixtures}
                 teams={context.teams}
                 codes={allCodes}
-                enableBulkImporter={league === "premier"}
+                enableBulkImporter
               />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
               {context.isOwner ? (

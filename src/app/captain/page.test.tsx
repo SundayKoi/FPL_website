@@ -173,7 +173,7 @@ describe("CaptainPage layout", () => {
     }));
   });
 
-  it("disables the Premier bulk importer on the Academy captain page", async () => {
+  it("enables the bulk importer on the Academy captain page", async () => {
     const academyTeams = [
       { id: "academy-a", name: "Academy A" },
       { id: "academy-b", name: "Academy B" },
@@ -201,7 +201,7 @@ describe("CaptainPage layout", () => {
 
     expect(adminCodeEditor).toHaveBeenCalledWith(expect.objectContaining({
       fixtures: [seasonFixtures[1]],
-      enableBulkImporter: false,
+      enableBulkImporter: true,
     }));
   });
 
