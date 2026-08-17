@@ -28,29 +28,29 @@ vi.mock("next/navigation", () => ({
 }));
 
 type TeamUpdateResult = {
-  data: { id: string } | null;
+  data: { id: string }[] | null;
   error: { message: string } | null;
 };
 
-let teamUpdateResult: TeamUpdateResult = { data: { id: "team-a" }, error: null };
+// The owner-only update no longer chains `.single()` — the component reads
+// `data` as the array PostgREST returns and treats an empty array as an RLS
+// refusal (a plain admin's UPDATE affects zero rows without raising).
+let teamUpdateResult: TeamUpdateResult = { data: [{ id: "team-a" }], error: null };
 const teamQuery: {
   update: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
-  single: ReturnType<typeof vi.fn>;
   then: PromiseLike<TeamUpdateResult>["then"];
 } = {
   update: vi.fn(),
   eq: vi.fn(),
   select: vi.fn(),
-  single: vi.fn(),
   then: (onFulfilled, onRejected) => Promise.resolve(teamUpdateResult).then(onFulfilled, onRejected),
 };
 
 teamQuery.update.mockReturnValue(teamQuery);
 teamQuery.eq.mockReturnValue(teamQuery);
 teamQuery.select.mockReturnValue(teamQuery);
-teamQuery.single.mockImplementation(() => Promise.resolve(teamUpdateResult));
 from.mockReturnValue(teamQuery);
 rpc.mockResolvedValue({ data: null, error: null });
 
@@ -123,9 +123,8 @@ afterEach(() => {
   teamQuery.update.mockClear();
   teamQuery.eq.mockClear();
   teamQuery.select.mockClear();
-  teamQuery.single.mockClear();
   from.mockReturnValue(teamQuery);
-  configuredUpdate({ data: { id: "team-a" }, error: null });
+  configuredUpdate({ data: [{ id: "team-a" }], error: null });
 });
 
 describe("AdminTeamEditor", () => {
@@ -150,9 +149,9 @@ describe("AdminTeamEditor", () => {
 
   it("saves all teams independently", async () => {
     const secondTeam = { ...teams[0], id: "team-b", name: "Team B", abbreviation: "TB" };
-    teamQuery.single
-      .mockImplementationOnce(() => Promise.resolve({ data: { id: "team-a" }, error: null }))
-      .mockImplementationOnce(() => Promise.resolve({ data: null, error: { message: "Team B failed" } }));
+    rpc
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "Team B failed" } });
     renderEditor({ teamRows: [teams[0], secondTeam] });
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
 
@@ -165,6 +164,9 @@ describe("AdminTeamEditor", () => {
       "Team B failed",
     );
     expect(screen.getByRole("region", { name: "Edit teams" })).toBeTruthy();
+    // Neither team's name/captain/division changed, so the owner-only write
+    // is never attempted.
+    expect(teamQuery.update).not.toHaveBeenCalled();
   });
 
   it("rejects invalid name, abbreviation, and image files before upload", async () => {
@@ -247,7 +249,8 @@ describe("AdminTeamEditor", () => {
   });
 
   it("saves Unassigned as a null division", async () => {
-    renderEditor();
+    const teamWithDivision: Team = { ...teams[0], division: "Lunari" };
+    renderEditor({ teamRows: [teamWithDivision] });
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
 
@@ -317,16 +320,52 @@ describe("AdminTeamEditor", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("treats a zero-row team update as a failure", async () => {
-    configuredUpdate({ data: null, error: null });
+  it("saves cosmetic-only changes without attempting the owner-only write", async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "zzz" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        "set_team_identity",
+        expect.objectContaining({ p_abbreviation: "ZZZ" }),
+      )
+    );
+    expect((await within(form).findByRole("status")).textContent).toContain("Team saved.");
+    // name/captain/division are unchanged, so no owner-only write is attempted
+    // and a plain admin still gets a normal success for their cosmetic edit.
+    expect(teamQuery.update).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("surfaces an owner-only refusal when a plain admin renames a team, but keeps the already-saved identity change", async () => {
+    // RLS lets a plain admin's UPDATE run without raising; it just affects
+    // zero rows. `.select("id")` reflects that as an empty array.
+    configuredUpdate({ data: [], error: null });
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
     const form = screen.getByRole("form", { name: "Edit Team A" });
 
     fireEvent.change(within(form).getByLabelText("Team A name"), { target: { value: "Alpha" } });
+    fireEvent.change(within(form).getByLabelText("Team A abbreviation"), { target: { value: "zzz" } });
     fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
 
-    expect((await within(form).findByRole("status")).textContent).toMatch(/no matching team row/i);
+    expect((await within(form).findByRole("status")).textContent).toContain(
+      "Renaming a team, reassigning a captain, or changing division is owner-only.",
+    );
+    // The identity RPC (cosmetic, admin-allowed) already ran and succeeded
+    // before the owner-only write was attempted and refused — a plain
+    // admin's abbreviation change is saved server-side even though this
+    // submit reports an error for the name change.
+    expect(rpc).toHaveBeenCalledWith(
+      "set_team_identity",
+      expect.objectContaining({ p_abbreviation: "ZZZ" }),
+    );
+    expect(teamQuery.update).toHaveBeenCalledWith(expect.objectContaining({ name: "Alpha" }));
+    expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(teamQuery.update.mock.invocationCallOrder[0]);
     expect(refresh).not.toHaveBeenCalled();
   });
 

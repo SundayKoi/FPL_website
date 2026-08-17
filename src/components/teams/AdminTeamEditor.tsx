@@ -166,25 +166,36 @@ function DraftTeamEditor({
         return;
       }
 
-      const { data: updatedTeam, error } = await supabase
-        .from("teams")
-        .update({
-          name,
-          captain_profile_id: form.captainProfileId || null,
-          division: form.division || null,
-        })
-        .eq("id", team.id)
-        .eq("draft_id", draftId)
-        .select("id")
-        .single();
-      if (error || updatedTeam?.id !== team.id) {
-        setForm(team.id, {
-          status: {
-            kind: "error",
-            message: error ? messageFor(error) : "No matching team row was updated.",
-          },
-        });
-        return;
+      const captainProfileId = form.captainProfileId || null;
+      const division = form.division || null;
+      const ownerFieldsChanged =
+        name !== team.name ||
+        captainProfileId !== team.captain_profile_id ||
+        division !== team.division;
+
+      if (ownerFieldsChanged) {
+        // name / captain_profile_id / division are draft-setup attributes and
+        // owner-tier by design: set_team_identity deliberately cannot carry
+        // them. RLS lets a plain admin's UPDATE run without raising, but it
+        // affects zero rows, so an empty `.select("id")` result is the only
+        // signal that the write was refused.
+        const { data: updatedRows, error: ownerFieldsError } = await supabase
+          .from("teams")
+          .update({ name, captain_profile_id: captainProfileId, division })
+          .eq("id", team.id)
+          .eq("draft_id", draftId)
+          .select("id");
+        if (ownerFieldsError || !updatedRows || updatedRows.length === 0) {
+          setForm(team.id, {
+            status: {
+              kind: "error",
+              message: ownerFieldsError
+                ? messageFor(ownerFieldsError)
+                : "Renaming a team, reassigning a captain, or changing division is owner-only.",
+            },
+          });
+          return;
+        }
       }
 
       if (uploadedObjectPath && previousObjectPath && previousObjectPath !== uploadedObjectPath) {
