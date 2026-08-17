@@ -3,31 +3,22 @@ import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { FREE_AGENCY_PLAYER_SUMMARIES } from "@/lib/players/freeAgencyData";
 import { adaptCanonicalPlayerPool } from "@/lib/players/freeAgency";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 
 export default async function PlayersPage() {
   const supabase = await createServerSupabase();
   const [
-    { data: userData },
+    { isAdmin, isOwner },
     { data: bids },
     { data: canonicalPlayers, error: canonicalPlayersError },
   ] = await Promise.all([
-    supabase.auth.getUser(),
+    fetchStaffTier(supabase),
     supabase.from("free_agency_avg_bids").select("player_name, avg_bid"),
     supabase
       .from("player_pool")
       .select("id, season_key, display_name, role, rank, opgg_url")
       .eq("season_key", "season-5"),
   ]);
-
-  let isAdmin = false;
-  if (userData.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userData.user.id)
-      .single();
-    isAdmin = profile?.is_admin ?? false;
-  }
 
   const initialAvgBids = Object.fromEntries(
     (bids ?? []).map((bid) => [bid.player_name, bid.avg_bid]),
@@ -53,6 +44,7 @@ export default async function PlayersPage() {
       seasons={seasons}
       canonicalPlayers={canonicalAdminRows as PlayerPoolRow[]}
       isAdmin={isAdmin}
+      isOwner={isOwner}
       initialAvgBids={initialAvgBids}
       freeAgencyPlayers={FREE_AGENCY_PLAYER_SUMMARIES}
       emptyStateMessages={emptyStateMessages}

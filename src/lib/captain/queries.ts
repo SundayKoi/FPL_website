@@ -57,6 +57,7 @@ export interface Announcement {
 export interface CaptainContext {
   profileId: string | null;
   isAdmin: boolean;
+  isOwner: boolean;
   /** Every league team ever recorded — use for resolving historical names. */
   teams: LeagueTeam[];
   /** Teams still in use — use for anything a human picks from. */
@@ -131,8 +132,8 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
 
   const [profileResult, teamsResult, settingsResult] = await Promise.all([
     profileId
-      ? supabase.from("profiles").select("is_admin").eq("id", profileId).single()
-      : Promise.resolve({ data: null as { is_admin: boolean } | null }),
+      ? supabase.from("profiles").select("is_admin, is_owner").eq("id", profileId).single()
+      : Promise.resolve({ data: null as { is_admin: boolean; is_owner: boolean } | null }),
     supabase.from("league_teams").select("*").order("name"),
     supabase
       .from("league_settings")
@@ -142,6 +143,7 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
   ]);
 
   const isAdmin = profileResult.data?.is_admin ?? false;
+  const isOwner = profileResult.data?.is_owner ?? false;
   let teams = (teamsResult.data as LeagueTeam[]) ?? [];
   if (league === "academy" || league === "premier") {
     const settings = settingsResult.data as { featured_draft_id?: string | null; academy_draft_id?: string | null } | null;
@@ -172,7 +174,7 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
     myTeamId = (captainRows as { league_team_id: string }[] | null)?.find((row) => allowedTeamIds.has(row.league_team_id))?.league_team_id ?? null;
   }
 
-  return { profileId, isAdmin, teams, activeTeams, myTeamId, season };
+  return { profileId, isAdmin, isOwner, teams, activeTeams, myTeamId, season };
 }
 
 /** Tourney codes for one fixture, ordered by game number. */

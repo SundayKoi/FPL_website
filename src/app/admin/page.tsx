@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
@@ -17,20 +18,13 @@ import type { HomepageMode } from "@/lib/home/seasonState";
  */
 export default async function AdminPage() {
   const supabase = await createServerSupabase();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin, is_owner")
-    .eq("id", userData.user.id)
-    .single();
-  if (!profile?.is_admin) redirect("/");
+  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
+  if (!isAdmin) redirect("/");
 
   // Owners see the staff panel. This gate is presentation only — set_profile_admin
   // re-checks ownership server-side, so an admin who forges their way here can
   // still change nothing.
-  const staffProfiles = profile.is_owner
+  const staffProfiles = isOwner
     ? (
         (
           await supabase
@@ -140,15 +134,23 @@ export default async function AdminPage() {
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
         <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
-        <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
+        {isOwner ? (
+          <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
+        ) : (
+          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+        )}
       </section>
 
       <section aria-label="Drafts" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Drafts</h2>
-        <DraftListClient initialDrafts={drafts} />
+        {isOwner ? (
+          <DraftListClient initialDrafts={drafts} />
+        ) : (
+          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+        )}
       </section>
 
-      {profile.is_owner && <AdminStaff profiles={staffProfiles} />}
+      {isOwner && <AdminStaff profiles={staffProfiles} />}
     </main>
   );
 }

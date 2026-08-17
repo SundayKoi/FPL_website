@@ -16,6 +16,17 @@
 - Every migration must survive `npx supabase db reset` on an empty database. No migration may assume a draft, profile, or league row exists.
 - pgTAP tests live in `supabase/tests/` named `NNNN_snake_case_test.sql`, wrapped in `begin; … rollback;` with an explicit `select plan(N);`. The last used number is `0050`.
 - Test helpers come from `\ir helpers/_fixtures.sql.inc`: `tests.admin_id()`, `tests.cap(n)`, `tests.acting_as(uuid)`, `tests.fixture()`.
+- **Behavioural RLS assertions MUST switch role.** `supabase test db` runs as superuser, which bypasses RLS entirely — an assertion written without this passes vacuously and proves nothing. Every RLS assertion is wrapped:
+
+  ```sql
+  select tests.acting_as(<profile uuid>);
+  set local role authenticated;
+  select <assertion>;
+  reset role;
+  ```
+
+  `tests.acting_as` only sets the JWT claim; `set local role authenticated` is what makes policies apply. Idiom copied from `supabase/tests/0018_league_config_test.sql:133-149`. Setup writes (fixtures, profiles, `league_settings`) stay outside the role switch so they run as superuser.
+- A write that RLS forbids behaves differently per command: `INSERT` raises SQLSTATE `42501`, while `UPDATE` and `DELETE` silently affect zero rows. Assert `throws_ok(..., '42501', ...)` for inserts and assert the unchanged value for updates and deletes.
 - `_require_admin()` raises `NOT_ADMIN: admin access required`. New owner guard must mirror that shape.
 - `service_role` bypasses RLS everywhere and must keep working — the nightly ingest and betting actions depend on it.
 - Do not run `npx supabase db push`. It is blocked in this environment; production migration is a manual step by the user.
@@ -31,7 +42,9 @@
 
 **Interfaces:**
 - Consumes: `public.is_owner()` from `20260817000001_admin_owners.sql`.
-- Produces: `public._require_owner() returns void`, raising `NOT_OWNER: owner access required`. Every later task uses this.
+- Produces: no new SQL symbol. Only the demoted owner set, which every later task's tests depend on.
+
+The spec named a `_require_owner()` helper. It is deliberately **not** built: nothing calls it. Policies use `is_owner()` directly, the two RPCs guard with `_require_admin()`, and betting is gated in TypeScript. Building it would ship a dead `SECURITY DEFINER` function granted to `authenticated`. Add it in the plan that needs it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -41,29 +54,33 @@ Create `supabase/tests/0051_owner_tier_test.sql`:
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(4);
+select plan(3);
 
+-- A pre-existing owner set that mirrors production: the two creators plus a
+-- third owner who should come out of this as a plain admin.
 insert into public.profiles (id, display_name, is_admin, is_owner)
 values (tests.cap(41), 'dribb',   true, true),
-       (tests.cap(42), 'spiesss', true, true)
+       (tests.cap(42), 'spiesss', true, true),
+       (tests.cap(43), 'helper',  true, true)
 on conflict (id) do update set display_name = excluded.display_name,
   is_admin = excluded.is_admin, is_owner = excluded.is_owner;
 
-select has_function('public', '_require_owner', 'the owner guard exists');
+-- Re-run the migration's demotion against this seeded set. The migration
+-- itself no-ops on a fresh database (no profiles exist at migration time), so
+-- the behaviour has to be exercised here.
+update public.profiles
+set is_owner = false
+where is_owner and lower(trim(display_name)) not in ('dribb', 'spiesss');
 
--- An owner passes, an admin does not.
-select tests.acting_as(tests.cap(41));
-select lives_ok($$ select public._require_owner() $$, 'an owner passes the guard');
-
-insert into public.profiles (id, display_name, is_admin, is_owner)
-values (tests.cap(43), 'helper', true, false) on conflict (id) do nothing;
-select tests.acting_as(tests.cap(43));
-select throws_like($$ select public._require_owner() $$, 'NOT_OWNER%',
-                   'a plain admin is refused');
-
--- The demotion left exactly the two creators as owners.
 select is((select count(*) from public.profiles where is_owner), 2::bigint,
-          'only the two creators are owners');
+          'only the two creators remain owners');
+
+select is((select is_owner from public.profiles where id = tests.cap(43)), false,
+          'the third owner is demoted');
+
+-- The demoted owner keeps every admin power; only their tier changed.
+select is((select is_admin from public.profiles where id = tests.cap(43)), true,
+          'and keeps admin access');
 
 select * from finish();
 rollback;
@@ -72,30 +89,20 @@ rollback;
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx supabase test db 2>&1 | Select-String "0051|Result:"`
-Expected: FAIL — `function public._require_owner() does not exist`.
+Expected: FAIL — pgTAP reports the file is missing, or (once created) the
+assertions fail because the migration has not run.
 
 - [ ] **Step 3: Write the migration**
 
 Create `supabase/migrations/20260823000006_owner_guard_and_demotion.sql`:
 
 ```sql
--- Staff tiers, step 1: the owner guard, and trimming the owner set.
+-- Staff tiers, step 1: trimming the owner set.
 --
 -- 20260817000001 seeded every then-current admin as an owner, so "owner" does
 -- not yet mean what it should. This demotes everyone except the two site
 -- creators. is_admin is deliberately untouched: a demoted owner keeps every
 -- admin power, they just stop being able to change league-shaping config.
-
-create or replace function public._require_owner() returns void
-language plpgsql stable security definer set search_path = public as $$
-begin
-  if not public.is_owner() then
-    raise exception 'NOT_OWNER: owner access required';
-  end if;
-end $$;
-
-revoke all on function public._require_owner() from public;
-grant execute on function public._require_owner() to authenticated, service_role;
 
 do $$
 declare v_owners int;
@@ -125,13 +132,13 @@ end $$;
 Run: `npx supabase db reset; npx supabase test db 2>&1 | Select-String "0051|Result:"`
 Expected: PASS.
 
-Note the fresh-reset path takes the `return` branch (no profiles exist during migration), and the test inserts its own two owners. That is why the count assertion lives in the test rather than only in the migration.
+On a fresh reset the migration takes the `return` branch — no profiles exist at migration time — which is why the test seeds its own owner set and re-runs the demotion rather than asserting against migration output. In production the migration's guard is what protects the real run: if `dribb` and `spiesss` do not resolve to exactly two owners it raises and rolls back.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20260823000006_owner_guard_and_demotion.sql supabase/tests/0051_owner_tier_test.sql
-git commit -m "feat: add owner guard and trim the owner set to the site creators"
+git commit -m "feat: trim the owner set to the site creators"
 ```
 
 ---
@@ -144,7 +151,7 @@ git commit -m "feat: add owner guard and trim the owner set to the site creators
 - Modify: `src/components/signup/AdminSignupsToggle.tsx`
 
 **Interfaces:**
-- Consumes: `public._require_owner()` (Task 1).
+- Consumes: `public.is_owner()` (pre-existing) for the policy and `public._require_admin()` (pre-existing) for the RPC guard. There is no `_require_owner()` — see Task 1.
 - Produces: `public.set_signups_open(p_open boolean) returns void`. Task 4's console page calls this; nothing else may write `league_settings` as an admin.
 
 - [ ] **Step 1: Write the failing test**
@@ -167,19 +174,25 @@ select has_function('public', 'set_signups_open', 'the signups RPC exists');
 
 -- A plain admin cannot change the season.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 update public.league_settings set current_season = 'HACKED' where id = 1;
+reset role;
 select is((select current_season from public.league_settings where id = 1), 'S5',
           'an admin cannot change the season');
 
 -- An owner can.
 select tests.acting_as(tests.cap(41));
+set local role authenticated;
 update public.league_settings set current_season = 'S6' where id = 1;
+reset role;
 select is((select current_season from public.league_settings where id = 1), 'S6',
           'an owner can change the season');
 
 -- The admin's own slice still works, through the RPC.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select lives_ok($$ select public.set_signups_open(false) $$, 'an admin may toggle signups');
+reset role;
 select is((select signups_open from public.league_settings where id = 1), false,
           'and the toggle takes effect');
 
@@ -187,7 +200,7 @@ select * from finish();
 rollback;
 ```
 
-RLS silently filters a disallowed `UPDATE` to zero rows rather than raising, which is why the admin case asserts the value is unchanged instead of using `throws_ok`.
+RLS silently filters a disallowed `UPDATE` to zero rows rather than raising, which is why the admin case asserts the value is unchanged instead of using `throws_ok`. The `reset role` before each assertion keeps the read itself out of the role switch.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -287,22 +300,28 @@ on conflict (id) do update set is_admin = excluded.is_admin, is_owner = excluded
 
 -- A plain admin cannot create or rename a draft.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select throws_ok($$ insert into public.drafts (name) values ('Sneaky') $$, '42501', null,
                  'an admin cannot create a draft');
 update public.drafts set name = 'Renamed' where id = (select d from t);
+reset role;
 select isnt((select name from public.drafts where id = (select d from t)), 'Renamed',
             'an admin cannot rename a draft');
 
 -- An owner can.
 select tests.acting_as(tests.cap(41));
+set local role authenticated;
 select lives_ok($$ insert into public.drafts (name) values ('Owner Draft') $$,
                 'an owner can create a draft');
+reset role;
 
 -- Running a live draft is still admin work: the RPC is SECURITY DEFINER and
 -- bypasses the policy above.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select lives_ok($$ select public.start_draft((select d from t)) $$,
                 'an admin can still start a draft');
+reset role;
 
 select * from finish();
 rollback;
@@ -389,20 +408,27 @@ select has_function('public', 'set_team_identity', 'the identity RPC exists');
 
 -- An admin cannot change a team's budget directly.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 update public.teams set points_remaining = 9999 where id = (select id from tm);
+reset role;
 select isnt((select points_remaining from public.teams where id = (select id from tm)), 9999,
             'an admin cannot rewrite a team budget');
 
 -- But can set cosmetic identity through the RPC.
+select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select lives_ok(
   $$ select public.set_team_identity((select id from tm), 'https://x/y.png', '#123456', 'ZZZ') $$,
   'an admin may set team identity');
+reset role;
 select is((select abbreviation from public.teams where id = (select id from tm)), 'ZZZ',
           'and it takes effect');
 
 -- An owner can still write the team directly.
 select tests.acting_as(tests.cap(41));
+set local role authenticated;
 update public.teams set points_remaining = 42 where id = (select id from tm);
+reset role;
 select is((select points_remaining from public.teams where id = (select id from tm)), 42,
           'an owner can rewrite a team budget');
 
@@ -544,20 +570,27 @@ on conflict (id) do update set is_admin = excluded.is_admin, is_owner = excluded
 
 -- Retiring a team by hand is what stranded Astronauts and Wildcats.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select throws_ok($$ insert into public.league_teams (name, abbreviation)
                     values ('Freehand', 'FRH') $$, '42501', null,
                  'an admin cannot add a league team by hand');
+reset role;
 
 select tests.acting_as(tests.cap(41));
+set local role authenticated;
 select lives_ok($$ insert into public.league_teams (name, abbreviation)
                    values ('Freehand', 'FRH') $$,
                 'an owner can add a league team');
+reset role;
 
 -- The guided, idempotent path stays admin work: it is SECURITY DEFINER.
+-- This setup write runs as superuser, outside the role switch.
 update public.league_settings set featured_draft_id = (select d from t) where id = 1;
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select lives_ok($$ select public.sync_league_teams_from_draft() $$,
                 'an admin can still sync teams from the draft');
+reset role;
 
 select * from finish();
 rollback;
@@ -633,22 +666,29 @@ values ('S5', 'week_1', 'Alpha', 'Beta', 3, 1);
 
 -- Admins enter results.
 select tests.acting_as(tests.cap(43));
+set local role authenticated;
 update public.fixtures set score_a = 2, score_b = 1 where team_a = 'Alpha';
+reset role;
 select is((select score_a from public.fixtures where team_a = 'Alpha'), 2,
           'an admin can report a score');
 
 -- But cannot change the season's structure.
+select tests.acting_as(tests.cap(43));
+set local role authenticated;
 select throws_ok($$ insert into public.fixtures (season, stage, team_a, team_b, best_of)
                     values ('S5', 'week_2', 'Alpha', 'Beta', 3) $$, '42501', null,
                  'an admin cannot create a fixture');
 delete from public.fixtures where team_a = 'Alpha';
+reset role;
 select is((select count(*) from public.fixtures where team_a = 'Alpha'), 1::bigint,
           'an admin cannot delete a fixture');
 
 select tests.acting_as(tests.cap(41));
+set local role authenticated;
 select lives_ok($$ insert into public.fixtures (season, stage, team_a, team_b, best_of)
                    values ('S5', 'week_2', 'Alpha', 'Beta', 3) $$,
                 'an owner can create a fixture');
+reset role;
 
 select * from finish();
 rollback;
@@ -845,3 +885,91 @@ git commit -m "test: verify staff tier enforcement across the suite"
 This plan delivers steps 1 and 2 of the spec's rollout: the tiers are real and enforced. The spec's steps 3 and 4 — the consolidated `/admin` console and stripping admin panels from feature pages — are a separate plan, written after this one lands so its tasks can reference the real signatures of `set_signups_open`, `set_team_identity` and `requireBettingOwner`.
 
 Nothing in this plan changes what any admin sees. Controls stay where they are; the dangerous ones simply stop working for non-owners. That is deliberate: it makes this plan safe to ship on its own and independently verifiable before any UI moves.
+
+---
+
+### Task 9: Hide owner-tier panels from non-owner admins
+
+Added mid-execution. The Task 4 review found that routing `AdminSignupsToggle` and `AdminTeamEditor` through RPCs did not cover every writer of the now-gated tables: several admin panels still write directly and, because RLS refuses a forbidden `UPDATE`/`DELETE` by affecting zero rows rather than raising, they fail *silently* for a non-owner admin. Others raise a raw `42501`. Both are worse than not offering the control. This task makes the UI tell the truth.
+
+**Files:**
+- Create: `src/lib/auth/staffTier.ts`
+- Create: `src/lib/auth/staffTier.test.ts`
+- Modify: `src/app/schedule/page.tsx`, `src/app/admin/page.tsx`, `src/app/teams/page.tsx`, `src/app/captain/page.tsx`, `src/app/admin/[draftId]/page.tsx`
+- Modify: `src/components/schedule/AdminFixturesEditor.tsx`
+
+**Interfaces:**
+- Consumes: `profiles.is_owner`.
+- Produces: `fetchStaffTier(supabase): Promise<{ isAdmin: boolean; isOwner: boolean }>`.
+
+- [ ] **Step 1: Write the failing test for the tier reader**
+
+Create `src/lib/auth/staffTier.test.ts`. Cover: an owner returns `{isAdmin:true,isOwner:true}`; a plain admin returns `{isAdmin:true,isOwner:false}`; a signed-out visitor returns both false; and a query error returns both false (fail closed, never open). Mock the supabase client the way `src/lib/home/standings.test.ts` mocks it.
+
+- [ ] **Step 2: Run it and confirm it fails**
+
+Run: `npx vitest run src/lib/auth/staffTier.test.ts`
+Expected: FAIL — module does not exist.
+
+- [ ] **Step 3: Implement the tier reader**
+
+```ts
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export interface StaffTier {
+  isAdmin: boolean;
+  isOwner: boolean;
+}
+
+/** Both staff flags for the signed-in visitor, read server-side. Fails closed:
+ *  any error yields no access rather than defaulting open. Presentation only —
+ *  the database policies are the real gate. */
+export async function fetchStaffTier(supabase: SupabaseClient): Promise<StaffTier> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { isAdmin: false, isOwner: false };
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("is_admin, is_owner")
+    .eq("id", userData.user.id)
+    .single();
+  if (error || !data) return { isAdmin: false, isOwner: false };
+  return { isAdmin: Boolean(data.is_admin), isOwner: Boolean(data.is_owner) };
+}
+```
+
+- [ ] **Step 4: Run it and confirm it passes**
+
+Run: `npx vitest run src/lib/auth/staffTier.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Gate the wholly-owner panels**
+
+Each page below already resolves an admin flag. Add the owner flag via `fetchStaffTier` and render these panels only when `isOwner`. Do not change any admin-tier panel on these pages.
+
+| Page | Render only for an owner |
+|---|---|
+| `src/app/schedule/page.tsx` | `AdminSeasonSettings`, `AdminGenerateSchedule` |
+| `src/app/admin/page.tsx` | `AdminHomepageMode`, `DraftListClient` |
+| `src/app/teams/page.tsx` | `FeaturedDraftSelector` |
+| `src/app/captain/page.tsx` | `LeagueTeamsEditor` |
+| `src/app/admin/[draftId]/page.tsx` | the whole draft-setup editor |
+
+Where a page's owner-only section disappears entirely, leave one line in its place reading "Some league configuration is owner-only." so the page does not look broken.
+
+- [ ] **Step 6: Gate the owner-tier controls inside the mixed fixtures editor**
+
+`AdminFixturesEditor` is mixed: editing a fixture's score or date is admin work, creating and deleting fixtures is owner work. Give it an `isOwner: boolean` prop, passed from `src/app/schedule/page.tsx`, and hide only the create and delete controls when it is false. Editing existing fixtures must keep working for a plain admin.
+
+`AdminTeamEditor` is deliberately NOT changed here — Task 4 already gave it an explicit owner-only refusal message, which is honest, and Plan 2 restructures it.
+
+- [ ] **Step 7: Verify**
+
+Run: `npx tsc --noEmit; npx eslint; npx vitest run`
+Expected: all PASS. Update any test that asserted an owner-tier panel renders for a plain admin — that assertion is now wrong by design.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "feat: hide owner-tier admin panels from non-owner admins"
+```

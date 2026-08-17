@@ -42,7 +42,7 @@ function query(result: unknown) {
 function profilesQuery(adminResult: unknown, captainProfilesResult: unknown) {
   return {
     select: (columns: string) => {
-      if (columns === "is_admin") return query(adminResult);
+      if (columns === "is_admin, is_owner") return query(adminResult);
 
       const profileRows = (captainProfilesResult as { data?: Array<{ id: string }> }).data ?? [];
       const builder = query(captainProfilesResult);
@@ -118,7 +118,7 @@ describe("TeamsPage", () => {
   it("shows the placeholder preview and admin selector when no draft is featured", async () => {
     getUser.mockResolvedValue({ data: { user: { id: "admin-1" } } });
     from.mockImplementation((table: string) => {
-      if (table === "profiles") return profilesQuery({ data: { is_admin: true } }, { data: [] });
+      if (table === "profiles") return profilesQuery({ data: { is_admin: true, is_owner: true } }, { data: [] });
       if (table === "league_settings") return query({ data: { featured_draft_id: null } });
       return query({ data: [{ id: "draft-1", name: "Draft One" }] });
     });

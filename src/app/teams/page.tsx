@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
 import AdminTeamEditor from "@/components/teams/AdminTeamEditor";
@@ -15,17 +16,7 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
   const view = (await searchParams)?.view;
   const isAcademy = view === "academy";
   const supabase = await createServerSupabase();
-  const { data: userData } = await supabase.auth.getUser();
-  let isAdmin = false;
-
-  if (userData.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userData.user.id)
-      .single();
-    isAdmin = profile?.is_admin ?? false;
-  }
+  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
 
   const [settingsResult, academyDraftResult, draftsResult] = await Promise.all([
     supabase
@@ -85,12 +76,14 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
       league={isAcademy ? "academy" : "premier"}
       teams={teams}
       adminControls={
-        isAdmin ? (
+        isOwner ? (
           <FeaturedDraftSelector
             drafts={(draftsResult.data as { id: string; name: string }[]) ?? []}
             premierDraftId={featuredDraftId}
             academyDraftId={academyDraftId}
           />
+        ) : isAdmin ? (
+          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
         ) : null
       }
       rosterContent={

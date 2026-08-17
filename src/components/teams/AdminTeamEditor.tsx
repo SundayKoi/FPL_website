@@ -148,21 +148,13 @@ function DraftTeamEditor({
         imageUrl = data.publicUrl;
       }
 
-      const { data: updatedTeam, error } = await supabase
-        .from("teams")
-        .update({
-          name,
-          abbreviation,
-          captain_profile_id: form.captainProfileId || null,
-          division: form.division || null,
-          image_url: imageUrl,
-          banner_color: bannerColor,
-        })
-        .eq("id", team.id)
-        .eq("draft_id", draftId)
-        .select("id")
-        .single();
-      if (error || updatedTeam?.id !== team.id) {
+      const { error: identityError } = await supabase.rpc("set_team_identity", {
+        p_team_id: team.id,
+        p_image_url: imageUrl,
+        p_banner_color: bannerColor,
+        p_abbreviation: abbreviation,
+      });
+      if (identityError) {
         if (uploadedObjectPath) {
           try {
             await supabase.storage.from("team-images").remove([uploadedObjectPath]);
@@ -170,13 +162,52 @@ function DraftTeamEditor({
             // Cleanup is best-effort; retain the database update error.
           }
         }
-        setForm(team.id, {
-          status: {
-            kind: "error",
-            message: error ? messageFor(error) : "No matching team row was updated.",
-          },
-        });
+        setForm(team.id, { status: { kind: "error", message: messageFor(identityError) } });
         return;
+      }
+
+      const captainProfileId = form.captainProfileId || null;
+      const division = form.division || null;
+      const ownerFieldsChanged =
+        name !== team.name ||
+        captainProfileId !== team.captain_profile_id ||
+        division !== team.division;
+
+      if (ownerFieldsChanged) {
+        // name / captain_profile_id / division are draft-setup attributes and
+        // owner-tier by design: set_team_identity deliberately cannot carry
+        // them. RLS lets a plain admin's UPDATE run without raising, but it
+        // affects zero rows, so an empty `.select("id")` result is the only
+        // signal that the write was refused.
+        const { data: updatedRows, error: ownerFieldsError } = await supabase
+          .from("teams")
+          .update({ name, captain_profile_id: captainProfileId, division })
+          .eq("id", team.id)
+          .eq("draft_id", draftId)
+          .select("id");
+        if (ownerFieldsError || !updatedRows || updatedRows.length === 0) {
+          // The crest write above already landed (set_team_identity is admin-
+          // callable), so the previous object must still be cleaned up even
+          // though the owner-only fields were refused -- otherwise a
+          // non-owner admin who both uploads a crest and renames a team in
+          // one submit orphans the old storage object forever.
+          if (uploadedObjectPath && previousObjectPath && previousObjectPath !== uploadedObjectPath) {
+            try {
+              await supabase.storage.from("team-images").remove([previousObjectPath]);
+            } catch {
+              // The replacement is already persisted; old-object cleanup is best-effort.
+            }
+          }
+          setForm(team.id, {
+            status: {
+              kind: "error",
+              message: ownerFieldsError
+                ? messageFor(ownerFieldsError)
+                : "Renaming a team, reassigning a captain, or changing division is owner-only.",
+            },
+          });
+          return;
+        }
       }
 
       if (uploadedObjectPath && previousObjectPath && previousObjectPath !== uploadedObjectPath) {
@@ -215,20 +246,14 @@ function DraftTeamEditor({
     const objectPath = managedObjectPath(form.currentImageUrl, draftId, team.id);
     setForm(team.id, { status: { kind: "saving" } });
     try {
-      const { data: updatedTeam, error } = await supabase
-        .from("teams")
-        .update({ image_url: null })
-        .eq("id", team.id)
-        .eq("draft_id", draftId)
-        .select("id")
-        .single();
-      if (error || updatedTeam?.id !== team.id) {
-        setForm(team.id, {
-          status: {
-            kind: "error",
-            message: error ? messageFor(error) : "No matching team row was updated.",
-          },
-        });
+      const { error } = await supabase.rpc("set_team_identity", {
+        p_team_id: team.id,
+        p_image_url: null,
+        p_banner_color: null,
+        p_abbreviation: null,
+      });
+      if (error) {
+        setForm(team.id, { status: { kind: "error", message: messageFor(error) } });
         return;
       }
 

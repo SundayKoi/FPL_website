@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireBettingStaff } from "./access";
+import { requireBettingOwner, requireBettingStaff } from "./access";
 import { createBettingServiceClient } from "./service-client";
 
 // Admin (staff-only) actions for the betting domain (Task 9). Every export
@@ -48,6 +48,19 @@ async function staffOnly(): Promise<{ discordId: string } | { ok: false; error: 
 }
 function isStaffCtx(x: { discordId: string } | { ok: false; error: string }): x is { discordId: string } {
   return "discordId" in x;
+}
+
+/** Same shape as `staffOnly()`, but for the owner tier: settlement, seasons
+ * and balance moves pay out and cannot be undone, so they require
+ * `requireBettingOwner()` rather than just staff. `isStaffCtx()` above works
+ * unchanged on its result — both return `{ discordId }` on success. */
+async function ownerOnly(): Promise<{ discordId: string } | { ok: false; error: string }> {
+  try {
+    const ctx = await requireBettingOwner();
+    return ctx;
+  } catch {
+    return { ok: false, error: "Owner only." };
+  }
 }
 
 const BETTING_ADMIN_PATHS = ["/admin/betting", "/admin/betting/pickems", "/admin/betting/catalog", "/admin/betting/seasons", "/admin/betting/props", "/betting"];
@@ -133,7 +146,7 @@ export async function createMarket(input: CreateMarketInput): Promise<IdResult> 
  * the market has draw_enabled).
  */
 export async function resolveMarket(marketId: number, winnerTeamId: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
 
   if (!isFiniteInt(marketId) || !isFiniteInt(winnerTeamId)) {
@@ -170,7 +183,7 @@ export async function resolveMarket(marketId: number, winnerTeamId: number): Pro
 
 /** Cancels a market (refunds every bet) via `cancel_market_admin`. */
 export async function cancelMarket(marketId: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!isFiniteInt(marketId)) return { ok: false, error: "Invalid market." };
 
@@ -186,7 +199,7 @@ export async function cancelMarket(marketId: number): Promise<ActionResult> {
  * `delete_market_admin` (refuses if any bets or pick'em legs reference it —
  * cancel it instead in that case). */
 export async function deleteMarket(marketId: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!isFiniteInt(marketId)) return { ok: false, error: "Invalid market." };
 
@@ -238,7 +251,7 @@ export async function createPickem(input: CreatePickemInput): Promise<IdResult> 
  * has the same shape (its legs are already individually audited via
  * resolve_market_admin/cancel_market_admin). */
 export async function resolvePickem(pickemId: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!isFiniteInt(pickemId)) return { ok: false, error: "Invalid pick'em." };
 
@@ -251,7 +264,7 @@ export async function resolvePickem(pickemId: number): Promise<ActionResult> {
 }
 
 export async function cancelPickem(pickemId: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!isFiniteInt(pickemId)) return { ok: false, error: "Invalid pick'em." };
 
@@ -473,7 +486,7 @@ export async function deleteStoreItem(id: number): Promise<ActionResult> {
 // === Seasons (create_season_admin / close_season_admin) ======================
 
 export async function createSeason(name: string): Promise<IdResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!name || !name.trim()) return { ok: false, error: "Enter a season name." };
 
@@ -489,7 +502,7 @@ export async function createSeason(name: string): Promise<IdResult> {
  * >0 soft-resets every wallet to that balance through the ledger (see
  * close_season_admin). Refuses while any market/pick'em is still unsettled. */
 export async function closeSeason(seasonId: number, resetTo: number): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
   if (!isFiniteInt(seasonId)) return { ok: false, error: "Invalid season." };
   if (!isFiniteInt(resetTo) || resetTo < 0) return { ok: false, error: "Reset balance must be 0 or a positive integer." };
@@ -518,7 +531,7 @@ export async function closeSeason(seasonId: number, resetTo: number): Promise<Ac
  * error message, same as every other action in this file.
  */
 export async function grantPoints(discordId: string, delta: number, reason: string): Promise<ActionResult> {
-  const ctx = await staffOnly();
+  const ctx = await ownerOnly();
   if (!isStaffCtx(ctx)) return ctx;
 
   if (!discordId || !discordId.trim()) return { ok: false, error: "Enter a Discord id." };

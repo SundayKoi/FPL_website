@@ -14,7 +14,10 @@ create temporary table captain_ids as
     (select id from public.players where draft_id = (select d from captain_case) and display_name = 'Mid1') as captain_candidate,
     (select id from public.players where draft_id = (select d from captain_case) and display_name = 'Adc1') as second_captain_candidate;
 
-select tests.acting_as(tests.admin_id());
+-- admin_assign_setup_player is owner-gated (2026-08-23); admin_remove_setup_player
+-- stays admin-tier, and the owner fixture also carries is_admin, so acting as
+-- the owner covers every call in this file.
+select tests.acting_as(tests.owner_id());
 select lives_ok($$ select public.admin_assign_setup_player(
   (select d from captain_case),
   (select captain_candidate from captain_ids),

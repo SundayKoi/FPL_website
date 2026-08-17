@@ -4,8 +4,21 @@ const { getUser } = vi.hoisted(() => ({
   getUser: vi.fn(),
 }));
 
+// The server (anon/authenticated) client's `.from` chain — used only by
+// requireBettingOwner's `profiles.is_owner` lookup. Kept separate from
+// service-client's serviceFrom/serviceSingle below (requireBettingStaff's
+// `profiles.is_admin` fallback goes through the service client instead —
+// see access.ts's comment on why).
+const { supabaseSingle, supabaseEq, supabaseSelect, supabaseFrom } = vi.hoisted(() => {
+  const supabaseSingle = vi.fn();
+  const supabaseEq = vi.fn(() => ({ single: supabaseSingle }));
+  const supabaseSelect = vi.fn(() => ({ eq: supabaseEq }));
+  const supabaseFrom = vi.fn(() => ({ select: supabaseSelect }));
+  return { supabaseSingle, supabaseEq, supabaseSelect, supabaseFrom };
+});
+
 vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabase: vi.fn(async () => ({ auth: { getUser } })),
+  createServerSupabase: vi.fn(async () => ({ auth: { getUser }, from: supabaseFrom })),
 }));
 
 const { serviceSingle, serviceFrom } = vi.hoisted(() => {
@@ -20,7 +33,7 @@ vi.mock("./service-client", () => ({
   createBettingServiceClient: vi.fn(() => ({ from: serviceFrom })),
 }));
 
-import { _clearMemberCache, bettingAccess, fetchGuildMember, requireBettingStaff } from "./access";
+import { _clearMemberCache, bettingAccess, fetchGuildMember, requireBettingOwner, requireBettingStaff } from "./access";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -302,5 +315,78 @@ describe("requireBettingStaff", () => {
     getUser.mockResolvedValue({ data: { user: { id: "profile-1", identities: [] } } });
 
     await expect(requireBettingStaff()).rejects.toThrow("betting: staff only");
+  });
+});
+
+describe("requireBettingOwner", () => {
+  beforeEach(() => {
+    process.env.DISCORD_STAFF_ROLE_ID = "staff-role";
+    getUser.mockReset();
+    serviceSingle.mockReset();
+    serviceFrom.mockClear();
+    supabaseSingle.mockReset();
+    supabaseFrom.mockClear();
+    supabaseSelect.mockClear();
+    supabaseEq.mockClear();
+
+    // Default: a Discord-staff caller (the simplest requireBettingStaff pass
+    // path), so each test below only has to vary the is_owner outcome.
+    getUser.mockResolvedValue({
+      data: { user: { id: "profile-1", identities: [{ provider: "discord", id: "42" }] } },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { roles: ["staff-role"] })),
+    );
+  });
+
+  it("resolves for a staff caller whose profiles.is_owner is true, returning requireBettingStaff's context shape", async () => {
+    supabaseSingle.mockResolvedValue({ data: { is_owner: true } });
+
+    const result = await requireBettingOwner();
+
+    expect(result).toEqual({ discordId: "42", profileId: "profile-1" });
+  });
+
+  it("selects is_owner from profiles filtered to the authenticated user's id", async () => {
+    supabaseSingle.mockResolvedValue({ data: { is_owner: true } });
+
+    await requireBettingOwner();
+
+    expect(supabaseFrom).toHaveBeenCalledWith("profiles");
+    expect(supabaseSelect).toHaveBeenCalledWith("is_owner");
+    expect(supabaseEq).toHaveBeenCalledWith("id", "profile-1");
+  });
+
+  it("throws when the staff caller's is_owner is false", async () => {
+    supabaseSingle.mockResolvedValue({ data: { is_owner: false } });
+
+    await expect(requireBettingOwner()).rejects.toThrow("betting: owner only");
+  });
+
+  it("throws for a caller who isn't staff at all, without ever querying profiles.is_owner", async () => {
+    // Overrides this block's default staff-passing setup with a non-staff,
+    // non-admin caller — same shape as requireBettingStaff's own
+    // "throws for a signed-in non-staff, non-admin user" case.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { roles: [] })),
+    );
+    serviceSingle.mockResolvedValue({ data: { is_admin: false } });
+
+    await expect(requireBettingOwner()).rejects.toThrow("betting: staff only");
+    expect(supabaseFrom).not.toHaveBeenCalled();
+  });
+
+  it("fails closed (throws) when the profiles row is missing", async () => {
+    supabaseSingle.mockResolvedValue({ data: null });
+
+    await expect(requireBettingOwner()).rejects.toThrow("betting: owner only");
+  });
+
+  it("fails closed (throws) when the profiles query errors", async () => {
+    supabaseSingle.mockResolvedValue({ data: null, error: { message: "connection reset" } });
+
+    await expect(requireBettingOwner()).rejects.toThrow("betting: owner only");
   });
 });

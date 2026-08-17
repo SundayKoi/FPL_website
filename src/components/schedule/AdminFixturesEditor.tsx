@@ -246,9 +246,11 @@ function FixtureFields({
 export default function AdminFixturesEditor({
   fixtures,
   season,
+  isOwner,
 }: {
   fixtures: FixtureRow[];
   season: string | null;
+  isOwner: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -332,23 +334,27 @@ export default function AdminFixturesEditor({
 
       {open && (
         <div className="flex flex-col gap-6 border-t border-line px-4 py-4">
-          <div className="flex flex-col gap-3">
-            <p className="text-sm font-semibold text-white">Add fixture</p>
-            <FixtureFields form={addForm} onChange={setAddForm} />
-            {addStatus.kind === "error" && (
-              <p role="alert" className="text-sm text-red-400">
-                {addStatus.message}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={addStatus.kind === "saving"}
-              className={`${buttonClass} w-fit bg-gold text-navy`}
-            >
-              {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
-            </button>
-          </div>
+          {isOwner ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-semibold text-white">Add fixture</p>
+              <FixtureFields form={addForm} onChange={setAddForm} />
+              {addStatus.kind === "error" && (
+                <p role="alert" className="text-sm text-red-400">
+                  {addStatus.message}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={addStatus.kind === "saving"}
+                className={`${buttonClass} w-fit bg-gold text-navy`}
+              >
+                {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+          )}
 
           {fixtures.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -380,14 +386,16 @@ export default function AdminFixturesEditor({
                         >
                           {isEditing ? "Cancel" : "Edit"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(fixture.id)}
-                          disabled={editStatus.kind === "saving"}
-                          className={`${buttonClass} border border-red-400/40 bg-red-500/10 text-red-400`}
-                        >
-                          Delete
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(fixture.id)}
+                            disabled={editStatus.kind === "saving"}
+                            className={`${buttonClass} border border-red-400/40 bg-red-500/10 text-red-400`}
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                     {isEditing && (

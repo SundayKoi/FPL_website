@@ -18,11 +18,7 @@ export default function AdminSignupsToggle({ signupsOpen }: { signupsOpen: boole
   const handleToggle = async () => {
     setBusy(true);
     setError(null);
-    const { error: updateError } = await supabase.from("league_settings").upsert({
-      id: 1,
-      signups_open: !signupsOpen,
-      updated_at: new Date().toISOString(),
-    });
+    const { error: updateError } = await supabase.rpc("set_signups_open", { p_open: !signupsOpen });
     setBusy(false);
     if (updateError) {
       setError(updateError.message);

@@ -18,7 +18,9 @@ select ok((select relrowsecurity from pg_class where oid='public.drafts'::regcla
 select ok((select relrowsecurity from pg_class where oid='public.lots'::regclass), 'lots RLS enabled');
 
 -- anon can read drafts (public spectating)
-select policies_are('public','drafts', array['drafts_public_read','drafts_admin_write'], 'draft policies as designed');
+-- drafts_owner_write since 20260823000008: draft setup is owner-tier, while
+-- the live draft RPCs stay admin (SECURITY DEFINER, so they bypass this).
+select policies_are('public','drafts', array['drafts_public_read','drafts_owner_write'], 'draft policies as designed');
 
 -- realtime publication covers lots
 select ok(exists(select 1 from pg_publication_tables
