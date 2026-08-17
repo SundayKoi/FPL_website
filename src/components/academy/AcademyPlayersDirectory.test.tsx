@@ -84,6 +84,23 @@ describe("AcademyPlayersDirectory", () => {
     );
   });
 
+  it("shows an individual link when the canonical Academy URL is a team multisearch", () => {
+    render(
+      <AcademyPlayersDirectory
+        players={[]}
+        canonicalPlayers={[{
+          ...canonicalPlayer,
+          display_name: "Beta#NA1",
+          opgg_url: "https://op.gg/lol/multisearch/na?summoners=Alpha%23NA1%2CBeta%23NA1",
+        }]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Beta#NA1" }).getAttribute("href")).toBe(
+      "https://op.gg/lol/summoners/na/Beta-NA1",
+    );
+  });
+
   it("submits a valid Academy player through the rendered admin editor", async () => {
     const insert = vi.fn(() => ({
       select: vi.fn(() => ({

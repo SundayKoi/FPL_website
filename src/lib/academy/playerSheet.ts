@@ -38,7 +38,7 @@ const ACADEMY_OPGG_BY_PLAYER: Record<string, string> = {
   "killomanjaro#na1": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
 };
 
-function individualOpggUrl(rosterUrl: string | undefined, playerName: string): string | null {
+export function individualOpggUrl(rosterUrl: string | undefined | null, playerName: string): string | null {
   if (!rosterUrl) return null;
   const query = rosterUrl.match(/[?&]summoners=([^&]+)/)?.[1];
   if (!query) return rosterUrl;
@@ -69,7 +69,9 @@ export function mergeAcademyPlayers(
       name: player.display_name,
       role: sheetPlayer?.role ?? (player.role[0].toUpperCase() + player.role.slice(1)),
       rank: sheetPlayer?.rank || player.rank || "Unranked",
-      opggUrl: sheetPlayer?.opggUrl ?? individualOpggUrl(rosterOpggUrl, player.display_name),
+      opggUrl:
+        individualOpggUrl(sheetPlayer?.opggUrl, player.display_name) ??
+        individualOpggUrl(rosterOpggUrl, player.display_name),
     };
   });
 }
