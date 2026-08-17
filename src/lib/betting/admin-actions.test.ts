@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireBettingStaff } = vi.hoisted(() => ({ requireBettingStaff: vi.fn() }));
-vi.mock("./access", () => ({ requireBettingStaff }));
+const { requireBettingStaff, requireBettingOwner } = vi.hoisted(() => ({
+  requireBettingStaff: vi.fn(),
+  requireBettingOwner: vi.fn(),
+}));
+vi.mock("./access", () => ({ requireBettingStaff, requireBettingOwner }));
 
 const { rpc, from } = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn() }));
 vi.mock("./service-client", () => ({
@@ -34,6 +37,31 @@ import {
 
 const STAFF_CTX = { discordId: "staff-1", profileId: "profile-1" };
 
+const validCreateMarketInput = {
+  eventId: 1,
+  teamAId: 1,
+  teamBId: 2,
+  title: "Final",
+  gameAt: "2026-09-01T00:00:00Z",
+  drawEnabled: false,
+};
+
+// Whether the current caller is an owner, per requireBettingOwner. Toggled by
+// mockOwner() in individual tests; reset to true (owner) in beforeEach so
+// every describe block outside "owner-tier betting actions" keeps exercising
+// its owner-tier action (createSeason, closeSeason, grantPoints, ...) as an
+// authorized caller, same as before this tier existed.
+let ownerFlag = true;
+/** Controls what requireBettingOwner sees for the rest of the current test.
+ * Mirrors requireBettingStaff's own resolution first (so a non-staff caller
+ * is still refused even if a test forgets to also fail requireBettingStaff),
+ * then applies the owner flag — matching requireBettingOwner's real
+ * implementation, which is requireBettingStaff() plus a profiles.is_owner
+ * check. */
+function mockOwner(isOwner: boolean): void {
+  ownerFlag = isOwner;
+}
+
 /** A Supabase-query-builder-shaped mock: every chain method returns the same
  * object, and the object itself resolves (via `.then`) to `result` — so
  * `await from(...).select(...).eq(...).single()` and
@@ -57,7 +85,13 @@ function chainable(result: { data: unknown; error: unknown }) {
 }
 
 beforeEach(() => {
+  ownerFlag = true;
   requireBettingStaff.mockReset().mockResolvedValue(STAFF_CTX);
+  requireBettingOwner.mockReset().mockImplementation(async () => {
+    const ctx = await requireBettingStaff();
+    if (!ownerFlag) throw new Error("betting: owner only");
+    return ctx;
+  });
   rpc.mockReset().mockResolvedValue({ data: 1, error: null });
   from.mockReset().mockReturnValue(chainable({ data: null, error: null }));
   revalidatePath.mockReset();
@@ -106,6 +140,41 @@ describe("authorization (non-staff rejected before any RPC/table call)", () => {
     expect(result.ok).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();
+  });
+});
+
+// === Owner tier: settlement, seasons and balances (Task 7) — refuses a ======
+// staff caller who isn't also an owner, before any RPC/table call. Every
+// other action in the file stays staff-gated only, checked below via
+// createMarket as a representative example.
+describe("owner-tier betting actions", () => {
+  const ownerOnlyCases: [string, () => Promise<{ ok: boolean }>][] = [
+    ["resolveMarket", () => resolveMarket(1, 2)],
+    ["cancelMarket", () => cancelMarket(1)],
+    ["deleteMarket", () => deleteMarket(1)],
+    ["resolvePickem", () => resolvePickem(1)],
+    ["cancelPickem", () => cancelPickem(1)],
+    ["createSeason", () => createSeason("S6")],
+    ["closeSeason", () => closeSeason(1, 1000)],
+    ["grantPoints", () => grantPoints("123", 50, "test")],
+  ];
+
+  it.each(ownerOnlyCases)("%s refuses a staff caller who is not an owner", async (_name, run) => {
+    mockOwner(false);
+
+    const result = await run();
+
+    expect(result).toEqual({ ok: false, error: expect.stringContaining("Owner") });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("createMarket still allows a non-owner admin", async () => {
+    mockOwner(false);
+
+    const result = await createMarket(validCreateMarketInput);
+
+    expect(result).not.toEqual({ ok: false, error: expect.stringContaining("Owner") });
   });
 });
 

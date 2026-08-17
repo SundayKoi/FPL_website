@@ -132,3 +132,23 @@ export async function requireBettingStaff(): Promise<BettingStaffContext> {
 
   throw new Error("betting: staff only");
 }
+
+/**
+ * Throws unless the signed-in user is betting staff *and* an owner
+ * (`profiles.is_owner`). Built on `requireBettingStaff()` so an owner check
+ * can never accidentally admit a caller who isn't staff at all. Gates
+ * settlement, seasons and balance moves — writes that pay out and cannot be
+ * undone, unlike catalog/market-creation edits which stay staff-tier (see
+ * docs/superpowers/specs/2026-08-16-admin-console-tiers-design.md).
+ */
+export async function requireBettingOwner(): Promise<{ discordId: string }> {
+  const ctx = await requireBettingStaff();
+
+  const supabase = await createServerSupabase();
+  const { data: profile } = await supabase.from("profiles").select("is_owner").eq("id", ctx.profileId).single();
+  if (!profile?.is_owner) {
+    throw new Error("betting: owner only");
+  }
+
+  return ctx;
+}
