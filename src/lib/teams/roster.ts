@@ -5,6 +5,7 @@ import {
   type RosterTeamView,
   type Team,
 } from "@/lib/draft/types";
+import { resolvePlayerOpggUrl, type CanonicalPlayerMetadata } from "@/lib/draft/playerMetadata";
 import { normalizeBannerColor } from "@/lib/teams/bannerColor";
 
 const accentClasses = [
@@ -20,6 +21,7 @@ export function toRosterTeams(
   teams: Team[],
   players: Player[],
   profiles: Profile[] = [],
+  canonicalPlayers: CanonicalPlayerMetadata[] = [],
 ): RosterTeamView[] {
   const profileNames = new Map(profiles.map((profile) => [profile.id, profile.display_name]));
 
@@ -52,6 +54,7 @@ export function toRosterTeams(
               id: player.id,
               role: player.role,
               displayName: player.display_name,
+              opggUrl: resolvePlayerOpggUrl(player, canonicalPlayers),
               price: player.price ?? 0,
               acquisition: player.acquisition,
             }

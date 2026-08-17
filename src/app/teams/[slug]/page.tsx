@@ -10,6 +10,7 @@ import {
   teamRecord,
   teamSlug,
 } from "@/lib/teams/teamPage";
+import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -40,7 +41,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
   const featuredDraftId = settings?.featured_draft_id ?? null;
   if (!featuredDraftId) notFound();
 
-  const [draftResult, teamsResult, playersResult, profilesResult, fixturesResult] =
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
     await Promise.all([
       supabase.from("drafts").select("*").eq("id", featuredDraftId).single(),
       supabase
@@ -50,6 +51,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
         .order("nomination_position"),
       supabase.from("players").select("*").eq("draft_id", featuredDraftId).order("display_name"),
       supabase.from("profiles").select("id, display_name").order("display_name"),
+      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
     ]);
 
@@ -58,6 +60,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
     (teamsResult.data as Team[]) ?? [],
     (playersResult.data as Player[]) ?? [],
     (profilesResult.data as Profile[]) ?? [],
+    (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [],
   );
   const team = rosterTeams.find((t) => teamSlug(t.name) === slug);
   if (!team) notFound();
@@ -70,6 +73,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
 
   const record = teamRecord(fixtures, team.name);
   const { upcoming, results } = splitTeamFixtures(fixtures, team.name);
+  const multiOpggUrl = opggMultiSearchUrlFromRosterPlayers(team.players);
   const winRate =
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 
@@ -116,6 +120,16 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
             <p className="text-xs uppercase tracking-[0.14em] text-white/80">
               {winRate !== null ? `${winRate}% series` : "No series played"}
             </p>
+            {multiOpggUrl ? (
+              <a
+                href={multiOpggUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
+              >
+                Team OP.GG Multi
+              </a>
+            ) : null}
           </div>
         </header>
 

@@ -9,6 +9,7 @@ import {
   type MatchCode,
 } from "@/lib/captain/queries";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
+import { opggMultiSearchUrlFromRiotIds, opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
 import CaptainGate from "@/components/captain/CaptainGate";
@@ -94,19 +95,26 @@ export async function CaptainPageView({
   // match any league_teams row.
   let prefillTeamAId: string | null = null;
   let prefillTeamBId: string | null = null;
+  let opponentTeamId: string | null = null;
   if (nextFixture) {
     const activeIsA = normalizeName(nextFixture.team_a) === normalizeName(activeTeam.name);
     prefillTeamAId = activeIsA ? activeTeamId : matchTeamId(context.teams, nextFixture.team_a);
     prefillTeamBId = activeIsA ? matchTeamId(context.teams, nextFixture.team_b) : activeTeamId;
+    opponentTeamId = activeIsA ? prefillTeamBId : prefillTeamAId;
   }
 
-  const [codes, myReports, roster, results, announcements] = await Promise.all([
+  const [codes, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
     fetchMyRoster(supabase, activeTeamId, context.season),
+    opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
   ]);
+  const opponentMultiOpggUrl = opponentRoster
+    ? opggMultiSearchUrlFromRosterPlayers(opponentRoster.draftPlayers) ??
+      opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
+    : null;
 
   // Admin-only data for the four panels below the captain sections. Fetched
   // inline here (rather than via src/lib/captain/queries.ts) and unfiltered
@@ -173,7 +181,11 @@ export async function CaptainPageView({
         <div className="mt-8 flex flex-col gap-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <div className="flex flex-col gap-6">
-              <NextMatchCard fixture={nextFixture} myTeamName={activeTeam.name} />
+              <NextMatchCard
+                fixture={nextFixture}
+                myTeamName={activeTeam.name}
+                opponentMultiOpggUrl={opponentMultiOpggUrl}
+              />
               <TourneyCodes codes={codes} />
               <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
             </div>

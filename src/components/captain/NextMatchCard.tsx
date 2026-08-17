@@ -5,9 +5,11 @@ import type { FixtureRow } from "@/lib/schedule/types";
 export default function NextMatchCard({
   fixture,
   myTeamName,
+  opponentMultiOpggUrl = null,
 }: {
   fixture: FixtureRow | null;
   myTeamName: string;
+  opponentMultiOpggUrl?: string | null;
 }) {
   if (!fixture) {
     return (
@@ -43,6 +45,16 @@ export default function NextMatchCard({
           </>
         )}
       </div>
+      {opponentMultiOpggUrl ? (
+        <a
+          href={opponentMultiOpggUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex w-fit rounded-full border border-gold/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy"
+        >
+          Opponent OP.GG Multi
+        </a>
+      ) : null}
     </section>
   );
 }

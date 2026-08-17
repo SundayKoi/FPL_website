@@ -4,10 +4,17 @@ type PlayerRankSource = {
   display_name: string;
 };
 
+type PlayerOpggSource = {
+  opgg_url: string | null;
+  canonical_player_id?: string | null;
+  display_name: string;
+};
+
 export type CanonicalPlayerMetadata = {
   id: string;
   display_name: string;
   rank: string | null;
+  opgg_url?: string | null;
 };
 
 function normalizePlayerName(name: string) {
@@ -60,4 +67,19 @@ export function resolvePlayerRank(
 
   const normalizedName = normalizePlayerName(player.display_name);
   return canonicalPlayers.find((candidate) => normalizePlayerName(candidate.display_name) === normalizedName)?.rank ?? null;
+}
+
+export function resolvePlayerOpggUrl(
+  player: PlayerOpggSource,
+  canonicalPlayers: CanonicalPlayerMetadata[],
+) {
+  if (player.opgg_url) return player.opgg_url;
+
+  const byId = player.canonical_player_id
+    ? canonicalPlayers.find((candidate) => candidate.id === player.canonical_player_id)
+    : undefined;
+  if (byId?.opgg_url) return byId.opgg_url;
+
+  const normalizedName = normalizePlayerName(player.display_name);
+  return canonicalPlayers.find((candidate) => normalizePlayerName(candidate.display_name) === normalizedName)?.opgg_url ?? null;
 }

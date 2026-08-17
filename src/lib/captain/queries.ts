@@ -17,6 +17,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/lib/matches/types";
 import type { Player } from "@/lib/draft/types";
+import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
 import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
 
@@ -248,13 +249,22 @@ export async function fetchMyRoster(
     const draftTeamId = findDraftTeamId(teamName, (draftTeams as { id: string; name: string }[] | null) ?? []);
 
     if (draftTeamId) {
-      const { data: playerRows, error: playersError } = await supabase
-        .from("players")
-        .select("*")
-        .eq("team_id", draftTeamId)
-        .order("role");
+      const [playersResult, canonicalResult] = await Promise.all([
+        supabase
+          .from("players")
+          .select("*")
+          .eq("team_id", draftTeamId)
+          .order("role"),
+        supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
+      ]);
+      const { data: playerRows, error: playersError } = playersResult;
       if (playersError) throw playersError;
-      draftPlayers = (playerRows as Player[]) ?? [];
+      const canonicalPlayers =
+        (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [];
+      draftPlayers = ((playerRows as Player[]) ?? []).map((player) => ({
+        ...player,
+        opgg_url: resolvePlayerOpggUrl(player, canonicalPlayers),
+      }));
     }
   }
 

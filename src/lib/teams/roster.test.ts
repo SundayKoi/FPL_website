@@ -41,13 +41,19 @@ const player = (overrides: Partial<Player> = {}): Player => ({
 
 describe("toRosterTeams", () => {
   it("maps persisted identity and selected captain profile", () => {
-    const view = toRosterTeams([team], [player()], [captainProfile])[0];
+    const view = toRosterTeams(
+      [team],
+      [player({ opgg_url: null, canonical_player_id: "canonical-captain" })],
+      [captainProfile],
+      [{ id: "canonical-captain", display_name: "Roster Captain", rank: null, opgg_url: "https://op.gg/lol/summoners/na/Roster-Captain" }],
+    )[0];
 
     expect(view.abbreviation).toBe("ALP");
     expect(view.imageUrl).toBe("https://img.test/alpha");
     expect(view.bannerColor).toBe("#123456");
     expect(view.division).toBe("Lunari");
     expect(view.captainName).toBe("Roster Captain");
+    expect(view.players[0].opggUrl).toBe("https://op.gg/lol/summoners/na/Roster-Captain");
     expect(view.players).toHaveLength(5);
     expect(view.players.map((slot) => slot.role)).toEqual([
       "top",
