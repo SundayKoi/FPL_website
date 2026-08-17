@@ -13,16 +13,24 @@ vi.mock("server-only", () => ({}));
  * — good enough for queries.ts's read-only chains, which never care which of
  * those the production code used to terminate the chain.
  */
-function chain(result: { data: unknown; error?: unknown }) {
+type FilterCall = { table: string; method: string; args: unknown[] };
+
+function chain(result: { data: unknown; error?: unknown }, record?: (method: string, args: unknown[]) => void) {
+  const filter =
+    (method: string) =>
+    (...args: unknown[]) => {
+      record?.(method, args);
+      return builder;
+    };
   const builder: Record<string, unknown> = {
-    select: () => builder,
-    in: () => builder,
-    eq: () => builder,
-    gt: () => builder,
-    gte: () => builder,
-    not: () => builder,
-    order: () => builder,
-    limit: () => builder,
+    select: filter("select"),
+    in: filter("in"),
+    eq: filter("eq"),
+    gt: filter("gt"),
+    gte: filter("gte"),
+    not: filter("not"),
+    order: filter("order"),
+    limit: filter("limit"),
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (r: typeof result) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
@@ -34,14 +42,16 @@ function chain(result: { data: unknown; error?: unknown }) {
  * queries.ts calls `.from("betting_pickems")` up to twice per fetchOpenPickem
  * (the OPEN/LOCKED check, then the resolved/cancelled fallback) and
  * `.from("betting_pickem_cards")` twice (pool aggregation, then the viewer's
- * own card), so each table needs its own ordered queue. */
-function makeFrom(responses: Record<string, { data: unknown }[]>) {
+ * own card), so each table needs its own ordered queue. Filter-method calls
+ * land in `log` (when given) so tests can assert on scoping like
+ * `.eq("event_id", …)`. */
+function makeFrom(responses: Record<string, { data: unknown }[]>, log?: FilterCall[]) {
   const counters: Record<string, number> = {};
   return vi.fn((table: string) => {
     const i = counters[table] ?? 0;
     counters[table] = i + 1;
     const queue = responses[table] ?? [];
-    return chain(queue[i] ?? { data: null });
+    return chain(queue[i] ?? { data: null }, (method, args) => log?.push({ table, method, args }));
   });
 }
 
@@ -50,7 +60,7 @@ vi.mock("./service-client", () => ({
   createBettingServiceClient: vi.fn(() => ({ from: (...args: [string]) => fromImpl.current(...args) })),
 }));
 
-import { fetchOpenPickem } from "./queries";
+import { fetchEventSummaries, fetchOpenPickem } from "./queries";
 
 const teamA = { id: 11, name: "AAA Team", short_code: "AAA", color: "#111", logo_url: null };
 const teamB = { id: 12, name: "BBB Team", short_code: "BBB", color: "#222", logo_url: null };
@@ -128,5 +138,73 @@ describe("fetchOpenPickem", () => {
     const result = await fetchOpenPickem();
 
     expect(result).toBeNull();
+  });
+
+  it("scopes both the live query and the resolved fallback to the event when an eventId is given", async () => {
+    const log: FilterCall[] = [];
+    fromImpl.current = makeFrom(
+      {
+        betting_pickems: [{ data: null }, { data: null }],
+      },
+      log
+    );
+
+    await fetchOpenPickem("viewer-1", 7);
+
+    const eventFilters = log.filter((c) => c.table === "betting_pickems" && c.method === "eq");
+    expect(eventFilters).toHaveLength(2);
+    expect(eventFilters.every((c) => c.args[0] === "event_id" && c.args[1] === 7)).toBe(true);
+  });
+});
+
+describe("fetchEventSummaries", () => {
+  it("aggregates per-event market counts and pick'em state, live events first by soonest lock", async () => {
+    fromImpl.current = makeFrom({
+      betting_events: [
+        {
+          data: [
+            { id: 1, name: "Premier S5", description: null },
+            { id: 2, name: "Academy S1", description: "The academy league" },
+            { id: 3, name: "Preseason Cup", description: null },
+          ],
+        },
+      ],
+      betting_markets: [
+        {
+          data: [
+            { event_id: 1, status: "OPEN", lock_at: "2030-01-02T00:00:00Z" },
+            { event_id: 1, status: "LOCKED", lock_at: "2030-01-01T00:00:00Z" },
+            { event_id: 2, status: "OPEN", lock_at: "2030-01-01T12:00:00Z" },
+          ],
+        },
+      ],
+      betting_pickems: [{ data: [{ event_id: 2, status: "OPEN", lock_at: "2030-01-01T06:00:00Z" }] }],
+    });
+
+    const result = await fetchEventSummaries();
+
+    // Academy's pick'em locks first, so it leads; idle Preseason Cup sinks last.
+    expect(result.map((e) => e.name)).toEqual(["Academy S1", "Premier S5", "Preseason Cup"]);
+
+    const academy = result[0];
+    expect(academy.open_markets).toBe(1);
+    expect(academy.locked_markets).toBe(0);
+    expect(academy.has_live_pickem).toBe(true);
+    expect(academy.next_lock_at).toBe("2030-01-01T06:00:00Z");
+
+    const premier = result[1];
+    expect(premier.open_markets).toBe(1);
+    expect(premier.locked_markets).toBe(1);
+    expect(premier.has_live_pickem).toBe(false);
+    // LOCKED markets no longer accept bets, so they don't drive "next lock".
+    expect(premier.next_lock_at).toBe("2030-01-02T00:00:00Z");
+
+    expect(result[2]).toMatchObject({ open_markets: 0, locked_markets: 0, has_live_pickem: false, next_lock_at: null });
+  });
+
+  it("returns an empty list when no events exist", async () => {
+    fromImpl.current = makeFrom({});
+
+    expect(await fetchEventSummaries()).toEqual([]);
   });
 });

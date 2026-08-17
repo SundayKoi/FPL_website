@@ -132,8 +132,11 @@ export function MarketDetail({
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/betting" className="text-xs uppercase tracking-wide text-steel hover:text-coral">
-            Events
+          <Link
+            href={`/betting/event/${market.event_id}`}
+            className="text-xs uppercase tracking-wide text-steel hover:text-coral"
+          >
+            ← {market.event_name || "Event"}
           </Link>
           <StatusPill status={market.status} />
           <LockCountdown lockAt={market.lock_at} status={market.status} />

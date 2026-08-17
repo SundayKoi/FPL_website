@@ -77,6 +77,22 @@ export const DRAW_TEAM: BettingTeam = {
 
 export type MarketStatus = "OPEN" | "LOCKED" | "RESOLVED" | "CANCELLED";
 
+/** One row for the betting index — an event (e.g. "Premier S5", "Academy
+ * S1") with just enough live-activity data to render its entry card. Markets
+ * and pick'ems live on the event's own page (/betting/event/[id]). */
+export interface EventSummary {
+  id: number;
+  name: string;
+  description: string | null;
+  open_markets: number;
+  locked_markets: number;
+  /** An OPEN/LOCKED pick'em exists for this event right now. */
+  has_live_pickem: boolean;
+  /** Soonest lock_at among the event's OPEN markets and live pick'em —
+   * null when nothing is currently open. */
+  next_lock_at: string | null;
+}
+
 /** One row for the markets index — a market plus its aggregated pools. */
 export interface MarketCardData {
   id: number;

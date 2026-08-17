@@ -1,47 +1,71 @@
-import { fetchMarketCards, fetchMySuggestions, fetchOpenPickem } from "@/lib/betting/queries";
-import { getBettingUser } from "@/lib/betting/wallet";
-import { MarketCard } from "@/components/betting/MarketCard";
-import { PickemPanel } from "@/components/betting/PickemPanel";
-import { SuggestBetPanel } from "@/components/betting/SuggestBetPanel";
+import Link from "next/link";
+import { fetchEventSummaries } from "@/lib/betting/queries";
+import type { EventSummary } from "@/lib/betting/types";
 
-/** Betting index — the open pick'em (if any), then every market currently
- * open for bets or about to lock. (Resolved/cancelled history belongs to the
- * leaderboard/profile pages.) */
+function nextLockLabel(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function EventCard({ event }: { event: EventSummary }) {
+  const live = event.open_markets > 0 || event.has_live_pickem;
+  return (
+    <Link
+      href={`/betting/event/${event.id}`}
+      className="card-brand block p-5 transition hover:border-coral"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="type-display text-2xl">{event.name}</h2>
+        {event.has_live_pickem && (
+          <span className="shrink-0 rounded-full border border-mint/40 bg-mint/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mint">
+            Pick&apos;em live
+          </span>
+        )}
+      </div>
+      {event.description && <p className="mt-2 text-sm leading-6 text-steel">{event.description}</p>}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-xs text-steel">
+        <span className="font-mono">
+          {event.open_markets} open · {event.locked_markets} locked
+        </span>
+        {event.next_lock_at ? (
+          <span>Next lock {nextLockLabel(event.next_lock_at)}</span>
+        ) : (
+          !live && <span>No markets open right now</span>
+        )}
+        <span className="ml-auto font-semibold uppercase tracking-wide text-coral">Enter →</span>
+      </div>
+    </Link>
+  );
+}
+
+/** Betting index — one card per event (Premier, Academy, …). Each event's
+ * pick'em and markets live on its own page, /betting/event/[id]. */
 export default async function BettingIndexPage() {
-  const user = await getBettingUser();
-  const [markets, pickem, suggestions] = await Promise.all([
-    fetchMarketCards(),
-    fetchOpenPickem(user?.discordId),
-    user ? fetchMySuggestions(user.discordId) : Promise.resolve([]),
-  ]);
+  const events = await fetchEventSummaries();
 
   return (
     <div>
       <span className="label-dash">Franchise Premier League</span>
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">Events</h1>
-      <p className="mt-3 max-w-2xl text-sm text-steel">Pick a match, back a team, and split the pool when they win.</p>
+      <p className="mt-3 max-w-2xl text-sm text-steel">
+        Pick your event to see its pick&apos;em and open markets.
+      </p>
 
-      {pickem && (
-        <div className="mt-8">
-          <PickemPanel pickem={pickem} balance={user?.balance ?? 0} loggedIn={!!user} />
-        </div>
-      )}
-
-      {markets.length === 0 ? (
+      {events.length === 0 ? (
         <div className="mt-10 rounded-lg border border-line bg-panel p-8 text-center text-sm text-steel">
-          No markets are open right now — check back closer to game time.
+          No betting events exist yet — check back once a season kicks off.
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {markets.map((m) => (
-            <MarketCard key={m.id} market={m} />
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {events.map((e) => (
+            <EventCard key={e.id} event={e} />
           ))}
         </div>
       )}
-
-      <div className="mt-10">
-        <SuggestBetPanel suggestions={suggestions} />
-      </div>
     </div>
   );
 }
