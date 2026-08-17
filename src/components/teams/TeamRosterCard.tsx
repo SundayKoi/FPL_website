@@ -4,6 +4,7 @@ import type { DragEvent } from "react";
 import Link from "next/link";
 import type { RosterSlotView, RosterTeamView } from "@/lib/draft/types";
 import { teamSlug } from "@/lib/teams/teamPage";
+import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 
 const roleLabels = {
   top: "TOP",
@@ -36,6 +37,7 @@ export default function TeamRosterCard({
 }: TeamRosterCardProps) {
   const headingId = `team-heading-${team.id}`;
   const bannerStyle = { backgroundColor: team.bannerColor };
+  const multiOpggUrl = opggMultiSearchUrlFromRosterPlayers(team.players);
 
   const handleDragStart = (event: DragEvent<HTMLLIElement>, player: RosterSlotView) => {
     event.dataTransfer?.setData("text/plain", player.id);
@@ -88,6 +90,17 @@ export default function TeamRosterCard({
         <p className="mt-1 text-xs uppercase tracking-[0.14em] text-steel">
           Captain {team.captainName}
         </p>
+        {multiOpggUrl ? (
+          <a
+            href={multiOpggUrl}
+            target="_blank"
+            rel="noreferrer"
+            draggable={false}
+            className="mt-3 inline-flex rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Team OP.GG Multi
+          </a>
+        ) : null}
       </div>
 
       <ul aria-label={`${team.name} roster`} className="divide-y divide-line/80">
