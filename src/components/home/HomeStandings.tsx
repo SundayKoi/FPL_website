@@ -1,7 +1,16 @@
 import type { HomeStandingTeam } from "@/lib/home/standings";
 
-export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) {
+export default function HomeStandings({
+  teams,
+  seasonLabel,
+}: {
+  teams: HomeStandingTeam[];
+  /** The league's season code. Academy and Premier run different ones, so the
+   *  copy here is passed in rather than hardcoded to Premier's. */
+  seasonLabel?: string;
+}) {
   const hasHistoricalStats = teams.some((team) => team.winrate_pct !== undefined);
+  const season = seasonLabel?.trim() || "S5";
 
   return (
     <article
@@ -16,13 +25,13 @@ export default function HomeStandings({ teams }: { teams: HomeStandingTeam[] }) 
           </h2>
         </div>
         <span className="shrink-0 rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-gold">
-          {hasHistoricalStats ? "Season 4 standings" : "0–0 start"}
+          {hasHistoricalStats ? `${season} standings` : "0–0 start"}
         </span>
       </div>
 
       {teams.length === 0 ? (
         <p className="mt-5 text-sm leading-6 text-steel">
-          Standings will appear once the FPL S5 teams are configured.
+          Standings will appear once the {season} teams are configured.
         </p>
       ) : (
         <div className="mt-5 flex flex-col">

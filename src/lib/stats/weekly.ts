@@ -2,6 +2,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { powerRanking } from "./formulas";
 import type { PlayerAggRow, RankedPlayer } from "./types";
 
+/** Premier's season code — Academy passes its own (see lib/league/season.ts). */
 const HOMEPAGE_SEASON = "S5" as const;
 
 export type WeeklyStandout = RankedPlayer;
@@ -205,8 +206,9 @@ function isWithinBounds(row: WeeklyRawStatRow, bounds: { start: string; end: str
 export function rankLatestWeeklyStandoutsFromRows(
   rows: WeeklyRawStatRow[],
   limit = 5,
+  season: string = HOMEPAGE_SEASON,
 ): WeeklyStandout[] {
-  const seasonRows = rows.filter((row) => row.season === HOMEPAGE_SEASON);
+  const seasonRows = rows.filter((row) => row.season === season);
   const latestGameDate = seasonRows
     .map((row) => row.game_date)
     .filter((date): date is string => Boolean(date))
@@ -221,28 +223,40 @@ export function rankLatestWeeklyStandoutsFromRows(
   return rankWeeklyStandouts(aggregateWeeklyPlayerRows(latestRows), limit);
 }
 
-export async function fetchLatestWeeklyStandouts(limit = 5): Promise<WeeklyStandout[]> {
+/**
+ * The standout players of the most recent week with games, for one league's
+ * homepage. `teamNames` narrows to a league's own teams; omit it for Premier.
+ */
+export async function fetchLatestWeeklyStandouts(
+  limit = 5,
+  season: string = HOMEPAGE_SEASON,
+  teamNames?: string[],
+): Promise<WeeklyStandout[]> {
+  if (teamNames && teamNames.length === 0) return [];
   try {
     const supabase = await createServerSupabase();
-    const { data: latest, error: latestError } = await supabase
+    let latestQuery = supabase
       .from("raw_stats")
       .select("game_date")
-      .eq("season", HOMEPAGE_SEASON)
+      .eq("season", season)
       .order("game_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    if (teamNames?.length) latestQuery = latestQuery.in("team_name", teamNames);
+    const { data: latest, error: latestError } = await latestQuery.maybeSingle();
 
     if (latestError || !latest?.game_date) {
       return [];
     }
 
     const bounds = latestWeekBounds(String(latest.game_date));
-    const { data, error } = await supabase
+    let weekQuery = supabase
       .from("raw_stats")
       .select(RAW_WEEKLY_COLUMNS)
-      .eq("season", HOMEPAGE_SEASON)
+      .eq("season", season)
       .gte("game_date", bounds.start)
       .lt("game_date", bounds.end);
+    if (teamNames?.length) weekQuery = weekQuery.in("team_name", teamNames);
+    const { data, error } = await weekQuery;
 
     if (error) {
       return [];

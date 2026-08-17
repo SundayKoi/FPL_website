@@ -1,19 +1,38 @@
 /**
- * Weekly homepage write-up.
+ * Weekly homepage write-up, for either league.
  *
  * Every number is computed here from the database. The model is asked only to
  * write prose around facts it is handed, and told to omit anything it cannot
  * support, so a confident-sounding wrong scoreline is not something it can
  * produce. Generated text then goes through stripAiTells before it is stored.
  *
- * Run: npx tsx scripts/generate-homepage-brief.ts
+ * Run: npx tsx scripts/generate-homepage-brief.ts [--league premier|academy]
  * Needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY.
+ *
+ * The two leagues share every table and are separated by season code
+ * (league_settings.current_season vs academy_season), so the Academy run
+ * additionally narrows fixtures and stat lines to the Academy draft's teams.
  */
 import { createClient } from "@supabase/supabase-js";
 import { cleanBrief } from "../src/lib/home/brief";
 
 const MODEL = "claude-sonnet-5";
 const WEEK_STAGES = ["week_1", "week_2", "week_3", "week_4", "week_5"] as const;
+
+const LEAGUES = ["premier", "academy"] as const;
+type League = (typeof LEAGUES)[number];
+
+function parseLeague(argv: string[]): League {
+  const index = argv.indexOf("--league");
+  if (index === -1) return "premier";
+  const value = argv[index + 1];
+  if (!LEAGUES.includes(value as League)) {
+    throw new Error(`--league must be one of ${LEAGUES.join(", ")} (got ${value ?? "nothing"})`);
+  }
+  return value as League;
+}
+
+const league = parseLeague(process.argv.slice(2));
 
 const url = process.env.SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,6 +41,13 @@ if (!url || !serviceKey) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE
 if (!apiKey) throw new Error("ANTHROPIC_API_KEY is required");
 
 const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+/** The Academy draft's team names, used to narrow fixtures and stat lines. */
+async function academyTeamNames(draftId: string | null | undefined): Promise<string[]> {
+  if (!draftId) return [];
+  const { data } = await db.from("teams").select("name").eq("draft_id", draftId);
+  return ((data as { name: string }[] | null) ?? []).map((team) => team.name);
+}
 
 interface Fixture {
   id: string; season: string; stage: string; division: string | null;
@@ -34,22 +60,44 @@ const stageNumber = (stage: string) => WEEK_STAGES.indexOf(stage as (typeof WEEK
 async function main() {
   const { data: settings } = await db
     .from("league_settings")
-    .select("current_season")
+    .select("current_season, academy_season, academy_draft_id")
     .eq("id", 1)
     .single();
-  const season = (settings as { current_season?: string } | null)?.current_season;
-  if (!season) throw new Error("league_settings.current_season is not set");
+  const settingsRow = settings as
+    | { current_season?: string; academy_season?: string; academy_draft_id?: string | null }
+    | null;
+  const season = league === "academy" ? settingsRow?.academy_season : settingsRow?.current_season;
+  if (!season) {
+    throw new Error(
+      league === "academy"
+        ? "league_settings.academy_season is not set"
+        : "league_settings.current_season is not set",
+    );
+  }
+
+  const teamNames = league === "academy" ? await academyTeamNames(settingsRow?.academy_draft_id) : [];
+  if (league === "academy" && teamNames.length === 0) {
+    console.log("No Academy teams are configured (league_settings.academy_draft_id); nothing to write about.");
+    return;
+  }
+  const inLeague = (name: string | null) =>
+    league !== "academy" ||
+    teamNames.some((team) => team.trim().toLowerCase() === (name ?? "").trim().toLowerCase());
 
   const { data: fixtureRows } = await db
     .from("fixtures")
     .select("id, season, stage, division, team_a, team_b, score_a, score_b, scheduled_at")
     .eq("season", season)
     .in("stage", WEEK_STAGES as unknown as string[]);
-  const fixtures = (fixtureRows as Fixture[]) ?? [];
+  // Season code alone already separates the leagues; the team check is the
+  // same belt-and-braces filter the Academy pages apply.
+  const fixtures = ((fixtureRows as Fixture[]) ?? []).filter(
+    (f) => inLeague(f.team_a) || inLeague(f.team_b),
+  );
 
   const played = fixtures.filter((f) => f.score_a !== null && f.score_b !== null);
   if (played.length === 0) {
-    console.log("No completed games this season yet; nothing to write about.");
+    console.log(`No completed ${league} games in ${season} yet; nothing to write about.`);
     return;
   }
 
@@ -77,11 +125,14 @@ async function main() {
     .map((f) => f.scheduled_at)
     .filter((d): d is string => !!d)
     .sort()[0];
-  const { data: statRows } = await db
+  let statQuery = db
     .from("raw_stats")
     .select("summoner_name, team_name, champion, kills, deaths, assists, total_damage_to_champions, cs_per_min, vision_score, game_date")
+    .eq("season", season)
     .gte("game_date", since ?? "1970-01-01")
     .limit(500);
+  if (teamNames.length) statQuery = statQuery.in("team_name", teamNames);
+  const { data: statRows } = await statQuery;
 
   const facts = {
     season,
@@ -104,7 +155,9 @@ async function main() {
   };
 
   const system = [
-    "You write the weekly front-page copy for the Franchise Premier League, an amateur League of Legends draft league.",
+    league === "academy"
+      ? "You write the weekly front-page copy for the Franchise Academy League, the development tier of the Franchise Premier League, an amateur League of Legends draft league. This is the Academy's first ever season, so there is no prior history to refer back to."
+      : "You write the weekly front-page copy for the Franchise Premier League, an amateur League of Legends draft league.",
     "Voice: confident esports desk. Short punchy sentences. Concrete over abstract. Name teams and players. Dry humour is welcome, hype for its own sake is not.",
     "",
     "Hard rules:",
@@ -153,6 +206,7 @@ async function main() {
   const sections = cleanBrief(JSON.parse(jsonMatch[0]) as Record<string, string>);
 
   const { error } = await db.from("homepage_briefs").insert({
+    league,
     season,
     week: latestWeek,
     recap: sections.recap ?? null,
@@ -165,7 +219,7 @@ async function main() {
   });
   if (error) throw new Error(`Insert failed: ${error.message}`);
 
-  console.log(`Published brief for ${season} week ${latestWeek}.`);
+  console.log(`Published ${league} brief for ${season} week ${latestWeek}.`);
 }
 
 main().catch((e) => {

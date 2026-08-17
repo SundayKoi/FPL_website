@@ -13,13 +13,20 @@ export interface HomepageScheduleData {
   fixtures: FixtureRow[];
 }
 
-export async function fetchHomepageSchedule(): Promise<HomepageScheduleData> {
+/**
+ * The active week's fixtures for one league's homepage. `scope` narrows the
+ * fixture list before the season is resolved — Academy passes its own filter
+ * so its A1 fixtures resolve independently of Premier's season.
+ */
+export async function fetchHomepageSchedule(
+  scope?: (fixtures: FixtureRow[]) => FixtureRow[],
+): Promise<HomepageScheduleData> {
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("fixtures").select("*").order("stage").order("sort_order");
 
   if (error) throw error;
 
-  const allFixtures = (data ?? []) as FixtureRow[];
+  const allFixtures = scope ? scope((data ?? []) as FixtureRow[]) : ((data ?? []) as FixtureRow[]);
   const seasons = seasonsOf(allFixtures);
   const season = resolveSeason(allFixtures, undefined);
 

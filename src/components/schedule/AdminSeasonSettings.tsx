@@ -16,22 +16,34 @@ export type LeaguePhase = (typeof PHASES)[number];
 export default function AdminSeasonSettings({
   currentSeason,
   currentPhase,
+  academySeason,
 }: {
   currentSeason: string;
   currentPhase: string;
+  academySeason: string;
 }) {
   const supabase = createClient();
   const router = useRouter();
   const [season, setSeason] = useState(currentSeason);
   const [phase, setPhase] = useState(currentPhase);
+  const [academy, setAcademy] = useState(academySeason);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const handleSave = async () => {
     const trimmed = season.trim();
+    const academyTrimmed = academy.trim();
     if (!trimmed) {
       setError("Season can't be blank.");
+      return;
+    }
+    if (!academyTrimmed) {
+      setError("Academy season can't be blank.");
+      return;
+    }
+    if (academyTrimmed === trimmed) {
+      setError("Academy needs its own season code — sharing one merges the two leagues' stats.");
       return;
     }
     setBusy(true);
@@ -41,6 +53,7 @@ export default function AdminSeasonSettings({
       id: 1,
       current_season: trimmed,
       current_phase: phase,
+      academy_season: academyTrimmed,
       updated_at: new Date().toISOString(),
     });
     setBusy(false);
@@ -67,6 +80,23 @@ export default function AdminSeasonSettings({
             setSaved(false);
           }}
           placeholder="S5"
+          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="academy-season" className="label-dash">
+          Academy season
+        </label>
+        <input
+          id="academy-season"
+          type="text"
+          value={academy}
+          onChange={(e) => {
+            setAcademy(e.target.value);
+            setSaved(false);
+          }}
+          placeholder="A1"
           className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
         />
       </div>
@@ -111,7 +141,8 @@ export default function AdminSeasonSettings({
 
       <p className="w-full text-xs text-steel">
         Stats ingestion runs without <code>--season</code>/<code>--phase</code> flags use these
-        values, so automated match imports get labeled correctly.
+        values, so automated match imports get labeled correctly. Academy rows carry the Academy
+        season instead, which is what keeps the two leagues&apos; stats and season pickers apart.
       </p>
     </div>
   );

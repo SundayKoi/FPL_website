@@ -220,24 +220,59 @@ function PlayersTab({
 
 const PHASES: PhaseFilter[] = ["All", "Regular", "Playoffs"];
 
+/**
+ * Narrow the seasons present in the data to the ones this page's league owns.
+ * `allowed` wins over `excluded`; when nothing in the data matches `allowed`
+ * (a league whose first games are not ingested yet) the allowed list itself is
+ * used, so the picker shows the league's season instead of going blank.
+ */
+export function scopeSeasons(
+  seasons: string[],
+  allowed?: string[],
+  excluded?: string[],
+): string[] {
+  let scoped = seasons;
+  if (allowed?.length) {
+    const allow = new Set(allowed);
+    scoped = seasons.filter((season) => allow.has(season));
+    if (scoped.length === 0) scoped = allowed.filter(Boolean);
+  }
+  if (excluded?.length) {
+    const deny = new Set(excluded.filter(Boolean));
+    scoped = scoped.filter((season) => !deny.has(season));
+  }
+  return scoped;
+}
+
 export default function StatsTabs({
   initialPlayer,
   initialTab,
   initialSeason,
   initialPhase,
   teamNames,
+  allowedSeasons,
+  excludedSeasons,
 }: {
   initialPlayer?: string;
   initialTab?: string;
   initialSeason?: string;
   initialPhase?: string;
   teamNames?: string[];
+  /** Only these seasons are offered (Academy: its own season code). */
+  allowedSeasons?: string[];
+  /** These seasons are hidden (Premier: the Academy season code). */
+  excludedSeasons?: string[];
 }) {
+  // Arrays arrive as fresh references on every render, so the effects below
+  // key off their contents rather than their identity.
+  const allowedKey = (allowedSeasons ?? []).join(",");
+  const excludedKey = (excludedSeasons ?? []).join(",");
+  const singleSeason = allowedSeasons?.length === 1 ? allowedSeasons[0] : null;
   const [activeTab, setActiveTab] = useState<Tab>(
     TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "Leaderboard",
   );
   const [seasons, setSeasons] = useState<string[]>([]);
-  const [season, setSeason] = useState<string>(initialSeason || ALL_SEASONS);
+  const [season, setSeason] = useState<string>(initialSeason || singleSeason || ALL_SEASONS);
   const [phase, setPhase] = useState<PhaseFilter>(
     PHASES.includes(initialPhase as PhaseFilter) ? (initialPhase as PhaseFilter) : "All",
   );
@@ -259,14 +294,19 @@ export default function StatsTabs({
 
     async function load() {
       try {
-        const data = await fetchSeasons();
+        const data = scopeSeasons(
+          await fetchSeasons(),
+          allowedKey ? allowedKey.split(",") : undefined,
+          excludedKey ? excludedKey.split(",") : undefined,
+        );
         if (cancelled) return;
         setSeasons(data);
         // Default to the newest season — but not when a ?player= deep link
         // is active (the resolve effect opens the card in all-seasons view
         // and this default would race it) and not when the URL asked for a
-        // specific season (?season=).
-        if (data.length > 0 && !initialPlayer && !initialSeason) setSeason(data[0]);
+        // specific season (?season=). A single-season league has no
+        // "All seasons" option, so it defaults regardless.
+        if (data.length > 0 && (singleSeason || (!initialPlayer && !initialSeason))) setSeason(data[0]);
         setSeasonsLoaded(true);
       } catch {
         if (cancelled) return;
@@ -278,7 +318,7 @@ export default function StatsTabs({
     return () => {
       cancelled = true;
     };
-  }, [initialPlayer, initialSeason]);
+  }, [initialPlayer, initialSeason, allowedKey, excludedKey, singleSeason]);
 
   // True while a ?player= deep link is still resolving — the URL-sync
   // effect below holds off so it doesn't strip the player param before the
@@ -299,8 +339,9 @@ export default function StatsTabs({
         if (match) {
           // Open in "All seasons / All phases" so the card is never empty
           // for a player whose games are in an earlier season than the
-          // page's default (newest) selection.
-          setSeason(ALL_SEASONS);
+          // page's default (newest) selection. A single-season league stays
+          // on its own season — "all seasons" there would mean other leagues.
+          setSeason(singleSeason ?? ALL_SEASONS);
           setPhase("All");
           setSelectedPlayer(match);
         } else {
@@ -320,7 +361,7 @@ export default function StatsTabs({
     return () => {
       cancelled = true;
     };
-  }, [initialPlayer]);
+  }, [initialPlayer, singleSeason]);
 
   // Mirror the view state into the URL (history.replaceState — no
   // navigation, no re-render) so any stats view is shareable: the active
@@ -370,6 +411,7 @@ export default function StatsTabs({
           phase={phase}
           onSeasonChange={setSeason}
           onPhaseChange={setPhase}
+          allowAllSeasons={!singleSeason}
         />
       </div>
 

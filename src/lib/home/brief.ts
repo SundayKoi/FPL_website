@@ -3,6 +3,7 @@
 
 export interface HomepageBrief {
   id: string;
+  league: "premier" | "academy";
   season: string;
   week: number | null;
   recap: string | null;

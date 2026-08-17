@@ -35,10 +35,21 @@ describe("HomeStandings", () => {
     expect(screen.queryByText("Alpha")).toBeNull();
   });
 
-  it("labels historical Season 4 standings and shows the win rate", () => {
+  it("labels derived standings with the season and shows the win rate", () => {
     render(<HomeStandings teams={[{ ...team("Alpha", 1), wins: 8, losses: 2, winrate_pct: 80 }]} />);
 
-    expect(screen.getByText(/season 4 standings/i)).toBeTruthy();
+    expect(screen.getByText(/s5 standings/i)).toBeTruthy();
     expect(screen.getByText("80%")).toBeTruthy();
+  });
+
+  it("labels the Academy season rather than Premier's", () => {
+    render(
+      <HomeStandings
+        seasonLabel="A1"
+        teams={[{ ...team("Alpha", 1), wins: 8, losses: 2, winrate_pct: 80 }]}
+      />,
+    );
+
+    expect(screen.getByText(/a1 standings/i)).toBeTruthy();
   });
 });

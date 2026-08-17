@@ -7,14 +7,17 @@ import type { TeamIdentity } from "@/lib/teams/identity";
 export default function UpcomingSchedule({
   schedule,
   identities = {},
+  basePath = "/schedule",
 }: {
   schedule: HomepageScheduleData;
   identities?: Record<string, TeamIdentity>;
+  /** Which schedule page "View full schedule" points at — Academy has its own. */
+  basePath?: string;
 }) {
   const activeStage = schedule.activeStage;
   const meta = activeStage ? stageMeta(activeStage) : null;
   const scheduleHref = activeStage
-    ? `${schedule.isNewestSeason || !schedule.season ? "/schedule" : `/schedule?season=${encodeURIComponent(schedule.season)}`}#${activeStage}`
+    ? `${schedule.isNewestSeason || !schedule.season ? basePath : `${basePath}?season=${encodeURIComponent(schedule.season)}`}#${activeStage}`
     : null;
 
   return (

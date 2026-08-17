@@ -1,14 +1,16 @@
-name: Weekly homepage brief (Premier)
+name: Weekly homepage brief (Academy)
 
 on:
   schedule:
-    # 14:00 UTC Tuesday = 9am EST / 10am EDT, after Monday night's games have
-    # been ingested by the nightly stats job.
-    - cron: "0 14 * * 2"
+    # 14:30 UTC Tuesday, half an hour behind the Premier brief so the two
+    # never contend for the same Anthropic key, and still after Monday
+    # night's games have been ingested by the nightly stats job.
+    - cron: "30 14 * * 2"
   workflow_dispatch:
 
+# Its own group, so a stuck Academy run never blocks the Premier brief.
 concurrency:
-  group: homepage-brief
+  group: academy-brief
   cancel-in-progress: false
 
 jobs:
@@ -16,7 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are environment secrets, and a
     # job only sees those when it declares the environment. ANTHROPIC_API_KEY is
-    # a repository secret, which is visible either way.
+    # a repository secret, which is visible either way — the same key the
+    # Premier brief uses.
     environment: Production
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsx scripts/generate-homepage-brief.ts --league premier
+      - run: npx tsx scripts/generate-homepage-brief.ts --league academy
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

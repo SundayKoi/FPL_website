@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 
-const SEASON = "S5" as const;
+/** Premier's season code. Academy passes its own (see lib/league/season.ts). */
+export const PREMIER_SEASON = "S5" as const;
 const MIN_PLAYER_GAMES = 2;
 const MIN_CHAMPION_PICKS = 2;
 
@@ -51,7 +52,7 @@ export type HomepageSeasonStanding = {
 };
 
 export type HomepageAwardsData = {
-  season: typeof SEASON;
+  season: string;
   periodLabel: string;
   playerOfWeek: HomepageAward;
   teamOfWeek: HomepageAward;
@@ -170,8 +171,8 @@ function weekFor(date: string): Week {
   };
 }
 
-function rowsForSeason(rows: HomepageRawStatRow[]): HomepageRawStatRow[] {
-  return rows.filter((row) => row.season === SEASON && row.game_date && row.team_name);
+function rowsForSeason(rows: HomepageRawStatRow[], season: string): HomepageRawStatRow[] {
+  return rows.filter((row) => row.season === season && row.game_date && row.team_name);
 }
 
 function latestWeek(rows: HomepageRawStatRow[]): Week | null {
@@ -321,11 +322,11 @@ function standardDeviation(values: number[]): number {
   return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
 }
 
-function deriveStandingsFromGames(games: TeamGame[]): HomepageSeasonStanding[] {
+function deriveStandingsFromGames(games: TeamGame[], season: string): HomepageSeasonStanding[] {
   return aggregateTeams(games)
     .sort((a, b) => b.winrate - a.winrate || b.wins - a.wins || a.teamName.localeCompare(b.teamName))
     .map((team, index) => ({
-      id: `season5-${teamSlug(team.teamName)}`,
+      id: `${teamSlug(season)}-${teamSlug(team.teamName)}`,
       name: team.teamName,
       abbreviation: teamAbbreviation(team.teamName),
       nomination_position: index + 1,
@@ -338,8 +339,9 @@ function deriveStandingsFromGames(games: TeamGame[]): HomepageSeasonStanding[] {
 export function deriveHomepageAwards(
   inputRows: HomepageRawStatRow[],
   prices: Map<string, number>,
+  season: string = PREMIER_SEASON,
 ): HomepageAwardsData {
-  const rows = rowsForSeason(inputRows);
+  const rows = rowsForSeason(inputRows, season);
   const latest = latestWeek(rows);
   const latestRows = latest ? rowsForWeek(rows, latest.start) : [];
   const previousRows = latest ? rowsForWeek(rows, latest.start - 7 * 24 * 60 * 60 * 1000) : [];
@@ -417,19 +419,19 @@ export function deriveHomepageAwards(
   const noWinner = (title: string, detail: string): HomepageAward => playerAward(title, null, "—", detail);
 
   return {
-    season: SEASON,
-    periodLabel: latest?.label ?? "Season 5",
+    season,
+    periodLabel: latest?.label ?? season,
     playerOfWeek: playerAward(
       "Player of the Week",
       playerOfWeek,
       playerOfWeek ? String(playerPower(playerOfWeek)) : "—",
-      playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : "Season 5 player data unavailable",
+      playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : `${season} player data unavailable`,
     ),
     teamOfWeek: teamAward(
       "Team of the Week",
       teamOfWeek,
       teamOfWeek ? `${teamOfWeek.wins}–${teamOfWeek.losses}` : "—",
-      teamOfWeek ? `${teamOfWeek.winrate}% weekly win rate` : "Season 5 team data unavailable",
+      teamOfWeek ? `${teamOfWeek.winrate}% weekly win rate` : `${season} team data unavailable`,
     ),
     individualAwards: [
       championOfWeek
@@ -463,25 +465,37 @@ export function deriveHomepageAwards(
       teamAward("Most Reliable", reliability, reliability ? `${reliability.winrate}%` : "—", "Lowest weekly win-rate volatility"),
       teamAward("Team of the Week", teamOfWeek, teamOfWeek ? `${teamOfWeek.winrate}%` : "—", "Best record during the latest week"),
     ],
-    standings: deriveStandingsFromGames(games),
+    standings: deriveStandingsFromGames(games, season),
   };
 }
 
-export async function fetchHomepageRawStats(): Promise<HomepageRawStatRow[]> {
+/**
+ * One season's raw stat rows, optionally narrowed to a set of team names —
+ * Academy and Premier share the raw_stats table, and while their season codes
+ * already separate them, the team filter keeps a mislabelled row out of the
+ * wrong league's homepage.
+ */
+export async function fetchHomepageRawStats(
+  season: string = PREMIER_SEASON,
+  teamNames?: string[],
+): Promise<HomepageRawStatRow[]> {
+  if (teamNames && teamNames.length === 0) return [];
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", SEASON);
+  let query = supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", season);
+  if (teamNames?.length) query = query.in("team_name", teamNames);
+  const { data, error } = await query;
   if (error) throw error;
   return ((data ?? []) as unknown) as HomepageRawStatRow[];
 }
 
-async function fetchHomepagePrices(): Promise<Map<string, number>> {
+async function fetchHomepagePrices(draftColumn: "featured_draft_id" | "academy_draft_id"): Promise<Map<string, number>> {
   const supabase = await createServerSupabase();
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("featured_draft_id")
+    .select(draftColumn)
     .eq("id", 1)
     .single();
-  const draftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id;
+  const draftId = (settings as Record<string, string | null> | null)?.[draftColumn];
   if (!draftId) return new Map();
   const { data } = await supabase.from("players").select("display_name, price").eq("draft_id", draftId);
   return new Map(
@@ -492,23 +506,30 @@ async function fetchHomepagePrices(): Promise<Map<string, number>> {
   );
 }
 
-export async function fetchHomepageAwards(): Promise<HomepageAwardsData> {
+export async function fetchHomepageAwards(
+  season: string = PREMIER_SEASON,
+  teamNames?: string[],
+  draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
+): Promise<HomepageAwardsData> {
   let rows: HomepageRawStatRow[];
   try {
-    rows = await fetchHomepageRawStats();
+    rows = await fetchHomepageRawStats(season, teamNames);
   } catch {
     rows = [];
   }
 
   let prices = new Map<string, number>();
   try {
-    prices = await fetchHomepagePrices();
+    prices = await fetchHomepagePrices(draftColumn);
   } catch {
     prices = new Map();
   }
-  return deriveHomepageAwards(rows, prices);
+  return deriveHomepageAwards(rows, prices, season);
 }
 
-export function deriveStandings(inputRows: HomepageRawStatRow[]): HomepageSeasonStanding[] {
-  return deriveStandingsFromGames(chooseTeamGames(rowsForSeason(inputRows)));
+export function deriveStandings(
+  inputRows: HomepageRawStatRow[],
+  season: string = PREMIER_SEASON,
+): HomepageSeasonStanding[] {
+  return deriveStandingsFromGames(chooseTeamGames(rowsForSeason(inputRows, season)), season);
 }

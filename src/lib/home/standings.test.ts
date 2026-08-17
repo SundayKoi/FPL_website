@@ -71,7 +71,9 @@ describe("fetchHomepageStandings", () => {
 
     await expect(fetchHomepageStandings()).resolves.toEqual([
       {
-        id: "season5-alpha",
+        // Derived key: the season code slug, so Premier and Academy rows for
+        // a same-named team never collide.
+        id: "s5-alpha",
         name: "Alpha",
         abbreviation: "ALP",
         nomination_position: 1,

@@ -16,6 +16,7 @@ import FixtureCard from "@/components/schedule/FixtureCard";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
+import { fetchLeagueSeasons } from "@/lib/league/season";
 
 export default async function SchedulePage({
   searchParams,
@@ -35,21 +36,27 @@ export default async function SchedulePage({
     isAdmin = profile?.is_admin ?? false;
   }
 
-  const [fixturesResult, settingsResult, identities] = await Promise.all([
+  const [fixturesResult, settingsResult, identities, leagueSeasons] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
     isAdmin
       ? supabase
           .from("league_settings")
-          .select("current_season, current_phase")
+          .select("current_season, current_phase, academy_season")
           .eq("id", 1)
           .single()
       : Promise.resolve({ data: null }),
     fetchTeamIdentities(),
+    fetchLeagueSeasons(supabase),
   ]);
-  const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
+  // Academy fixtures live in the same table under their own season code —
+  // this is the Premier calendar, so they are not listed here.
+  const allFixtures = ((fixturesResult.data as FixtureRow[]) ?? []).filter(
+    (fixture) => fixture.season !== leagueSeasons.academy,
+  );
   const settings = settingsResult.data as {
     current_season: string;
     current_phase: string;
+    academy_season: string;
   } | null;
 
   const requestedRaw = (await searchParams).season;
@@ -120,6 +127,7 @@ export default async function SchedulePage({
             <AdminSeasonSettings
               currentSeason={settings?.current_season ?? ""}
               currentPhase={settings?.current_phase ?? "Regular"}
+              academySeason={settings?.academy_season ?? leagueSeasons.academy}
             />
             {/* season is null until fixtures exist, which is exactly when the
                 draw is needed — fall back to the league's current season. */}

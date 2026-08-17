@@ -17,6 +17,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/lib/matches/types";
 import type { Player } from "@/lib/draft/types";
+import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
 
 /** One row of `league_team_captains`. */
@@ -132,7 +133,11 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
       ? supabase.from("profiles").select("is_admin").eq("id", profileId).single()
       : Promise.resolve({ data: null as { is_admin: boolean } | null }),
     supabase.from("league_teams").select("*").order("name"),
-    supabase.from("league_settings").select("current_season, featured_draft_id, academy_draft_id").eq("id", 1).single(),
+    supabase
+      .from("league_settings")
+      .select("current_season, academy_season, featured_draft_id, academy_draft_id")
+      .eq("id", 1)
+      .single(),
   ]);
 
   const isAdmin = profileResult.data?.is_admin ?? false;
@@ -148,7 +153,12 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
     }
   }
   const activeTeams = activeOnly(teams);
-  const season = settingsResult.data?.current_season ?? "";
+  // Academy runs on its own season code, so every season-scoped fetch below
+  // (reports, roster, results, fixtures, captaincy) stays inside its league.
+  const season =
+    (league === "academy"
+      ? settingsResult.data?.academy_season ?? DEFAULT_ACADEMY_SEASON
+      : settingsResult.data?.current_season) ?? "";
 
   let myTeamId: string | null = null;
   if (profileId && season) {

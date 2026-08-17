@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { activeBrief, cleanBrief, stripAiTells, type HomepageBrief } from "./brief";
 
 const brief = (over: Partial<HomepageBrief>): HomepageBrief => ({
-  id: "b", season: "S5", week: 1, recap: null, preview: null, players_note: null,
+  id: "b", league: "premier", season: "S5", week: 1, recap: null, preview: null, players_note: null,
   teams_note: null, league_notes: null, model: "claude-sonnet-5", published: true,
   generated_at: "2026-09-01T00:00:00Z", ...over,
 });

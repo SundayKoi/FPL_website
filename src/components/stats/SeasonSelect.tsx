@@ -13,12 +13,17 @@ export default function SeasonSelect({
   phase,
   onSeasonChange,
   onPhaseChange,
+  allowAllSeasons = true,
 }: {
   seasons: string[];
   season: string;
   phase: PhaseFilter;
   onSeasonChange: (season: string) => void;
   onPhaseChange: (phase: PhaseFilter) => void;
+  /** Hidden for a league with a single season — "All seasons" would query
+   *  across every league's history, which is the opposite of what it means
+   *  on a league-scoped page. */
+  allowAllSeasons?: boolean;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -32,7 +37,7 @@ export default function SeasonSelect({
           onChange={(e) => onSeasonChange(e.target.value)}
           className="rounded border border-line bg-navy px-3 py-1.5 text-sm font-semibold text-white focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
         >
-          <option value={ALL_SEASONS}>All seasons</option>
+          {allowAllSeasons ? <option value={ALL_SEASONS}>All seasons</option> : null}
           {seasons.map((s) => (
             <option key={s} value={s}>
               {s}

@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import { deriveStandings, fetchHomepageRawStats } from "./awards";
+import { PREMIER_SEASON, deriveStandings, fetchHomepageRawStats } from "./awards";
 
 export interface HomeStandingTeam {
   id: string;
@@ -13,22 +13,31 @@ export interface HomeStandingTeam {
 
 type TeamRow = Pick<HomeStandingTeam, "id" | "name" | "abbreviation" | "nomination_position">;
 
-export async function fetchHomepageStandings(): Promise<HomeStandingTeam[]> {
+/**
+ * Standings for one league's homepage. Premier reads the featured draft and
+ * its own season; Academy passes its draft column, season code and team names
+ * so the two never mix (they share raw_stats and the teams table).
+ */
+export async function fetchHomepageStandings(
+  season: string = PREMIER_SEASON,
+  teamNames?: string[],
+  draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
+): Promise<HomeStandingTeam[]> {
   const supabase = await createServerSupabase();
   const { data: settings, error: settingsError } = await supabase
     .from("league_settings")
-    .select("featured_draft_id")
+    .select(draftColumn)
     .eq("id", 1)
     .single();
 
   if (settingsError && settingsError.code !== "PGRST116") throw settingsError;
 
-  const featuredDraftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id;
+  const featuredDraftId = (settings as Record<string, string | null> | null)?.[draftColumn];
   if (!featuredDraftId) return [];
 
   try {
-    const seasonRows = await fetchHomepageRawStats();
-    const standings = deriveStandings(seasonRows);
+    const seasonRows = await fetchHomepageRawStats(season, teamNames);
+    const standings = deriveStandings(seasonRows, season);
     if (standings.length > 0) {
       return standings;
     }
