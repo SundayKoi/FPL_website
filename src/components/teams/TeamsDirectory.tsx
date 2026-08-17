@@ -62,7 +62,7 @@ export default function TeamsDirectory({
                 <h2 className="label-dash mb-4 text-xl text-white">{section.label}</h2>
                 <div className="grid gap-5 sm:grid-cols-3">
                   {sectionTeams.map((team) => (
-                    <TeamRosterCard key={team.id} team={team} />
+                    <TeamRosterCard key={team.id} team={team} league={league} />
                   ))}
                 </div>
               </div>

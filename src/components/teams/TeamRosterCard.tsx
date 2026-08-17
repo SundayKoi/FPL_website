@@ -15,6 +15,7 @@ const roleLabels = {
 
 export type TeamRosterCardProps = {
   team: RosterTeamView;
+  league?: "premier" | "academy";
   editable?: boolean;
   onDragStart?: (player: RosterSlotView) => void;
   onDragEnd?: () => void;
@@ -25,6 +26,7 @@ export type TeamRosterCardProps = {
 
 export default function TeamRosterCard({
   team,
+  league = "premier",
   editable = false,
   onDragStart,
   onDragEnd,
@@ -74,7 +76,7 @@ export default function TeamRosterCard({
               team.name
             ) : (
               <Link
-                href={`/teams/${teamSlug(team.name)}`}
+                href={`${league === "academy" ? "/academy/teams" : "/teams"}/${teamSlug(team.name)}`}
                 draggable={false}
                 className="underline-offset-4 transition hover:text-coral hover:underline"
               >
