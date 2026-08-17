@@ -71,6 +71,19 @@ describe("AcademyPlayersDirectory", () => {
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
+  it("matches sheet OP.GG links to canonical Academy players by name", () => {
+    render(
+      <AcademyPlayersDirectory
+        players={[{ ...fallbackPlayer, name: "Academy Canon" }]}
+        canonicalPlayers={[{ ...canonicalPlayer, opgg_url: null }]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Academy Canon" }).getAttribute("href")).toBe(
+      "https://op.gg/sheet-fallback",
+    );
+  });
+
   it("submits a valid Academy player through the rendered admin editor", async () => {
     const insert = vi.fn(() => ({
       select: vi.fn(() => ({

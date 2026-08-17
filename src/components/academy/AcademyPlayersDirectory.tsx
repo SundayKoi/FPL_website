@@ -2,6 +2,7 @@ import PlayersDirectory from "@/components/players/PlayersDirectory";
 import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import type { RoleSection } from "@/lib/players/seasonData";
 import type { AcademySheetPlayer } from "@/lib/academy/playerSheet";
+import { normalizePlayerName } from "@/lib/players/freeAgency";
 
 type Props = {
   players: AcademySheetPlayer[];
@@ -20,6 +21,7 @@ export default function AcademyPlayersDirectory({
     const normalized = role.toLowerCase();
     return normalized === "middle" ? "mid" : normalized === "bottom" ? "adc" : normalized;
   };
+  const sheetByName = new Map(players.map((player) => [normalizePlayerName(player.name), player]));
   const sourceIsCanonical = canonicalPlayers.length > 0;
   const sections: RoleSection[] = ["top", "jungle", "mid", "adc", "support"].map((key) => ({
     key: key as RoleSection["key"],
@@ -31,7 +33,7 @@ export default function AcademyPlayersDirectory({
             name: player.display_name,
             rank: player.rank ?? "—",
             min: 0,
-            opggUrl: player.opgg_url ?? "",
+            opggUrl: player.opgg_url ?? sheetByName.get(normalizePlayerName(player.display_name))?.opggUrl ?? "",
           }))
       : players
           .filter((player) => roleKey(player.role) === key)
