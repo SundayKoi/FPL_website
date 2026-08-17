@@ -19,6 +19,7 @@ type SortOption = "name" | "rank" | "value";
 type Props = {
   seasons: Record<SeasonKey, RoleSection[]>;
   canonicalPlayers?: PlayerPoolRow[];
+  poolSeasonKey?: SeasonKey;
   freeAgencyCaptains?: FreeAgencyCaptain[];
   isAdmin?: boolean;
   isOwner?: boolean;
@@ -38,9 +39,18 @@ const ROLE_TONES = {
   support: "border-purple-300/50 bg-purple-300/10 text-purple-100",
 } as const;
 
+export function mergeScopedPlayerPoolRows(
+  currentRows: PlayerPoolRow[],
+  scopedRows: PlayerPoolRow[],
+  scopedSeasonKey: SeasonKey,
+) {
+  return [...currentRows.filter((row) => row.season_key !== scopedSeasonKey), ...scopedRows];
+}
+
 export default function PlayersDirectory({
   seasons,
   canonicalPlayers = [],
+  poolSeasonKey,
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
   isAdmin = false,
   isOwner = false,
@@ -62,6 +72,7 @@ export default function PlayersDirectory({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [poolEditMode, setPoolEditMode] = useState(false);
   const [poolPlayers, setPoolPlayers] = useState(canonicalPlayers);
+  const activePoolSeasonKey = poolSeasonKey ?? selectedSeason;
   const sections = seasons[selectedSeason] ?? [];
   const emptyStateMessage =
     emptyStateMessages[selectedSeason] ?? "No player data is available for this season.";
@@ -69,8 +80,13 @@ export default function PlayersDirectory({
   const isFreeAgency = showFreeAgency && selectedSection === "free-agency";
   const hasValueColumn = isFreeAgency || showMinSort;
   const adminPlayers = poolPlayers
-    .filter((player) => player.season_key === selectedSeason)
+    .filter((player) => player.season_key === activePoolSeasonKey)
     .sort((left, right) => left.display_name.localeCompare(right.display_name));
+  const handlePoolPlayersChange = (updatedScopedPlayers: PlayerPoolRow[]) => {
+    setPoolPlayers((currentPlayers) =>
+      mergeScopedPlayerPoolRows(currentPlayers, updatedScopedPlayers, activePoolSeasonKey),
+    );
+  };
   const displaySections = sections.map((section) => ({
     ...section,
     players: [...section.players].sort((left, right) => {
@@ -359,7 +375,7 @@ export default function PlayersDirectory({
             <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">
               {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
             </button>
-            {poolEditMode ? <PlayerPoolAdmin seasonKey={selectedSeason} players={adminPlayers} onPlayersChange={setPoolPlayers} /> : null}
+            {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} /> : null}
           </>
         ) : null}
       </div>

@@ -1,4 +1,4 @@
-export type SeasonKey = "season-5" | "season-4";
+export type SeasonKey = "season-5" | "season-4" | "academy-1";
 
 export interface PlayerEntry {
   name: string;
@@ -114,4 +114,5 @@ const season5Sections: RoleSection[] = [
 export const PLAYER_SEASONS: Record<SeasonKey, RoleSection[]> = {
   "season-5": season5Sections,
   "season-4": [],
+  "academy-1": [],
 };
