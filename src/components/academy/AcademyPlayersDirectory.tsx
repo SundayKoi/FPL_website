@@ -3,7 +3,7 @@ import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import type { RoleSection } from "@/lib/players/seasonData";
 import type { AcademySheetPlayer } from "@/lib/academy/playerSheet";
 import { normalizePlayerName } from "@/lib/players/freeAgency";
-import { individualOpggUrl } from "@/lib/academy/playerSheet";
+import { academyOpggUrlForPlayer, individualOpggUrl } from "@/lib/academy/playerSheet";
 
 type Props = {
   players: AcademySheetPlayer[];
@@ -38,7 +38,7 @@ export default function AcademyPlayersDirectory({
               individualOpggUrl(
                 player.opgg_url ?? sheetByName.get(normalizePlayerName(player.display_name))?.opggUrl,
                 player.display_name,
-              ) ?? "",
+              ) ?? academyOpggUrlForPlayer(player.display_name) ?? "",
           }))
       : players
           .filter((player) => roleKey(player.role) === key)

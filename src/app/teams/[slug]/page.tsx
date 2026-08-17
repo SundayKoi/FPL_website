@@ -11,6 +11,7 @@ import {
   teamSlug,
 } from "@/lib/teams/teamPage";
 import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
+import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -63,11 +64,16 @@ async function TeamPageContent({ params, league = "premier" }: { params: Promise
     ]);
 
   const draft = draftResult.data as Draft | null;
+  const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
+    .map((player) => ({
+      ...player,
+      opgg_url: player.opgg_url ?? (league === "academy" ? academyOpggUrlForPlayer(player.display_name) : null),
+    }));
   const rosterTeams = toRosterTeams(
     (teamsResult.data as Team[]) ?? [],
     (playersResult.data as Player[]) ?? [],
     (profilesResult.data as Profile[]) ?? [],
-    (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [],
+    canonicalPlayers,
   );
   const team = rosterTeams.find((t) => teamSlug(t.name) === slug);
   if (!team) notFound();

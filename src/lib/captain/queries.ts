@@ -19,6 +19,7 @@ import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/li
 import type { Player } from "@/lib/draft/types";
 import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
 import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
+import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
 
 /** One row of `league_team_captains`. */
@@ -269,7 +270,9 @@ export async function fetchMyRoster(
         (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [];
       draftPlayers = ((playerRows as Player[]) ?? []).map((player) => ({
         ...player,
-        opgg_url: resolvePlayerOpggUrl(player, canonicalPlayers),
+        opgg_url:
+          resolvePlayerOpggUrl(player, canonicalPlayers) ??
+          (league === "academy" ? academyOpggUrlForPlayer(player.display_name) : null),
       }));
     }
   }

@@ -55,6 +55,13 @@ export function individualOpggUrl(rosterUrl: string | undefined | null, playerNa
   return `https://op.gg/lol/summoners/na/${encodeURIComponent(gameName)}-${encodeURIComponent(tagLine)}`;
 }
 
+export function academyOpggUrlForPlayer(playerName: string): string | null {
+  const rosterUrl = Object.entries(ACADEMY_OPGG_BY_PLAYER).find(
+    ([name]) => normalizePlayerName(name) === normalizePlayerName(playerName),
+  )?.[1];
+  return individualOpggUrl(rosterUrl, playerName);
+}
+
 export function mergeAcademyPlayers(
   draftPlayers: Array<{ display_name: string; role: string; rank?: string | null }>,
   sheetPlayers: AcademySheetPlayer[],
