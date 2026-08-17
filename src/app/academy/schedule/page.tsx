@@ -8,12 +8,14 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
+import { fetchTeamIdentities } from "@/lib/teams/identity";
 
 export default async function AcademySchedulePage({ searchParams }: { searchParams: Promise<{ season?: string | string[] }> }) {
   const supabase = await createServerSupabase();
-  const [{ data }, draftData] = await Promise.all([
+  const [{ data }, draftData, identities] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
     fetchAcademyDraftData(supabase),
+    fetchTeamIdentities("academy_draft_id"),
   ]);
   const fixtures = filterAcademyFixtures((data as FixtureRow[]) ?? [], academyTeamNames(draftData.teams));
   const requested = (await searchParams).season;
@@ -28,7 +30,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
       {seasonsOf(fixtures).length > 1 ? <nav aria-label="Season" className="mt-8 flex flex-wrap gap-2">{seasonsOf(fixtures).map((value) => <Link key={value} href={`/academy/schedule?season=${encodeURIComponent(value)}`} className="rounded-full border border-line bg-panel px-3 py-1 text-xs text-steel">{value}</Link>)}</nav> : null}
       {/* No Gauntlet in Academy: the split goes straight from the regular
           season into the playoff bracket. */}
-      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <div id={meta.stage} key={meta.stage} className="card-brand overflow-hidden"><div className="border-b border-line px-4 py-3"><h3 className="type-display text-xl">{meta.label}</h3></div>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={{}} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</div>)}</div></section>)}</div>
+      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <div id={meta.stage} key={meta.stage} className="card-brand scroll-mt-24 overflow-hidden"><div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3"><h3 className="type-display text-xl">{meta.label}</h3><span className="text-xs text-steel">{meta.note}</span></div>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={null} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</div>)}</div></section>)}</div>
     </div></main>
   );
 }

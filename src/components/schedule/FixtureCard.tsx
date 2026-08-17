@@ -22,11 +22,15 @@ function TeamCrest({
   identity,
   align,
   highlight,
+  basePath,
 }: {
   name: string;
   identity?: TeamIdentity;
   align: "left" | "right";
   highlight: boolean;
+  /** Team-page root, or null to render unlinked — /teams/[slug] resolves the
+   *  Premier draft only, so Academy crests would 404. */
+  basePath: string | null;
 }) {
   const unknown = name === "TBD";
   const short = identity?.abbreviation ?? name;
@@ -46,10 +50,10 @@ function TeamCrest({
     align === "right" ? "flex-row-reverse text-right" : "text-left"
   } ${highlight ? "text-gold" : unknown ? "text-steel/70" : "text-white"}`;
 
-  if (unknown) return <span className={layout}>{body}</span>;
+  if (unknown || basePath === null) return <span className={layout} title={unknown ? undefined : name}>{body}</span>;
   return (
     <Link
-      href={`/teams/${teamSlug(name)}`}
+      href={`${basePath}/${teamSlug(name)}`}
       title={name}
       aria-label={name}
       className={`${layout} underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold`}
@@ -62,9 +66,13 @@ function TeamCrest({
 export default function FixtureCard({
   fixture,
   identities = {},
+  teamBasePath = "/teams",
 }: {
   fixture: FixtureRow;
   identities?: Record<string, TeamIdentity>;
+  /** Where a crest links. Pass null for Academy: /teams/[slug] resolves the
+   *  Premier draft only, so those links would 404. */
+  teamBasePath?: string | null;
 }) {
   const played = hasResult(fixture);
   const teamA = teamLabel(fixture.team_a);
@@ -84,7 +92,7 @@ export default function FixtureCard({
           squeezed the matchup to zero width and hid it entirely on mobile. */}
       <div className="order-last flex w-full min-w-0 items-center justify-center gap-3 text-sm sm:order-none sm:w-auto sm:flex-1">
         <div className="flex min-w-0 flex-1 justify-end">
-          <TeamCrest name={teamA} identity={identities[teamSlug(teamA)]} align="right" highlight={aWon} />
+          <TeamCrest name={teamA} identity={identities[teamSlug(teamA)]} align="right" highlight={aWon} basePath={teamBasePath} />
         </div>
         {played ? (
           <Link
@@ -98,7 +106,7 @@ export default function FixtureCard({
           <span className="shrink-0 text-xs font-semibold uppercase text-steel">vs</span>
         )}
         <div className="flex min-w-0 flex-1 justify-start">
-          <TeamCrest name={teamB} identity={identities[teamSlug(teamB)]} align="left" highlight={bWon} />
+          <TeamCrest name={teamB} identity={identities[teamSlug(teamB)]} align="left" highlight={bWon} basePath={teamBasePath} />
         </div>
       </div>
 

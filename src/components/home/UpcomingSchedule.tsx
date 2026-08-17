@@ -8,11 +8,14 @@ export default function UpcomingSchedule({
   schedule,
   identities = {},
   basePath = "/schedule",
+  teamBasePath = "/teams",
 }: {
   schedule: HomepageScheduleData;
   identities?: Record<string, TeamIdentity>;
   /** Which schedule page "View full schedule" points at — Academy has its own. */
   basePath?: string;
+  /** Passed through to FixtureCard; null leaves crests unlinked. */
+  teamBasePath?: string | null;
 }) {
   const activeStage = schedule.activeStage;
   const meta = activeStage ? stageMeta(activeStage) : null;
@@ -54,7 +57,7 @@ export default function UpcomingSchedule({
       ) : (
         <div className="border-t border-line/60">
           {schedule.fixtures.map((fixture) => (
-            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} />
+            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={teamBasePath} />
           ))}
         </div>
       )}

@@ -42,7 +42,7 @@ export default async function AcademyHomePage() {
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet)),
     fetchActiveBrief("academy"),
-    fetchTeamIdentities(),
+    fetchTeamIdentities("academy_draft_id"),
     fetchLatestWeeklyStandouts(5, seasons.academy, teamNames),
   ]);
   const twitchClips =
@@ -70,7 +70,7 @@ export default async function AcademyHomePage() {
               calculated version rather than going blank when none is. */}
           {brief ? <HomeBrief brief={brief} /> : <AwardsDesk awards={awards} />}
           <WeeklyStandouts standouts={standouts} />
-          <UpcomingSchedule schedule={schedule} identities={identities} basePath="/academy/schedule" />
+          <UpcomingSchedule schedule={schedule} identities={identities} basePath="/academy/schedule" teamBasePath={null} />
         </section>
       </div>
     </main>

@@ -7,17 +7,21 @@ export interface TeamIdentity {
   imageUrl: string | null;
 }
 
-/** Crest and short name for each team of the featured draft, keyed by slug so
- *  a fixture's free-text team name can find it. Fixtures store names, not ids,
- *  so this is the only join available. */
-export async function fetchTeamIdentities(): Promise<Record<string, TeamIdentity>> {
+/** Crest and short name for each team of a league's draft, keyed by slug so a
+ *  fixture's free-text team name can find it. Fixtures store names, not ids,
+ *  so this is the only join available. Each league resolves against its own
+ *  draft rather than one merged map: the two can field same-named teams, and
+ *  a shared map would silently give one league the other's crest. */
+export async function fetchTeamIdentities(
+  draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
+): Promise<Record<string, TeamIdentity>> {
   const supabase = await createServerSupabase();
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("featured_draft_id")
+    .select(draftColumn)
     .eq("id", 1)
     .single();
-  const draftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id;
+  const draftId = (settings as Record<string, string | null> | null)?.[draftColumn];
   if (!draftId) return {};
 
   const { data } = await supabase
