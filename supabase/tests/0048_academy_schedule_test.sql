@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(10);
+select plan(11);
 
 -- An Academy draft with the six real team names.
 create temporary table t as select tests.fixture() as d;
@@ -9,11 +9,14 @@ create temporary table a as
 with ins as (insert into public.drafts (name) values ('Academy Test') returning id)
 select id as adraft from ins;
 
+-- Names and abbreviations exactly as production has them: the display names
+-- carry an "Esports" qualifier the published schedule graphic omits, which is
+-- why the seeder matches on abbreviation.
 insert into public.teams (draft_id, name, abbreviation, nomination_position, budget_start, points_remaining)
 select (select adraft from a), name, abbrev, row_number() over (order by name), 100, 100
 from (values
-  ('Astronauts', 'AST'), ('Divine Ascension', 'DAX'), ('Flannel Love Tap', 'FELT'),
-  ('Flannel Requiem', 'FNLR'), ('Free People Legion', 'FPLX'), ('The Strokers', 'STRK')
+  ('Astronauts', 'AST'), ('Divine Ascension', 'DA'), ('Flannel Esports Love Tap', 'FELT'),
+  ('Flannel Esports Requiem', 'FNLR'), ('Free People Legion', 'FPL'), ('The Strokers', 'STRK')
 ) as v(name, abbrev);
 
 update public.league_settings set academy_draft_id = (select adraft from a) where id = 1;
@@ -60,6 +63,14 @@ select is((select distinct scheduled_at at time zone 'America/New_York'
 select is((select count(*) from public.fixtures f join public.league_settings s on s.id = 1
            where f.season = s.academy_season and f.stage in ('gauntlet_r1','gauntlet_r2')),
           0::bigint, 'no gauntlet is scheduled for the Academy');
+
+-- Fixtures must carry the draft's full display name, not the abbreviation the
+-- schedule is keyed on, or the Academy pages will not match them to a team.
+select is((select count(*) from public.fixtures f join public.league_settings s on s.id = 1
+           where f.season = s.academy_season
+             and (f.team_a like 'Flannel Esports%' or f.team_b like 'Flannel Esports%')),
+          -- 5 games each, meeting once in week 1: 5 + 5 - 1.
+          9::bigint, 'the Flannel sides land under their full draft names');
 
 -- === re-runnable ============================================================
 -- Running it twice must not duplicate the season, and must preserve fixture

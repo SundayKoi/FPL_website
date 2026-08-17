@@ -37,35 +37,48 @@ begin
   end if;
 
   drop table if exists pg_temp._academy_codes;
-  create temporary table pg_temp._academy_codes (code text primary key, expected text);
-  insert into pg_temp._academy_codes (code, expected) values
-    ('AST',  'Astronauts'),
-    ('DA',   'Divine Ascension'),
-    ('FELT', 'Flannel Love Tap'),
-    ('FNLR', 'Flannel Requiem'),
-    ('FPL',  'Free People Legion'),
-    ('STRK', 'The Strokers');
+  create temporary table pg_temp._academy_codes (code text primary key);
+  insert into pg_temp._academy_codes (code) values
+    ('AST'), ('DA'), ('FELT'), ('FNLR'), ('FPL'), ('STRK');
 
-  -- Resolved against the Academy draft's own rows, so fixtures carry the exact
-  -- team_name the stats and captain pages match on. A name edited in the draft
-  -- fails here rather than producing a fixture that silently never appears on
-  -- the Academy schedule.
+  -- Matched on the draft's own abbreviation rather than the display name.
+  -- The abbreviations are what the published schedule uses and they are short
+  -- and stable; full names carry qualifiers that get edited ("Flannel Esports
+  -- Love Tap", not "Flannel Love Tap"). The resolved `name` is what lands in
+  -- the fixture, so it stays the exact string the stats and captain pages
+  -- match on.
   drop table if exists pg_temp._academy_teams;
   create temporary table pg_temp._academy_teams (code text primary key, name text);
   insert into pg_temp._academy_teams (code, name)
-  select c.code, t.name
-  from pg_temp._academy_codes c
-  join public.teams t
-    on t.draft_id = v_draft
-   and lower(trim(t.name)) = lower(trim(c.expected));
+  select upper(trim(t.abbreviation)), t.name
+  from public.teams t
+  where t.draft_id = v_draft
+    and upper(trim(coalesce(t.abbreviation, ''))) in (select code from pg_temp._academy_codes)
+  on conflict (code) do nothing;
 
-  select string_agg(c.expected, ', ' order by c.expected)
+  -- Two draft teams sharing an abbreviation would silently drop one above
+  -- (public.teams has no uniqueness constraint on it), so say so instead.
+  select string_agg(dupe.code, ', ' order by dupe.code)
+  into v_missing
+  from (
+    select upper(trim(t.abbreviation)) as code
+    from public.teams t
+    where t.draft_id = v_draft
+      and upper(trim(coalesce(t.abbreviation, ''))) in (select code from pg_temp._academy_codes)
+    group by 1 having count(*) > 1
+  ) dupe;
+
+  if v_missing is not null then
+    raise exception 'Two Academy draft teams share an abbreviation, so the schedule is ambiguous: %', v_missing;
+  end if;
+
+  select string_agg(c.code, ', ' order by c.code)
   into v_missing
   from pg_temp._academy_codes c
   where not exists (select 1 from pg_temp._academy_teams t where t.code = c.code);
 
   if v_missing is not null then
-    raise exception 'These Academy teams are not in the academy draft (check the exact spelling in public.teams): %', v_missing;
+    raise exception 'No team in the academy draft carries these abbreviations (see public.teams.abbreviation): %', v_missing;
   end if;
 
   -- Kickoffs are written in league time and let Postgres resolve the UTC
