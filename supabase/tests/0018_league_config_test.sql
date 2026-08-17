@@ -124,7 +124,10 @@ select ok(not has_table_privilege('anon','public.roster_memberships','insert'), 
 select ok(has_table_privilege('authenticated','public.league_teams','insert'),
   'authenticated has the insert grant on league_teams (RLS gates to admins)');
 
--- === access: admin-only writes (RLS), behaviourally ==========================
+-- === access: owner-only writes (RLS), behaviourally ==========================
+-- league_teams became owner-only (task 5, 20260823000010): a plain admin
+-- (is_admin without is_owner, as tests.admin_id() is set up here) can no
+-- longer write freehand rows, same as a random member.
 insert into public.profiles (id, display_name, is_admin) values (tests.admin_id(), 'Config Admin', true)
   on conflict (id) do nothing;
 insert into public.profiles (id, display_name) values (tests.cap(1), 'Random Member')
@@ -132,9 +135,11 @@ insert into public.profiles (id, display_name) values (tests.cap(1), 'Random Mem
 
 select tests.acting_as(tests.admin_id());
 set local role authenticated;
-select lives_ok(
+select throws_ok(
   $$ insert into public.league_teams (name, abbreviation) values ('Admin Test FC', 'ATF') $$,
-  'admin can insert league_teams'
+  '42501',
+  null,
+  'a plain admin cannot insert league_teams'
 );
 reset role;
 
