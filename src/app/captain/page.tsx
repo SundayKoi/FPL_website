@@ -160,7 +160,7 @@ export async function CaptainPageView({
                 id="team-switch"
                 name="team"
                 defaultValue={activeTeamId}
-                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
               >
                 {context.activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -171,7 +171,7 @@ export async function CaptainPageView({
             </label>
             <button
               type="submit"
-              className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy"
+              className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy"
             >
               Switch
             </button>

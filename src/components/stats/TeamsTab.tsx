@@ -136,7 +136,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
                 </div>
               </td>
               <td className="px-2 py-2 font-mono text-steel">{row.games}</td>
-              <td className="px-2 py-2 font-mono text-emerald-300">{row.wins}</td>
+              <td className="px-2 py-2 font-mono text-mint">{row.wins}</td>
               <td className="px-2 py-2 font-mono text-pink">{row.losses}</td>
               <td className="px-2 py-2 font-mono text-steel">{formatDuration(row.avg_duration_min)}</td>
               <td className="px-2 py-2 font-mono text-steel">{row.dragon_rate.toFixed(1)}%</td>

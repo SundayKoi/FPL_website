@@ -113,7 +113,7 @@ export default function PlayerPoolEditor({
           onChange={(e) => setCsv(e.target.value)}
           rows={6}
           placeholder={"Faker,mid,Challenger,https://op.gg/...\nCanyon,jungle"}
-          className="rounded border border-line bg-navy px-2 py-1 font-mono text-xs text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-2 py-1 font-mono text-xs text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <button
@@ -127,7 +127,7 @@ export default function PlayerPoolEditor({
             <button
               onClick={handleImport}
               disabled={busy || validCount === 0}
-              className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+              className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
             >
               Import {validCount} valid row{validCount === 1 ? "" : "s"}
             </button>
@@ -180,7 +180,7 @@ export default function PlayerPoolEditor({
                   </td>
                   <td className="py-1 text-steel">
                     {p.opgg_url ? (
-                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-gold underline">
+                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-coral underline">
                         link
                       </a>
                     ) : (

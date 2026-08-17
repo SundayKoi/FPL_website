@@ -40,7 +40,7 @@ function LegRow({
               className={
                 "flex-1 rounded border px-2 py-2 text-sm font-semibold transition disabled:cursor-not-allowed " +
                 (chosen ? "border-transparent text-navy" : "border-line text-steel hover:border-steel") +
-                (won ? " ring-2 ring-emerald-400" : "")
+                (won ? " ring-2 ring-mint" : "")
               }
               style={
                 chosen
@@ -144,7 +144,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
         <div className="mt-4 rounded border border-line px-3 py-2 text-sm" data-testid="pickem-mycard">
           {pickem.status === "RESOLVED" ? (
             (pickem.my_card.payout ?? 0) > 0 ? (
-              <span className="text-emerald-400">Perfect card! +{fmtPoints(pickem.my_card.payout!)} 🏆</span>
+              <span className="text-mint">Perfect card! +{fmtPoints(pickem.my_card.payout!)} 🏆</span>
             ) : (
               <span className="text-steel">
                 Your card: {pickem.my_card.correct}/{liveLegs.length} — better luck next night
@@ -164,7 +164,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <input
               aria-label="card amount"
-              className="w-28 rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+              className="w-28 rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
               type="number"
               min={1}
               max={balance}
@@ -174,7 +174,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
             />
             <button
               type="button"
-              className="rounded bg-gold px-4 py-2 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-coral px-4 py-2 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!complete || amount <= 0 || amount > balance || pending}
               onClick={submit}
             >
@@ -184,7 +184,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
         ) : (
           <div className="mt-3 text-xs text-steel">Log in to play the Pick&apos;em.</div>
         ))}
-      {msg && <div className="mt-2 text-xs text-emerald-400">{msg}</div>}
+      {msg && <div className="mt-2 text-xs text-mint">{msg}</div>}
       {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
     </div>
   );

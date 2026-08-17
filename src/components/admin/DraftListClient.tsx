@@ -62,12 +62,12 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New draft name"
-          className="flex-1 rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="flex-1 rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           New draft
         </button>

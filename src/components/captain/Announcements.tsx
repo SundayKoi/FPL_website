@@ -25,7 +25,7 @@ export default function Announcements({ announcements }: { announcements: Announ
             <li key={a.id} className="rounded border border-line/60 bg-navy/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 {a.pinned && (
-                  <span className="rounded-full bg-gold px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-navy">
+                  <span className="rounded-full bg-coral px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-navy">
                     Pinned
                   </span>
                 )}
@@ -39,10 +39,10 @@ export default function Announcements({ announcements }: { announcements: Announ
       )}
 
       <div className="mt-4 flex flex-wrap gap-4 border-t border-line pt-4 text-xs font-semibold uppercase tracking-wide">
-        <Link href="/info" className="text-steel hover:text-gold">
+        <Link href="/info" className="text-steel hover:text-coral">
           Rulebook →
         </Link>
-        <Link href="/schedule" className="text-steel hover:text-gold">
+        <Link href="/schedule" className="text-steel hover:text-coral">
           Full schedule →
         </Link>
       </div>

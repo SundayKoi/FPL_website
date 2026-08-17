@@ -7,7 +7,7 @@ import type { PropSuggestion } from "@/lib/betting/types";
 
 const STATUS_STYLE: Record<PropSuggestion["status"], string> = {
   PENDING: "border-line text-steel",
-  APPROVED: "border-emerald-400/40 text-emerald-400",
+  APPROVED: "border-mint/40 text-mint",
   REJECTED: "border-red-400/40 text-red-400",
 };
 
@@ -109,7 +109,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
             />
           </label>
           {error && <p className="text-sm text-red-400">{error}</p>}
-          {sent && !error && <p className="text-sm text-emerald-400">Sent — staff will review it.</p>}
+          {sent && !error && <p className="text-sm text-mint">Sent — staff will review it.</p>}
           <div>
             <button type="button" onClick={submit} disabled={!complete || pending} className="btn-pill text-sm disabled:opacity-40">
               {pending ? "Sending…" : "Send suggestion"}

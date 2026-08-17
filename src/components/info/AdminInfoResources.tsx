@@ -62,20 +62,20 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
             <legend className="label-dash">{resource.slug}</legend>
             <label className="flex flex-col gap-1 text-xs text-steel">
               Label
-              <input value={resource.label} onChange={(event) => update(resource.id, "label", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none" />
+              <input value={resource.label} onChange={(event) => update(resource.id, "label", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
               Description
-              <input value={resource.description} onChange={(event) => update(resource.id, "description", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none" />
+              <input value={resource.description} onChange={(event) => update(resource.id, "description", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
               URL
-              <input type="url" value={resource.href} onChange={(event) => update(resource.id, "href", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none" />
+              <input type="url" value={resource.href} onChange={(event) => update(resource.id, "href", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
             </label>
           </fieldset>
         ))}
         {status && <p className="mt-4 text-sm text-steel" role="status">{status}</p>}
-        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50">
+        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50">
           {saving ? "Saving…" : "Save resources"}
         </button>
       </div>}

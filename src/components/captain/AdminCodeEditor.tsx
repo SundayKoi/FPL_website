@@ -158,7 +158,7 @@ export default function AdminCodeEditor({
                 <select
                   value={fixtureId}
                   onChange={(e) => selectFixture(e.target.value)}
-                  className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+                  className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
                 >
                   {openFixtures.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -177,7 +177,7 @@ export default function AdminCodeEditor({
                   }}
                   rows={5}
                   placeholder={"NA1234\nNA5678\nNA9012"}
-                  className="rounded border border-line bg-navy px-2 py-1.5 font-mono text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+                  className="rounded border border-line bg-navy px-2 py-1.5 font-mono text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
                 />
               </label>
               <p className="text-xs text-steel">
@@ -190,13 +190,13 @@ export default function AdminCodeEditor({
                 </p>
               )}
               {status.kind === "success" && (
-                <p className="text-sm font-semibold text-emerald-400">{status.message}</p>
+                <p className="text-sm font-semibold text-mint">{status.message}</p>
               )}
               <button
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={status.kind === "saving"}
-                className="w-fit rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+                className="w-fit rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
               >
                 {status.kind === "saving" ? "Saving…" : "Save codes"}
               </button>

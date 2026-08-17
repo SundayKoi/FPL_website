@@ -58,7 +58,7 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
               <li key={draft.id}>
                 <Link
                   href={`/draft/${draft.id}`}
-                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-steel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-steel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <span className="type-display text-xl">{draft.name}</span>
                   <span className="text-sm uppercase tracking-wide text-steel">

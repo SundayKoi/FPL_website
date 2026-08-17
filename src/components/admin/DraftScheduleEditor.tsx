@@ -55,7 +55,7 @@ export default function DraftScheduleEditor({
   return (
     <section className="card-brand flex flex-col gap-4 p-5" aria-labelledby="draft-schedule-title">
       <div>
-        <span className="label-dash text-gold">SCHEDULE</span>
+        <span className="label-dash text-coral">SCHEDULE</span>
         <h2 id="draft-schedule-title" className="type-display mt-2 text-2xl text-white">
           Draft start time
         </h2>
@@ -71,14 +71,14 @@ export default function DraftScheduleEditor({
             type="datetime-local"
             value={value}
             onChange={(event) => setValue(event.target.value)}
-            className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={saving}
-            className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+            className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
           >
             Save schedule
           </button>
@@ -86,7 +86,7 @@ export default function DraftScheduleEditor({
             type="button"
             disabled={saving || !startsAt}
             onClick={() => void save(null)}
-            className="rounded border border-line px-4 py-2 text-sm font-semibold text-steel hover:border-gold hover:text-gold disabled:opacity-40"
+            className="rounded border border-line px-4 py-2 text-sm font-semibold text-steel hover:border-coral hover:text-coral disabled:opacity-40"
           >
             Clear schedule
           </button>
@@ -94,7 +94,7 @@ export default function DraftScheduleEditor({
       </form>
 
       {startsAt && <p className="text-xs text-steel">Current: {formatEasternDateTime(startsAt)}</p>}
-      {message && <p className="text-sm text-emerald-400">{message}</p>}
+      {message && <p className="text-sm text-mint">{message}</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
     </section>
   );

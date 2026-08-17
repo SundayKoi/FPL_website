@@ -144,7 +144,7 @@ export default function TwitchShowcase({
               <span className="text-steel">Streaming live from Twitch</span>
             ) : activeClip ? (
               <>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-coral">
                   Now playing
                 </span>
                 <span className="min-w-0 flex-1 truncate text-white">{activeClip.title}</span>
@@ -160,7 +160,7 @@ export default function TwitchShowcase({
               href={twitchUrl}
               target="_blank"
               rel="noreferrer"
-              className="ml-auto font-semibold text-gold hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+              className="ml-auto font-semibold text-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
             >
               Open Twitch channel
             </a>
@@ -187,7 +187,7 @@ export default function TwitchShowcase({
                       onClick={() => setClipIndex(index)}
                       aria-current={active ? "true" : undefined}
                       className={`group relative block w-full overflow-hidden rounded border text-left transition ${
-                        active ? "border-gold" : "border-line hover:border-steel"
+                        active ? "border-coral" : "border-line hover:border-steel"
                       }`}
                     >
                       <div className="relative aspect-video bg-black/60">
@@ -199,7 +199,7 @@ export default function TwitchShowcase({
                           <div className="absolute inset-x-0 bottom-0 h-0.5 bg-black/50">
                             <div
                               key={clip.slug}
-                              className="progress-fill h-full bg-gold"
+                              className="progress-fill h-full bg-coral"
                               style={{ animationDuration: `${clip.durationSeconds}s` }}
                             />
                           </div>

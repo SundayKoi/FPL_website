@@ -144,7 +144,7 @@ export default function DraftChat({
             type="button"
             onClick={onToggle}
             aria-label={chatCollapsed ? "Expand chat" : "Collapse chat"}
-            className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+            className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-coral hover:text-coral"
           >
             {chatCollapsed ? "Expand" : "Collapse"}
           </button>

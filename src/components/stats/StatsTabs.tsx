@@ -150,7 +150,7 @@ function PlayersTab({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search players…"
-          className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="label-dash">Role</span>
@@ -159,7 +159,7 @@ function PlayersTab({
             aria-pressed={roleFilter === null}
             onClick={() => setRoleFilter(null)}
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-              roleFilter === null ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              roleFilter === null ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
             }`}
           >
             All
@@ -171,7 +171,7 @@ function PlayersTab({
               aria-pressed={roleFilter === r}
               onClick={() => setRoleFilter((cur) => (cur === r ? null : r))}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase ${
-                roleFilter === r ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                roleFilter === r ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               {r}

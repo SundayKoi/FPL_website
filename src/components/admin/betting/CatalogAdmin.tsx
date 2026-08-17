@@ -54,7 +54,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -63,7 +63,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
             value={shortCode}
             onChange={(e) => setShortCode(e.target.value)}
             maxLength={8}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -73,7 +73,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
         <button
           type="submit"
           disabled={busy || !name.trim() || !shortCode.trim()}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Add team
         </button>
@@ -136,13 +136,13 @@ function EventsSection({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Add event
         </button>
@@ -195,7 +195,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -205,7 +205,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
             min={1}
             value={cost}
             onChange={(e) => setCost(Math.max(1, Number(e.target.value) || 0))}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -213,13 +213,13 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
           <input
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
         <button
           type="submit"
           disabled={busy || !name.trim() || !type.trim() || cost <= 0}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Add item
         </button>
@@ -240,7 +240,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
                 onClick={() =>
                   run(() => upsertStoreItem({ id: item.id, name: item.name, cost: item.cost, type: item.type, active: !item.active }))
                 }
-                className="rounded border border-line px-2 py-0.5 text-xs text-steel hover:border-gold hover:text-gold disabled:opacity-40"
+                className="rounded border border-line px-2 py-0.5 text-xs text-steel hover:border-coral hover:text-coral disabled:opacity-40"
               >
                 {item.active ? "Deactivate" : "Activate"}
               </button>

@@ -76,7 +76,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
           className={`shrink-0 rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
             p.is_admin
               ? "border border-red-500/60 text-red-400"
-              : "bg-gold text-navy hover:brightness-110"
+              : "bg-coral text-navy hover:brightness-110"
           }`}
         >
           {p.is_admin ? "Remove admin" : "Make admin"}
@@ -104,7 +104,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name…"
           aria-label="Search people"
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </label>
       {needle && (

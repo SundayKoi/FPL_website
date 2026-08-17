@@ -62,7 +62,7 @@ type Status =
   | { kind: "success"; message: string };
 
 const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none";
+  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
 
 /**
  * Admin panel on /captain: season + team selector (season defaults to
@@ -341,7 +341,7 @@ export default function RosterEditor({
               type="button"
               onClick={() => void handleSyncTeams()}
               disabled={syncTeamsStatus.kind === "saving"}
-              className="rounded-full border border-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy disabled:opacity-50"
+              className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
             >
               {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
             </button>
@@ -349,7 +349,7 @@ export default function RosterEditor({
               type="button"
               onClick={() => void handleSyncAcademy()}
               disabled={academySyncStatus.kind === "saving"}
-              className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold disabled:opacity-50"
+              className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
             >
               {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
             </button>
@@ -357,7 +357,7 @@ export default function RosterEditor({
               type="button"
               onClick={() => void handleSyncCaptains()}
               disabled={syncStatus.kind === "saving"}
-              className="rounded-full border border-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy disabled:opacity-50"
+              className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
             >
               {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
             </button>
@@ -371,7 +371,7 @@ export default function RosterEditor({
             </p>
           )}
           {syncTeamsStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-emerald-400">{syncTeamsStatus.message}</p>
+            <p className="text-sm font-semibold text-mint">{syncTeamsStatus.message}</p>
           )}
           <p className="text-xs text-steel">
             Sync reads the featured draft&apos;s captains and adds a league_team_captains row for each one whose
@@ -383,11 +383,11 @@ export default function RosterEditor({
             </p>
           )}
           {syncStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-emerald-400">{syncStatus.message}</p>
+            <p className="text-sm font-semibold text-mint">{syncStatus.message}</p>
           )}
           {academySyncStatus.kind === "error" && <p role="alert" className="text-sm text-red-400">{academySyncStatus.message}</p>}
           {academySyncStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-emerald-400">{academySyncStatus.message}</p>
+            <p className="text-sm font-semibold text-mint">{academySyncStatus.message}</p>
           )}
 
           {teams.length === 0 ? (
@@ -450,7 +450,7 @@ export default function RosterEditor({
                   type="button"
                   disabled={addStatus.kind === "saving" || !addText.trim()}
                   onClick={() => void handleAddOne()}
-                  className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+                  className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
                 >
                   {addStatus.kind === "saving" ? "Adding…" : "Add"}
                 </button>

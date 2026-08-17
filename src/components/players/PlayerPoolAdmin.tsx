@@ -47,16 +47,16 @@ export default function PlayerPoolAdmin({ seasonKey, players, onPlayersChange }:
     if (deleteError) return setError(deleteError.message);
     onPlayersChange(players.filter((candidate) => candidate.id !== player.id));
   };
-  return <section aria-label="Player pool administration" className="mb-8 rounded border border-gold/40 bg-gold/5 p-4 sm:p-6">
-    <p className="mb-4 text-sm text-gold">Removing a canonical player preserves linked draft records and clears only their canonical link.</p>
+  return <section aria-label="Player pool administration" className="mb-8 rounded border border-coral/40 bg-coral/5 p-4 sm:p-6">
+    <p className="mb-4 text-sm text-coral">Removing a canonical player preserves linked draft records and clears only their canonical link.</p>
     {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
     <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_minmax(0,1.5fr)_auto]">
       <input aria-label="Player name" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} placeholder="Player name" className="rounded border border-line bg-navy px-3 py-2 text-sm text-white" />
       <select aria-label="Player role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as RoleSection["key"] })} className="rounded border border-line bg-navy px-3 py-2 text-sm text-white">{roles.map((role) => <option key={role} value={role}>{role.toUpperCase()}</option>)}</select>
       <input aria-label="Player rank" value={form.rank} onChange={(e) => setForm({ ...form, rank: e.target.value })} placeholder="Rank" className="rounded border border-line bg-navy px-3 py-2 text-sm text-white" />
       <input aria-label="Player OP.GG URL" value={form.opgg_url} onChange={(e) => setForm({ ...form, opgg_url: e.target.value })} placeholder="https://op.gg/..." className="rounded border border-line bg-navy px-3 py-2 text-sm text-white" />
-      <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold">{editingId ? "Save" : "Add"}</button>{editingId ? <button type="button" onClick={reset} className="rounded border border-line px-3 py-2 text-sm text-steel">Cancel</button> : null}</div>
+      <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">{editingId ? "Save" : "Add"}</button>{editingId ? <button type="button" onClick={reset} className="rounded border border-line px-3 py-2 text-sm text-steel">Cancel</button> : null}</div>
     </div>
-    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm text-white"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-gold underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></li>)}</ul>
+    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm text-white"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-coral underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></li>)}</ul>
   </section>;
 }

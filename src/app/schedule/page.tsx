@@ -103,7 +103,7 @@ export default async function SchedulePage({
                 aria-current={s === season ? "page" : undefined}
                 className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                   s === season
-                    ? "bg-gold text-navy"
+                    ? "bg-coral text-navy"
                     : "border border-line bg-panel text-steel hover:text-white"
                 }`}
               >

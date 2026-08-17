@@ -30,7 +30,7 @@ function Countdown({ kickoff }: { kickoff: string }) {
   }, [kickoff]);
   if (!label) return null;
   return (
-    <span className="rounded-full bg-gold px-3 py-1 text-xs font-bold uppercase tracking-wide text-navy">
+    <span className="rounded-full bg-coral px-3 py-1 text-xs font-bold uppercase tracking-wide text-navy">
       {label}
     </span>
   );
@@ -57,7 +57,7 @@ export default function UpNextBanner({
   return (
     <Link
       href={`#${stageId}`}
-      className="card-brand mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-gold/40 p-4 transition hover:border-gold sm:p-5"
+      className="card-brand mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-coral/40 p-4 transition hover:border-coral sm:p-5"
     >
       <span className="label-dash shrink-0">Up next</span>
       <span className="type-display text-2xl">{stageLabel}</span>

@@ -73,7 +73,7 @@ function CreateMarketForm({
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -88,7 +88,7 @@ function CreateMarketForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. TSM vs C9"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -96,7 +96,7 @@ function CreateMarketForm({
           <select
             value={teamAId}
             onChange={(e) => setTeamAId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           >
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -110,7 +110,7 @@ function CreateMarketForm({
           <select
             value={teamBId}
             onChange={(e) => setTeamBId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           >
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -125,7 +125,7 @@ function CreateMarketForm({
             type="datetime-local"
             value={gameAt}
             onChange={(e) => setGameAt(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           />
           <span className="text-[10px] text-steel/70">Locks automatically 5 minutes before this time.</span>
         </label>
@@ -137,7 +137,7 @@ function CreateMarketForm({
             max={10000}
             value={rakeBps}
             onChange={(e) => setRakeBps(Math.max(0, Math.min(10000, Number(e.target.value) || 0)))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
       </div>
@@ -148,7 +148,7 @@ function CreateMarketForm({
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="self-start rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Create market
       </button>
@@ -163,7 +163,7 @@ function ResolveControl({ market, busy, onResolve }: { market: AdminMarketRow; b
       <select
         value={winner}
         onChange={(e) => setWinner(Number(e.target.value))}
-        className="rounded border border-line bg-navy px-2 py-1 text-xs text-white focus:border-gold focus:outline-none"
+        className="rounded border border-line bg-navy px-2 py-1 text-xs text-white focus:border-coral focus:outline-none"
       >
         <option value={market.team_a.id}>{market.team_a.short_code} wins</option>
         <option value={market.team_b.id}>{market.team_b.short_code} wins</option>
@@ -175,7 +175,7 @@ function ResolveControl({ market, busy, onResolve }: { market: AdminMarketRow; b
         onClick={() => {
           if (confirm(`Resolve "${market.title ?? market.id}"? This pays out bettors immediately.`)) onResolve(winner);
         }}
-        className="rounded border border-emerald-500/60 px-2 py-1 text-xs font-semibold text-emerald-400 disabled:opacity-40"
+        className="rounded border border-mint/60 px-2 py-1 text-xs font-semibold text-mint disabled:opacity-40"
       >
         Resolve
       </button>

@@ -82,7 +82,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <Link
           href="/teams"
-          className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold"
+          className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
         >
           <span aria-hidden="true">←</span> All teams
         </Link>
@@ -125,7 +125,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                 href={multiOpggUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
+                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-coral hover:text-coral"
               >
                 Team OP.GG Multi
               </a>
@@ -151,7 +151,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                   ) : (
                     <Link
                       href={`/stats?player=${encodeURIComponent(player.displayName)}`}
-                      className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-gold hover:underline"
+                      className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
                     >
                       {player.displayName}
                     </Link>
@@ -210,7 +210,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                             won === null
                               ? "text-steel"
                               : won
-                                ? "bg-emerald-500/15 text-emerald-400"
+                                ? "bg-mint/15 text-mint"
                                 : "bg-red-500/15 text-red-400"
                           }`}
                         >

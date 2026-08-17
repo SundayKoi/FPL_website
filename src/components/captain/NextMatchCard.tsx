@@ -50,7 +50,7 @@ export default function NextMatchCard({
           href={opponentMultiOpggUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-4 inline-flex w-fit rounded-full border border-gold/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy"
+          className="mt-4 inline-flex w-fit rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
         >
           Opponent OP.GG Multi
         </a>

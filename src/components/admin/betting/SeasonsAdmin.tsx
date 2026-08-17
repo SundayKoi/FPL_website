@@ -48,14 +48,14 @@ export default function SeasonsAdmin({ seasons }: { seasons: SeasonRow[] }) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Season 3"
             disabled={hasActive}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none disabled:opacity-40"
           />
         </label>
         <button
           type="submit"
           disabled={pending || !name.trim() || hasActive}
           title={hasActive ? "Close the active season first" : undefined}
-          className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Start season
         </button>
@@ -85,7 +85,7 @@ export default function SeasonsAdmin({ seasons }: { seasons: SeasonRow[] }) {
                         min={0}
                         value={resetTo}
                         onChange={(e) => setResetTo(Math.max(0, Number(e.target.value) || 0))}
-                        className="w-24 rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                        className="w-24 rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
                       />
                     </label>
                     <button

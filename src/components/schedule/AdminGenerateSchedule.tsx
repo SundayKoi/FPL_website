@@ -99,7 +99,7 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
         </p>
       </div>
       {err && <p className="text-sm text-red-400">{err}</p>}
-      {done && <p className="text-sm text-emerald-400">{done}</p>}
+      {done && <p className="text-sm text-mint">{done}</p>}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-steel">
           Week 1 kickoff (optional)
@@ -108,14 +108,14 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             aria-label="Week 1 kickoff"
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
         <button
           type="button"
           disabled={busy}
           onClick={() => void generate()}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           {busy ? "Drawing…" : "Generate schedule"}
         </button>

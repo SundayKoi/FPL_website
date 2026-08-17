@@ -6,7 +6,7 @@ const placeholderTeamSeeds = [
   ["Northstar Collective", "Astra Vale", "NS", "bg-cyan-950", "#083344", "Lunari"],
   ["Ember Union", "Rook Mercer", "EU", "bg-red-950", "#450a0a", "Lunari"],
   ["Moonlit Circuit", "Nyx Calder", "MC", "bg-violet-950", "#2e1065", "Lunari"],
-  ["Ironwood Guild", "Bramble Knox", "IG", "bg-emerald-950", "#022c22", "Lunari"],
+  ["Ironwood Guild", "Bramble Knox", "IG", "bg-mint", "#022c22", "Lunari"],
   ["Solaris House", "Sol Reyes", "SH", "bg-amber-950", "#451a03", "Solari"],
   ["Cloudbreak", "Mira Quill", "CB", "bg-sky-950", "#082f49", "Solari"],
   ["Riftbound", "Jett Rowan", "RB", "bg-fuchsia-950", "#4a044e", "Solari"],

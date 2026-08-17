@@ -80,7 +80,7 @@ export default function AdminSeasonSettings({
             setSaved(false);
           }}
           placeholder="S5"
-          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </div>
 
@@ -97,7 +97,7 @@ export default function AdminSeasonSettings({
             setSaved(false);
           }}
           placeholder="A1"
-          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </div>
 
@@ -114,7 +114,7 @@ export default function AdminSeasonSettings({
                 setSaved(false);
               }}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                phase === p ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                phase === p ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               {p}
@@ -127,12 +127,12 @@ export default function AdminSeasonSettings({
         type="button"
         onClick={() => void handleSave()}
         disabled={busy}
-        className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+        className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save"}
       </button>
 
-      {saved && <span className="text-xs font-semibold text-emerald-400">Saved</span>}
+      {saved && <span className="text-xs font-semibold text-mint">Saved</span>}
       {error && (
         <p role="alert" className="w-full text-sm text-red-400">
           {error}

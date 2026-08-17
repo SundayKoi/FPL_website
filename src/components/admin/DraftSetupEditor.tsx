@@ -56,7 +56,7 @@ export default function DraftSetupEditor({
     return (
       <div className="card-brand p-6 text-sm text-steel">
         This draft is already <span className="font-semibold text-white">{draft.status}</span>.{" "}
-        <a href={`/draft/${draft.id}`} className="text-gold underline">
+        <a href={`/draft/${draft.id}`} className="text-coral underline">
           Go to the board
         </a>
         .
@@ -74,7 +74,7 @@ export default function DraftSetupEditor({
         <button
           onClick={startDraft}
           disabled={starting}
-          className="w-fit rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="w-fit rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Start draft
         </button>

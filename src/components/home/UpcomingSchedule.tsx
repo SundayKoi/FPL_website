@@ -39,7 +39,7 @@ export default function UpcomingSchedule({
         {scheduleHref ? (
           <Link
             href={scheduleHref}
-            className="shrink-0 font-semibold text-gold hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+            className="shrink-0 font-semibold text-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
           >
             View full schedule <span aria-hidden>→</span>
           </Link>
