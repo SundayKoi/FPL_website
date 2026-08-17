@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchHomepageSchedule } from "./schedule";
+import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "./schedule";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 const { createServerSupabase } = vi.hoisted(() => ({
@@ -85,5 +85,24 @@ describe("fetchHomepageSchedule", () => {
       activeStage: "week_1",
       fixtures: [],
     });
+  });
+});
+
+describe("selectHomepageFeaturedFixture", () => {
+  const fixtures = [
+    fixture({ id: "first-fixture", team_a: "Alpha", team_b: "Bravo" }),
+    fixture({ id: "configured-fixture", team_a: "Charlie", team_b: "Delta" }),
+  ];
+
+  it("selects a configured fixture from the scoped homepage schedule", () => {
+    expect(selectHomepageFeaturedFixture(fixtures, "configured-fixture")).toEqual(
+      fixtures[1],
+    );
+  });
+
+  it("falls back to the first scoped fixture when the configured fixture is absent", () => {
+    expect(selectHomepageFeaturedFixture(fixtures, "fixture-from-another-schedule")).toEqual(
+      fixtures[0],
+    );
   });
 });

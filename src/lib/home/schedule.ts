@@ -13,6 +13,13 @@ export interface HomepageScheduleData {
   fixtures: FixtureRow[];
 }
 
+export function selectHomepageFeaturedFixture(
+  fixtures: FixtureRow[],
+  configuredFixtureId: string | null,
+): FixtureRow | null {
+  return fixtures.find((fixture) => fixture.id === configuredFixtureId) ?? fixtures[0] ?? null;
+}
+
 /**
  * The active week's fixtures for one league's homepage. `scope` narrows the
  * fixture list before the season is resolved — Academy passes its own filter
