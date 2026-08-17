@@ -885,3 +885,91 @@ git commit -m "test: verify staff tier enforcement across the suite"
 This plan delivers steps 1 and 2 of the spec's rollout: the tiers are real and enforced. The spec's steps 3 and 4 — the consolidated `/admin` console and stripping admin panels from feature pages — are a separate plan, written after this one lands so its tasks can reference the real signatures of `set_signups_open`, `set_team_identity` and `requireBettingOwner`.
 
 Nothing in this plan changes what any admin sees. Controls stay where they are; the dangerous ones simply stop working for non-owners. That is deliberate: it makes this plan safe to ship on its own and independently verifiable before any UI moves.
+
+---
+
+### Task 9: Hide owner-tier panels from non-owner admins
+
+Added mid-execution. The Task 4 review found that routing `AdminSignupsToggle` and `AdminTeamEditor` through RPCs did not cover every writer of the now-gated tables: several admin panels still write directly and, because RLS refuses a forbidden `UPDATE`/`DELETE` by affecting zero rows rather than raising, they fail *silently* for a non-owner admin. Others raise a raw `42501`. Both are worse than not offering the control. This task makes the UI tell the truth.
+
+**Files:**
+- Create: `src/lib/auth/staffTier.ts`
+- Create: `src/lib/auth/staffTier.test.ts`
+- Modify: `src/app/schedule/page.tsx`, `src/app/admin/page.tsx`, `src/app/teams/page.tsx`, `src/app/captain/page.tsx`, `src/app/admin/[draftId]/page.tsx`
+- Modify: `src/components/schedule/AdminFixturesEditor.tsx`
+
+**Interfaces:**
+- Consumes: `profiles.is_owner`.
+- Produces: `fetchStaffTier(supabase): Promise<{ isAdmin: boolean; isOwner: boolean }>`.
+
+- [ ] **Step 1: Write the failing test for the tier reader**
+
+Create `src/lib/auth/staffTier.test.ts`. Cover: an owner returns `{isAdmin:true,isOwner:true}`; a plain admin returns `{isAdmin:true,isOwner:false}`; a signed-out visitor returns both false; and a query error returns both false (fail closed, never open). Mock the supabase client the way `src/lib/home/standings.test.ts` mocks it.
+
+- [ ] **Step 2: Run it and confirm it fails**
+
+Run: `npx vitest run src/lib/auth/staffTier.test.ts`
+Expected: FAIL — module does not exist.
+
+- [ ] **Step 3: Implement the tier reader**
+
+```ts
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export interface StaffTier {
+  isAdmin: boolean;
+  isOwner: boolean;
+}
+
+/** Both staff flags for the signed-in visitor, read server-side. Fails closed:
+ *  any error yields no access rather than defaulting open. Presentation only —
+ *  the database policies are the real gate. */
+export async function fetchStaffTier(supabase: SupabaseClient): Promise<StaffTier> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { isAdmin: false, isOwner: false };
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("is_admin, is_owner")
+    .eq("id", userData.user.id)
+    .single();
+  if (error || !data) return { isAdmin: false, isOwner: false };
+  return { isAdmin: Boolean(data.is_admin), isOwner: Boolean(data.is_owner) };
+}
+```
+
+- [ ] **Step 4: Run it and confirm it passes**
+
+Run: `npx vitest run src/lib/auth/staffTier.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Gate the wholly-owner panels**
+
+Each page below already resolves an admin flag. Add the owner flag via `fetchStaffTier` and render these panels only when `isOwner`. Do not change any admin-tier panel on these pages.
+
+| Page | Render only for an owner |
+|---|---|
+| `src/app/schedule/page.tsx` | `AdminSeasonSettings`, `AdminGenerateSchedule` |
+| `src/app/admin/page.tsx` | `AdminHomepageMode`, `DraftListClient` |
+| `src/app/teams/page.tsx` | `FeaturedDraftSelector` |
+| `src/app/captain/page.tsx` | `LeagueTeamsEditor` |
+| `src/app/admin/[draftId]/page.tsx` | the whole draft-setup editor |
+
+Where a page's owner-only section disappears entirely, leave one line in its place reading "Some league configuration is owner-only." so the page does not look broken.
+
+- [ ] **Step 6: Gate the owner-tier controls inside the mixed fixtures editor**
+
+`AdminFixturesEditor` is mixed: editing a fixture's score or date is admin work, creating and deleting fixtures is owner work. Give it an `isOwner: boolean` prop, passed from `src/app/schedule/page.tsx`, and hide only the create and delete controls when it is false. Editing existing fixtures must keep working for a plain admin.
+
+`AdminTeamEditor` is deliberately NOT changed here — Task 4 already gave it an explicit owner-only refusal message, which is honest, and Plan 2 restructures it.
+
+- [ ] **Step 7: Verify**
+
+Run: `npx tsc --noEmit; npx eslint; npx vitest run`
+Expected: all PASS. Update any test that asserted an owner-tier panel renders for a plain admin — that assertion is now wrong by design.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "feat: hide owner-tier admin panels from non-owner admins"
+```
