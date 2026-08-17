@@ -5,13 +5,13 @@
 -- creators. is_admin is deliberately untouched: a demoted owner keeps every
 -- admin power, they just stop being able to change league-shaping config.
 
-do $$
+create or replace function public.demote_non_creator_owners() returns int
+language plpgsql security definer set search_path = public as $$
 declare v_owners int;
 begin
-  -- A database with no profiles at all (a fresh reset) has nothing to demote.
   if not exists (select 1 from public.profiles where is_owner) then
-    raise notice 'No owners present; skipping demotion.';
-    return;
+    raise notice 'No owners present; nothing to demote.';
+    return 0;
   end if;
 
   update public.profiles
@@ -25,4 +25,10 @@ begin
       'Expected exactly 2 owners after demotion, found %. Check profiles.display_name for dribb and spiesss.',
       v_owners;
   end if;
+  return v_owners;
 end $$;
+
+revoke all on function public.demote_non_creator_owners() from public, anon, authenticated;
+grant execute on function public.demote_non_creator_owners() to service_role;
+
+select public.demote_non_creator_owners();
