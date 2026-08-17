@@ -127,17 +127,33 @@ Both guard with `_require_admin()`.
 | `teams` | → `is_owner()`; admins via `set_team_identity` |
 | `league_teams` | → `is_owner()` |
 | `fixtures` | admin `UPDATE`; owner `INSERT` / `DELETE` |
-| betting seasons, user balances | → `is_owner()` |
-| betting market **settlement** RPCs (payout-affecting) | `_require_admin()` → `_require_owner()` |
-| `match_codes`, `match_reports`, `match_report_games`, `roster_memberships`, `signups`, `info_resources`, `homepage_briefs`, `announcements`, betting catalog/props/pickems | unchanged (admin) |
+| `match_codes`, `match_reports`, `match_report_games`, `roster_memberships`, `signups`, `info_resources`, `homepage_briefs`, `announcements` | unchanged (admin) |
 | `_require_admin()` RPCs (draft room, bulk codes, syncs) | unchanged (admin) |
+| betting (all tables) | **no RLS change** — see below |
 
-Betting splits by reversibility, not by table: creating and editing a market is
-admin work because it can be undone, while settling one pays out and cannot.
-Settlement lives in RPCs rather than table writes, so it is gated there. The
-implementation plan must enumerate the betting lifecycle RPCs and classify each
-as create-side (admin) or settle-side (owner) — `20260813000003` and
-`20260813000005` are the files to audit.
+### Betting is gated in the action layer, not the database
+
+Betting does not use RLS for writes at all. `20260813000001_betting_schema.sql`
+grants `authenticated` only `select`; every write goes through a Next.js server
+action in `src/lib/betting/admin-actions.ts`, which authorizes with
+`requireBettingStaff()` and then writes using a `service_role` client that
+bypasses RLS entirely. The money-moving RPCs
+(`resolve_market_admin`, `cancel_market_admin`, …) are explicitly revoked from
+`anon` and `authenticated`, so a browser cannot reach them under any tier.
+
+The betting gate is therefore a new `requireBettingOwner()` in
+`src/lib/betting/access.ts`, applied per action:
+
+- **Owner:** `resolveMarket`, `cancelMarket`, `deleteMarket`, `resolvePickem`,
+  `cancelPickem`, `createSeason`, `closeSeason`, `grantPoints` — settlement,
+  payouts and balances.
+- **Admin (unchanged):** `createMarket`, `createPickem`, `upsertTeam`,
+  `upsertEvent`, `upsertStoreItem`, `deleteTeam`, `deleteEvent`,
+  `deleteStoreItem`, `approveProp`, `rejectProp` — catalog work, reversible
+  before settlement.
+
+This splits by reversibility: creating a market can be undone, settling one
+pays out and cannot.
 
 New helper `public._require_owner()`, mirroring `_require_admin()`.
 
@@ -221,5 +237,8 @@ config from the site.
   exactly two owners aborts.
 - **pgTAP for both new RPCs:** an admin succeeds, an anonymous caller does not,
   and the RPC cannot write columns outside its slice.
+- **Vitest for the betting actions:** each owner-tier action refuses a
+  non-owner staff caller and performs no write, mirroring the existing
+  authorization suite in `admin-actions.test.ts`.
 - **Vitest for tier rendering:** a non-owner's rendered output contains no
   owner section, and an owner's contains all of them.
