@@ -36,7 +36,7 @@ export function LeaderboardTable({
           onClick={() => setMode("balance")}
           className={
             "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-            (mode === "balance" ? "border-transparent bg-gold text-navy" : "border-line text-steel hover:border-gold hover:text-gold")
+            (mode === "balance" ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
           }
         >
           Richest
@@ -46,7 +46,7 @@ export function LeaderboardTable({
           onClick={() => setMode("profit")}
           className={
             "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-            (mode === "profit" ? "border-transparent bg-gold text-navy" : "border-line text-steel hover:border-gold hover:text-gold")
+            (mode === "profit" ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
           }
         >
           Top Profit
@@ -69,7 +69,7 @@ export function LeaderboardTable({
               return (
                 <tr
                   key={r.discord_id}
-                  className={"border-b border-line last:border-0" + (r.discord_id === meId ? " bg-gold/5" : "")}
+                  className={"border-b border-line last:border-0" + (r.discord_id === meId ? " bg-coral/5" : "")}
                 >
                   <td className={`px-4 py-2.5 font-mono text-sm font-bold ${rankClass(r.rank)}`}>#{r.rank}</td>
                   <td className="px-4 py-2.5">
@@ -86,7 +86,7 @@ export function LeaderboardTable({
                       ))}
                     </span>
                   </td>
-                  <td className={`px-4 py-2.5 text-right font-semibold ${neg ? "text-red-400" : "text-emerald-400"}`}>
+                  <td className={`px-4 py-2.5 text-right font-semibold ${neg ? "text-red-400" : "text-mint"}`}>
                     {neg ? `-${fmtPoints(Math.abs(value))}` : fmtPoints(value)}
                   </td>
                 </tr>

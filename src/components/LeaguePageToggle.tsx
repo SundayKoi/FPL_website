@@ -14,7 +14,7 @@ export default function LeaguePageToggle({
   const links = leaguePageLinks(page, view, params);
   const linkClass = (active: boolean) =>
     `inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
-      active ? "bg-gold font-bold text-navy" : "text-steel/60 hover:bg-panel hover:text-steel"
+      active ? "bg-coral font-bold text-navy" : "text-steel/60 hover:bg-panel hover:text-steel"
     }`;
 
   return (

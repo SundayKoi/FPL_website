@@ -206,7 +206,7 @@ describe("TeamsPage", () => {
     expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
     expect(screen.getByText("Academy Team")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Premier" }).getAttribute("href")).toBe("/teams");
-    expect(screen.getByRole("link", { name: "Academy" }).className).toContain("bg-gold");
+    expect(screen.getByRole("link", { name: "Academy" }).className).toContain("bg-coral");
   });
 
   it("lets admins edit Academy teams", async () => {

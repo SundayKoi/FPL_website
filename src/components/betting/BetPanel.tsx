@@ -90,7 +90,7 @@ export function BetPanel({
       </label>
       <input
         id="bet-amount"
-        className="mt-1 w-full rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+        className="mt-1 w-full rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         type="number"
         min={0}
         max={balance}
@@ -105,7 +105,7 @@ export function BetPanel({
         max={balance}
         value={Math.min(amount, balance)}
         onChange={(e) => setAmount(Math.trunc(Number(e.target.value)))}
-        className="mt-3 w-full accent-gold"
+        className="mt-3 w-full accent-coral"
       />
       <div className="mt-3 flex gap-2">
         {QUICK.map((q) => (
@@ -113,7 +113,7 @@ export function BetPanel({
             key={q}
             type="button"
             onClick={() => setAmount(Math.trunc(balance * q))}
-            className="flex-1 rounded border border-line py-1 text-xs text-steel hover:border-gold hover:text-gold"
+            className="flex-1 rounded border border-line py-1 text-xs text-steel hover:border-coral hover:text-coral"
           >
             {q === 1 ? "MAX" : `${q * 100}%`}
           </button>
@@ -121,13 +121,13 @@ export function BetPanel({
       </div>
       <div className="mt-3 flex items-center justify-between text-sm" data-testid="payout">
         <span className="text-steel">Win payout</span>
-        <span className="font-display font-bold not-italic text-emerald-400">+{fmtPoints(profit)}</span>
+        <span className="font-display font-bold not-italic text-mint">+{fmtPoints(profit)}</span>
       </div>
       {tooBig && <div className="mt-2 text-xs text-red-400">Over balance</div>}
       {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
       <button
         type="button"
-        className="mt-3 w-full rounded bg-gold py-3 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-3 w-full rounded bg-coral py-3 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={disabled}
         onClick={() => onBet(side, amount)}
       >

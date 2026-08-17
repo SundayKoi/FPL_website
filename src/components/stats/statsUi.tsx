@@ -58,7 +58,7 @@ export function StatBar({
 // UTILITY. Colors mirror the legacy dashboard's role palette.
 const ROLE_META: Record<string, { chip: string; bar: NeonColor }> = {
   TOP: { chip: "text-red-300 border-red-400/40 bg-red-500/10", bar: "red" },
-  JUNGLE: { chip: "text-emerald-300 border-emerald-400/40 bg-emerald-500/10", bar: "green" },
+  JUNGLE: { chip: "text-mint border-mint/40 bg-mint/10", bar: "green" },
   MIDDLE: { chip: "text-cyan border-cyan/40 bg-cyan/10", bar: "cyan" },
   BOTTOM: { chip: "text-gold border-gold/40 bg-gold/10", bar: "gold" },
   UTILITY: { chip: "text-purple border-purple/40 bg-purple/10", bar: "purple" },

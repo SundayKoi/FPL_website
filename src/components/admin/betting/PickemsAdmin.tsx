@@ -59,7 +59,7 @@ function CreatePickemForm({
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -74,7 +74,7 @@ function CreatePickemForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Night 1"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </label>
       </div>
@@ -89,7 +89,7 @@ function CreatePickemForm({
                 key={leg.id}
                 className={
                   "cursor-pointer rounded border px-2 py-1 text-xs " +
-                  (selected.includes(leg.id) ? "border-gold bg-gold/10 text-gold" : "border-line text-steel")
+                  (selected.includes(leg.id) ? "border-coral bg-coral/10 text-coral" : "border-line text-steel")
                 }
               >
                 <input type="checkbox" className="mr-1" checked={selected.includes(leg.id)} onChange={() => toggle(leg.id)} />
@@ -102,7 +102,7 @@ function CreatePickemForm({
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="self-start rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Create pick&apos;em
       </button>
@@ -176,7 +176,7 @@ export default function PickemsAdmin({
                           startTransition(async () => after(await resolvePickem(p.id)));
                         }
                       }}
-                      className="rounded border border-emerald-500/60 px-2 py-1 text-xs font-semibold text-emerald-400 disabled:opacity-40"
+                      className="rounded border border-mint/60 px-2 py-1 text-xs font-semibold text-mint disabled:opacity-40"
                     >
                       Resolve
                     </button>

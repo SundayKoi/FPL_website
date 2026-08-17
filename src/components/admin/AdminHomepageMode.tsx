@@ -51,7 +51,7 @@ export default function AdminHomepageMode({ homepageMode }: { homepageMode: Home
             disabled={busy}
             onClick={() => void saveMode(option.value)}
             className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition disabled:opacity-50 ${
-              mode === option.value ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              mode === option.value ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
             }`}
           >
             {busy && mode !== option.value ? "Saving…" : option.label}

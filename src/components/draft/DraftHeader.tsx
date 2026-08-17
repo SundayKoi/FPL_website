@@ -8,7 +8,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_CLASS: Record<string, string> = {
-  live: "bg-emerald-500/15 text-emerald-400",
+  live: "bg-mint/15 text-mint",
   paused: "bg-gold/15 text-gold",
   complete: "bg-panel text-steel",
   setup: "bg-panel text-steel",

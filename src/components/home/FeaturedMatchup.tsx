@@ -80,7 +80,7 @@ export default function FeaturedMatchup({
           <span className="block text-[10px] uppercase tracking-[0.16em] text-steel">Team A</span>
           <strong className="mt-2 block text-xl text-white">{teamA}</strong>
         </div>
-        <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-gold">VS</span>
+        <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-coral">VS</span>
         <div className="rounded-lg border border-line bg-navy/60 p-4">
           <span className="block text-[10px] uppercase tracking-[0.16em] text-steel">Team B</span>
           <strong className="mt-2 block text-xl text-white">{teamB}</strong>
@@ -111,7 +111,7 @@ export default function FeaturedMatchup({
           </span>
         </button>
         <div className="border-t border-line px-4 py-3 text-right">
-          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gold hover:text-white">
+          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-coral hover:text-white">
             Open Twitch channel →
           </a>
         </div>

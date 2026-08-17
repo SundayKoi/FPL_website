@@ -46,13 +46,13 @@ export default async function BettingLayout({ children }: { children: ReactNode 
             Betting
           </Link>
           <div className="flex gap-4 text-sm text-steel">
-            <Link href="/betting" className="hover:text-gold">
+            <Link href="/betting" className="hover:text-coral">
               Events
             </Link>
-            <Link href="/betting/leaderboard" className="hover:text-gold">
+            <Link href="/betting/leaderboard" className="hover:text-coral">
               Leaderboard
             </Link>
-            <Link href="/betting/profile" className="hover:text-gold">
+            <Link href="/betting/profile" className="hover:text-coral">
               Profile
             </Link>
           </div>
@@ -60,7 +60,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
             {user.staff && (
               <Link
                 href="/admin/betting"
-                className="rounded-full border border-line px-3 py-1 text-sm text-steel transition hover:border-gold/40 hover:text-gold"
+                className="rounded-full border border-line px-3 py-1 text-sm text-steel transition hover:border-coral/40 hover:text-coral"
               >
                 Admin
               </Link>

@@ -11,7 +11,7 @@ const ROLE_LABELS: Record<LolRole, string> = {
 };
 const ROLE_TONES: Record<LolRole, string> = {
   top: "border-violet-300/50 bg-violet-300/10 text-violet-100",
-  jungle: "border-emerald-300/50 bg-emerald-300/10 text-emerald-100",
+  jungle: "border-mint/50 bg-mint/10 text-mint",
   mid: "border-sky-300/50 bg-sky-300/10 text-sky-100",
   adc: "border-amber-300/50 bg-amber-300/10 text-amber-100",
   support: "border-purple-300/50 bg-purple-300/10 text-purple-100",
@@ -74,7 +74,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                           href={player.opggUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                          className="min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                         >
                           {player.displayName}
                         </a>

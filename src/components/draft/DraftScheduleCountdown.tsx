@@ -62,7 +62,7 @@ export default function DraftScheduleCountdown({
       {label && <span className="label-dash text-gold">{label}</span>}
       <p className="mt-2 text-sm text-steel">{formatEasternDateTime(startsAt)}</p>
       {complete ? (
-        <p className="mt-3 font-display text-xl font-bold not-italic text-emerald-400">Live now</p>
+        <p className="mt-3 font-display text-xl font-bold not-italic text-mint">Live now</p>
       ) : (
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <CountdownUnit value={clock === 0 ? "—" : String(countdown.days)} label="Days" accent />

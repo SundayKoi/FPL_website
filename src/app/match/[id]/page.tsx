@@ -11,7 +11,7 @@ const int = new Intl.NumberFormat("en-US");
 function TeamLink({ name }: { name: string }) {
   if (name === "TBD") return <span className="text-steel">{name}</span>;
   return (
-    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-gold hover:underline">
+    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-coral hover:underline">
       {name}
     </Link>
   );
@@ -72,7 +72,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           {formatKickoff(fixture.scheduled_at)} · Best of {fixture.best_of}
           {games.length > 0 ? ` · ${games.length} game${games.length === 1 ? "" : "s"} on record` : ""}
         </p>
-        <Link href="/schedule" className="text-xs text-steel underline-offset-4 hover:text-gold hover:underline">
+        <Link href="/schedule" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
           ← Back to the schedule
         </Link>
       </header>

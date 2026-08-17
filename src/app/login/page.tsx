@@ -63,13 +63,13 @@ export default function LoginPage() {
           >
             <p className="text-sm text-steel">Dev sign-in (local only)</p>
             <input
-              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email"
             />
             <input
-              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

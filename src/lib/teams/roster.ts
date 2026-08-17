@@ -12,7 +12,7 @@ const accentClasses = [
   "bg-cyan-950",
   "bg-red-950",
   "bg-violet-950",
-  "bg-emerald-950",
+  "bg-mint",
   "bg-amber-950",
   "bg-sky-950",
 ] as const;

@@ -178,7 +178,7 @@ export default function TeamEditor({
         <button
           disabled={busy}
           onClick={addTeam}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Add team
         </button>
@@ -223,7 +223,7 @@ export default function TeamEditor({
               }}
               className={`card-brand flex flex-col gap-3 p-4 ${
                 dragIndex === index ? "opacity-50" : ""
-              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-gold" : ""}`}
+              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-coral" : ""}`}
             >
               <div className="flex flex-wrap items-center gap-3">
                 <span
@@ -256,7 +256,7 @@ export default function TeamEditor({
                     disabled={busy || index === 0}
                     onClick={() => reorder(index, index - 1)}
                     aria-label={`Move ${team.name} up`}
-                    className="px-1 text-[10px] leading-tight text-steel hover:text-gold disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-steel hover:text-coral disabled:opacity-30"
                   >
                     ▲
                   </button>
@@ -265,7 +265,7 @@ export default function TeamEditor({
                     disabled={busy || index === ordered.length - 1}
                     onClick={() => reorder(index, index + 1)}
                     aria-label={`Move ${team.name} down`}
-                    className="px-1 text-[10px] leading-tight text-steel hover:text-gold disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-steel hover:text-coral disabled:opacity-30"
                   >
                     ▼
                   </button>
@@ -273,7 +273,7 @@ export default function TeamEditor({
                 <input
                   value={team.name}
                   onChange={(e) => updateTeam(team, { name: e.target.value })}
-                  className="w-40 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+                  className="w-40 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
                 />
                 <label className="flex items-center gap-1 text-xs text-steel">
                   Budget
@@ -282,7 +282,7 @@ export default function TeamEditor({
                     min={0}
                     value={team.points_remaining}
                     onChange={(e) => setBudget(team, Number(e.target.value) + committedSpend)}
-                    className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+                    className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
                   />
                 </label>
                 <label className="flex items-center gap-1 text-xs text-steel">
@@ -292,7 +292,7 @@ export default function TeamEditor({
                     onChange={(e) =>
                       updateTeam(team, { captain_profile_id: e.target.value || null })
                     }
-                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
                   >
                     <option value="">— none —</option>
                     {captainOptions.map((p) => (
@@ -310,7 +310,7 @@ export default function TeamEditor({
                     onChange={(e) =>
                       updateTeam(team, { captain_profile_id_2: e.target.value || null })
                     }
-                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
                   >
                     <option value="">— none —</option>
                     {secondCaptainOptions.map((profile) => (
@@ -410,7 +410,7 @@ function ExistingPrefillForm({
           value={playerId}
           onChange={(e) => setPlayerId(e.target.value)}
           disabled={formDisabled}
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
         >
           <option value="">— select player —</option>
           {players.map((player) => (
@@ -426,7 +426,7 @@ function ExistingPrefillForm({
           value={selectedAcquisition}
           onChange={(e) => setAcquisition(e.target.value as Acquisition)}
           disabled={formDisabled}
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
         >
           {acquisitions.map((option) => (
             <option key={option} value={option}>
@@ -444,13 +444,13 @@ function ExistingPrefillForm({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           disabled={formDisabled}
-          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
+          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none disabled:opacity-40"
         />
       </label>
       <button
         type="submit"
         disabled={formDisabled || !playerId || !selectedAcquisition || !validPrice}
-        className="rounded bg-gold px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="rounded bg-coral px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Add existing player
       </button>

@@ -72,7 +72,7 @@ export function signupPayload(form: FormState, season: string) {
 }
 
 const inputClass =
-  "rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none";
+  "rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
 const labelClass = "flex flex-col gap-1.5 text-sm font-semibold text-white";
 const hintClass = "text-xs font-normal text-steel";
 

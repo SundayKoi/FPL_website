@@ -156,7 +156,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                             disabled={busy}
                             aria-label={`${team.name} name`}
                             onChange={(e) => patchRow(team, { name: e.target.value })}
-                            className="w-full rounded border border-line bg-navy px-2 py-1 text-white focus:border-gold focus:outline-none disabled:opacity-50"
+                            className="w-full rounded border border-line bg-navy px-2 py-1 text-white focus:border-coral focus:outline-none disabled:opacity-50"
                           />
                         </td>
                         <td className="py-1.5 pr-3">
@@ -166,7 +166,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                             maxLength={5}
                             aria-label={`${team.name} abbreviation`}
                             onChange={(e) => patchRow(team, { abbreviation: e.target.value.toUpperCase() })}
-                            className="w-20 rounded border border-line bg-navy px-2 py-1 uppercase text-white focus:border-gold focus:outline-none disabled:opacity-50"
+                            className="w-20 rounded border border-line bg-navy px-2 py-1 uppercase text-white focus:border-coral focus:outline-none disabled:opacity-50"
                           />
                         </td>
                         <td className="py-1.5 pr-3">
@@ -176,7 +176,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                             disabled={busy}
                             aria-label={`${team.name} active`}
                             onChange={(e) => patchRow(team, { active: e.target.checked })}
-                            className="h-4 w-4 accent-gold"
+                            className="h-4 w-4 accent-coral"
                           />
                         </td>
                         <td className="py-1.5">
@@ -218,7 +218,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
               <input
                 value={addForm.name}
                 onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
@@ -227,7 +227,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                 value={addForm.abbreviation}
                 onChange={(e) => setAddForm((f) => ({ ...f, abbreviation: e.target.value.toUpperCase() }))}
                 maxLength={5}
-                className="w-20 rounded border border-line bg-navy px-2 py-1.5 text-sm uppercase text-white focus:border-gold focus:outline-none"
+                className="w-20 rounded border border-line bg-navy px-2 py-1.5 text-sm uppercase text-white focus:border-coral focus:outline-none"
               />
             </label>
             <label className="flex items-center gap-1.5 pb-1.5 text-xs text-steel">
@@ -235,7 +235,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                 type="checkbox"
                 checked={addForm.active}
                 onChange={(e) => setAddForm((f) => ({ ...f, active: e.target.checked }))}
-                className="h-4 w-4 accent-gold"
+                className="h-4 w-4 accent-coral"
               />
               Active
             </label>
@@ -243,7 +243,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
               type="button"
               disabled={addStatus.kind === "saving"}
               onClick={() => void handleAdd()}
-              className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+              className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
             >
               {addStatus.kind === "saving" ? "Adding…" : "Add team"}
             </button>

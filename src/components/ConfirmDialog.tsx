@@ -35,7 +35,7 @@ export default function ConfirmDialog({
         className="card-brand w-full max-w-sm p-6 text-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="label-dash !text-gold">{title}</h3>
+        <h3 className="label-dash !text-coral">{title}</h3>
         <div className="mt-3 text-white">{children}</div>
         <div className="mt-6 flex justify-center gap-3">
           <button
@@ -46,7 +46,7 @@ export default function ConfirmDialog({
           </button>
           <button
             autoFocus
-            className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110"
+            className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110"
             onClick={onConfirm}
           >
             {confirmLabel}

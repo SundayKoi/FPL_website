@@ -151,7 +151,7 @@ export default function DraftBoard({
                     <button
                       type="button"
                       onClick={() => setCollapseAllTeams((current) => !current)}
-                      className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-gold hover:text-gold"
+                      className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-coral hover:text-coral"
                     >
                       {collapseAllTeams ? "Expand all" : "Collapse all"}
                     </button>
@@ -233,7 +233,7 @@ export default function DraftBoard({
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(false)}
-                  className="hidden rounded border border-gold px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gold hover:bg-gold/10 xl:absolute xl:right-0 xl:top-0 xl:block"
+                  className="hidden rounded border border-coral px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-coral hover:bg-coral/10 xl:absolute xl:right-0 xl:top-0 xl:block"
                 >
                   Open chat
                 </button>

@@ -97,7 +97,7 @@ describe("TeamsDirectory", () => {
     const academyLink = screen.getByRole("link", { name: "Academy" });
     expect(premierLink.getAttribute("href")).toBe("/teams");
     expect(academyLink.getAttribute("href")).toBe("/academy/teams");
-    expect(academyLink.className).toContain("bg-gold");
+    expect(academyLink.className).toContain("bg-coral");
     expect(academyLink.className).toContain("font-bold");
     expect(screen.getByRole("navigation", { name: "League" }).className).toContain("bg-navy");
   });

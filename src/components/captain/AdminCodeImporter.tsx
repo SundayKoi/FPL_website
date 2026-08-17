@@ -130,7 +130,7 @@ export default function AdminCodeImporter({
           onChange={(event) => {
             void handleFileChange(event);
           }}
-          className="rounded border border-dashed border-line bg-navy px-2 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-navy"
+          className="rounded border border-dashed border-line bg-navy px-2 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-coral file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-navy"
         />
       </label>
 
@@ -147,7 +147,7 @@ export default function AdminCodeImporter({
       )}
 
       {(status.kind === "success" || status.kind === "saving") && (
-        <p role="status" className={status.kind === "success" ? "text-sm font-semibold text-emerald-400" : "text-sm text-steel"}>
+        <p role="status" className={status.kind === "success" ? "text-sm font-semibold text-mint" : "text-sm text-steel"}>
           {status.kind === "success" ? status.message : "Saving imported codes…"}
         </p>
       )}
@@ -194,7 +194,7 @@ export default function AdminCodeImporter({
               type="button"
               onClick={() => void handleConfirm()}
               disabled={isBusy}
-              className="w-fit rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+              className="w-fit rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
             >
               {status.kind === "saving" ? "Importing…" : "Confirm import"}
             </button>

@@ -37,7 +37,7 @@ export default function TeamColumn({
             aria-expanded={!collapsed}
             aria-label={`${collapsed ? "Expand" : "Collapse"} team ${team.name}`}
             onClick={() => setCollapsed((current) => !current)}
-            className="rounded border border-line px-1.5 py-0.5 text-sm leading-none text-steel hover:border-gold hover:text-gold"
+            className="rounded border border-line px-1.5 py-0.5 text-sm leading-none text-steel hover:border-coral hover:text-coral"
           >
             {collapsed ? "+" : "−"}
           </button>

@@ -52,7 +52,7 @@ function formatDate(iso: string): string {
 }
 
 function laningDeltaClass(delta: number): string {
-  if (delta > 0) return "text-emerald-400";
+  if (delta > 0) return "text-mint";
   if (delta < 0) return "text-red-400";
   return "text-steel";
 }
@@ -423,7 +423,7 @@ export default function PlayerDetail({
                       <td className="px-2 py-1.5">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                            game.win ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
+                            game.win ? "bg-mint/15 text-mint" : "bg-red-500/15 text-red-400"
                           }`}
                         >
                           {game.win ? "W" : "L"}

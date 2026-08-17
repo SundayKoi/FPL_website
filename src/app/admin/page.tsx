@@ -69,7 +69,7 @@ export default async function AdminPage() {
     {
       label: "Signups",
       stat: `${signupCount} total · ${settings?.signups_open ? "OPEN" : "CLOSED"}`,
-      statTone: settings?.signups_open ? "text-emerald-400" : "text-red-400",
+      statTone: settings?.signups_open ? "text-mint" : "text-red-400",
       description: "Review the pool, open/close the window.",
       href: "/signup",
     },
@@ -115,10 +115,10 @@ export default async function AdminPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-gold"
+            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-coral"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-display text-2xl group-hover:text-gold">{card.label}</span>
+              <span className="type-display text-2xl group-hover:text-coral">{card.label}</span>
               <span className={`text-xs font-bold uppercase tracking-wide ${card.statTone}`}>
                 {card.stat}
               </span>
