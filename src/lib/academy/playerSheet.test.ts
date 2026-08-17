@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { individualOpggUrl, mergeAcademyPlayers, parseAcademyPlayers } from "./playerSheet";
+import { academyOpggUrlForPlayer, individualOpggUrl, mergeAcademyPlayers, parseAcademyPlayers } from "./playerSheet";
 
 describe("Academy player sheet", () => {
   it("reduces a multisearch URL to the named player's individual URL", () => {
@@ -7,6 +7,12 @@ describe("Academy player sheet", () => {
       "https://op.gg/lol/multisearch/na?summoners=Alpha%23NA1%2CBeta%23NA1",
       "Beta#NA1",
     )).toBe("https://op.gg/lol/summoners/na/Beta-NA1");
+  });
+
+  it("matches an Academy draft name without its Riot tag", () => {
+    expect(academyOpggUrlForPlayer("SuperWeeb")).toBe(
+      "https://op.gg/lol/summoners/na/SuperWeeb-Weeb",
+    );
   });
 
   it("maps player and OP.GG columns without constructing links", () => {

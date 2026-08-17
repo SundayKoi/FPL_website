@@ -56,8 +56,13 @@ export function individualOpggUrl(rosterUrl: string | undefined | null, playerNa
 }
 
 export function academyOpggUrlForPlayer(playerName: string): string | null {
+  const normalizedPlayerName = normalizePlayerName(playerName);
   const rosterUrl = Object.entries(ACADEMY_OPGG_BY_PLAYER).find(
-    ([name]) => normalizePlayerName(name) === normalizePlayerName(playerName),
+    ([name]) => {
+      const normalizedRosterName = normalizePlayerName(name);
+      const rosterGameName = normalizedRosterName.split("#", 1)[0];
+      return normalizedRosterName === normalizedPlayerName || rosterGameName === normalizedPlayerName;
+    },
   )?.[1];
   return individualOpggUrl(rosterUrl, playerName);
 }
