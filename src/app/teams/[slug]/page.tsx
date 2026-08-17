@@ -156,7 +156,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                 href={multiOpggUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-coral hover:text-coral"
+                className="mt-3 inline-flex rounded-full border border-coral/80 bg-coral/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
               >
                 Team OP.GG Multi
               </a>
