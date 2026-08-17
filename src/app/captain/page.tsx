@@ -106,8 +106,8 @@ export async function CaptainPageView({
   const [codes, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
-    fetchMyRoster(supabase, activeTeamId, context.season),
-    opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season) : Promise.resolve(null),
+    fetchMyRoster(supabase, activeTeamId, context.season, league),
+    opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
   ]);

@@ -229,7 +229,8 @@ export async function fetchMyReports(
 export async function fetchMyRoster(
   supabase: SupabaseClient,
   teamId: string,
-  season: string
+  season: string,
+  league: "premier" | "academy" = "premier",
 ): Promise<MyRosterData> {
   const { data: teamRow } = await supabase.from("league_teams").select("name").eq("id", teamId).single();
   const teamName = (teamRow as { name: string } | null)?.name ?? null;
@@ -257,7 +258,10 @@ export async function fetchMyRoster(
           .select("*")
           .eq("team_id", draftTeamId)
           .order("role"),
-        supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
+        supabase
+          .from("player_pool")
+          .select("id, display_name, rank, opgg_url")
+          .eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       ]);
       const { data: playerRows, error: playersError } = playersResult;
       if (playersError) throw playersError;
