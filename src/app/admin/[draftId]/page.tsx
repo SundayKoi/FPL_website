@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
 import DraftSetupEditor from "@/components/admin/DraftSetupEditor";
 
@@ -10,15 +11,8 @@ export default async function AdminDraftPage({
 }) {
   const { draftId } = await params;
   const supabase = await createServerSupabase();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) redirect("/");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", userData.user.id)
-    .single();
-  if (!profile?.is_admin) redirect("/");
+  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
+  if (!isAdmin) redirect("/");
 
   const [draftRes, teamsRes, playersRes, profilesRes] = await Promise.all([
     supabase.from("drafts").select("*").eq("id", draftId).single(),
@@ -34,12 +28,16 @@ export default async function AdminDraftPage({
       <h1 className="type-display text-2xl text-white">
         Setup — {(draftRes.data as Draft).name}
       </h1>
-      <DraftSetupEditor
-        draft={draftRes.data as Draft}
-        teams={(teamsRes.data as Team[]) ?? []}
-        players={(playersRes.data as Player[]) ?? []}
-        profiles={(profilesRes.data as Profile[]) ?? []}
-      />
+      {isOwner ? (
+        <DraftSetupEditor
+          draft={draftRes.data as Draft}
+          teams={(teamsRes.data as Team[]) ?? []}
+          players={(playersRes.data as Player[]) ?? []}
+          profiles={(profilesRes.data as Profile[]) ?? []}
+        />
+      ) : (
+        <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+      )}
     </main>
   );
 }

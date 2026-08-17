@@ -204,7 +204,11 @@ export async function CaptainPageView({
                 enableBulkImporter={league === "premier"}
               />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
-              <LeagueTeamsEditor teams={context.teams} />
+              {context.isOwner ? (
+                <LeagueTeamsEditor teams={context.teams} />
+              ) : (
+                <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+              )}
               <RosterEditor teams={context.activeTeams} defaultSeason={context.season} memberships={allMemberships} />
             </div>
           )}

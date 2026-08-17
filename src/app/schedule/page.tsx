@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import {
   formatKickoff,
   groupByStage,
@@ -24,17 +25,7 @@ export default async function SchedulePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const supabase = await createServerSupabase();
-  const { data: userData } = await supabase.auth.getUser();
-  let isAdmin = false;
-
-  if (userData.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userData.user.id)
-      .single();
-    isAdmin = profile?.is_admin ?? false;
-  }
+  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
 
   const [fixturesResult, settingsResult, identities, leagueSeasons] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
@@ -124,17 +115,23 @@ export default async function SchedulePage({
 
         {isAdmin && (
           <div className="mt-8 flex flex-col gap-4">
-            <AdminSeasonSettings
-              currentSeason={settings?.current_season ?? ""}
-              currentPhase={settings?.current_phase ?? "Regular"}
-              academySeason={settings?.academy_season ?? leagueSeasons.academy}
-            />
-            {/* season is null until fixtures exist, which is exactly when the
-                draw is needed — fall back to the league's current season. */}
-            {(season ?? settings?.current_season) && (
-              <AdminGenerateSchedule season={(season ?? settings?.current_season) as string} />
+            {isOwner ? (
+              <>
+                <AdminSeasonSettings
+                  currentSeason={settings?.current_season ?? ""}
+                  currentPhase={settings?.current_phase ?? "Regular"}
+                  academySeason={settings?.academy_season ?? leagueSeasons.academy}
+                />
+                {/* season is null until fixtures exist, which is exactly when the
+                    draw is needed — fall back to the league's current season. */}
+                {(season ?? settings?.current_season) && (
+                  <AdminGenerateSchedule season={(season ?? settings?.current_season) as string} />
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-steel">Some league configuration is owner-only.</p>
             )}
-            <AdminFixturesEditor fixtures={fixtures} season={season} />
+            <AdminFixturesEditor fixtures={fixtures} season={season} isOwner={isOwner} />
           </div>
         )}
 
