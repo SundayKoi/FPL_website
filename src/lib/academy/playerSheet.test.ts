@@ -34,5 +34,9 @@ describe("Academy player sheet", () => {
       [{ display_name: "SuperWeeb#WEEB", role: "top" }],
       [],
     )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/SuperWeeb-Weeb");
+    expect(mergeAcademyPlayers(
+      [{ display_name: "Dream Unforgiven#Na1", role: "top" }],
+      [],
+    )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/Dream%20Unforgiven-NA1");
   });
 });

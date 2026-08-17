@@ -43,7 +43,7 @@ function individualOpggUrl(rosterUrl: string | undefined, playerName: string): s
   const query = rosterUrl.match(/[?&]summoners=([^&]+)/)?.[1];
   if (!query) return rosterUrl;
   const playerKey = normalizePlayerName(playerName);
-  const account = decodeURIComponent(query)
+  const account = decodeURIComponent(query.replace(/\+/g, " "))
     .split(",")
     .map((value) => value.trim())
     .find((value) => normalizePlayerName(value.replace(/#[^#]*$/, "")) === playerKey);
