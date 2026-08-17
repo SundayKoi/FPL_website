@@ -10,6 +10,7 @@ import {
   teamRecord,
   teamSlug,
 } from "@/lib/teams/teamPage";
+import { opggMultiSearchUrlFromOpggUrls } from "@/lib/opgg/multiSearch";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -70,6 +71,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
 
   const record = teamRecord(fixtures, team.name);
   const { upcoming, results } = splitTeamFixtures(fixtures, team.name);
+  const multiOpggUrl = opggMultiSearchUrlFromOpggUrls(team.players.map((player) => player.opggUrl));
   const winRate =
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 
@@ -116,6 +118,16 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
             <p className="text-xs uppercase tracking-[0.14em] text-white/80">
               {winRate !== null ? `${winRate}% series` : "No series played"}
             </p>
+            {multiOpggUrl ? (
+              <a
+                href={multiOpggUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
+              >
+                Team OP.GG Multi
+              </a>
+            ) : null}
           </div>
         </header>
 

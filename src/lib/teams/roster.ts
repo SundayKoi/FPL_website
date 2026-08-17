@@ -52,6 +52,7 @@ export function toRosterTeams(
               id: player.id,
               role: player.role,
               displayName: player.display_name,
+              opggUrl: player.opgg_url,
               price: player.price ?? 0,
               acquisition: player.acquisition,
             }

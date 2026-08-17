@@ -36,6 +36,7 @@ export interface RosterSlotView {
   id: string;
   role: LolRole;
   displayName: string;
+  opggUrl?: string | null;
   price: number;
   acquisition: Acquisition | null;
   isEmpty?: boolean;
