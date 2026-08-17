@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { TeamPageContent } from "@/app/teams/[slug]/page";
 
 export default async function AcademyTeamPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  redirect(`/teams/${slug}?league=academy`);
+  return <TeamPageContent params={params} league="academy" />;
 }

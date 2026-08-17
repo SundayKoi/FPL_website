@@ -32,7 +32,7 @@ const roleLabels = {
  * stats both store team names as text rather than FKs (see the fixtures
  * migration), so name is the only join key available.
  */
-async function TeamPageContent({ params, league = "premier" }: { params: Promise<{ slug: string }>; league?: "premier" | "academy" }) {
+export async function TeamPageContent({ params, league = "premier" }: { params: Promise<{ slug: string }>; league?: "premier" | "academy" }) {
   const { slug } = await params;
   const supabase = await createServerSupabase();
 
