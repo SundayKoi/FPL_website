@@ -33,6 +33,6 @@ describe("Academy player sheet", () => {
     expect(mergeAcademyPlayers(
       [{ display_name: "SuperWeeb#WEEB", role: "top" }],
       [],
-    )[0]?.opggUrl).toContain("op.gg/lol/multisearch/na");
+    )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/SuperWeeb-Weeb");
   });
 });

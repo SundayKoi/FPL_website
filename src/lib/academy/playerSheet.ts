@@ -38,6 +38,23 @@ const ACADEMY_OPGG_BY_PLAYER: Record<string, string> = {
   "killomanjaro#na1": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
 };
 
+function individualOpggUrl(rosterUrl: string | undefined, playerName: string): string | null {
+  if (!rosterUrl) return null;
+  const query = rosterUrl.match(/[?&]summoners=([^&]+)/)?.[1];
+  if (!query) return rosterUrl;
+  const playerKey = normalizePlayerName(playerName);
+  const account = decodeURIComponent(query)
+    .split(",")
+    .map((value) => value.trim())
+    .find((value) => normalizePlayerName(value.replace(/#[^#]*$/, "")) === playerKey);
+  if (!account) return rosterUrl;
+  const hashIndex = account.lastIndexOf("#");
+  if (hashIndex < 1) return rosterUrl;
+  const gameName = account.slice(0, hashIndex);
+  const tagLine = account.slice(hashIndex + 1);
+  return `https://op.gg/lol/summoners/na/${encodeURIComponent(gameName)}-${encodeURIComponent(tagLine)}`;
+}
+
 export function mergeAcademyPlayers(
   draftPlayers: Array<{ display_name: string; role: string; rank?: string | null }>,
   sheetPlayers: AcademySheetPlayer[],
@@ -52,7 +69,7 @@ export function mergeAcademyPlayers(
       name: player.display_name,
       role: sheetPlayer?.role ?? (player.role[0].toUpperCase() + player.role.slice(1)),
       rank: sheetPlayer?.rank || player.rank || "Unranked",
-      opggUrl: sheetPlayer?.opggUrl ?? rosterOpggUrl ?? null,
+      opggUrl: sheetPlayer?.opggUrl ?? individualOpggUrl(rosterOpggUrl, player.display_name),
     };
   });
 }
