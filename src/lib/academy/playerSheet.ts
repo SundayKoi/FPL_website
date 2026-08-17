@@ -5,6 +5,39 @@ export const ACADEMY_PLAYER_SHEET_URL =
 
 export type AcademySheetPlayer = { name: string; role: string; rank: string; opggUrl: string | null };
 
+const ACADEMY_OPGG_BY_PLAYER: Record<string, string> = {
+  "superweeb#weeb": "https://op.gg/lol/multisearch/na?summoners=SuperWeeb%23Weeb%2C+Sunless%23bird%2C+Void%23DAG%2C+IQ+OF+A+COCONUT%23NA1%2C+THETRUESUP21%23NA1%2C",
+  "sunless#bird": "https://op.gg/lol/multisearch/na?summoners=SuperWeeb%23Weeb%2C+Sunless%23bird%2C+Void%23DAG%2C+IQ+OF+A+COCONUT%23NA1%2C+THETRUESUP21%23NA1%2C",
+  "void#dag": "https://op.gg/lol/multisearch/na?summoners=SuperWeeb%23Weeb%2C+Sunless%23bird%2C+Void%23DAG%2C+IQ+OF+A+COCONUT%23NA1%2C+THETRUESUP21%23NA1%2C",
+  "iq of a coconut#na1": "https://op.gg/lol/multisearch/na?summoners=SuperWeeb%23Weeb%2C+Sunless%23bird%2C+Void%23DAG%2C+IQ+OF+A+COCONUT%23NA1%2C+THETRUESUP21%23NA1%2C",
+  "thetruesup21#na1": "https://op.gg/lol/multisearch/na?summoners=SuperWeeb%23Weeb%2C+Sunless%23bird%2C+Void%23DAG%2C+IQ+OF+A+COCONUT%23NA1%2C+THETRUESUP21%23NA1%2C",
+  "axriid#act": "https://op.gg/lol/multisearch/na?summoners=Axriid%23act%2C+x80hdgraphicsx%23na1%2C+DeFaux%23TTM%2C+Cindre%23Flame%2C+LordGibaMoth%23NA1%2C",
+  "x80hdgraphicsx#na1": "https://op.gg/lol/multisearch/na?summoners=Axriid%23act%2C+x80hdgraphicsx%23na1%2C+DeFaux%23TTM%2C+Cindre%23Flame%2C+LordGibaMoth%23NA1%2C",
+  "defaux#ttm": "https://op.gg/lol/multisearch/na?summoners=Axriid%23act%2C+x80hdgraphicsx%23na1%2C+DeFaux%23TTM%2C+Cindre%23Flame%2C+LordGibaMoth%23NA1%2C",
+  "cindre#flame": "https://op.gg/lol/multisearch/na?summoners=Axriid%23act%2C+x80hdgraphicsx%23na1%2C+DeFaux%23TTM%2C+Cindre%23Flame%2C+LordGibaMoth%23NA1%2C",
+  "lordgibamoth#na1": "https://op.gg/lol/multisearch/na?summoners=Axriid%23act%2C+x80hdgraphicsx%23na1%2C+DeFaux%23TTM%2C+Cindre%23Flame%2C+LordGibaMoth%23NA1%2C",
+  "reginalddwight#elton": "https://op.gg/lol/multisearch/na?summoners=ReginaldDwight%23ELTON%2CPrismaSire%23sire%2CIFFY%23ACT%2Ctrashy%23garb%2CCaesar%23smok",
+  "prismasire#sire": "https://op.gg/lol/multisearch/na?summoners=ReginaldDwight%23ELTON%2CPrismaSire%23sire%2CIFFY%23ACT%2Ctrashy%23garb%2CCaesar%23smok",
+  "iffyxo#act": "https://op.gg/lol/multisearch/na?summoners=ReginaldDwight%23ELTON%2CPrismaSire%23sire%2CIFFY%23ACT%2Ctrashy%23garb%2CCaesar%23smok",
+  "trashy#garb": "https://op.gg/lol/multisearch/na?summoners=ReginaldDwight%23ELTON%2CPrismaSire%23sire%2CIFFY%23ACT%2Ctrashy%23garb%2CCaesar%23smok",
+  "caeser#smok": "https://op.gg/lol/multisearch/na?summoners=ReginaldDwight%23ELTON%2CPrismaSire%23sire%2CIFFY%23ACT%2Ctrashy%23garb%2CCaesar%23smok",
+  "dream unforgiven#na1": "https://op.gg/lol/multisearch/na?summoners=Dream+Unforgiven%23NA1%2CFox%231fox%2CSaintofAegis%23Saint%2CGnome+Reaper%23old1%2CSleepyHead1534%23NA1",
+  "fox #1fox": "https://op.gg/lol/multisearch/na?summoners=Dream+Unforgiven%23NA1%2CFox%231fox%2CSaintofAegis%23Saint%2CGnome+Reaper%23old1%2CSleepyHead1534%23NA1",
+  "saintofaegis#saint": "https://op.gg/lol/multisearch/na?summoners=Dream+Unforgiven%23NA1%2CFox%231fox%2CSaintofAegis%23Saint%2CGnome+Reaper%23old1%2CSleepyHead1534%23NA1",
+  "gnome reaper#old1": "https://op.gg/lol/multisearch/na?summoners=Dream+Unforgiven%23NA1%2CFox%231fox%2CSaintofAegis%23Saint%2CGnome+Reaper%23old1%2CSleepyHead1534%23NA1",
+  "sleepyhead1534#na1": "https://op.gg/lol/multisearch/na?summoners=Dream+Unforgiven%23NA1%2CFox%231fox%2CSaintofAegis%23Saint%2CGnome+Reaper%23old1%2CSleepyHead1534%23NA1",
+  "sabermonika#야스오": "https://op.gg/lol/multisearch/na?summoners=SaberMonika%23%EC%95%BC%EC%8A%A4%EC%98%A4%2CDoki%230001%2CSylvi24%23NA1%2Cregdor%23win%2CJonicas%23NA1",
+  "doki#0001": "https://op.gg/lol/multisearch/na?summoners=SaberMonika%23%EC%95%BC%EC%82%AC%2CDoki%230001%2CSylvi24%23NA1%2Cregdor%23win%2CJonicas%23NA1",
+  "sylvi24 #na1": "https://op.gg/lol/multisearch/na?summoners=SaberMonika%23%EC%95%BC%EC%82%AC%2CDoki%230001%2CSylvi24%23NA1%2Cregdor%23win%2CJonicas%23NA1",
+  "regdor#win": "https://op.gg/lol/multisearch/na?summoners=SaberMonika%23%EC%95%BC%EC%82%AC%2CDoki%230001%2CSylvi24%23NA1%2Cregdor%23win%2CJonicas%23NA1",
+  "jonicas#na1": "https://op.gg/lol/multisearch/na?summoners=SaberMonika%23%EC%95%BC%EC%82%AC%2CDoki%230001%2CSylvi24%23NA1%2Cregdor%23win%2CJonicas%23NA1",
+  "drsalt#3892": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
+  "bout tree fitty#na1": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
+  "dreammeater#monky": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
+  "sonicx5040#5040": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
+  "killomanjaro#na1": "https://op.gg/lol/multisearch/na?summoners=DrSalt%233892%2Cbout+tree+fitty%23NA1%2Cdreammeater%23monky%2CSonicx5040%235040%2CKillomanjaro%23NA1",
+};
+
 export function mergeAcademyPlayers(
   draftPlayers: Array<{ display_name: string; role: string; rank?: string | null }>,
   sheetPlayers: AcademySheetPlayer[],
@@ -12,11 +45,14 @@ export function mergeAcademyPlayers(
   const sheetByName = new Map(sheetPlayers.map((player) => [normalizePlayerName(player.name), player]));
   return draftPlayers.map((player) => {
     const sheetPlayer = sheetByName.get(normalizePlayerName(player.display_name));
+    const rosterOpggUrl = Object.entries(ACADEMY_OPGG_BY_PLAYER).find(
+      ([name]) => normalizePlayerName(name) === normalizePlayerName(player.display_name),
+    )?.[1];
     return {
       name: player.display_name,
       role: sheetPlayer?.role ?? (player.role[0].toUpperCase() + player.role.slice(1)),
       rank: sheetPlayer?.rank || player.rank || "Unranked",
-      opggUrl: sheetPlayer?.opggUrl ?? null,
+      opggUrl: sheetPlayer?.opggUrl ?? rosterOpggUrl ?? null,
     };
   });
 }

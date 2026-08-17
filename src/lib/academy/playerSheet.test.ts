@@ -28,4 +28,11 @@ describe("Academy player sheet", () => {
     );
     expect(players).toEqual([{ name: "Winter", role: "Top", rank: "D2", opggUrl: "https://op.gg/from-sheet" }]);
   });
+
+  it("matches roster-tab OP.GG multisearch links to Academy draft names", () => {
+    expect(mergeAcademyPlayers(
+      [{ display_name: "SuperWeeb#WEEB", role: "top" }],
+      [],
+    )[0]?.opggUrl).toContain("op.gg/lol/multisearch/na");
+  });
 });
