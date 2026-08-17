@@ -10,7 +10,7 @@ import {
   teamRecord,
   teamSlug,
 } from "@/lib/teams/teamPage";
-import { opggMultiSearchUrlFromOpggUrls } from "@/lib/opgg/multiSearch";
+import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -41,7 +41,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
   const featuredDraftId = settings?.featured_draft_id ?? null;
   if (!featuredDraftId) notFound();
 
-  const [draftResult, teamsResult, playersResult, profilesResult, fixturesResult] =
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
     await Promise.all([
       supabase.from("drafts").select("*").eq("id", featuredDraftId).single(),
       supabase
@@ -51,6 +51,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
         .order("nomination_position"),
       supabase.from("players").select("*").eq("draft_id", featuredDraftId).order("display_name"),
       supabase.from("profiles").select("id, display_name").order("display_name"),
+      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
     ]);
 
@@ -59,6 +60,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
     (teamsResult.data as Team[]) ?? [],
     (playersResult.data as Player[]) ?? [],
     (profilesResult.data as Profile[]) ?? [],
+    (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [],
   );
   const team = rosterTeams.find((t) => teamSlug(t.name) === slug);
   if (!team) notFound();
@@ -71,7 +73,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
 
   const record = teamRecord(fixtures, team.name);
   const { upcoming, results } = splitTeamFixtures(fixtures, team.name);
-  const multiOpggUrl = opggMultiSearchUrlFromOpggUrls(team.players.map((player) => player.opggUrl));
+  const multiOpggUrl = opggMultiSearchUrlFromRosterPlayers(team.players);
   const winRate =
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 

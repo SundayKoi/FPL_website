@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolvePlayerRank } from "./playerMetadata";
+import { resolvePlayerOpggUrl, resolvePlayerRank } from "./playerMetadata";
 
 describe("resolvePlayerRank", () => {
   const canonical = [
-    { id: "canonical-1", display_name: "Player One", rank: "Master I" },
-    { id: "canonical-2", display_name: "Player Two", rank: "Diamond I" },
+    { id: "canonical-1", display_name: "Player One", rank: "Master I", opgg_url: "https://op.gg/one" },
+    { id: "canonical-2", display_name: "Player Two", rank: "Diamond I", opgg_url: "https://op.gg/two" },
   ];
 
   it("keeps a rank already stored on the draft player", () => {
@@ -21,5 +21,36 @@ describe("resolvePlayerRank", () => {
 
   it("returns null when no canonical player matches", () => {
     expect(resolvePlayerRank({ rank: null, canonical_player_id: null, display_name: "Unknown" }, canonical)).toBeNull();
+  });
+});
+
+describe("resolvePlayerOpggUrl", () => {
+  const canonical = [
+    { id: "canonical-1", display_name: "Player One", rank: "Master I", opgg_url: "https://op.gg/one" },
+    { id: "canonical-2", display_name: "Player Two", rank: "Diamond I", opgg_url: "https://op.gg/two" },
+  ];
+
+  it("keeps an OP.GG URL already stored on the draft player", () => {
+    expect(
+      resolvePlayerOpggUrl(
+        { opgg_url: "https://op.gg/draft", canonical_player_id: "canonical-1", display_name: "Player One" },
+        canonical,
+      ),
+    ).toBe("https://op.gg/draft");
+  });
+
+  it("falls back to canonical id and then normalized display name", () => {
+    expect(
+      resolvePlayerOpggUrl(
+        { opgg_url: null, canonical_player_id: "canonical-1", display_name: "Different label" },
+        canonical,
+      ),
+    ).toBe("https://op.gg/one");
+    expect(
+      resolvePlayerOpggUrl(
+        { opgg_url: null, canonical_player_id: null, display_name: "  PLAYER   TWO " },
+        canonical,
+      ),
+    ).toBe("https://op.gg/two");
   });
 });

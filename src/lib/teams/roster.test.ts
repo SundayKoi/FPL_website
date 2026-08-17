@@ -43,8 +43,9 @@ describe("toRosterTeams", () => {
   it("maps persisted identity and selected captain profile", () => {
     const view = toRosterTeams(
       [team],
-      [player({ opgg_url: "https://op.gg/lol/summoners/na/Roster-Captain" })],
+      [player({ opgg_url: null, canonical_player_id: "canonical-captain" })],
       [captainProfile],
+      [{ id: "canonical-captain", display_name: "Roster Captain", rank: null, opgg_url: "https://op.gg/lol/summoners/na/Roster-Captain" }],
     )[0];
 
     expect(view.abbreviation).toBe("ALP");

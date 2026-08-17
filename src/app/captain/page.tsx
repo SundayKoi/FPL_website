@@ -9,7 +9,7 @@ import {
   type MatchCode,
 } from "@/lib/captain/queries";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
-import { opggMultiSearchUrlFromRiotIds } from "@/lib/opgg/multiSearch";
+import { opggMultiSearchUrlFromRiotIds, opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
 import CaptainGate from "@/components/captain/CaptainGate";
@@ -112,7 +112,8 @@ export async function CaptainPageView({
     fetchAnnouncements(supabase),
   ]);
   const opponentMultiOpggUrl = opponentRoster
-    ? opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
+    ? opggMultiSearchUrlFromRosterPlayers(opponentRoster.draftPlayers) ??
+      opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
     : null;
 
   // Admin-only data for the four panels below the captain sections. Fetched

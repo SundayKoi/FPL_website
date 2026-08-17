@@ -46,6 +46,14 @@ function accountsFromOpggUrl(rawUrl: string): string[] {
   return [`${account.slice(0, tagBreak)}#${account.slice(tagBreak + 1)}`];
 }
 
+function accountFromRiotId(rawName: string | null | undefined): string[] {
+  const name = rawName?.trim();
+  if (!name) return [];
+  const hashIndex = name.lastIndexOf("#");
+  if (hashIndex <= 0 || hashIndex === name.length - 1) return [];
+  return [name];
+}
+
 export function opggMultiSearchUrlFromOpggUrls(
   urls: Array<string | null | undefined>,
   region = DEFAULT_REGION,
@@ -62,6 +70,25 @@ export function opggMultiSearchUrlFromRiotIds(
       const gameName = account.game_name?.trim();
       const tagLine = account.tag_line?.trim();
       return gameName && tagLine ? [`${gameName}#${tagLine}`] : [];
+    }),
+    region,
+  );
+}
+
+export function opggMultiSearchUrlFromRosterPlayers(
+  players: Array<{
+    displayName?: string | null;
+    display_name?: string | null;
+    opggUrl?: string | null;
+    opgg_url?: string | null;
+  }>,
+  region = DEFAULT_REGION,
+): string | null {
+  return multiSearchUrl(
+    players.flatMap((player) => {
+      const opggUrl = player.opggUrl ?? player.opgg_url ?? null;
+      const displayName = player.displayName ?? player.display_name ?? null;
+      return [...(opggUrl ? accountsFromOpggUrl(opggUrl) : []), ...accountFromRiotId(displayName)];
     }),
     region,
   );
