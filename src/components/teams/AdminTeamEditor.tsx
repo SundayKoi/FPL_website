@@ -186,6 +186,18 @@ function DraftTeamEditor({
           .eq("draft_id", draftId)
           .select("id");
         if (ownerFieldsError || !updatedRows || updatedRows.length === 0) {
+          // The crest write above already landed (set_team_identity is admin-
+          // callable), so the previous object must still be cleaned up even
+          // though the owner-only fields were refused -- otherwise a
+          // non-owner admin who both uploads a crest and renames a team in
+          // one submit orphans the old storage object forever.
+          if (uploadedObjectPath && previousObjectPath && previousObjectPath !== uploadedObjectPath) {
+            try {
+              await supabase.storage.from("team-images").remove([previousObjectPath]);
+            } catch {
+              // The replacement is already persisted; old-object cleanup is best-effort.
+            }
+          }
           setForm(team.id, {
             status: {
               kind: "error",

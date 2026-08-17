@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(5);
+select plan(7);
 
 insert into public.profiles (id, display_name, is_admin, is_owner)
 values (tests.cap(41), 'dribb', true, true),
@@ -34,6 +34,19 @@ select lives_ok($$ select public.set_signups_open(false) $$, 'an admin may toggl
 reset role;
 select is((select signups_open from public.league_settings where id = 1), false,
           'and the toggle takes effect');
+
+-- An anonymous caller cannot toggle signups at all. The RPC is granted only
+-- to authenticated and service_role, so this fails at the grant -- before
+-- _require_admin() would even run.
+set local role anon;
+select throws_ok($$ select public.set_signups_open(true) $$, '42501', null,
+                 'an anonymous caller cannot toggle signups');
+reset role;
+
+-- The RPC's slice is signups_open alone; it must not also rewrite the
+-- season set earlier in this test.
+select is((select current_season from public.league_settings where id = 1), 'S6',
+          'set_signups_open does not touch current_season');
 
 select * from finish();
 rollback;

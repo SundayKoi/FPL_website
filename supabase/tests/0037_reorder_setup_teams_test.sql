@@ -22,7 +22,7 @@ select tests.acting_as(tests.cap(1));
 select throws_like($$ select public.admin_reorder_setup_teams(
   (select d from t),
   array[(select b from ids), (select a from ids), (select c from ids), (select dd from ids)]
-) $$, 'NOT_ADMIN%', 'captain cannot reorder the nomination order');
+) $$, 'NOT_OWNER%', 'captain cannot reorder the nomination order');
 select is(
   (select string_agg(name, ',' order by nomination_position)
      from public.teams where draft_id = (select d from t)),
@@ -30,7 +30,8 @@ select is(
   'rejected reorder leaves the order untouched'
 );
 
-select tests.acting_as(tests.admin_id());
+-- admin_reorder_setup_teams is owner-gated (2026-08-23).
+select tests.acting_as(tests.owner_id());
 
 -- The case the old numbered inputs could not express: two teams trading places
 -- collides with the unique (draft_id, nomination_position) index mid-update.

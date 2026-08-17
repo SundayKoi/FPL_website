@@ -128,7 +128,24 @@ describe("PlayersDirectory", () => {
     expect(topNames.slice(4)).toContain("Canny#rip");
   });
 
-  it("shows editable Avg Bid inputs for admins", () => {
+  it("shows editable Avg Bid inputs for owners", () => {
+    render(
+      <PlayersDirectory
+        seasons={PLAYER_SEASONS}
+        freeAgencyCaptains={freeAgencyCaptains}
+        isAdmin
+        isOwner
+        initialAvgBids={{ "Canny#rip": 44 }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
+    expect(screen.queryByLabelText("Avg Bid for Canny#rip")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Avg Bids" }));
+    expect((screen.getByLabelText("Avg Bid for Canny#rip") as HTMLInputElement).value).toBe("44");
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
+  });
+
+  it("hides the Avg Bid editor from a non-owner admin", () => {
     render(
       <PlayersDirectory
         seasons={PLAYER_SEASONS}
@@ -138,10 +155,7 @@ describe("PlayersDirectory", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
-    expect(screen.queryByLabelText("Avg Bid for Canny#rip")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Edit Avg Bids" }));
-    expect((screen.getByLabelText("Avg Bid for Canny#rip") as HTMLInputElement).value).toBe("44");
-    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit Avg Bids" })).toBeNull();
   });
 
   it("highlights every matching bid-board name when selected", () => {

@@ -41,7 +41,10 @@ create temporary table ids as
     (select id from public.players
       where draft_id = (select d from t) and display_name = 'Mid1') as mid1;
 
-select tests.acting_as(tests.admin_id());
+-- admin_assign_setup_player is owner-gated (2026-08-23); this file otherwise
+-- exercises admin-tier RPCs (admin_set_setup_team_budget, admin_remove_*),
+-- so switch to an owner only for the setup-player assignment calls.
+select tests.acting_as(tests.owner_id());
 select public.admin_assign_setup_player(
   (select d from t), (select mid1 from ids), (select team_a from ids), 12, 'free_agency'
 );
@@ -111,6 +114,7 @@ create temporary table team_case_ids as
       where draft_id = (select d from team_case) and display_name = 'Mid1') as captain_candidate,
     (select id from public.players
       where draft_id = (select d from team_case) and display_name = 'Adc1') as free_agency_candidate;
+select tests.acting_as(tests.owner_id());
 select public.admin_assign_setup_player(
   (select d from team_case),
   (select captain_candidate from team_case_ids),

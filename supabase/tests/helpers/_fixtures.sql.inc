@@ -12,6 +12,14 @@ create or replace function tests.admin_id() returns uuid language sql immutable 
   select '00000000-0000-0000-0000-000000000099'::uuid
 $$;
 
+-- A plain admin_id() profile is not an owner, so it cannot reach the
+-- owner-gated setup RPCs (admin_assign_setup_player, admin_reorder_setup_teams)
+-- added on 2026-08-23. Tests that exercise those RPCs' business logic (not
+-- just the tier guard) act as this owner instead.
+create or replace function tests.owner_id() returns uuid language sql immutable as $$
+  select '00000000-0000-0000-0000-000000000098'::uuid
+$$;
+
 create or replace function tests.acting_as(p_profile_id uuid) returns void
 language sql as $$
   select set_config('request.jwt.claims',
@@ -30,6 +38,9 @@ begin
   -- profiles (id only; no auth.users rows needed — see Task 3 note)
   insert into public.profiles (id, display_name, is_admin)
     values (tests.admin_id(), 'Admin', true)
+    on conflict (id) do nothing;
+  insert into public.profiles (id, display_name, is_admin, is_owner)
+    values (tests.owner_id(), 'Owner', true, true)
     on conflict (id) do nothing;
   for n in 1..4 loop
     insert into public.profiles (id, display_name)

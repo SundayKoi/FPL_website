@@ -21,6 +21,7 @@ type Props = {
   canonicalPlayers?: PlayerPoolRow[];
   freeAgencyCaptains?: FreeAgencyCaptain[];
   isAdmin?: boolean;
+  isOwner?: boolean;
   initialAvgBids?: Record<string, number>;
   freeAgencyPlayers?: { name: string; avgBid: number | null }[];
   emptyStateMessages?: Partial<Record<SeasonKey, string>>;
@@ -42,6 +43,7 @@ export default function PlayersDirectory({
   canonicalPlayers = [],
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
   isAdmin = false,
+  isOwner = false,
   initialAvgBids = {},
   freeAgencyPlayers,
   emptyStateMessages = {},
@@ -208,7 +210,7 @@ export default function PlayersDirectory({
                 </select>
               </div>
             ) : null}
-            {isAdmin && isFreeAgency ? (
+            {isOwner && isFreeAgency ? (
               <button
                 type="button"
                 onClick={() => setEditMode((editing) => !editing)}
@@ -225,7 +227,7 @@ export default function PlayersDirectory({
             <p className="text-steel">{emptyStateMessage}</p>
           ) : (
             <>
-            {saveError && isAdmin && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}
+            {saveError && isOwner && isFreeAgency ? <p className="mb-4 text-sm text-red-400">{saveError}</p> : null}
             <div className="grid gap-5 sm:grid-cols-2 xl:min-w-[1500px] xl:grid-cols-5">
               {displaySections.map((section) => (
                 <section
@@ -273,7 +275,7 @@ export default function PlayersDirectory({
                           </a> : <span className="min-w-0 break-words whitespace-nowrap font-semibold">{player.name}</span>}
                           <span className="font-medium">{player.rank}</span>
                           {hasValueColumn ? <span className="font-medium">
-                            {isFreeAgency && isAdmin && editMode ? (
+                            {isFreeAgency && isOwner && editMode ? (
                               <input
                                 aria-label={`Avg Bid for ${player.name}`}
                                 type="number"

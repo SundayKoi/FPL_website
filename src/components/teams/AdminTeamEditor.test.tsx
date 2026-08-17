@@ -369,6 +369,31 @@ describe("AdminTeamEditor", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it("cleans up the previous crest object even when the owner-only rename is refused", async () => {
+    // A non-owner admin uploads a new crest AND renames the team in the same
+    // submit. The identity RPC (cosmetic) succeeds, but the owner-only rename
+    // is refused with zero rows affected. The old storage object must still
+    // be swept up rather than orphaned.
+    configuredUpdate({ data: [], error: null });
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));
+    const form = screen.getByRole("form", { name: "Edit Team A" });
+
+    fireEvent.change(within(form).getByLabelText("Team A name"), { target: { value: "Alpha" } });
+    fireEvent.change(within(form).getByLabelText("Team A image"), {
+      target: { files: [new File(["png"], "team.png", { type: "image/png" })] },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Save Team A" }));
+
+    expect((await within(form).findByRole("status")).textContent).toContain(
+      "Renaming a team, reassigning a captain, or changing division is owner-only.",
+    );
+    const objectPath = upload.mock.calls[0][0] as string;
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(["draft-1/team-a"]));
+    expect(remove).not.toHaveBeenCalledWith([objectPath]);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("accepts an uppercase alphanumeric abbreviation", async () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit teams" }));

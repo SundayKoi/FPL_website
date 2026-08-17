@@ -13,7 +13,9 @@ create temporary table ids as
     (select id from public.players where draft_id = (select d from t) and display_name = 'Mid1') as mid1,
     (select id from public.players where draft_id = (select d from other) and display_name = 'Mid1') as other_mid1;
 
-select tests.acting_as(tests.admin_id());
+-- admin_assign_setup_player is owner-gated (2026-08-23): act as an owner
+-- throughout this file's assignment calls, not the plain admin fixture.
+select tests.acting_as(tests.owner_id());
 select lives_ok($$ select public.admin_assign_setup_player(
   (select d from t), (select mid1 from ids), (select team_a from ids), 12, 'free_agency'
 ) $$, 'admin assigns an existing pool player during setup');
@@ -33,9 +35,9 @@ select throws_like($$ select public.admin_assign_setup_player(
   (select d from t),
   (select id from public.players where draft_id = (select d from t) and display_name = 'Mid2'),
   (select team_a from ids), 1, 'free_agency'
-) $$, 'NOT_ADMIN%', 'captain cannot assign during setup');
+) $$, 'NOT_OWNER%', 'captain cannot assign during setup');
 
-select tests.acting_as(tests.admin_id());
+select tests.acting_as(tests.owner_id());
 select throws_like($$ select public.admin_assign_setup_player(
   (select d from t), (select other_mid1 from ids), (select team_a from ids), 1, 'free_agency'
 ) $$, 'PLAYER_INVALID%', 'wrong-draft player is rejected');
