@@ -151,7 +151,7 @@ git commit -m "feat: trim the owner set to the site creators"
 - Modify: `src/components/signup/AdminSignupsToggle.tsx`
 
 **Interfaces:**
-- Consumes: `public._require_owner()` (Task 1).
+- Consumes: `public.is_owner()` (pre-existing) for the policy and `public._require_admin()` (pre-existing) for the RPC guard. There is no `_require_owner()` — see Task 1.
 - Produces: `public.set_signups_open(p_open boolean) returns void`. Task 4's console page calls this; nothing else may write `league_settings` as an admin.
 
 - [ ] **Step 1: Write the failing test**
