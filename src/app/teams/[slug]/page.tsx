@@ -33,12 +33,19 @@ async function TeamPageContent({ params, league = "premier" }: { params: Promise
   const { slug } = await params;
   const supabase = await createServerSupabase();
 
-  const { data: settings } = await supabase
-    .from("league_settings")
-    .select("featured_draft_id, academy_draft_id, current_season, academy_season")
-    .eq("id", 1)
-    .single();
-  const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
+  const [{ data: settings }, { data: academyFallback }] = await Promise.all([
+    supabase
+      .from("league_settings")
+      .select("featured_draft_id, academy_draft_id, current_season, academy_season")
+      .eq("id", 1)
+      .single(),
+    league === "academy"
+      ? supabase.from("drafts").select("id").eq("name", "S1 Academy").maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const draftId = league === "academy"
+    ? settings?.academy_draft_id ?? academyFallback?.id
+    : settings?.featured_draft_id;
   if (!draftId) notFound();
 
   const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
