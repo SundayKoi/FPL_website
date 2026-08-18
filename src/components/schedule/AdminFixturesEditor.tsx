@@ -116,7 +116,7 @@ function validate(form: FixtureForm): string | null {
 }
 
 const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none";
+  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
 const buttonClass =
   "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-50";
 
@@ -347,7 +347,7 @@ export default function AdminFixturesEditor({
                 type="button"
                 onClick={handleAdd}
                 disabled={addStatus.kind === "saving"}
-                className={`${buttonClass} w-fit bg-gold text-navy`}
+                className={`${buttonClass} w-fit bg-coral text-navy`}
               >
                 {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
               </button>
@@ -410,7 +410,7 @@ export default function AdminFixturesEditor({
                           type="button"
                           onClick={handleSave}
                           disabled={editStatus.kind === "saving"}
-                          className={`${buttonClass} w-fit bg-gold text-navy`}
+                          className={`${buttonClass} w-fit bg-coral text-navy`}
                         >
                           {editStatus.kind === "saving" ? "Saving…" : "Save fixture"}
                         </button>

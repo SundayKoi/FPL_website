@@ -56,7 +56,7 @@ function TeamCrest({
       href={`${basePath}/${teamSlug(name)}`}
       title={name}
       aria-label={name}
-      className={`${layout} underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold`}
+      className={`${layout} underline-offset-4 hover:text-coral hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral`}
     >
       {body}
     </Link>
@@ -98,7 +98,7 @@ export default function FixtureCard({
           <Link
             href={`/match/${fixture.id}`}
             aria-label={`Post-game for ${teamA} versus ${teamB}`}
-            className="shrink-0 rounded border border-line bg-navy px-2 py-0.5 font-bold text-white hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="shrink-0 rounded border border-line bg-navy px-2 py-0.5 font-bold text-white hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
           >
             {fixture.score_a}–{fixture.score_b}
           </Link>

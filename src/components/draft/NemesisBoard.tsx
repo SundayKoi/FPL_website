@@ -70,7 +70,7 @@ export default function NemesisBoard({
               <select
                 value={seedTeam}
                 onChange={(e) => setSeedTeam(e.target.value)}
-                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
               >
                 <option value="">— select team —</option>
                 {teams.map((t) => (
@@ -85,7 +85,7 @@ export default function NemesisBoard({
               <select
                 value={seedDivision}
                 onChange={(e) => setSeedDivision(e.target.value as Division)}
-                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
               >
                 {DIVISIONS.map((d) => (
                   <option key={d} value={d}>
@@ -106,7 +106,7 @@ export default function NemesisBoard({
                   })
                 )
               }
-              className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+              className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
             >
               Start nemesis draft
             </button>
@@ -186,7 +186,7 @@ export default function NemesisBoard({
               if (!confirm("Undo the last nemesis pick?")) return;
               void run(() => supabase.rpc("nemesis_undo", { p_draft_id: draftId }));
             }}
-            className="rounded border border-line px-2 py-1 text-xs font-semibold text-steel hover:text-gold disabled:opacity-40"
+            className="rounded border border-line px-2 py-1 text-xs font-semibold text-steel hover:text-coral disabled:opacity-40"
           >
             Undo last pick
           </button>

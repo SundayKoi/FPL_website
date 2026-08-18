@@ -15,6 +15,7 @@ const roleLabels = {
 
 export type TeamRosterCardProps = {
   team: RosterTeamView;
+  league?: "premier" | "academy";
   editable?: boolean;
   onDragStart?: (player: RosterSlotView) => void;
   onDragEnd?: () => void;
@@ -25,6 +26,7 @@ export type TeamRosterCardProps = {
 
 export default function TeamRosterCard({
   team,
+  league = "premier",
   editable = false,
   onDragStart,
   onDragEnd,
@@ -74,9 +76,9 @@ export default function TeamRosterCard({
               team.name
             ) : (
               <Link
-                href={`/teams/${teamSlug(team.name)}`}
+                href={`${league === "academy" ? "/academy/teams" : "/teams"}/${teamSlug(team.name)}`}
                 draggable={false}
-                className="underline-offset-4 transition hover:text-gold hover:underline"
+                className="underline-offset-4 transition hover:text-coral hover:underline"
               >
                 {team.name}
               </Link>
@@ -127,7 +129,7 @@ export default function TeamRosterCard({
                 <Link
                   href={`/stats?player=${encodeURIComponent(player.displayName)}`}
                   draggable={false}
-                  className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   {player.displayName}
                 </Link>
@@ -148,7 +150,7 @@ export default function TeamRosterCard({
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}
-                  className="shrink-0 rounded border border-line px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-steel transition hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="shrink-0 rounded border border-line px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-steel transition hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                   aria-label={`Swap with ${player.displayName}`}
                 >
                   Swap with…

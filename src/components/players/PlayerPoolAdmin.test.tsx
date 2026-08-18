@@ -44,4 +44,36 @@ describe("PlayerPoolAdmin", () => {
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining("Draft history will be preserved"));
     await waitFor(() => expect(onPlayersChange).toHaveBeenCalledWith([]));
   });
+
+  it("writes academy players into the academy pool", async () => {
+    const insert = vi.fn(() => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: "player-2",
+            season_key: "academy-1",
+            display_name: "Academy One",
+            role: "top",
+            rank: "E1",
+            opgg_url: "https://op.gg/academy-one",
+          },
+          error: null,
+        }),
+      })),
+    }));
+    vi.mocked(createClient).mockReturnValue({ from: () => ({ insert }) } as never);
+
+    render(<PlayerPoolAdmin seasonKey="academy-1" players={[]} onPlayersChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Player name"), { target: { value: "Academy One" } });
+    fireEvent.change(screen.getByLabelText("Player OP.GG URL"), {
+      target: { value: "https://op.gg/academy-one" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({ season_key: "academy-1" }),
+      ),
+    );
+  });
 });

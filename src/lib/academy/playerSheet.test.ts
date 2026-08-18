@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { mergeAcademyPlayers, parseAcademyPlayers } from "./playerSheet";
+import { academyOpggUrlForPlayer, individualOpggUrl, mergeAcademyPlayers, parseAcademyPlayers } from "./playerSheet";
 
 describe("Academy player sheet", () => {
+  it("reduces a multisearch URL to the named player's individual URL", () => {
+    expect(individualOpggUrl(
+      "https://op.gg/lol/multisearch/na?summoners=Alpha%23NA1%2CBeta%23NA1",
+      "Beta#NA1",
+    )).toBe("https://op.gg/lol/summoners/na/Beta-NA1");
+  });
+
+  it("matches an Academy draft name without its Riot tag", () => {
+    expect(academyOpggUrlForPlayer("SuperWeeb")).toBe(
+      "https://op.gg/lol/summoners/na/SuperWeeb-Weeb",
+    );
+  });
+
   it("maps player and OP.GG columns without constructing links", () => {
     const rows = parseAcademyPlayers(
       'Player Name,Role,Rank,OP.GG\n"Winter",Top,D2,https://op.gg/lol/summoners/na/Winter\nAura,Support,E4,',
@@ -27,5 +40,28 @@ describe("Academy player sheet", () => {
       [{ name: "Winter#NA1", role: "Top", rank: "D2", opggUrl: "https://op.gg/from-sheet" }],
     );
     expect(players).toEqual([{ name: "Winter", role: "Top", rank: "D2", opggUrl: "https://op.gg/from-sheet" }]);
+  });
+
+  it("matches roster-tab OP.GG multisearch links to Academy draft names", () => {
+    expect(mergeAcademyPlayers(
+      [{ display_name: "SuperWeeb#WEEB", role: "top" }],
+      [],
+    )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/SuperWeeb-Weeb");
+    expect(mergeAcademyPlayers(
+      [{ display_name: "Dream Unforgiven#Na1", role: "top" }],
+      [],
+    )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/Dream%20Unforgiven-NA1");
+  });
+
+  it("reduces a sheet multisearch URL to an individual Academy player link", () => {
+    expect(mergeAcademyPlayers(
+      [{ display_name: "Beta#NA1", role: "top" }],
+      [{
+        name: "Beta#NA1",
+        role: "Top",
+        rank: "D2",
+        opggUrl: "https://op.gg/lol/multisearch/na?summoners=Alpha%23NA1%2CBeta%23NA1",
+      }],
+    )[0]?.opggUrl).toBe("https://op.gg/lol/summoners/na/Beta-NA1");
   });
 });

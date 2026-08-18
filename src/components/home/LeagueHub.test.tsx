@@ -15,7 +15,8 @@ vi.mock("@/lib/home/standings", () => ({
   ]),
 }));
 
-vi.mock("@/lib/home/schedule", () => ({
+vi.mock("@/lib/home/schedule", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
   fetchHomepageSchedule: vi.fn(async () => ({
     season: "S5",
     isNewestSeason: true,

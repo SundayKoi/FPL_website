@@ -25,6 +25,7 @@ export default async function InfoPage() {
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Info</h1>
+          <hr className="accent-rule mt-5 w-48 sm:w-64" />
           <p className="mt-4 text-lg leading-8 text-steel">
             League links, official rules, and signup details live on their own pages now.
           </p>
@@ -36,11 +37,11 @@ export default async function InfoPage() {
               key={destination.href}
               href={destination.href}
               aria-label={destination.label}
-              className="card-brand group flex h-full flex-col p-6 transition hover:border-gold/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+              className="card-brand group flex h-full flex-col p-6 transition hover:border-coral/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
             >
               <h2 className="font-display text-3xl font-semibold text-white">{destination.label}</h2>
               <p className="mt-3 flex-1 text-sm leading-6 text-steel">{destination.description}</p>
-              <span className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-gold transition group-hover:text-white">
+              <span className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-coral transition group-hover:text-white">
                 Open page
               </span>
             </Link>

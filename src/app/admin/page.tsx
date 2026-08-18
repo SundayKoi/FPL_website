@@ -7,8 +7,22 @@ import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
 import AdminBriefEditor from "@/components/admin/AdminBriefEditor";
+import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
 import type { HomepageBrief } from "@/lib/home/brief";
 import type { HomepageMode } from "@/lib/home/seasonState";
+import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
+import { fetchHomepageSchedule } from "@/lib/home/schedule";
+import { fetchAcademyDraftData } from "@/lib/academy/draft";
+import { filterAcademyFixtures } from "@/lib/academy/filtering";
+import { academyTeamNames } from "@/lib/league/context";
+import type { FixtureRow } from "@/lib/schedule/types";
+
+function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[] {
+  return fixtures.map((fixture) => ({
+    id: fixture.id,
+    label: `${fixture.division ?? fixture.stage} · ${fixture.team_a ?? "TBD"} vs ${fixture.team_b ?? "TBD"}`,
+  }));
+}
 
 /**
  * Admin hub: the league's controls are spread across their feature pages
@@ -19,7 +33,7 @@ import type { HomepageMode } from "@/lib/home/seasonState";
 export default async function AdminPage() {
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
-  if (!isAdmin) redirect("/");
+  if (!isAdmin && !isOwner) redirect("/");
 
   // Owners see the staff panel. This gate is presentation only — set_profile_admin
   // re-checks ownership server-side, so an admin who forges their way here can
@@ -65,11 +79,22 @@ export default async function AdminPage() {
     .limit(1);
   const latestBrief = ((briefRows as HomepageBrief[]) ?? [])[0] ?? null;
 
+  const [academyDraftData, premierSettings, academySettings] = await Promise.all([
+    fetchAcademyDraftData(supabase),
+    fetchHomepageFeaturedSettings("premier"),
+    fetchHomepageFeaturedSettings("academy"),
+  ]);
+  const academyTeamNameSet = academyTeamNames(academyDraftData.teams);
+  const [premierSchedule, academySchedule] = await Promise.all([
+    fetchHomepageSchedule(),
+    fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNameSet)),
+  ]);
+
   const cards = [
     {
       label: "Signups",
       stat: `${signupCount} total · ${settings?.signups_open ? "OPEN" : "CLOSED"}`,
-      statTone: settings?.signups_open ? "text-emerald-400" : "text-red-400",
+      statTone: settings?.signups_open ? "text-mint" : "text-red-400",
       description: "Review the pool, open/close the window.",
       href: "/signup",
     },
@@ -115,10 +140,10 @@ export default async function AdminPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-gold"
+            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-coral"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-display text-2xl group-hover:text-gold">{card.label}</span>
+              <span className="type-display text-2xl group-hover:text-coral">{card.label}</span>
               <span className={`text-xs font-bold uppercase tracking-wide ${card.statTone}`}>
                 {card.stat}
               </span>
@@ -134,6 +159,18 @@ export default async function AdminPage() {
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
         <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AdminFeaturedMatchupEditor
+            homepage="premier"
+            fixtures={featuredFixtureChoices(premierSchedule.fixtures)}
+            settings={premierSettings}
+          />
+          <AdminFeaturedMatchupEditor
+            homepage="academy"
+            fixtures={featuredFixtureChoices(academySchedule.fixtures)}
+            settings={academySettings}
+          />
+        </div>
         {isOwner ? (
           <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
         ) : (

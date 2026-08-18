@@ -33,7 +33,7 @@ export function MarketCard({ market }: { market: MarketCardData }) {
     <Link
       href={`/betting/market/${market.id}`}
       className={
-        "block rounded-lg border border-line bg-panel p-4 transition hover:border-gold" +
+        "block rounded-lg border border-line bg-panel p-4 transition hover:border-coral" +
         (live ? " shadow-[0_0_0_1px_rgba(245,182,46,0.08)]" : "")
       }
     >

@@ -4,8 +4,9 @@ import AwardsDesk from "./AwardsDesk";
 import UpcomingSchedule from "./UpcomingSchedule";
 import { getTwitchChannelClips, getTwitchChannelStatus } from "@/lib/twitch/status";
 import { fetchHomepageStandings } from "@/lib/home/standings";
-import { fetchHomepageSchedule } from "@/lib/home/schedule";
+import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchHomepageAwards } from "@/lib/home/awards";
+import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchActiveBrief } from "@/lib/home/fetchBrief";
 import HomeBrief from "./HomeBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
@@ -18,7 +19,7 @@ const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitchStatus, awards, standings, schedule, brief, identities, standouts] = await Promise.all([
+  const [twitchStatus, awards, standings, schedule, brief, identities, standouts, featuredSettings] = await Promise.all([
     getTwitchChannelStatus({
       channelLogin: TWITCH_CHANNEL_LOGIN,
     }),
@@ -28,7 +29,9 @@ export default async function RegularSeasonHomePage() {
     fetchActiveBrief(),
     fetchTeamIdentities(),
     fetchLatestWeeklyStandouts(),
+    fetchHomepageFeaturedSettings("premier"),
   ]);
+  const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
   const twitchClips =
     twitchStatus.state === "live"
       ? []
@@ -43,11 +46,13 @@ export default async function RegularSeasonHomePage() {
           <div className="flex justify-end"><LeaguePageToggle page="home" view="premier" /></div>
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
-              fixture={schedule.fixtures[0] ?? null}
+              fixture={featuredFixture}
               channelLogin={TWITCH_CHANNEL_LOGIN}
               clips={twitchClips}
               streamState={twitchStatus.state}
               twitchUrl={TWITCH_URL}
+              title={featuredSettings.title ?? undefined}
+              description={featuredSettings.description ?? undefined}
             />
             <HomeStandings teams={standings} />
           </div>

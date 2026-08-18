@@ -71,7 +71,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
         </span>
       </div>
       {err && <p className="text-sm text-red-400">{err}</p>}
-      {saved && <p className="text-sm text-emerald-400">Saved.</p>}
+      {saved && <p className="text-sm text-mint">Saved.</p>}
 
       {SECTIONS.map(([key, label]) => (
         <label key={key} className="flex flex-col gap-1 text-xs text-steel">
@@ -81,7 +81,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
             rows={3}
             aria-label={label}
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none"
+            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
           />
         </label>
       ))}
@@ -98,7 +98,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
               "edit"
             )
           }
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Save changes
         </button>
@@ -112,7 +112,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             ) return;
             void save({ published: !brief.published }, "publish");
           }}
-          className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-steel hover:text-gold disabled:opacity-40"
+          className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-steel hover:text-coral disabled:opacity-40"
         >
           {brief.published ? "Unpublish" : "Publish"}
         </button>

@@ -1,20 +1,33 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { from, fetchCaptainContext, fetchCodes, fetchMyReports, fetchMyResults, fetchMyRoster, fetchAnnouncements, adminCodeEditor } =
-  vi.hoisted(() => ({
-    from: vi.fn(),
-    fetchCaptainContext: vi.fn(),
-    fetchCodes: vi.fn(),
-    fetchMyReports: vi.fn(),
-    fetchMyResults: vi.fn(),
-    fetchMyRoster: vi.fn(),
-    fetchAnnouncements: vi.fn(),
-    adminCodeEditor: vi.fn((props: unknown) => {
-      void props;
-      return null;
-    }),
-  }));
+const {
+  from,
+  fetchCaptainContext,
+  fetchCodes,
+  fetchMyReports,
+  fetchMyResults,
+  fetchMyRoster,
+  fetchAnnouncements,
+  adminCodeEditor,
+  myRoster,
+} = vi.hoisted(() => ({
+  from: vi.fn(),
+  fetchCaptainContext: vi.fn(),
+  fetchCodes: vi.fn(),
+  fetchMyReports: vi.fn(),
+  fetchMyResults: vi.fn(),
+  fetchMyRoster: vi.fn(),
+  fetchAnnouncements: vi.fn(),
+  adminCodeEditor: vi.fn((props: unknown) => {
+    void props;
+    return null;
+  }),
+  myRoster: vi.fn((props: unknown) => {
+    void props;
+    return <section>My roster</section>;
+  }),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => ({ from })),
@@ -33,7 +46,9 @@ vi.mock("@/lib/captain/queries", () => ({
 vi.mock("@/components/captain/NextMatchCard", () => ({ default: () => <section>Next Match</section> }));
 vi.mock("@/components/captain/TourneyCodes", () => ({ default: () => <section>Tourney Codes</section> }));
 vi.mock("@/components/captain/ReportBox", () => ({ default: () => <section>Report a Result</section> }));
-vi.mock("@/components/captain/MyRoster", () => ({ default: () => <section>My roster</section> }));
+vi.mock("@/components/captain/MyRoster", () => ({
+  default: (props: unknown) => myRoster(props),
+}));
 vi.mock("@/components/captain/MyResults", () => ({ default: () => <section>My results &amp; stats</section> }));
 vi.mock("@/components/captain/Announcements", () => ({ default: () => <section>Announcements</section> }));
 vi.mock("@/components/captain/CaptainGate", () => ({ default: () => <main>Captains only</main> }));
@@ -158,7 +173,7 @@ describe("CaptainPage layout", () => {
     }));
   });
 
-  it("disables the Premier bulk importer on the Academy captain page", async () => {
+  it("enables the bulk importer on the Academy captain page", async () => {
     const academyTeams = [
       { id: "academy-a", name: "Academy A" },
       { id: "academy-b", name: "Academy B" },
@@ -186,7 +201,47 @@ describe("CaptainPage layout", () => {
 
     expect(adminCodeEditor).toHaveBeenCalledWith(expect.objectContaining({
       fixtures: [seasonFixtures[1]],
-      enableBulkImporter: false,
+      enableBulkImporter: true,
     }));
+  });
+
+  it("passes the computed multi-OP.GG URL to the roster card", async () => {
+    const team = { id: "team-1", name: "Team One" };
+    fetchCaptainContext.mockResolvedValue({
+      profileId: "profile-1",
+      isAdmin: false,
+      teams: [team],
+      activeTeams: [team],
+      myTeamId: team.id,
+      season: "S5",
+    });
+    fetchCodes.mockResolvedValue([]);
+    fetchMyReports.mockResolvedValue([]);
+    fetchMyRoster.mockResolvedValue({
+      draftPlayers: [
+        {
+          id: "player-1",
+          role: "top",
+          display_name: "Rift Maker",
+          price: 10,
+          acquisition: null,
+          opgg_url: "https://op.gg/lol/summoners/na/RiftMaker-NA1",
+        },
+      ],
+      riotAccounts: [],
+    });
+    fetchMyResults.mockResolvedValue({ games: [], players: [] });
+    fetchAnnouncements.mockResolvedValue([]);
+    from.mockImplementation((table: string) =>
+      table === "fixtures" ? query({ data: [] }) : query({ data: { current_phase: "Regular" } }),
+    );
+
+    render(await CaptainPage({ searchParams: Promise.resolve({}) }));
+
+    expect(myRoster).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiOpggUrl: "https://op.gg/lol/multisearch/na?summoners=RiftMaker%23NA1",
+      }),
+    );
   });
 });

@@ -59,7 +59,7 @@ export async function placeBet(marketId: number, teamId: number, amount: number)
   });
   if (error) return { ok: false, error: friendlyPlaceBetError(error.message) };
 
-  revalidatePath("/betting");
+  revalidatePath("/betting", "layout");
   return { ok: true, balance: data as number };
 }
 
@@ -81,7 +81,7 @@ export async function cashoutBet(betId: number): Promise<ActionResult> {
   const { data, error } = await service.rpc("cashout_bet", { p_user: user.discordId, p_bet: betId });
   if (error) return { ok: false, error: friendlyCashoutError(error.message) };
 
-  revalidatePath("/betting");
+  revalidatePath("/betting", "layout");
   return { ok: true, balance: data as number };
 }
 
@@ -117,7 +117,7 @@ export async function placePickemCard(pickemId: number, picks: Record<number, nu
   });
   if (error) return { ok: false, error: friendlyPlacePickemCardError(error.message) };
 
-  revalidatePath("/betting");
+  revalidatePath("/betting", "layout");
   return { ok: true, balance: data as number };
 }
 
@@ -166,6 +166,6 @@ export async function suggestProp(
   });
   if (error) return { ok: false, error: friendlySuggestPropError(error.message) };
 
-  revalidatePath("/betting");
+  revalidatePath("/betting", "layout");
   return { ok: true };
 }

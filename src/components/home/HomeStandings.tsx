@@ -24,7 +24,7 @@ export default function HomeStandings({
             Team standings
           </h2>
         </div>
-        <span className="shrink-0 rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-gold">
+        <span className="shrink-0 rounded-full bg-coral/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral">
           {hasHistoricalStats ? `${season} standings` : "0–0 start"}
         </span>
       </div>
@@ -42,7 +42,7 @@ export default function HomeStandings({
             >
               <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position}</span>
               <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 font-mono text-xs text-gold">{team.abbreviation}</span>
+                <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>
                 <span className="min-w-0 truncate text-sm font-semibold text-white">{team.name}</span>
               </div>
               <span className="whitespace-nowrap font-mono text-sm font-semibold text-steel">

@@ -62,13 +62,13 @@ function YourPosition({
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between">
-              <span className="text-emerald-400">→ +{fmtPoints(profit)}</span>
+              <span className="text-mint">→ +{fmtPoints(profit)}</span>
               {!locked && (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => held_bets.forEach((b) => onCashout(b.id))}
-                  className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-gold hover:text-gold disabled:opacity-40"
+                  className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-coral hover:text-coral disabled:opacity-40"
                   title="Withdraw this bet (5% fee)"
                 >
                   Cash out −5%
@@ -132,8 +132,11 @@ export function MarketDetail({
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
       <div>
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/betting" className="text-xs uppercase tracking-wide text-steel hover:text-gold">
-            Events
+          <Link
+            href={`/betting/event/${market.event_id}`}
+            className="text-xs uppercase tracking-wide text-steel hover:text-coral"
+          >
+            ← {market.event_name || "Event"}
           </Link>
           <StatusPill status={market.status} />
           <LockCountdown lockAt={market.lock_at} status={market.status} />

@@ -40,7 +40,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
         <input
           value={discordId}
           onChange={(e) => setDiscordId(e.target.value)}
-          className="w-40 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="w-40 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-steel">
@@ -49,7 +49,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           type="number"
           value={delta}
           onChange={(e) => setDelta(Math.trunc(Number(e.target.value) || 0))}
-          className="w-28 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+          className="w-28 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
         />
       </label>
       <label className="flex flex-1 min-w-[10rem] flex-col gap-1 text-xs text-steel">
@@ -58,13 +58,13 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. tournament prize"
-          className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </label>
       <button
         type="submit"
         disabled={busy || !canSubmit}
-        className="rounded bg-gold px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
       >
         Grant / deduct
       </button>
@@ -103,7 +103,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
   return (
     <div className="flex flex-col gap-8">
       {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-      {notice && <p className="rounded border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-gold">{notice}</p>}
+      {notice && <p className="rounded border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral">{notice}</p>}
 
       <section className="flex flex-col gap-3">
         <h2 className="label-dash">Grant / deduct</h2>
@@ -133,7 +133,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
             value={query}
             onChange={(e) => void search(e.target.value)}
             placeholder="Search by username or Discord id"
-            className="w-64 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="w-64 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
         </div>
         <ul className="flex flex-col gap-1.5">

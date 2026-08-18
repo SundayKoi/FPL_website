@@ -32,7 +32,7 @@ export default function AdminBettingTabs() {
               aria-current={active ? "page" : undefined}
               className={`rounded px-3 py-1.5 text-sm transition ${
                 active
-                  ? "bg-gold/10 font-semibold text-gold"
+                  ? "bg-coral/10 font-semibold text-coral"
                   : "text-steel hover:bg-line/40 hover:text-white"
               }`}
             >

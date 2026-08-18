@@ -11,6 +11,9 @@ import {
   teamSlug,
 } from "@/lib/teams/teamPage";
 import { opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
+import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
+import { fetchAcademyPlayers, individualOpggUrl } from "@/lib/academy/playerSheet";
+import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -29,38 +32,66 @@ const roleLabels = {
  * stats both store team names as text rather than FKs (see the fixtures
  * migration), so name is the only join key available.
  */
-export default async function TeamPage({ params }: { params: Promise<{ slug: string }> }) {
+export async function TeamPageContent({ params, league = "premier" }: { params: Promise<{ slug: string }>; league?: "premier" | "academy" }) {
   const { slug } = await params;
   const supabase = await createServerSupabase();
 
-  const { data: settings } = await supabase
-    .from("league_settings")
-    .select("featured_draft_id, current_season")
-    .eq("id", 1)
-    .single();
-  const featuredDraftId = settings?.featured_draft_id ?? null;
-  if (!featuredDraftId) notFound();
+  const [{ data: settings }, { data: academyFallback }] = await Promise.all([
+    supabase
+      .from("league_settings")
+      .select("featured_draft_id, academy_draft_id, current_season, academy_season")
+      .eq("id", 1)
+      .single(),
+    league === "academy"
+      ? supabase.from("drafts").select("id").eq("name", "S1 Academy").maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const draftId = league === "academy"
+    ? settings?.academy_draft_id ?? academyFallback?.id
+    : settings?.featured_draft_id;
+  if (!draftId) notFound();
 
-  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult] =
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult, academySheetPlayers] =
     await Promise.all([
-      supabase.from("drafts").select("*").eq("id", featuredDraftId).single(),
+      supabase.from("drafts").select("*").eq("id", draftId).single(),
       supabase
         .from("teams")
         .select("*")
-        .eq("draft_id", featuredDraftId)
+        .eq("draft_id", draftId)
         .order("nomination_position"),
-      supabase.from("players").select("*").eq("draft_id", featuredDraftId).order("display_name"),
+      supabase.from("players").select("*").eq("draft_id", draftId).order("display_name"),
       supabase.from("profiles").select("id, display_name").order("display_name"),
-      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
+      supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
+      league === "academy" ? fetchAcademyPlayers() : Promise.resolve([]),
     ]);
 
   const draft = draftResult.data as Draft | null;
+  const academySheetByName = new Map(academySheetPlayers.map((player) => [normalizePlayerName(player.name), player.opggUrl]));
+  const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
+    .map((player) => ({
+      ...player,
+      opgg_url:
+        player.opgg_url ??
+        (league === "academy"
+          ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
+            academyOpggUrlForPlayer(player.display_name)
+          : null),
+    }));
+  const draftPlayers = ((playersResult.data as Player[]) ?? []).map((player) => ({
+    ...player,
+    opgg_url:
+      player.opgg_url ??
+      (league === "academy"
+        ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
+          academyOpggUrlForPlayer(player.display_name)
+        : null),
+  }));
   const rosterTeams = toRosterTeams(
     (teamsResult.data as Team[]) ?? [],
-    (playersResult.data as Player[]) ?? [],
+    draftPlayers,
     (profilesResult.data as Profile[]) ?? [],
-    (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [],
+    canonicalPlayers,
   );
   const team = rosterTeams.find((t) => teamSlug(t.name) === slug);
   if (!team) notFound();
@@ -68,7 +99,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
   // Scope the schedule to the season the featured draft belongs to when we
   // know it, so an old team page doesn't mix in a later split's fixtures.
   const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
-  const season = settings?.current_season ?? null;
+  const season = (league === "academy" ? settings?.academy_season : settings?.current_season) ?? null;
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : allFixtures;
 
   const record = teamRecord(fixtures, team.name);
@@ -81,8 +112,8 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <Link
-          href="/teams"
-          className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold"
+          href={league === "academy" ? "/academy/teams" : "/teams"}
+          className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
         >
           <span aria-hidden="true">←</span> All teams
         </Link>
@@ -125,7 +156,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                 href={multiOpggUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-white/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
+                className="mt-3 inline-flex rounded-full border border-coral/80 bg-coral/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
               >
                 Team OP.GG Multi
               </a>
@@ -150,8 +181,8 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                     </span>
                   ) : (
                     <Link
-                      href={`/stats?player=${encodeURIComponent(player.displayName)}`}
-                      className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-gold hover:underline"
+                      href={`${league === "academy" ? "/academy/stats" : "/stats"}?player=${encodeURIComponent(player.displayName)}`}
+                      className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
                     >
                       {player.displayName}
                     </Link>
@@ -210,7 +241,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                             won === null
                               ? "text-steel"
                               : won
-                                ? "bg-emerald-500/15 text-emerald-400"
+                                ? "bg-mint/15 text-mint"
                                 : "bg-red-500/15 text-red-400"
                           }`}
                         >
@@ -236,4 +267,9 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
       </div>
     </main>
   );
+}
+
+export default async function TeamPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams?: Promise<{ league?: string }> }) {
+  const league = (await searchParams)?.league === "academy" ? "academy" : "premier";
+  return <TeamPageContent params={params} league={league} />;
 }

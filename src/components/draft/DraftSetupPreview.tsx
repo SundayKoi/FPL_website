@@ -37,7 +37,7 @@ export default function DraftSetupPreview({
           </div>
           <Link
             href="/draft"
-            className="rounded border border-line px-3 py-2 text-sm font-semibold text-steel hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="rounded border border-line px-3 py-2 text-sm font-semibold text-steel hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
           >
             ← Draft Central
           </Link>

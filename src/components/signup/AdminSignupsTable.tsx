@@ -68,7 +68,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
             <button
               type="button"
               onClick={() => void handleCopyCsv()}
-              className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold"
+              className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
             >
               {copied ? "Copied!" : "Copy CSV"}
             </button>
@@ -78,7 +78,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
               value={seasonFilter}
               onChange={(e) => setSeasonFilter(e.target.value)}
               aria-label="Filter signups by season"
-              className="rounded border border-line bg-navy px-2 py-1 text-xs font-semibold text-white focus:border-gold focus:outline-none"
+              className="rounded border border-line bg-navy px-2 py-1 text-xs font-semibold text-white focus:border-coral focus:outline-none"
             >
               <option value="all">All seasons</option>
               {seasons.map((s) => (
@@ -148,7 +148,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                       target="_blank"
                       rel="noreferrer"
                       title={s.opgg}
-                      className="block truncate text-gold hover:underline"
+                      className="block truncate text-coral hover:underline"
                     >
                       {s.opgg}
                     </a>
@@ -157,7 +157,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-bold ${
                         s.player_status === "returning"
-                          ? "bg-emerald-500/15 text-emerald-400"
+                          ? "bg-mint/15 text-mint"
                           : "bg-gold/15 text-gold"
                       }`}
                     >

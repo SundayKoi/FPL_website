@@ -287,7 +287,7 @@ function DraftTeamEditor({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold hover:bg-gold hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral hover:bg-coral hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
           >
             Edit teams
           </button>
@@ -306,14 +306,14 @@ function DraftTeamEditor({
             type="button"
             onClick={saveAll}
             disabled={isSavingAll}
-            className="rounded bg-gold px-3 py-2 text-sm font-semibold text-navy hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="rounded bg-coral px-3 py-2 text-sm font-semibold text-navy hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
           >
             {isSavingAll ? "Saving all…" : "Save all"}
           </button>
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="rounded border border-line px-3 py-2 text-sm font-semibold text-white hover:border-gold hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="rounded border border-line px-3 py-2 text-sm font-semibold text-white hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
           >
             Done editing teams
           </button>
@@ -346,7 +346,7 @@ function DraftTeamEditor({
                   value={form.name}
                   disabled={isSaving}
                   onChange={(event) => setForm(team.id, { name: event.target.value, status: { kind: "idle" } })}
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-abbreviation`}>
@@ -359,7 +359,7 @@ function DraftTeamEditor({
                   onChange={(event) =>
                     setForm(team.id, { abbreviation: event.target.value.toUpperCase(), status: { kind: "idle" } })
                   }
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm uppercase text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="rounded border border-line bg-navy px-3 py-2 text-sm uppercase text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-captain`}>
@@ -372,7 +372,7 @@ function DraftTeamEditor({
                   onChange={(event) =>
                     setForm(team.id, { captainProfileId: event.target.value, status: { kind: "idle" } })
                   }
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">— none —</option>
                   {profiles.map((profile) => (
@@ -395,7 +395,7 @@ function DraftTeamEditor({
                       status: { kind: "idle" },
                     })
                   }
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">Unassigned</option>
                   <option value="Lunari">Lunari</option>
@@ -427,7 +427,7 @@ function DraftTeamEditor({
                     onChange={(event) =>
                       setForm(team.id, { bannerColor: event.target.value, status: { kind: "idle" } })
                     }
-                    className="min-w-0 flex-1 rounded border border-line bg-navy px-3 py-2 font-mono text-sm text-white focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:opacity-50"
+                    className="min-w-0 flex-1 rounded border border-line bg-navy px-3 py-2 font-mono text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -442,7 +442,7 @@ function DraftTeamEditor({
                   onChange={(event) =>
                     setForm(team.id, { selectedFile: event.target.files?.[0] ?? null, status: { kind: "idle" } })
                   }
-                  className="text-sm text-steel file:mr-3 file:rounded file:border-0 file:bg-gold file:px-3 file:py-2 file:text-xs file:font-semibold file:text-navy hover:file:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="text-sm text-steel file:mr-3 file:rounded file:border-0 file:bg-coral file:px-3 file:py-2 file:text-xs file:font-semibold file:text-navy hover:file:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 />
               </label>
             </div>
@@ -451,7 +451,7 @@ function DraftTeamEditor({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="rounded bg-gold px-3 py-2 text-sm font-semibold text-navy hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="rounded bg-coral px-3 py-2 text-sm font-semibold text-navy hover:brightness-110 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {isSaving ? "Saving…" : `Save ${team.name}`}
               </button>
@@ -460,7 +460,7 @@ function DraftTeamEditor({
                   type="button"
                   disabled={isSaving}
                   onClick={() => void removePicture(team)}
-                  className="rounded border border-red-500/60 px-3 py-2 text-sm font-semibold text-red-400 hover:border-red-400 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="rounded border border-red-500/60 px-3 py-2 text-sm font-semibold text-red-400 hover:border-red-400 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   Remove picture
                 </button>

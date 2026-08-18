@@ -11,11 +11,11 @@ const MATCH_ID_RE = /^NA1_\d+$/;
 const PHASES = ["Regular", "Playoffs"] as const;
 
 const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none";
+  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "border-steel/50 text-steel",
-  ingested: "border-gold/50 text-gold",
+  ingested: "border-mint/50 text-mint",
   needs_sides: "border-amber-400/60 text-amber-300",
   needs_side: "border-amber-400/60 text-amber-300",
   failed: "border-red-400/60 text-red-400",
@@ -47,7 +47,7 @@ function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status:
         Schedule
       </span>
       {status === "ingested" && (
-        <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gold">
+        <span className="rounded-full border border-mint/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-mint">
           Synced
         </span>
       )}
@@ -460,13 +460,13 @@ export default function ReportBox({
           ))}
         </ul>
       )}
-      {success && <p className="mt-3 text-sm font-semibold text-emerald-400">Report submitted.</p>}
+      {success && <p className="mt-3 text-sm font-semibold text-mint">Report submitted.</p>}
 
       <button
         type="button"
         onClick={() => void handleSubmit()}
         disabled={submitting}
-        className="mt-4 rounded-full bg-gold px-4 py-2 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+        className="mt-4 rounded-full bg-coral px-4 py-2 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Submit report"}
       </button>

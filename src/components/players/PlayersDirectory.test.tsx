@@ -1,10 +1,13 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import PlayersDirectory from "./PlayersDirectory";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import PlayersDirectory, { mergeScopedPlayerPoolRows } from "./PlayersDirectory";
 import { PLAYER_SEASONS } from "@/lib/players/seasonData";
+import type { PlayerPoolRow } from "./PlayerPoolAdmin";
 import type { FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
+import { createClient } from "@/lib/supabase/client";
 
 afterEach(cleanup);
+vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 
 const freeAgencyCaptains: FreeAgencyCaptain[] = [
   {
@@ -18,6 +21,42 @@ const freeAgencyCaptains: FreeAgencyCaptain[] = [
 ];
 
 describe("PlayersDirectory", () => {
+  it("merges scoped pool edits without dropping rows from other seasons", () => {
+    const currentRows: PlayerPoolRow[] = [
+      {
+        id: "season-5-row",
+        season_key: "season-5",
+        display_name: "Season Five Player",
+        role: "mid",
+        rank: "D1",
+        opgg_url: "https://op.gg/season-five",
+      },
+      {
+        id: "academy-row",
+        season_key: "academy-1",
+        display_name: "Academy One",
+        role: "top",
+        rank: "E1",
+        opgg_url: "https://op.gg/academy-one",
+      },
+    ];
+    const nextScopedRows: PlayerPoolRow[] = [
+      {
+        id: "academy-row",
+        season_key: "academy-1",
+        display_name: "Academy One Updated",
+        role: "top",
+        rank: "E2",
+        opgg_url: "https://op.gg/academy-one-updated",
+      },
+    ];
+
+    expect(mergeScopedPlayerPoolRows(currentRows, nextScopedRows, "academy-1")).toEqual([
+      currentRows[0],
+      nextScopedRows[0],
+    ]);
+  });
+
   it("renders Player List mode by default with five role sections", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
     expect((screen.getByLabelText("Season") as HTMLSelectElement).value).toBe("season-5");
@@ -46,7 +85,7 @@ describe("PlayersDirectory", () => {
   it("shows a season-specific unavailable message when provided", () => {
     render(
       <PlayersDirectory
-        seasons={{ "season-5": [], "season-4": [] }}
+        seasons={{ "season-5": [], "season-4": [], "academy-1": [] }}
         freeAgencyCaptains={freeAgencyCaptains}
         emptyStateMessages={{
           "season-5": "Player List data is unavailable for Season 5 right now.",
@@ -219,5 +258,100 @@ describe("PlayersDirectory", () => {
 
     expect((screen.getByLabelText("Captain") as HTMLSelectElement).value).toBe("");
     expect(screen.getByRole("link", { name: "Canny#rip" }).closest("li")?.dataset.available).toBe("true");
+  });
+
+  it("shows academy pool rows when the editor is scoped to the academy season", () => {
+    const academyPlayer: PlayerPoolRow = {
+      id: "academy-player-1",
+      season_key: "academy-1",
+      display_name: "Academy One",
+      role: "top",
+      rank: "E1",
+      opgg_url: "https://op.gg/academy-one",
+    };
+
+    render(
+      <PlayersDirectory
+        seasons={PLAYER_SEASONS}
+        canonicalPlayers={[academyPlayer]}
+        poolSeasonKey="academy-1"
+        freeAgencyCaptains={freeAgencyCaptains}
+        isAdmin
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Player Pool" }));
+
+    const poolEditor = screen.getByRole("region", { name: "Player pool administration" });
+    expect(poolEditor).toBeTruthy();
+    expect(screen.getByText("Academy One")).toBeTruthy();
+  });
+
+  it("preserves other seasons when the academy editor adds a player", async () => {
+    const insert = vi.fn(() => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: "academy-added",
+            season_key: "academy-1",
+            display_name: "Academy Added",
+            role: "top",
+            rank: "E2",
+            opgg_url: "https://op.gg/academy-added",
+          },
+          error: null,
+        }),
+      })),
+    }));
+    vi.mocked(createClient).mockReturnValue({ from: () => ({ insert }) } as never);
+
+    const rows: PlayerPoolRow[] = [
+      {
+        id: "season-5-row",
+        season_key: "season-5",
+        display_name: "Season Five Player",
+        role: "mid",
+        rank: "D1",
+        opgg_url: "https://op.gg/season-five",
+      },
+      {
+        id: "academy-row",
+        season_key: "academy-1",
+        display_name: "Academy One",
+        role: "top",
+        rank: "E1",
+        opgg_url: "https://op.gg/academy-one",
+      },
+    ];
+    const { rerender } = render(
+      <PlayersDirectory
+        seasons={PLAYER_SEASONS}
+        canonicalPlayers={rows}
+        poolSeasonKey="academy-1"
+        freeAgencyCaptains={freeAgencyCaptains}
+        isAdmin
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Player Pool" }));
+    fireEvent.change(screen.getByLabelText("Player name"), { target: { value: "Academy Added" } });
+    fireEvent.change(screen.getByLabelText("Player OP.GG URL"), {
+      target: { value: "https://op.gg/academy-added" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(insert).toHaveBeenCalled());
+
+    rerender(
+      <PlayersDirectory
+        seasons={PLAYER_SEASONS}
+        canonicalPlayers={rows}
+        poolSeasonKey="season-5"
+        freeAgencyCaptains={freeAgencyCaptains}
+        isAdmin
+      />,
+    );
+
+    expect(screen.getByText("Season Five Player")).toBeTruthy();
   });
 });

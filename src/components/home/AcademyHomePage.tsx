@@ -6,8 +6,9 @@ import HomeBrief from "./HomeBrief";
 import WeeklyStandouts from "./WeeklyStandouts";
 import { getTwitchChannelClips, getTwitchChannelStatus } from "@/lib/twitch/status";
 import { fetchHomepageStandings } from "@/lib/home/standings";
-import { fetchHomepageSchedule } from "@/lib/home/schedule";
+import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchHomepageAwards } from "@/lib/home/awards";
+import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchActiveBrief } from "@/lib/home/fetchBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
@@ -36,7 +37,7 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [twitchStatus, awards, standings, schedule, brief, identities, standouts] = await Promise.all([
+  const [twitchStatus, awards, standings, schedule, brief, identities, standouts, featuredSettings] = await Promise.all([
     getTwitchChannelStatus({ channelLogin: TWITCH_CHANNEL_LOGIN }),
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
@@ -44,7 +45,9 @@ export default async function AcademyHomePage() {
     fetchActiveBrief("academy"),
     fetchTeamIdentities("academy_draft_id"),
     fetchLatestWeeklyStandouts(5, seasons.academy, teamNames),
+    fetchHomepageFeaturedSettings("academy"),
   ]);
+  const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
   const twitchClips =
     twitchStatus.state === "live"
       ? []
@@ -57,11 +60,13 @@ export default async function AcademyHomePage() {
           <div className="flex justify-end"><LeaguePageToggle page="home" view="academy" /></div>
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
-              fixture={schedule.fixtures[0] ?? null}
+              fixture={featuredFixture}
               channelLogin={TWITCH_CHANNEL_LOGIN}
               clips={twitchClips}
               streamState={twitchStatus.state}
               twitchUrl={TWITCH_URL}
+              title={featuredSettings.title ?? undefined}
+              description={featuredSettings.description ?? undefined}
             />
             <HomeStandings teams={standings} seasonLabel={seasons.academy} />
           </div>

@@ -106,8 +106,8 @@ export async function CaptainPageView({
   const [codes, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
-    fetchMyRoster(supabase, activeTeamId, context.season),
-    opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season) : Promise.resolve(null),
+    fetchMyRoster(supabase, activeTeamId, context.season, league),
+    opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
   ]);
@@ -115,6 +115,9 @@ export async function CaptainPageView({
     ? opggMultiSearchUrlFromRosterPlayers(opponentRoster.draftPlayers) ??
       opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
     : null;
+  const myMultiOpggUrl =
+    opggMultiSearchUrlFromRosterPlayers(roster.draftPlayers) ??
+    opggMultiSearchUrlFromRiotIds(roster.riotAccounts);
 
   // Admin-only data for the four panels below the captain sections. Fetched
   // inline here (rather than via src/lib/captain/queries.ts) and unfiltered
@@ -160,7 +163,7 @@ export async function CaptainPageView({
                 id="team-switch"
                 name="team"
                 defaultValue={activeTeamId}
-                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-gold focus:outline-none"
+                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
               >
                 {context.activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -171,7 +174,7 @@ export async function CaptainPageView({
             </label>
             <button
               type="submit"
-              className="rounded-full bg-gold px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy"
+              className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy"
             >
               Switch
             </button>
@@ -187,7 +190,11 @@ export async function CaptainPageView({
                 opponentMultiOpggUrl={opponentMultiOpggUrl}
               />
               <TourneyCodes codes={codes} />
-              <MyRoster draftPlayers={roster.draftPlayers} riotAccounts={roster.riotAccounts} />
+              <MyRoster
+                draftPlayers={roster.draftPlayers}
+                riotAccounts={roster.riotAccounts}
+                multiOpggUrl={myMultiOpggUrl}
+              />
             </div>
             <ReportBox
               key={activeTeamId}
@@ -213,7 +220,7 @@ export async function CaptainPageView({
                 fixtures={fixtures}
                 teams={context.teams}
                 codes={allCodes}
-                enableBulkImporter={league === "premier"}
+                enableBulkImporter
               />
               <AdminReportsQueue reports={allReports} games={allGames} teams={context.teams} />
               {context.isOwner ? (

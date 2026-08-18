@@ -7,7 +7,7 @@ import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/typ
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "border-steel/50 text-steel",
-  ingested: "border-gold/50 text-gold",
+  ingested: "border-mint/50 text-mint",
   needs_sides: "border-amber-400/60 text-amber-300",
   needs_side: "border-amber-400/60 text-amber-300",
   failed: "border-red-400/60 text-red-400",
@@ -41,7 +41,7 @@ function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status:
         Schedule
       </span>
       {status === "ingested" && (
-        <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-gold">
+        <span className="rounded-full border border-mint/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-mint">
           Synced
         </span>
       )}

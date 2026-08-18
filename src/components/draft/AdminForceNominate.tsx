@@ -76,7 +76,7 @@ export default function AdminForceNominate({
             value={playerId}
             onChange={(e) => setPlayerId(e.target.value)}
             disabled={busy || available.length === 0}
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-gold focus:outline-none disabled:opacity-40"
+            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
           >
             <option value="">— select player —</option>
             {available.map((p) => (
@@ -96,14 +96,14 @@ export default function AdminForceNominate({
             placeholder={String(minimum)}
             aria-label="Opening bid"
             disabled={busy}
-            className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none disabled:opacity-40"
+            className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none disabled:opacity-40"
           />
         </label>
         <button
           type="button"
           onClick={() => void nominate()}
           disabled={busy || !playerId}
-          className="rounded bg-gold px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
         >
           Nominate for {nominatorTeam.name}
         </button>

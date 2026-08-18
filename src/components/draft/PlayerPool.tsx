@@ -46,7 +46,7 @@ export default function PlayerPool({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search players…"
-            className={`rounded border border-line bg-navy text-white placeholder:text-steel/60 focus:border-gold focus:outline-none ${
+            className={`rounded border border-line bg-navy text-white placeholder:text-steel/60 focus:border-coral focus:outline-none ${
               compact ? "px-2 py-0.5 text-xs" : "px-2 py-1 text-sm"
             }`}
           />
@@ -55,7 +55,7 @@ export default function PlayerPool({
               onClick={() => setRole(null)}
               aria-pressed={role === null}
               className={`rounded-full text-xs font-semibold ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
-                role === null ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
+                role === null ? "bg-coral text-navy" : "bg-panel text-steel border border-line"
               }`}
             >
               All
@@ -66,7 +66,7 @@ export default function PlayerPool({
                 onClick={() => setRole(r)}
                 aria-pressed={role === r}
                 className={`rounded-full text-xs font-semibold uppercase ${compact ? "px-2 py-0.5" : "px-2.5 py-1"} ${
-                  role === r ? "bg-gold text-navy" : "bg-panel text-steel border border-line"
+                  role === r ? "bg-coral text-navy" : "bg-panel text-steel border border-line"
                 }`}
               >
                 {r}

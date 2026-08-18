@@ -85,7 +85,7 @@ export default function AdminStrip({
 
         <button
           disabled={busy}
-          className="rounded border border-gold text-gold px-3 py-1.5 text-xs font-semibold hover:bg-gold/10 disabled:opacity-40"
+          className="rounded border border-coral text-coral px-3 py-1.5 text-xs font-semibold hover:bg-coral/10 disabled:opacity-40"
           onClick={() =>
             run(undoLabel, () => supabase.rpc("undo_last_sale", { p_draft_id: draft.id }))
           }
@@ -133,7 +133,7 @@ export default function AdminStrip({
             max={300}
             value={countdown}
             onChange={(e) => setCountdown(e.target.value)}
-            className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+            className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
           />
           <button
             disabled={busy}

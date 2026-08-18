@@ -19,6 +19,7 @@ import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/li
 import type { Player } from "@/lib/draft/types";
 import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
 import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
+import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
 
 /** One row of `league_team_captains`. */
@@ -229,7 +230,8 @@ export async function fetchMyReports(
 export async function fetchMyRoster(
   supabase: SupabaseClient,
   teamId: string,
-  season: string
+  season: string,
+  league: "premier" | "academy" = "premier",
 ): Promise<MyRosterData> {
   const { data: teamRow } = await supabase.from("league_teams").select("name").eq("id", teamId).single();
   const teamName = (teamRow as { name: string } | null)?.name ?? null;
@@ -257,7 +259,10 @@ export async function fetchMyRoster(
           .select("*")
           .eq("team_id", draftTeamId)
           .order("role"),
-        supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", "season-5"),
+        supabase
+          .from("player_pool")
+          .select("id, display_name, rank, opgg_url")
+          .eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       ]);
       const { data: playerRows, error: playersError } = playersResult;
       if (playersError) throw playersError;
@@ -265,7 +270,9 @@ export async function fetchMyRoster(
         (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [];
       draftPlayers = ((playerRows as Player[]) ?? []).map((player) => ({
         ...player,
-        opgg_url: resolvePlayerOpggUrl(player, canonicalPlayers),
+        opgg_url:
+          resolvePlayerOpggUrl(player, canonicalPlayers) ??
+          (league === "academy" ? academyOpggUrlForPlayer(player.display_name) : null),
       }));
     }
   }

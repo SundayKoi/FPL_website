@@ -15,9 +15,10 @@ export default async function RulebookPage() {
               <h1 id="rulebook-heading" className="type-display mt-3 text-5xl sm:text-6xl">
                 Rulebook
               </h1>
+              <hr className="accent-rule mt-5 w-48 sm:w-64" />
             </div>
             <a
-              className="text-sm font-semibold uppercase tracking-[0.16em] text-gold underline decoration-gold/50 underline-offset-4 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+              className="text-sm font-semibold uppercase tracking-[0.16em] text-coral underline decoration-coral/50 underline-offset-4 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
               href={rulebook.href}
               rel="noopener noreferrer"
               target="_blank"
@@ -36,7 +37,7 @@ export default async function RulebookPage() {
               {rulebookSections.map(([label, id]) => (
                 <li key={id}>
                   <a
-                    className="inline-flex py-1 underline decoration-line underline-offset-4 transition hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    className="inline-flex py-1 underline decoration-line underline-offset-4 transition hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                     href={`#${id}`}
                   >
                     {label}
@@ -51,7 +52,7 @@ export default async function RulebookPage() {
 
         <a
           aria-label="Back to Rulebook sections"
-          className="fixed bottom-5 right-4 z-30 inline-flex items-center gap-2 rounded-full border border-gold/50 bg-navy/95 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-gold shadow-lg shadow-black/30 backdrop-blur transition hover:bg-panel hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold sm:bottom-8 sm:right-8"
+          className="fixed bottom-5 right-4 z-30 inline-flex items-center gap-2 rounded-full border border-coral/50 bg-navy/95 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-coral shadow-lg shadow-black/30 backdrop-blur transition hover:bg-panel hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:bottom-8 sm:right-8"
           href="#rulebook-sections"
         >
           <span aria-hidden="true">↑</span>

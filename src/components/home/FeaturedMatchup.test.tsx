@@ -67,4 +67,40 @@ describe("FeaturedMatchup", () => {
       "clip=fpl-preview",
     );
   });
+
+  it("renders a custom title and supporting description", () => {
+    render(
+      <FeaturedMatchup
+        fixture={fixture}
+        clips={clips}
+        streamState="offline"
+        channelLogin="franchisepremierleague"
+        twitchUrl="https://www.twitch.tv/franchisepremierleague"
+        title="The academy spotlight is here."
+        description="Watch the next generation compete under the lights."
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "The academy spotlight is here." })).toBeTruthy();
+    expect(screen.getByText("Watch the next generation compete under the lights.")).toBeTruthy();
+  });
+
+  it("renders the default title and supporting description when omitted", () => {
+    render(
+      <FeaturedMatchup
+        fixture={fixture}
+        clips={clips}
+        streamState="offline"
+        channelLogin="franchisepremierleague"
+        twitchUrl="https://www.twitch.tv/franchisepremierleague"
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "The title race gets serious." })).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.",
+      ),
+    ).toBeTruthy();
+  });
 });

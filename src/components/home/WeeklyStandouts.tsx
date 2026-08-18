@@ -55,7 +55,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
 
       <Link
         href="/stats"
-        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-gold hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
       >
         View full stats <span aria-hidden>→</span>
       </Link>

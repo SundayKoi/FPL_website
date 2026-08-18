@@ -31,6 +31,15 @@ describe("SiteNavigation", () => {
     expect(screen.getByText("Account")).toBeTruthy();
   });
 
+  it("hides the Admin link by default and shows it for staff", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.queryByRole("link", { name: /^Admin$/ })).toBeNull();
+    cleanup();
+
+    render(<SiteNavigation authSlot={<span>Account</span>} showAdmin />);
+    expect(screen.getByRole("link", { name: /^Admin$/ }).getAttribute("href")).toBe("/admin");
+  });
+
   it("marks the active route with aria-current", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 

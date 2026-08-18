@@ -4,6 +4,7 @@ import { computePools } from "./pools";
 import type {
   PropSuggestion,
   BettingTeam,
+  EventSummary,
   MarketDetailData,
   MarketCardData,
   OpenBetRow,
@@ -57,12 +58,15 @@ function teamMap(rows: BettingTeam[]): Map<number, BettingTeam> {
 }
 
 /** Markets a visitor can currently act on or is about to lose the chance to
- * — OPEN and LOCKED only. Sorted soonest-to-lock first within each status. */
-export async function fetchMarketCards(): Promise<MarketCardData[]> {
+ * — OPEN and LOCKED only. Sorted soonest-to-lock first within each status.
+ * Pass an eventId to scope the list to one event's page. */
+export async function fetchMarketCards(eventId?: number): Promise<MarketCardData[]> {
   const service = createBettingServiceClient();
 
+  let marketsQuery = service.from("betting_markets").select("*").in("status", ["OPEN", "LOCKED"]);
+  if (eventId !== undefined) marketsQuery = marketsQuery.eq("event_id", eventId);
   const [marketsResult, teamsResult, eventsResult] = await Promise.all([
-    service.from("betting_markets").select("*").in("status", ["OPEN", "LOCKED"]),
+    marketsQuery,
     service.from("betting_teams").select("*"),
     service.from("betting_events").select("id, name"),
   ]);
@@ -119,6 +123,61 @@ export async function fetchMarketCards(): Promise<MarketCardData[]> {
   });
 
   return cards;
+}
+
+/** One betting event's identity row, for the event page header. `null` when
+ * the id doesn't exist (the page 404s). */
+export async function fetchBettingEvent(eventId: number): Promise<{ id: number; name: string; description: string | null } | null> {
+  const service = createBettingServiceClient();
+  const { data } = await service.from("betting_events").select("id, name, description").eq("id", eventId).maybeSingle();
+  return (data as { id: number; name: string; description: string | null } | null) ?? null;
+}
+
+/** Every betting event with its live-activity counts, for the betting index.
+ * Events with something currently open sort first (soonest lock leading),
+ * then the rest newest-first — so a finished season sinks below a running
+ * one without disappearing. */
+export async function fetchEventSummaries(): Promise<EventSummary[]> {
+  const service = createBettingServiceClient();
+
+  const [eventsResult, marketsResult, pickemsResult] = await Promise.all([
+    service.from("betting_events").select("id, name, description"),
+    service.from("betting_markets").select("event_id, status, lock_at").in("status", ["OPEN", "LOCKED"]),
+    service.from("betting_pickems").select("event_id, status, lock_at").in("status", ["OPEN", "LOCKED"]),
+  ]);
+
+  const events = (eventsResult.data as { id: number; name: string; description: string | null }[] | null) ?? [];
+  const markets = (marketsResult.data as { event_id: number; status: "OPEN" | "LOCKED"; lock_at: string }[] | null) ?? [];
+  const pickems = (pickemsResult.data as { event_id: number; status: "OPEN" | "LOCKED"; lock_at: string }[] | null) ?? [];
+
+  const summaries = events.map((e) => {
+    const eventMarkets = markets.filter((m) => m.event_id === e.id);
+    const livePickems = pickems.filter((p) => p.event_id === e.id);
+    const lockTimes = [
+      ...eventMarkets.filter((m) => m.status === "OPEN").map((m) => m.lock_at),
+      ...livePickems.filter((p) => p.status === "OPEN").map((p) => p.lock_at),
+    ].sort();
+    const summary: EventSummary = {
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      open_markets: eventMarkets.filter((m) => m.status === "OPEN").length,
+      locked_markets: eventMarkets.filter((m) => m.status === "LOCKED").length,
+      has_live_pickem: livePickems.length > 0,
+      next_lock_at: lockTimes[0] ?? null,
+    };
+    return summary;
+  });
+
+  summaries.sort((a, b) => {
+    const aLive = a.open_markets + a.locked_markets > 0 || a.has_live_pickem ? 1 : 0;
+    const bLive = b.open_markets + b.locked_markets > 0 || b.has_live_pickem ? 1 : 0;
+    if (aLive !== bLive) return bLive - aLive;
+    if (a.next_lock_at && b.next_lock_at && a.next_lock_at !== b.next_lock_at)
+      return a.next_lock_at < b.next_lock_at ? -1 : 1;
+    return b.id - a.id;
+  });
+  return summaries;
 }
 
 /** Full detail for one market — pools, rules, and a top-bets leaderboard strip. */
@@ -226,37 +285,39 @@ const PICKEM_RESULT_GRACE_HOURS = 48;
  * RESOLVED/CANCELLED one within PICKEM_RESULT_GRACE_HOURS. `null` when
  * neither exists — see fetchOpenPickem's own comment for why this fallback
  * matters (without it, a resolved pick'em's result is unreachable). */
-async function fetchPickemRow(service: ReturnType<typeof createBettingServiceClient>): Promise<PickemRow | null> {
-  const { data: openData } = await service
+async function fetchPickemRow(
+  service: ReturnType<typeof createBettingServiceClient>,
+  eventId?: number
+): Promise<PickemRow | null> {
+  let openQuery = service
     .from("betting_pickems")
     .select("id, title, status, carryover, lock_at")
-    .in("status", ["OPEN", "LOCKED"])
-    .order("lock_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .in("status", ["OPEN", "LOCKED"]);
+  if (eventId !== undefined) openQuery = openQuery.eq("event_id", eventId);
+  const { data: openData } = await openQuery.order("lock_at", { ascending: true }).limit(1).maybeSingle();
   if (openData) return openData as PickemRow;
 
   const since = new Date(Date.now() - PICKEM_RESULT_GRACE_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: recentData } = await service
+  let recentQuery = service
     .from("betting_pickems")
     .select("id, title, status, carryover, lock_at")
     .in("status", ["RESOLVED", "CANCELLED"])
-    .gte("resolved_at", since)
-    .order("resolved_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .gte("resolved_at", since);
+  if (eventId !== undefined) recentQuery = recentQuery.eq("event_id", eventId);
+  const { data: recentData } = await recentQuery.order("resolved_at", { ascending: false }).limit(1).maybeSingle();
   return (recentData as PickemRow | null) ?? null;
 }
 
-/** The pick'em to render above markets on the betting index page: the live
- * OPEN/LOCKED one, or — for a grace window after it settles — its result,
- * so players who bet on it can still see the outcome instead of the panel
- * simply vanishing the instant it resolves. `null` when there's nothing to
- * show at all. See fetchPickemRow/PICKEM_RESULT_GRACE_HOURS above. */
-export async function fetchOpenPickem(discordId?: string): Promise<PickemData | null> {
+/** The pick'em to render above an event's markets: the live OPEN/LOCKED one,
+ * or — for a grace window after it settles — its result, so players who bet
+ * on it can still see the outcome instead of the panel simply vanishing the
+ * instant it resolves. `null` when there's nothing to show at all. Pass an
+ * eventId to scope to one event's page (each event runs its own pick'em).
+ * See fetchPickemRow/PICKEM_RESULT_GRACE_HOURS above. */
+export async function fetchOpenPickem(discordId?: string, eventId?: number): Promise<PickemData | null> {
   const service = createBettingServiceClient();
 
-  const pickem = await fetchPickemRow(service);
+  const pickem = await fetchPickemRow(service, eventId);
   if (!pickem) return null;
 
   const { data: legRows } = await service.from("betting_pickem_legs").select("market_id").eq("pickem_id", pickem.id);

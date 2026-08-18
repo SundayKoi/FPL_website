@@ -51,14 +51,22 @@ const DROPDOWNS = [
 ] as const;
 
 const linkBase =
-  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold sm:text-sm lg:text-base";
+  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
 
 function isActive(pathname: string | null, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 }
 
-export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
+export default function SiteNavigation({
+  authSlot,
+  showAdmin = false,
+}: {
+  authSlot: ReactNode;
+  /** Renders the Admin hub link — set server-side for signed-in admins/owners
+   * only. Presentation only; /admin re-checks the staff tier and redirects. */
+  showAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
@@ -138,7 +146,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
                 aria-current={active ? "page" : undefined}
                 onClick={closeMenus}
                 className={`${linkBase} rounded px-3 py-2 sm:px-0 sm:py-1 ${
-                  active ? "text-white sm:text-gold" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
+                  active ? "text-white sm:text-coral" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
                 }`}
               >
                 {link.label}
@@ -164,7 +172,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
                   }
                   className={`${linkBase} inline-flex items-center gap-1 rounded px-3 py-2 sm:px-0 sm:py-1 ${
                     active || dropdownOpen
-                      ? "text-white sm:text-gold"
+                      ? "text-white sm:text-coral"
                       : "text-steel hover:bg-line/40 hover:text-white sm:hover:bg-transparent"
                   }`}
                 >
@@ -198,6 +206,20 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
               </div>
             );
           })}
+          {showAdmin && (
+            <Link
+              href="/admin"
+              aria-current={isActive(pathname, "/admin") ? "page" : undefined}
+              onClick={closeMenus}
+              className={`${linkBase} rounded px-3 py-2 sm:px-0 sm:py-1 ${
+                isActive(pathname, "/admin")
+                  ? "text-white sm:text-coral"
+                  : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -211,7 +233,7 @@ export default function SiteNavigation({ authSlot }: { authSlot: ReactNode }) {
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:hidden"
           >
             {open ? (
               <svg

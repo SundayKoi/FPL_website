@@ -45,6 +45,7 @@ export default async function SignupPage() {
         <header className="border-b border-line pb-8">
           <span className="label-dash">JOIN THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Sign Up</h1>
+          <hr className="accent-rule mt-5 w-48 sm:w-64" />
           <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
             Enter the {season} player pool. Check the Info page for eligibility rules —
             ranked-game minimums, account level, and the rank cap — before you submit.

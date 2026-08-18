@@ -30,7 +30,7 @@ export default async function ProfilePage() {
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">{user.username}</h1>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <StatBox label="Balance" value={fmtPoints(user.balance)} valueClass="text-emerald-400" />
+        <StatBox label="Balance" value={fmtPoints(user.balance)} valueClass="text-mint" />
         <StatBox
           label="Record"
           value={`${stats.wins}W / ${stats.losses}L`}
@@ -38,11 +38,11 @@ export default async function ProfilePage() {
         <StatBox
           label="Net profit"
           value={(stats.profit < 0 ? "-" : "") + fmtPoints(Math.abs(stats.profit))}
-          valueClass={stats.profit < 0 ? "text-red-400" : "text-emerald-400"}
+          valueClass={stats.profit < 0 ? "text-red-400" : "text-mint"}
         />
         <StatBox label="Win streak" value={stats.current_streak > 0 ? `🔥 ${stats.current_streak}` : "—"} />
         <StatBox label="Best streak" value={stats.best_streak > 0 ? String(stats.best_streak) : "—"} />
-        <StatBox label="Biggest win" value={fmtPoints(stats.biggest_win)} valueClass="text-emerald-400" />
+        <StatBox label="Biggest win" value={fmtPoints(stats.biggest_win)} valueClass="text-mint" />
         <StatBox label="Perfect Pick'ems" value={stats.perfect_pickems > 0 ? `🎯 ${stats.perfect_pickems}` : "0"} />
         <StatBox label="Open bets" value={String(open.length)} />
       </div>
@@ -72,7 +72,7 @@ export default async function ProfilePage() {
             return (
               <div key={b.id} className="flex items-center justify-between border-b border-line px-4 py-2.5 text-sm last:border-0">
                 <span className="text-steel">{b.market_title ?? `Market ${b.market_id}`}</span>
-                <span className={`font-semibold ${refunded ? "text-steel" : won ? "text-emerald-400" : "text-red-400"}`}>
+                <span className={`font-semibold ${refunded ? "text-steel" : won ? "text-mint" : "text-red-400"}`}>
                   {refunded ? `${fmtPoints(b.amount)} refunded` : won ? `+${fmtPoints((b.payout ?? 0) - b.amount)}` : `-${fmtPoints(b.amount)}`}
                 </span>
               </div>

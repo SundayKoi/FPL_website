@@ -17,7 +17,7 @@ function Movement({ pct }: { pct: number }) {
   }, [pct]);
   if (!dir) return null;
   return (
-    <span className={dir === "up" ? "text-emerald-400" : "text-red-400"} aria-hidden="true">
+    <span className={dir === "up" ? "text-mint" : "text-red-400"} aria-hidden="true">
       {dir === "up" ? "▲" : "▼"}
     </span>
   );

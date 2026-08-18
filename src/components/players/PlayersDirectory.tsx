@@ -19,6 +19,7 @@ type SortOption = "name" | "rank" | "value";
 type Props = {
   seasons: Record<SeasonKey, RoleSection[]>;
   canonicalPlayers?: PlayerPoolRow[];
+  poolSeasonKey?: SeasonKey;
   freeAgencyCaptains?: FreeAgencyCaptain[];
   isAdmin?: boolean;
   isOwner?: boolean;
@@ -32,15 +33,24 @@ type Props = {
 
 const ROLE_TONES = {
   top: "border-violet-300/50 bg-violet-300/10 text-violet-100",
-  jungle: "border-emerald-300/50 bg-emerald-300/10 text-emerald-100",
+  jungle: "border-mint/50 bg-mint/10 text-mint",
   mid: "border-sky-300/50 bg-sky-300/10 text-sky-100",
   adc: "border-amber-300/50 bg-amber-300/10 text-amber-100",
   support: "border-purple-300/50 bg-purple-300/10 text-purple-100",
 } as const;
 
+export function mergeScopedPlayerPoolRows(
+  currentRows: PlayerPoolRow[],
+  scopedRows: PlayerPoolRow[],
+  scopedSeasonKey: SeasonKey,
+) {
+  return [...currentRows.filter((row) => row.season_key !== scopedSeasonKey), ...scopedRows];
+}
+
 export default function PlayersDirectory({
   seasons,
   canonicalPlayers = [],
+  poolSeasonKey,
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
   isAdmin = false,
   isOwner = false,
@@ -62,6 +72,7 @@ export default function PlayersDirectory({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [poolEditMode, setPoolEditMode] = useState(false);
   const [poolPlayers, setPoolPlayers] = useState(canonicalPlayers);
+  const activePoolSeasonKey = poolSeasonKey ?? selectedSeason;
   const sections = seasons[selectedSeason] ?? [];
   const emptyStateMessage =
     emptyStateMessages[selectedSeason] ?? "No player data is available for this season.";
@@ -69,8 +80,13 @@ export default function PlayersDirectory({
   const isFreeAgency = showFreeAgency && selectedSection === "free-agency";
   const hasValueColumn = isFreeAgency || showMinSort;
   const adminPlayers = poolPlayers
-    .filter((player) => player.season_key === selectedSeason)
+    .filter((player) => player.season_key === activePoolSeasonKey)
     .sort((left, right) => left.display_name.localeCompare(right.display_name));
+  const handlePoolPlayersChange = (updatedScopedPlayers: PlayerPoolRow[]) => {
+    setPoolPlayers((currentPlayers) =>
+      mergeScopedPlayerPoolRows(currentPlayers, updatedScopedPlayers, activePoolSeasonKey),
+    );
+  };
   const displaySections = sections.map((section) => ({
     ...section,
     players: [...section.players].sort((left, right) => {
@@ -134,6 +150,7 @@ export default function PlayersDirectory({
           <div>
             <span className="label-dash">PLAYER POOL</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Players</h1>
+            <hr className="accent-rule mt-5 w-48 sm:w-64" />
             <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
               Browse each role&apos;s available players, ranked and sorted by minimum bid.
             </p>
@@ -149,7 +166,7 @@ export default function PlayersDirectory({
                 id="player-season"
                 value={selectedSeason}
                 onChange={(event) => setSelectedSeason(event.target.value as SeasonKey)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {SEASON_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -167,7 +184,7 @@ export default function PlayersDirectory({
                 id="player-sort"
                 value={sortOption}
                 onChange={(event) => setSortOption(event.target.value as SortOption)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
                 <option value="name">Name</option>
@@ -183,7 +200,7 @@ export default function PlayersDirectory({
                 id="player-section"
                 value={selectedSection}
                 onChange={(event) => handleSectionChange(event.target.value as DirectorySection)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 <option value="player-list">Player List</option>
                 {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
@@ -199,7 +216,7 @@ export default function PlayersDirectory({
                   id="player-captain"
                   value={selectedCaptain}
                   onChange={(event) => setSelectedCaptain(event.target.value)}
-                  className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-gold focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">No captain</option>
                   {freeAgencyCaptains.map((captain) => (
@@ -214,7 +231,7 @@ export default function PlayersDirectory({
               <button
                 type="button"
                 onClick={() => setEditMode((editing) => !editing)}
-                className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral transition hover:bg-coral/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {editMode ? "Done Editing" : "Edit Avg Bids"}
               </button>
@@ -265,7 +282,7 @@ export default function PlayersDirectory({
                             href={player.opggUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral ${
                               isFreeAgency && selectedCaptain && isAvailable
                                 ? "font-extrabold text-white decoration-white/70"
                                 : "font-semibold"
@@ -284,7 +301,7 @@ export default function PlayersDirectory({
                                 defaultValue={avgBidFor(player.name) ?? ""}
                                 disabled={savingPlayer === (freeAgencyPlayer?.name ?? player.name)}
                                 onBlur={(event) => void saveAvgBid(freeAgencyPlayer?.name ?? player.name, event.target.value)}
-                                className="w-16 rounded border border-line bg-navy px-1 text-right font-medium text-white focus:border-gold focus:outline-none"
+                                className="w-16 rounded border border-line bg-navy px-1 text-right font-medium text-white focus:border-coral focus:outline-none"
                               />
                             ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
                           </span> : null}
@@ -334,9 +351,9 @@ export default function PlayersDirectory({
                                   : player,
                               )
                             }
-                            className={`bg-panel px-2 py-3 text-left transition-colors hover:bg-gold/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold ${
+                            className={`bg-panel px-2 py-3 text-left transition-colors hover:bg-coral/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral ${
                               isHighlighted
-                                ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-gold)]"
+                                ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-coral)]"
                                 : "font-medium text-steel"
                             }`}
                           >
@@ -355,10 +372,10 @@ export default function PlayersDirectory({
 
         {isAdmin && !isFreeAgency ? (
           <>
-            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-gold px-3 py-2 text-sm font-semibold text-gold">
+            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">
               {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
             </button>
-            {poolEditMode ? <PlayerPoolAdmin seasonKey={selectedSeason} players={adminPlayers} onPlayersChange={setPoolPlayers} /> : null}
+            {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} /> : null}
           </>
         ) : null}
       </div>

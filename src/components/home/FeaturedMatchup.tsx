@@ -11,6 +11,8 @@ type FeaturedMatchupProps = {
   streamState: TwitchStreamState;
   channelLogin: string;
   twitchUrl: string;
+  title?: string;
+  description?: string;
 };
 
 function getEmbedParent(): string | null {
@@ -28,6 +30,9 @@ export default function FeaturedMatchup({
   streamState,
   channelLogin,
   twitchUrl,
+  title = "The title race gets serious.",
+  description =
+    "Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.",
 }: FeaturedMatchupProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const embedParent = useSyncExternalStore(subscribeToEmbedParent, getEmbedParent, () => "localhost");
@@ -63,7 +68,7 @@ export default function FeaturedMatchup({
         <div>
           <span className="label-dash">FEATURED MATCHUP · {fixture?.stage?.replace("_", " ") ?? "NEXT"}</span>
           <h2 id="featured-matchup-title" className="type-display mt-2 text-4xl sm:text-5xl">
-            The title race gets serious.
+            {title}
           </h2>
         </div>
         <span className="rounded-full border border-cyan/40 bg-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan">
@@ -72,7 +77,7 @@ export default function FeaturedMatchup({
       </div>
 
       <p className="mt-3 max-w-2xl text-sm leading-6 text-steel">
-        Two teams meet under the lights. Follow the broadcast, watch the standings shift, and see who owns the next chapter.
+        {description}
       </p>
 
       <div className="mt-5 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
@@ -80,7 +85,7 @@ export default function FeaturedMatchup({
           <span className="block text-[10px] uppercase tracking-[0.16em] text-steel">Team A</span>
           <strong className="mt-2 block text-xl text-white">{teamA}</strong>
         </div>
-        <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-gold">VS</span>
+        <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-coral">VS</span>
         <div className="rounded-lg border border-line bg-navy/60 p-4">
           <span className="block text-[10px] uppercase tracking-[0.16em] text-steel">Team B</span>
           <strong className="mt-2 block text-xl text-white">{teamB}</strong>
@@ -111,7 +116,7 @@ export default function FeaturedMatchup({
           </span>
         </button>
         <div className="border-t border-line px-4 py-3 text-right">
-          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-gold hover:text-white">
+          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-coral hover:text-white">
             Open Twitch channel →
           </a>
         </div>

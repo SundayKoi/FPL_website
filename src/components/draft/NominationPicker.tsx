@@ -68,7 +68,7 @@ export default function NominationPicker({
 
   const chip = (active: boolean) =>
     active
-      ? "rounded-full bg-gold px-3 py-1 text-xs font-semibold text-navy"
+      ? "rounded-full bg-coral px-3 py-1 text-xs font-semibold text-navy"
       : "rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold text-steel hover:text-white";
 
   return (
@@ -98,7 +98,7 @@ export default function NominationPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search players…"
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-gold focus:outline-none"
+          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
         />
       </header>
 
@@ -125,7 +125,7 @@ export default function NominationPicker({
                     return (
                       <li key={p.id}>
                         <button
-                          className="flex w-full items-center justify-between gap-2 rounded border border-line bg-navy px-2.5 py-1.5 text-left text-sm hover:border-gold hover:bg-gold/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-navy"
+                          className="flex w-full items-center justify-between gap-2 rounded border border-line bg-navy px-2.5 py-1.5 text-left text-sm hover:border-coral hover:bg-coral/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-navy"
                           disabled={!!blocked}
                           title={blocked ?? `Nominate (opens at ${minimum})`}
                           onClick={() => requestNominate(p)}
@@ -166,7 +166,7 @@ export default function NominationPicker({
               value={opening}
               onChange={(e) => setOpening(e.target.value)}
               aria-label="Opening bid"
-              className="w-20 rounded border border-line bg-navy px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-gold focus:outline-none"
+              className="w-20 rounded border border-line bg-navy px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-coral focus:outline-none"
             />
             points
           </label>

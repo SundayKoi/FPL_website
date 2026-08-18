@@ -14,7 +14,7 @@ type BracketMatchProps = {
 function BracketMatch({ top, bottom }: BracketMatchProps) {
   return (
     <div className="overflow-hidden rounded border border-line bg-navy/80">
-      <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-gold">
+      <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-coral">
         {top}
       </div>
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
