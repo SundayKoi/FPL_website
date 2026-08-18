@@ -15,6 +15,12 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { cleanBrief } from "../src/lib/home/brief";
+import {
+  aggregatePlayerLines,
+  summariseSeries,
+  weekBoundsFromLatest,
+  withinWindow,
+} from "../src/lib/home/briefFacts";
 
 const MODEL = "claude-sonnet-5";
 const WEEK_STAGES = ["week_1", "week_2", "week_3", "week_4", "week_5"] as const;
@@ -53,6 +59,7 @@ interface Fixture {
   id: string; season: string; stage: string; division: string | null;
   team_a: string | null; team_b: string | null;
   score_a: number | null; score_b: number | null; scheduled_at: string | null;
+  best_of: number | null;
 }
 
 const stageNumber = (stage: string) => WEEK_STAGES.indexOf(stage as (typeof WEEK_STAGES)[number]) + 1;
@@ -86,7 +93,7 @@ async function main() {
 
   const { data: fixtureRows } = await db
     .from("fixtures")
-    .select("id, season, stage, division, team_a, team_b, score_a, score_b, scheduled_at")
+    .select("id, season, stage, division, team_a, team_b, score_a, score_b, scheduled_at, best_of")
     .eq("season", season)
     .in("stage", WEEK_STAGES as unknown as string[]);
   // Season code alone already separates the leagues; the team check is the
@@ -120,28 +127,36 @@ async function main() {
     record[aWon ? f.team_b : f.team_a].l += 1;
   }
 
-  // Stat leaders for the recapped week, straight from the ingest.
-  const since = recapFixtures
-    .map((f) => f.scheduled_at)
-    .filter((d): d is string => !!d)
-    .sort()[0];
+  // Stat lines for the recapped week. The window comes from the games
+  // themselves rather than from the fixtures' scheduled kickoff: a series
+  // played before its slot used to fall outside a `scheduled_at` lower bound,
+  // and the resulting empty list is why a brief once reported that no stat
+  // lines existed for a week that had been fully ingested.
   let statQuery = db
     .from("raw_stats")
-    .select("summoner_name, team_name, champion, kills, deaths, assists, total_damage_to_champions, cs_per_min, vision_score, game_date")
+    .select("summoner_name, team_name, champion, kills, deaths, assists, total_damage_to_champions, game_date")
     .eq("season", season)
-    .gte("game_date", since ?? "1970-01-01")
-    .limit(500);
+    .order("game_date", { ascending: false })
+    .limit(2000);
   if (teamNames.length) statQuery = statQuery.in("team_name", teamNames);
   const { data: statRows } = await statQuery;
+  const allStats = (statRows as Parameters<typeof withinWindow>[0]) ?? [];
+  const weekStats = withinWindow(allStats, weekBoundsFromLatest(allStats.map((r) => r.game_date)));
+  const playerLines = aggregatePlayerLines(weekStats);
+  const series = summariseSeries(recapFixtures);
 
   const facts = {
     season,
     week_just_played: latestWeek,
-    results: recapFixtures.map((f) => ({
-      division: f.division,
-      [`${f.team_a}`]: f.score_a,
-      [`${f.team_b}`]: f.score_b,
-    })),
+    results: series.results,
+    // Supplied as counts because the model gets them wrong when left to infer
+    // them from scorelines.
+    series_summary: {
+      total_series: series.total_series,
+      series_that_went_the_distance: series.series_that_went_the_distance,
+      teams_that_went_the_distance: series.teams_that_went_the_distance,
+      sweeps: series.sweeps,
+    },
     next_week: {
       week: latestWeek + 1,
       fixtures: previewFixtures.map((f) => ({
@@ -151,7 +166,10 @@ async function main() {
     standings: Object.entries(record)
       .map(([team, r]) => ({ team, wins: r.w, losses: r.l, division: r.division }))
       .sort((a, b) => b.wins - a.wins || a.losses - b.losses),
-    player_lines: (statRows ?? []).slice(0, 120),
+    // An explicit count so "no stat lines are available" is something the
+    // model can only say when it is true.
+    player_line_count: playerLines.length,
+    player_lines: playerLines.slice(0, 40),
   };
 
   const system = [
@@ -162,6 +180,8 @@ async function main() {
     "",
     "Hard rules:",
     "1. Use ONLY the facts in the JSON provided. Never invent a score, a name, a streak or a statistic. If you cannot support a claim from the data, leave it out.",
+    "1a. Never count, tally or compare anything yourself. Every superlative -- only, first, most, best, widest, unbeaten, winless -- must come from a supplied count or flag. series_summary already counts how many series went the distance and how many were sweeps, and names the teams involved; use those numbers rather than reading the scorelines and deciding for yourself.",
+    "1b. player_lines holds the week's individual performances and player_line_count says how many there are. Only write that stat lines are unavailable when player_line_count is 0.",
     "2. Never use an em dash or en dash. Use commas, full stops or brackets.",
     "3. Banned phrasing: 'a testament to', 'when it comes to', 'it is worth noting', 'in the world of', 'boasts', 'delve', 'game-changer', 'unleash', 'elevate', 'at the end of the day', 'needless to say', 'one thing is clear', and any 'not just X, but Y' construction.",
     "4. No preamble, no sign-off, no headings. Return only the JSON object asked for.",
