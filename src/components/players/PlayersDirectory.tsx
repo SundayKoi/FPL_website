@@ -2,16 +2,14 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import BidBoard from "@/components/players/BidBoard";
 import PlayerPoolAdmin, { type PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
-import { findFreeAgencyPlayer, isPlayerAvailableToCaptain, normalizePlayerName } from "@/lib/players/freeAgency";
+import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/freeAgency";
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
-import {
-  FREE_AGENCY_BID_BOARD,
-  FREE_AGENCY_BID_BOARD_HEADERS,
-} from "@/lib/players/freeAgencyBidBoard";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
+import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
 
 type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
@@ -30,14 +28,6 @@ type Props = {
   showFreeAgency?: boolean;
   showMinSort?: boolean;
 };
-
-const ROLE_TONES = {
-  top: "border-violet-300/50 bg-violet-300/10 text-violet-100",
-  jungle: "border-mint/50 bg-mint/10 text-mint",
-  mid: "border-sky-300/50 bg-sky-300/10 text-sky-100",
-  adc: "border-amber-300/50 bg-amber-300/10 text-amber-100",
-  support: "border-purple-300/50 bg-purple-300/10 text-purple-100",
-} as const;
 
 export function mergeScopedPlayerPoolRows(
   currentRows: PlayerPoolRow[],
@@ -65,7 +55,6 @@ export default function PlayersDirectory({
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
   const [sortOption, setSortOption] = useState<SortOption>(showMinSort ? "value" : "rank");
   const [selectedCaptain, setSelectedCaptain] = useState("");
-  const [selectedBidBoardPlayer, setSelectedBidBoardPlayer] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [avgBids, setAvgBids] = useState(initialAvgBids);
   const [savingPlayer, setSavingPlayer] = useState<string | null>(null);
@@ -103,12 +92,6 @@ export default function PlayersDirectory({
     }),
   }));
 
-  function rankValue(rank: string) {
-    const normalized = rank.trim().toUpperCase();
-    const tier = normalized.startsWith("M") ? 5 : normalized.startsWith("D") ? 4 : normalized.startsWith("E") ? 3 : normalized.startsWith("P") ? 2 : normalized.startsWith("G") ? 1 : 0;
-    const division = Number(normalized.replace(/^[A-Z]+/, "")) || 0;
-    return tier * 100 + division;
-  }
 
   const handleSectionChange = (value: DirectorySection) => {
     setSelectedSection(value);
@@ -116,7 +99,6 @@ export default function PlayersDirectory({
     if (value === "player-list") {
       setSelectedCaptain("");
       setEditMode(false);
-      setSelectedBidBoardPlayer(null);
     }
   };
 
@@ -166,7 +148,7 @@ export default function PlayersDirectory({
                 id="player-season"
                 value={selectedSeason}
                 onChange={(event) => setSelectedSeason(event.target.value as SeasonKey)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {SEASON_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -184,7 +166,7 @@ export default function PlayersDirectory({
                 id="player-sort"
                 value={sortOption}
                 onChange={(event) => setSortOption(event.target.value as SortOption)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
                 <option value="name">Name</option>
@@ -200,7 +182,7 @@ export default function PlayersDirectory({
                 id="player-section"
                 value={selectedSection}
                 onChange={(event) => handleSectionChange(event.target.value as DirectorySection)}
-                className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
               >
                 <option value="player-list">Player List</option>
                 {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
@@ -216,7 +198,7 @@ export default function PlayersDirectory({
                   id="player-captain"
                   value={selectedCaptain}
                   onChange={(event) => setSelectedCaptain(event.target.value)}
-                  className="w-full rounded border border-line bg-navy px-3 py-2 text-sm font-semibold text-white sm:w-44 focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">No captain</option>
                   {freeAgencyCaptains.map((captain) => (
@@ -312,60 +294,7 @@ export default function PlayersDirectory({
                 </section>
               ))}
             </div>
-            {isFreeAgency ? (
-              <section aria-label="Free Agency bid board" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
-                <h2 className="type-display text-2xl text-white">Bid Board</h2>
-                <div className="mt-4 min-w-[1100px]">
-                  <div className="grid grid-cols-[minmax(12rem,1.2fr)_repeat(12,minmax(5.5rem,1fr))] gap-px bg-line text-center text-[0.6rem] font-bold uppercase tracking-[0.08em] text-steel">
-                    <span className="bg-navy px-2 py-2 text-left">Captain</span>
-                    {FREE_AGENCY_BID_BOARD_HEADERS.map((header, index) => (
-                      <span key={`${header}-${index}`} className="bg-navy px-2 py-2">{header}</span>
-                    ))}
-                    {FREE_AGENCY_BID_BOARD.flatMap((row) => [
-                      <span key={`${row.captain}-name`} className="bg-panel px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
-                      ...row.bids.map((player, index) => {
-                        // Voided bid (player removed from the league): keep
-                        // the slot as an empty cell so later bids stay in
-                        // their point-value columns.
-                        if (player === null) {
-                          return (
-                            <span
-                              key={`${row.captain}-${index}`}
-                              aria-label="Voided bid"
-                              className="bg-panel/60 px-2 py-3"
-                            />
-                          );
-                        }
-                        const isHighlighted =
-                          selectedBidBoardPlayer !== null &&
-                          normalizePlayerName(player) === normalizePlayerName(selectedBidBoardPlayer);
-                        return (
-                          <button
-                            key={`${row.captain}-${index}`}
-                            type="button"
-                            aria-pressed={isHighlighted}
-                            onClick={() =>
-                              setSelectedBidBoardPlayer((current) =>
-                                current !== null && normalizePlayerName(current) === normalizePlayerName(player)
-                                  ? null
-                                  : player,
-                              )
-                            }
-                            className={`bg-panel px-2 py-3 text-left transition-colors hover:bg-coral/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral ${
-                              isHighlighted
-                                ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-coral)]"
-                                : "font-medium text-steel"
-                            }`}
-                          >
-                            {player}
-                          </button>
-                        );
-                      }),
-                    ])}
-                  </div>
-                </div>
-              </section>
-            ) : null}
+            {isFreeAgency ? <BidBoard /> : null}
             </>
           )}
         </section>

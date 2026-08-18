@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import { powerRanking } from "./formulas";
+import { powerRanking, round1, round2 } from "./formulas";
 import type { PlayerAggRow, RankedPlayer } from "./types";
 
 /** Premier's season code — Academy passes its own (see lib/league/season.ts). */
@@ -82,14 +82,6 @@ const RAW_WEEKLY_COLUMNS = [
 
 function num(value: number | null): number {
   return value ?? 0;
-}
-
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 function avg(rows: WeeklyRawStatRow[], pick: (row: WeeklyRawStatRow) => number | null): number {

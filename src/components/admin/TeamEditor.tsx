@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errMessage, type Acquisition, type Player, type Profile, type Team } from "@/lib/draft/types";
+import { errDetail, type Acquisition, type Player, type Profile, type Team } from "@/lib/draft/types";
 import { applyOrder, moveItem } from "@/lib/draft/reorder";
 
 function initials(name: string): string {
@@ -60,7 +60,7 @@ export default function TeamEditor({
     setBusy(false);
     if (error) {
       setPendingOrder(null);
-      setErr(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      setErr(errDetail(error));
       return;
     }
     await onChanged();
@@ -178,7 +178,7 @@ export default function TeamEditor({
         <button
           disabled={busy}
           onClick={addTeam}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Add team
         </button>
@@ -273,7 +273,7 @@ export default function TeamEditor({
                 <input
                   value={team.name}
                   onChange={(e) => updateTeam(team, { name: e.target.value })}
-                  className="w-40 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+                  className="w-40 input-brand px-2 py-1 text-sm"
                 />
                 <label className="flex items-center gap-1 text-xs text-steel">
                   Budget
@@ -282,7 +282,7 @@ export default function TeamEditor({
                     min={0}
                     value={team.points_remaining}
                     onChange={(e) => setBudget(team, Number(e.target.value) + committedSpend)}
-                    className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+                    className="w-20 input-brand px-2 py-1 text-sm"
                   />
                 </label>
                 <label className="flex items-center gap-1 text-xs text-steel">
@@ -292,7 +292,7 @@ export default function TeamEditor({
                     onChange={(e) =>
                       updateTeam(team, { captain_profile_id: e.target.value || null })
                     }
-                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+                    className="input-brand px-2 py-1 text-sm"
                   >
                     <option value="">— none —</option>
                     {captainOptions.map((p) => (
@@ -310,7 +310,7 @@ export default function TeamEditor({
                     onChange={(e) =>
                       updateTeam(team, { captain_profile_id_2: e.target.value || null })
                     }
-                    className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+                    className="input-brand px-2 py-1 text-sm"
                   >
                     <option value="">— none —</option>
                     {secondCaptainOptions.map((profile) => (
@@ -410,7 +410,7 @@ function ExistingPrefillForm({
           value={playerId}
           onChange={(e) => setPlayerId(e.target.value)}
           disabled={formDisabled}
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
+          className="input-brand px-2 py-1 text-sm disabled:opacity-40"
         >
           <option value="">— select player —</option>
           {players.map((player) => (
@@ -426,7 +426,7 @@ function ExistingPrefillForm({
           value={selectedAcquisition}
           onChange={(e) => setAcquisition(e.target.value as Acquisition)}
           disabled={formDisabled}
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
+          className="input-brand px-2 py-1 text-sm disabled:opacity-40"
         >
           {acquisitions.map((option) => (
             <option key={option} value={option}>
@@ -444,13 +444,13 @@ function ExistingPrefillForm({
           value={price}
           onChange={(e) => setPrice(e.target.value)}
           disabled={formDisabled}
-          className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none disabled:opacity-40"
+          className="w-20 input-brand px-2 py-1 text-sm disabled:opacity-40"
         />
       </label>
       <button
         type="submit"
         disabled={formDisabled || !playerId || !selectedAcquisition || !validPrice}
-        className="rounded bg-coral px-2 py-1 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="btn-coral px-2 py-1 text-xs"
       >
         Add existing player
       </button>

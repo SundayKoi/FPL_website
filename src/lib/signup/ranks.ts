@@ -23,7 +23,3 @@ export const RANK_OPTIONS: readonly string[] = [
   ...DIVISIONED_TIERS.flatMap((tier) => DIVISIONS.map((d) => `${tier} ${d}`)),
   ...APEX_TIERS,
 ];
-
-export function isRankOption(value: string): boolean {
-  return RANK_OPTIONS.includes(value);
-}

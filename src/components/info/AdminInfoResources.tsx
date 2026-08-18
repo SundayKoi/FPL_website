@@ -62,15 +62,15 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
             <legend className="label-dash">{resource.slug}</legend>
             <label className="flex flex-col gap-1 text-xs text-steel">
               Label
-              <input value={resource.label} onChange={(event) => update(resource.id, "label", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
+              <input value={resource.label} onChange={(event) => update(resource.id, "label", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
               Description
-              <input value={resource.description} onChange={(event) => update(resource.id, "description", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
+              <input value={resource.description} onChange={(event) => update(resource.id, "description", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
               URL
-              <input type="url" value={resource.href} onChange={(event) => update(resource.id, "href", event.target.value)} className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none" />
+              <input type="url" value={resource.href} onChange={(event) => update(resource.id, "href", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
           </fieldset>
         ))}

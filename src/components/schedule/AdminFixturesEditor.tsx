@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import CollapsibleAdminSection, { adminInputClass as inputClass } from "@/components/matches/CollapsibleAdminSection";
 import { createClient } from "@/lib/supabase/client";
+import { errorMessage } from "@/lib/teams/errorMessage";
 import { STAGE_META, stageMeta } from "@/lib/schedule/format";
 import { DIVISIONS, type Division, type FixtureRow, type FixtureStage } from "@/lib/schedule/types";
 
@@ -36,9 +38,7 @@ const EMPTY_FORM: FixtureForm = {
 };
 
 function messageFor(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return (error as { message?: string } | null)?.message ?? "The fixture could not be saved.";
+  return errorMessage(error, "The fixture could not be saved.");
 }
 
 /**
@@ -115,8 +115,6 @@ function validate(form: FixtureForm): string | null {
   return null;
 }
 
-const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
 const buttonClass =
   "rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-50";
 
@@ -254,7 +252,6 @@ export default function AdminFixturesEditor({
 }) {
   const supabase = createClient();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   // Prefill new fixtures with the season currently being viewed so adding
   // to an old split from its filtered view does the expected thing.
   const [addForm, setAddForm] = useState<FixtureForm>({ ...EMPTY_FORM, season: season ?? "" });
@@ -319,21 +316,7 @@ export default function AdminFixturesEditor({
   };
 
   return (
-    <div className="card-brand overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <span className="label-dash">Admin — manage fixtures</span>
-        <span aria-hidden="true" className="text-steel">
-          {open ? "▴" : "▾"}
-        </span>
-      </button>
-
-      {open && (
-        <div className="flex flex-col gap-6 border-t border-line px-4 py-4">
+    <CollapsibleAdminSection title="Admin — manage fixtures" contentGapClass="gap-6">
           {isOwner ? (
             <div className="flex flex-col gap-3">
               <p className="text-sm font-semibold text-white">Add fixture</p>
@@ -421,8 +404,6 @@ export default function AdminFixturesEditor({
               })}
             </div>
           )}
-        </div>
-      )}
-    </div>
+    </CollapsibleAdminSection>
   );
 }

@@ -1,12 +1,11 @@
 import type { Acquisition, LolRole } from "@/lib/draft/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchDraftId } from "./fetchDraftId";
 
 export type PreseasonTeamSummary = {
   id: string;
   name: string;
   abbreviation: string;
-  division: string | null;
-  imageUrl: string | null;
   bannerColor: string;
   captainName: string;
   nominationPosition: number;
@@ -20,9 +19,7 @@ export type PreseasonDraftedPlayer = {
   id: string;
   displayName: string;
   role: LolRole;
-  rank: string | null;
   price: number | null;
-  acquisition: Acquisition | null;
 };
 
 export type PreseasonPlayer = {
@@ -70,22 +67,14 @@ function lockLabel(acquisition: Acquisition | null, teamId: string | null): stri
 
 export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
   const supabase = await createServerSupabase();
-  const { data: settings, error: settingsError } = await supabase
-    .from("league_settings")
-    .select("featured_draft_id")
-    .eq("id", 1)
-    .single();
-
-  if (settingsError && settingsError.code !== "PGRST116") throw settingsError;
-
-  const draftId = (settings as { featured_draft_id?: string | null } | null)?.featured_draft_id ?? null;
+  const draftId = await fetchDraftId(supabase, "featured_draft_id");
   if (!draftId) return EMPTY_DATA;
 
   const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult] = await Promise.all([
     supabase.from("drafts").select("id, name").eq("id", draftId).single(),
     supabase
       .from("teams")
-      .select("id, name, abbreviation, division, image_url, banner_color, captain_profile_id, nomination_position, budget_start, points_remaining")
+      .select("id, name, abbreviation, banner_color, captain_profile_id, nomination_position, budget_start, points_remaining")
       .eq("draft_id", draftId)
       .order("nomination_position", { ascending: true }),
     supabase
@@ -134,8 +123,6 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       id: string;
       name: string;
       abbreviation: string;
-      division: string | null;
-      image_url: string | null;
       banner_color: string | null;
       nomination_position: number;
       budget_start: number;
@@ -145,8 +132,6 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
       id: team.id,
       name: team.name,
       abbreviation: team.abbreviation,
-      division: team.division,
-      imageUrl: team.image_url,
       bannerColor: team.banner_color ?? "#24324d",
       captainName:
         players.find((player) => player.team_id === team.id && player.acquisition === "captain")?.display_name ??
@@ -162,9 +147,7 @@ export async function fetchPreseasonHomeData(): Promise<PreseasonHomeData> {
           id: player.id,
           displayName: player.display_name,
           role: player.role,
-          rank: player.rank ?? playerMetadata(player)?.rank ?? null,
           price: player.price,
-          acquisition: player.acquisition,
         })),
     })),
     players: players.map((player) => {

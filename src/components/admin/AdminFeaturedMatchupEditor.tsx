@@ -87,7 +87,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           value={fixtureId}
           onChange={(event) => setFixtureId(event.target.value)}
           disabled={busy}
-          className="rounded border border-line bg-navy px-2 py-2 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-50"
+          className="input-brand px-2 py-2 text-sm disabled:opacity-50"
         >
           <option value="">Automatic schedule selection</option>
           {fixtures.map((fixture) => (
@@ -103,7 +103,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           disabled={busy}
-          className="rounded border border-line bg-navy px-2 py-2 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-50"
+          className="input-brand px-2 py-2 text-sm disabled:opacity-50"
         />
       </label>
 
@@ -115,7 +115,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           onChange={(event) => setDescription(event.target.value)}
           disabled={busy}
           rows={3}
-          className="rounded border border-line bg-navy px-2 py-2 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-50"
+          className="input-brand px-2 py-2 text-sm disabled:opacity-50"
         />
       </label>
 
@@ -127,7 +127,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           type="button"
           disabled={busy}
           onClick={() => void save()}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           {busy ? "Saving…" : `Save ${label} featured matchup`}
         </button>

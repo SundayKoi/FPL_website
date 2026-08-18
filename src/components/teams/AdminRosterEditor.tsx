@@ -8,6 +8,7 @@ import {
   type Profile,
   type RosterSlotView,
   type Team,
+  errDetail,
 } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
 import { DIVISIONS, type Division } from "@/lib/schedule/types";
@@ -26,7 +27,7 @@ function errorMessage(error: unknown) {
     DRAFT_MISMATCH: "Players must belong to the same draft.",
     PLAYER_UNASSIGNED: "Both players must already be rostered.",
   };
-  return (code && messages[code]) || raw.replace(/^[A-Z_]+:\s*/, "");
+  return (code && messages[code]) || errDetail(raw);
 }
 
 export default function AdminRosterEditor({

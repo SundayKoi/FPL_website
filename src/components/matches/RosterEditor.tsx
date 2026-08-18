@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { compareSeasonsNewestFirst } from "@/lib/stats/queries";
 import type { LeagueTeam, RiotAccount } from "@/lib/matches/types";
+import CollapsibleAdminSection, { adminInputClass as inputClass } from "./CollapsibleAdminSection";
 
 /**
  * A `roster_memberships` row with its Riot account embedded via PostgREST
@@ -61,52 +62,33 @@ type Status =
   | { kind: "error"; message: string }
   | { kind: "success"; message: string };
 
-const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
+/** The red role=alert error / mint success paragraph pair; null otherwise. */
+function StatusMessage({ status }: { status: Status }) {
+  if (status.kind === "error") {
+    return (
+      <p role="alert" className="text-sm text-red-400">
+        {status.message}
+      </p>
+    );
+  }
+  if (status.kind === "success") {
+    return <p className="text-sm font-semibold text-mint">{status.message}</p>;
+  }
+  return null;
+}
 
 /**
- * Admin panel on /captain: season + team selector (season defaults to
- * current_season), that team's roster memberships shown as Name#TAG, a
- * single-add box and a bulk-paste box (both "upsert riot_accounts on the
- * lower-cased pair, then the membership" — matched case-insensitively in JS
- * rather than via a literal .upsert(), since the unique index is on
- * lower(game_name)/lower(tag_line) expressions, not the raw columns, so
- * PostgREST's onConflict column-list can't target it directly), a remove
- * button per row, and the "Sync captains from draft" action for
- * sync_league_team_captains. See task-6-brief.md and the coordinator's
- * addendum (Task 4/9 review notes): without this button
- * league_team_captains stays empty and captains can't submit reports for
- * their team (their write RLS is season-scoped to that table).
+ * The "sync from draft" admin actions (league teams, Academy teams +
+ * captains, captains) with their status lines. The season/team selectors are
+ * passed in as children so they share the same wrapping row, but the sync
+ * RPCs and their three statuses live here rather than in RosterEditor.
  */
-export default function RosterEditor({
-  teams,
-  defaultSeason,
-  memberships,
-}: {
-  teams: LeagueTeam[];
-  defaultSeason: string;
-  memberships: RosterMembershipRow[];
-}) {
+function DraftSyncControls({ season, children }: { season: string; children: ReactNode }) {
   const supabase = createClient();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [season, setSeason] = useState(defaultSeason);
-  const [teamId, setTeamId] = useState(() => teams[0]?.id ?? "");
-  const [addText, setAddText] = useState("");
-  const [addStatus, setAddStatus] = useState<Status>({ kind: "idle" });
-  const [bulkText, setBulkText] = useState("");
-  const [bulkStatus, setBulkStatus] = useState<Status>({ kind: "idle" });
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [rowError, setRowError] = useState<string | null>(null);
   const [syncTeamsStatus, setSyncTeamsStatus] = useState<Status>({ kind: "idle" });
   const [syncStatus, setSyncStatus] = useState<Status>({ kind: "idle" });
   const [academySyncStatus, setAcademySyncStatus] = useState<Status>({ kind: "idle" });
-
-  const knownSeasons = Array.from(new Set([defaultSeason, ...memberships.map((m) => m.season)])).sort(
-    compareSeasonsNewestFirst
-  );
-  const visible = memberships.filter((m) => m.season === season.trim() && m.league_team_id === teamId);
-  const activeTeam = teams.find((t) => t.id === teamId) ?? null;
 
   const handleSyncTeams = async () => {
     setSyncTeamsStatus({ kind: "saving" });
@@ -163,6 +145,89 @@ export default function RosterEditor({
     });
     router.refresh();
   };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-2">
+        {children}
+        <button
+          type="button"
+          onClick={() => void handleSyncTeams()}
+          disabled={syncTeamsStatus.kind === "saving"}
+          className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
+        >
+          {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleSyncAcademy()}
+          disabled={academySyncStatus.kind === "saving"}
+          className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
+        >
+          {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleSyncCaptains()}
+          disabled={syncStatus.kind === "saving"}
+          className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
+        >
+          {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
+        </button>
+      </div>
+      <p className="text-xs text-steel">
+        Run teams first, then captains.
+      </p>
+      <StatusMessage status={syncTeamsStatus} />
+      <p className="text-xs text-steel">
+        Sync reads the featured draft&apos;s captains and adds a league_team_captains row for each one whose
+        team name matches — without this, captains can&apos;t submit reports for their team.
+      </p>
+      <StatusMessage status={syncStatus} />
+      <StatusMessage status={academySyncStatus} />
+    </>
+  );
+}
+
+/**
+ * Admin panel on /captain: season + team selector (season defaults to
+ * current_season), that team's roster memberships shown as Name#TAG, a
+ * single-add box and a bulk-paste box (both "upsert riot_accounts on the
+ * lower-cased pair, then the membership" — matched case-insensitively in JS
+ * rather than via a literal .upsert(), since the unique index is on
+ * lower(game_name)/lower(tag_line) expressions, not the raw columns, so
+ * PostgREST's onConflict column-list can't target it directly), a remove
+ * button per row, and the "Sync captains from draft" action for
+ * sync_league_team_captains. See task-6-brief.md and the coordinator's
+ * addendum (Task 4/9 review notes): without this button
+ * league_team_captains stays empty and captains can't submit reports for
+ * their team (their write RLS is season-scoped to that table).
+ */
+export default function RosterEditor({
+  teams,
+  defaultSeason,
+  memberships,
+}: {
+  teams: LeagueTeam[];
+  defaultSeason: string;
+  memberships: RosterMembershipRow[];
+}) {
+  const supabase = createClient();
+  const router = useRouter();
+  const [season, setSeason] = useState(defaultSeason);
+  const [teamId, setTeamId] = useState(() => teams[0]?.id ?? "");
+  const [addText, setAddText] = useState("");
+  const [addStatus, setAddStatus] = useState<Status>({ kind: "idle" });
+  const [bulkText, setBulkText] = useState("");
+  const [bulkStatus, setBulkStatus] = useState<Status>({ kind: "idle" });
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const knownSeasons = Array.from(new Set([defaultSeason, ...memberships.map((m) => m.season)])).sort(
+    compareSeasonsNewestFirst
+  );
+  const visible = memberships.filter((m) => m.season === season.trim() && m.league_team_id === teamId);
+  const activeTeam = teams.find((t) => t.id === teamId) ?? null;
 
   const handleRemove = async (membershipId: string) => {
     setBusyId(membershipId);
@@ -297,22 +362,8 @@ export default function RosterEditor({
   };
 
   return (
-    <div className="card-brand overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <span className="label-dash">Admin — rosters</span>
-        <span aria-hidden="true" className="text-steel">
-          {open ? "▴" : "▾"}
-        </span>
-      </button>
-
-      {open && (
-        <div className="flex flex-col gap-4 border-t border-line px-4 py-4">
-          <div className="flex flex-wrap items-end gap-2">
+    <CollapsibleAdminSection title="Admin — rosters">
+          <DraftSyncControls season={season}>
             <label className="flex flex-col gap-1 text-xs text-steel">
               Season
               <input
@@ -337,58 +388,7 @@ export default function RosterEditor({
                 ))}
               </select>
             </label>
-            <button
-              type="button"
-              onClick={() => void handleSyncTeams()}
-              disabled={syncTeamsStatus.kind === "saving"}
-              className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
-            >
-              {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSyncAcademy()}
-              disabled={academySyncStatus.kind === "saving"}
-              className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
-            >
-              {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleSyncCaptains()}
-              disabled={syncStatus.kind === "saving"}
-              className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
-            >
-              {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
-            </button>
-          </div>
-          <p className="text-xs text-steel">
-            Run teams first, then captains.
-          </p>
-          {syncTeamsStatus.kind === "error" && (
-            <p role="alert" className="text-sm text-red-400">
-              {syncTeamsStatus.message}
-            </p>
-          )}
-          {syncTeamsStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-mint">{syncTeamsStatus.message}</p>
-          )}
-          <p className="text-xs text-steel">
-            Sync reads the featured draft&apos;s captains and adds a league_team_captains row for each one whose
-            team name matches — without this, captains can&apos;t submit reports for their team.
-          </p>
-          {syncStatus.kind === "error" && (
-            <p role="alert" className="text-sm text-red-400">
-              {syncStatus.message}
-            </p>
-          )}
-          {syncStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-mint">{syncStatus.message}</p>
-          )}
-          {academySyncStatus.kind === "error" && <p role="alert" className="text-sm text-red-400">{academySyncStatus.message}</p>}
-          {academySyncStatus.kind === "success" && (
-            <p className="text-sm font-semibold text-mint">{academySyncStatus.message}</p>
-          )}
+          </DraftSyncControls>
 
           {teams.length === 0 ? (
             <p className="text-sm text-steel">Add a league team first.</p>
@@ -455,11 +455,7 @@ export default function RosterEditor({
                   {addStatus.kind === "saving" ? "Adding…" : "Add"}
                 </button>
               </div>
-              {addStatus.kind === "error" && (
-                <p role="alert" className="text-sm text-red-400">
-                  {addStatus.message}
-                </p>
-              )}
+              <StatusMessage status={addStatus} />
 
               <div className="flex flex-col gap-2 border-t border-line pt-3">
                 <label className="flex flex-col gap-1 text-xs text-steel">
@@ -483,16 +479,10 @@ export default function RosterEditor({
                 >
                   {bulkStatus.kind === "saving" ? "Adding…" : "Bulk add"}
                 </button>
-                {bulkStatus.kind === "error" && (
-                  <p role="alert" className="text-sm text-red-400">
-                    {bulkStatus.message}
-                  </p>
-                )}
+                <StatusMessage status={bulkStatus} />
               </div>
             </>
           )}
-        </div>
-      )}
-    </div>
+    </CollapsibleAdminSection>
   );
 }

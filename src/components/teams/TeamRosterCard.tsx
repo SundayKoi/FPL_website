@@ -2,16 +2,9 @@
 
 import type { DragEvent } from "react";
 import Link from "next/link";
-import type { RosterSlotView, RosterTeamView } from "@/lib/draft/types";
+import { ROLE_LABELS_SHORT, type RosterSlotView, type RosterTeamView } from "@/lib/draft/types";
 import { teamSlug } from "@/lib/teams/teamPage";
 
-const roleLabels = {
-  top: "TOP",
-  jungle: "JG",
-  mid: "MID",
-  adc: "ADC",
-  support: "SUP",
-} as const;
 
 export type TeamRosterCardProps = {
   team: RosterTeamView;
@@ -116,7 +109,7 @@ export default function TeamRosterCard({
               }`}
             >
               <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-steel">
-                {roleLabels[player.role]}
+                {ROLE_LABELS_SHORT[player.role]}
               </span>
               {!empty ? (
                 // Deep-link into the stats player card; StatsTabs resolves

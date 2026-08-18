@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { createClient } from "@/lib/supabase/client";
 
 const PHASES = ["Regular", "Playoffs"] as const;
@@ -80,7 +81,7 @@ export default function AdminSeasonSettings({
             setSaved(false);
           }}
           placeholder="S5"
-          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className={`w-24 ${adminInputClass}`}
         />
       </div>
 
@@ -97,7 +98,7 @@ export default function AdminSeasonSettings({
             setSaved(false);
           }}
           placeholder="A1"
-          className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className={`w-24 ${adminInputClass}`}
         />
       </div>
 

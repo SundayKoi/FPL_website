@@ -195,6 +195,6 @@ export function teamLabel(name: string | null): string {
 }
 
 /** True once both scores are reported (the DB check keeps them paired). */
-export function hasResult(row: FixtureRow): boolean {
+export function hasResult(row: FixtureRow): row is FixtureRow & { score_a: number; score_b: number } {
   return row.score_a !== null && row.score_b !== null;
 }

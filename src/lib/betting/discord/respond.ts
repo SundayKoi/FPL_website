@@ -13,7 +13,6 @@ export const RED = 0xff5063;
 const CALLBACK_TYPE = {
   PONG: 1,
   CHANNEL_MESSAGE_WITH_SOURCE: 4,
-  UPDATE_MESSAGE: 7,
   MODAL: 9,
 } as const;
 
@@ -105,10 +104,4 @@ export function modal(
       })),
     },
   };
-}
-
-/** Edits the message the component interaction came from (type 7) — the
- * response to a button/select-menu click that updates in place. */
-export function updateMessage(data: MessageResponseData): { type: 7; data: MessageResponseData } {
-  return { type: CALLBACK_TYPE.UPDATE_MESSAGE, data };
 }

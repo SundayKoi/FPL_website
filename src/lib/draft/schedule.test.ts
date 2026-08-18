@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   formatEasternDateTime,
   formatEasternInputValue,
-  getScheduleState,
   parseEasternInputValue,
 } from "./schedule";
 
@@ -24,12 +23,5 @@ describe("draft schedules", () => {
 
   it("rejects a datetime-local value that is not complete", () => {
     expect(parseEasternInputValue("2026-08-16")).toEqual({ error: "Enter a date and time." });
-  });
-
-  it("classifies configured schedules relative to now", () => {
-    const startsAt = "2026-08-16T01:00:00.000Z";
-    expect(getScheduleState(null, new Date(startsAt))).toBe("unscheduled");
-    expect(getScheduleState(startsAt, new Date("2026-08-16T00:59:59.000Z"))).toBe("upcoming");
-    expect(getScheduleState(startsAt, new Date(startsAt))).toBe("started");
   });
 });

@@ -16,49 +16,22 @@ import { commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, embed, errMsg, msg } from "./respond";
 import type { DiscordEmbed } from "./respond";
-
-type BettingServiceClient = ReturnType<typeof createBettingServiceClient>;
-
-/** One-time signup credit for a Discord id's first contact with the wallet
- * system, granted via `grant_signup_bonus` before every wallet-touching
- * handler runs (the "ensure-user" pattern) — matches wallet.ts's
- * `SIGNUP_BONUS_AMOUNT`, which does the same thing for the web login path. */
-const SIGNUP_BONUS = 1000;
+import { ensureUser, requireMember, siteUrl } from "./shared";
+import type { DiscordUser } from "./shared";
 
 // Escalating daily-bonus tuning — ports bot/config.py's BotSettings defaults
 // (DAILY_AMOUNT/DAILY_STREAK_STEP/DAILY_STREAK_MAX env vars in the source).
 // No other task wired env-driven tuning for the betting economy, so these
-// are hardcoded the same way SIGNUP_BONUS is above.
+// are hardcoded the same way shared.ts's SIGNUP_BONUS is.
 const DAILY_AMOUNT = 250;
 const DAILY_STREAK_STEP = 50;
 const DAILY_STREAK_MAX = 7;
 
 const GUILD_ONLY_MSG = "Use this in the server.";
 
-/** Every slash command here is guild-only (registered per-guild, never
- * globally) — a DM interaction has no `member`, so this is a defensive
- * guard rather than an expected path in production. */
-interface DiscordUser {
-  id: string;
-  username?: string;
-  global_name?: string;
-  avatar?: string | null;
-  bot?: boolean;
-}
-
 interface CommandOption {
   name: string;
   value?: string | number | boolean;
-}
-
-function requireMember(interaction: DiscordInteraction): DiscordUser | null {
-  const user: DiscordUser | undefined = interaction.member?.user;
-  return user?.id ? user : null;
-}
-
-function avatarUrl(user: DiscordUser | undefined): string | null {
-  if (!user?.avatar) return null;
-  return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
 }
 
 function getOptions(interaction: DiscordInteraction): CommandOption[] {
@@ -92,17 +65,6 @@ function getResolvedUser(interaction: DiscordInteraction, id: string | null): Di
 /** `<t:unix:style>` — Discord's client-rendered timestamp markup. */
 function discordTimestamp(iso: string, style: "R" | "t"): string {
   return `<t:${Math.floor(new Date(iso).getTime() / 1000)}:${style}>`;
-}
-
-/** Provisions the wallet on first contact (idempotent server-side) — the
- * "ensure-user" pattern every wallet-touching handler runs first. */
-async function ensureUser(service: BettingServiceClient, user: DiscordUser): Promise<void> {
-  await service.rpc("grant_signup_bonus", {
-    p_user: user.id,
-    p_username: user.username ?? user.id,
-    p_avatar: avatarUrl(user),
-    p_amount: SIGNUP_BONUS,
-  });
 }
 
 /**
@@ -326,13 +288,6 @@ interface OpenMarketRow {
   game_at: string;
   team_a_id: number;
   team_b_id: number;
-}
-
-/** SITE_URL is the spec'd/primary name; NEXT_PUBLIC_SITE_URL (the rest of
- * the repo's canonical-origin var — see auth/siteOrigin.ts) is accepted as a
- * fallback so a deploy only has to set one of the two. */
-function siteUrl(): string {
-  return process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
 }
 
 async function handleExchange(interaction: DiscordInteraction): Promise<object> {

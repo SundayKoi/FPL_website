@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errMessage, type NemesisPick, type Team } from "@/lib/draft/types";
+import { errDetail, type NemesisPick, type Team } from "@/lib/draft/types";
 import { DIVISIONS, type Division } from "@/lib/schedule/types";
 import { nemesisState } from "@/lib/draft/nemesis";
 
@@ -37,7 +37,7 @@ export default function NemesisBoard({
     setBusy(true);
     try {
       const { error } = await fn();
-      if (error) onError(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      if (error) onError(errDetail(error));
     } finally {
       setBusy(false);
     }
@@ -70,7 +70,7 @@ export default function NemesisBoard({
               <select
                 value={seedTeam}
                 onChange={(e) => setSeedTeam(e.target.value)}
-                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+                className="input-brand px-2 py-1 text-sm"
               >
                 <option value="">— select team —</option>
                 {teams.map((t) => (
@@ -85,7 +85,7 @@ export default function NemesisBoard({
               <select
                 value={seedDivision}
                 onChange={(e) => setSeedDivision(e.target.value as Division)}
-                className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+                className="input-brand px-2 py-1 text-sm"
               >
                 {DIVISIONS.map((d) => (
                   <option key={d} value={d}>
@@ -106,7 +106,7 @@ export default function NemesisBoard({
                   })
                 )
               }
-              className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+              className="btn-coral px-3 py-1.5 text-xs"
             >
               Start nemesis draft
             </button>

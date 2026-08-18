@@ -1,10 +1,5 @@
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
-
-function formatGameDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Date unknown";
-  return d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
-}
+import { formatShortDateET } from "@/lib/captain/format";
 
 /**
  * Section 5 of the captain page: the team's ingested games (`stats_game_log`)
@@ -38,7 +33,7 @@ export default function MyResults({
                   {won ? "Win" : "Loss"}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-white">vs {opponent}</span>
-                <span className="shrink-0 text-xs text-steel">{formatGameDate(game.game_date)}</span>
+                <span className="shrink-0 text-xs text-steel">{formatShortDateET(game.game_date, "Date unknown")}</span>
                 <span className="shrink-0 text-xs text-steel">{game.duration_min?.toFixed?.(0) ?? "—"}m</span>
               </li>
             );

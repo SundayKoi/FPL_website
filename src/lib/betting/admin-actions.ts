@@ -589,7 +589,7 @@ export async function approveProp(suggestionId: number, eventId: number, gameAt:
 }
 
 /** Rejects a pending prop suggestion, optionally with a reason the member sees. */
-export async function rejectProp(suggestionId: number, reason?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function rejectProp(suggestionId: number, reason?: string): Promise<ActionResult> {
   const ctx = await staffOnly();
   if (!isStaffCtx(ctx)) return ctx;
 

@@ -63,7 +63,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
     : null;
   return (
     <div className="card-brand flex flex-wrap items-end gap-3 p-3">
-      <button className="rounded bg-coral px-4 py-2 font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+      <button className="btn-coral px-4 py-2"
         type="button" disabled={!!quickBlocked || disarmed} onClick={() => place(quick)}>
         Bid {quick}
       </button>
@@ -77,7 +77,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
         <div className="flex flex-col gap-1">
           <label className="label-dash">YOUR BID</label>
           <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-28 rounded border border-line bg-navy p-3 text-lg font-display not-italic text-white placeholder:text-steel/60 focus:border-coral focus:outline-none" value={amountStr}
-            min={quick} max={cap} placeholder={String(quick)}
+            placeholder={String(quick)}
             onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, ""))} />
           <span className="text-xs text-steel">min {quick} · max {cap}</span>
         </div>

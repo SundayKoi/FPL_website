@@ -4,7 +4,6 @@ import {
   combineSeasonRows,
   combineTeamRows,
   mergeRows,
-  mvpScores,
   powerRanking,
   scoutingProfile,
 } from "./formulas";
@@ -192,36 +191,6 @@ describe("powerRanking", () => {
     const aura = ranked.find((r) => r.summoner_name === "Aura");
     expect(metaShift?.score).toBeCloseTo(67.5, 1);
     expect(aura?.score).toBeCloseTo(68.2, 1);
-  });
-});
-
-describe("mvpScores", () => {
-  it("applies the 5-game minimum gate like renderMVP's `const mg=5`", () => {
-    const qualified = playerRow({ summoner_name: "Q", role_mode: "MIDDLE", games: 5 });
-    const unqualified = playerRow({ summoner_name: "U", role_mode: "MIDDLE", games: 4 });
-    const entries = mvpScores([qualified, unqualified]);
-    expect(entries.map((e) => e.summoner_name)).toEqual(["Q"]);
-  });
-
-  it("regression: MetaShift and Aura MVP scores match hand-executed legacy calcMVPScore", () => {
-    // Same S4 Regular games>=5 cohort as the power ranking regression
-    // (mvpScores' own min-games gate is a no-op here since every row
-    // already has games>=5). Hand-computed: MetaShift -> 64, Aura -> 69
-    // (calcMVPScore rounds with Math.round, so these are exact integers,
-    // not just close-to).
-    const cohort = s4RegularCohort();
-    const entries = mvpScores(cohort);
-    const metaShift = entries.find((e) => e.summoner_name === "MetaShift");
-    const aura = entries.find((e) => e.summoner_name === "Aura");
-    expect(metaShift?.mvpScore).toBe(64);
-    expect(aura?.mvpScore).toBe(69);
-  });
-
-  it("rounds to a whole number like the legacy Math.round(score/totalWeight*100)", () => {
-    const cohort = s4RegularCohort();
-    for (const entry of mvpScores(cohort)) {
-      expect(Number.isInteger(entry.mvpScore)).toBe(true);
-    }
   });
 });
 

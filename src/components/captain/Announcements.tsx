@@ -1,11 +1,6 @@
 import Link from "next/link";
 import type { Announcement } from "@/lib/captain/queries";
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
-}
+import { formatShortDateET } from "@/lib/captain/format";
 
 /**
  * Section 6 of the captain page: league announcements (pinned first, then
@@ -30,7 +25,7 @@ export default function Announcements({ announcements }: { announcements: Announ
                   </span>
                 )}
                 <h3 className="text-sm font-semibold text-white">{a.title}</h3>
-                <span className="ml-auto text-xs text-steel">{formatDate(a.created_at)}</span>
+                <span className="ml-auto text-xs text-steel">{formatShortDateET(a.created_at)}</span>
               </div>
               <p className="mt-1.5 whitespace-pre-wrap text-sm text-steel">{a.body}</p>
             </li>

@@ -103,6 +103,17 @@ export function MarketDetail({
   const locked = useIsLocked(market.status, market.lock_at);
   const total = market.pool_a + market.pool_b + market.pool_draw;
 
+  // Displayed odds-bar shares: a 3-way market shows the raw pool split (an
+  // even third per side while empty); a 2-way market blends the admin's
+  // opening line with the pools via displayedShareA.
+  const shareA = market.draw_enabled
+    ? total > 0
+      ? market.pool_a / total
+      : 1 / 3
+    : displayedShareA(market.pool_a, market.pool_b, market.open_line_prob_a);
+  const shareDraw = total > 0 ? market.pool_draw / total : 1 / 3;
+  const shareB = market.draw_enabled ? (total > 0 ? market.pool_b / total : 1 / 3) : 1 - shareA;
+
   function afterAction(result: { ok: true; balance: number } | { ok: false; error: string }) {
     if (!result.ok) {
       setError(result.error);
@@ -148,28 +159,11 @@ export function MarketDetail({
         </h1>
 
         <div className="mt-4">
-          {market.draw_enabled
-            ? (() => {
-                const sa = total > 0 ? market.pool_a / total : 1 / 3;
-                const sb = total > 0 ? market.pool_b / total : 1 / 3;
-                const sd = total > 0 ? market.pool_draw / total : 1 / 3;
-                return (
-                  <>
-                    <OddsBar team={market.team_a} percent={sa} volume={market.pool_a} odds={americanOdds(sa)} />
-                    <OddsBar team={DRAW_TEAM} percent={sd} volume={market.pool_draw} odds={americanOdds(sd)} />
-                    <OddsBar team={market.team_b} percent={sb} volume={market.pool_b} odds={americanOdds(sb)} />
-                  </>
-                );
-              })()
-            : (() => {
-                const pctA = displayedShareA(market.pool_a, market.pool_b, market.open_line_prob_a);
-                return (
-                  <>
-                    <OddsBar team={market.team_a} percent={pctA} volume={market.pool_a} odds={americanOdds(pctA)} />
-                    <OddsBar team={market.team_b} percent={1 - pctA} volume={market.pool_b} odds={americanOdds(1 - pctA)} />
-                  </>
-                );
-              })()}
+          <OddsBar team={market.team_a} percent={shareA} volume={market.pool_a} odds={americanOdds(shareA)} />
+          {market.draw_enabled && (
+            <OddsBar team={DRAW_TEAM} percent={shareDraw} volume={market.pool_draw} odds={americanOdds(shareDraw)} />
+          )}
+          <OddsBar team={market.team_b} percent={shareB} volume={market.pool_b} odds={americanOdds(shareB)} />
         </div>
 
         <div className="mt-6">

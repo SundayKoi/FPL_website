@@ -63,7 +63,7 @@ export default function UpNextBanner({
       <span className="type-display text-2xl">{stageLabel}</span>
       <span className="text-sm text-steel">
         {kickoffText}
-        {count > 0 && ` · ${count} ${count === 1 ? "series" : "series"}`}
+        {count > 0 && ` · ${count} series`}
       </span>
       <span className="ml-auto flex items-center gap-3">
         {kickoff && <Countdown kickoff={kickoff} />}

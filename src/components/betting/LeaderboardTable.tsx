@@ -5,6 +5,11 @@ import { fmtPoints } from "@/lib/betting/format";
 
 type Mode = "balance" | "profit";
 
+const MODES: { mode: Mode; label: string }[] = [
+  { mode: "balance", label: "Richest" },
+  { mode: "profit", label: "Top Profit" },
+];
+
 function rankClass(rank: number): string {
   if (rank === 1) return "text-gold";
   if (rank === 2) return "text-steel";
@@ -31,26 +36,19 @@ export function LeaderboardTable({
   return (
     <div>
       <div className="mt-6 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMode("balance")}
-          className={
-            "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-            (mode === "balance" ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
-          }
-        >
-          Richest
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("profit")}
-          className={
-            "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-            (mode === "profit" ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
-          }
-        >
-          Top Profit
-        </button>
+        {MODES.map((m) => (
+          <button
+            key={m.mode}
+            type="button"
+            onClick={() => setMode(m.mode)}
+            className={
+              "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
+              (mode === m.mode ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
+            }
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-line bg-panel">

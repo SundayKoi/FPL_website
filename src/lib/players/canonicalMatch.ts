@@ -1,3 +1,4 @@
+import { PLAYER_NAME_ALIASES, normalizeBasePlayerName } from "./normalize";
 import { PLAYER_SEASONS, type SeasonKey } from "./seasonData";
 import type { LolRole } from "@/lib/draft/types";
 
@@ -22,27 +23,9 @@ export interface CanonicalSeedPlayer {
   opgg_url: string | null;
 }
 
-const CANONICAL_NAME_ALIASES: Record<string, string> = {
-  "flyinq squirtle": "flying squirtle",
-  "conguitos0": "conguitos",
-  begfourmercy: "beg",
-  "08 mitsu eclipse": "chime",
-};
-
-function normalizeCanonicalBaseName(name: string): string {
-  return name
-    .normalize("NFKC")
-    .trim()
-    .replace(/^captain:\s*/i, "")
-    .split("#")[0]
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase();
-}
-
 export function normalizeCanonicalName(name: string): string {
-  const normalized = normalizeCanonicalBaseName(name);
-  return CANONICAL_NAME_ALIASES[normalized] ?? normalized;
+  const normalized = normalizeBasePlayerName(name);
+  return PLAYER_NAME_ALIASES[normalized] ?? normalized;
 }
 
 export function buildCanonicalSeedPlayers(seasonKey: SeasonKey): CanonicalSeedPlayer[] {
@@ -62,7 +45,7 @@ export function matchCanonicalPlayer(
   name: string,
   candidates: CanonicalPlayer[],
 ): { match: CanonicalPlayer | null; confidence: "exact" | "alias" | "ambiguous" | "none" } {
-  const baseName = normalizeCanonicalBaseName(name);
+  const baseName = normalizeBasePlayerName(name);
   const normalizedName = normalizeCanonicalName(name);
   const matches = candidates.filter((candidate) => candidate.normalized_name === normalizedName);
 

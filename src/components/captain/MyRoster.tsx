@@ -1,13 +1,6 @@
-import { ROLE_ORDER, type Player } from "@/lib/draft/types";
+import { ROLE_LABELS, ROLE_ORDER, type Player } from "@/lib/draft/types";
 import type { RiotAccount } from "@/lib/matches/types";
-
-const ROLE_LABELS: Record<Player["role"], string> = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  adc: "ADC",
-  support: "Support",
-};
+import OpggMultiLink from "./OpggMultiLink";
 
 const ACQUISITION_LABELS: Record<string, string> = {
   captain: "Captain",
@@ -39,16 +32,7 @@ export default function MyRoster({
     <section className="card-brand p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="label-dash">My roster</h2>
-        {multiOpggUrl ? (
-          <a
-            href={multiOpggUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-fit rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            My Team OP.GG Multi
-          </a>
-        ) : null}
+        {multiOpggUrl ? <OpggMultiLink href={multiOpggUrl} label="My Team OP.GG Multi" /> : null}
       </div>
 
       {byRole.length === 0 ? (

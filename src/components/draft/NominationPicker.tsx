@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { maxBid, nominateBlockReason, openRoles } from "@/lib/draft/derive";
+import { maxBid, nominateBlockReason, openRoles, roundMinimum } from "@/lib/draft/derive";
 import { errCode, ROLE_ORDER, type Draft, type LolRole, type Player, type Team } from "@/lib/draft/types";
 import { friendly } from "./Toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -26,8 +26,7 @@ export default function NominationPicker({
   const [opening, setOpening] = useState("");
 
   const roles = openRoles(team.id, players);
-  const minimum =
-    draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1] ?? 0;
+  const minimum = roundMinimum(draft);
   const cap = maxBid(team, players);
 
   const available = players
@@ -98,7 +97,7 @@ export default function NominationPicker({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search players…"
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className="input-brand px-2 py-1 text-sm"
         />
       </header>
 

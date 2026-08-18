@@ -108,14 +108,14 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             aria-label="Week 1 kickoff"
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1 text-sm"
           />
         </label>
         <button
           type="button"
           disabled={busy}
           onClick={() => void generate()}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           {busy ? "Drawing…" : "Generate schedule"}
         </button>

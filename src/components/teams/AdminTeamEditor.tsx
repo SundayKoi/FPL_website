@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile, Team } from "@/lib/draft/types";
 import { isHexBannerColor, normalizeBannerColor } from "@/lib/teams/bannerColor";
+import { errorMessage } from "@/lib/teams/errorMessage";
 
 const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -52,9 +53,7 @@ function formStateFor(teams: Team[]): Record<string, TeamFormState> {
 }
 
 function messageFor(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return (error as { message?: string } | null)?.message ?? "The team could not be saved.";
+  return errorMessage(error, "The team could not be saved.");
 }
 
 function versionedObjectPath(draftId: string, teamId: string) {
@@ -346,7 +345,7 @@ function DraftTeamEditor({
                   value={form.name}
                   disabled={isSaving}
                   onChange={(event) => setForm(team.id, { name: event.target.value, status: { kind: "idle" } })}
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="input-brand px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-steel" htmlFor={`${prefix}-abbreviation`}>
@@ -372,7 +371,7 @@ function DraftTeamEditor({
                   onChange={(event) =>
                     setForm(team.id, { captainProfileId: event.target.value, status: { kind: "idle" } })
                   }
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="input-brand px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">— none —</option>
                   {profiles.map((profile) => (
@@ -395,7 +394,7 @@ function DraftTeamEditor({
                       status: { kind: "idle" },
                     })
                   }
-                  className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="input-brand px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 >
                   <option value="">Unassigned</option>
                   <option value="Lunari">Lunari</option>

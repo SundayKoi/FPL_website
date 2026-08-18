@@ -71,14 +71,14 @@ export default function DraftScheduleEditor({
             type="datetime-local"
             value={value}
             onChange={(event) => setValue(event.target.value)}
-            className="rounded border border-line bg-navy px-3 py-2 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-3 py-2 text-sm"
           />
         </label>
         <div className="flex gap-2">
           <button
             type="submit"
             disabled={saving}
-            className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+            className="btn-coral px-4 py-2 text-sm"
           >
             Save schedule
           </button>

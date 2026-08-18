@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errMessage, type Draft, type Player, type Team } from "@/lib/draft/types";
-import { openRoles } from "@/lib/draft/derive";
+import { errDetail, type Draft, type Player, type Team } from "@/lib/draft/types";
+import { openRoles, roundMinimum } from "@/lib/draft/derive";
 
 /** Opens a lot on behalf of the team on the clock, for when a captain is
  *  absent. Unlike direct assignment this keeps the auction: the lot opens at
@@ -23,8 +23,7 @@ export default function AdminForceNominate({
   const [opening, setOpening] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const minimum =
-    draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1] ?? 0;
+  const minimum = roundMinimum(draft);
 
   // Only players this team could legally take — the RPC enforces the same rule,
   // this just keeps the list honest.
@@ -57,7 +56,7 @@ export default function AdminForceNominate({
     });
     setBusy(false);
     if (error) {
-      onError(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      onError(errDetail(error));
       return;
     }
     setPlayerId("");
@@ -76,7 +75,7 @@ export default function AdminForceNominate({
             value={playerId}
             onChange={(e) => setPlayerId(e.target.value)}
             disabled={busy || available.length === 0}
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none disabled:opacity-40"
+            className="input-brand px-2 py-1 text-sm disabled:opacity-40"
           >
             <option value="">— select player —</option>
             {available.map((p) => (
@@ -96,14 +95,14 @@ export default function AdminForceNominate({
             placeholder={String(minimum)}
             aria-label="Opening bid"
             disabled={busy}
-            className="w-16 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none disabled:opacity-40"
+            className="w-16 input-brand px-2 py-1 text-sm disabled:opacity-40"
           />
         </label>
         <button
           type="button"
           onClick={() => void nominate()}
           disabled={busy || !playerId}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Nominate for {nominatorTeam.name}
         </button>

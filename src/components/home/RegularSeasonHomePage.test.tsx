@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import LeagueHub from "./LeagueHub";
+import RegularSeasonHomePage from "./RegularSeasonHomePage";
 
 vi.mock("@/lib/home/standings", () => ({
   fetchHomepageStandings: vi.fn(async () => [
@@ -25,13 +25,7 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
   })),
 }));
 
-// No published brief, so the page keeps the computed award lists these tests
-// assert on. Without this the server-side fetch runs outside a request scope.
-vi.mock("@/lib/home/fetchBrief", () => ({
-  fetchActiveBrief: vi.fn(async () => null),
-}));
-
-// Crest lookup is another server-side query; without a request scope it throws.
+// Crest lookup is a server-side query; without a request scope it throws.
 vi.mock("@/lib/teams/identity", () => ({
   fetchTeamIdentities: vi.fn(async () => ({})),
 }));
@@ -58,7 +52,6 @@ vi.mock("@/lib/home/awards", () => ({
     },
     individualAwards: [],
     teamAwards: [],
-    standings: [],
   })),
 }));
 
@@ -82,9 +75,9 @@ afterEach(() => {
   cleanup();
 });
 
-describe("LeagueHub", () => {
+describe("RegularSeasonHomePage", () => {
   it("uses the wide dashboard spacing on desktop", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     const main = screen.getByRole("main");
     expect(main.firstElementChild).toHaveClass(
@@ -98,7 +91,7 @@ describe("LeagueHub", () => {
   });
 
   it("keeps the homepage focused on league broadcasts", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     const twitchLinks = screen.getAllByRole("link", { name: /twitch/i });
     expect(twitchLinks.length).toBeGreaterThanOrEqual(1);
@@ -117,7 +110,7 @@ describe("LeagueHub", () => {
   });
 
   it("adds the Twitch broadcast showcase to the landing page", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     expect(
       screen.getByRole("article", { name: /franchise premier league broadcast/i }),
@@ -125,7 +118,7 @@ describe("LeagueHub", () => {
   });
 
   it("adds the awards desk to the landing page", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     expect(screen.getByRole("region", { name: /awards desk/i })).not.toBeNull();
     expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
@@ -133,14 +126,14 @@ describe("LeagueHub", () => {
   });
 
   it("adds the team standings panel to the landing page", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     expect(screen.getByRole("article", { name: /team standings/i })).not.toBeNull();
     expect(screen.getAllByText("Alpha").length).toBeGreaterThan(0);
   });
 
   it("places the awards desk below standings and above the schedule", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     const broadcast = screen.getByRole("article", {
       name: /franchise premier league broadcast/i,
@@ -168,7 +161,7 @@ describe("LeagueHub", () => {
   });
 
   it("adds the upcoming schedule below the dashboard", async () => {
-    render(await LeagueHub());
+    render(await RegularSeasonHomePage());
 
     expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
   });

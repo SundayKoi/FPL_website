@@ -1,30 +1,8 @@
 import type { PreseasonPlayer } from "@/lib/home/preseason";
-import type { LolRole } from "@/lib/draft/types";
-
-const ROLE_ORDER: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
-const ROLE_LABELS: Record<LolRole, string> = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  adc: "ADC",
-  support: "Support",
-};
-const ROLE_TONES: Record<LolRole, string> = {
-  top: "border-violet-300/50 bg-violet-300/10 text-violet-100",
-  jungle: "border-mint/50 bg-mint/10 text-mint",
-  mid: "border-sky-300/50 bg-sky-300/10 text-sky-100",
-  adc: "border-amber-300/50 bg-amber-300/10 text-amber-100",
-  support: "border-purple-300/50 bg-purple-300/10 text-purple-100",
-};
+import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
+import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
 
 export default function PreseasonPlayerPool({ players }: { players: PreseasonPlayer[] }) {
-  function rankValue(rank: string | null) {
-    const normalized = rank?.trim().toUpperCase() ?? "";
-    const tier = normalized.startsWith("M") ? 5 : normalized.startsWith("D") ? 4 : normalized.startsWith("E") ? 3 : normalized.startsWith("P") ? 2 : normalized.startsWith("G") ? 1 : 0;
-    const division = Number(normalized.replace(/^[A-Z]+/, "")) || 0;
-    return tier * 100 + division;
-  }
-
   return (
     <section aria-labelledby="preseason-player-pool-title" className="card-brand mt-6 overflow-hidden p-5 sm:p-6 xl:mt-8">
       <div className="flex flex-wrap items-end justify-between gap-4">

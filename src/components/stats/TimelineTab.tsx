@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { formatDuration } from "@/lib/stats/format";
 import { fetchGameLog } from "@/lib/stats/queries";
 import { filterTimelineRowsByTeams } from "@/lib/stats/scope";
 import { normalizeTeamName } from "@/lib/league/context";
 import type { GameLogRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import { EmptyCard, ErrorCard, LoadingCard } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 function nightKey(row: GameLogRow): string {
   // Calendar-date grouping ("game night") — truncate the ISO timestamp to
@@ -21,48 +24,16 @@ function formatNight(key: string): string {
   return d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
-function formatDuration(min: number): string {
-  const m = Math.floor(min);
-  const s = Math.round((min - m) * 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 export default function TimelineTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
-  const [rows, setRows] = useState<GameLogRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see LeaderboardTab): flip back to "loading"
-  // synchronously during render on filter change instead of via a setState
-  // call in the effect body (react-hooks/set-state-in-effect forbids that).
-  const filterKey = `${season}::${phase}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    setStatus("loading");
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchGameLog(seasonParam, phaseParam);
-        if (cancelled) return;
-        const names = teamNames ? new Set(teamNames.map(normalizeTeamName)) : null;
-        setRows(names ? filterTimelineRowsByTeams(data, names) : data);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
+  const loadRows = useCallback(async () => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    const data = await fetchGameLog(seasonParam, phaseParam);
+    const names = teamNames ? new Set(teamNames.map(normalizeTeamName)) : null;
+    return names ? filterTimelineRowsByTeams(data, names) : data;
   }, [season, phase, teamNames]);
+  const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
+  const rows = useMemo(() => data ?? [], [data]);
 
   // Group by calendar date ("game night"), newest night first; within a
   // night, games ordered newest-first by their own timestamp.
@@ -83,28 +54,15 @@ export default function TimelineTab({ season, phase, teamNames }: { season: stri
   }, [rows]);
 
   if (status === "loading") {
-    return (
-      <div className="card-brand p-8 text-center text-steel" role="status">
-        Loading timeline…
-      </div>
-    );
+    return <LoadingCard label="timeline" />;
   }
 
   if (status === "error") {
-    return (
-      <div className="card-brand p-8 text-center text-steel">
-        Couldn&apos;t load timeline data. Try again shortly.
-      </div>
-    );
+    return <ErrorCard noun="timeline" />;
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="card-brand p-8 text-center">
-        <p className="type-display text-2xl">No stats yet</p>
-        <p className="mt-2 text-steel">There&apos;s no game log data for this season/phase yet.</p>
-      </div>
-    );
+    return <EmptyCard message="There's no game log data for this season/phase yet." />;
   }
 
   return (

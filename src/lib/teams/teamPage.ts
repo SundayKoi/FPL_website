@@ -1,3 +1,4 @@
+import { hasResult } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 /** URL-safe slug for a team name ("Neon Dynasty" -> "neon-dynasty"). */
@@ -27,12 +28,11 @@ export interface TeamFixtures {
  */
 export function splitTeamFixtures(rows: FixtureRow[], team: string): TeamFixtures {
   const mine = rows.filter((r) => sameTeam(r.team_a, team) || sameTeam(r.team_b, team));
-  const played = (r: FixtureRow) => r.score_a !== null && r.score_b !== null;
   const upcoming = mine
-    .filter((r) => !played(r))
+    .filter((r) => !hasResult(r))
     .sort((a, b) => (a.scheduled_at ?? "9999").localeCompare(b.scheduled_at ?? "9999"));
   const results = mine
-    .filter(played)
+    .filter(hasResult)
     .sort((a, b) => (b.scheduled_at ?? "").localeCompare(a.scheduled_at ?? ""));
   return { upcoming, results };
 }
@@ -48,7 +48,7 @@ export function teamRecord(rows: FixtureRow[], team: string): TeamRecord {
   let wins = 0;
   let losses = 0;
   for (const row of rows) {
-    if (row.score_a === null || row.score_b === null) continue;
+    if (!hasResult(row)) continue;
     const isA = sameTeam(row.team_a, team);
     const isB = sameTeam(row.team_b, team);
     if (!isA && !isB) continue;
@@ -69,7 +69,7 @@ export function opponentOf(row: FixtureRow, team: string): string {
 
 /** Did this team win the (reported) series? Null when unplayed. */
 export function didWin(row: FixtureRow, team: string): boolean | null {
-  if (row.score_a === null || row.score_b === null) return null;
+  if (!hasResult(row)) return null;
   const isA = sameTeam(row.team_a, team);
   const mine = isA ? row.score_a : row.score_b;
   const theirs = isA ? row.score_b : row.score_a;

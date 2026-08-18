@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { getCountdownParts } from "@/lib/home/seasonState";
+import { DRAFT_DAY_LABEL, getCountdownParts } from "@/lib/home/seasonState";
 
 let currentTime = 0;
 
@@ -37,7 +37,7 @@ export default function PreseasonCountdown({ targetAt }: { targetAt: string }) {
     <div aria-label="Draft day countdown" className="mt-5">
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
         <span className="label-dash text-gold">Draft day</span>
-        <span className="text-sm font-semibold text-white">Saturday, August 15 · 8:00 PM EST</span>
+        <span className="text-sm font-semibold text-white">{DRAFT_DAY_LABEL}</span>
       </div>
       <div className="flex flex-wrap items-end gap-3">
       <div className="rounded border border-gold/40 bg-gold/10 px-3 py-2 text-center">

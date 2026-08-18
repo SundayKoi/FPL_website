@@ -1,4 +1,4 @@
-import { DRAFT_DAY_AT } from "@/lib/home/seasonState";
+import { DRAFT_DAY_AT, DRAFT_DAY_LABEL } from "@/lib/home/seasonState";
 import { fetchPreseasonHomeData } from "@/lib/home/preseason";
 import PreseasonCountdown from "./PreseasonCountdown";
 import PreseasonPlayerPool from "./PreseasonPlayerPool";
@@ -27,7 +27,7 @@ export default async function PreseasonHomePage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <div className="rounded-lg border border-gold/50 bg-gold/10 p-5">
                 <span className="label-dash text-gold">DRAFT DAY</span>
-                <p className="mt-3 text-xl font-semibold text-white">Saturday, August 15 · 8:00 PM EST</p>
+                <p className="mt-3 text-xl font-semibold text-white">{DRAFT_DAY_LABEL}</p>
                 <p className="mt-2 text-sm leading-6 text-steel">The Season 5 draft goes live.</p>
               </div>
               <div className="rounded-lg border border-cyan/40 bg-cyan/10 p-5">

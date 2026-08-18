@@ -9,9 +9,10 @@ import {
   type MatchCode,
 } from "@/lib/captain/queries";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
+import { matchTeamId, normalizeName } from "@/lib/captain/teamNames";
 import { opggMultiSearchUrlFromRiotIds, opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
 import type { FixtureRow } from "@/lib/schedule/types";
-import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
+import type { MatchReport, MatchReportGame } from "@/lib/matches/types";
 import CaptainGate from "@/components/captain/CaptainGate";
 import NextMatchCard from "@/components/captain/NextMatchCard";
 import TourneyCodes from "@/components/captain/TourneyCodes";
@@ -25,17 +26,6 @@ import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { leaguePath } from "@/lib/league/links";
-
-function normalizeName(name: string | null): string {
-  return (name ?? "").trim().toLowerCase();
-}
-
-/** Resolve a fixture's free-text team name to a league_teams id, if any matches. */
-function matchTeamId(teams: LeagueTeam[], name: string | null): string | null {
-  const target = normalizeName(name);
-  if (!target) return null;
-  return teams.find((t) => normalizeName(t.name) === target)?.id ?? null;
-}
 
 export async function CaptainPageView({
   searchParams,
@@ -168,7 +158,7 @@ export async function CaptainPageView({
                 id="team-switch"
                 name="team"
                 defaultValue={activeTeamId}
-                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+                className="input-brand px-2 py-1.5 text-sm"
               >
                 {context.activeTeams.map((t) => (
                   <option key={t.id} value={t.id}>

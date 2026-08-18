@@ -7,25 +7,8 @@ import { hasResult, stageMeta, teamLabel } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { LeagueTeam } from "@/lib/matches/types";
 import type { MatchCode } from "@/lib/captain/queries";
+import { matchTeamId } from "@/lib/captain/teamNames";
 import AdminCodeImporter from "./AdminCodeImporter";
-
-function normalizeName(name: string | null): string {
-  return (name ?? "").trim().toLowerCase();
-}
-
-/**
- * Resolve a fixture's free-text team name to a league_teams id
- * (case-insensitive, trimmed). Mirrors src/app/captain/page.tsx's private
- * matchTeamId — duplicated locally rather than imported (page.tsx doesn't
- * export it, and this codebase's convention is small per-file helpers, e.g.
- * messageFor in AdminFixturesEditor.tsx / AdminTeamEditor.tsx) rather than a
- * cross-import from a route's page.tsx.
- */
-function resolveTeamId(teams: LeagueTeam[], name: string | null): string | null {
-  const target = normalizeName(name);
-  if (!target) return null;
-  return teams.find((t) => normalizeName(t.name) === target)?.id ?? null;
-}
 
 function codesTextFor(codes: MatchCode[], fixtureId: string | undefined): string {
   if (!fixtureId) return "";
@@ -98,8 +81,8 @@ export default function AdminCodeEditor({
       setStatus({ kind: "error", message: "Pick a fixture first." });
       return;
     }
-    const teamAId = resolveTeamId(teams, fixture.team_a);
-    const teamBId = resolveTeamId(teams, fixture.team_b);
+    const teamAId = matchTeamId(teams, fixture.team_a);
+    const teamBId = matchTeamId(teams, fixture.team_b);
     if (!teamAId || !teamBId) {
       setStatus({
         kind: "error",
@@ -158,7 +141,7 @@ export default function AdminCodeEditor({
                 <select
                   value={fixtureId}
                   onChange={(e) => selectFixture(e.target.value)}
-                  className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+                  className="input-brand px-2 py-1.5 text-sm"
                 >
                   {openFixtures.map((f) => (
                     <option key={f.id} value={f.id}>

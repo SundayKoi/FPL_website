@@ -53,9 +53,12 @@ export async function getInfoPageData() {
 }
 
 export function getRulebookResource(resources: InfoResource[]) {
-  return resources.find((resource) => resource.slug === "rulebook") ?? {
-    ...fallbackResources[2],
-    id: fallbackResources[2].slug,
-    sort_order: 3,
+  const found = resources.find((resource) => resource.slug === "rulebook");
+  if (found) return found;
+  const fallback = fallbackResources.find((resource) => resource.slug === "rulebook")!;
+  return {
+    ...fallback,
+    id: fallback.slug,
+    sort_order: fallbackResources.indexOf(fallback) + 1,
   };
 }

@@ -38,7 +38,6 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
 }));
 vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({})) }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
-vi.mock("@/lib/home/fetchBrief", () => ({ fetchActiveBrief: vi.fn(async () => null) }));
 vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities: vi.fn(async () => ({})) }));
 vi.mock("@/lib/stats/weekly", () => ({ fetchLatestWeeklyStandouts: vi.fn(async () => []) }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
@@ -49,7 +48,6 @@ vi.mock("@/lib/league/season", () => ({ fetchLeagueSeasons: vi.fn(async () => ({
 vi.mock("./HomeStandings", () => ({ default: () => <div /> }));
 vi.mock("./AwardsDesk", () => ({ default: () => <div /> }));
 vi.mock("./UpcomingSchedule", () => ({ default: () => <div /> }));
-vi.mock("./HomeBrief", () => ({ default: () => <div /> }));
 vi.mock("./WeeklyStandouts", () => ({ default: () => <div /> }));
 vi.mock("@/components/LeaguePageToggle", () => ({ default: () => <div /> }));
 

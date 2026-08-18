@@ -1,4 +1,6 @@
 export const DRAFT_DAY_AT = "2026-08-15T20:00:00-04:00";
+/** Human-readable copy for DRAFT_DAY_AT — keep the two in sync. */
+export const DRAFT_DAY_LABEL = "Saturday, August 15 · 8:00 PM EST";
 export const FIRST_GAME_AT = "2026-08-17T00:00:00-04:00";
 
 export type HomepagePhase = "preseason" | "regular";

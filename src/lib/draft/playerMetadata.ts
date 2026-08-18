@@ -54,19 +54,28 @@ export function comparePlayerRanks(left: string | null, right: string | null) {
   return 0;
 }
 
+function resolveCanonicalField(
+  player: { canonical_player_id?: string | null; display_name: string },
+  canonicalPlayers: CanonicalPlayerMetadata[],
+  get: (candidate: CanonicalPlayerMetadata) => string | null | undefined,
+) {
+  const byId = player.canonical_player_id
+    ? canonicalPlayers.find((candidate) => candidate.id === player.canonical_player_id)
+    : undefined;
+  const idValue = byId ? get(byId) : undefined;
+  if (idValue) return idValue;
+
+  const normalizedName = normalizePlayerName(player.display_name);
+  const byName = canonicalPlayers.find((candidate) => normalizePlayerName(candidate.display_name) === normalizedName);
+  return (byName && get(byName)) ?? null;
+}
+
 export function resolvePlayerRank(
   player: PlayerRankSource,
   canonicalPlayers: CanonicalPlayerMetadata[],
 ) {
   if (player.rank) return player.rank;
-
-  const byId = player.canonical_player_id
-    ? canonicalPlayers.find((candidate) => candidate.id === player.canonical_player_id)
-    : undefined;
-  if (byId?.rank) return byId.rank;
-
-  const normalizedName = normalizePlayerName(player.display_name);
-  return canonicalPlayers.find((candidate) => normalizePlayerName(candidate.display_name) === normalizedName)?.rank ?? null;
+  return resolveCanonicalField(player, canonicalPlayers, (candidate) => candidate.rank);
 }
 
 export function resolvePlayerOpggUrl(
@@ -74,12 +83,5 @@ export function resolvePlayerOpggUrl(
   canonicalPlayers: CanonicalPlayerMetadata[],
 ) {
   if (player.opgg_url) return player.opgg_url;
-
-  const byId = player.canonical_player_id
-    ? canonicalPlayers.find((candidate) => candidate.id === player.canonical_player_id)
-    : undefined;
-  if (byId?.opgg_url) return byId.opgg_url;
-
-  const normalizedName = normalizePlayerName(player.display_name);
-  return canonicalPlayers.find((candidate) => normalizePlayerName(candidate.display_name) === normalizedName)?.opgg_url ?? null;
+  return resolveCanonicalField(player, canonicalPlayers, (candidate) => candidate.opgg_url);
 }

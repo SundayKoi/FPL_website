@@ -7,6 +7,25 @@ export type Acquisition = "captain" | "free_agency" | "auction" | "admin";
 
 export const ROLE_ORDER: LolRole[] = ["top", "jungle", "mid", "adc", "support"];
 
+/** Display names for the five roles — the single copy behind every roster,
+ *  pool, and signup listing. */
+export const ROLE_LABELS: Record<LolRole, string> = {
+  top: "Top",
+  jungle: "Jungle",
+  mid: "Mid",
+  adc: "ADC",
+  support: "Support",
+};
+
+/** Compact role tags for tight roster rows (team cards, team pages). */
+export const ROLE_LABELS_SHORT: Record<LolRole, string> = {
+  top: "TOP",
+  jungle: "JG",
+  mid: "MID",
+  adc: "ADC",
+  support: "SUP",
+};
+
 export interface Profile {
   id: string; discord_id: string | null; display_name: string;
   avatar_url: string | null; is_admin: boolean;
@@ -82,4 +101,10 @@ export function errCode(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === "string" ? e : (e as { message?: string })?.message ?? "";
   const m = /^([A-Z_]+):/.exec(msg);
   return m ? m[1] : "UNKNOWN";
+}
+
+/** The human half of an RPC error — errMessage with the "CODE: " prefix
+ *  stripped, for surfacing directly in admin/draft UIs. */
+export function errDetail(e: unknown): string {
+  return errMessage(e).replace(/^[A-Z_]+:\s*/, "");
 }

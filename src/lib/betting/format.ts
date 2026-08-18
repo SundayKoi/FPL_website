@@ -8,3 +8,8 @@ export function fmtPoints(n: number): string {
   const sign = n < 0 ? "-" : "";
   return `${sign}$${Math.abs(n).toLocaleString("en-US")}`;
 }
+
+/** Local date-time input value (`YYYY-MM-DDTHH:mm`) → ISO string. */
+export function toIso(local: string): string {
+  return local ? new Date(local).toISOString() : "";
+}

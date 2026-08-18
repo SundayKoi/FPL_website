@@ -1,10 +1,10 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { StatusPill } from "@/components/betting/StatusPill";
-import { fmtPoints } from "@/lib/betting/format";
+import { fmtPoints, toIso } from "@/lib/betting/format";
 import type { BettingTeam, MarketStatus } from "@/lib/betting/types";
 import { createMarket, resolveMarket, cancelMarket, deleteMarket } from "@/lib/betting/admin-actions";
+import { ErrorBanner, useAdminRun } from "./useAdminRun";
 
 export interface AdminMarketRow {
   id: number;
@@ -21,11 +21,6 @@ export interface AdminMarketRow {
   draw_enabled: boolean;
   rake_bps: number;
   volume: number;
-}
-
-/** Local date-time input value (`YYYY-MM-DDTHH:mm`) → ISO string. */
-function toIso(local: string): string {
-  return local ? new Date(local).toISOString() : "";
 }
 
 function CreateMarketForm({
@@ -73,7 +68,7 @@ function CreateMarketForm({
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -88,7 +83,7 @@ function CreateMarketForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. TSM vs C9"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -96,7 +91,7 @@ function CreateMarketForm({
           <select
             value={teamAId}
             onChange={(e) => setTeamAId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           >
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -110,7 +105,7 @@ function CreateMarketForm({
           <select
             value={teamBId}
             onChange={(e) => setTeamBId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           >
             {teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -125,7 +120,7 @@ function CreateMarketForm({
             type="datetime-local"
             value={gameAt}
             onChange={(e) => setGameAt(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
           <span className="text-[10px] text-steel/70">Locks automatically 5 minutes before this time.</span>
         </label>
@@ -137,7 +132,7 @@ function CreateMarketForm({
             max={10000}
             value={rakeBps}
             onChange={(e) => setRakeBps(Math.max(0, Math.min(10000, Number(e.target.value) || 0)))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
       </div>
@@ -148,7 +143,7 @@ function CreateMarketForm({
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="self-start btn-coral px-4 py-2 text-sm"
       >
         Create market
       </button>
@@ -192,29 +187,13 @@ export default function MarketsAdmin({
   teams: BettingTeam[];
   events: { id: number; name: string }[];
 }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function after(result: { ok: true } | { ok: false; error: string } | { ok: true; id: number }) {
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setError(null);
-    router.refresh();
-  }
+  const { error, pending, run } = useAdminRun();
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      <ErrorBanner error={error} />
 
-      <CreateMarketForm
-        teams={teams}
-        events={events}
-        busy={pending}
-        onCreate={(input) => startTransition(async () => after(await createMarket(input)))}
-      />
+      <CreateMarketForm teams={teams} events={events} busy={pending} onCreate={(input) => run(() => createMarket(input))} />
 
       <div className="flex flex-col gap-2">
         <h2 className="label-dash">Markets ({markets.length})</h2>
@@ -245,14 +224,14 @@ export default function MarketsAdmin({
                       <ResolveControl
                         market={m}
                         busy={pending}
-                        onResolve={(winner) => startTransition(async () => after(await resolveMarket(m.id, winner)))}
+                        onResolve={(winner) => run(() => resolveMarket(m.id, winner))}
                       />
                       <button
                         type="button"
                         disabled={pending}
                         onClick={() => {
                           if (confirm(`Cancel "${m.title ?? m.id}"? Every bet is refunded.`)) {
-                            startTransition(async () => after(await cancelMarket(m.id)));
+                            run(() => cancelMarket(m.id));
                           }
                         }}
                         className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-red-400 hover:text-red-300 disabled:opacity-40"
@@ -266,7 +245,7 @@ export default function MarketsAdmin({
                     disabled={pending}
                     onClick={() => {
                       if (confirm(`Delete "${m.title ?? m.id}"? Only possible if it has no bets.`)) {
-                        startTransition(async () => after(await deleteMarket(m.id)));
+                        run(() => deleteMarket(m.id));
                       }
                     }}
                     className="rounded border border-red-500/60 px-2 py-1 text-xs font-semibold text-red-400 disabled:opacity-40"

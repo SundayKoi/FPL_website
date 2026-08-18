@@ -1,3 +1,4 @@
+import { hasResult } from "@/lib/schedule/format";
 import type { FixtureRow, FixtureStage } from "@/lib/schedule/types";
 
 export interface CodeImportPreviewFixture {
@@ -52,7 +53,7 @@ export function parseTournamentCodes(input: string): string[] {
 
 function targetFixturesForPreview(fixtures: FixtureRow[]): FixtureRow[] {
   return [...fixtures]
-    .filter((fixture) => fixture.score_a === null && fixture.score_b === null)
+    .filter((fixture) => !hasResult(fixture))
     .sort((a, b) => {
       const rankDiff = STAGE_RANK[a.stage] - STAGE_RANK[b.stage];
       if (rankDiff !== 0) return rankDiff;

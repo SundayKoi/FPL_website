@@ -3,24 +3,11 @@
 // (supabase/migrations/20260813000003_betting_market_rpcs.sql) are the sole
 // movers of money; nothing here is authoritative.
 
-/** Share of the displayed pool for the side being staked on, with the pending stake folded in. */
-export function displayedPercent(yourPool: number, opposingPool: number, stake: number): number {
-  const total = yourPool + opposingPool + stake;
-  if (total <= 0) return 0;
-  return (yourPool + stake) / total;
-}
-
 /** Live "Win payout +$X" projection: profit if your side wins.
  *  projected_profit = s * opposing_pool / (your_pool + s). */
 export function projectedProfit(stake: number, yourPool: number, opposingPool: number): number {
   if (stake <= 0) return 0;
   return (stake * opposingPool) / (yourPool + stake);
-}
-
-/** Authoritative settlement profit for a winning stake (floored, integer points). */
-export function settlementProfit(stake: number, winningPool: number, losingPool: number): number {
-  if (winningPool <= 0) return 0;
-  return Math.floor((stake * losingPool) / winningPool);
 }
 
 // ---- odds display (DISPLAY ONLY — payouts are still the pool split) ----------
@@ -49,17 +36,4 @@ export function americanOdds(prob: number): string {
     return `-${Math.round((prob / (1 - prob)) * 100)}`;
   }
   return `+${Math.round(((1 - prob) / prob) * 100)}`;
-}
-
-/** Probability (0..1) -> decimal odds, e.g. 0.62 -> 1.61 (2dp). */
-export function decimalOdds(prob: number): number {
-  if (prob <= 0) return Infinity;
-  return Math.round((1 / prob) * 100) / 100;
-}
-
-/** American odds (e.g. -150, +130) -> implied probability for that side (0..1).
- * Turns the admin's opening line into a seed probability. */
-export function impliedProb(american: number): number {
-  if (american < 0) return -american / (-american + 100);
-  return 100 / (american + 100);
 }

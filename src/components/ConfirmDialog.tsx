@@ -46,7 +46,7 @@ export default function ConfirmDialog({
           </button>
           <button
             autoFocus
-            className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110"
+            className="btn-coral px-4 py-2 text-sm"
             onClick={onConfirm}
           >
             {confirmLabel}

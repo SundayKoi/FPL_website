@@ -6,70 +6,14 @@ import { createClient } from "@/lib/supabase/client";
 import { parseReport } from "@/lib/matches/parseReport";
 import type { LeagueTeam } from "@/lib/matches/types";
 import { submitReport, type MyReportRow } from "@/lib/captain/queries";
+import { friendlyErrorMessage } from "@/lib/captain/errors";
+import MyReportsList from "./MyReportsList";
 
 const MATCH_ID_RE = /^NA1_\d+$/;
 const PHASES = ["Regular", "Playoffs"] as const;
 
 const inputClass =
-  "rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "border-steel/50 text-steel",
-  ingested: "border-mint/50 text-mint",
-  needs_sides: "border-amber-400/60 text-amber-300",
-  needs_side: "border-amber-400/60 text-amber-300",
-  failed: "border-red-400/60 text-red-400",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STATUS_STYLES[status] ?? "border-line text-steel"}`}
-    >
-      {status.replace("_", " ")}
-    </span>
-  );
-}
-
-/**
- * A report's link to `/schedule`'s `fixtures` table (Task 8): a steel
- * "Schedule" chip whenever the report is attached to a fixture, plus a
- * gold "Synced" chip once that fixture's score has (or will have, on the
- * next ingest pass) been auto-filled from this report — i.e. the report
- * has reached `ingested`. The fixture's own score is the source of truth
- * on /schedule; this is just an indicator, no extra fetch needed here.
- */
-function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status: string }) {
-  if (!fixtureId) return null;
-  return (
-    <>
-      <span className="rounded-full border border-steel/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel">
-        Schedule
-      </span>
-      {status === "ingested" && (
-        <span className="rounded-full border border-mint/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-mint">
-          Synced
-        </span>
-      )}
-    </>
-  );
-}
-
-/**
- * A bare `42501` ("new row violates row-level security policy…") is
- * meaningless to a captain — it almost always means their profile isn't (or
- * isn't yet) a season-scoped captain in `league_team_captains`, which is a
- * fixable, nameable admin action rather than a generic failure. Any other
- * error still shows its real message (e.g. a duplicate match id's unique-
- * index violation), unchanged.
- */
-function friendlyErrorMessage(err: unknown, fallback: string): string {
-  const code = (err as { code?: string } | null)?.code;
-  if (code === "42501") {
-    return "Your account isn't set up as a captain for this season yet — ask an admin to run the captain sync.";
-  }
-  return err instanceof Error ? err.message : fallback;
-}
+  "input-brand px-2 py-1.5 text-sm";
 
 interface GameFormRow {
   key: string;
@@ -114,10 +58,10 @@ function emptyForm(defaults: {
 /**
  * Section 3 of the captain page: the Discord-paste parser + editable form
  * (Task 3's parseReport, pre-filled from the resolved fixture), plus the
- * captain's own reports with status badges and the needs-sides fixer. See
- * docs/superpowers/specs/2026-08-11-match-reporting-auto-ingest-design.md
- * ("Reporting UI" + "Side resolution") and the captains-page-design.md
- * ("Report result" section 3).
+ * captain's own reports (MyReportsList, with status badges and the
+ * needs-sides fixer). See docs/superpowers/specs/2026-08-11-match-reporting-
+ * auto-ingest-design.md ("Reporting UI" + "Side resolution") and the
+ * captains-page-design.md ("Report result" section 3).
  */
 export default function ReportBox({
   teams,
@@ -147,11 +91,8 @@ export default function ReportBox({
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [fixerBusy, setFixerBusy] = useState<string | null>(null);
-  const [fixerError, setFixerError] = useState<string | null>(null);
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "Unknown team";
-  const teamAbbr = (id: string | null) => teams.find((t) => t.id === id)?.abbreviation ?? "—";
 
   const handleParse = () => {
     const parsed = parseReport(pasteText, teams);
@@ -269,32 +210,6 @@ export default function ReportBox({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleFixSide = async (gameId: string, blueTeamId: string) => {
-    setFixerBusy(gameId);
-    setFixerError(null);
-    const { data, error } = await supabase
-      .from("match_report_games")
-      .update({ blue_team_id: blueTeamId, status: "pending" })
-      .eq("id", gameId)
-      .select();
-    setFixerBusy(null);
-    if (error) {
-      setFixerError(friendlyErrorMessage(error, "Could not update this game."));
-      return;
-    }
-    // An RLS denial on UPDATE isn't an error -- the row just doesn't match
-    // the policy's USING clause, so PostgREST reports success with zero
-    // rows affected. Without `.select()` above that would silently look
-    // like it worked until refresh. Treat "we asked for the row back and
-    // got none" as a denial and surface the same friendly fallback message
-    // the error branch above would show for an unrecognized failure.
-    if (!data || data.length === 0) {
-      setFixerError("Could not update this game.");
-      return;
-    }
-    router.refresh();
   };
 
   return (
@@ -471,61 +386,7 @@ export default function ReportBox({
         {submitting ? "Submitting…" : "Submit report"}
       </button>
 
-      <div className="mt-6 border-t border-line pt-4">
-        <h3 className="label-dash">My reports</h3>
-        {fixerError && (
-          <p role="alert" className="mt-2 text-sm text-red-400">
-            {fixerError}
-          </p>
-        )}
-        {myReports.length === 0 ? (
-          <p className="mt-3 text-sm text-steel">No reports submitted yet.</p>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-3">
-            {myReports.map((r) => (
-              <li key={r.id} className="rounded border border-line/60 bg-navy/60 p-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-white">
-                    {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
-                  </span>
-                  <StatusBadge status={r.status} />
-                  <FixtureChips fixtureId={r.fixture_id} status={r.status} />
-                  <span className="text-xs text-steel">
-                    {r.season_phase} · {r.season}
-                  </span>
-                </div>
-                {r.error_text && <p className="mt-1 text-xs text-red-400">{r.error_text}</p>}
-                {r.warning_text && <p className="mt-1 text-xs text-amber-300">{r.warning_text}</p>}
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {r.games.map((g) => (
-                    <li key={g.id} className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="w-16 shrink-0 text-steel">Game {g.game_number}</span>
-                      <code className="text-steel">{g.match_id}</code>
-                      <StatusBadge status={g.status} />
-                      {g.status === "needs_side" && (
-                        <select
-                          disabled={fixerBusy === g.id}
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (e.target.value) void handleFixSide(g.id, e.target.value);
-                          }}
-                          className="rounded border border-line bg-navy px-1.5 py-0.5 text-xs text-white"
-                        >
-                          <option value="" disabled>
-                            Which side was blue?
-                          </option>
-                          <option value={r.team_a_id}>{teamName(r.team_a_id)}</option>
-                          <option value={r.team_b_id}>{teamName(r.team_b_id)}</option>
-                        </select>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <MyReportsList teams={teams} myReports={myReports} />
     </section>
   );
 }

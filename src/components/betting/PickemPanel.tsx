@@ -1,6 +1,5 @@
 "use client";
 import { useState, useTransition } from "react";
-import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useIsLocked } from "@/hooks/useIsLocked";
 import { placePickemCard } from "@/lib/betting/actions";
@@ -8,6 +7,7 @@ import { fmtPoints } from "@/lib/betting/format";
 import type { PickemData, PickemLegData } from "@/lib/betting/types";
 import { StatusPill } from "./StatusPill";
 import { LockCountdown } from "./LockCountdown";
+import { TeamSideButton } from "./TeamSideButton";
 
 /** One leg's two-team pick row — ported from
  * c:\fpl_gambling\web\src\components\PickemPanel.tsx's LegRow. */
@@ -32,25 +32,17 @@ function LegRow({
           const chosen = pick === t.id;
           const won = resolved && leg.winning_team_id === t.id;
           return (
-            <button
+            <TeamSideButton
               key={t.id}
-              type="button"
+              team={t}
+              selected={chosen}
               disabled={locked}
               onClick={() => onPick(t.id)}
-              className={
-                "flex-1 rounded border px-2 py-2 text-sm font-semibold transition disabled:cursor-not-allowed " +
-                (chosen ? "border-transparent text-navy" : "border-line text-steel hover:border-steel") +
-                (won ? " ring-2 ring-mint" : "")
-              }
-              style={
-                chosen
-                  ? ({ backgroundColor: t.color } as CSSProperties)
-                  : ({ "--team-color": t.color } as CSSProperties)
-              }
+              className={won ? "ring-2 ring-mint" : undefined}
             >
               {t.short_code}
               {won && " ✓"}
-            </button>
+            </TeamSideButton>
           );
         })}
       </div>
@@ -164,7 +156,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <input
               aria-label="card amount"
-              className="w-28 rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+              className="w-28 input-brand p-2"
               type="number"
               min={1}
               max={balance}

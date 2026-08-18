@@ -3,25 +3,22 @@
 // auto-ingest/task-5-brief.md and docs/superpowers/specs/2026-08-11-
 // captains-page-design.md ("Page composition" step 1) for the rules.
 
+import { hasResult } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
-
-function normalizeName(name: string | null): string {
-  return (name ?? "").trim().toLowerCase();
-}
+import { normalizeName } from "./teamNames";
 
 /**
  * The earliest upcoming fixture for `teamName`: rows with no reported result
- * yet (`score_a` null — the fixtures table's own check constraint keeps
- * `score_a`/`score_b` paired, so this alone is enough) whose `team_a` or
- * `team_b` matches `teamName` case-insensitively after trimming (fixtures
- * are free text by design — see the fixtures migration). Sorted by
- * `scheduled_at` ascending with TBD (null) rows last, tie-broken by
- * `sort_order`. Returns null when nothing matches.
+ * yet (`hasResult` false) whose `team_a` or `team_b` matches `teamName`
+ * case-insensitively after trimming (fixtures are free text by design — see
+ * the fixtures migration). Sorted by `scheduled_at` ascending with TBD
+ * (null) rows last, tie-broken by `sort_order`. Returns null when nothing
+ * matches.
  */
 export function pickNextFixture(fixtures: FixtureRow[], teamName: string): FixtureRow | null {
   const target = normalizeName(teamName);
   const upcoming = fixtures.filter(
-    (f) => f.score_a === null && (normalizeName(f.team_a) === target || normalizeName(f.team_b) === target)
+    (f) => !hasResult(f) && (normalizeName(f.team_a) === target || normalizeName(f.team_b) === target)
   );
   if (upcoming.length === 0) return null;
 

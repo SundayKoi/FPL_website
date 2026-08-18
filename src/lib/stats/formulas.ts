@@ -1,6 +1,5 @@
 import type {
   ChampionAggRow,
-  MvpEntry,
   PlayerAggRow,
   RankedPlayer,
   ScoutingProfile,
@@ -41,10 +40,10 @@ type ScoreKey = "winrate_pct" | "kda" | "avg_dmg_per_min" | "avg_cs_per_min"
 
 type Weights = Partial<Record<ScoreKey, number>>;
 
-// maxBenchmarks — identical in calcMVPScore (line 1275-1278) and
-// calcPowerScore (line 1504-1507) except calcPowerScore adds goldPerMin:450.
-// Kept as one shared table since the values that appear in both are
-// byte-identical; goldPerMin is simply unused by mvpScores' weight tables.
+// maxBenchmarks — from calcPowerScore (line 1504-1507); calcMVPScore's
+// table (line 1275-1278) was byte-identical minus goldPerMin:450, but the
+// MVP tab was folded into Power Rankings (see StatsTabs.tsx), so only
+// powerRanking reads this now.
 const MAX_BENCHMARKS: Record<ScoreKey, number> = {
   winrate_pct: 100,
   kda: 6,
@@ -110,10 +109,10 @@ function isInverted(key: ScoreKey): boolean {
 }
 
 /**
- * Weighted composite score over `weights`, gated per-key by `blended()`.
- * Shared by powerRanking (0-100, 1 decimal) and mvpScores (0-100, integer)
- * since both compute `sum(blended*weight)/100 / totalWeight*100` before
- * their distinct final rounding/clamp step.
+ * Weighted composite score over `weights`, gated per-key by `blended()`:
+ * `sum(blended*weight)/100 / totalWeight*100`, before powerRanking's final
+ * rounding/clamp step (0-100, 1 decimal). The retired mvpScores shared this
+ * until the MVP tab was folded into Power Rankings — see StatsTabs.tsx.
  */
 function weightedScore(cohort: PlayerAggRow[], row: PlayerAggRow, weights: Weights): number {
   let score = 0;
@@ -137,25 +136,14 @@ const POWER_WEIGHTS_DEFAULT: Weights = {
   winrate_pct: 20, kda: 18, avg_dmg_per_min: 15, avg_cs_per_min: 10, avg_kills: 10, avg_deaths: 12, avg_vision_per_min: 8, avg_gold_per_min: 7,
 };
 
-// Role-specific weights for calcMVPScore — lines 1266-1271, ported verbatim.
-const MVP_WEIGHTS: Record<string, Weights> = {
-  TOP: { winrate_pct: 25, kda: 20, avg_dmg_per_min: 18, avg_cs_per_min: 12, avg_kills: 10, avg_vision_per_min: 5, avg_deaths: 10 },
-  JUNGLE: { winrate_pct: 25, kda: 20, avg_dmg_per_min: 12, avg_kills: 12, avg_assists: 10, avg_vision_per_min: 11, avg_deaths: 10 },
-  MIDDLE: { winrate_pct: 25, kda: 20, avg_dmg_per_min: 20, avg_cs_per_min: 10, avg_kills: 10, avg_vision_per_min: 5, avg_deaths: 10 },
-  BOTTOM: { winrate_pct: 25, kda: 18, avg_dmg_per_min: 22, avg_cs_per_min: 12, avg_kills: 10, avg_vision_per_min: 3, avg_deaths: 10 },
-  UTILITY: { winrate_pct: 25, kda: 18, avg_assists: 18, avg_vision_per_min: 20, avg_deaths: 12, avg_kills: 2, avg_dmg_per_min: 5 },
-};
-const MVP_WEIGHTS_DEFAULT: Weights = {
-  winrate_pct: 25, kda: 20, avg_dmg_per_min: 15, avg_cs_per_min: 10, avg_kills: 10, avg_vision_per_min: 10, avg_deaths: 10,
-};
-
 /**
- * Same-role cohort with a >=4-member fallback to the full roster. Shared
- * shape between calcPowerScore's `sameRole` (lines 1478-1479, no
- * games-gate — its caller renderPower already pre-filters `all` by the
- * page's own min-games <select>) and calcMVPScore's `sameRole` (lines
- * 1234-1236, gated to `games>=minG` with minG=5 inline, since PD there is
- * the full unfiltered roster).
+ * Same-role cohort with a >=4-member fallback to the full roster. Ports
+ * calcPowerScore's `sameRole` (lines 1478-1479): powerRanking passes
+ * `minGames: null` since its caller renderPower already pre-filters `all`
+ * by the page's own min-games <select>. The `minGames` gate existed for
+ * calcMVPScore's `sameRole` (lines 1234-1236, `games>=minG` with minG=5
+ * inline) — retired along with mvpScores when the MVP tab was folded into
+ * Power Rankings.
  */
 function sameRoleCohort(cohort: PlayerAggRow[], row: PlayerAggRow, minGames: number | null): PlayerAggRow[] {
   const base = minGames === null ? cohort : cohort.filter((r) => r.games >= minGames);
@@ -187,33 +175,6 @@ export function powerRanking(rows: PlayerAggRow[]): RankedPlayer[] {
     return { ...row, score };
   });
   return ranked.sort((a, b) => b.score - a.score);
-}
-
-/**
- * MVP scores. Ports `calcMVPScore(p)` (lines 1228-1289) +
- * `renderMVP`'s min-games gate and sort (lines 1291-1295:
- * `const mg=5; const el=PD.filter(p=>p.games>=mg); ...
- * el.sort((a,b)=>b.mvpScore-a.mvpScore)`).
- *
- * `scoreBreakdown()` (lines 1326-1352) is renderMVP's own display-only
- * duplicate of this exact logic (used to draw percentile bars for the
- * MVP-vs-runner-up card) — not a distinct formula, so it is not ported
- * separately.
- *
- * Rounding: `Math.round(score/totalWeight*100)` (line 1287) -> whole
- * number, clamped to [0, 100].
- */
-export function mvpScores(rows: PlayerAggRow[]): MvpEntry[] {
-  const minGames = 5;
-  const qualified = rows.filter((r) => r.games >= minGames);
-  const entries: MvpEntry[] = qualified.map((row) => {
-    const cohort = sameRoleCohort(qualified, row, minGames);
-    const weights = MVP_WEIGHTS[row.role_mode] ?? MVP_WEIGHTS_DEFAULT;
-    const raw = weightedScore(cohort, row, weights);
-    const mvpScore = Math.max(0, Math.min(100, Math.round(raw)));
-    return { ...row, mvpScore };
-  });
-  return entries.sort((a, b) => b.mvpScore - a.mvpScore);
 }
 
 /**
@@ -309,10 +270,10 @@ export function combineSeasonRows(rows: PlayerAggRow[], seasonLabel = "All"): Pl
   };
 }
 
-function round1(n: number): number {
+export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
-function round2(n: number): number {
+export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 

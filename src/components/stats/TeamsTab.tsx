@@ -1,78 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { combineTeamRows, mergeRows } from "@/lib/stats/formulas";
+import { formatDuration } from "@/lib/stats/format";
 import { fetchTeamAgg } from "@/lib/stats/queries";
-import type { TeamAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
-import { StatBar } from "./statsUi";
-
-function formatDuration(min: number): string {
-  const m = Math.floor(min);
-  const s = Math.round((min - m) * 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
+import { EmptyCard, ErrorCard, LoadingCard, StatBar } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 export default function TeamsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
-  const [rows, setRows] = useState<TeamAggRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see LeaderboardTab): flip back to "loading"
-  // synchronously during render on filter change instead of via a setState
-  // call in the effect body (react-hooks/set-state-in-effect forbids that).
-  const filterKey = `${season}::${phase}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    setStatus("loading");
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchTeamAgg(seasonParam, phaseParam, teamNames);
-        if (cancelled) return;
-        setRows(data);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
+  const loadRows = useCallback(() => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    return fetchTeamAgg(seasonParam, phaseParam, teamNames);
   }, [season, phase, teamNames]);
+  const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
+  const rows = data ?? [];
 
   if (status === "loading") {
-    return (
-      <div className="card-brand p-8 text-center text-steel" role="status">
-        Loading teams…
-      </div>
-    );
+    return <LoadingCard label="teams" />;
   }
 
   if (status === "error") {
-    return (
-      <div className="card-brand p-8 text-center text-steel">
-        Couldn&apos;t load team data. Try again shortly.
-      </div>
-    );
+    return <ErrorCard noun="team" />;
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="card-brand p-8 text-center">
-        <p className="type-display text-2xl">No stats yet</p>
-        <p className="mt-2 text-steel">There&apos;s no team data for this season/phase yet.</p>
-      </div>
-    );
+    return <EmptyCard message="There's no team data for this season/phase yet." />;
   }
 
   // Merge whenever the fetch could span more than one (season,

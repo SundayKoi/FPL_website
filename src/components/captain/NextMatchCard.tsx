@@ -1,5 +1,6 @@
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
+import OpggMultiLink from "./OpggMultiLink";
 
 /** Section 1 of the captain page: the next unplayed fixture for this team. */
 export default function NextMatchCard({
@@ -46,14 +47,7 @@ export default function NextMatchCard({
         )}
       </div>
       {opponentMultiOpggUrl ? (
-        <a
-          href={opponentMultiOpggUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex w-fit rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-        >
-          Opponent OP.GG Multi
-        </a>
+        <OpggMultiLink href={opponentMultiOpggUrl} label="Opponent OP.GG Multi" className="mt-4" />
       ) : null}
     </section>
   );

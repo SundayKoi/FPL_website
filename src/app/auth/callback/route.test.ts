@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { safeNextPath } from "./route";
+import { safeNextPath } from "@/lib/auth/safeNextPath";
 
 describe("safeNextPath", () => {
   it("defaults to / when no next param is given", () => {
