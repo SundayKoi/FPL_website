@@ -2,14 +2,12 @@ import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
 import AwardsDesk from "./AwardsDesk";
 import UpcomingSchedule from "./UpcomingSchedule";
-import HomeBrief from "./HomeBrief";
 import WeeklyStandouts from "./WeeklyStandouts";
 import { getTwitchChannelClips, getTwitchChannelStatus } from "@/lib/twitch/status";
 import { fetchHomepageStandings } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchHomepageAwards } from "@/lib/home/awards";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
-import { fetchActiveBrief } from "@/lib/home/fetchBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -25,7 +23,7 @@ const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
 
 /**
  * The Academy homepage: the same dashboard as the Premier regular-season home
- * (featured matchup, standings, weekly brief, standouts, upcoming schedule),
+ * (featured matchup, standings, awards, standouts, upcoming schedule),
  * every panel scoped to the Academy draft's teams and the Academy season code.
  */
 export default async function AcademyHomePage() {
@@ -37,12 +35,11 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [twitchStatus, awards, standings, schedule, brief, identities, standouts, featuredSettings] = await Promise.all([
+  const [twitchStatus, awards, standings, schedule, identities, standouts, featuredSettings] = await Promise.all([
     getTwitchChannelStatus({ channelLogin: TWITCH_CHANNEL_LOGIN }),
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet)),
-    fetchActiveBrief("academy"),
     fetchTeamIdentities("academy_draft_id"),
     fetchLatestWeeklyStandouts(5, seasons.academy, teamNames),
     fetchHomepageFeaturedSettings("academy"),
@@ -70,10 +67,10 @@ export default async function AcademyHomePage() {
             />
             <HomeStandings teams={standings} seasonLabel={seasons.academy} />
           </div>
-          {/* Same fallback as Premier: the written brief replaces the computed
-              award lists when one is published, and the page keeps the
-              calculated version rather than going blank when none is. */}
-          {brief ? <HomeBrief brief={brief} /> : <AwardsDesk awards={awards} />}
+          {/* The generated weekly write-up used to sit here. It kept asserting
+              things the data did not support, so the page shows the computed
+              award lists only. */}
+          <AwardsDesk awards={awards} />
           <WeeklyStandouts standouts={standouts} />
           <UpcomingSchedule schedule={schedule} identities={identities} basePath="/academy/schedule" teamBasePath={null} />
         </section>

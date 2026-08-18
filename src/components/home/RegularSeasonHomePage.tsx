@@ -7,8 +7,6 @@ import { fetchHomepageStandings } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchHomepageAwards } from "@/lib/home/awards";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
-import { fetchActiveBrief } from "@/lib/home/fetchBrief";
-import HomeBrief from "./HomeBrief";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import WeeklyStandouts from "./WeeklyStandouts";
 import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
@@ -19,14 +17,13 @@ const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitchStatus, awards, standings, schedule, brief, identities, standouts, featuredSettings] = await Promise.all([
+  const [twitchStatus, awards, standings, schedule, identities, standouts, featuredSettings] = await Promise.all([
     getTwitchChannelStatus({
       channelLogin: TWITCH_CHANNEL_LOGIN,
     }),
     fetchHomepageAwards(),
     fetchHomepageStandings(),
     fetchHomepageSchedule(),
-    fetchActiveBrief(),
     fetchTeamIdentities(),
     fetchLatestWeeklyStandouts(),
     fetchHomepageFeaturedSettings("premier"),
@@ -56,10 +53,10 @@ export default async function RegularSeasonHomePage() {
             />
             <HomeStandings teams={standings} />
           </div>
-          {/* Written copy replaces the computed award lists when a brief is
-              published; without one the page keeps the calculated version
-              rather than going blank. */}
-          {brief ? <HomeBrief brief={brief} /> : <AwardsDesk awards={awards} />}
+          {/* The generated weekly write-up used to sit here. It kept asserting
+              things the data did not support, so the page shows the computed
+              award lists only. */}
+          <AwardsDesk awards={awards} />
           <WeeklyStandouts standouts={standouts} />
           <UpcomingSchedule schedule={schedule} identities={identities} />
         </section>
