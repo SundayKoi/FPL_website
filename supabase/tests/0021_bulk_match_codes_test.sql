@@ -133,14 +133,14 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15']::text[]
   )
-$$, '%complete current unplayed Premier fixture set%', 'a mixed Premier and Academy fixture payload is rejected');
+$$, '%complete current unplayed league fixture set%', 'a mixed Premier and Academy fixture payload is rejected');
 select throws_like($$
   select public.bulk_replace_match_codes(
     'YY',
     array['60000000-0000-0000-0000-000000000025'::uuid],
     array['1','2','3']::text[]
   )
-$$, '%current season%', 'an old season payload is rejected independently of supplied fixtures');
+$$, '%configured league season%', 'an old season payload is rejected independently of supplied fixtures');
 select throws_like($$
   select public.bulk_replace_match_codes(
     'ZZ',
@@ -151,7 +151,7 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6','7','8','9']::text[]
   )
-$$, '%complete current unplayed Premier fixture set%', 'a subset missing a current Premier target is rejected');
+$$, '%complete current unplayed league fixture set%', 'a subset missing a current Premier target is rejected');
 
 insert into public.fixtures (id, stage, sort_order, team_a, team_b, best_of, season) values
   ('60000000-0000-0000-0000-000000000028', 'gauntlet_r2', 0, 'Bulk Bravo FC', 'Bulk Echo FC', 1, 'ZZ');
@@ -167,7 +167,7 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6','7','8','9','10','11','12']::text[]
   )
-$$, '%complete current unplayed Premier fixture set%', 'a fixture added after preview makes the stale target set fail');
+$$, '%complete current unplayed league fixture set%', 'a fixture added after preview makes the stale target set fail');
 select throws_like($$
   select public.bulk_replace_match_codes(
     'ZZ',
@@ -181,7 +181,7 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18']::text[]
   )
-$$, '%complete current unplayed Premier fixture set%', 'a played fixture is rejected as an extra target');
+$$, '%complete current unplayed league fixture set%', 'a played fixture is rejected as an extra target');
 select throws_like($$
   select public.bulk_replace_match_codes(
     'ZZ',
@@ -195,7 +195,7 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18']::text[]
   )
-$$, '%complete current unplayed Premier fixture set%', 'an unknown fixture is rejected as an extra target');
+$$, '%complete current unplayed league fixture set%', 'an unknown fixture is rejected as an extra target');
 
 select throws_like($$
   select public.bulk_replace_match_codes(
@@ -245,7 +245,7 @@ select throws_like($$
     ],
     array['1','2','3','4','5','6']::text[]
   )
-$$, '%duplicate fixture%', 'duplicate fixture IDs are rejected');
+$$, '%non-null and unique%', 'duplicate fixture IDs are rejected');
 
 create temporary table codes_before_forced_failure as
 select fixture_id, game_number, code
