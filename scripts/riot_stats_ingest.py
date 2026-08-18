@@ -1309,7 +1309,26 @@ def update_game_status(cfg, game_id, status, error_text, resolved_blue_team_id):
     return True
 
 
-def sync_fixture_score(cfg, report):
+def fetch_fixture_teams(cfg, fixture_id):
+    """GET one fixture's team_a/team_b, or None on any failure. Used to align a
+    report's score to the fixture's own side order before writing it."""
+    url = f"{cfg.supabase_url.rstrip('/')}{FIXTURES_ENDPOINT}?id=eq.{fixture_id}&select=team_a,team_b"
+    try:
+        resp = requests.get(url, headers=_supabase_headers(cfg.service_key))
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not read fixture {fixture_id}: request error: {exc}")
+        return None
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not read fixture {fixture_id}: HTTP {resp.status_code}")
+        return None
+    try:
+        rows = resp.json()
+    except ValueError:
+        return None
+    return rows[0] if rows else None
+
+
+def sync_fixture_score(cfg, report, team_names=None):
     """Auto-fill the schedule: once a report has finished `ingested` and
     carries a `fixture_id`, PATCH that fixture's score_a/score_b from the
     report's own score_a/score_b -- but ONLY while the fixture's scores are
@@ -1323,9 +1342,43 @@ def sync_fixture_score(cfg, report):
     Returns True iff a fixture row was actually updated. Never raises: any
     guard miss, HTTP failure, or connection error is logged (if
     applicable) and treated as "not updated" so a fixture-sync hiccup can
-    never take down the rest of the --from-reports run."""
+    never take down the rest of the --from-reports run.
+
+    The score is aligned to the FIXTURE's own team order before writing. A
+    report's team_a is whichever team the captain happened to pick first in
+    their form; the fixture's team_a comes from the schedule draw. When those
+    two disagreed this wrote the winner's score against the loser -- the
+    schedule and homepage showed the wrong team winning a series the ingest
+    itself had recorded correctly. If the two sides cannot be matched by name
+    the score is not written at all, because a silently reversed result is
+    worse than an empty one."""
     fixture_id = report.get("fixture_id")
     if report.get("status") != "ingested" or not fixture_id:
+        return False
+
+    score_a = report.get("score_a")
+    score_b = report.get("score_b")
+    names = team_names or {}
+    report_a = (names.get(report.get("team_a_id")) or "").strip().lower()
+    report_b = (names.get(report.get("team_b_id")) or "").strip().lower()
+    fixture = fetch_fixture_teams(cfg, fixture_id)
+    if fixture is None:
+        return False
+    fixture_a = (fixture.get("team_a") or "").strip().lower()
+    fixture_b = (fixture.get("team_b") or "").strip().lower()
+
+    if report_a and report_b and fixture_a and fixture_b:
+        if fixture_a == report_b and fixture_b == report_a:
+            score_a, score_b = score_b, score_a
+        elif not (fixture_a == report_a and fixture_b == report_b):
+            print(
+                f"  [WARN] Not syncing fixture {fixture_id}: its teams "
+                f"({fixture.get('team_a')!r} vs {fixture.get('team_b')!r}) do not match the report's "
+                f"({names.get(report.get('team_a_id'))!r} vs {names.get(report.get('team_b_id'))!r})."
+            )
+            return False
+    else:
+        print(f"  [WARN] Not syncing fixture {fixture_id}: cannot confirm which side is which.")
         return False
 
     url = (
@@ -1333,7 +1386,7 @@ def sync_fixture_score(cfg, report):
         f"?id=eq.{fixture_id}&score_a=is.null&score_b=is.null"
     )
     headers = _supabase_headers(cfg.service_key, {"Content-Type": "application/json", "Prefer": "return=representation"})
-    body = {"score_a": report.get("score_a"), "score_b": report.get("score_b")}
+    body = {"score_a": score_a, "score_b": score_b}
     try:
         resp = requests.patch(url, headers=headers, data=json.dumps(body))
     except requests.RequestException as exc:
@@ -1535,7 +1588,7 @@ def ingest_report(cfg, report, team_names):
     if not cfg.dry_run:
         update_report_status(cfg, report_id, report_status, error_text, warning_text, ingested_at)
         if report_status == "ingested":
-            sync_fixture_score(cfg, {**report, "status": report_status})
+            sync_fixture_score(cfg, {**report, "status": report_status}, team_names)
 
     return {"status": report_status, "games": game_results, "warning": warning_text, "error": error_text}
 

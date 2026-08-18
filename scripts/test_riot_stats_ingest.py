@@ -873,6 +873,17 @@ def run_sync_fixture_score_tests():
         def json(self):
             return self._json_data
 
+    TEAM_NAMES = {"team-a": "Alpha", "team-b": "Bravo"}
+
+    # The fixture read that aligns a score to the fixture's own side order.
+    def fixture_reader(team_a="Alpha", team_b="Bravo"):
+        def fake_get(url, headers=None, params=None, **kwargs):
+            return FakeResponse(200, [{"team_a": team_a, "team_b": team_b}])
+        return fake_get
+
+    orig_get = mod.requests.get
+    mod.requests.get = fixture_reader()
+
     # -- fills an empty fixture: PATCH URL carries both is.null filters,
     # body carries both scores, response has a row -> True --
     calls = []
@@ -884,8 +895,9 @@ def run_sync_fixture_score_tests():
     orig_patch = mod.requests.patch
     mod.requests.patch = fake_patch_fills
     try:
-        report = {"status": "ingested", "fixture_id": "fx-1", "score_a": 2, "score_b": 1}
-        result = sync_fixture_score(cfg, report)
+        report = {"status": "ingested", "fixture_id": "fx-1", "score_a": 2, "score_b": 1,
+                  "team_a_id": "team-a", "team_b_id": "team-b"}
+        result = sync_fixture_score(cfg, report, TEAM_NAMES)
     finally:
         mod.requests.patch = orig_patch
 
@@ -963,8 +975,9 @@ def run_sync_fixture_score_tests():
 
     mod.requests.patch = fake_patch_raises
     try:
-        report_err = {"status": "ingested", "fixture_id": "fx-3", "score_a": 1, "score_b": 0}
-        result_err = sync_fixture_score(cfg, report_err)
+        report_err = {"status": "ingested", "fixture_id": "fx-3", "score_a": 1, "score_b": 0,
+                      "team_a_id": "team-a", "team_b_id": "team-b"}
+        result_err = sync_fixture_score(cfg, report_err, TEAM_NAMES)
     except Exception as exc:  # noqa: BLE001 -- explicitly asserting no exception escapes
         failures.append(f"sync_fixture_score should never raise, but raised: {exc!r}")
         result_err = None
@@ -972,6 +985,50 @@ def run_sync_fixture_score_tests():
         mod.requests.patch = orig_patch
 
     check(result_err is False, f"sync_fixture_score on a request error should return False, got {result_err!r}")
+
+    # -- REGRESSION: the captain's team order differs from the fixture's, so
+    # the score must be swapped to match the fixture. Writing it positionally
+    # showed the losing team winning the series on the schedule and homepage
+    # while the ingested stats said the opposite. --
+    swapped_calls = []
+
+    def fake_patch_swapped(url, headers=None, data=None, **kwargs):
+        swapped_calls.append(json.loads(data))
+        return FakeResponse(200, [{"id": "fx-4"}])
+
+    mod.requests.get = fixture_reader(team_a="Bravo", team_b="Alpha")
+    mod.requests.patch = fake_patch_swapped
+    try:
+        report_swapped = {"status": "ingested", "fixture_id": "fx-4", "score_a": 2, "score_b": 1,
+                          "team_a_id": "team-a", "team_b_id": "team-b"}
+        result_swapped = sync_fixture_score(cfg, report_swapped, TEAM_NAMES)
+    finally:
+        mod.requests.patch = orig_patch
+
+    check(result_swapped is True, f"a reversed fixture should still sync, got {result_swapped!r}")
+    check(swapped_calls == [{"score_a": 1, "score_b": 2}],
+          f"score should be swapped into the fixture's order, got {swapped_calls!r}")
+
+    # -- neither side matches: refuse rather than write a guess --
+    mismatch_calls = []
+
+    def fake_patch_mismatch(url, headers=None, data=None, **kwargs):
+        mismatch_calls.append(url)
+        return FakeResponse(200, [{"id": "fx-5"}])
+
+    mod.requests.get = fixture_reader(team_a="Charlie", team_b="Delta")
+    mod.requests.patch = fake_patch_mismatch
+    try:
+        report_mismatch = {"status": "ingested", "fixture_id": "fx-5", "score_a": 2, "score_b": 1,
+                           "team_a_id": "team-a", "team_b_id": "team-b"}
+        result_mismatch = sync_fixture_score(cfg, report_mismatch, TEAM_NAMES)
+    finally:
+        mod.requests.patch = orig_patch
+
+    check(result_mismatch is False, f"a fixture whose teams do not match must not sync, got {result_mismatch!r}")
+    check(mismatch_calls == [], f"no PATCH should be attempted on a mismatch, got {mismatch_calls!r}")
+
+    mod.requests.get = orig_get
 
     if failures:
         print(f"FAILED: {len(failures)} sync_fixture_score assertion(s) failed:")
