@@ -131,14 +131,39 @@ REQUIRED_ENV_VARS = ["RIOT_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"
 
 def require_env(names):
     """Return {name: value} for `names`, or None + print a refusal listing
-    exactly which names are missing (does not exit -- caller decides)."""
+    exactly which names are missing (does not exit -- caller decides).
+
+    Values are stripped of surrounding whitespace, and a value carrying any
+    interior whitespace is refused outright. Whitespace is illegal in an HTTP
+    header value (and in a Riot key), so a secret pasted with a
+    stray line break used to survive this check and then blow up much later
+    inside requests with an opaque InvalidHeader traceback -- after the run had
+    already started processing the report queue. Failing here names the
+    variable and stops before anything is touched."""
     _load_env()
-    missing = [n for n in names if not os.environ.get(n)]
+    values = {}
+    missing = []
+    malformed = []
+    for n in names:
+        raw = os.environ.get(n)
+        value = raw.strip() if raw else ""
+        if not value:
+            missing.append(n)
+        elif any(c.isspace() for c in value):
+            malformed.append(n)
+        else:
+            values[n] = value
     if missing:
         print("[ERROR] Missing required environment variable(s): " + ", ".join(missing))
         print("        Set them in .env (see .env.example) or your shell environment.")
         return None
-    return {n: os.environ[n] for n in names}
+    if malformed:
+        print("[ERROR] Malformed environment variable(s): " + ", ".join(malformed))
+        print("        The value contains an interior space, newline or tab, which cannot")
+        print("        be sent in an HTTP header. Re-paste the secret as a single line with")
+        print("        no trailing newline (a GitHub Actions secret keeps whatever you paste).")
+        return None
+    return values
 
 
 # ============================================================
