@@ -1,5 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchDraftId } from "./fetchDraftId";
+import { powerRanking } from "@/lib/stats/formulas";
+import type { PlayerAggRow } from "@/lib/stats/types";
 
 /** Premier's season code. Academy passes its own (see lib/league/season.ts). */
 export const PREMIER_SEASON = "S5" as const;
@@ -97,6 +99,9 @@ type PlayerAggregate = {
   assists: number;
   kp: number;
   damage: number;
+  cs: number;
+  gold: number;
+  vision: number;
   duration: number;
 };
 
@@ -116,10 +121,6 @@ function numberValue(value: number | null): number {
 function round(value: number, places = 1): number {
   const scale = 10 ** places;
   return Math.round(value * scale) / scale;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(value, max));
 }
 
 function playerKey(name: string, tag: string): string {
@@ -237,23 +238,58 @@ function aggregatePlayers(rows: HomepageRawStatRow[]): PlayerAggregate[] {
       assists: group.reduce((sum, row) => sum + numberValue(row.assists), 0),
       kp: group.reduce((sum, row) => sum + numberValue(row.kill_participation_pct), 0),
       damage: group.reduce((sum, row) => sum + numberValue(row.total_damage_to_champions), 0),
+      cs: group.reduce((sum, row) => sum + numberValue(row.cs), 0),
+      gold: group.reduce((sum, row) => sum + numberValue(row.gold_earned), 0),
+      vision: group.reduce((sum, row) => sum + numberValue(row.vision_score), 0),
       duration: group.reduce((sum, row) => sum + numberValue(row.game_duration_min), 0),
     };
   });
 }
 
-function playerPower(player: PlayerAggregate): number {
-  const kda = (player.kills + player.assists) / Math.max(player.deaths, 1);
-  const winrate = (100 * player.wins) / player.games;
-  const avgKp = player.kp / player.games;
-  const damagePerMinute = player.damage / Math.max(player.duration, 1);
-  const avgKills = player.kills / player.games;
-  return round(
-    0.3 * winrate +
-      0.25 * clamp((kda / 6) * 100, 0, 100) +
-      0.2 * clamp((damagePerMinute / 800) * 100, 0, 100) +
-      0.15 * avgKp +
-      0.1 * clamp((avgKills / 10) * 100, 0, 100),
+function toPlayerAggRow(player: PlayerAggregate): PlayerAggRow {
+  const duration = Math.max(player.duration, 1);
+  return {
+    summoner_name: player.name,
+    tag: player.tag,
+    season: PREMIER_SEASON,
+    season_phase: "All",
+    role_mode: player.role,
+    games: player.games,
+    wins: player.wins,
+    winrate_pct: (100 * player.wins) / player.games,
+    avg_kills: player.kills / player.games,
+    avg_deaths: player.deaths / player.games,
+    avg_assists: player.assists / player.games,
+    kda: (player.kills + player.assists) / Math.max(player.deaths, 1),
+    avg_kp_pct: player.kp / player.games,
+    avg_cs_per_min: player.cs / duration,
+    avg_gold_per_min: player.gold / duration,
+    avg_dmg_per_min: player.damage / duration,
+    avg_dmg_share_pct: 0,
+    avg_vision_per_min: player.vision / duration,
+    avg_solo_kills: 0,
+    total_solo_kills: 0,
+    total_plates: 0,
+    total_doubles: 0,
+    total_triples: 0,
+    total_quadras: 0,
+    total_pentas: 0,
+    avg_cs_at_10: 0,
+    avg_gold_at_10: 0,
+    avg_xp_at_10: 0,
+    avg_dmg_taken_per_min: 0,
+    avg_kda_challenges: 0,
+    first_blood_involvements: 0,
+    avg_game_duration: player.duration / player.games,
+  };
+}
+
+function powerScores(players: PlayerAggregate[]): Map<string, number> {
+  return new Map(
+    powerRanking(players.map(toPlayerAggRow)).map((player) => [
+      playerKey(player.summoner_name, player.tag),
+      player.score,
+    ]),
   );
 }
 
@@ -299,6 +335,11 @@ export function deriveHomepageAwards(
   const previousGames = latest ? games.filter((game) => game.week.start === latest.start - 7 * 24 * 60 * 60 * 1000) : [];
   const latestPlayers = aggregatePlayers(latestRows).filter((player) => player.games >= MIN_PLAYER_GAMES);
   const seasonPlayers = aggregatePlayers(rows).filter((player) => player.games >= MIN_PLAYER_GAMES);
+  const latestPower = powerScores(latestPlayers);
+  const seasonPower = powerScores(seasonPlayers);
+  const previousPower = powerScores(
+    aggregatePlayers(previousRows).filter((player) => player.games >= MIN_PLAYER_GAMES),
+  );
   const latestTeams = aggregateTeams(latestGames);
   const previousTeams = aggregateTeams(previousGames);
   const seasonTeams = aggregateTeams(games);
@@ -311,7 +352,9 @@ export function deriveHomepageAwards(
     else latestChampionGroups.set(row.champion, [row]);
   }
 
-  const playerOfWeek = [...latestPlayers].sort((a, b) => playerPower(b) - playerPower(a))[0] ?? null;
+  const playerOfWeek = [...latestPlayers].sort(
+    (a, b) => (latestPower.get(playerKey(b.name, b.tag)) ?? 0) - (latestPower.get(playerKey(a.name, a.tag)) ?? 0),
+  )[0] ?? null;
   const teamOfWeek = [...latestTeams].sort((a, b) => b.winrate - a.winrate || b.wins - a.wins || b.avgKills - a.avgKills)[0] ?? null;
   const championOfWeek = [...latestChampionGroups.entries()]
     .map(([champion, championRows]) => ({
@@ -331,20 +374,28 @@ export function deriveHomepageAwards(
       price: prices.get(playerKey(player.name, player.tag)) ?? prices.get(player.name) ?? 0,
     }))
     .filter(({ price }) => price > 0)
-    .map(({ player, price }) => ({ player, price, index: playerPower(player) / price }))
+    .map(({ player, price }) => ({
+      player,
+      price,
+      index: (seasonPower.get(playerKey(player.name, player.tag)) ?? 0) / price,
+    }))
     .sort((a, b) => b.index - a.index)[0];
 
-  const previousPower = new Map(
-    aggregatePlayers(previousRows)
-      .filter((player) => player.games >= MIN_PLAYER_GAMES)
-      .map((player) => [playerKey(player.name, player.tag), playerPower(player)]),
-  );
   const biggestRiser = [...latestPlayers]
-    .map((player) => ({ player, change: playerPower(player) - (previousPower.get(playerKey(player.name, player.tag)) ?? 0) }))
+    .map((player) => ({
+      player,
+      change:
+        (latestPower.get(playerKey(player.name, player.tag)) ?? 0) -
+        (previousPower.get(playerKey(player.name, player.tag)) ?? 0),
+    }))
     .filter(({ change }) => change > 0)
     .sort((a, b) => b.change - a.change)[0];
   const playmaker = [...latestPlayers]
-    .sort((a, b) => b.kp / b.games - a.kp / a.games || playerPower(b) - playerPower(a))[0] ?? null;
+    .sort(
+      (a, b) =>
+        b.kp / b.games - a.kp / a.games ||
+        (latestPower.get(playerKey(b.name, b.tag)) ?? 0) - (latestPower.get(playerKey(a.name, a.tag)) ?? 0),
+    )[0] ?? null;
 
   const previousTeamMap = new Map(previousTeams.map((team) => [team.teamName, team]));
   const mostImproved = [...latestTeams]
@@ -373,7 +424,7 @@ export function deriveHomepageAwards(
     playerOfWeek: playerAward(
       "Player of the Week",
       playerOfWeek,
-      playerOfWeek ? String(playerPower(playerOfWeek)) : "—",
+      playerOfWeek ? String(latestPower.get(playerKey(playerOfWeek.name, playerOfWeek.tag)) ?? 0) : "—",
       playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : `${season} player data unavailable`,
     ),
     teamOfWeek: teamAward(
@@ -398,7 +449,7 @@ export function deriveHomepageAwards(
             "Best Value Pick",
             bestValue.player,
             `${round(bestValue.index, 1)}×`,
-            `${playerPower(bestValue.player)} power · ${bestValue.price} points`,
+            `${seasonPower.get(playerKey(bestValue.player.name, bestValue.player.tag)) ?? 0} power · ${bestValue.price} points`,
           )
         : noWinner("Best Value Pick", "Requires a positive stored roster price"),
       biggestRiser

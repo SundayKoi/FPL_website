@@ -70,6 +70,15 @@ describe("deriveHomepageAwards", () => {
     expect(result.periodLabel).toMatch(/Week/);
   });
 
+  it("uses the canonical power-ranking score for Player of the Week", () => {
+    const result = deriveHomepageAwards(
+      weekRows("MetaShift League", "2026-04-27", [true, false], "Ace"),
+      new Map(),
+    );
+
+    expect(result.playerOfWeek.value).toBe("35.5");
+  });
+
   it("requires a positive price for Best Value Pick", () => {
     const result = deriveHomepageAwards(rows, new Map([["Ace#FPL", 0]]));
 
