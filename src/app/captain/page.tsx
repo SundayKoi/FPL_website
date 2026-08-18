@@ -24,6 +24,7 @@ import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
 import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
+import { leaguePath } from "@/lib/league/links";
 
 function normalizeName(name: string | null): string {
   return (name ?? "").trim().toLowerCase();
@@ -155,8 +156,12 @@ export async function CaptainPageView({
           <LeaguePageToggle page="captain" view={league} />
         </header>
 
+        {/* The switcher must post back to the league the visitor is on.
+            Hardcoding /captain sent an Academy admin to the Premier page,
+            where their ?team= matched nothing and it fell back to the first
+            Premier team. */}
         {context.isAdmin && context.activeTeams.length > 1 && (
-          <form action="/captain" method="get" className="mt-6 flex flex-wrap items-end gap-2">
+          <form action={leaguePath("captain", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
             <label htmlFor="team-switch" className="flex flex-col gap-1 text-xs text-steel">
               Viewing team (admin)
               <select

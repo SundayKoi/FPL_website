@@ -205,6 +205,39 @@ describe("CaptainPage layout", () => {
     }));
   });
 
+  // Regression: the admin team switcher posted to a hardcoded /captain, so
+  // switching teams on the Academy page landed on Premier, where the ?team=
+  // matched no Premier team and the page fell back to the first one.
+  it.each([
+    ["academy", "/academy/captain"],
+    ["premier", "/captain"],
+  ] as const)("points the %s team switcher at its own page", async (league, action) => {
+    const teams = [
+      { id: "team-a", name: "Team A" },
+      { id: "team-b", name: "Team B" },
+    ];
+    fetchCaptainContext.mockResolvedValue({
+      profileId: "admin",
+      isAdmin: true,
+      isOwner: false,
+      teams,
+      activeTeams: teams,
+      myTeamId: null,
+      season: "S5",
+    });
+    mockCaptainData();
+    from.mockImplementation((table: string) => {
+      if (table === "league_settings") return query({ data: { current_phase: "Regular" } });
+      return query({ data: [] });
+    });
+
+    const { container } = render(
+      await CaptainPageView({ searchParams: Promise.resolve({}), league }),
+    );
+
+    expect(container.querySelector("form[method='get']")?.getAttribute("action")).toBe(action);
+  });
+
   it("passes the computed multi-OP.GG URL to the roster card", async () => {
     const team = { id: "team-1", name: "Team One" };
     fetchCaptainContext.mockResolvedValue({
