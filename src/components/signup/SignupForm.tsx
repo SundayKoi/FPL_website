@@ -2,17 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
+import { ROLE_LABELS, ROLE_ORDER, type LolRole } from "@/lib/draft/types";
 import { RANK_OPTIONS } from "@/lib/signup/ranks";
 import type { PlayerStatus } from "@/lib/signup/types";
-
-const ROLE_LABELS: Record<LolRole, string> = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  adc: "ADC",
-  support: "Support",
-};
 
 interface FormState {
   discord: string;
@@ -72,7 +64,7 @@ export function signupPayload(form: FormState, season: string) {
 }
 
 const inputClass =
-  "rounded border border-line bg-navy px-3 py-2 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none";
+  "input-brand px-3 py-2 text-sm";
 const labelClass = "flex flex-col gap-1.5 text-sm font-semibold text-white";
 const hintClass = "text-xs font-normal text-steel";
 

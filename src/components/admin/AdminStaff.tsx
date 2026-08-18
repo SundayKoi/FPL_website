@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { errMessage } from "@/lib/draft/types";
+import { errDetail } from "@/lib/draft/types";
 
 export interface StaffProfile {
   id: string;
@@ -36,7 +36,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
     });
     setBusy(null);
     if (error) {
-      setErr(errMessage(error).replace(/^[A-Z_]+:\s*/, ""));
+      setErr(errDetail(error));
       return;
     }
     router.refresh();
@@ -104,7 +104,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name…"
           aria-label="Search people"
-          className="rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className="input-brand px-2 py-1 text-sm"
         />
       </label>
       {needle && (

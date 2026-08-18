@@ -54,13 +54,6 @@ function accountFromRiotId(rawName: string | null | undefined): string[] {
   return [name];
 }
 
-export function opggMultiSearchUrlFromOpggUrls(
-  urls: Array<string | null | undefined>,
-  region = DEFAULT_REGION,
-): string | null {
-  return multiSearchUrl(urls.flatMap((url) => (url ? accountsFromOpggUrl(url) : [])), region);
-}
-
 export function opggMultiSearchUrlFromRiotIds(
   accounts: Array<{ game_name: string | null; tag_line: string | null }>,
   region = DEFAULT_REGION,

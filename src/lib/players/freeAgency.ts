@@ -4,23 +4,10 @@ import {
   type FreeAgencyCaptain,
   type FreeAgencyPlayer,
 } from "./freeAgencyData";
+import { PLAYER_NAME_ALIASES, normalizeBasePlayerName } from "./normalize";
 import { PLAYER_SEASONS, type RoleSection, type SeasonKey } from "./seasonData";
+import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 
-const PLAYER_NAME_ALIASES: Record<string, string> = {
-  "flyinq squirtle": "flying squirtle",
-  "conguitos0": "conguitos",
-  begfourmercy: "beg",
-  "08 mitsu eclipse": "chime",
-};
-
-const ROLE_ORDER: RoleSection["key"][] = ["top", "jungle", "mid", "adc", "support"];
-const ROLE_LABELS: Record<RoleSection["key"], string> = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  adc: "ADC",
-  support: "Support",
-};
 
 export type CanonicalPlayerPoolRow = {
   season_key: string;
@@ -31,15 +18,7 @@ export type CanonicalPlayerPoolRow = {
 };
 
 export function normalizePlayerName(name: string): string {
-  const normalized = name
-    .normalize("NFKC")
-    .trim()
-    .replace(/^captain:\s*/i, "")
-    .split("#")[0]
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase();
-
+  const normalized = normalizeBasePlayerName(name);
   return PLAYER_NAME_ALIASES[normalized] ?? normalized;
 }
 

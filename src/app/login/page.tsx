@@ -10,6 +10,9 @@ const isLocal =
   process.env.NODE_ENV !== "production" ||
   (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").includes("127.0.0.1");
 
+const inputClass =
+  "input-brand p-2";
+
 export default function LoginPage() {
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -63,13 +66,13 @@ export default function LoginPage() {
           >
             <p className="text-sm text-steel">Dev sign-in (local only)</p>
             <input
-              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+              className={inputClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email"
             />
             <input
-              className="rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+              className={inputClass}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

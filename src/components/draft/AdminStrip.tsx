@@ -6,6 +6,11 @@ import AdminAssignmentPanel from "./AdminAssignmentPanel";
 import AdminForceNominate from "./AdminForceNominate";
 import { friendly } from "./Toast";
 
+const BTN_STEEL =
+  "rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40";
+const BTN_DANGER =
+  "rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40";
+
 export default function AdminStrip({
   draft,
   teams,
@@ -64,7 +69,7 @@ export default function AdminStrip({
           (isPaused ? (
             <button
               disabled={busy}
-              className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+              className={BTN_STEEL}
               onClick={() =>
                 run("Resume the draft?", () => supabase.rpc("resume_draft", { p_draft_id: draft.id }))
               }
@@ -74,7 +79,7 @@ export default function AdminStrip({
           ) : (
             <button
               disabled={busy || !isLive}
-              className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+              className={BTN_STEEL}
               onClick={() =>
                 run("Pause the draft?", () => supabase.rpc("pause_draft", { p_draft_id: draft.id }))
               }
@@ -97,7 +102,7 @@ export default function AdminStrip({
           <>
             <button
               disabled={busy}
-              className="rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40"
+              className={BTN_DANGER}
               onClick={() =>
                 run("Cancel this lot? The nominator keeps their turn.", () =>
                   supabase.rpc("cancel_lot", { p_lot_id: openLot.id })
@@ -108,7 +113,7 @@ export default function AdminStrip({
             </button>
             <button
               disabled={busy}
-              className="rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40"
+              className={BTN_DANGER}
               onClick={() =>
                 run("Force close this lot now, selling to the current leader?", () =>
                   supabase.rpc("force_close_lot", { p_lot_id: openLot.id })
@@ -133,11 +138,11 @@ export default function AdminStrip({
             max={300}
             value={countdown}
             onChange={(e) => setCountdown(e.target.value)}
-            className="w-20 rounded border border-line bg-navy px-2 py-1 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="w-20 input-brand px-2 py-1 text-sm"
           />
           <button
             disabled={busy}
-            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+            className={BTN_STEEL}
             onClick={() =>
               run(`Set countdown to ${countdown}s?`, () =>
                 supabase.rpc("update_draft_settings", {

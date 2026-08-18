@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { combineSeasonRows, scoutingProfile } from "@/lib/stats/formulas";
+import { useCallback, useMemo } from "react";
+import { combineSeasonRows, mergeRows, scoutingProfile } from "@/lib/stats/formulas";
+import { formatDate, formatValue } from "@/lib/stats/format";
 import { fetchPlayerAgg, fetchRecords } from "@/lib/stats/queries";
+import { playerKey } from "@/lib/stats/scope";
 import { createClient } from "@/lib/supabase/client";
 import type { PlayerAggRow, RecordRow, ScoutingStatLine } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
 import { RoleChip } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 /** One row of a player's last 10 games, read directly from `raw_stats` (public-read). */
 interface RecentGame {
@@ -28,10 +31,6 @@ interface LaningStat {
   fmt: "int" | "dec1";
 }
 
-function playerKey(row: { summoner_name: string; tag: string }): string {
-  return `${row.summoner_name}#${row.tag}`;
-}
-
 function formatStat(value: number, fmt: ScoutingStatLine["fmt"]): string {
   switch (fmt) {
     case "pct":
@@ -43,12 +42,6 @@ function formatStat(value: number, fmt: ScoutingStatLine["fmt"]): string {
     case "int":
       return Math.round(value).toLocaleString();
   }
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
 function laningDeltaClass(delta: number): string {
@@ -77,71 +70,46 @@ export default function PlayerDetail({
   phase: PhaseFilter;
   onBack: () => void;
 }) {
-  const [aggRows, setAggRows] = useState<PlayerAggRow[]>([]);
-  const [teams, setTeams] = useState<string[]>([]);
-  const [records, setRecords] = useState<RecordRow[]>([]);
-  const [recentGames, setRecentGames] = useState<RecentGame[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see LeaderboardTab): flip back to "loading"
-  // synchronously during render when the selected player or filters change,
-  // instead of via a setState call in the effect body
-  // (react-hooks/set-state-in-effect forbids the latter).
-  const detailKey = `${summonerName}#${tag}::${season}::${phase}`;
-  const [prevDetailKey, setPrevDetailKey] = useState(detailKey);
-  if (detailKey !== prevDetailKey) {
-    setPrevDetailKey(detailKey);
-    setStatus("loading");
-  }
+  const loadDetail = useCallback(async () => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    const supabase = createClient();
 
-  useEffect(() => {
-    let cancelled = false;
+    const [agg, recordRows, teamRows, gameRows] = await Promise.all([
+      // Cohort math (laning deltas) needs every player's rows for this
+      // season/phase scope, not just this player's — fetch unfiltered
+      // by player and derive both "my row(s)" and "the cohort" from it.
+      fetchPlayerAgg(seasonParam, phaseParam),
+      fetchRecords(seasonParam, phaseParam),
+      supabase
+        .from("raw_stats")
+        .select("team_name")
+        .eq("summoner_name", summonerName)
+        .eq("tag", tag),
+      supabase
+        .from("raw_stats")
+        .select("game_date, champion, kills, deaths, assists, win")
+        .eq("summoner_name", summonerName)
+        .eq("tag", tag)
+        .order("game_date", { ascending: false })
+        .limit(10),
+    ]);
 
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const supabase = createClient();
+    if (teamRows.error) throw teamRows.error;
+    if (gameRows.error) throw gameRows.error;
 
-        const [agg, recordRows, teamRows, gameRows] = await Promise.all([
-          // Cohort math (laning deltas) needs every player's rows for this
-          // season/phase scope, not just this player's — fetch unfiltered
-          // by player and derive both "my row(s)" and "the cohort" from it.
-          fetchPlayerAgg(seasonParam, phaseParam),
-          fetchRecords(seasonParam, phaseParam),
-          supabase
-            .from("raw_stats")
-            .select("team_name")
-            .eq("summoner_name", summonerName)
-            .eq("tag", tag),
-          supabase
-            .from("raw_stats")
-            .select("game_date, champion, kills, deaths, assists, win")
-            .eq("summoner_name", summonerName)
-            .eq("tag", tag)
-            .order("game_date", { ascending: false })
-            .limit(10),
-        ]);
-
-        if (teamRows.error) throw teamRows.error;
-        if (gameRows.error) throw gameRows.error;
-        if (cancelled) return;
-
-        setAggRows(agg);
-        setRecords(recordRows);
-        setTeams(Array.from(new Set((teamRows.data ?? []).map((r) => r.team_name as string))).sort());
-        setRecentGames((gameRows.data ?? []) as RecentGame[]);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
+    return {
+      aggRows: agg,
+      records: recordRows,
+      teams: Array.from(new Set((teamRows.data ?? []).map((r) => r.team_name as string))).sort(),
+      recentGames: (gameRows.data ?? []) as RecentGame[],
     };
   }, [summonerName, tag, season, phase]);
+  const { data, status } = useStatsFetch(loadDetail, `${summonerName}#${tag}::${season}::${phase}`);
+  const aggRows = useMemo(() => data?.aggRows ?? [], [data]);
+  const records = useMemo(() => data?.records ?? [], [data]);
+  const teams = data?.teams ?? [];
+  const recentGames = data?.recentGames ?? [];
 
   // This player's row(s) in the current season/phase scope. With "All
   // seasons" selected, fetchPlayerAgg returns one row per season for this
@@ -169,17 +137,11 @@ export default function PlayerDetail({
   const cohort = useMemo(() => {
     if (!myRow) return null;
     const myKey = playerKey({ summoner_name: summonerName, tag });
-    const byPlayer = new Map<string, PlayerAggRow[]>();
-    for (const row of aggRows) {
-      const key = playerKey(row);
-      if (key === myKey) continue;
-      const list = byPlayer.get(key);
-      if (list) list.push(row);
-      else byPlayer.set(key, [row]);
-    }
-    const rows = Array.from(byPlayer.values())
-      .map((group) => combineSeasonRows(group))
-      .filter((r) => r.role_mode === myRow.role_mode);
+    const rows = mergeRows(
+      aggRows.filter((r) => playerKey(r) !== myKey),
+      playerKey,
+      (group) => combineSeasonRows(group),
+    ).filter((r) => r.role_mode === myRow.role_mode);
     if (rows.length === 0) return null;
     const mean = (pick: (r: PlayerAggRow) => number) => rows.reduce((s, r) => s + pick(r), 0) / rows.length;
     return {
@@ -392,7 +354,7 @@ export default function PlayerDetail({
                       .map(({ entry, rank }) => (
                         <p key={`${entry.match_id}-${entry.category}`} className="mt-1 text-xs text-steel">
                           <span className="text-gold">#{rank}</span> ·{" "}
-                          {entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ·{" "}
+                          {formatValue(entry.value)} ·{" "}
                           {formatDate(entry.game_date)}
                         </p>
                       ))}

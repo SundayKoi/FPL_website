@@ -41,7 +41,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
     );
   }
 
-  const save = async (patch: Record<string, unknown>, note: string) => {
+  const save = async (patch: Record<string, unknown>) => {
     setBusy(true);
     setErr(null);
     setSaved(false);
@@ -56,7 +56,6 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
       return;
     }
     setSaved(true);
-    void note;
     router.refresh();
   };
 
@@ -81,7 +80,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
             rows={3}
             aria-label={label}
-            className="rounded border border-line bg-navy px-2 py-1 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1 text-sm"
           />
         </label>
       ))}
@@ -93,12 +92,9 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
           onClick={() =>
             // Run the same clean-up on hand-edited text, so an em dash typed
             // here does not survive either.
-            void save(
-              Object.fromEntries(SECTIONS.map(([key]) => [key, stripAiTells(draft[key])])),
-              "edit"
-            )
+            void save(Object.fromEntries(SECTIONS.map(([key]) => [key, stripAiTells(draft[key])])))
           }
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Save changes
         </button>
@@ -110,7 +106,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
               brief.published &&
               !confirm("Unpublish this week? The homepage falls back to the previous week.")
             ) return;
-            void save({ published: !brief.published }, "publish");
+            void save({ published: !brief.published });
           }}
           className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-steel hover:text-coral disabled:opacity-40"
         >

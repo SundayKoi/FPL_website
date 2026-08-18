@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
+import { ROLE_LABELS_SHORT, type Draft, type Player, type Profile, type Team } from "@/lib/draft/types";
 import { toRosterTeams } from "@/lib/teams/roster";
 import {
   didWin,
@@ -17,13 +17,6 @@ import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
-const roleLabels = {
-  top: "TOP",
-  jungle: "JG",
-  mid: "MID",
-  adc: "ADC",
-  support: "SUP",
-} as const;
 
 /**
  * Per-team page: roster (with stats deep links), series record, results,
@@ -68,17 +61,9 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
 
   const draft = draftResult.data as Draft | null;
   const academySheetByName = new Map(academySheetPlayers.map((player) => [normalizePlayerName(player.name), player.opggUrl]));
-  const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
-    .map((player) => ({
-      ...player,
-      opgg_url:
-        player.opgg_url ??
-        (league === "academy"
-          ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
-            academyOpggUrlForPlayer(player.display_name)
-          : null),
-    }));
-  const draftPlayers = ((playersResult.data as Player[]) ?? []).map((player) => ({
+  // Academy rows without a stored opgg_url fall back to the sheet's link,
+  // then to the constructed Academy URL; Premier rows stay null.
+  const withAcademyOpgg = <T extends { display_name: string; opgg_url: string | null }>(player: T): T => ({
     ...player,
     opgg_url:
       player.opgg_url ??
@@ -86,7 +71,10 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
           academyOpggUrlForPlayer(player.display_name)
         : null),
-  }));
+  });
+  const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
+    .map(withAcademyOpgg);
+  const draftPlayers = ((playersResult.data as Player[]) ?? []).map(withAcademyOpgg);
   const rosterTeams = toRosterTeams(
     (teamsResult.data as Team[]) ?? [],
     draftPlayers,
@@ -173,7 +161,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
               {team.players.map((player) => (
                 <li key={player.id} className="flex items-center gap-3 px-4 py-2.5">
                   <span className="w-9 shrink-0 font-display text-xs font-semibold not-italic text-steel">
-                    {roleLabels[player.role]}
+                    {ROLE_LABELS_SHORT[player.role]}
                   </span>
                   {player.isEmpty ? (
                     <span className="min-w-0 flex-1 truncate text-sm text-steel/70">

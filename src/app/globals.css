@@ -83,6 +83,29 @@ body {
   }
 }
 
+/* Rectangular coral CTA (admin/draft actions) — size classes stay inline. */
+@utility btn-coral {
+  border-radius: 0.25rem;
+  background: var(--color-coral);
+  color: var(--color-navy);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-style: normal;
+  &:hover { filter: brightness(1.1); }
+  &:disabled { opacity: 0.4; }
+}
+
+/* Brand form control (text inputs/selects/textareas) — size classes stay
+   inline. */
+@utility input-brand {
+  border-radius: 0.25rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-navy);
+  color: #fff;
+  &::placeholder { color: rgb(167 192 216 / 0.6); }
+  &:focus { border-color: var(--color-coral); outline: none; }
+}
+
 @utility card-brand {
   background: var(--color-panel);
   border: 1px solid var(--color-line);

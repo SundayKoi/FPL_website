@@ -1,6 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { BettingTeam } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
 import {
@@ -11,6 +10,8 @@ import {
   upsertStoreItem,
   deleteStoreItem,
 } from "@/lib/betting/admin-actions";
+import { ErrorBanner, useAdminRun } from "./useAdminRun";
+import type { Runner } from "./useAdminRun";
 
 export interface StoreItemRow {
   id: number;
@@ -20,12 +21,6 @@ export interface StoreItemRow {
   type: string;
   active: boolean;
 }
-
-type Result = { ok: true } | { ok: false; error: string } | { ok: true; id: number };
-/** Runs an admin action inside the shared transition, surfacing its error or
- * refreshing the page on success — passed down so `busy` (React's isPending)
- * actually covers the network round trip, not just the local state update. */
-type Runner = (action: () => Promise<Result>, onSuccess?: () => void) => void;
 
 function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolean; run: Runner }) {
   const [name, setName] = useState("");
@@ -54,7 +49,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -63,7 +58,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
             value={shortCode}
             onChange={(e) => setShortCode(e.target.value)}
             maxLength={8}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="w-24 input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -73,7 +68,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
         <button
           type="submit"
           disabled={busy || !name.trim() || !shortCode.trim()}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Add team
         </button>
@@ -136,13 +131,13 @@ function EventsSection({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Add event
         </button>
@@ -195,7 +190,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -205,7 +200,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
             min={1}
             value={cost}
             onChange={(e) => setCost(Math.max(1, Number(e.target.value) || 0))}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="w-24 input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
@@ -213,13 +208,13 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
           <input
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="w-24 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="w-24 input-brand px-2 py-1.5 text-sm"
           />
         </label>
         <button
           type="submit"
           disabled={busy || !name.trim() || !type.trim() || cost <= 0}
-          className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="btn-coral px-3 py-1.5 text-xs"
         >
           Add item
         </button>
@@ -274,26 +269,11 @@ export default function CatalogAdmin({
   events: { id: number; name: string; description: string | null }[];
   storeItems: StoreItemRow[];
 }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const run: Runner = (action, onSuccess) => {
-    startTransition(async () => {
-      const result = await action();
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setError(null);
-      onSuccess?.();
-      router.refresh();
-    });
-  };
+  const { error, pending, run } = useAdminRun();
 
   return (
     <div className="flex flex-col gap-8">
-      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      <ErrorBanner error={error} />
       <TeamsSection teams={teams} busy={pending} run={run} />
       <EventsSection events={events} busy={pending} run={run} />
       <StoreSection items={storeItems} busy={pending} run={run} />

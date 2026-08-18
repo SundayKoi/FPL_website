@@ -1,10 +1,10 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { StatusPill } from "@/components/betting/StatusPill";
 import { fmtPoints } from "@/lib/betting/format";
 import type { MarketStatus } from "@/lib/betting/types";
 import { createPickem, resolvePickem, cancelPickem } from "@/lib/betting/admin-actions";
+import { ErrorBanner, useAdminRun } from "./useAdminRun";
 
 export interface AdminPickemRow {
   id: number;
@@ -59,7 +59,7 @@ function CreatePickemForm({
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -74,7 +74,7 @@ function CreatePickemForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Night 1"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
       </div>
@@ -102,7 +102,7 @@ function CreatePickemForm({
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="self-start btn-coral px-4 py-2 text-sm"
       >
         Create pick&apos;em
       </button>
@@ -121,31 +121,20 @@ export default function PickemsAdmin({
   legOptions: LegOption[];
   bank: number;
 }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function after(result: { ok: true } | { ok: false; error: string } | { ok: true; id: number }) {
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    setError(null);
-    router.refresh();
-  }
+  const { error, pending, run } = useAdminRun();
 
   return (
     <div className="flex flex-col gap-6">
       <div className="text-sm text-steel">
         Jackpot bank: <span className="font-semibold text-gold">{fmtPoints(bank)}</span>
       </div>
-      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      <ErrorBanner error={error} />
 
       <CreatePickemForm
         events={events}
         legOptions={legOptions}
         busy={pending}
-        onCreate={(input) => startTransition(async () => after(await createPickem(input)))}
+        onCreate={(input) => run(() => createPickem(input))}
       />
 
       <div className="flex flex-col gap-2">
@@ -173,7 +162,7 @@ export default function PickemsAdmin({
                       title={p.readyToResolve ? undefined : "Resolve/cancel every leg market first"}
                       onClick={() => {
                         if (confirm(`Resolve "${p.title}"? This pays out cards immediately.`)) {
-                          startTransition(async () => after(await resolvePickem(p.id)));
+                          run(() => resolvePickem(p.id));
                         }
                       }}
                       className="rounded border border-mint/60 px-2 py-1 text-xs font-semibold text-mint disabled:opacity-40"
@@ -185,7 +174,7 @@ export default function PickemsAdmin({
                       disabled={pending}
                       onClick={() => {
                         if (confirm(`Cancel "${p.title}"? Every card is refunded and the carryover returns to the bank.`)) {
-                          startTransition(async () => after(await cancelPickem(p.id)));
+                          run(() => cancelPickem(p.id));
                         }
                       }}
                       className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-red-400 hover:text-red-300 disabled:opacity-40"

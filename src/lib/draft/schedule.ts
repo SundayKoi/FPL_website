@@ -85,11 +85,3 @@ export function parseEasternInputValue(value: string): { iso: string } | { error
 
   return { iso: parsed.toISOString() };
 }
-
-export function getScheduleState(
-  startsAt: string | null,
-  now: Date
-): "unscheduled" | "upcoming" | "started" {
-  if (!startsAt) return "unscheduled";
-  return new Date(startsAt).getTime() > now.getTime() ? "upcoming" : "started";
-}

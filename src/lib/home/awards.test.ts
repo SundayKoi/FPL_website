@@ -18,12 +18,8 @@ function row(overrides: RowOverrides = {}): HomepageRawStatRow {
     assists: 7,
     kill_participation_pct: 78,
     total_damage_to_champions: 25000,
-    cs: 240,
-    gold_earned: 14000,
-    vision_score: 25,
     win: true,
     season: "S5",
-    season_phase: "Regular",
     game_duration_min: 30,
     team_dragons: 3,
     team_barons: 1,
@@ -95,7 +91,6 @@ describe("deriveHomepageAwards", () => {
       new Map(),
     );
 
-    expect(result.standings.map((standing) => standing.name)).toEqual(["Current Team"]);
     expect(result.playerOfWeek.name).toBeNull();
     expect(result.teamOfWeek.teamName).toBe("Current Team");
   });
@@ -104,7 +99,6 @@ describe("deriveHomepageAwards", () => {
     const result = deriveHomepageAwards([row({ season: "S4" })], new Map());
 
     expect(result.season).toBe("S5");
-    expect(result.standings).toEqual([]);
     expect(result.playerOfWeek.name).toBeNull();
     expect(result.teamOfWeek.teamName).toBeNull();
   });

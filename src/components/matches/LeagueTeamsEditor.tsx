@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam } from "@/lib/matches/types";
+import CollapsibleAdminSection from "./CollapsibleAdminSection";
 
 interface TeamForm {
   name: string;
@@ -39,7 +40,6 @@ type RowStatus = { kind: "idle" } | { kind: "saving" } | { kind: "error"; messag
 export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
   const supabase = createClient();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [edits, setEdits] = useState<Record<string, TeamForm>>({});
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [addForm, setAddForm] = useState<TeamForm>(EMPTY_FORM);
@@ -117,21 +117,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
   };
 
   return (
-    <div className="card-brand overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <span className="label-dash">Admin — league teams ({teams.length})</span>
-        <span aria-hidden="true" className="text-steel">
-          {open ? "▴" : "▾"}
-        </span>
-      </button>
-
-      {open && (
-        <div className="flex flex-col gap-4 border-t border-line px-4 py-4">
+    <CollapsibleAdminSection title={`Admin — league teams (${teams.length})`}>
           {teams.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[28rem] text-left text-sm">
@@ -156,7 +142,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                             disabled={busy}
                             aria-label={`${team.name} name`}
                             onChange={(e) => patchRow(team, { name: e.target.value })}
-                            className="w-full rounded border border-line bg-navy px-2 py-1 text-white focus:border-coral focus:outline-none disabled:opacity-50"
+                            className="w-full input-brand px-2 py-1 disabled:opacity-50"
                           />
                         </td>
                         <td className="py-1.5 pr-3">
@@ -218,7 +204,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
               <input
                 value={addForm.name}
                 onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
-                className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+                className="input-brand px-2 py-1.5 text-sm"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-steel">
@@ -253,8 +239,6 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
               {addStatus.message}
             </p>
           )}
-        </div>
-      )}
-    </div>
+    </CollapsibleAdminSection>
   );
 }

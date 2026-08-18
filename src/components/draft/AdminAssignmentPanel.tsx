@@ -89,7 +89,7 @@ export default function AdminAssignmentPanel({
               setPlayerId(event.target.value);
               setTeamId("");
             }}
-            className="rounded border border-line bg-navy px-2 py-1 text-white focus:border-coral focus:outline-none"
+            className="input-brand px-2 py-1"
           >
             <option value="">Select a player</option>
             {availablePlayers.map((player) => (
@@ -106,7 +106,7 @@ export default function AdminAssignmentPanel({
             value={teamId}
             disabled={!selectedPlayer}
             onChange={(event) => setTeamId(event.target.value)}
-            className="rounded border border-line bg-navy px-2 py-1 text-white focus:border-coral focus:outline-none disabled:opacity-40"
+            className="input-brand px-2 py-1 disabled:opacity-40"
           >
             <option value="">Select a team</option>
             {eligibleTeams.map((team) => (
@@ -125,7 +125,7 @@ export default function AdminAssignmentPanel({
             step={1}
             value={price}
             onChange={(event) => setPrice(event.target.value)}
-            className="w-24 rounded border border-line bg-navy px-2 py-1 text-white focus:border-coral focus:outline-none"
+            className="w-24 input-brand px-2 py-1"
           />
         </label>
 

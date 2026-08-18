@@ -1,9 +1,9 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fmtPoints } from "@/lib/betting/format";
 import { grantPoints } from "@/lib/betting/admin-actions";
+import { ErrorBanner, useAdminRun } from "./useAdminRun";
 
 export interface BalanceRow {
   discord_id: string;
@@ -40,7 +40,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
         <input
           value={discordId}
           onChange={(e) => setDiscordId(e.target.value)}
-          className="w-40 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className="w-40 input-brand px-2 py-1.5 text-sm"
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-steel">
@@ -49,7 +49,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           type="number"
           value={delta}
           onChange={(e) => setDelta(Math.trunc(Number(e.target.value) || 0))}
-          className="w-28 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white focus:border-coral focus:outline-none"
+          className="w-28 input-brand px-2 py-1.5 text-sm"
         />
       </label>
       <label className="flex flex-1 min-w-[10rem] flex-col gap-1 text-xs text-steel">
@@ -58,13 +58,13 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. tournament prize"
-          className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className="input-brand px-2 py-1.5 text-sm"
         />
       </label>
       <button
         type="submit"
         disabled={busy || !canSubmit}
-        className="rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+        className="btn-coral px-4 py-2 text-sm"
       >
         Grant / deduct
       </button>
@@ -73,7 +73,6 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
 }
 
 export default function UsersAdmin({ balances: initialBalances, audit }: { balances: BalanceRow[]; audit: AuditRow[] }) {
-  const router = useRouter();
   const supabase = createClient();
   // `null` = no active search, so a router.refresh() after a grant (which
   // re-fetches `initialBalances` server-side with the updated balance) shows
@@ -81,9 +80,8 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
   const [searchResults, setSearchResults] = useState<BalanceRow[] | null>(null);
   const [query, setQuery] = useState("");
   const balances = searchResults ?? initialBalances;
-  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { error, pending, run } = useAdminRun();
 
   const search = async (q: string) => {
     setQuery(q);
@@ -102,7 +100,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
 
   return (
     <div className="flex flex-col gap-8">
-      {error && <p className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+      <ErrorBanner error={error} />
       {notice && <p className="rounded border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral">{notice}</p>}
 
       <section className="flex flex-col gap-3">
@@ -111,17 +109,14 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
         <GrantForm
           busy={pending}
           onSubmit={(discordId, delta, reason) =>
-            startTransition(async () => {
-              const result = await grantPoints(discordId, delta, reason);
-              if (!result.ok) {
-                setNotice(null);
-                setError(result.error);
-                return;
-              }
-              setError(null);
-              setNotice("Balance adjusted.");
-              router.refresh();
-            })
+            run(
+              async () => {
+                const result = await grantPoints(discordId, delta, reason);
+                if (!result.ok) setNotice(null); // never show a stale success next to the error
+                return result;
+              },
+              () => setNotice("Balance adjusted."),
+            )
           }
         />
       </section>
@@ -133,7 +128,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
             value={query}
             onChange={(e) => void search(e.target.value)}
             placeholder="Search by username or Discord id"
-            className="w-64 rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+            className="w-64 input-brand px-2 py-1.5 text-sm"
           />
         </div>
         <ul className="flex flex-col gap-1.5">

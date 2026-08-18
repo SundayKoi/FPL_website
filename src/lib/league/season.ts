@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LeagueView } from "./context";
 
 /**
  * The two leagues run on separate season codes: Premier is on its own
@@ -15,10 +14,6 @@ export interface LeagueSeasons {
 type SettingsRow = { current_season?: string | null; academy_season?: string | null };
 
 export const DEFAULT_ACADEMY_SEASON = "A1";
-
-export function seasonForLeague(seasons: LeagueSeasons, league: LeagueView): string {
-  return league === "academy" ? seasons.academy : seasons.premier;
-}
 
 export async function fetchLeagueSeasons(supabase: SupabaseClient): Promise<LeagueSeasons> {
   const { data } = await supabase

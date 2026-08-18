@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
-import { filterStatsRowsByPlayerKeys } from "@/lib/stats/scope";
+import { filterStatsRowsByPlayerKeys, playerKey } from "@/lib/stats/scope";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
 import CompareDrawer from "./CompareDrawer";
-import { RoleChip } from "./statsUi";
+import { SortableHeaderCell, useSortableColumns, type SortableColumn } from "./sortableTable";
+import { EmptyCard, ErrorCard, FilterPill, LoadingCard, RoleChip } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 const MIN_GAMES_OPTIONS = [1, 3, 5, 8, 10] as const;
 const ROLES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"] as const;
@@ -28,13 +30,7 @@ type ColumnKey =
   | "avg_dmg_share_pct"
   | "avg_vision_per_min";
 
-type Column = {
-  key: ColumnKey;
-  label: string;
-  numeric: boolean;
-  sortValue: (row: PlayerAggRow) => number | string;
-  display: (row: PlayerAggRow) => string;
-};
+type Column = SortableColumn<PlayerAggRow, ColumnKey>;
 
 // Column order per the brief: Player, Role, Games, WR%, KDA, K/D/A avg,
 // KP%, CS/m, Gold/m, DMG/m, DMG%, VS/m. No team column (per-season
@@ -126,12 +122,6 @@ const COLUMNS: Column[] = [
   },
 ];
 
-type SortDir = "asc" | "desc";
-
-function playerKey(row: PlayerAggRow): string {
-  return `${row.summoner_name}#${row.tag}`;
-}
-
 export default function LeaderboardTab({
   season,
   phase,
@@ -143,49 +133,21 @@ export default function LeaderboardTab({
   onSelectPlayer: (player: { summonerName: string; tag: string }) => void;
   teamNames?: string[];
 }) {
-  const [rows, setRows] = useState<PlayerAggRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see useCountdown): when the season/phase filter
-  // changes, flip back to "loading" synchronously during render instead of
-  // via a setState call in the effect body (react-hooks/set-state-in-effect
-  // forbids the latter — see LeaderboardTab's brief note on the lint rule).
-  const filterKey = `${season}::${phase}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    setStatus("loading");
-  }
+  const loadRows = useCallback(async () => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    const data = await fetchPlayerAgg(seasonParam, phaseParam);
+    const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
+    return keys ? filterStatsRowsByPlayerKeys(data, keys) : data;
+  }, [season, phase, teamNames]);
+  const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
+  const rows = useMemo(() => data ?? [], [data]);
   const [minGames, setMinGames] = useState(3);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<ColumnKey>("kda");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const { sortKey, sortDir, handleSort, sortRows } = useSortableColumns(COLUMNS, "kda");
   const [edge, setEdge] = useState<"top" | "bottom" | null>(null);
   const [compareKeys, setCompareKeys] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchPlayerAgg(seasonParam, phaseParam);
-        const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
-        if (cancelled) return;
-        setRows(keys ? filterStatsRowsByPlayerKeys(data, keys) : data);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [season, phase, teamNames]);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with
@@ -211,16 +173,7 @@ export default function LeaderboardTab({
       .filter((r) => !q || playerKey(r).toLowerCase().includes(q));
   }, [merged, minGames, roleFilter, query]);
 
-  const sorted = useMemo(() => {
-    const col = COLUMNS.find((c) => c.key === sortKey)!;
-    const dir = sortDir === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => {
-      const av = col.sortValue(a);
-      const bv = col.sortValue(b);
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      return String(av).localeCompare(String(bv)) * dir;
-    });
-  }, [filtered, sortKey, sortDir]);
+  const sorted = useMemo(() => sortRows(filtered), [filtered, sortRows]);
 
   const visible = useMemo(() => {
     if (!edge) return sorted;
@@ -234,15 +187,6 @@ export default function LeaderboardTab({
     if (!sortCol.numeric) return 0;
     return visible.reduce((m, r) => Math.max(m, Number(sortCol.sortValue(r))), 0);
   }, [visible, sortCol]);
-
-  const handleSort = (key: ColumnKey) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(COLUMNS.find((c) => c.key === key)?.numeric ? "desc" : "asc");
-    }
-  };
 
   const toggleCompare = (row: PlayerAggRow) => {
     const key = playerKey(row);
@@ -258,28 +202,15 @@ export default function LeaderboardTab({
     .filter((r): r is PlayerAggRow => !!r);
 
   if (status === "loading") {
-    return (
-      <div className="card-brand p-8 text-center text-steel" role="status">
-        Loading leaderboard…
-      </div>
-    );
+    return <LoadingCard label="leaderboard" />;
   }
 
   if (status === "error") {
-    return (
-      <div className="card-brand p-8 text-center text-steel">
-        Couldn&apos;t load leaderboard data. Try again shortly.
-      </div>
-    );
+    return <ErrorCard noun="leaderboard" />;
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="card-brand p-8 text-center">
-        <p className="type-display text-2xl">No stats yet</p>
-        <p className="mt-2 text-steel">There&apos;s no leaderboard data for this season/phase yet.</p>
-      </div>
-    );
+    return <EmptyCard message="There's no leaderboard data for this season/phase yet." />;
   }
 
   return (
@@ -295,30 +226,12 @@ export default function LeaderboardTab({
           />
 
           <div className="ml-auto flex gap-1">
-            <button
-              type="button"
-              aria-pressed={edge === "top"}
-              onClick={() => setEdge((e) => (e === "top" ? null : "top"))}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                edge === "top"
-                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                  : "border border-line bg-panel text-steel hover:text-white"
-              }`}
-            >
+            <FilterPill active={edge === "top"} onClick={() => setEdge((e) => (e === "top" ? null : "top"))}>
               Top 10
-            </button>
-            <button
-              type="button"
-              aria-pressed={edge === "bottom"}
-              onClick={() => setEdge((e) => (e === "bottom" ? null : "bottom"))}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                edge === "bottom"
-                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                  : "border border-line bg-panel text-steel hover:text-white"
-              }`}
-            >
+            </FilterPill>
+            <FilterPill active={edge === "bottom"} onClick={() => setEdge((e) => (e === "bottom" ? null : "bottom"))}>
               Bottom 10
-            </button>
+            </FilterPill>
           </div>
         </div>
 
@@ -326,60 +239,33 @@ export default function LeaderboardTab({
           <div className="flex items-center gap-1.5">
             <span className="mono-label mr-1">Min games</span>
             {MIN_GAMES_OPTIONS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                aria-pressed={minGames === n}
-                onClick={() => setMinGames(n)}
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                  minGames === n
-                    ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                    : "border border-line bg-panel text-steel hover:text-white"
-                }`}
-              >
+              <FilterPill key={n} active={minGames === n} onClick={() => setMinGames(n)}>
                 {n}+
-              </button>
+              </FilterPill>
             ))}
           </div>
 
           <div className="flex items-center gap-1.5">
             <span className="mono-label mr-1">Role</span>
-            <button
-              type="button"
-              aria-pressed={roleFilter === null}
-              onClick={() => setRoleFilter(null)}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                roleFilter === null
-                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                  : "border border-line bg-panel text-steel hover:text-white"
-              }`}
-            >
+            <FilterPill active={roleFilter === null} onClick={() => setRoleFilter(null)}>
               All
-            </button>
+            </FilterPill>
             {ROLES.map((r) => (
-              <button
+              <FilterPill
                 key={r}
-                type="button"
-                aria-pressed={roleFilter === r}
+                active={roleFilter === r}
                 onClick={() => setRoleFilter((cur) => (cur === r ? null : r))}
-                className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase transition ${
-                  roleFilter === r
-                    ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                    : "border border-line bg-panel text-steel hover:text-white"
-                }`}
+                uppercase
               >
                 {r}
-              </button>
+              </FilterPill>
             ))}
           </div>
         </div>
       </div>
 
       {visible.length === 0 ? (
-        <div className="card-brand p-8 text-center">
-          <p className="type-display text-2xl">No stats yet</p>
-          <p className="mt-2 text-steel">No players match these filters.</p>
-        </div>
+        <EmptyCard message="No players match these filters." />
       ) : (
         <div className="card-neon overflow-x-auto p-2">
           <table className="w-full min-w-[900px] border-collapse text-sm">
@@ -391,31 +277,18 @@ export default function LeaderboardTab({
                 <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
                   #
                 </th>
-                {COLUMNS.map((col) => {
-                  const active = sortKey === col.key;
-                  return (
-                    <th
-                      key={col.key}
-                      // Player column sticks while stats scroll sideways on
-                      // phones (solid bg so scrolling cells pass beneath it).
-                      className={`px-2 py-2 text-left ${
-                        col.key === "player" ? "sticky left-0 z-10 bg-panel" : ""
-                      }`}
-                      aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleSort(col.key)}
-                        className={`flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${
-                          active ? "text-cyan [text-shadow:0_0_8px_rgb(53_230_255/0.4)]" : "text-steel hover:text-white"
-                        }`}
-                      >
-                        {col.label}
-                        {active && <span aria-hidden="true">{sortDir === "asc" ? "▲" : "▼"}</span>}
-                      </button>
-                    </th>
-                  );
-                })}
+                {COLUMNS.map((col) => (
+                  <SortableHeaderCell
+                    key={col.key}
+                    column={col}
+                    active={sortKey === col.key}
+                    sortDir={sortDir}
+                    onSort={handleSort}
+                    // Player column sticks while stats scroll sideways on
+                    // phones (solid bg so scrolling cells pass beneath it).
+                    className={col.key === "player" ? "sticky left-0 z-10 bg-panel" : ""}
+                  />
+                ))}
               </tr>
             </thead>
             <tbody>

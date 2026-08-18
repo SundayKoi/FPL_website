@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useDraftState } from "@/hooks/useDraftState";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useNemesisPicks } from "@/hooks/useNemesisPicks";
-import { maxBid } from "@/lib/draft/derive";
+import { maxBid, roundMinimum } from "@/lib/draft/derive";
 import CenterStage from "./CenterStage";
 import TeamColumn from "./TeamColumn";
 import PlayerPool from "./PlayerPool";
@@ -83,7 +83,7 @@ export default function DraftBoard({
       <NominationAlert
         isMyNomination={isMyNomination}
         round={draft.current_round}
-        minimumBid={draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1]}
+        minimumBid={roundMinimum(draft)}
       />
 
       {myTeam && (
@@ -240,7 +240,7 @@ export default function DraftBoard({
               )}
 
               <div className="order-3 min-w-0 xl:col-start-2 xl:row-start-2">
-                <PlayerPool players={players} teams={teams} compact showFilters={false} />
+                <PlayerPool players={players} teams={teams} />
               </div>
             </div>
           )}

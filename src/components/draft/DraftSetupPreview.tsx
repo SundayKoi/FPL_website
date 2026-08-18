@@ -1,15 +1,7 @@
 import Link from "next/link";
-import { ROLE_ORDER, type Draft, type Player, type Team } from "@/lib/draft/types";
+import { ROLE_LABELS, ROLE_ORDER, type Draft, type Player, type Team } from "@/lib/draft/types";
 import { comparePlayerRanks } from "@/lib/draft/playerMetadata";
 import DraftScheduleCountdown from "./DraftScheduleCountdown";
-
-const ROLE_LABELS = {
-  top: "Top",
-  jungle: "Jungle",
-  mid: "Mid",
-  adc: "ADC",
-  support: "Support",
-} as const;
 
 export default function DraftSetupPreview({
   draft,

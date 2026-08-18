@@ -108,14 +108,9 @@ export interface GameLogRow {
   total_kills: number;
 }
 
-/** A player row ranked by Power Ranking or MVP score, with the score attached. */
+/** A player row ranked by Power Ranking score, with the score attached. */
 export interface RankedPlayer extends PlayerAggRow {
   score: number;
-}
-
-/** An MVP leaderboard entry: player row plus its 0-100 MVP rating. */
-export interface MvpEntry extends PlayerAggRow {
-  mvpScore: number;
 }
 
 /**

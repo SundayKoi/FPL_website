@@ -4,58 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "border-steel/50 text-steel",
-  ingested: "border-mint/50 text-mint",
-  needs_sides: "border-amber-400/60 text-amber-300",
-  needs_side: "border-amber-400/60 text-amber-300",
-  failed: "border-red-400/60 text-red-400",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${
-        STATUS_STYLES[status] ?? "border-line text-steel"
-      }`}
-    >
-      {status.replace("_", " ")}
-    </span>
-  );
-}
-
-/**
- * A report's link to `/schedule`'s `fixtures` table (Task 8): a steel
- * "Schedule" chip whenever the report is attached to a fixture, plus a
- * gold "Synced" chip once that fixture's score has (or will have, on the
- * next ingest pass) been auto-filled from this report — i.e. the report
- * has reached `ingested`. The fixture's own score is the source of truth
- * on /schedule; this is just an indicator, no extra fetch needed here.
- */
-function FixtureChips({ fixtureId, status }: { fixtureId: string | null; status: string }) {
-  if (!fixtureId) return null;
-  return (
-    <>
-      <span className="rounded-full border border-steel/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel">
-        Schedule
-      </span>
-      {status === "ingested" && (
-        <span className="rounded-full border border-mint/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-mint">
-          Synced
-        </span>
-      )}
-    </>
-  );
-}
+import { fixGameSide } from "@/lib/captain/queries";
+import { FixtureChips, StatusBadge } from "./reportStatus";
 
 /**
  * Admin panel on /captain: every match_reports row (any team, any season),
  * newest first, with status badges, error_text/warning_text, per-game rows,
  * Retry, Delete, and the needs-sides fixer. See task-6-brief.md
  * ("AdminReportsQueue") — same needs-sides interaction as
- * src/components/captain/ReportBox.tsx's "My reports", extended with the
- * two admin-only actions.
+ * src/components/captain/MyReportsList.tsx's "My reports", extended with
+ * the two admin-only actions.
  */
 export default function AdminReportsQueue({
   reports,
@@ -134,24 +92,10 @@ export default function AdminReportsQueue({
   const handleFixSide = async (gameId: string, blueTeamId: string) => {
     setBusyId(gameId);
     setError(null);
-    const { data, error: fixError } = await supabase
-      .from("match_report_games")
-      .update({ blue_team_id: blueTeamId, status: "pending" })
-      .eq("id", gameId)
-      .select();
+    const result = await fixGameSide(supabase, gameId, blueTeamId);
     setBusyId(null);
-    if (fixError) {
-      setError(fixError.message);
-      return;
-    }
-    // An RLS denial on UPDATE isn't an error -- the row just doesn't match
-    // the policy's USING clause (e.g. the report was ingested in the
-    // interim), so PostgREST reports success with zero rows affected.
-    // Without `.select()` above that would silently look like it worked
-    // until refresh. Treat "we asked for the row back and got none" as a
-    // denial and surface a friendly message instead of a silent no-op.
-    if (!data || data.length === 0) {
-      setError("Could not update this game.");
+    if (!result.ok) {
+      setError(result.error?.message ?? "Could not update this game.");
       return;
     }
     router.refresh();

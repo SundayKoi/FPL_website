@@ -127,7 +127,7 @@ export default function PlayerPoolEditor({
             <button
               onClick={handleImport}
               disabled={busy || validCount === 0}
-              className="rounded bg-coral px-3 py-1.5 text-xs font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+              className="btn-coral px-3 py-1.5 text-xs"
             >
               Import {validCount} valid row{validCount === 1 ? "" : "s"}
             </button>

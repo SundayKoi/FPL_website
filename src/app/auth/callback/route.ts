@@ -3,12 +3,6 @@ import { resolveSiteOrigin } from "@/lib/auth/siteOrigin";
 import { safeNextPath } from "@/lib/auth/safeNextPath";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-// Re-exported so existing imports of `safeNextPath` from this route module
-// (this route's own test, any earlier callers) keep working — the
-// implementation itself lives in src/lib/auth/safeNextPath.ts so the login
-// page's dev sign-in path can share the exact same validation.
-export { safeNextPath };
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

@@ -1,32 +1,11 @@
 import { describe, it, expect } from "vitest";
-import {
-  displayedPercent,
-  projectedProfit,
-  settlementProfit,
-  displayedShareA,
-  americanOdds,
-  decimalOdds,
-  impliedProb,
-  LINE_SEED,
-} from "./parimutuel";
+import { projectedProfit, displayedShareA, americanOdds, LINE_SEED } from "./parimutuel";
 
-describe("americanOdds / decimalOdds", () => {
+describe("americanOdds", () => {
   it("favorite shows negative, underdog positive", () => {
     expect(americanOdds(0.62)).toBe("-163");
     expect(americanOdds(0.38)).toBe("+163");
     expect(americanOdds(0.5)).toBe("-100");
-  });
-  it("decimal odds are 1/prob", () => {
-    expect(decimalOdds(0.5)).toBe(2);
-    expect(decimalOdds(0.8)).toBe(1.25);
-  });
-});
-
-describe("impliedProb", () => {
-  it("inverts american odds", () => {
-    expect(impliedProb(-150)).toBeCloseTo(0.6, 5);
-    expect(impliedProb(150)).toBeCloseTo(0.4, 5);
-    expect(impliedProb(-100)).toBeCloseTo(0.5, 5);
   });
 });
 
@@ -48,15 +27,6 @@ describe("displayedShareA (line seed blend)", () => {
   });
 });
 
-describe("displayedPercent", () => {
-  it("folds the pending stake into the percentage", () => {
-    expect(displayedPercent(1000, 1000, 1000)).toBeCloseTo(2 / 3, 5);
-  });
-  it("is the raw share when stake is 0", () => {
-    expect(displayedPercent(4970, 3010, 0)).toBeCloseTo(4970 / 7980, 5);
-  });
-});
-
 describe("projectedProfit", () => {
   it("matches the source CCS screenshot number", () => {
     // user stakes 4970; their side already holds 1000; opposing pool 3010.23.
@@ -65,11 +35,5 @@ describe("projectedProfit", () => {
   });
   it("is 0 when stake is 0", () => {
     expect(projectedProfit(0, 1000, 1000)).toBe(0);
-  });
-});
-
-describe("settlementProfit", () => {
-  it("uses stake * losing / winning", () => {
-    expect(settlementProfit(1000, 5970, 3010)).toBe(504);
   });
 });

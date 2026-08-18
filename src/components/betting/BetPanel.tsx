@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
-import type { CSSProperties } from "react";
 import type { BettingTeam } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
 import { projectedProfit } from "@/lib/betting/parimutuel";
+import { TeamSideButton } from "./TeamSideButton";
 
 /** Sentinel "side" for a draw bet — matches the place_bet RPC's p_team=-1 convention. */
-export const DRAW = -1;
+const DRAW = -1;
 
 interface Props {
   teamA: BettingTeam;
@@ -55,22 +55,9 @@ export function BetPanel({
       </div>
       <div className="mt-3 flex gap-2">
         {[teamA, teamB].map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setSide(t.id)}
-            className={
-              "flex-1 rounded border px-2 py-2 text-sm font-semibold transition " +
-              (side === t.id ? "border-transparent text-navy" : "border-line text-steel hover:border-steel")
-            }
-            style={
-              side === t.id
-                ? ({ backgroundColor: t.color } as CSSProperties)
-                : ({ "--team-color": t.color } as CSSProperties)
-            }
-          >
+          <TeamSideButton key={t.id} team={t} selected={side === t.id} onClick={() => setSide(t.id)}>
             {t.short_code}
-          </button>
+          </TeamSideButton>
         ))}
         {drawEnabled && (
           <button
@@ -90,7 +77,7 @@ export function BetPanel({
       </label>
       <input
         id="bet-amount"
-        className="mt-1 w-full rounded border border-line bg-navy p-2 text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+        className="mt-1 w-full input-brand p-2"
         type="number"
         min={0}
         max={balance}

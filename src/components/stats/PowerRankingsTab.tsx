@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows, powerRanking } from "@/lib/stats/formulas";
 import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
-import { filterStatsRowsByPlayerKeys } from "@/lib/stats/scope";
-import type { PlayerAggRow } from "@/lib/stats/types";
+import { filterStatsRowsByPlayerKeys, playerKey } from "@/lib/stats/scope";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
-import { RoleChip, StatBar, tierFor } from "./statsUi";
+import { EmptyCard, ErrorCard, FilterPill, LoadingCard, RoleChip, StatBar, tierFor } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 // Legacy `renderPower()`'s own min-games <select> defaults to 5+
 // (`id="prMinG"`, `<option value="5" selected>` — see formulas.ts doc
@@ -16,47 +16,17 @@ import { RoleChip, StatBar, tierFor } from "./statsUi";
 // with the same 1/3/5/8/10 option set as Leaderboard for consistency.
 const MIN_GAMES_OPTIONS = [1, 3, 5, 8, 10] as const;
 
-function playerKey(row: PlayerAggRow): string {
-  return `${row.summoner_name}#${row.tag}`;
-}
-
 export default function PowerRankingsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
-  const [rows, setRows] = useState<PlayerAggRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see LeaderboardTab): flip back to "loading"
-  // synchronously during render on filter change instead of via a setState
-  // call in the effect body (react-hooks/set-state-in-effect forbids that).
-  const filterKey = `${season}::${phase}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    setStatus("loading");
-  }
-  const [minGames, setMinGames] = useState(5);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchPlayerAgg(seasonParam, phaseParam);
-        const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
-        if (cancelled) return;
-        setRows(keys ? filterStatsRowsByPlayerKeys(data, keys) : data);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
+  const loadRows = useCallback(async () => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    const data = await fetchPlayerAgg(seasonParam, phaseParam);
+    const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
+    return keys ? filterStatsRowsByPlayerKeys(data, keys) : data;
   }, [season, phase, teamNames]);
+  const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
+  const rows = useMemo(() => data ?? [], [data]);
+  const [minGames, setMinGames] = useState(5);
 
   // Merge whenever the fetch could span more than one (season,
   // season_phase) partition — "All seasons" OR a specific season with
@@ -76,28 +46,15 @@ export default function PowerRankingsTab({ season, phase, teamNames }: { season:
   }, [merged, minGames]);
 
   if (status === "loading") {
-    return (
-      <div className="card-brand p-8 text-center text-steel" role="status">
-        Loading power rankings…
-      </div>
-    );
+    return <LoadingCard label="power rankings" />;
   }
 
   if (status === "error") {
-    return (
-      <div className="card-brand p-8 text-center text-steel">
-        Couldn&apos;t load power ranking data. Try again shortly.
-      </div>
-    );
+    return <ErrorCard noun="power ranking" />;
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="card-brand p-8 text-center">
-        <p className="type-display text-2xl">No stats yet</p>
-        <p className="mt-2 text-steel">There&apos;s no power ranking data for this season/phase yet.</p>
-      </div>
-    );
+    return <EmptyCard message="There's no power ranking data for this season/phase yet." />;
   }
 
   return (
@@ -105,27 +62,17 @@ export default function PowerRankingsTab({ season, phase, teamNames }: { season:
       <div className="card-neon flex flex-wrap items-center gap-1.5 p-4">
         <span className="mono-label mr-1">Min games</span>
         {MIN_GAMES_OPTIONS.map((n) => (
-          <button
-            key={n}
-            type="button"
-            aria-pressed={minGames === n}
-            onClick={() => setMinGames(n)}
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-              minGames === n
-                ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                : "border border-line bg-panel text-steel hover:text-white"
-            }`}
-          >
+          <FilterPill key={n} active={minGames === n} onClick={() => setMinGames(n)}>
             {n}+
-          </button>
+          </FilterPill>
         ))}
       </div>
 
       {ranked.length === 0 ? (
-        <div className="card-brand p-8 text-center">
-          <p className="type-display text-2xl">No qualified players</p>
-          <p className="mt-2 text-steel">No players meet this games threshold for this season/phase.</p>
-        </div>
+        <EmptyCard
+          title="No qualified players"
+          message="No players meet this games threshold for this season/phase."
+        />
       ) : (
         (() => {
           const [leader, ...rest] = ranked;

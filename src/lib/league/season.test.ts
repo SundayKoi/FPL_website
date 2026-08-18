@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ACADEMY_SEASON, fetchLeagueSeasons, seasonForLeague } from "./season";
+import { DEFAULT_ACADEMY_SEASON, fetchLeagueSeasons } from "./season";
 
 function client(data: Record<string, unknown> | null) {
   return {
@@ -8,14 +8,6 @@ function client(data: Record<string, unknown> | null) {
     }),
   } as never;
 }
-
-describe("seasonForLeague", () => {
-  it("picks the league's own code", () => {
-    const seasons = { premier: "S5", academy: "A1" };
-    expect(seasonForLeague(seasons, "premier")).toBe("S5");
-    expect(seasonForLeague(seasons, "academy")).toBe("A1");
-  });
-});
 
 describe("fetchLeagueSeasons", () => {
   it("reads both codes from league_settings", async () => {

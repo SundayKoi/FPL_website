@@ -33,8 +33,6 @@ describe("fetchPreseasonHomeData", () => {
               id: "team-a",
               name: "Alpha",
               abbreviation: "ALP",
-              division: "Lunari",
-              image_url: null,
               banner_color: "#123456",
               captain_profile_id: "profile-a",
               nomination_position: 1,
@@ -72,8 +70,8 @@ describe("fetchPreseasonHomeData", () => {
         pointsRemaining: 74,
         rosterCount: 2,
         draftedPlayers: [
-          expect.objectContaining({ displayName: "Captain Player", acquisition: "captain" }),
-          expect.objectContaining({ displayName: "Free Agent Player", acquisition: "free_agency" }),
+          expect.objectContaining({ displayName: "Captain Player", price: 0 }),
+          expect.objectContaining({ displayName: "Free Agent Player", price: 10 }),
         ],
       }],
       players: [

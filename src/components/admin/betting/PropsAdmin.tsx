@@ -3,11 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveProp, rejectProp } from "@/lib/betting/admin-actions";
+import { toIso } from "@/lib/betting/format";
 import type { PendingSuggestionRow } from "@/lib/betting/queries";
-
-function toIso(local: string): string {
-  return new Date(local).toISOString();
-}
 
 function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: number; name: string }[] }) {
   const router = useRouter();

@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchDraftId } from "./fetchDraftId";
 
 /** Premier's season code. Academy passes its own (see lib/league/season.ts). */
 export const PREMIER_SEASON = "S5" as const;
@@ -19,12 +20,8 @@ export type HomepageRawStatRow = {
   assists: number | null;
   kill_participation_pct: number | null;
   total_damage_to_champions: number | null;
-  cs: number | null;
-  gold_earned: number | null;
-  vision_score: number | null;
   win: boolean | null;
   season: string | null;
-  season_phase: string | null;
   game_duration_min: number | null;
   team_dragons: number | null;
   team_barons: number | null;
@@ -41,16 +38,6 @@ export type HomepageAward = {
   value: string;
 };
 
-export type HomepageSeasonStanding = {
-  id: string;
-  name: string;
-  abbreviation: string;
-  nomination_position: number;
-  wins: number;
-  losses: number;
-  winrate_pct: number;
-};
-
 export type HomepageAwardsData = {
   season: string;
   periodLabel: string;
@@ -58,7 +45,6 @@ export type HomepageAwardsData = {
   teamOfWeek: HomepageAward;
   individualAwards: HomepageAward[];
   teamAwards: HomepageAward[];
-  standings: HomepageSeasonStanding[];
 };
 
 const RAW_COLUMNS = [
@@ -75,12 +61,8 @@ const RAW_COLUMNS = [
   "assists",
   "kill_participation_pct",
   "total_damage_to_champions",
-  "cs",
-  "gold_earned",
-  "vision_score",
   "win",
   "season",
-  "season_phase",
   "game_duration_min",
   "team_dragons",
   "team_barons",
@@ -142,21 +124,6 @@ function clamp(value: number, min: number, max: number): number {
 
 function playerKey(name: string, tag: string): string {
   return `${name}#${tag}`;
-}
-
-function teamSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function teamAbbreviation(name: string): string {
-  if (!name.includes(" ")) return name.slice(0, 3).toUpperCase();
-  const letters = name
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join("")
-    .replace(/[^a-z]/gi, "")
-    .toUpperCase();
-  return (letters || name.slice(0, 3)).slice(0, 3);
 }
 
 function weekFor(date: string): Week {
@@ -312,28 +279,10 @@ function teamAward(title: string, team: TeamAggregate | null, value: string, det
   };
 }
 
-function weekTeamAggregate(games: TeamGame[]): TeamAggregate[] {
-  return aggregateTeams(games);
-}
-
 function standardDeviation(values: number[]): number {
   if (values.length === 0) return Number.POSITIVE_INFINITY;
   const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
   return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
-}
-
-function deriveStandingsFromGames(games: TeamGame[], season: string): HomepageSeasonStanding[] {
-  return aggregateTeams(games)
-    .sort((a, b) => b.winrate - a.winrate || b.wins - a.wins || a.teamName.localeCompare(b.teamName))
-    .map((team, index) => ({
-      id: `${teamSlug(season)}-${teamSlug(team.teamName)}`,
-      name: team.teamName,
-      abbreviation: teamAbbreviation(team.teamName),
-      nomination_position: index + 1,
-      wins: team.wins,
-      losses: team.losses,
-      winrate_pct: team.winrate,
-    }));
 }
 
 export function deriveHomepageAwards(
@@ -350,8 +299,8 @@ export function deriveHomepageAwards(
   const previousGames = latest ? games.filter((game) => game.week.start === latest.start - 7 * 24 * 60 * 60 * 1000) : [];
   const latestPlayers = aggregatePlayers(latestRows).filter((player) => player.games >= MIN_PLAYER_GAMES);
   const seasonPlayers = aggregatePlayers(rows).filter((player) => player.games >= MIN_PLAYER_GAMES);
-  const latestTeams = weekTeamAggregate(latestGames);
-  const previousTeams = weekTeamAggregate(previousGames);
+  const latestTeams = aggregateTeams(latestGames);
+  const previousTeams = aggregateTeams(previousGames);
   const seasonTeams = aggregateTeams(games);
   const bestOverall = [...seasonTeams].sort((a, b) => b.winrate - a.winrate || b.wins - a.wins)[0] ?? null;
   const latestChampionGroups = new Map<string, HomepageRawStatRow[]>();
@@ -465,7 +414,6 @@ export function deriveHomepageAwards(
       teamAward("Most Reliable", reliability, reliability ? `${reliability.winrate}%` : "—", "Lowest weekly win-rate volatility"),
       teamAward("Team of the Week", teamOfWeek, teamOfWeek ? `${teamOfWeek.winrate}%` : "—", "Best record during the latest week"),
     ],
-    standings: deriveStandingsFromGames(games, season),
   };
 }
 
@@ -490,12 +438,8 @@ export async function fetchHomepageRawStats(
 
 async function fetchHomepagePrices(draftColumn: "featured_draft_id" | "academy_draft_id"): Promise<Map<string, number>> {
   const supabase = await createServerSupabase();
-  const { data: settings } = await supabase
-    .from("league_settings")
-    .select(draftColumn)
-    .eq("id", 1)
-    .single();
-  const draftId = (settings as Record<string, string | null> | null)?.[draftColumn];
+  // A settings failure just means no prices, so the error is swallowed here.
+  const draftId = await fetchDraftId(supabase, draftColumn).catch(() => null);
   if (!draftId) return new Map();
   const { data } = await supabase.from("players").select("display_name, price").eq("draft_id", draftId);
   return new Map(
@@ -525,11 +469,4 @@ export async function fetchHomepageAwards(
     prices = new Map();
   }
   return deriveHomepageAwards(rows, prices, season);
-}
-
-export function deriveStandings(
-  inputRows: HomepageRawStatRow[],
-  season: string = PREMIER_SEASON,
-): HomepageSeasonStanding[] {
-  return deriveStandingsFromGames(chooseTeamGames(rowsForSeason(inputRows, season)), season);
 }

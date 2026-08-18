@@ -7,28 +7,20 @@
 // ingest/task-5-brief.md and docs/superpowers/specs/2026-08-11-captains-
 // page-design.md.
 //
-// Row types for league_team_captains/match_codes/announcements live here
-// rather than in a separate types file: the brief's Files list for this
-// task does not include one, and these three tables (unlike Tasks 1-3's,
-// which already had src/lib/matches/types.ts) have no existing TS shape to
-// share. Field names/nullability mirror
+// Row types for match_codes/announcements live here rather than in a
+// separate types file: the brief's Files list for this task does not
+// include one, and these tables (unlike Tasks 1-3's, which already had
+// src/lib/matches/types.ts) have no existing TS shape to share. Field
+// names/nullability mirror
 // supabase/migrations/20260811100003_captain_page.sql exactly.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/lib/matches/types";
 import type { Player } from "@/lib/draft/types";
 import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
 import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
 import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
-
-/** One row of `league_team_captains`. */
-export interface LeagueTeamCaptain {
-  id: string;
-  league_team_id: string;
-  season: string;
-  profile_id: string;
-}
 
 /** One row of `match_codes` — the one genuinely private table in the app. */
 export interface MatchCode {
@@ -146,15 +138,13 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
   const isAdmin = profileResult.data?.is_admin ?? false;
   const isOwner = profileResult.data?.is_owner ?? false;
   let teams = (teamsResult.data as LeagueTeam[]) ?? [];
-  if (league === "academy" || league === "premier") {
-    const settings = settingsResult.data as { featured_draft_id?: string | null; academy_draft_id?: string | null } | null;
-    const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
-    if (!draftId) teams = [];
-    else {
-      const { data: academyRows } = await supabase.from("teams").select("name").eq("draft_id", draftId);
-      const names = new Set(((academyRows as { name: string }[]) ?? []).map((team) => team.name.trim().toLowerCase()));
-      teams = teams.filter((team) => names.has(team.name.trim().toLowerCase()));
-    }
+  const settings = settingsResult.data as { featured_draft_id?: string | null; academy_draft_id?: string | null } | null;
+  const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
+  if (!draftId) teams = [];
+  else {
+    const { data: academyRows } = await supabase.from("teams").select("name").eq("draft_id", draftId);
+    const names = new Set(((academyRows as { name: string }[]) ?? []).map((team) => team.name.trim().toLowerCase()));
+    teams = teams.filter((team) => names.has(team.name.trim().toLowerCase()));
   }
   const activeTeams = activeOnly(teams);
   // Academy runs on its own season code, so every season-scoped fetch below
@@ -343,6 +333,32 @@ export async function fetchAnnouncements(supabase: SupabaseClient): Promise<Anno
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as Announcement[]) ?? [];
+}
+
+/**
+ * Sets which team was on blue for a `needs_side` game and re-queues it as
+ * `pending`. Returns `{ ok: true }` on success; on failure, the raw Supabase
+ * error for the caller to render, or `error: null` for an RLS denial. An RLS
+ * denial on UPDATE isn't an error -- the row just doesn't match the policy's
+ * USING clause (e.g. the report was ingested in the interim), so PostgREST
+ * reports success with zero rows affected. Without the `.select()` below
+ * that would silently look like it worked until refresh. Treat "we asked
+ * for the row back and got none" as a denial so callers can surface a
+ * friendly message instead of a silent no-op.
+ */
+export async function fixGameSide(
+  supabase: SupabaseClient,
+  gameId: string,
+  blueTeamId: string
+): Promise<{ ok: true } | { ok: false; error: PostgrestError | null }> {
+  const { data, error } = await supabase
+    .from("match_report_games")
+    .update({ blue_team_id: blueTeamId, status: "pending" })
+    .eq("id", gameId)
+    .select();
+  if (error) return { ok: false, error };
+  if (!data || data.length === 0) return { ok: false, error: null };
+  return { ok: true };
 }
 
 /**

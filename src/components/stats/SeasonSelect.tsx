@@ -1,5 +1,7 @@
 "use client";
 
+import { FilterPill } from "./statsUi";
+
 export type PhaseFilter = "All" | "Regular" | "Playoffs";
 
 /** Sentinel passed as `season` when the "All seasons" option is selected. */
@@ -50,19 +52,9 @@ export default function SeasonSelect({
         <span className="mono-label">Phase</span>
         <div className="flex gap-1">
           {PHASES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={phase === p}
-              onClick={() => onPhaseChange(p)}
-              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                phase === p
-                  ? "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]"
-                  : "border border-line bg-panel text-steel hover:text-white"
-              }`}
-            >
+            <FilterPill key={p} active={phase === p} onClick={() => onPhaseChange(p)}>
               {p}
-            </button>
+            </FilterPill>
           ))}
         </div>
       </div>

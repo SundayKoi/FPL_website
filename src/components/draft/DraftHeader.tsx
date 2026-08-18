@@ -1,4 +1,5 @@
 import type { Draft } from "@/lib/draft/types";
+import { roundMinimum } from "@/lib/draft/derive";
 
 const STATUS_LABEL: Record<string, string> = {
   setup: "Setup",
@@ -15,9 +16,7 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export default function DraftHeader({ draft, connected }: { draft: Draft; connected: boolean }) {
-  const minimum = draft.round_minimums.length
-    ? draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1]
-    : null;
+  const minimum = draft.round_minimums.length ? roundMinimum(draft) : null;
 
   return (
     <header className="card-brand flex flex-wrap items-center justify-between gap-2 px-4 py-3">

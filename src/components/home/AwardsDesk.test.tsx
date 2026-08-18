@@ -29,7 +29,6 @@ const awards: HomepageAwardsData = {
     award("Most Reliable", null, "Wildcats", "50%"),
     award("Team of the Week", null, "MetaShift League", "100%"),
   ],
-  standings: [],
 };
 
 afterEach(() => cleanup());

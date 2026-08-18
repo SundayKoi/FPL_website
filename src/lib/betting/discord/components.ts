@@ -21,42 +21,8 @@ import { componentHandlers, modalHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, embed, errMsg, modal } from "./respond";
 import type { DiscordEmbed } from "./respond";
-
-type BettingServiceClient = ReturnType<typeof createBettingServiceClient>;
-
-/** One-time signup credit for a Discord id's first contact with the wallet
- * system — same constant/pattern as commands.ts's SIGNUP_BONUS (duplicated
- * rather than imported since commands.ts doesn't export it; matches
- * wallet.ts's SIGNUP_BONUS_AMOUNT, which does the same thing for web login). */
-const SIGNUP_BONUS = 1000;
-
-/** SITE_URL is the spec'd/primary name; NEXT_PUBLIC_SITE_URL is accepted as a
- * fallback — same duplicate-with-comment pattern as commands.ts's siteUrl()
- * (not exported there, so re-declared here rather than imported). */
-function siteUrl(): string {
-  return process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-}
-
-interface DiscordUser {
-  id: string;
-  username?: string;
-  global_name?: string;
-  avatar?: string | null;
-}
-
-function avatarUrl(user: DiscordUser | undefined): string | null {
-  if (!user?.avatar) return null;
-  return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`;
-}
-
-async function ensureUser(service: BettingServiceClient, user: DiscordUser): Promise<void> {
-  await service.rpc("grant_signup_bonus", {
-    p_user: user.id,
-    p_username: user.username ?? user.id,
-    p_avatar: avatarUrl(user),
-    p_amount: SIGNUP_BONUS,
-  });
-}
+import { avatarUrl, ensureUser, requireMember, siteUrl } from "./shared";
+import type { DiscordUser } from "./shared";
 
 /** Parsed `bet:<marketId>:<teamId>:<code>` / `betmodal:<marketId>:<teamId>:<code>`
  * custom_id. teamId -1 is the RPC's "the Draw" sentinel. Returns null on any
@@ -76,11 +42,6 @@ function parseBetCustomId(customId: string): ParsedBetId | null {
   const code = parts[3];
   if (!Number.isInteger(marketId) || !Number.isInteger(teamId) || !code) return null;
   return { marketId, teamId, code };
-}
-
-function requireMember(interaction: DiscordInteraction): DiscordUser | null {
-  const user: DiscordUser | undefined = interaction.member?.user;
-  return user?.id ? user : null;
 }
 
 /** The bettor's display name for the public shout's author strip — prefers

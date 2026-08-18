@@ -74,7 +74,7 @@ export default function DraftSetupEditor({
         <button
           onClick={startDraft}
           disabled={starting}
-          className="w-fit rounded bg-coral px-4 py-2 text-sm font-display font-bold not-italic text-navy hover:brightness-110 disabled:opacity-40"
+          className="w-fit btn-coral px-4 py-2 text-sm"
         >
           Start draft
         </button>

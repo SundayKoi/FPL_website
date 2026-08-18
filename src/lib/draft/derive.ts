@@ -9,6 +9,10 @@ export function maxBid(team: Team, players: Player[]): number {
   return team.points_remaining - (openRoles(team.id, players).length - 1);
 }
 
+export function roundMinimum(draft: Draft): number {
+  return draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1] ?? 0;
+}
+
 export function bidBlockReason(
   team: Team, lot: Lot, lotPlayer: Player, players: Player[], amount: number
 ): string | null {
@@ -27,7 +31,7 @@ export function nominateBlockReason(
   if (draft.current_nominator_team_id !== team.id) return "Not your turn";
   if (player.team_id !== null) return "Player already taken";
   if (!openRoles(team.id, players).includes(player.role)) return `You already have a ${player.role}`;
-  const min = draft.round_minimums[Math.min(draft.current_round, draft.round_minimums.length) - 1];
+  const min = roundMinimum(draft);
   if (min > maxBid(team, players)) return `You can't afford the ${min}-point opening bid`;
   return null;
 }

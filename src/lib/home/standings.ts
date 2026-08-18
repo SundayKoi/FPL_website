@@ -1,5 +1,6 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { PREMIER_SEASON } from "./awards";
+import { fetchDraftId } from "./fetchDraftId";
 import { normalizeTeamName } from "@/lib/league/context";
 
 export interface HomeStandingTeam {
@@ -91,15 +92,7 @@ export async function fetchHomepageStandings(
   draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
 ): Promise<HomeStandingTeam[]> {
   const supabase = await createServerSupabase();
-  const { data: settings, error: settingsError } = await supabase
-    .from("league_settings")
-    .select(draftColumn)
-    .eq("id", 1)
-    .single();
-
-  if (settingsError && settingsError.code !== "PGRST116") throw settingsError;
-
-  const featuredDraftId = (settings as Record<string, string | null> | null)?.[draftColumn];
+  const featuredDraftId = await fetchDraftId(supabase, draftColumn);
   if (!featuredDraftId) return [];
 
   const { data: teams, error: teamsError } = await supabase

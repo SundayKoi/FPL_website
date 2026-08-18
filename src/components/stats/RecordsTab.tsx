@@ -1,56 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { formatDate, formatValue } from "@/lib/stats/format";
 import { fetchRecords } from "@/lib/stats/queries";
 import type { RecordRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function formatValue(value: number): string {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
+import { EmptyCard, ErrorCard, LoadingCard } from "./statsUi";
+import { useStatsFetch } from "./useStatsFetch";
 
 export default function RecordsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
-  const [rows, setRows] = useState<RecordRow[]>([]);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-  // Render-phase adjust (see LeaderboardTab): flip back to "loading"
-  // synchronously during render on filter change instead of via a setState
-  // call in the effect body (react-hooks/set-state-in-effect forbids that).
-  const filterKey = `${season}::${phase}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    setStatus("loading");
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const seasonParam = season === ALL_SEASONS ? undefined : season;
-        const phaseParam = phase === "All" ? undefined : phase;
-        const data = await fetchRecords(seasonParam, phaseParam, teamNames);
-        if (cancelled) return;
-        setRows(data);
-        setStatus("loaded");
-      } catch {
-        if (cancelled) return;
-        setStatus("error");
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
+  const loadRows = useCallback(() => {
+    const seasonParam = season === ALL_SEASONS ? undefined : season;
+    const phaseParam = phase === "All" ? undefined : phase;
+    return fetchRecords(seasonParam, phaseParam, teamNames);
   }, [season, phase, teamNames]);
+  const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
+  const rows = useMemo(() => data ?? [], [data]);
 
   // "All seasons": stats_records is already a top-5-per-(season,phase)
   // view, so with no season filter the fetch returns top-5 *per season*
@@ -74,28 +40,15 @@ export default function RecordsTab({ season, phase, teamNames }: { season: strin
   const categories = useMemo(() => Array.from(byCategory.keys()).sort(), [byCategory]);
 
   if (status === "loading") {
-    return (
-      <div className="card-brand p-8 text-center text-steel" role="status">
-        Loading records…
-      </div>
-    );
+    return <LoadingCard label="records" />;
   }
 
   if (status === "error") {
-    return (
-      <div className="card-brand p-8 text-center text-steel">
-        Couldn&apos;t load record data. Try again shortly.
-      </div>
-    );
+    return <ErrorCard noun="record" />;
   }
 
   if (rows.length === 0) {
-    return (
-      <div className="card-brand p-8 text-center">
-        <p className="type-display text-2xl">No stats yet</p>
-        <p className="mt-2 text-steel">There&apos;s no record data for this season/phase yet.</p>
-      </div>
-    );
+    return <EmptyCard message="There's no record data for this season/phase yet." />;
   }
 
   // Medal accent for the top three of each record category.

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { buildScoreboard, seriesRecord, type RawStatRow } from "@/lib/match/scoreboard";
-import { formatKickoff, stageMeta, teamLabel } from "@/lib/schedule/format";
+import { formatKickoff, hasResult, stageMeta, teamLabel } from "@/lib/schedule/format";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -52,7 +52,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const record = seriesRecord(games);
   const teamA = teamLabel(fixture.team_a);
   const teamB = teamLabel(fixture.team_b);
-  const played = fixture.score_a !== null && fixture.score_b !== null;
+  const played = hasResult(fixture);
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 text-white">

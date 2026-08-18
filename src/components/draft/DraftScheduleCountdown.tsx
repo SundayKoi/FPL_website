@@ -39,11 +39,9 @@ function CountdownUnit({ value, label, accent = false }: { value: string; label:
 export default function DraftScheduleCountdown({
   startsAt,
   label,
-  compact = false,
 }: {
   startsAt: string | null;
   label?: string;
-  compact?: boolean;
 }) {
   const clock = useSyncExternalStore(subscribeToClock, getClockSnapshot, getServerClockSnapshot);
   const now = clock === 0 ? null : new Date(clock);
@@ -58,7 +56,7 @@ export default function DraftScheduleCountdown({
   const value = (number: number) => String(number).padStart(2, "0");
 
   return (
-    <div aria-label="Draft start countdown" className={compact ? "mt-3" : "mt-5"}>
+    <div aria-label="Draft start countdown" className="mt-5">
       {label && <span className="label-dash text-gold">{label}</span>}
       <p className="mt-2 text-sm text-steel">{formatEasternDateTime(startsAt)}</p>
       {complete ? (
