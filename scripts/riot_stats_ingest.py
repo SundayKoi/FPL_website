@@ -1120,6 +1120,58 @@ def load_roster_map(cfg, season):
     return roster_map
 
 
+def load_history_map(cfg, season, team_names):
+    """Build the same {(game_name, tag_line): league_team_id} map that
+    load_roster_map produces, but derived from raw_stats already ingested for
+    `season` instead of from roster_memberships.
+
+    Every ingested game records which team each player actually played for, so
+    the ingest can learn rosters from its own history rather than depending on
+    an admin having typed Riot IDs in beforehand. That matters because an empty
+    roster_memberships table is the single most common reason a report parks on
+    needs_side, and it is invisible until the nightly run fails.
+
+    Scoped to one season on purpose: players move between teams across splits,
+    and a stale mapping would silently attribute a game to the wrong side --
+    worse than refusing to resolve. For the same reason a player seen on two
+    different teams within the season is dropped rather than guessed at."""
+    name_to_id = {}
+    for team_id, name in (team_names or {}).items():
+        if name:
+            name_to_id[name.strip().lower()] = team_id
+    if not name_to_id:
+        return {}
+
+    url = f"{cfg.supabase_url.rstrip('/')}{RAW_STATS_ENDPOINT}"
+    params = {"season": f"eq.{season}", "select": "summoner_name,tag,team_name"}
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not load ingest history for season {season!r}: request error: {exc}")
+        return {}
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not load ingest history for season {season!r}: HTTP {resp.status_code}")
+        return {}
+
+    history = {}
+    conflicted = set()
+    for row in resp.json():
+        game_name = (row.get("summoner_name") or "").strip().lower()
+        tag_line = (row.get("tag") or "").strip().lower()
+        team_id = name_to_id.get((row.get("team_name") or "").strip().lower())
+        if not game_name or not tag_line or team_id is None:
+            continue
+        key = (game_name, tag_line)
+        if key in history and history[key] != team_id:
+            conflicted.add(key)
+        else:
+            history[key] = team_id
+    for key in conflicted:
+        history.pop(key, None)
+    return history
+
+
 def load_league_teams(cfg):
     """GET league_teams -> {id: name}, used to translate a resolved
     blue/red league_team_id uuid into the team_name text raw_stats
@@ -1218,7 +1270,9 @@ def resolve_sides(match_data, report, game, roster_map):
             return None, None, "Both sides matched to the same roster team; cannot resolve which side is which."
         return blue_id, red_id, None
 
-    return None, None, "No roster matches found for either side (check roster_memberships for this season)."
+    return None, None, ("No roster matches found for either side. Add the teams' Riot IDs "
+                        "under roster_memberships for this season, or set the blue side "
+                        "on this game in the admin reports queue.")
 
 
 def update_report_status(cfg, report_id, status, error_text, warning_text, ingested_at):
@@ -1396,7 +1450,11 @@ def ingest_report(cfg, report, team_names):
             update_report_status(cfg, report_id, "failed", error_text, None, None)
         return {"status": "failed", "games": [], "warning": None, "error": error_text}
 
-    roster_map = load_roster_map(cfg, season)
+    # roster_memberships is the admin-maintained source of truth; anything it
+    # does not cover falls back to what previous ingests observed, so a league
+    # that never filled in its Riot IDs still resolves after its first game.
+    roster_map = load_history_map(cfg, season, team_names)
+    roster_map.update(load_roster_map(cfg, season))
 
     # Idempotency check against raw_stats -- the only source of truth a
     # captain cannot write. match_report_games.status IS client-writable

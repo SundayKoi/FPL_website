@@ -1129,6 +1129,9 @@ def run_ingest_report_stale_ingested_status_test():
     def fake_get(url, headers=None, params=None, **kwargs):
         if "roster_memberships" in url:
             return FakeResponse(200, [])
+        if "raw_stats" in url and params and "season" in params:
+            # load_history_map: no prior ingests to learn rosters from.
+            return FakeResponse(200, [])
         if "raw_stats" in url and params and "match_id" in params:
             # match_ids_already_ingested: this match_id is NOT present.
             return FakeResponse(200, [])
@@ -1216,6 +1219,88 @@ def test_ingest_report_stale_ingested_status():
     assert run_ingest_report_stale_ingested_status_test() is True
 
 
+def run_load_history_map_tests():
+    """load_history_map turns already-ingested raw_stats into the same
+    player -> team map load_roster_map builds from roster_memberships, so a
+    league that never entered its Riot IDs still resolves sides after its
+    first ingested game."""
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    class FakeResponse:
+        def __init__(self, payload, status_code=200):
+            self._payload = payload
+            self.status_code = status_code
+
+        def json(self):
+            return self._payload
+
+    import riot_stats_ingest as mod
+    orig_get = mod.requests.get
+
+    class Cfg:
+        supabase_url = "https://example.supabase.co"
+        service_key = "service-key"
+
+    team_names = {"team-a": "Alcatraz", "team-b": "Wildcats"}
+    captured = {}
+
+    def make_get(payload, status_code=200):
+        def fake_get(url, headers=None, params=None):
+            captured["url"] = url
+            captured["params"] = params
+            return FakeResponse(payload, status_code)
+        return fake_get
+
+    try:
+        # -- happy path: names/tags are lower-cased, teams resolved by name --
+        mod.requests.get = make_get([
+            {"summoner_name": "Ace", "tag": "NA1", "team_name": "Alcatraz"},
+            {"summoner_name": "Bolt", "tag": "EUW", "team_name": "Wildcats"},
+        ])
+        result = mod.load_history_map(Cfg, "S5", team_names)
+        check(result == {("ace", "na1"): "team-a", ("bolt", "euw"): "team-b"},
+              f"history map: got {result!r}")
+        check(captured["params"].get("season") == "eq.S5",
+              f"history map scopes to the season: got {captured['params']!r}")
+
+        # -- a player seen on two teams in one season is dropped, not guessed --
+        mod.requests.get = make_get([
+            {"summoner_name": "Ace", "tag": "NA1", "team_name": "Alcatraz"},
+            {"summoner_name": "Ace", "tag": "NA1", "team_name": "Wildcats"},
+            {"summoner_name": "Bolt", "tag": "EUW", "team_name": "Wildcats"},
+        ])
+        result = mod.load_history_map(Cfg, "S5", team_names)
+        check(("ace", "na1") not in result, f"conflicting player dropped: got {result!r}")
+        check(result.get(("bolt", "euw")) == "team-b", f"unconflicted player kept: got {result!r}")
+
+        # -- a team_name with no league_teams row contributes nothing --
+        mod.requests.get = make_get([
+            {"summoner_name": "Ghost", "tag": "NA1", "team_name": "Not A League Team"},
+        ])
+        check(mod.load_history_map(Cfg, "S5", team_names) == {}, "unknown team contributes nothing")
+
+        # -- a failed request degrades to empty rather than raising --
+        mod.requests.get = make_get([], status_code=500)
+        check(mod.load_history_map(Cfg, "S5", team_names) == {}, "HTTP failure returns empty map")
+
+        # -- no known teams means no lookup is even attempted --
+        check(mod.load_history_map(Cfg, "S5", {}) == {}, "no teams returns empty map")
+    finally:
+        mod.requests.get = orig_get
+
+    for message in failures:
+        print(f"  [FAIL] {message}")
+    return not failures
+
+
+def test_load_history_map():
+    assert run_load_history_map_tests() is True
+
+
 # ============================================================
 # plain-python entry point
 # ============================================================
@@ -1232,5 +1317,6 @@ if __name__ == "__main__":
         and run_sync_fixture_score_tests()
         and run_ingest_report_empty_games_test()
         and run_ingest_report_stale_ingested_status_test()
+        and run_load_history_map_tests()
     )
     sys.exit(0 if ok else 1)

@@ -202,6 +202,15 @@ export default function ReportBox({
     const dupes = Array.from(new Set(trimmedIds.filter((id, i) => id && trimmedIds.indexOf(id) !== i)));
     if (dupes.length > 0) problems.push(`Duplicate match id(s) in this form: ${dupes.join(", ")}.`);
 
+    // Which team was on blue is the one fact only someone who played the game
+    // knows, and it used to be optional. A report submitted without it looks
+    // fine here and then fails hours later inside the nightly ingest as
+    // needs_side, where nobody is watching. Asking now costs one dropdown;
+    // not asking costs a week of missing stats.
+    form.games.forEach((g) => {
+      if (!g.blueTeamId) problems.push(`Game ${g.gameNumber}: pick which team was on blue side.`);
+    });
+
     const scoreA = Number(form.scoreA);
     const scoreB = Number(form.scoreB);
     const scoresValid =
@@ -422,7 +431,7 @@ export default function ReportBox({
               onChange={(e) => updateGame(g.key, { blueTeamId: e.target.value || null })}
               className={inputClass}
             >
-              <option value="">Auto-detect</option>
+              <option value="">Blue side?</option>
               {form.teamAId && <option value={form.teamAId}>{teamName(form.teamAId)} blue</option>}
               {form.teamBId && <option value={form.teamBId}>{teamName(form.teamBId)} blue</option>}
             </select>
