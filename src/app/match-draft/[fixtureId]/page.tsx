@@ -72,6 +72,8 @@ function stateFor({
     redTeam,
     scheduledTeams,
     canChooseSides: gameNumber > 1 && actions.length === 0,
+    blueReady: row?.blue_ready ?? false,
+    redReady: row?.red_ready ?? false,
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions: actions.filter((action): action is MatchDraftAction => Boolean(action?.champion)),
     blockedChampions: fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],

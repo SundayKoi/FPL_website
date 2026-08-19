@@ -1043,6 +1043,7 @@ MATCH_REPORT_GAMES_ENDPOINT = "/rest/v1/match_report_games"
 ROSTER_MEMBERSHIPS_ENDPOINT = "/rest/v1/roster_memberships"
 LEAGUE_TEAMS_ENDPOINT = "/rest/v1/league_teams"
 FIXTURES_ENDPOINT = "/rest/v1/fixtures"
+MATCH_DRAFTS_ENDPOINT = "/rest/v1/match_drafts"
 
 
 @dataclass
@@ -1118,6 +1119,38 @@ def load_roster_map(cfg, season):
         if game_name and tag_line:
             roster_map[(game_name, tag_line)] = row.get("league_team_id")
     return roster_map
+
+
+def load_drafter_sides(cfg, fixture_id):
+    """{game_number: (blue_team_name_lower, red_team_name_lower)} recorded by
+    the site's match drafter (match_drafts) for this fixture. The captains
+    drafted the game with these sides, so when roster inference cannot
+    resolve blue/red (fresh league, empty roster_memberships), the drafter's
+    own record fills the gap. Returns {} on a missing fixture id or any
+    request failure -- never raises."""
+    if not fixture_id:
+        return {}
+    url = f"{cfg.supabase_url.rstrip('/')}{MATCH_DRAFTS_ENDPOINT}"
+    params = {
+        "fixture_id": f"eq.{fixture_id}",
+        "select": "game_number,blue_team_name,red_team_name",
+    }
+    headers = _supabase_headers(cfg.service_key)
+    try:
+        resp = requests.get(url, headers=headers, params=params)
+    except requests.RequestException as exc:
+        print(f"  [WARN] Could not load drafter sides: request error: {exc}")
+        return {}
+    if resp.status_code != 200:
+        print(f"  [WARN] Could not load drafter sides: HTTP {resp.status_code}")
+        return {}
+    sides = {}
+    for row in resp.json():
+        blue = (row.get("blue_team_name") or "").strip().lower()
+        red = (row.get("red_team_name") or "").strip().lower()
+        if blue and red and blue != red:
+            sides[row.get("game_number")] = (blue, red)
+    return sides
 
 
 def load_history_map(cfg, season, team_names):
@@ -1210,7 +1243,7 @@ def match_ids_already_ingested(cfg, ids):
     return {row["match_id"] for row in resp.json() if row.get("match_id")}
 
 
-def resolve_sides(match_data, report, game, roster_map):
+def resolve_sides(match_data, report, game, roster_map, drafter_sides=None, team_names=None):
     """Return (blue_team_id, red_team_id, reason_if_unresolved).
 
     Explicit game["blue_team_id"] wins immediately -- PROVIDED it's one of
@@ -1222,13 +1255,36 @@ def resolve_sides(match_data, report, game, roster_map):
     mapping each via (riotIdGameName, riotIdTagline) -> roster_map,
     ignoring hits that aren't one of the report's two teams. Resolves when
     exactly one side has (unanimous) hits, or both sides have hits and
-    disagree with each other (blue -> X, red -> Y, X != Y); anything else
-    -- no hits at all, a conflicting side, or both sides agreeing on the
-    same team -- is unresolved, with a human-readable reason.
+    disagree with each other (blue -> X, red -> Y, X != Y).
+
+    When inference fails -- no hits at all, a conflicting side, or both
+    sides agreeing on the same team -- the site's match drafter is
+    consulted last (`drafter_sides`, from load_drafter_sides): if the
+    captains ran the game's pick/ban through the drafter, its recorded
+    blue/red team names name the sides directly. Actual participant data
+    still outranks the drafter (a drafted side order could differ from
+    the side the game was really played on). Anything still unresolved
+    returns a human-readable reason.
     """
     team_a_id = report.get("team_a_id")
     team_b_id = report.get("team_b_id")
     report_team_ids = {team_a_id, team_b_id}
+
+    def drafter_resolution():
+        """(blue_id, red_id) from the drafter's record, or None."""
+        if not drafter_sides or not team_names:
+            return None
+        drafted = drafter_sides.get(game.get("game_number"))
+        if not drafted:
+            return None
+        by_name = {
+            (team_names.get(team_a_id) or "").strip().lower(): team_a_id,
+            (team_names.get(team_b_id) or "").strip().lower(): team_b_id,
+        }
+        blue_name, red_name = drafted
+        if blue_name in by_name and red_name in by_name and blue_name != red_name:
+            return by_name[blue_name], by_name[red_name]
+        return None
 
     explicit_blue = game.get("blue_team_id")
     if explicit_blue:
@@ -1252,9 +1308,14 @@ def resolve_sides(match_data, report, game, roster_map):
         elif p.get("teamId") == 200:
             red_hits.add(team_id)
 
+    drafted = drafter_resolution()
     if len(blue_hits) > 1:
+        if drafted:
+            return drafted[0], drafted[1], None
         return None, None, f"Conflicting roster matches on the blue side: {sorted(blue_hits)}."
     if len(red_hits) > 1:
+        if drafted:
+            return drafted[0], drafted[1], None
         return None, None, f"Conflicting roster matches on the red side: {sorted(red_hits)}."
 
     if blue_hits and not red_hits:
@@ -1267,12 +1328,17 @@ def resolve_sides(match_data, report, game, roster_map):
         blue_id = next(iter(blue_hits))
         red_id = next(iter(red_hits))
         if blue_id == red_id:
+            if drafted:
+                return drafted[0], drafted[1], None
             return None, None, "Both sides matched to the same roster team; cannot resolve which side is which."
         return blue_id, red_id, None
 
+    if drafted:
+        return drafted[0], drafted[1], None
     return None, None, ("No roster matches found for either side. Add the teams' Riot IDs "
-                        "under roster_memberships for this season, or set the blue side "
-                        "on this game in the admin reports queue.")
+                        "under roster_memberships for this season, run the game through the "
+                        "site's match drafter, or set the blue side on this game in the "
+                        "admin reports queue.")
 
 
 def update_report_status(cfg, report_id, status, error_text, warning_text, ingested_at):
@@ -1509,6 +1575,10 @@ def ingest_report(cfg, report, team_names):
     roster_map = load_history_map(cfg, season, team_names)
     roster_map.update(load_roster_map(cfg, season))
 
+    # The drafter's own record of which team took blue, used as the last
+    # resort when roster inference can't tell the sides apart.
+    drafter_sides = load_drafter_sides(cfg, report.get("fixture_id"))
+
     # Idempotency check against raw_stats -- the only source of truth a
     # captain cannot write. match_report_games.status IS client-writable
     # (the update RLS policy restricts *who* may UPDATE a report's own
@@ -1547,7 +1617,7 @@ def ingest_report(cfg, report, team_names):
             game_results.append({"game_id": game_id, "match_id": match_id, "status": "failed", "error": error_text})
             continue
 
-        blue_id, red_id, reason = resolve_sides(match_data, report, game, roster_map)
+        blue_id, red_id, reason = resolve_sides(match_data, report, game, roster_map, drafter_sides, team_names)
         if not blue_id:
             print(f"  [{match_id}] needs_side: {reason}")
             if not cfg.dry_run:

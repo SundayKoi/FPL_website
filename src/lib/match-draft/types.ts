@@ -37,6 +37,8 @@ export interface MatchDraftRow {
   turn_started_at: string | null;
   blue_team_name: string | null;
   red_team_name: string | null;
+  blue_ready: boolean;
+  red_ready: boolean;
   actions: MatchDraftAction[];
   created_at: string;
   updated_at: string;
@@ -54,6 +56,9 @@ export interface MatchDraftState {
   scheduledTeams: [MatchDraftTeam, MatchDraftTeam];
   canChooseSides: boolean;
   sideChoiceRequired: boolean;
+  /** Ready check — the pick/ban countdown only starts once both are true. */
+  blueReady: boolean;
+  redReady: boolean;
   actions: MatchDraftAction[];
   blockedChampions: string[];
 }
