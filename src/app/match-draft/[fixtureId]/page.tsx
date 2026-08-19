@@ -30,6 +30,10 @@ function fallbackIdentity(name: string | null, side: "Blue" | "Red"): TeamIdenti
   };
 }
 
+function identityFor(name: string | null, identities: Record<string, TeamIdentity>, side: "Blue" | "Red"): TeamIdentity {
+  return identities[teamSlug(name ?? "")] ?? fallbackIdentity(name, side);
+}
+
 function stateFor({
   fixture,
   row,
@@ -47,6 +51,12 @@ function stateFor({
 }): MatchDraftState {
   const actions = row?.actions ?? [];
   const prior = rows.map((draft) => ({ gameNumber: draft.game_number, actions: draft.actions ?? [] }));
+  const scheduledTeams: [TeamIdentity, TeamIdentity] = [
+    identityFor(fixture.team_a, identities, "Blue"),
+    identityFor(fixture.team_b, identities, "Red"),
+  ];
+  const blueTeam = identityFor(row?.blue_team_name || fixture.team_a, identities, "Blue");
+  const redTeam = identityFor(row?.red_team_name || fixture.team_b, identities, "Red");
   return {
     fixtureId: fixture.id,
     gameNumber,
@@ -54,8 +64,11 @@ function stateFor({
     layout: row?.layout ?? layout,
     currentStepIndex: row?.current_step_index ?? 0,
     turnStartedAt: row?.turn_started_at ?? null,
-    blueTeam: identities[teamSlug(fixture.team_a ?? "")] ?? fallbackIdentity(fixture.team_a, "Blue"),
-    redTeam: identities[teamSlug(fixture.team_b ?? "")] ?? fallbackIdentity(fixture.team_b, "Red"),
+    blueTeam,
+    redTeam,
+    scheduledTeams,
+    canChooseSides: gameNumber > 1 && actions.length === 0,
+    sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions: actions.filter((action): action is MatchDraftAction => Boolean(action?.champion)),
     blockedChampions: [...fearlessBlockedChampions(prior, gameNumber)],
   };
