@@ -75,8 +75,9 @@ function stateFor({
     canChooseSides: gameNumber > 1 && actions.length === 0,
     blueReady: row?.blue_ready ?? false,
     redReady: row?.red_ready ?? false,
+    changeRequest: row?.change_request ?? null,
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
-    actions: actions.filter((action): action is MatchDraftAction => Boolean(action?.champion)),
+    actions: actions.filter((action): action is MatchDraftAction => Boolean(action && (action.champion || action.skipped))),
     blockedChampions: fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
   };
 }
@@ -107,6 +108,7 @@ export default async function MatchDraftPage({
   }
 
   const layout = layoutParam(firstParam(query.layout));
+  const overlay = firstParam(query.overlay) === "1";
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
   const [draftRowsResult, teamsResult, staffTier, settingsResult, champions] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
@@ -188,6 +190,7 @@ export default async function MatchDraftPage({
       initialState={states[gameNumber - 1] ?? states[0]}
       initialStates={states}
       viewerTeamName={viewerTeamName}
+      overlay={overlay}
       champions={champions}
       games={games}
       seriesFormat={seriesFormat}

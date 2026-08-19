@@ -78,7 +78,7 @@ export function fearlessBlockedChampions(
   for (const draft of drafts) {
     if (draft.gameNumber >= gameNumber) continue;
     for (const action of draft.actions) {
-      if (action.kind === "pick" && action.champion.trim()) blocked.add(action.champion);
+      if (action.kind === "pick" && action.champion?.trim()) blocked.add(action.champion);
     }
   }
   return blocked;
@@ -90,7 +90,19 @@ export function isChampionUnavailable(
   blockedChampions: string[],
 ): boolean {
   const target = normalizeChampionName(champion);
-  return [...blockedChampions, ...actions.map((action) => action.champion)].some(
-    (used) => normalizeChampionName(used) === target,
-  );
+  return [...blockedChampions, ...actions.map((action) => action.champion)]
+    .filter((used): used is string => Boolean(used))
+    .some((used) => normalizeChampionName(used) === target);
+}
+
+/** The smallest step (0-19) with no recorded action — or null when the draft
+ *  is full. Mirrors public.match_draft_next_step in SQL: advancement always
+ *  jumps to the next EMPTY step, so a step reopened by an approved change
+ *  request gets drafted before play resumes at the end. */
+export function nextEmptyStepIndex(actions: Pick<MatchDraftAction, "stepIndex">[]): number | null {
+  const taken = new Set(actions.map((action) => action.stepIndex));
+  for (const step of LCS_DRAFT_STEPS) {
+    if (!taken.has(step.index)) return step.index;
+  }
+  return null;
 }

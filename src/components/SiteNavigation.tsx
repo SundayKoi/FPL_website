@@ -36,6 +36,7 @@ const DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly Dro
     label: "Premium",
     links: [
       { href: "/betting", label: "Betting" },
+      { href: "/drafter", label: "Drafter" },
       {
         href: "https://www.draftleague.lol/",
         label: "Draft League",

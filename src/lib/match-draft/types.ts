@@ -23,8 +23,19 @@ export interface MatchDraftAction {
   side?: DraftSide;
   kind: DraftActionKind;
   slot?: number;
-  champion: string;
+  /** null on a skipped step (turn clock expired). */
+  champion: string | null;
+  /** True when the step was skipped rather than drafted. */
+  skipped?: boolean;
   playerName?: string | null;
+}
+
+/** A captain's pending "let me redo this step" request — one at a time. */
+export interface MatchDraftChangeRequest {
+  stepIndex: number;
+  side: DraftSide;
+  champion?: string | null;
+  requestedAt?: string;
 }
 
 export interface MatchDraftRow {
@@ -39,6 +50,7 @@ export interface MatchDraftRow {
   red_team_name: string | null;
   blue_ready: boolean;
   red_ready: boolean;
+  change_request: MatchDraftChangeRequest | null;
   actions: MatchDraftAction[];
   created_at: string;
   updated_at: string;
@@ -59,6 +71,7 @@ export interface MatchDraftState {
   /** Ready check — the pick/ban countdown only starts once both are true. */
   blueReady: boolean;
   redReady: boolean;
+  changeRequest: MatchDraftChangeRequest | null;
   actions: MatchDraftAction[];
   blockedChampions: string[];
 }
@@ -92,4 +105,39 @@ export interface MatchDraftGameTab {
   href: string;
   /** null = no draft row yet for that game. */
   status: MatchDraftStatus | null;
+}
+
+/** A public /drafter lobby session, scoped by the visitor's secret token.
+ *  When set, the board talks to the open_draft_* RPCs and the open_drafts
+ *  realtime stream instead of the fixture-based match_draft ones. */
+export interface OpenDraftLobbyHandle {
+  lobbyId: string;
+  token: string;
+}
+
+/** What open_draft_lobby_info(p_token) returns — the lobby's public shape
+ *  plus which team (if any) the token drafts for. Never includes tokens. */
+export interface OpenDraftLobbyInfo {
+  lobbyId: string;
+  teamA: string;
+  teamB: string;
+  bestOf: number;
+  fearless: boolean;
+  createdAt?: string;
+  /** The team this token drafts for; null on the spectator link. */
+  teamName: string | null;
+}
+
+/** An open_drafts row — the public-lobby twin of MatchDraftRow (keyed by
+ *  lobby instead of fixture, and with no stored layout). */
+export interface OpenDraftRow extends Omit<MatchDraftRow, "fixture_id" | "layout"> {
+  lobby_id: string;
+}
+
+/** What create_open_draft_lobby returns — the three secret link tokens. */
+export interface OpenDraftLobbyTokens {
+  lobbyId: string;
+  tokenA: string;
+  tokenB: string;
+  tokenSpectator: string;
 }
