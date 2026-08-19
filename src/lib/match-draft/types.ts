@@ -4,7 +4,11 @@ export type DraftSide = "blue" | "red";
 export type DraftActionKind = "pick" | "ban";
 export type MatchDraftStatus = "drafting" | "complete";
 export type MatchDraftLayout = "stage" | "board";
-export type MatchDraftImageSize = "compact" | "default" | "large" | "xl";
+export type MatchDraftImageSize = "xs" | "sm" | "md" | "lg";
+
+export interface MatchDraftTeam extends TeamIdentity {
+  players: string[];
+}
 
 export interface DraftStep {
   index: number;
@@ -45,9 +49,9 @@ export interface MatchDraftState {
   layout: MatchDraftLayout;
   currentStepIndex: number;
   turnStartedAt: string | null;
-  blueTeam: TeamIdentity;
-  redTeam: TeamIdentity;
-  scheduledTeams: [TeamIdentity, TeamIdentity];
+  blueTeam: MatchDraftTeam;
+  redTeam: MatchDraftTeam;
+  scheduledTeams: [MatchDraftTeam, MatchDraftTeam];
   canChooseSides: boolean;
   sideChoiceRequired: boolean;
   actions: MatchDraftAction[];

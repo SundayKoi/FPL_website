@@ -12,10 +12,10 @@ const sideClass: Record<DraftSide, string> = {
 };
 
 const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slot: string; name: string }[] = [
-  { value: "compact", label: "Compact", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 xl:grid-cols-10", slot: "min-h-20", name: "text-xs" },
-  { value: "default", label: "Default", grid: "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6", slot: "min-h-24", name: "text-sm" },
-  { value: "large", label: "Large", grid: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5", slot: "min-h-32", name: "text-sm" },
-  { value: "xl", label: "XL", grid: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4", slot: "min-h-40", name: "text-base" },
+  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-14", name: "text-[10px]" },
+  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-16", name: "text-[11px]" },
+  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-20", name: "text-xs" },
+  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-24", name: "text-sm" },
 ];
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
@@ -46,7 +46,7 @@ function DraftSlot({
   slot,
   action,
   active,
-  teamLabel,
+  playerName,
   imageSize,
 }: {
   side: DraftSide;
@@ -54,7 +54,7 @@ function DraftSlot({
   slot: number;
   action: MatchDraftAction | null;
   active: boolean;
-  teamLabel: string;
+  playerName: string;
   imageSize: MatchDraftImageSize;
 }) {
   const champion = action?.champion ? championByName(action.champion) : null;
@@ -75,11 +75,11 @@ function DraftSlot({
         <span>{kind} {slot}</span>
         <span>{side}</span>
       </div>
-      <p className={`relative truncate font-display font-semibold not-italic text-white ${imageSize === "compact" ? "mt-4 text-base" : "mt-8 text-lg"}`}>
+      <p className={`relative truncate font-display font-semibold not-italic text-white ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {action?.champion ?? "Open"}
       </p>
       {kind === "pick" ? (
-        <p className="relative mt-1 truncate text-xs text-steel">{action?.playerName || teamLabel}</p>
+        <p className="relative mt-1 truncate text-xs text-steel">{action?.playerName || playerName}</p>
       ) : null}
     </div>
   );
@@ -89,13 +89,13 @@ function SlotColumn({
   side,
   actions,
   currentStepIndex,
-  teamLabel,
+  players,
   imageSize,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
   currentStepIndex: number;
-  teamLabel: string;
+  players: string[];
   imageSize: MatchDraftImageSize;
 }) {
   return (
@@ -108,7 +108,7 @@ function SlotColumn({
           slot={step.slot}
           action={actionForStep(actions, step)}
           active={step.index === currentStepIndex}
-          teamLabel={teamLabel}
+          playerName={players[step.slot - 1] ?? "Player TBD"}
           imageSize={imageSize}
         />
       ))}
@@ -141,16 +141,18 @@ export default function MatchDraftBoard({
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
   const [state, setState] = useState(initialState);
   const [query, setQuery] = useState("");
-  const [imageSize, setImageSize] = useState<MatchDraftImageSize>("compact");
+  const [imageSizeIndex, setImageSizeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const currentStep = LCS_DRAFT_STEPS[state.currentStepIndex] ?? LCS_DRAFT_STEPS[LCS_DRAFT_STEPS.length - 1];
   const currentAction = currentStep ? actionForStep(state.actions, currentStep) : null;
   const filteredChampions = CHAMPIONS.filter((champion) => champion.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const imageSize = imageSizes[imageSizeIndex].value;
 
   const setLayout = (layout: MatchDraftLayout) => setState((current) => ({ ...current, layout }));
   const teamForSide = (side: DraftSide) => (side === "blue" ? state.blueTeam : state.redTeam);
-  const labelForSide = (side: DraftSide) => teamForSide(side).abbreviation || teamForSide(side).name;
+  const playersForSide = (side: DraftSide) => teamForSide(side).players;
+  const playerForCurrentPick = (side: DraftSide, slot?: number) => playersForSide(side)[(slot ?? 1) - 1] ?? "Player TBD";
 
   const persist = async (next: MatchDraftState) => {
     if (onSave) {
@@ -192,7 +194,7 @@ export default function MatchDraftBoard({
           kind: currentStep.kind,
           slot: currentStep.slot,
           champion,
-          playerName: currentStep.kind === "pick" ? labelForSide(currentStep.side) : null,
+          playerName: currentStep.kind === "pick" ? playerForCurrentPick(currentStep.side, currentStep.slot) : null,
         },
       ],
     };
@@ -275,7 +277,7 @@ export default function MatchDraftBoard({
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
         <div className="flex flex-col gap-3">
           <TeamMark team={state.blueTeam} side="blue" />
-          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} teamLabel={labelForSide("blue")} imageSize={imageSize} />
+          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
           <BanRow side="blue" actions={state.actions} />
         </div>
         <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
@@ -287,7 +289,7 @@ export default function MatchDraftBoard({
         </div>
         <div className="flex flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" />
-          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} teamLabel={labelForSide("red")} imageSize={imageSize} />
+          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
           <BanRow side="red" actions={state.actions} />
         </div>
       </div>
@@ -299,13 +301,13 @@ export default function MatchDraftBoard({
     <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]" aria-label="Board draft layout">
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" />
-        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} teamLabel={labelForSide("blue")} imageSize={imageSize} />
+        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
         <BanRow side="blue" actions={state.actions} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.redTeam} side="red" />
-        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} teamLabel={labelForSide("red")} imageSize={imageSize} />
+        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
         <BanRow side="red" actions={state.actions} />
       </aside>
     </section>
@@ -335,18 +337,25 @@ export default function MatchDraftBoard({
       <section className="card-brand flex flex-wrap items-end gap-3 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-dash">Image size</span>
-          {imageSizes.map((size) => (
-            <button
-              key={size.value}
-              type="button"
-              aria-pressed={imageSize === size.value}
-              aria-label={`${size.label} images`}
-              onClick={() => setImageSize(size.value)}
-              className="btn-pill px-3 py-1.5 text-xs"
-            >
-              {size.label}
-            </button>
-          ))}
+          <button
+            type="button"
+            aria-label="Decrease image size"
+            disabled={imageSizeIndex === 0}
+            onClick={() => setImageSizeIndex((current) => Math.max(0, current - 1))}
+            className="btn-pill px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            -
+          </button>
+          <span className="min-w-8 text-center text-xs font-semibold text-white">{imageSizes[imageSizeIndex].label}</span>
+          <button
+            type="button"
+            aria-label="Increase image size"
+            disabled={imageSizeIndex === imageSizes.length - 1}
+            onClick={() => setImageSizeIndex((current) => Math.min(imageSizes.length - 1, current + 1))}
+            className="btn-pill px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            +
+          </button>
         </div>
         <p className="text-sm text-steel">
           Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>

@@ -12,11 +12,11 @@ const state: MatchDraftState = {
   layout: "stage",
   currentStepIndex: 6,
   turnStartedAt: "2026-08-19T15:00:00Z",
-  blueTeam: { name: "Blue Team", abbreviation: "BLU", imageUrl: null },
-  redTeam: { name: "Red Team", abbreviation: "RED", imageUrl: null },
+  blueTeam: { name: "Blue Team", abbreviation: "BLU", imageUrl: null, players: ["Blue Top", "Blue Jungle", "Blue Mid", "Blue ADC", "Blue Support"] },
+  redTeam: { name: "Red Team", abbreviation: "RED", imageUrl: null, players: ["Red Top", "Red Jungle", "Red Mid", "Red ADC", "Red Support"] },
   scheduledTeams: [
-    { name: "Blue Team", abbreviation: "BLU", imageUrl: null },
-    { name: "Red Team", abbreviation: "RED", imageUrl: null },
+    { name: "Blue Team", abbreviation: "BLU", imageUrl: null, players: ["Blue Top", "Blue Jungle", "Blue Mid", "Blue ADC", "Blue Support"] },
+    { name: "Red Team", abbreviation: "RED", imageUrl: null, players: ["Red Top", "Red Jungle", "Red Mid", "Red ADC", "Red Support"] },
   ],
   canChooseSides: false,
   sideChoiceRequired: false,
@@ -36,31 +36,33 @@ describe("MatchDraftBoard", () => {
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg"]')).toBeTruthy();
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
-    expect(screen.getByText("Blue Mid")).toBeTruthy();
+    expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
     expect(screen.getByText("30s")).toBeTruthy();
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("uses compact champion images by default and offers multiple size levels", () => {
+  it("uses extra-small champion images by default and resizes with minus and plus controls", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /compact images/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("compact");
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("xs");
 
-    fireEvent.click(screen.getByRole("button", { name: /large images/i }));
+    fireEvent.click(screen.getByRole("button", { name: /increase image size/i }));
 
-    expect(screen.getByRole("button", { name: /large images/i }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("large");
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("sm");
+
+    fireEvent.click(screen.getByRole("button", { name: /decrease image size/i }));
+
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("xs");
   });
 
-  it("auto-fills a pick with that side's team abbreviation", () => {
+  it("auto-fills a pick with that side's individual player name", () => {
     const onSave = vi.fn();
     render(<MatchDraftBoard initialState={{ ...state, actions: [] }} onSave={onSave} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Amumu" }));
 
     const saved = onSave.mock.calls.at(-1)?.[0] as MatchDraftState;
-    expect(saved.actions.find((action) => action.stepIndex === 6)?.playerName).toBe("BLU");
+    expect(saved.actions.find((action) => action.stepIndex === 6)?.playerName).toBe("Blue Top");
   });
 
   it("lets game two choose sides before the draft is locked", () => {
@@ -73,6 +75,7 @@ describe("MatchDraftBoard", () => {
 
     const saved = onSave.mock.calls[0][0] as MatchDraftState;
     expect(saved.blueTeam.abbreviation).toBe("RED");
+    expect(saved.blueTeam.players[0]).toBe("Red Top");
     expect(saved.redTeam.abbreviation).toBe("BLU");
     expect(saved.sideChoiceRequired).toBe(false);
   });

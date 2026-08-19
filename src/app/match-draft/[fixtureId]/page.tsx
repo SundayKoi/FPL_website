@@ -1,10 +1,10 @@
 import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
+import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
 import { fearlessBlockedChampions } from "@/lib/match-draft/rules";
-import type { MatchDraftAction, MatchDraftLayout, MatchDraftRow, MatchDraftState } from "@/lib/match-draft/types";
+import type { MatchDraftAction, MatchDraftLayout, MatchDraftRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { TeamIdentity } from "@/lib/teams/identity";
 import { teamSlug } from "@/lib/teams/teamPage";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -21,16 +21,17 @@ function layoutParam(value: string | undefined): MatchDraftLayout {
   return value === "board" ? "board" : "stage";
 }
 
-function fallbackIdentity(name: string | null, side: "Blue" | "Red"): TeamIdentity {
+function fallbackIdentity(name: string | null, side: "Blue" | "Red"): MatchDraftTeam {
   const label = name?.trim() || `${side} side`;
   return {
     name: label,
     abbreviation: label === `${side} side` ? side.slice(0, 3).toUpperCase() : label.slice(0, 3).toUpperCase(),
     imageUrl: null,
+    players: [],
   };
 }
 
-function identityFor(name: string | null, identities: Record<string, TeamIdentity>, side: "Blue" | "Red"): TeamIdentity {
+function identityFor(name: string | null, identities: Record<string, MatchDraftTeam>, side: "Blue" | "Red"): MatchDraftTeam {
   return identities[teamSlug(name ?? "")] ?? fallbackIdentity(name, side);
 }
 
@@ -40,23 +41,23 @@ function stateFor({
   rows,
   gameNumber,
   layout,
-  identities,
+  teams,
 }: {
   fixture: FixtureRow;
   row: MatchDraftRow | null;
   rows: MatchDraftRow[];
   gameNumber: number;
   layout: MatchDraftLayout;
-  identities: Record<string, TeamIdentity>;
+  teams: Record<string, MatchDraftTeam>;
 }): MatchDraftState {
   const actions = row?.actions ?? [];
   const prior = rows.map((draft) => ({ gameNumber: draft.game_number, actions: draft.actions ?? [] }));
-  const scheduledTeams: [TeamIdentity, TeamIdentity] = [
-    identityFor(fixture.team_a, identities, "Blue"),
-    identityFor(fixture.team_b, identities, "Red"),
+  const scheduledTeams: [MatchDraftTeam, MatchDraftTeam] = [
+    identityFor(fixture.team_a, teams, "Blue"),
+    identityFor(fixture.team_b, teams, "Red"),
   ];
-  const blueTeam = identityFor(row?.blue_team_name || fixture.team_a, identities, "Blue");
-  const redTeam = identityFor(row?.red_team_name || fixture.team_b, identities, "Red");
+  const blueTeam = identityFor(row?.blue_team_name || fixture.team_a, teams, "Blue");
+  const redTeam = identityFor(row?.red_team_name || fixture.team_b, teams, "Red");
   return {
     fixtureId: fixture.id,
     gameNumber,
@@ -102,23 +103,37 @@ export default async function MatchDraftPage({
   const gameNumber = gameParam(firstParam(query.game), fixture.best_of);
   const layout = layoutParam(firstParam(query.layout));
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
-  const [draftRowsResult, identitiesResult] = await Promise.all([
+  const [draftRowsResult, teamsResult] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
     teamNames.length
-      ? supabase.from("teams").select("name, abbreviation, image_url").in("name", teamNames)
+      ? supabase.from("teams").select("id, name, abbreviation, image_url").in("name", teamNames)
       : Promise.resolve({ data: [] }),
   ]);
 
   const rows = (draftRowsResult.data as MatchDraftRow[]) ?? [];
-  const identities: Record<string, TeamIdentity> = {};
-  for (const team of (identitiesResult.data as { name: string; abbreviation: string | null; image_url: string | null }[]) ?? []) {
-    identities[teamSlug(team.name)] = {
+  const teamRows = (teamsResult.data as { id: string; name: string; abbreviation: string | null; image_url: string | null }[]) ?? [];
+  const playerRowsResult = teamRows.length
+    ? await supabase.from("players").select("team_id, display_name, role").in("team_id", teamRows.map((team) => team.id))
+    : { data: [] };
+  const playersByTeamId = new Map<string, { display_name: string; role: LolRole }[]>();
+  for (const player of (playerRowsResult.data as { team_id: string; display_name: string; role: LolRole }[]) ?? []) {
+    const players = playersByTeamId.get(player.team_id) ?? [];
+    players.push(player);
+    playersByTeamId.set(player.team_id, players);
+  }
+  const teams: Record<string, MatchDraftTeam> = {};
+  for (const team of teamRows) {
+    const players = (playersByTeamId.get(team.id) ?? [])
+      .sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.display_name.localeCompare(b.display_name))
+      .map((player) => player.display_name);
+    teams[teamSlug(team.name)] = {
       name: team.name,
       abbreviation: team.abbreviation || team.name.slice(0, 3).toUpperCase(),
       imageUrl: team.image_url,
+      players,
     };
   }
   const row = rows.find((draft) => draft.game_number === gameNumber) ?? null;
 
-  return <MatchDraftBoard initialState={stateFor({ fixture, row, rows, gameNumber, layout, identities })} />;
+  return <MatchDraftBoard initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams })} />;
 }
