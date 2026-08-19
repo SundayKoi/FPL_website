@@ -177,25 +177,28 @@ begin
     end);
 end $$;
 
--- Resolve a token to (lobby, team) raising the shared errors — the guts of
--- every captain-gated RPC below.
-create or replace function public.open_draft_captain_lobby(p_token text, p_game int, out o_lobby public.open_draft_lobbies, out o_team text)
+-- Resolve a captain token to its lobby, raising the shared errors — the
+-- guts of every captain-gated RPC below. Guarantees the token is one of the
+-- two captain tokens, so callers may derive the team with a simple CASE.
+-- (Returns just the lobby row: plpgsql forbids composite variables in a
+-- multi-item INTO list, so a (lobby, team) pair can't come back in one go.)
+create or replace function public.open_draft_captain_lobby(p_token text, p_game int)
+returns public.open_draft_lobbies
 language plpgsql stable security definer set search_path = public as $$
+declare
+  v_lobby public.open_draft_lobbies;
 begin
-  o_lobby := public.open_draft_lobby_for_token(p_token);
-  if o_lobby.id is null then
+  v_lobby := public.open_draft_lobby_for_token(p_token);
+  if v_lobby.id is null then
     raise exception 'BAD_LINK: this draft link is invalid or the lobby has expired';
   end if;
-  if p_game < 1 or p_game > o_lobby.best_of then
-    raise exception 'BAD_REQUEST: this lobby is a best of %', o_lobby.best_of;
+  if p_game < 1 or p_game > v_lobby.best_of then
+    raise exception 'BAD_REQUEST: this lobby is a best of %', v_lobby.best_of;
   end if;
-  o_team := case
-    when o_lobby.token_a = p_token then o_lobby.team_a_name
-    when o_lobby.token_b = p_token then o_lobby.team_b_name
-  end;
-  if o_team is null then
+  if p_token not in (v_lobby.token_a, v_lobby.token_b) then
     raise exception 'SPECTATOR_LINK: this link can only watch — ask for a captain link to draft';
   end if;
+  return v_lobby;
 end $$;
 revoke all on function public.open_draft_captain_lobby(text, int) from public, anon, authenticated;
 
@@ -229,7 +232,8 @@ declare
   v_actions jsonb;
   v_next int;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
   if p_step < 0 or p_step > 19 or coalesce(trim(p_champion), '') = '' then
     raise exception 'BAD_REQUEST: invalid draft action';
   end if;
@@ -308,7 +312,8 @@ declare
   v_team text;
   v_row public.open_drafts;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
   if p_side not in ('blue', 'red') then
     raise exception 'BAD_REQUEST: invalid ready request';
   end if;
@@ -352,7 +357,8 @@ declare
   v_red text;
   v_row public.open_drafts;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
   if lower(trim(p_blue_name)) = lower(trim(v_lobby.team_a_name)) then
     v_red := v_lobby.team_b_name;
   elsif lower(trim(p_blue_name)) = lower(trim(v_lobby.team_b_name)) then
@@ -403,7 +409,8 @@ declare
   v_actions jsonb;
   v_next int;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
 
   select * into v_row from public.open_drafts
    where lobby_id = v_lobby.id and game_number = p_game
@@ -448,7 +455,8 @@ declare
   v_row public.open_drafts;
   v_action jsonb;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
 
   select * into v_row from public.open_drafts
    where lobby_id = v_lobby.id and game_number = p_game
@@ -493,7 +501,8 @@ declare
   v_step int;
   v_actions jsonb;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, p_game);
+  v_lobby := public.open_draft_captain_lobby(p_token, p_game);
+  v_team := case when v_lobby.token_a = p_token then v_lobby.team_a_name else v_lobby.team_b_name end;
 
   select * into v_row from public.open_drafts
    where lobby_id = v_lobby.id and game_number = p_game
@@ -535,9 +544,8 @@ create or replace function public.reset_open_draft(
 language plpgsql security definer set search_path = public as $$
 declare
   v_lobby public.open_draft_lobbies;
-  v_team text;
 begin
-  select * into v_lobby, v_team from public.open_draft_captain_lobby(p_token, coalesce(p_game, 1));
+  v_lobby := public.open_draft_captain_lobby(p_token, coalesce(p_game, 1));
   delete from public.open_drafts
    where lobby_id = v_lobby.id
      and (p_game is null or game_number = p_game);
