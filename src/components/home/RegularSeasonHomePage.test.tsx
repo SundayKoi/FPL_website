@@ -23,16 +23,19 @@ function resetMocks() {
     status: { state: "offline", title: null, viewerCount: null, startedAt: null },
     clips: [],
   });
-  fetchHomepageStandings.mockResolvedValue([
-    {
-      id: "team-alpha",
-      name: "Alpha",
-      abbreviation: "AL",
-      nomination_position: 1,
-      wins: 0,
-      losses: 0,
-    },
-  ]);
+  fetchHomepageStandings.mockResolvedValue({
+    teams: [
+      {
+        id: "team-alpha",
+        name: "Alpha",
+        abbreviation: "AL",
+        nomination_position: 1,
+        wins: 0,
+        losses: 0,
+      },
+    ],
+    race: [],
+  });
   fetchHomepageSchedule.mockResolvedValue({
     season: "S5",
     isNewestSeason: true,

@@ -28,7 +28,7 @@ describe("getTwitchChannelStatus", () => {
       fetcher,
     });
 
-    expect(status).toEqual({ state: "live" });
+    expect(status).toEqual({ state: "live", viewerCount: null });
     expect(requests).toEqual([
       "https://id.twitch.tv/oauth2/token?client_id=client-id&client_secret=client-secret&grant_type=client_credentials",
       "https://api.twitch.tv/helix/streams?user_login=franchisepremierleague",

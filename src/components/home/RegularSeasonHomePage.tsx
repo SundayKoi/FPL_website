@@ -1,6 +1,6 @@
 import HomeDashboard from "./HomeDashboard";
 import { fetchHomepageTwitch, type HomepageTwitchData } from "@/lib/home/twitch";
-import { fetchHomepageStandings, type HomeStandingTeam } from "@/lib/home/standings";
+import { fetchHomepageStandings, type HomeStandingsData } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture, type HomepageScheduleData } from "@/lib/home/schedule";
 import { fetchHomepageAwards, PREMIER_SEASON, type HomepageAwardsData } from "@/lib/home/awards";
 import { fetchHomepageFeaturedSettings, type HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
@@ -59,10 +59,10 @@ async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitch, awards, standings, schedule, identities, standouts, featuredSettings] = await Promise.all([
+  const [twitch, awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
     fallbackTo(fetchHomepageTwitch(), fallbackTwitch),
     fallbackTo(fetchHomepageAwards(), fallbackAwards),
-    fallbackTo<HomeStandingTeam[]>(fetchHomepageStandings(), []),
+    fallbackTo<HomeStandingsData>(fetchHomepageStandings(), { teams: [], race: [] }),
     fallbackTo(fetchHomepageSchedule(), fallbackSchedule),
     fallbackTo<Record<string, TeamIdentity>>(fetchTeamIdentities(), {}),
     fallbackTo<WeeklyStandout[]>(fetchLatestWeeklyStandouts(), []),
@@ -78,7 +78,7 @@ export default async function RegularSeasonHomePage() {
       featuredFixture={featuredFixture}
       featuredSettings={featuredSettings}
       awards={awards}
-      standings={standings}
+      standings={standingsData}
       standouts={standouts}
       schedule={schedule}
       identities={identities}

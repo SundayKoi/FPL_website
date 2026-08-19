@@ -248,6 +248,20 @@ body {
   animation: neonShimmer 4.2s linear infinite;
 }
 
+/* Homepage live ticker — a seamless marquee. The track renders its items
+   twice, so sliding one half-width and looping reads as continuous. */
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@utility ticker-track {
+  animation: tickerScroll 45s linear infinite;
+  &:hover { animation-play-state: paused; }
+}
+@utility ticker-mask {
+  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+}
+
 /* Soft pulsing glow for hero score numbers. */
 @keyframes neonPulse {
   0%, 100% { opacity: 0.85; filter: brightness(1); }
@@ -268,7 +282,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .row-rank-1, .row-rank-2, .row-rank-3, .glow-pulse, .float-soft { animation: none; }
+  .row-rank-1, .row-rank-2, .row-rank-3, .glow-pulse, .float-soft, .ticker-track { animation: none; }
   .bar-fill { transition: none; }
 }
 

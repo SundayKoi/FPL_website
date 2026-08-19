@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deriveSeriesStandings, fetchHomepageStandings } from "./standings";
+import { deriveSeriesStandings, deriveStandingsRace, deriveTeamExtras, fetchHomepageStandings } from "./standings";
 
 const { createServerSupabase } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
@@ -42,10 +42,13 @@ describe("fetchHomepageStandings", () => {
     createServerSupabase.mockResolvedValue({ from });
 
     // 2-1 is ONE series win, not two wins and a loss.
-    await expect(fetchHomepageStandings()).resolves.toEqual([
-      { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 1, losses: 0, winrate_pct: 100 },
-      { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2, wins: 0, losses: 1, winrate_pct: 0 },
-    ]);
+    await expect(fetchHomepageStandings()).resolves.toEqual({
+      teams: [
+        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 1, losses: 0, winrate_pct: 100, form: ["W"], next_opponent: null },
+        { id: "team-2", name: "Bravo", abbreviation: "BR", nomination_position: 2, wins: 0, losses: 1, winrate_pct: 0, form: ["L"], next_opponent: null },
+      ],
+      race: [],
+    });
   });
 
   it("ignores fixtures from another season", async () => {
@@ -58,16 +61,19 @@ describe("fetchHomepageStandings", () => {
     );
     createServerSupabase.mockResolvedValue({ from });
 
-    await expect(fetchHomepageStandings()).resolves.toEqual([
-      { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0, winrate_pct: 0 },
-    ]);
+    await expect(fetchHomepageStandings()).resolves.toEqual({
+      teams: [
+        { id: "team-1", name: "Alpha", abbreviation: "AL", nomination_position: 1, wins: 0, losses: 0, winrate_pct: 0, form: [], next_opponent: null },
+      ],
+      race: [],
+    });
   });
 
   it("returns no rows when no draft is featured", async () => {
     const from = vi.fn(() => query({ data: { featured_draft_id: null }, error: null }));
     createServerSupabase.mockResolvedValue({ from });
 
-    await expect(fetchHomepageStandings()).resolves.toEqual([]);
+    await expect(fetchHomepageStandings()).resolves.toEqual({ teams: [], race: [] });
   });
 
   it("returns no rows when local settings have not been seeded", async () => {
@@ -79,7 +85,66 @@ describe("fetchHomepageStandings", () => {
     );
     createServerSupabase.mockResolvedValue({ from });
 
-    await expect(fetchHomepageStandings()).resolves.toEqual([]);
+    await expect(fetchHomepageStandings()).resolves.toEqual({ teams: [], race: [] });
+  });
+});
+
+describe("deriveTeamExtras", () => {
+  const staged = (a: string, b: string, sa: number | null, sb: number | null, stage: string, sort: number) => ({
+    season: "S5", team_a: a, team_b: b, score_a: sa, score_b: sb, stage: stage as never, sort_order: sort,
+  });
+
+  it("returns chronological form and the next unplayed opponent", () => {
+    const extras = deriveTeamExtras(
+      [
+        staged("Alpha", "Bravo", 0, 2, "week_2", 1),
+        staged("Alpha", "Bravo", 2, 1, "week_1", 1),
+        staged("Alpha", "Charlie", null, null, "week_3", 1),
+      ],
+      "S5",
+      "Alpha",
+    );
+
+    expect(extras.form).toEqual(["W", "L"]);
+    expect(extras.next_opponent).toBe("Charlie");
+  });
+
+  it("caps form at the five most recent series", () => {
+    const fixtures = ["week_1", "week_2", "week_3", "week_4", "week_5", "gauntlet_r1"].map((stage, index) =>
+      staged("Alpha", "Bravo", index === 0 ? 0 : 2, index === 0 ? 2 : 0, stage, 1),
+    );
+    const extras = deriveTeamExtras(fixtures, "S5", "Alpha");
+
+    expect(extras.form).toEqual(["W", "W", "W", "W", "W"]);
+  });
+});
+
+describe("deriveStandingsRace", () => {
+  const staged = (a: string, b: string, sa: number | null, sb: number | null, stage: string) => ({
+    season: "S5", team_a: a, team_b: b, score_a: sa, score_b: sb, stage: stage as never, sort_order: 1,
+  });
+
+  it("emits one cumulative frame per stage with a completed series", () => {
+    const race = deriveStandingsRace(
+      [
+        staged("Alpha", "Bravo", 2, 0, "week_1"),
+        staged("Bravo", "Alpha", 2, 1, "week_2"),
+        staged("Alpha", "Bravo", null, null, "week_3"),
+      ],
+      "S5",
+      draftTeams,
+    );
+
+    expect(race.map((frame) => frame.stage)).toEqual(["week_1", "week_2"]);
+    const week1 = Object.fromEntries(race[0].entries.map((entry) => [entry.name, entry]));
+    expect(week1.Alpha).toMatchObject({ wins: 1, losses: 0 });
+    const week2 = Object.fromEntries(race[1].entries.map((entry) => [entry.name, entry]));
+    expect(week2.Alpha).toMatchObject({ wins: 1, losses: 1 });
+    expect(week2.Bravo).toMatchObject({ wins: 1, losses: 1 });
+  });
+
+  it("returns no frames when nothing has been played", () => {
+    expect(deriveStandingsRace([staged("Alpha", "Bravo", null, null, "week_1")], "S5", draftTeams)).toEqual([]);
   });
 });
 
