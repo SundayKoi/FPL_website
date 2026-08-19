@@ -44,7 +44,7 @@ describe("NextMatchCard", () => {
   it("shows one drafter link for the whole series", () => {
     render(<NextMatchCard fixture={fixture} myTeamName="My Team" />);
 
-    expect(screen.getByText(/Bo3 fearless/i)).toBeTruthy();
+    expect(screen.getByText(/series drafter/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /open match drafter/i }).getAttribute("href")).toBe(
       "/match-draft/fixture-1",
     );

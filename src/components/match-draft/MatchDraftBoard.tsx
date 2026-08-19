@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CHAMPIONS, championByName } from "@/lib/match-draft/champions";
 import { actionForStep, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
-import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftState } from "@/lib/match-draft/types";
+import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftSeriesFormat, MatchDraftState } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
@@ -162,15 +162,21 @@ function BanRow({ side, actions, currentStepIndex }: { side: DraftSide; actions:
   );
 }
 
+const BEST_OF_OPTIONS: MatchDraftBestOf[] = [1, 3, 5];
+
 export default function MatchDraftBoard({
   initialState,
   games = [],
+  seriesFormat = { bestOf: 3, fearless: true },
   canReset = false,
   onSave,
 }: {
   initialState: MatchDraftState;
   /** Game tabs for the whole series — one shared URL, ?game= switches. */
   games?: MatchDraftGameTab[];
+  /** The series' drafter format (Bo1/Bo3/Bo5 + fearless), from
+   *  match_draft_settings with code defaults when unset. */
+  seriesFormat?: MatchDraftSeriesFormat;
   /** Admin-only: renders the reset controls. The database policies are the
    *  real gate; this only controls presentation. */
   canReset?: boolean;
@@ -260,6 +266,25 @@ export default function MatchDraftBoard({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sides could not be saved.");
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveSeriesFormat = async (change: Partial<MatchDraftSeriesFormat>) => {
+    if (!supabase) return;
+    const next = { ...seriesFormat, ...change };
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: saveError } = await supabase.from("match_draft_settings").upsert(
+        { fixture_id: state.fixtureId, best_of: next.bestOf, fearless: next.fearless },
+        { onConflict: "fixture_id" },
+      );
+      if (saveError) throw saveError;
+      // Tab count and fearless blocks are server-derived — rebuild the page.
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Format could not be saved.");
       setSaving(false);
     }
   };
@@ -396,7 +421,7 @@ export default function MatchDraftBoard({
     <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
-          <span className="label-dash">Bo3 fearless · Game {state.gameNumber}</span>
+          <span className="label-dash">Bo{seriesFormat.bestOf}{seriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}</span>
           <h1 className="type-display mt-1 text-2xl text-white">
             {state.blueTeam.abbreviation} vs {state.redTeam.abbreviation}
           </h1>
@@ -435,6 +460,36 @@ export default function MatchDraftBoard({
       {sideChooser}
 
       <section className="card-brand flex flex-wrap items-end gap-3 p-3">
+        {!onSave ? (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Series format">
+            <span className="label-dash">Format</span>
+            {BEST_OF_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                disabled={saving}
+                aria-pressed={seriesFormat.bestOf === option}
+                onClick={() => (seriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
+                  seriesFormat.bestOf === option ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                }`}
+              >
+                Bo{option}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={saving}
+              aria-pressed={seriesFormat.fearless}
+              onClick={() => void saveSeriesFormat({ fearless: !seriesFormat.fearless })}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
+                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-line bg-panel text-steel hover:text-white"
+              }`}
+            >
+              Fearless {seriesFormat.fearless ? "on" : "off"}
+            </button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-dash">Image size</span>
           <button

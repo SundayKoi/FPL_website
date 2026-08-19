@@ -53,7 +53,7 @@ export default function NextMatchCard({
       ) : null}
       <div className="mt-4 rounded border border-line bg-navy/50 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Bo3 fearless drafter</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Series drafter</p>
           <span className="text-[11px] uppercase tracking-wide text-gold">30s turns</span>
         </div>
         <div className="mt-3">
@@ -63,7 +63,7 @@ export default function NextMatchCard({
           >
             Open match drafter →
           </Link>
-          <p className="mt-2 text-[11px] text-steel">One link for the whole series — pick the game with the tabs inside.</p>
+          <p className="mt-2 text-[11px] text-steel">One link for the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
         </div>
       </div>
     </section>

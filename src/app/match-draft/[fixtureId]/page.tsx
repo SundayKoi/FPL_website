@@ -2,7 +2,7 @@ import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
 import { fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
-import type { MatchDraftAction, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
+import type { MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftSettingsRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
@@ -43,6 +43,7 @@ function stateFor({
   gameNumber,
   layout,
   teams,
+  fearless,
 }: {
   fixture: FixtureRow;
   row: MatchDraftRow | null;
@@ -50,6 +51,7 @@ function stateFor({
   gameNumber: number;
   layout: MatchDraftLayout;
   teams: Record<string, MatchDraftTeam>;
+  fearless: boolean;
 }): MatchDraftState {
   const actions = row?.actions ?? [];
   const prior = rows.map((draft) => ({ gameNumber: draft.game_number, actions: draft.actions ?? [] }));
@@ -72,7 +74,7 @@ function stateFor({
     canChooseSides: gameNumber > 1 && actions.length === 0,
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions: actions.filter((action): action is MatchDraftAction => Boolean(action?.champion)),
-    blockedChampions: [...fearlessBlockedChampions(prior, gameNumber)],
+    blockedChampions: fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
   };
 }
 
@@ -101,17 +103,23 @@ export default async function MatchDraftPage({
     );
   }
 
-  const bestOf = matchDraftBestOf(fixture);
-  const gameNumber = gameParam(firstParam(query.game), bestOf);
   const layout = layoutParam(firstParam(query.layout));
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
-  const [draftRowsResult, teamsResult, staffTier] = await Promise.all([
+  const [draftRowsResult, teamsResult, staffTier, settingsResult] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
     teamNames.length
       ? supabase.from("teams").select("id, name, abbreviation, image_url").in("name", teamNames)
       : Promise.resolve({ data: [] }),
     fetchStaffTier(supabase),
+    supabase.from("match_draft_settings").select("fixture_id, best_of, fearless").eq("fixture_id", fixture.id).maybeSingle(),
   ]);
+
+  const settings = settingsResult.data as MatchDraftSettingsRow | null;
+  const seriesFormat: MatchDraftSeriesFormat = {
+    bestOf: settings && [1, 3, 5].includes(settings.best_of) ? (settings.best_of as MatchDraftBestOf) : ((matchDraftBestOf(fixture) as MatchDraftBestOf) ?? 3),
+    fearless: settings?.fearless ?? true,
+  };
+  const gameNumber = gameParam(firstParam(query.game), seriesFormat.bestOf);
 
   const rows = (draftRowsResult.data as MatchDraftRow[]) ?? [];
   const teamRows = (teamsResult.data as { id: string; name: string; abbreviation: string | null; image_url: string | null }[]) ?? [];
@@ -137,7 +145,7 @@ export default async function MatchDraftPage({
     };
   }
   const row = rows.find((draft) => draft.game_number === gameNumber) ?? null;
-  const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture).map((link) => ({
+  const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture, seriesFormat.bestOf).map((link) => ({
     gameNumber: link.gameNumber,
     href: link.href,
     status: rows.find((draft) => draft.game_number === link.gameNumber)?.status ?? null,
@@ -145,8 +153,9 @@ export default async function MatchDraftPage({
 
   return (
     <MatchDraftBoard
-      initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams })}
+      initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams, fearless: seriesFormat.fearless })}
       games={games}
+      seriesFormat={seriesFormat}
       canReset={staffTier.isAdmin || staffTier.isOwner}
     />
   );

@@ -127,6 +127,17 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("link", { name: /game 2/i }).textContent).toContain("✓");
   });
 
+  it("labels the series with its configured format", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 5, fearless: false }} />);
+    expect(screen.getByText(/Bo5 · Game 1/i)).toBeTruthy();
+
+    cleanup();
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 3, fearless: true }} />);
+    expect(screen.getByText(/Bo3 fearless · Game 1/i)).toBeTruthy();
+    // Format controls persist to the database, so preview mode hides them.
+    expect(screen.queryByRole("group", { name: /series format/i })).toBeNull();
+  });
+
   it("hides the admin reset controls in preview mode and without the admin flag", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} canReset />);
     expect(screen.queryByRole("button", { name: /reset game/i })).toBeNull();

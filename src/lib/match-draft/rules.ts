@@ -46,9 +46,10 @@ export function matchDraftHref(fixture: FixtureRow): string {
   return `/match-draft/${fixture.id}`;
 }
 
-/** Per-game tab links within one fixture's drafter. */
-export function matchDraftGameLinks(fixture: FixtureRow): MatchDraftLink[] {
-  return Array.from({ length: matchDraftBestOf(fixture) }, (_, index) => {
+/** Per-game tab links within one fixture's drafter. `bestOf` overrides the
+ *  stage default when the series has a stored match_draft_settings row. */
+export function matchDraftGameLinks(fixture: FixtureRow, bestOf: number = matchDraftBestOf(fixture)): MatchDraftLink[] {
+  return Array.from({ length: bestOf }, (_, index) => {
     const gameNumber = index + 1;
     return {
       gameNumber,
