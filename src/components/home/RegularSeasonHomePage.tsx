@@ -9,7 +9,7 @@ import { fetchLatestWeeklyStandouts } from "@/lib/stats/weekly";
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitch, awards, standings, schedule, identities, standouts, featuredSettings] = await Promise.all([
+  const [twitch, awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
     fetchHomepageTwitch(),
     fetchHomepageAwards(),
     fetchHomepageStandings(),
@@ -28,7 +28,7 @@ export default async function RegularSeasonHomePage() {
       featuredFixture={featuredFixture}
       featuredSettings={featuredSettings}
       awards={awards}
-      standings={standings}
+      standings={standingsData}
       standouts={standouts}
       schedule={schedule}
       identities={identities}

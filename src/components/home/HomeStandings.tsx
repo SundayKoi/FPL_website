@@ -1,4 +1,21 @@
+import CountUp from "./CountUp";
 import type { HomeStandingTeam } from "@/lib/home/standings";
+
+/** W/L dots for a team's recent series, oldest first. */
+function FormDots({ form }: { form: ("W" | "L")[] }) {
+  if (form.length === 0) return null;
+  return (
+    <span className="flex items-center gap-1" aria-label={`Recent form: ${form.join(", ")}`}>
+      {form.map((result, index) => (
+        <span
+          key={index}
+          aria-hidden
+          className={`h-1.5 w-1.5 rounded-full ${result === "W" ? "bg-mint" : "bg-red-400/80"}`}
+        />
+      ))}
+    </span>
+  );
+}
 
 export default function HomeStandings({
   teams,
@@ -38,20 +55,31 @@ export default function HomeStandings({
           {teams.map((team) => (
             <div
               key={team.id}
-              className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-line/50 py-3 first:border-t-0 first:pt-0 last:pb-0"
+              tabIndex={0}
+              className="group border-t border-line/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-line/15 focus-visible:bg-line/15 focus-visible:outline-none"
             >
-              <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position}</span>
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>
-                <span className="min-w-0 truncate text-sm font-semibold text-white">{team.name}</span>
-              </div>
-              <span className="whitespace-nowrap font-mono text-sm font-semibold text-steel">
-                {team.wins}–{team.losses}
-              </span>
-              {hasHistoricalStats ? (
-                <span className="whitespace-nowrap font-mono text-xs font-semibold text-cyan">
-                  {team.winrate_pct ?? 0}%
+              <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto_auto_auto] items-center gap-2">
+                <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>
+                  <span className="min-w-0 truncate text-sm font-semibold text-white">{team.name}</span>
+                </div>
+                <FormDots form={team.form ?? []} />
+                <span className="whitespace-nowrap font-mono text-sm font-semibold text-steel">
+                  {team.wins}–{team.losses}
                 </span>
+                {hasHistoricalStats ? (
+                  <CountUp
+                    value={team.winrate_pct ?? 0}
+                    suffix="%"
+                    className="whitespace-nowrap font-mono text-xs font-semibold text-cyan"
+                  />
+                ) : null}
+              </div>
+              {team.next_opponent ? (
+                <p className="hidden pl-[1.75rem] pt-1 font-mono text-[11px] text-steel group-hover:block group-focus-visible:block">
+                  <span className="text-coral">Next</span> vs {team.next_opponent}
+                </p>
               ) : null}
             </div>
           ))}

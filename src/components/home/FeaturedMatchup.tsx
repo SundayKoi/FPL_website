@@ -9,6 +9,8 @@ type FeaturedMatchupProps = {
   fixture: FixtureRow | null;
   clips: TwitchClip[];
   streamState: TwitchStreamState;
+  /** Live viewer count from the Twitch status check; null while offline. */
+  viewerCount?: number | null;
   channelLogin: string;
   twitchUrl: string;
   title?: string;
@@ -28,6 +30,7 @@ export default function FeaturedMatchup({
   fixture,
   clips,
   streamState,
+  viewerCount = null,
   channelLogin,
   twitchUrl,
   title = "The title race gets serious.",
@@ -71,9 +74,16 @@ export default function FeaturedMatchup({
             {title}
           </h2>
         </div>
-        <span className="rounded-full border border-cyan/40 bg-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan">
-          {fixture?.division ?? "FPL broadcast"}
-        </span>
+        {isLive ? (
+          <span className="glow-pulse flex items-center gap-2 rounded-full border border-pink/60 bg-pink/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-pink">
+            <span aria-hidden className="h-2 w-2 rounded-full bg-pink" />
+            Live{typeof viewerCount === "number" ? ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(viewerCount)} watching` : ""}
+          </span>
+        ) : (
+          <span className="rounded-full border border-cyan/40 bg-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan">
+            {fixture?.division ?? "FPL broadcast"}
+          </span>
+        )}
       </div>
 
       <p className="mt-3 max-w-2xl text-sm leading-6 text-steel">
@@ -138,7 +148,13 @@ export default function FeaturedMatchup({
               )}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 text-xs text-steel">
-              <span>{isLive ? "Streaming live from Twitch" : activeClip ? activeClip.title : "Twitch clips"}</span>
+              <span>
+                {isLive
+                  ? `Streaming live from Twitch${typeof viewerCount === "number" ? ` · ${Intl.NumberFormat("en", { notation: "compact" }).format(viewerCount)} watching` : ""}`
+                  : activeClip
+                    ? activeClip.title
+                    : "Twitch clips"}
+              </span>
             </div>
           </div>
         ) : null}

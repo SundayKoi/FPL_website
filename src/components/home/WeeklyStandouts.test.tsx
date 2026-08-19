@@ -50,8 +50,9 @@ describe("WeeklyStandouts", () => {
     render(<WeeklyStandouts standouts={standouts} />);
 
     expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
-    expect(screen.getByText("MetaShift")).not.toBeNull();
-    expect(screen.getByText("88.8")).not.toBeNull();
+    // The player appears twice: once in the spotlight card, once in the list.
+    expect(screen.getAllByText("MetaShift").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("88.8").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/power score/i)).not.toBeNull();
     expect(screen.getByText(/power score/i).parentElement?.classList.contains("flex-wrap")).toBe(true);
   });

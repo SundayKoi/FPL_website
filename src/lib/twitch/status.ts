@@ -10,7 +10,7 @@ export type TwitchClip = {
 };
 
 export type TwitchChannelStatus =
-  | { state: "live" }
+  | { state: "live"; viewerCount: number | null }
   | { state: "offline" }
   | { state: "unknown"; reason: "missing-credentials" | "request-failed" };
 
@@ -41,7 +41,7 @@ type TwitchClipsResponse = {
 };
 
 type TwitchStreamsResponse = {
-  data?: unknown[];
+  data?: { viewer_count?: number }[];
 };
 
 async function getTwitchAppAccessToken({
@@ -100,7 +100,9 @@ export async function getTwitchChannelStatus({
     }
 
     const streamsBody = (await streamsResponse.json()) as TwitchStreamsResponse;
-    return streamsBody.data?.length ? { state: "live" } : { state: "offline" };
+    if (!streamsBody.data?.length) return { state: "offline" };
+    const viewerCount = streamsBody.data[0]?.viewer_count;
+    return { state: "live", viewerCount: typeof viewerCount === "number" ? viewerCount : null };
   } catch {
     return { state: "unknown", reason: "request-failed" };
   }

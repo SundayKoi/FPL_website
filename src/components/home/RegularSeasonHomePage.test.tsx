@@ -3,16 +3,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import RegularSeasonHomePage from "./RegularSeasonHomePage";
 
 vi.mock("@/lib/home/standings", () => ({
-  fetchHomepageStandings: vi.fn(async () => [
-    {
-      id: "team-alpha",
-      name: "Alpha",
-      abbreviation: "AL",
-      nomination_position: 1,
-      wins: 0,
-      losses: 0,
-    },
-  ]),
+  fetchHomepageStandings: vi.fn(async () => ({
+    teams: [
+      {
+        id: "team-alpha",
+        name: "Alpha",
+        abbreviation: "AL",
+        nomination_position: 1,
+        wins: 0,
+        losses: 0,
+      },
+    ],
+    race: [],
+  })),
 }));
 
 vi.mock("@/lib/home/schedule", async (importOriginal) => ({

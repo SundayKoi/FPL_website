@@ -26,7 +26,7 @@ vi.mock("@/lib/twitch/status", () => ({
   getTwitchChannelStatus: vi.fn(async () => ({ state: "offline" })),
   getTwitchChannelClips: vi.fn(async () => []),
 }));
-vi.mock("@/lib/home/standings", () => ({ fetchHomepageStandings: vi.fn(async () => []) }));
+vi.mock("@/lib/home/standings", () => ({ fetchHomepageStandings: vi.fn(async () => ({ teams: [], race: [] })) }));
 vi.mock("@/lib/home/schedule", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
   fetchHomepageSchedule: vi.fn(async () => ({

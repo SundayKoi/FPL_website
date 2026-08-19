@@ -2,6 +2,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { PREMIER_SEASON } from "./awards";
 import { fetchDraftId } from "./fetchDraftId";
 import { normalizeTeamName } from "@/lib/league/context";
+import { FIXTURE_STAGES, type FixtureStage } from "@/lib/schedule/types";
+import { stageMeta } from "@/lib/schedule/format";
 
 export interface HomeStandingTeam {
   id: string;
@@ -11,6 +13,11 @@ export interface HomeStandingTeam {
   wins: number;
   losses: number;
   winrate_pct?: number;
+  /** Chronological series results, oldest first (last 5) — drives the form
+   *  dots and hover detail on the homepage standings. */
+  form?: ("W" | "L")[];
+  /** The team's next unplayed fixture opponent, if one is scheduled. */
+  next_opponent?: string | null;
 }
 
 type TeamRow = Pick<HomeStandingTeam, "id" | "name" | "abbreviation" | "nomination_position">;
@@ -21,6 +28,95 @@ export interface StandingsFixture {
   team_b: string | null;
   score_a: number | null;
   score_b: number | null;
+  /** Optional ordering columns — needed for form/next-opponent and the race
+   *  chart; deriveSeriesStandings itself works without them. */
+  stage?: FixtureStage;
+  sort_order?: number;
+}
+
+/** One frame of the standings race chart: cumulative records through a stage. */
+export interface RaceWeek {
+  stage: FixtureStage;
+  label: string;
+  entries: { id: string; name: string; abbreviation: string; wins: number; losses: number }[];
+}
+
+export interface HomeStandingsData {
+  teams: HomeStandingTeam[];
+  race: RaceWeek[];
+}
+
+function stageIndex(stage: FixtureStage | undefined): number {
+  return stage ? FIXTURE_STAGES.indexOf(stage) : 0;
+}
+
+/** Season fixtures in play order (stage, then sort_order). */
+function orderedSeasonFixtures(fixtures: StandingsFixture[], season: string): StandingsFixture[] {
+  return fixtures
+    .filter((fixture) => fixture.season === season)
+    .sort((a, b) => stageIndex(a.stage) - stageIndex(b.stage) || (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
+function isCompleted(fixture: StandingsFixture): boolean {
+  return fixture.score_a !== null && fixture.score_b !== null && fixture.score_a !== fixture.score_b;
+}
+
+/** Per-team recent form (last 5 series, oldest first) and next opponent. */
+export function deriveTeamExtras(
+  fixtures: StandingsFixture[],
+  season: string,
+  teamName: string,
+): { form: ("W" | "L")[]; next_opponent: string | null } {
+  const key = normalizeTeamName(teamName);
+  const ordered = orderedSeasonFixtures(fixtures, season).filter(
+    (fixture) => normalizeTeamName(fixture.team_a) === key || normalizeTeamName(fixture.team_b) === key,
+  );
+
+  const form = ordered
+    .filter(isCompleted)
+    .map((fixture) => {
+      const isA = normalizeTeamName(fixture.team_a) === key;
+      const won = isA ? fixture.score_a! > fixture.score_b! : fixture.score_b! > fixture.score_a!;
+      return won ? ("W" as const) : ("L" as const);
+    })
+    .slice(-5);
+
+  const next = ordered.find((fixture) => fixture.score_a === null && fixture.score_b === null);
+  const next_opponent = next
+    ? normalizeTeamName(next.team_a) === key
+      ? next.team_b
+      : next.team_a
+    : null;
+
+  return { form, next_opponent: next_opponent ?? null };
+}
+
+/** Cumulative standings after each stage that has a completed series — the
+ *  frames of the homepage race chart, oldest stage first. */
+export function deriveStandingsRace(
+  fixtures: StandingsFixture[],
+  season: string,
+  teams: TeamRow[],
+): RaceWeek[] {
+  const ordered = orderedSeasonFixtures(fixtures, season).filter(isCompleted);
+  const playedStages = [...new Set(ordered.map((fixture) => fixture.stage).filter(Boolean))] as FixtureStage[];
+  playedStages.sort((a, b) => stageIndex(a) - stageIndex(b));
+
+  return playedStages.map((stage) => {
+    const through = ordered.filter((fixture) => stageIndex(fixture.stage) <= stageIndex(stage));
+    const standings = deriveSeriesStandings(through, season, teams);
+    return {
+      stage,
+      label: stageMeta(stage).label,
+      entries: standings.map((team) => ({
+        id: team.id,
+        name: team.name,
+        abbreviation: team.abbreviation,
+        wins: team.wins,
+        losses: team.losses,
+      })),
+    };
+  });
 }
 
 /**
@@ -90,10 +186,10 @@ export async function fetchHomepageStandings(
   season: string = PREMIER_SEASON,
   teamNames?: string[],
   draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
-): Promise<HomeStandingTeam[]> {
+): Promise<HomeStandingsData> {
   const supabase = await createServerSupabase();
   const featuredDraftId = await fetchDraftId(supabase, draftColumn);
-  if (!featuredDraftId) return [];
+  if (!featuredDraftId) return { teams: [], race: [] };
 
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
@@ -103,21 +199,26 @@ export async function fetchHomepageStandings(
 
   if (teamsError) throw teamsError;
   const draftTeams = (teams ?? []) as TeamRow[];
-  if (draftTeams.length === 0) return [];
+  if (draftTeams.length === 0) return { teams: [], race: [] };
 
   const scoped = teamNames?.length
     ? draftTeams.filter((team) => teamNames.some((name) => normalizeTeamName(name) === normalizeTeamName(team.name)))
     : draftTeams;
 
   try {
-    const { data: fixtures } = await supabase
+    const { data: fixturesData } = await supabase
       .from("fixtures")
-      .select("season, team_a, team_b, score_a, score_b")
+      .select("season, team_a, team_b, score_a, score_b, stage, sort_order")
       .eq("season", season);
-    return deriveSeriesStandings((fixtures as StandingsFixture[]) ?? [], season, scoped);
+    const fixtures = (fixturesData as StandingsFixture[]) ?? [];
+    const standings = deriveSeriesStandings(fixtures, season, scoped).map((team) => ({
+      ...team,
+      ...deriveTeamExtras(fixtures, season, team.name),
+    }));
+    return { teams: standings, race: deriveStandingsRace(fixtures, season, scoped) };
   } catch {
     // A fixtures outage should leave the roster on screen at 0-0 rather than
     // blanking the panel.
-    return scoped.map((team) => ({ ...team, wins: 0, losses: 0 }));
+    return { teams: scoped.map((team) => ({ ...team, wins: 0, losses: 0 })), race: [] };
   }
 }

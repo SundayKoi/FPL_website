@@ -26,7 +26,7 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [twitch, awards, standings, schedule, identities, standouts, featuredSettings] = await Promise.all([
+  const [twitch, awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
     fetchHomepageTwitch(),
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
@@ -45,7 +45,7 @@ export default async function AcademyHomePage() {
       featuredFixture={featuredFixture}
       featuredSettings={featuredSettings}
       awards={awards}
-      standings={standings}
+      standings={standingsData}
       standouts={standouts}
       schedule={schedule}
       identities={identities}
