@@ -68,6 +68,7 @@ function DraftSlot({
   resolve,
   intent = null,
   onRequestChange = null,
+  label,
 }: {
   side: DraftSide;
   kind: DraftActionKind;
@@ -80,6 +81,8 @@ function DraftSlot({
   /** Ghost champion the acting side is hovering (not yet locked). */
   intent?: string | null;
   onRequestChange?: (() => void) | null;
+  /** Overrides the "pick N" header — role names once roles are confirmed. */
+  label?: string;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
   const ghost = !action && intent ? resolve(intent) : null;
@@ -107,7 +110,7 @@ function DraftSlot({
         />
       ) : null}
       <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
-        <span>{kind} {slot}</span>
+        <span>{label ?? `${kind} ${slot}`}</span>
         <span className="flex items-center gap-1.5">
           {onRequestChange ? (
             <button
@@ -133,6 +136,8 @@ function DraftSlot({
   );
 }
 
+const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support"] as const;
+
 function SlotColumn({
   side,
   actions,
@@ -142,6 +147,7 @@ function SlotColumn({
   resolve,
   intentFor,
   requestChangeFor,
+  positions = null,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
@@ -151,7 +157,40 @@ function SlotColumn({
   resolve: (name: string) => MatchDraftChampion | null;
   intentFor?: (stepIndex: number) => string | null;
   requestChangeFor?: (stepIndex: number) => (() => void) | null;
+  /** Confirmed role order (top→support). When set, the column re-orders to
+   *  roles instead of draft order. */
+  positions?: (string | null)[] | null;
 }) {
+  if (positions && positions.length === ROLE_LABELS.length) {
+    return (
+      <div className="grid gap-2">
+        {positions.map((champion, index) => {
+          const action = champion
+            ? actions.find(
+                (entry) => entry.kind === "pick" && entry.side === side && entry.champion === champion,
+              ) ?? null
+            : null;
+          return (
+            <DraftSlot
+              key={`${side}-role-${index}`}
+              side={side}
+              kind="pick"
+              slot={index + 1}
+              label={ROLE_LABELS[index]}
+              // The drafted playerName reflects pick order, not roles — the
+              // roster (already top→support) names the row instead.
+              action={action ? { ...action, playerName: null } : null}
+              active={false}
+              playerName={players[index] ?? ""}
+              imageSize={imageSize}
+              resolve={resolve}
+              onRequestChange={action?.stepIndex !== undefined ? requestChangeFor?.(action.stepIndex) ?? null : null}
+            />
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div className="grid gap-2">
       {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "pick").map((step) => (
@@ -417,6 +456,9 @@ export default function MatchDraftBoard({
   // room as a ghost); the Lock In button confirms. pendingPick is the
   // viewer's own selection, remoteIntents are the other clients', per game.
   const [pendingPick, setPendingPick] = useState<{ stepIndex: number; champion: string } | null>(null);
+  // Post-draft role confirmation: which side's order is being edited, and
+  // the working top→support arrangement.
+  const [roleEditor, setRoleEditor] = useState<{ gameNumber: number; side: DraftSide; order: (string | null)[] } | null>(null);
   const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
   const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -514,6 +556,7 @@ export default function MatchDraftBoard({
                 blueReady: row.blue_ready ?? false,
                 redReady: row.red_ready ?? false,
                 changeRequest: row.change_request ?? null,
+                positions: row.positions ?? null,
                 actions,
                 canChooseSides: game.gameNumber > 1 && actions.length === 0,
               },
@@ -753,12 +796,63 @@ export default function MatchDraftBoard({
           status: "drafting",
           turnStartedAt: new Date().toISOString(),
           changeRequest: null,
+          positions: null,
         });
       } else {
         setState({ ...state, changeRequest: null });
       }
     } catch (err) {
       setError(saveErrorMessage(err, "The response could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** The side's five picks in the order they were drafted (nulls = skips) —
+   *  the starting arrangement for role confirmation. */
+  const picksInDraftOrder = (side: DraftSide): (string | null)[] =>
+    LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "pick").map(
+      (step) => actionForStep(state.actions, step)?.champion ?? null,
+    );
+
+  // An editor left open from another game's tab just stops applying.
+  const activeRoleEditor = roleEditor && roleEditor.gameNumber === state.gameNumber ? roleEditor : null;
+
+  const openRoleEditor = (side: DraftSide) =>
+    setRoleEditor({
+      gameNumber: state.gameNumber,
+      side,
+      order: state.positions?.[side] ?? picksInDraftOrder(side),
+    });
+
+  const moveRole = (index: number, delta: -1 | 1) =>
+    setRoleEditor((current) => {
+      if (!current) return current;
+      const target = index + delta;
+      if (target < 0 || target >= current.order.length) return current;
+      const order = [...current.order];
+      [order[index], order[target]] = [order[target], order[index]];
+      return { ...current, order };
+    });
+
+  const saveRoles = async () => {
+    if (!supabase || !activeRoleEditor) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: rpcError } = await draftRpc(supabase, "set_match_draft_positions", {
+        p_game: state.gameNumber,
+        p_side: activeRoleEditor.side,
+        p_champions: activeRoleEditor.order,
+      });
+      if (rpcError) throw rpcError;
+      setState({
+        ...state,
+        positions: { ...(state.positions ?? {}), [activeRoleEditor.side]: activeRoleEditor.order },
+      });
+      setRoleEditor(null);
+    } catch (err) {
+      setError(saveErrorMessage(err, "Roles could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -787,6 +881,7 @@ export default function MatchDraftBoard({
           status: "drafting",
           turnStartedAt: new Date().toISOString(),
           changeRequest: null,
+          positions: null,
         });
       }
     } catch (err) {
@@ -973,6 +1068,100 @@ export default function MatchDraftBoard({
     </section>
   ) : null;
 
+  // After the game's draft locks, each team confirms which champion goes to
+  // which role (drafterlol-style) — the pick columns then re-order to match.
+  const roleConfirm = !onSave && state.status === "complete" ? (
+    <section className="card-brand flex flex-col gap-3 p-3" aria-label="Role confirmation">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="label-dash">Role confirmation</span>
+        <span className="text-sm text-steel">
+          Captains rarely draft in position order — set which champion each role is actually playing.
+        </span>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {(["blue", "red"] as DraftSide[]).map((side) => {
+          const confirmed = state.positions?.[side] ?? null;
+          const editable = canReset || viewerSide === side;
+          const editing = activeRoleEditor?.side === side ? activeRoleEditor : null;
+          const roster = playersForSide(side);
+          return (
+            <div key={side} className={`rounded border p-3 ${sideClass[side]}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold uppercase tracking-wide">{teamForSide(side).abbreviation}</span>
+                {editing ? null : confirmed ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-mint">Roles confirmed ✓</span>
+                    {editable ? (
+                      <button type="button" disabled={saving} onClick={() => openRoleEditor(side)} className="btn-pill px-2.5 py-1 text-[11px] disabled:opacity-40">
+                        Adjust
+                      </button>
+                    ) : null}
+                  </span>
+                ) : editable ? (
+                  <button type="button" disabled={saving} onClick={() => openRoleEditor(side)} className="btn-coral px-3 py-1 text-[11px] disabled:opacity-40">
+                    Confirm roles
+                  </button>
+                ) : (
+                  <span className="text-[11px] uppercase tracking-wide text-steel">
+                    Waiting for {teamForSide(side).abbreviation}…
+                  </span>
+                )}
+              </div>
+              <ul className="mt-2 grid gap-1">
+                {(editing?.order ?? confirmed ?? picksInDraftOrder(side)).map((champion, index) => (
+                  <li key={`${side}-${index}`} className="flex items-center gap-2 rounded bg-navy/60 px-2 py-1.5 text-sm text-white">
+                    <span className="w-14 shrink-0 text-[10px] font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[index]}</span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">
+                      {champion ?? <span className="font-normal text-red-400/80">Skipped</span>}
+                    </span>
+                    {roster[index] ? <span className="truncate text-xs text-steel">{roster[index]}</span> : null}
+                    {editing ? (
+                      <span className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          aria-label={`Move ${champion ?? "skipped pick"} up`}
+                          disabled={index === 0}
+                          onClick={() => moveRole(index, -1)}
+                          className="rounded border border-line px-1.5 text-xs text-steel transition hover:text-white disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move ${champion ?? "skipped pick"} down`}
+                          disabled={index === editing.order.length - 1}
+                          onClick={() => moveRole(index, 1)}
+                          className="rounded border border-line px-1.5 text-xs text-steel transition hover:text-white disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {editing ? (
+                <div className="mt-2 flex gap-2">
+                  <button type="button" disabled={saving} onClick={() => void saveRoles()} className="btn-coral px-3 py-1.5 text-xs disabled:opacity-40">
+                    Save roles
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => setRoleEditor(null)}
+                    className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  ) : null;
+
   const changeBanner = state.changeRequest ? (
     <section className="card-brand flex flex-wrap items-center gap-3 border-gold/40 p-3" aria-label="Change request">
       <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold">
@@ -1128,7 +1317,7 @@ export default function MatchDraftBoard({
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
         <div className="flex flex-col gap-3">
           <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
           <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
         </div>
         <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
@@ -1146,7 +1335,7 @@ export default function MatchDraftBoard({
         </div>
         <div className="flex flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
           <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
         </div>
       </div>
@@ -1158,13 +1347,13 @@ export default function MatchDraftBoard({
     <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]" aria-label="Board draft layout">
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
         <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
         <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
       </aside>
     </section>
@@ -1177,7 +1366,7 @@ export default function MatchDraftBoard({
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
           <div className="flex flex-col gap-3">
             <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} />
+            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.blue ?? null} />
             <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
           </div>
           <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
@@ -1195,7 +1384,7 @@ export default function MatchDraftBoard({
           </div>
           <div className="flex flex-col gap-3">
             <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} />
+            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} />
             <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
           </div>
         </div>
@@ -1254,6 +1443,7 @@ export default function MatchDraftBoard({
       </header>
 
       {completeBanner}
+      {roleConfirm}
       {changeBanner}
       {sideChooser}
       {readyCheck}

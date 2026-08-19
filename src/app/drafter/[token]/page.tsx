@@ -78,6 +78,7 @@ function stateFor({
     blueReady: row?.blue_ready ?? false,
     redReady: row?.red_ready ?? false,
     changeRequest: row?.change_request ?? null,
+    positions: row?.positions ?? null,
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions,
     blockedChampions: info.fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
