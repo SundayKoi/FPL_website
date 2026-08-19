@@ -1,4 +1,32 @@
-export const CHAMPIONS = [
+export const DDRAGON_VERSION = "16.16.1";
+const DDRAGON_CDN = "https://ddragon.leagueoflegends.com/cdn";
+
+const DATA_DRAGON_IDS: Record<string, string> = {
+  "Cho'Gath": "Chogath",
+  "Jarvan IV": "JarvanIV",
+  "Kai'Sa": "Kaisa",
+  "Kha'Zix": "Khazix",
+  "Kog'Maw": "KogMaw",
+  "LeBlanc": "Leblanc",
+  "Lee Sin": "LeeSin",
+  "Miss Fortune": "MissFortune",
+  "Nunu & Willump": "Nunu",
+  "Rek'Sai": "RekSai",
+  "Tahm Kench": "TahmKench",
+  "Twisted Fate": "TwistedFate",
+  "Vel'Koz": "Velkoz",
+  "Xin Zhao": "XinZhao",
+  Wukong: "MonkeyKing",
+};
+
+export interface MatchDraftChampion {
+  name: string;
+  id: string;
+  iconUrl: string;
+  splashUrl: string;
+}
+
+const CHAMPION_NAMES = [
   "Aatrox",
   "Ahri",
   "Akali",
@@ -163,3 +191,37 @@ export const CHAMPIONS = [
   "Zoe",
   "Zyra",
 ];
+
+function dataDragonId(name: string): string {
+  return DATA_DRAGON_IDS[name] ?? name.replace(/[^A-Za-z0-9]/g, "");
+}
+
+function normalizeChampionName(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function championMeta(name: string): MatchDraftChampion {
+  const id = dataDragonId(name);
+  return {
+    name,
+    id,
+    iconUrl: `${DDRAGON_CDN}/${DDRAGON_VERSION}/img/champion/${id}.png`,
+    splashUrl: `${DDRAGON_CDN}/img/champion/splash/${id}_0.jpg`,
+  };
+}
+
+export const CHAMPIONS = CHAMPION_NAMES.map(championMeta);
+
+const CHAMPIONS_BY_NAME = new Map(CHAMPIONS.map((champion) => [normalizeChampionName(champion.name), champion]));
+
+export function championByName(name: string): MatchDraftChampion | null {
+  return CHAMPIONS_BY_NAME.get(normalizeChampionName(name)) ?? null;
+}
+
+export function championIconUrl(name: string): string | null {
+  return championByName(name)?.iconUrl ?? null;
+}
+
+export function championSplashUrl(name: string): string | null {
+  return championByName(name)?.splashUrl ?? null;
+}

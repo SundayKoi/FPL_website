@@ -21,16 +21,13 @@ vi.mock("next/og", () => ({ ImageResponse: ImageResponseMock }));
 const { shareModelMock } = vi.hoisted(() => ({ shareModelMock: vi.fn() }));
 vi.mock("@/lib/betting/share", () => ({ shareModel: shareModelMock }));
 
-import { alt, size, contentType, dynamic, GET } from "./route";
+import { dynamic, GET } from "./route";
 
 const teamA = { id: 1, name: "Alpha FC", short_code: "ALP", color: "#111", logo_url: null };
 const teamB = { id: 2, name: "Bravo United", short_code: "BRA", color: "#222", logo_url: null };
 
 describe("share/[id]/open route", () => {
-  it("exports the opengraph-image metadata Next expects", () => {
-    expect(alt).toBeTruthy();
-    expect(size).toEqual({ width: 1200, height: 630 });
-    expect(contentType).toBe("image/png");
+  it("uses dynamic rendering for the route handler", () => {
     expect(dynamic).toBe("force-dynamic");
   });
 

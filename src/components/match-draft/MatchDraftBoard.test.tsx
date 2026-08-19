@@ -23,11 +23,13 @@ const state: MatchDraftState = {
 
 describe("MatchDraftBoard", () => {
   it("renders the stage layout with team abbreviations, champion names, player names, and timer", () => {
-    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+    const { container } = render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
     expect(screen.getByText("BLU")).toBeTruthy();
     expect(screen.getByText("RED")).toBeTruthy();
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
+    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg"]')).toBeTruthy();
+    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
     expect(screen.getByText("Blue Mid")).toBeTruthy();
     expect(screen.getByText("30s")).toBeTruthy();
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");

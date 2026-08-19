@@ -8,9 +8,6 @@ import { ImageResponse } from "next/og";
 import { shareModel, resultHeadline, resultSummaryLine } from "@/lib/betting/share";
 import { CARD_SIZE, CardFrame, CardFooter, PALETTE } from "@/lib/betting/share-render";
 
-export const alt = "Betting result";
-export const size = CARD_SIZE;
-export const contentType = "image/png";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -74,6 +71,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         <CardFooter text={model.title} />
       </CardFrame>
     ),
-    { ...size, headers }
+    { ...CARD_SIZE, headers }
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CHAMPIONS } from "@/lib/match-draft/champions";
+import { CHAMPIONS, championByName } from "@/lib/match-draft/champions";
 import { actionForStep, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftLayout, MatchDraftState } from "@/lib/match-draft/types";
 
@@ -44,21 +44,28 @@ function DraftSlot({
   action: MatchDraftAction | null;
   active: boolean;
 }) {
+  const champion = action?.champion ? championByName(action.champion) : null;
   return (
     <div
-      className={`min-h-20 border px-2 py-2 ${
+      className={`relative min-h-28 overflow-hidden border px-2 py-2 ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
       }`}
     >
-      <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel">
+      {champion ? (
+        // Riot Data Dragon splash art is served from a fixed CDN URL.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={champion.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+      ) : null}
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 to-transparent" />
+      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel">
         <span>{kind} {slot}</span>
         <span>{side}</span>
       </div>
-      <p className="mt-2 truncate font-display text-lg font-semibold not-italic text-white">
+      <p className="relative mt-8 truncate font-display text-lg font-semibold not-italic text-white">
         {action?.champion ?? "Open"}
       </p>
       {kind === "pick" ? (
-        <p className="mt-1 truncate text-xs text-steel">{action?.playerName || "Player TBD"}</p>
+        <p className="relative mt-1 truncate text-xs text-steel">{action?.playerName || "Player TBD"}</p>
       ) : null}
     </div>
   );
@@ -119,7 +126,7 @@ export default function MatchDraftBoard({
   const [error, setError] = useState<string | null>(null);
   const currentStep = LCS_DRAFT_STEPS[state.currentStepIndex] ?? LCS_DRAFT_STEPS[LCS_DRAFT_STEPS.length - 1];
   const currentAction = currentStep ? actionForStep(state.actions, currentStep) : null;
-  const filteredChampions = CHAMPIONS.filter((champion) => champion.toLowerCase().includes(query.trim().toLowerCase()));
+  const filteredChampions = CHAMPIONS.filter((champion) => champion.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   const setLayout = (layout: MatchDraftLayout) => setState((current) => ({ ...current, layout }));
 
@@ -186,17 +193,19 @@ export default function MatchDraftBoard({
       </label>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
         {filteredChampions.map((champion) => {
-          const unavailable = isChampionUnavailable(champion, state.actions, state.blockedChampions);
+          const unavailable = isChampionUnavailable(champion.name, state.actions, state.blockedChampions);
           return (
             <button
-              key={champion}
+              key={champion.id}
               type="button"
               disabled={unavailable || saving}
-              onClick={() => void selectChampion(champion)}
-              aria-label={`${champion}${unavailable ? " unavailable" : ""}`}
-              className="aspect-[4/3] border border-line bg-panel px-2 py-2 text-left text-sm font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35"
+              onClick={() => void selectChampion(champion.name)}
+              aria-label={`${champion.name}${unavailable ? " unavailable" : ""}`}
+              className="group relative aspect-[4/3] overflow-hidden border border-line bg-panel text-left text-sm font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35"
             >
-              {champion}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={champion.iconUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+              <span className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-xs">{champion.name}</span>
             </button>
           );
         })}
