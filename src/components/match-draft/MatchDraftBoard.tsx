@@ -162,6 +162,26 @@ function BanRow({ side, actions, currentStepIndex }: { side: DraftSide; actions:
   );
 }
 
+/** Supabase/Postgrest errors are plain objects, not Error instances — pull a
+ *  human message out of whatever was thrown, and translate the RLS rejection
+ *  every non-captain visitor hits into plain language. */
+function saveErrorMessage(err: unknown, fallback: string): string {
+  const raw =
+    err instanceof Error
+      ? err.message
+      : typeof (err as { message?: unknown })?.message === "string"
+        ? (err as { message: string }).message
+        : "";
+  if (!raw) return fallback;
+  if (/row-level security|permission denied|violates row-level/i.test(raw)) {
+    return "You don't have permission to draft this match — sign in as one of this fixture's captains or an admin.";
+  }
+  if (/JWT|token|not authenticated/i.test(raw)) {
+    return "You're not signed in — log in as a captain or admin to draft.";
+  }
+  return `${fallback} (${raw})`;
+}
+
 const BEST_OF_OPTIONS: MatchDraftBestOf[] = [1, 3, 5];
 
 export default function MatchDraftBoard({
@@ -248,7 +268,7 @@ export default function MatchDraftBoard({
       await persist(next);
       setState(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Draft could not be saved.");
+      setError(saveErrorMessage(err, "Draft could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -264,7 +284,7 @@ export default function MatchDraftBoard({
       await persist(next);
       setState(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sides could not be saved.");
+      setError(saveErrorMessage(err, "Sides could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -284,7 +304,7 @@ export default function MatchDraftBoard({
       // Tab count and fearless blocks are server-derived — rebuild the page.
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Format could not be saved.");
+      setError(saveErrorMessage(err, "Format could not be saved."));
       setSaving(false);
     }
   };
@@ -303,7 +323,7 @@ export default function MatchDraftBoard({
       // Rebuild everything (fearless blocks included) from the server.
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Draft could not be reset.");
+      setError(saveErrorMessage(err, "Draft could not be reset."));
       setSaving(false);
     }
   };
