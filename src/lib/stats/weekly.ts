@@ -44,7 +44,10 @@ export type WeeklyRawStatRow = {
   xp_at_10: number | null;
 };
 
-const RAW_WEEKLY_COLUMNS = [
+/** Every raw_stats column the weekly power aggregation reads — exported so
+ *  the homepage awards fetch (lib/home/awards.ts) can select a superset and
+ *  score players with this exact same pipeline. */
+export const WEEKLY_STAT_COLUMNS = [
   "assists",
   "cs",
   "cs_at_10",
@@ -78,7 +81,9 @@ const RAW_WEEKLY_COLUMNS = [
   "vision_score_per_min",
   "win",
   "xp_at_10",
-].join(",");
+] as const;
+
+const RAW_WEEKLY_COLUMNS = WEEKLY_STAT_COLUMNS.join(",");
 
 function num(value: number | null): number {
   return value ?? 0;

@@ -1,30 +1,24 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchDraftId } from "./fetchDraftId";
 import { powerRanking } from "@/lib/stats/formulas";
-import type { PlayerAggRow } from "@/lib/stats/types";
+import { aggregateWeeklyPlayerRows, WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 
 /** Premier's season code. Academy passes its own (see lib/league/season.ts). */
 export const PREMIER_SEASON = "S5" as const;
 const MIN_PLAYER_GAMES = 2;
 const MIN_CHAMPION_PICKS = 2;
 
-export type HomepageRawStatRow = {
+/** A raw_stats row with everything the shared weekly power pipeline reads
+ *  (WeeklyRawStatRow) plus the award-specific team/champion columns. Keeping
+ *  the weekly columns in the select is what lets the Awards Desk score
+ *  players with the exact pipeline Weekly Standouts uses, so the same player
+ *  shows the same power number in both homepage sections. */
+export type HomepageRawStatRow = WeeklyRawStatRow & {
   game_date: string | null;
   match_id: string;
   team_side: string | null;
   team_name: string | null;
-  summoner_name: string | null;
-  tag: string | null;
   champion: string | null;
-  role: string | null;
-  kills: number | null;
-  deaths: number | null;
-  assists: number | null;
-  kill_participation_pct: number | null;
-  total_damage_to_champions: number | null;
-  win: boolean | null;
-  season: string | null;
-  game_duration_min: number | null;
   team_dragons: number | null;
   team_barons: number | null;
   team_first_blood: boolean | null;
@@ -50,22 +44,12 @@ export type HomepageAwardsData = {
 };
 
 const RAW_COLUMNS = [
+  ...WEEKLY_STAT_COLUMNS,
   "game_date",
   "match_id",
   "team_side",
   "team_name",
-  "summoner_name",
-  "tag",
   "champion",
-  "role",
-  "kills",
-  "deaths",
-  "assists",
-  "kill_participation_pct",
-  "total_damage_to_champions",
-  "win",
-  "season",
-  "game_duration_min",
   "team_dragons",
   "team_barons",
   "team_first_blood",
@@ -93,16 +77,7 @@ type PlayerAggregate = {
   teamName: string;
   role: string;
   games: number;
-  wins: number;
-  kills: number;
-  deaths: number;
-  assists: number;
   kp: number;
-  damage: number;
-  cs: number;
-  gold: number;
-  vision: number;
-  duration: number;
 };
 
 type TeamAggregate = {
@@ -232,61 +207,20 @@ function aggregatePlayers(rows: HomepageRawStatRow[]): PlayerAggregate[] {
       teamName: first.team_name!,
       role: first.role ?? "UNKNOWN",
       games: group.length,
-      wins: group.filter((row) => row.win).length,
-      kills: group.reduce((sum, row) => sum + numberValue(row.kills), 0),
-      deaths: group.reduce((sum, row) => sum + numberValue(row.deaths), 0),
-      assists: group.reduce((sum, row) => sum + numberValue(row.assists), 0),
       kp: group.reduce((sum, row) => sum + numberValue(row.kill_participation_pct), 0),
-      damage: group.reduce((sum, row) => sum + numberValue(row.total_damage_to_champions), 0),
-      cs: group.reduce((sum, row) => sum + numberValue(row.cs), 0),
-      gold: group.reduce((sum, row) => sum + numberValue(row.gold_earned), 0),
-      vision: group.reduce((sum, row) => sum + numberValue(row.vision_score), 0),
-      duration: group.reduce((sum, row) => sum + numberValue(row.game_duration_min), 0),
     };
   });
 }
 
-function toPlayerAggRow(player: PlayerAggregate): PlayerAggRow {
-  const duration = Math.max(player.duration, 1);
-  return {
-    summoner_name: player.name,
-    tag: player.tag,
-    season: PREMIER_SEASON,
-    season_phase: "All",
-    role_mode: player.role,
-    games: player.games,
-    wins: player.wins,
-    winrate_pct: (100 * player.wins) / player.games,
-    avg_kills: player.kills / player.games,
-    avg_deaths: player.deaths / player.games,
-    avg_assists: player.assists / player.games,
-    kda: (player.kills + player.assists) / Math.max(player.deaths, 1),
-    avg_kp_pct: player.kp / player.games,
-    avg_cs_per_min: player.cs / duration,
-    avg_gold_per_min: player.gold / duration,
-    avg_dmg_per_min: player.damage / duration,
-    avg_dmg_share_pct: 0,
-    avg_vision_per_min: player.vision / duration,
-    avg_solo_kills: 0,
-    total_solo_kills: 0,
-    total_plates: 0,
-    total_doubles: 0,
-    total_triples: 0,
-    total_quadras: 0,
-    total_pentas: 0,
-    avg_cs_at_10: 0,
-    avg_gold_at_10: 0,
-    avg_xp_at_10: 0,
-    avg_dmg_taken_per_min: 0,
-    avg_kda_challenges: 0,
-    first_blood_involvements: 0,
-    avg_game_duration: player.duration / player.games,
-  };
-}
-
-function powerScores(players: PlayerAggregate[]): Map<string, number> {
+/** Power score per player, computed with the SAME aggregation + formula the
+ *  Weekly Standouts card uses (aggregateWeeklyPlayerRows → powerRanking) over
+ *  the same ungated cohort, so the Awards Desk and Weekly Standouts always
+ *  show identical numbers for the same window. Award eligibility gates
+ *  (MIN_PLAYER_GAMES) apply only when picking winners, never to the scoring
+ *  cohort — gating the cohort would shift everyone's percentile-based score. */
+function powerScores(rows: HomepageRawStatRow[]): Map<string, number> {
   return new Map(
-    powerRanking(players.map(toPlayerAggRow)).map((player) => [
+    powerRanking(aggregateWeeklyPlayerRows(rows)).map((player) => [
       playerKey(player.summoner_name, player.tag),
       player.score,
     ]),
@@ -335,11 +269,9 @@ export function deriveHomepageAwards(
   const previousGames = latest ? games.filter((game) => game.week.start === latest.start - 7 * 24 * 60 * 60 * 1000) : [];
   const latestPlayers = aggregatePlayers(latestRows).filter((player) => player.games >= MIN_PLAYER_GAMES);
   const seasonPlayers = aggregatePlayers(rows).filter((player) => player.games >= MIN_PLAYER_GAMES);
-  const latestPower = powerScores(latestPlayers);
-  const seasonPower = powerScores(seasonPlayers);
-  const previousPower = powerScores(
-    aggregatePlayers(previousRows).filter((player) => player.games >= MIN_PLAYER_GAMES),
-  );
+  const latestPower = powerScores(latestRows);
+  const seasonPower = powerScores(rows);
+  const previousPower = powerScores(previousRows);
   const latestTeams = aggregateTeams(latestGames);
   const previousTeams = aggregateTeams(previousGames);
   const seasonTeams = aggregateTeams(games);
@@ -424,7 +356,7 @@ export function deriveHomepageAwards(
     playerOfWeek: playerAward(
       "Player of the Week",
       playerOfWeek,
-      playerOfWeek ? String(latestPower.get(playerKey(playerOfWeek.name, playerOfWeek.tag)) ?? 0) : "—",
+      playerOfWeek ? (latestPower.get(playerKey(playerOfWeek.name, playerOfWeek.tag)) ?? 0).toFixed(1) : "—",
       playerOfWeek ? `${playerOfWeek.teamName} · ${playerOfWeek.role} · ${playerOfWeek.games} games` : `${season} player data unavailable`,
     ),
     teamOfWeek: teamAward(
@@ -449,11 +381,11 @@ export function deriveHomepageAwards(
             "Best Value Pick",
             bestValue.player,
             `${round(bestValue.index, 1)}×`,
-            `${seasonPower.get(playerKey(bestValue.player.name, bestValue.player.tag)) ?? 0} power · ${bestValue.price} points`,
+            `${(seasonPower.get(playerKey(bestValue.player.name, bestValue.player.tag)) ?? 0).toFixed(1)} season power · ${bestValue.price} points`,
           )
         : noWinner("Best Value Pick", "Requires a positive stored roster price"),
       biggestRiser
-        ? playerAward("Biggest Riser", biggestRiser.player, `+${round(biggestRiser.change)}`, "Week-over-week power score change")
+        ? playerAward("Biggest Riser", biggestRiser.player, `+${biggestRiser.change.toFixed(1)}`, "Week-over-week power score change")
         : noWinner("Biggest Riser", "Previous-week comparison unavailable"),
       playmaker
         ? playerAward("Playmaker", playmaker, `${round(playmaker.kp / playmaker.games)}%`, "Highest kill participation this week")

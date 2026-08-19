@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { rankLatestWeeklyStandoutsFromRows } from "@/lib/stats/weekly";
 import { deriveHomepageAwards, type HomepageRawStatRow } from "./awards";
 
 type RowOverrides = Partial<HomepageRawStatRow>;
@@ -20,11 +21,33 @@ function row(overrides: RowOverrides = {}): HomepageRawStatRow {
     total_damage_to_champions: 25000,
     win: true,
     season: "S5",
+    season_phase: "Regular",
     game_duration_min: 30,
     team_dragons: 3,
     team_barons: 1,
     team_first_blood: true,
     team_first_tower: true,
+    cs: 240,
+    cs_at_10: 80,
+    cs_per_min: 8,
+    damage_per_min: 833,
+    damage_share_pct: 28,
+    damage_taken_per_min: 500,
+    double_kills: 1,
+    first_blood_assist: false,
+    first_blood_kill: true,
+    gold_at_10: 3400,
+    gold_earned: 13500,
+    gold_per_min: 450,
+    kda_challenges: 5,
+    penta_kills: 0,
+    quadra_kills: 0,
+    solo_kills: 1,
+    triple_kills: 0,
+    turret_plates_destroyed: 2,
+    vision_score: 30,
+    vision_score_per_min: 1,
+    xp_at_10: 4800,
     ...overrides,
   };
 }
@@ -70,13 +93,15 @@ describe("deriveHomepageAwards", () => {
     expect(result.periodLabel).toMatch(/Week/);
   });
 
-  it("uses the canonical power-ranking score for Player of the Week", () => {
-    const result = deriveHomepageAwards(
-      weekRows("MetaShift League", "2026-04-27", [true, false], "Ace"),
-      new Map(),
+  it("shows the exact score the Weekly Standouts pipeline computes for the same player", () => {
+    const result = deriveHomepageAwards(rows, new Map());
+    const standouts = rankLatestWeeklyStandoutsFromRows(rows);
+    const standout = standouts.find(
+      (player) => player.summoner_name === result.playerOfWeek.name && player.tag === result.playerOfWeek.tag,
     );
 
-    expect(result.playerOfWeek.value).toBe("35.5");
+    expect(standout).toBeDefined();
+    expect(result.playerOfWeek.value).toBe(standout!.score.toFixed(1));
   });
 
   it("requires a positive price for Best Value Pick", () => {
