@@ -50,9 +50,20 @@ function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: s
  *  secret links (two captain links plus a spectator link) — no account
  *  needed. Creation goes through the create_open_draft_lobby RPC, which
  *  also enforces the site-wide rate cap. */
+/** "Faker, Oner, Zeus" (commas or new lines) → up to five trimmed names. */
+function parsePlayers(value: string): string[] {
+  return value
+    .split(/[,\n]/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
 export default function CreateLobbyForm() {
   const [teamA, setTeamA] = useState("");
   const [teamB, setTeamB] = useState("");
+  const [playersA, setPlayersA] = useState("");
+  const [playersB, setPlayersB] = useState("");
   const [bestOf, setBestOf] = useState<MatchDraftBestOf>(3);
   const [fearless, setFearless] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -73,6 +84,8 @@ export default function CreateLobbyForm() {
         p_team_b: teamB.trim(),
         p_best_of: bestOf,
         p_fearless: fearless,
+        p_players_a: parsePlayers(playersA),
+        p_players_b: parsePlayers(playersB),
       });
       if (rpcError) throw rpcError;
       setLobby({ ...(data as OpenDraftLobbyTokens), teamA: teamA.trim(), teamB: teamB.trim() });
@@ -129,6 +142,24 @@ export default function CreateLobbyForm() {
             onChange={(e) => setTeamB(e.target.value)}
             maxLength={40}
             placeholder="Red team"
+            className="input-brand px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Team 1 players (optional, top → support)
+          <input
+            value={playersA}
+            onChange={(e) => setPlayersA(e.target.value)}
+            placeholder="Top, Jungle, Mid, ADC, Support"
+            className="input-brand px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Team 2 players (optional, top → support)
+          <input
+            value={playersB}
+            onChange={(e) => setPlayersB(e.target.value)}
+            placeholder="Top, Jungle, Mid, ADC, Support"
             className="input-brand px-3 py-2 text-sm"
           />
         </label>

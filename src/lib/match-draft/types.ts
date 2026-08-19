@@ -124,6 +124,9 @@ export interface OpenDraftLobbyInfo {
   bestOf: number;
   fearless: boolean;
   createdAt?: string;
+  /** Optional player names entered at creation (top→support order). */
+  teamAPlayers?: string[];
+  teamBPlayers?: string[];
   /** The team this token drafts for; null on the spectator link. */
   teamName: string | null;
 }

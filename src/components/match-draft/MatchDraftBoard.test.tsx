@@ -327,6 +327,20 @@ describe("MatchDraftBoard", () => {
     expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
   });
 
+  it("shows no player placeholder when a team has no roster", () => {
+    const noRoster = {
+      ...state,
+      blueTeam: { ...state.blueTeam, players: [] },
+      redTeam: { ...state.redTeam, players: [] },
+      scheduledTeams: state.scheduledTeams,
+    };
+    render(<MatchDraftBoard initialState={noRoster} onSave={vi.fn()} />);
+
+    expect(screen.queryByText(/player tbd/i)).toBeNull();
+    // A pick locked with a recorded player name still shows it.
+    expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
+  });
+
   it("pops the lock-in bar on selection and cancel dismisses it without saving", () => {
     const onSave = vi.fn();
     render(<MatchDraftBoard initialState={{ ...state, actions: [] }} onSave={onSave} />);
