@@ -148,16 +148,28 @@ export default async function MatchDraftPage({
       players,
     };
   }
-  const row = rows.find((draft) => draft.game_number === gameNumber) ?? null;
   const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture, seriesFormat.bestOf).map((link) => ({
     gameNumber: link.gameNumber,
     href: link.href,
     status: rows.find((draft) => draft.game_number === link.gameNumber)?.status ?? null,
   }));
+  // Every game's state ships to the client so the tabs switch instantly.
+  const states = games.map((game) =>
+    stateFor({
+      fixture,
+      row: rows.find((draft) => draft.game_number === game.gameNumber) ?? null,
+      rows,
+      gameNumber: game.gameNumber,
+      layout,
+      teams,
+      fearless: seriesFormat.fearless,
+    }),
+  );
 
   return (
     <MatchDraftBoard
-      initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams, fearless: seriesFormat.fearless })}
+      initialState={states[gameNumber - 1] ?? states[0]}
+      initialStates={states}
       champions={champions}
       games={games}
       seriesFormat={seriesFormat}
