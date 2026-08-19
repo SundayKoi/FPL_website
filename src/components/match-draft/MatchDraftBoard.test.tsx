@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import MatchDraftBoard from "./MatchDraftBoard";
+import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
+import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
 
 afterEach(cleanup);
@@ -20,6 +22,8 @@ const state: MatchDraftState = {
   ],
   canChooseSides: false,
   sideChoiceRequired: false,
+  blueReady: true,
+  redReady: true,
   actions: [
     { stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Aatrox", playerName: null },
     { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue Mid" },
@@ -37,7 +41,8 @@ describe("MatchDraftBoard", () => {
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg"]')).toBeTruthy();
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
     expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
-    expect(screen.getByText("30s")).toBeTruthy();
+    // The turn clock is live now — this fixture's turn started long ago, so it reads 0s.
+    expect(screen.getByText(/^\d+s$/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -136,6 +141,77 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByText(/Bo3 fearless · Game 1/i)).toBeTruthy();
     // Format controls persist to the database, so preview mode hides them.
     expect(screen.queryByRole("group", { name: /series format/i })).toBeNull();
+  });
+
+  it("filters the champion pool by role", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Support$/ }));
+    expect(screen.queryByRole("button", { name: /^Aatrox/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Thresh/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
+    expect(screen.getByRole("button", { name: /^Aatrox/ })).toBeTruthy();
+  });
+
+  it("locks picks behind the ready check until both sides are ready", () => {
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, actions: [], blueReady: false, redReady: false }}
+        onSave={onSave}
+      />,
+    );
+
+    // Pool is disabled and the clock is parked while waiting.
+    expect(screen.getByRole("button", { name: "Ahri" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText(/waiting for ready check/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /BLU ready\?/i }));
+    const afterBlue = onSave.mock.calls[0][0] as MatchDraftState;
+    expect(afterBlue.blueReady).toBe(true);
+    expect(afterBlue.redReady).toBe(false);
+  });
+
+  it("confirms the final pick and marks the draft complete", () => {
+    const priorActions = LCS_DRAFT_STEPS.slice(0, 19).map((step, i) => ({
+      stepIndex: step.index,
+      side: step.side,
+      kind: step.kind,
+      slot: step.slot,
+      champion: CHAMPIONS[i].name,
+      playerName: null,
+    }));
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, currentStepIndex: 19, actions: priorActions }}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Zyra" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as MatchDraftState;
+    expect(saved.actions).toHaveLength(20);
+    expect(saved.status).toBe("complete");
+  });
+
+  it("locks a completed draft — no more clicks, and the banner shows", () => {
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete", currentStepIndex: 19 }}
+        onSave={onSave}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: /draft complete/i })).toBeTruthy();
+    const pool = screen.getByRole("button", { name: "Zyra" });
+    expect(pool.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(pool);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("hides the admin reset controls in preview mode and without the admin flag", () => {

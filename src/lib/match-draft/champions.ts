@@ -17,14 +17,200 @@ const DATA_DRAGON_IDS: Record<string, string> = {
   "Vel'Koz": "Velkoz",
   "Xin Zhao": "XinZhao",
   Wukong: "MonkeyKing",
+  "Bel'Veth": "Belveth",
+  "Dr. Mundo": "DrMundo",
+  "K'Sante": "KSante",
 };
+
+export type ChampionRole = "top" | "jungle" | "mid" | "adc" | "support";
 
 export interface MatchDraftChampion {
   name: string;
   id: string;
   iconUrl: string;
   splashUrl: string;
+  /** Typical competitive positions — drives the pool's role filter. A champ
+   *  can flex into several; filtering never blocks a pick, only the view. */
+  roles: ChampionRole[];
 }
+
+/** Primary + common flex positions per champion. Champions missing from this
+ *  map show under every role filter rather than disappearing. */
+const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
+  Aatrox: ["top"],
+  Ahri: ["mid"],
+  Akali: ["mid", "top"],
+  Akshan: ["mid", "top"],
+  Alistar: ["support"],
+  Ambessa: ["top"],
+  Amumu: ["jungle", "support"],
+  Anivia: ["mid"],
+  Annie: ["mid", "support"],
+  Aphelios: ["adc"],
+  Ashe: ["adc", "support"],
+  "Aurelion Sol": ["mid"],
+  Aurora: ["mid", "top"],
+  Azir: ["mid"],
+  Bard: ["support"],
+  "Bel'Veth": ["jungle"],
+  Blitzcrank: ["support"],
+  Brand: ["support", "mid"],
+  Braum: ["support"],
+  Briar: ["jungle"],
+  Caitlyn: ["adc"],
+  Camille: ["top"],
+  Cassiopeia: ["mid", "top"],
+  "Cho'Gath": ["top"],
+  Corki: ["mid", "adc"],
+  Darius: ["top"],
+  Diana: ["jungle", "mid"],
+  "Dr. Mundo": ["top"],
+  Draven: ["adc"],
+  Ekko: ["jungle", "mid"],
+  Elise: ["jungle"],
+  Evelynn: ["jungle"],
+  Ezreal: ["adc"],
+  Fiddlesticks: ["jungle", "support"],
+  Fiora: ["top"],
+  Fizz: ["mid"],
+  Galio: ["mid", "support"],
+  Gangplank: ["top"],
+  Garen: ["top"],
+  Gnar: ["top"],
+  Gragas: ["jungle", "top"],
+  Graves: ["jungle"],
+  Gwen: ["top"],
+  Hecarim: ["jungle"],
+  Heimerdinger: ["mid", "top", "support"],
+  Hwei: ["mid", "support"],
+  Illaoi: ["top"],
+  Irelia: ["top", "mid"],
+  Ivern: ["jungle"],
+  Janna: ["support"],
+  "Jarvan IV": ["jungle"],
+  Jax: ["top", "jungle"],
+  Jayce: ["top", "mid"],
+  Jhin: ["adc"],
+  Jinx: ["adc"],
+  "Kai'Sa": ["adc"],
+  Kalista: ["adc"],
+  Karma: ["support", "mid"],
+  Karthus: ["jungle", "mid"],
+  Kassadin: ["mid"],
+  "K'Sante": ["top"],
+  Katarina: ["mid"],
+  Kayle: ["top", "mid"],
+  Kayn: ["jungle"],
+  Kennen: ["top"],
+  "Kha'Zix": ["jungle"],
+  Kindred: ["jungle"],
+  Kled: ["top"],
+  "Kog'Maw": ["adc"],
+  LeBlanc: ["mid"],
+  "Lee Sin": ["jungle"],
+  Leona: ["support"],
+  Lillia: ["jungle", "top"],
+  Lissandra: ["mid"],
+  Lucian: ["adc", "mid"],
+  Lulu: ["support"],
+  Lux: ["support", "mid"],
+  Malphite: ["top", "support"],
+  Malzahar: ["mid"],
+  Maokai: ["support", "top", "jungle"],
+  "Master Yi": ["jungle"],
+  Mel: ["mid", "support"],
+  Milio: ["support"],
+  "Miss Fortune": ["adc"],
+  Mordekaiser: ["top"],
+  Morgana: ["support", "mid"],
+  Naafiri: ["mid", "jungle"],
+  Nami: ["support"],
+  Nasus: ["top"],
+  Nautilus: ["support"],
+  Neeko: ["mid", "support"],
+  Nidalee: ["jungle"],
+  Nilah: ["adc"],
+  Nocturne: ["jungle"],
+  "Nunu & Willump": ["jungle"],
+  Olaf: ["top", "jungle"],
+  Orianna: ["mid"],
+  Ornn: ["top"],
+  Pantheon: ["support", "top", "mid"],
+  Poppy: ["top", "jungle"],
+  Pyke: ["support"],
+  Qiyana: ["mid", "jungle"],
+  Quinn: ["top"],
+  Rakan: ["support"],
+  Rammus: ["jungle"],
+  "Rek'Sai": ["jungle"],
+  Rell: ["support"],
+  "Renata Glasc": ["support"],
+  Renekton: ["top"],
+  Rengar: ["jungle", "top"],
+  Riven: ["top"],
+  Rumble: ["top", "mid"],
+  Ryze: ["mid", "top"],
+  Samira: ["adc"],
+  Sejuani: ["jungle"],
+  Senna: ["support", "adc"],
+  Seraphine: ["support", "mid", "adc"],
+  Sett: ["top", "support"],
+  Shaco: ["jungle", "support"],
+  Shen: ["top", "support"],
+  Shyvana: ["jungle"],
+  Singed: ["top"],
+  Sion: ["top"],
+  Sivir: ["adc"],
+  Skarner: ["jungle", "top"],
+  Smolder: ["adc", "mid"],
+  Sona: ["support"],
+  Soraka: ["support"],
+  Swain: ["support", "mid"],
+  Sylas: ["mid", "top"],
+  Syndra: ["mid"],
+  "Tahm Kench": ["top", "support"],
+  Taliyah: ["jungle", "mid"],
+  Talon: ["mid", "jungle"],
+  Taric: ["support"],
+  Teemo: ["top"],
+  Thresh: ["support"],
+  Tristana: ["adc", "mid"],
+  Trundle: ["top", "jungle"],
+  Tryndamere: ["top"],
+  "Twisted Fate": ["mid"],
+  Twitch: ["adc"],
+  Udyr: ["jungle", "top"],
+  Urgot: ["top"],
+  Varus: ["adc"],
+  Vayne: ["adc", "top"],
+  Veigar: ["mid"],
+  "Vel'Koz": ["support", "mid"],
+  Vex: ["mid"],
+  Vi: ["jungle"],
+  Viego: ["jungle"],
+  Viktor: ["mid"],
+  Vladimir: ["mid", "top"],
+  Volibear: ["top", "jungle"],
+  Warwick: ["jungle", "top"],
+  Wukong: ["jungle", "top"],
+  Xayah: ["adc"],
+  Xerath: ["support", "mid"],
+  "Xin Zhao": ["jungle"],
+  Yasuo: ["mid", "top"],
+  Yone: ["mid", "top"],
+  Yorick: ["top"],
+  Yunara: ["adc"],
+  Yuumi: ["support"],
+  Zac: ["jungle", "top"],
+  Zed: ["mid"],
+  Zeri: ["adc"],
+  Ziggs: ["mid", "adc"],
+  Zilean: ["support", "mid"],
+  Zoe: ["mid"],
+  Zyra: ["support"],
+};
+
+const ALL_ROLES: ChampionRole[] = ["top", "jungle", "mid", "adc", "support"];
 
 const CHAMPION_NAMES = [
   "Aatrox",
@@ -42,9 +228,11 @@ const CHAMPION_NAMES = [
   "Aurora",
   "Azir",
   "Bard",
+  "Bel'Veth",
   "Blitzcrank",
   "Brand",
   "Braum",
+  "Briar",
   "Caitlyn",
   "Camille",
   "Cassiopeia",
@@ -52,11 +240,13 @@ const CHAMPION_NAMES = [
   "Corki",
   "Darius",
   "Diana",
+  "Dr. Mundo",
   "Draven",
   "Ekko",
   "Elise",
   "Evelynn",
   "Ezreal",
+  "Fiddlesticks",
   "Fiora",
   "Fizz",
   "Galio",
@@ -83,6 +273,7 @@ const CHAMPION_NAMES = [
   "Karma",
   "Karthus",
   "Kassadin",
+  "K'Sante",
   "Katarina",
   "Kayle",
   "Kayn",
@@ -102,6 +293,8 @@ const CHAMPION_NAMES = [
   "Malphite",
   "Malzahar",
   "Maokai",
+  "Master Yi",
+  "Mel",
   "Milio",
   "Miss Fortune",
   "Mordekaiser",
@@ -182,6 +375,7 @@ const CHAMPION_NAMES = [
   "Yasuo",
   "Yone",
   "Yorick",
+  "Yunara",
   "Yuumi",
   "Zac",
   "Zed",
@@ -200,14 +394,21 @@ function normalizeChampionName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function championMeta(name: string): MatchDraftChampion {
-  const id = dataDragonId(name);
+/** A champion entry from an explicit Data Dragon version + id — used both
+ *  for the static fallback roster below and the live roster fetched from
+ *  Riot (lib/match-draft/liveRoster.ts). */
+export function championFromDataDragon(version: string, id: string, name: string): MatchDraftChampion {
   return {
     name,
     id,
-    iconUrl: `${DDRAGON_CDN}/${DDRAGON_VERSION}/img/champion/${id}.png`,
+    iconUrl: `${DDRAGON_CDN}/${version}/img/champion/${id}.png`,
     splashUrl: `${DDRAGON_CDN}/img/champion/splash/${id}_0.jpg`,
+    roles: CHAMPION_ROLES[name] ?? ALL_ROLES,
   };
+}
+
+function championMeta(name: string): MatchDraftChampion {
+  return championFromDataDragon(DDRAGON_VERSION, dataDragonId(name), name);
 }
 
 export const CHAMPIONS = CHAMPION_NAMES.map(championMeta);
@@ -224,4 +425,11 @@ export function championIconUrl(name: string): string | null {
 
 export function championSplashUrl(name: string): string | null {
   return championByName(name)?.splashUrl ?? null;
+}
+
+/** Name → champion resolver over an arbitrary roster (the live Data Dragon
+ *  roster or the static fallback), tolerant of spacing/case differences. */
+export function championLookup(champions: MatchDraftChampion[]): (name: string) => MatchDraftChampion | null {
+  const byName = new Map(champions.map((champion) => [normalizeChampionName(champion.name), champion]));
+  return (name) => byName.get(normalizeChampionName(name)) ?? null;
 }
