@@ -17,6 +17,9 @@ const DATA_DRAGON_IDS: Record<string, string> = {
   "Vel'Koz": "Velkoz",
   "Xin Zhao": "XinZhao",
   Wukong: "MonkeyKing",
+  "Bel'Veth": "Belveth",
+  "Dr. Mundo": "DrMundo",
+  "K'Sante": "KSante",
 };
 
 export type ChampionRole = "top" | "jungle" | "mid" | "adc" | "support";
@@ -49,9 +52,11 @@ const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
   Aurora: ["mid", "top"],
   Azir: ["mid"],
   Bard: ["support"],
+  "Bel'Veth": ["jungle"],
   Blitzcrank: ["support"],
   Brand: ["support", "mid"],
   Braum: ["support"],
+  Briar: ["jungle"],
   Caitlyn: ["adc"],
   Camille: ["top"],
   Cassiopeia: ["mid", "top"],
@@ -59,11 +64,13 @@ const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
   Corki: ["mid", "adc"],
   Darius: ["top"],
   Diana: ["jungle", "mid"],
+  "Dr. Mundo": ["top"],
   Draven: ["adc"],
   Ekko: ["jungle", "mid"],
   Elise: ["jungle"],
   Evelynn: ["jungle"],
   Ezreal: ["adc"],
+  Fiddlesticks: ["jungle", "support"],
   Fiora: ["top"],
   Fizz: ["mid"],
   Galio: ["mid", "support"],
@@ -90,6 +97,7 @@ const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
   Karma: ["support", "mid"],
   Karthus: ["jungle", "mid"],
   Kassadin: ["mid"],
+  "K'Sante": ["top"],
   Katarina: ["mid"],
   Kayle: ["top", "mid"],
   Kayn: ["jungle"],
@@ -109,6 +117,8 @@ const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
   Malphite: ["top", "support"],
   Malzahar: ["mid"],
   Maokai: ["support", "top", "jungle"],
+  "Master Yi": ["jungle"],
+  Mel: ["mid", "support"],
   Milio: ["support"],
   "Miss Fortune": ["adc"],
   Mordekaiser: ["top"],
@@ -189,6 +199,7 @@ const CHAMPION_ROLES: Record<string, ChampionRole[]> = {
   Yasuo: ["mid", "top"],
   Yone: ["mid", "top"],
   Yorick: ["top"],
+  Yunara: ["adc"],
   Yuumi: ["support"],
   Zac: ["jungle", "top"],
   Zed: ["mid"],
@@ -217,9 +228,11 @@ const CHAMPION_NAMES = [
   "Aurora",
   "Azir",
   "Bard",
+  "Bel'Veth",
   "Blitzcrank",
   "Brand",
   "Braum",
+  "Briar",
   "Caitlyn",
   "Camille",
   "Cassiopeia",
@@ -227,11 +240,13 @@ const CHAMPION_NAMES = [
   "Corki",
   "Darius",
   "Diana",
+  "Dr. Mundo",
   "Draven",
   "Ekko",
   "Elise",
   "Evelynn",
   "Ezreal",
+  "Fiddlesticks",
   "Fiora",
   "Fizz",
   "Galio",
@@ -258,6 +273,7 @@ const CHAMPION_NAMES = [
   "Karma",
   "Karthus",
   "Kassadin",
+  "K'Sante",
   "Katarina",
   "Kayle",
   "Kayn",
@@ -277,6 +293,8 @@ const CHAMPION_NAMES = [
   "Malphite",
   "Malzahar",
   "Maokai",
+  "Master Yi",
+  "Mel",
   "Milio",
   "Miss Fortune",
   "Mordekaiser",
@@ -357,6 +375,7 @@ const CHAMPION_NAMES = [
   "Yasuo",
   "Yone",
   "Yorick",
+  "Yunara",
   "Yuumi",
   "Zac",
   "Zed",
@@ -375,15 +394,21 @@ function normalizeChampionName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function championMeta(name: string): MatchDraftChampion {
-  const id = dataDragonId(name);
+/** A champion entry from an explicit Data Dragon version + id — used both
+ *  for the static fallback roster below and the live roster fetched from
+ *  Riot (lib/match-draft/liveRoster.ts). */
+export function championFromDataDragon(version: string, id: string, name: string): MatchDraftChampion {
   return {
     name,
     id,
-    iconUrl: `${DDRAGON_CDN}/${DDRAGON_VERSION}/img/champion/${id}.png`,
+    iconUrl: `${DDRAGON_CDN}/${version}/img/champion/${id}.png`,
     splashUrl: `${DDRAGON_CDN}/img/champion/splash/${id}_0.jpg`,
     roles: CHAMPION_ROLES[name] ?? ALL_ROLES,
   };
+}
+
+function championMeta(name: string): MatchDraftChampion {
+  return championFromDataDragon(DDRAGON_VERSION, dataDragonId(name), name);
 }
 
 export const CHAMPIONS = CHAMPION_NAMES.map(championMeta);
@@ -400,4 +425,11 @@ export function championIconUrl(name: string): string | null {
 
 export function championSplashUrl(name: string): string | null {
   return championByName(name)?.splashUrl ?? null;
+}
+
+/** Name → champion resolver over an arbitrary roster (the live Data Dragon
+ *  roster or the static fallback), tolerant of spacing/case differences. */
+export function championLookup(champions: MatchDraftChampion[]): (name: string) => MatchDraftChampion | null {
+  const byName = new Map(champions.map((champion) => [normalizeChampionName(champion.name), champion]));
+  return (name) => byName.get(normalizeChampionName(name)) ?? null;
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
 import { fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
+import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
 import type { MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftSettingsRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -107,13 +108,14 @@ export default async function MatchDraftPage({
 
   const layout = layoutParam(firstParam(query.layout));
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
-  const [draftRowsResult, teamsResult, staffTier, settingsResult] = await Promise.all([
+  const [draftRowsResult, teamsResult, staffTier, settingsResult, champions] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
     teamNames.length
       ? supabase.from("teams").select("id, name, abbreviation, image_url").in("name", teamNames)
       : Promise.resolve({ data: [] }),
     fetchStaffTier(supabase),
     supabase.from("match_draft_settings").select("fixture_id, best_of, fearless").eq("fixture_id", fixture.id).maybeSingle(),
+    fetchLiveChampions(),
   ]);
 
   const settings = settingsResult.data as MatchDraftSettingsRow | null;
@@ -156,6 +158,7 @@ export default async function MatchDraftPage({
   return (
     <MatchDraftBoard
       initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams, fearless: seriesFormat.fearless })}
+      champions={champions}
       games={games}
       seriesFormat={seriesFormat}
       canReset={staffTier.isAdmin || staffTier.isOwner}

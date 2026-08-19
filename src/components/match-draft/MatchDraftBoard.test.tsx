@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import MatchDraftBoard from "./MatchDraftBoard";
+import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
+import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
 
 afterEach(cleanup);
@@ -169,6 +171,47 @@ describe("MatchDraftBoard", () => {
     const afterBlue = onSave.mock.calls[0][0] as MatchDraftState;
     expect(afterBlue.blueReady).toBe(true);
     expect(afterBlue.redReady).toBe(false);
+  });
+
+  it("confirms the final pick and marks the draft complete", () => {
+    const priorActions = LCS_DRAFT_STEPS.slice(0, 19).map((step, i) => ({
+      stepIndex: step.index,
+      side: step.side,
+      kind: step.kind,
+      slot: step.slot,
+      champion: CHAMPIONS[i].name,
+      playerName: null,
+    }));
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, currentStepIndex: 19, actions: priorActions }}
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Zyra" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const saved = onSave.mock.calls[0][0] as MatchDraftState;
+    expect(saved.actions).toHaveLength(20);
+    expect(saved.status).toBe("complete");
+  });
+
+  it("locks a completed draft — no more clicks, and the banner shows", () => {
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete", currentStepIndex: 19 }}
+        onSave={onSave}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: /draft complete/i })).toBeTruthy();
+    const pool = screen.getByRole("button", { name: "Zyra" });
+    expect(pool.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(pool);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("hides the admin reset controls in preview mode and without the admin flag", () => {

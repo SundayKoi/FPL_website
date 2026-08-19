@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { CHAMPIONS, championByName, type ChampionRole } from "@/lib/match-draft/champions";
+import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState } from "@/lib/match-draft/types";
 
@@ -49,6 +49,7 @@ function DraftSlot({
   active,
   playerName,
   imageSize,
+  resolve,
 }: {
   side: DraftSide;
   kind: DraftActionKind;
@@ -57,8 +58,9 @@ function DraftSlot({
   active: boolean;
   playerName: string;
   imageSize: MatchDraftImageSize;
+  resolve: (name: string) => MatchDraftChampion | null;
 }) {
-  const champion = action?.champion ? championByName(action.champion) : null;
+  const champion = action?.champion ? resolve(action.champion) : null;
   const size = sizeByValue[imageSize];
   return (
     <div
@@ -92,12 +94,14 @@ function SlotColumn({
   currentStepIndex,
   players,
   imageSize,
+  resolve,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
   currentStepIndex: number;
   players: string[];
   imageSize: MatchDraftImageSize;
+  resolve: (name: string) => MatchDraftChampion | null;
 }) {
   return (
     <div className="grid gap-2">
@@ -111,14 +115,25 @@ function SlotColumn({
           active={step.index === currentStepIndex}
           playerName={players[step.slot - 1] ?? "Player TBD"}
           imageSize={imageSize}
+          resolve={resolve}
         />
       ))}
     </div>
   );
 }
 
-function BanTile({ step, action, active }: { step: (typeof LCS_DRAFT_STEPS)[number]; action: MatchDraftAction | null; active: boolean }) {
-  const champion = action?.champion ? championByName(action.champion) : null;
+function BanTile({
+  step,
+  action,
+  active,
+  resolve,
+}: {
+  step: (typeof LCS_DRAFT_STEPS)[number];
+  action: MatchDraftAction | null;
+  active: boolean;
+  resolve: (name: string) => MatchDraftChampion | null;
+}) {
+  const champion = action?.champion ? resolve(action.champion) : null;
   return (
     <div
       data-testid={`ban-${step.side}-${step.slot}`}
@@ -144,7 +159,17 @@ function BanTile({ step, action, active }: { step: (typeof LCS_DRAFT_STEPS)[numb
   );
 }
 
-function BanRow({ side, actions, currentStepIndex }: { side: DraftSide; actions: MatchDraftAction[]; currentStepIndex: number }) {
+function BanRow({
+  side,
+  actions,
+  currentStepIndex,
+  resolve,
+}: {
+  side: DraftSide;
+  actions: MatchDraftAction[];
+  currentStepIndex: number;
+  resolve: (name: string) => MatchDraftChampion | null;
+}) {
   return (
     <div>
       <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
@@ -155,6 +180,7 @@ function BanRow({ side, actions, currentStepIndex }: { side: DraftSide; actions:
             step={step}
             action={actionForStep(actions, step)}
             active={step.index === currentStepIndex}
+            resolve={resolve}
           />
         ))}
       </div>
@@ -209,12 +235,16 @@ function useTurnCountdown(turnStartedAt: string | null, running: boolean): numbe
 
 export default function MatchDraftBoard({
   initialState,
+  champions = CHAMPIONS,
   games = [],
   seriesFormat = { bestOf: 3, fearless: true },
   canReset = false,
   onSave,
 }: {
   initialState: MatchDraftState;
+  /** The champion roster — the live Data Dragon list from the server, or
+   *  the static fallback bundle. */
+  champions?: MatchDraftChampion[];
   /** Game tabs for the whole series — one shared URL, ?game= switches. */
   games?: MatchDraftGameTab[];
   /** The series' drafter format (Bo1/Bo3/Bo5 + fearless), from
@@ -234,7 +264,8 @@ export default function MatchDraftBoard({
   const [error, setError] = useState<string | null>(null);
   const currentStep = LCS_DRAFT_STEPS[state.currentStepIndex] ?? LCS_DRAFT_STEPS[LCS_DRAFT_STEPS.length - 1];
   const currentAction = currentStep ? actionForStep(state.actions, currentStep) : null;
-  const filteredChampions = CHAMPIONS.filter(
+  const resolveChampion = useMemo(() => championLookup(champions), [champions]);
+  const filteredChampions = champions.filter(
     (champion) =>
       champion.name.toLowerCase().includes(query.trim().toLowerCase()) &&
       (!roleFilter || champion.roles.includes(roleFilter)),
@@ -319,6 +350,8 @@ export default function MatchDraftBoard({
   };
 
   const selectChampion = async (champion: string) => {
+    // A completed draft is locked — the final pick must not be replaceable.
+    if (state.status === "complete") return;
     const started = state.actions.length > 0;
     const ready = state.blueReady && state.redReady;
     if (!started && !ready) return;
@@ -454,6 +487,18 @@ export default function MatchDraftBoard({
     </nav>
   ) : null;
 
+  const completeBanner = state.status === "complete" ? (
+    <section className="card-brand flex flex-wrap items-center gap-3 border-mint/40 p-3" aria-label="Draft complete">
+      <span className="rounded-full border border-mint/50 bg-mint/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-mint">
+        Draft complete
+      </span>
+      <span className="text-sm text-steel">
+        All picks and bans are locked in.
+        {games.length > 1 ? " Use the game tabs to move to the next game." : ""}
+      </span>
+    </section>
+  ) : null;
+
   const readyCheck = drafting && !draftStarted ? (
     <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Ready check">
       <span className="label-dash">{bothReady ? "Both teams ready" : "Ready check"}</span>
@@ -544,7 +589,7 @@ export default function MatchDraftBoard({
             <button
               key={champion.id}
               type="button"
-              disabled={unavailable || saving || state.sideChoiceRequired || (!draftStarted && !bothReady)}
+              disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady)}
               onClick={() => void selectChampion(champion.name)}
               aria-label={`${champion.name}${unavailable ? " unavailable" : ""}`}
               className={`group relative aspect-square overflow-hidden border border-line bg-panel text-left font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35 ${sizeByValue[imageSize].name}`}
@@ -564,8 +609,8 @@ export default function MatchDraftBoard({
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
         <div className="flex flex-col gap-3">
           <TeamMark team={state.blueTeam} side="blue" />
-          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
-          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} />
+          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
+          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
         </div>
         <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
           <span className="label-dash">Game {state.gameNumber}</span>
@@ -582,8 +627,8 @@ export default function MatchDraftBoard({
         </div>
         <div className="flex flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" />
-          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
-          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} />
+          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
+          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
         </div>
       </div>
       {championPool}
@@ -594,14 +639,14 @@ export default function MatchDraftBoard({
     <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]" aria-label="Board draft layout">
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" />
-        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
-        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} />
+        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
+        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.redTeam} side="red" />
-        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
-        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} />
+        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
+        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
       </aside>
     </section>
   );
@@ -646,6 +691,7 @@ export default function MatchDraftBoard({
         </div>
       </header>
 
+      {completeBanner}
       {sideChooser}
       {readyCheck}
 
