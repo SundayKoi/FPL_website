@@ -59,7 +59,9 @@ describe("MatchDraftBoard", () => {
     expect(screen.getAllByText("BLU").length).toBeGreaterThan(0);
     expect(screen.getAllByText("RED").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
-    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg"]')).toBeTruthy();
+    // Pick slots use loading-screen portraits (head at the top) so short wide
+    // slots crop predictably instead of landing on a random splash strip.
+    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/loading/Ahri_0.jpg"]')).toBeTruthy();
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
     expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
     // The turn clock is live now — this fixture's turn started long ago, so it reads 0s.
@@ -323,6 +325,18 @@ describe("MatchDraftBoard", () => {
     cleanup();
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
+  });
+
+  it("pops the lock-in bar on selection and cancel dismisses it without saving", () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={{ ...state, actions: [] }} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Amumu" }));
+    expect(screen.getByRole("dialog", { name: /confirm pick/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByRole("dialog", { name: /confirm pick/i })).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("auto-follows the latest active game in overlay mode", () => {

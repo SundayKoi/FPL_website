@@ -13,10 +13,10 @@ const sideClass: Record<DraftSide, string> = {
 };
 
 const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slot: string; name: string }[] = [
-  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-14", name: "text-[10px]" },
-  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-16", name: "text-[11px]" },
-  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-20", name: "text-xs" },
-  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-24", name: "text-sm" },
+  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-16", name: "text-[10px]" },
+  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-20", name: "text-[11px]" },
+  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-24", name: "text-xs" },
+  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-28", name: "text-sm" },
 ];
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
@@ -84,22 +84,29 @@ function DraftSlot({
   const champion = action?.champion ? resolve(action.champion) : null;
   const ghost = !action && intent ? resolve(intent) : null;
   const size = sizeByValue[imageSize];
+  // Loading-screen portraits keep the champion's head at the top, so a short
+  // wide slot crops predictably (face and shoulders) — splash art lands on a
+  // random torso strip and looks butchered.
+  const art = champion ?? ghost;
+  const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/loading/") : null;
   return (
     <div
       className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
       }`}
     >
-      {champion ? (
-        // Riot Data Dragon splash art is served from a fixed CDN URL.
+      {portraitUrl ? (
+        // Riot Data Dragon loading art is served from a fixed CDN URL.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={champion.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_20%] opacity-70" />
-      ) : ghost ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={ghost.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_20%] opacity-30" />
+        <img
+          src={portraitUrl}
+          alt=""
+          className={`absolute inset-y-0 right-0 w-2/5 object-cover object-top [mask-image:linear-gradient(to_left,black_55%,transparent)] ${
+            champion ? "" : "opacity-40"
+          }`}
+        />
       ) : null}
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 to-transparent" />
-      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel">
+      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
         <span>{kind} {slot}</span>
         <span className="flex items-center gap-1.5">
           {onRequestChange ? (
@@ -116,7 +123,7 @@ function DraftSlot({
           {side}
         </span>
       </div>
-      <p className={`relative truncate font-display font-semibold not-italic ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
+      <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : "Open"}
       </p>
       {kind === "pick" ? (
@@ -912,6 +919,46 @@ export default function MatchDraftBoard({
     </nav>
   ) : null;
 
+  // Pops up where the action is: pinned to the bottom of the viewport the
+  // moment a champion is selected, so confirming never means scrolling back
+  // to the header.
+  const pendingChampion = activePendingPick ? resolveChampion(activePendingPick.champion) : null;
+  const lockInBar = activePendingPick ? (
+    <div className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4" role="dialog" aria-label="Confirm pick">
+      <div className="flex items-center gap-3 rounded-full border border-coral/60 bg-navy/95 py-2 pl-2 pr-2 shadow-[0_8px_32px_rgb(0_0_0/0.6)] backdrop-blur">
+        {pendingChampion ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-line object-cover" />
+        ) : null}
+        <div className="min-w-0">
+          <p className="font-display text-sm font-bold not-italic text-white">{activePendingPick.champion}</p>
+          <p className="text-[10px] uppercase tracking-wide text-steel">
+            {currentStep?.side} {currentStep?.kind} {currentStep?.slot}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => {
+            setPendingPick(null);
+            sendIntent(null);
+          }}
+          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void lockIn()}
+          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
+        >
+          Lock in {activePendingPick.champion}
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   const completeBanner = state.status === "complete" ? (
     <section className="card-brand flex flex-wrap items-center gap-3 border-mint/40 p-3" aria-label="Draft complete">
       <span className="rounded-full border border-mint/50 bg-mint/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-mint">
@@ -1128,7 +1175,7 @@ export default function MatchDraftBoard({
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
           <div className="flex flex-col gap-3">
             <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
+            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} />
             <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
           </div>
           <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
@@ -1146,7 +1193,7 @@ export default function MatchDraftBoard({
           </div>
           <div className="flex flex-col gap-3">
             <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
+            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} />
             <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
           </div>
         </div>
@@ -1271,14 +1318,6 @@ export default function MatchDraftBoard({
             {canReset ? "Admin — full control" : viewerSide ? `Drafting for ${teamForSide(viewerSide).abbreviation} (${viewerSide} side)` : "Spectating"}
           </span>
         ) : null}
-        <button
-          type="button"
-          disabled={saving || !activePendingPick || activePendingPick.stepIndex !== currentStep?.index}
-          onClick={() => void lockIn()}
-          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
-        >
-          {activePendingPick && activePendingPick.stepIndex === currentStep?.index ? `Lock in ${activePendingPick.champion}` : "Lock in"}
-        </button>
         <p className="text-sm text-steel">
           Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
           {currentAction ? <span> · locked {currentAction.champion}</span> : null}
@@ -1287,6 +1326,7 @@ export default function MatchDraftBoard({
       </section>
 
       {state.layout === "stage" ? stage : board}
+      {lockInBar}
     </main>
   );
 }
