@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
-import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
-import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState } from "@/lib/match-draft/types";
+import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex } from "@/lib/match-draft/rules";
+import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
@@ -20,9 +21,25 @@ const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slo
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
 
-function TeamMark({ team, side }: { team: MatchDraftState["blueTeam"]; side: DraftSide }) {
+function TeamMark({
+  team,
+  side,
+  online,
+}: {
+  team: MatchDraftState["blueTeam"];
+  side: DraftSide;
+  /** Captain presence dot; undefined hides it (preview mode). */
+  online?: boolean;
+}) {
   return (
-    <div className={`flex items-center gap-3 rounded border px-3 py-2 ${sideClass[side]}`}>
+    <div className={`relative flex items-center gap-3 rounded border px-3 py-2 ${sideClass[side]}`}>
+      {online !== undefined ? (
+        <span
+          title={online ? "Captain connected" : "Captain not connected"}
+          aria-label={`${team.abbreviation} captain ${online ? "connected" : "not connected"}`}
+          className={`absolute right-2 top-2 h-2 w-2 rounded-full ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-line"}`}
+        />
+      ) : null}
       {team.imageUrl ? (
         // Team image URLs come from admin-entered Supabase Storage/public URLs.
         // eslint-disable-next-line @next/next/no-img-element
@@ -49,6 +66,8 @@ function DraftSlot({
   playerName,
   imageSize,
   resolve,
+  intent = null,
+  onRequestChange = null,
 }: {
   side: DraftSide;
   kind: DraftActionKind;
@@ -58,8 +77,12 @@ function DraftSlot({
   playerName: string;
   imageSize: MatchDraftImageSize;
   resolve: (name: string) => MatchDraftChampion | null;
+  /** Ghost champion the acting side is hovering (not yet locked). */
+  intent?: string | null;
+  onRequestChange?: (() => void) | null;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
+  const ghost = !action && intent ? resolve(intent) : null;
   const size = sizeByValue[imageSize];
   return (
     <div
@@ -71,14 +94,30 @@ function DraftSlot({
         // Riot Data Dragon splash art is served from a fixed CDN URL.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={champion.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_20%] opacity-70" />
+      ) : ghost ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ghost.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_20%] opacity-30" />
       ) : null}
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 to-transparent" />
       <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel">
         <span>{kind} {slot}</span>
-        <span>{side}</span>
+        <span className="flex items-center gap-1.5">
+          {onRequestChange ? (
+            <button
+              type="button"
+              title="Request a change to this step"
+              aria-label={`Request change to ${side} ${kind} ${slot}`}
+              onClick={onRequestChange}
+              className="rounded border border-line px-1 leading-tight text-steel transition hover:border-coral hover:text-coral"
+            >
+              ↺
+            </button>
+          ) : null}
+          {side}
+        </span>
       </div>
-      <p className={`relative truncate font-display font-semibold not-italic text-white ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
-        {action?.champion ?? "Open"}
+      <p className={`relative truncate font-display font-semibold not-italic ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
+        {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : "Open"}
       </p>
       {kind === "pick" ? (
         <p className="relative mt-1 truncate text-xs text-steel">{action?.playerName || playerName}</p>
@@ -94,6 +133,8 @@ function SlotColumn({
   players,
   imageSize,
   resolve,
+  intentFor,
+  requestChangeFor,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
@@ -101,6 +142,8 @@ function SlotColumn({
   players: string[];
   imageSize: MatchDraftImageSize;
   resolve: (name: string) => MatchDraftChampion | null;
+  intentFor?: (stepIndex: number) => string | null;
+  requestChangeFor?: (stepIndex: number) => (() => void) | null;
 }) {
   return (
     <div className="grid gap-2">
@@ -115,6 +158,8 @@ function SlotColumn({
           playerName={players[step.slot - 1] ?? "Player TBD"}
           imageSize={imageSize}
           resolve={resolve}
+          intent={intentFor?.(step.index) ?? null}
+          onRequestChange={requestChangeFor?.(step.index) ?? null}
         />
       ))}
     </div>
@@ -126,17 +171,19 @@ function BanTile({
   action,
   active,
   resolve,
+  onRequestChange = null,
 }: {
   step: (typeof LCS_DRAFT_STEPS)[number];
   action: MatchDraftAction | null;
   active: boolean;
   resolve: (name: string) => MatchDraftChampion | null;
+  onRequestChange?: (() => void) | null;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
   return (
     <div
       data-testid={`ban-${step.side}-${step.slot}`}
-      title={action?.champion ?? `Ban ${step.slot}`}
+      title={action ? (action.champion ?? "Skipped") : `Ban ${step.slot}`}
       className={`relative aspect-square overflow-hidden rounded border ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
       }`}
@@ -151,9 +198,22 @@ function BanTile({
             {champion.name}
           </span>
         </>
+      ) : action?.skipped ? (
+        <span className="flex h-full items-center justify-center font-mono text-[10px] font-semibold uppercase text-red-400/80">Skip</span>
       ) : (
         <span className="flex h-full items-center justify-center font-mono text-xs font-semibold text-steel">B{step.slot}</span>
       )}
+      {onRequestChange ? (
+        <button
+          type="button"
+          title="Request a change to this ban"
+          aria-label={`Request change to ${step.side} ban ${step.slot}`}
+          onClick={onRequestChange}
+          className="absolute right-0.5 top-0.5 rounded border border-line bg-navy/80 px-1 text-[10px] leading-tight text-steel transition hover:border-coral hover:text-coral"
+        >
+          ↺
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -163,11 +223,13 @@ function BanRow({
   actions,
   currentStepIndex,
   resolve,
+  requestChangeFor,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
   currentStepIndex: number;
   resolve: (name: string) => MatchDraftChampion | null;
+  requestChangeFor?: (stepIndex: number) => (() => void) | null;
 }) {
   return (
     <div>
@@ -180,11 +242,53 @@ function BanRow({
             action={actionForStep(actions, step)}
             active={step.index === currentStepIndex}
             resolve={resolve}
+            onRequestChange={requestChangeFor?.(step.index) ?? null}
           />
         ))}
       </div>
     </div>
   );
+}
+
+/** Short sine ping for "it's your turn". Best-effort: browsers may refuse
+ *  audio before any user gesture, and that's fine. */
+function playTurnPing() {
+  try {
+    const AudioCtor =
+      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtor) return;
+    const ctx = new AudioCtor();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    osc.onended = () => void ctx.close();
+  } catch {
+    // audio is polish, never an error
+  }
+}
+
+/** Blink the tab title a few times so an alt-tabbed captain notices. */
+function flashTitle() {
+  if (typeof document === "undefined") return;
+  const original = document.title;
+  let on = false;
+  let count = 0;
+  const interval = setInterval(() => {
+    on = !on;
+    count += 1;
+    document.title = on ? "🔔 Your turn to draft!" : original;
+    if (count >= 8 || document.hasFocus()) {
+      clearInterval(interval);
+      document.title = original;
+    }
+  }, 900);
 }
 
 /** Supabase/Postgrest errors are plain objects, not Error instances — pull a
@@ -238,10 +342,12 @@ export default function MatchDraftBoard({
   initialState,
   initialStates,
   viewerTeamName,
+  overlay = false,
   champions = CHAMPIONS,
   games = [],
   seriesFormat = { bestOf: 3, fearless: true },
   canReset = false,
+  lobby = null,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -252,6 +358,9 @@ export default function MatchDraftBoard({
   /** The team the signed-in visitor captains in this fixture (null =
    *  spectator). Presentation only — the database RPCs re-check the side. */
   viewerTeamName?: string | null;
+  /** Broadcast overlay: bans, picks, and the timer only — no controls. Meant
+   *  for an OBS browser source (?overlay=1). */
+  overlay?: boolean;
   /** The champion roster — the live Data Dragon list from the server, or
    *  the static fallback bundle. */
   champions?: MatchDraftChampion[];
@@ -263,6 +372,10 @@ export default function MatchDraftBoard({
   /** Admin-only: renders the reset controls. The database policies are the
    *  real gate; this only controls presentation. */
   canReset?: boolean;
+  /** Public /drafter lobby session: mutations go through the token-checked
+   *  open_draft_* RPCs and realtime follows open_drafts instead of
+   *  match_drafts. state.fixtureId holds the lobby id in this mode. */
+  lobby?: OpenDraftLobbyHandle | null;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -276,6 +389,13 @@ export default function MatchDraftBoard({
     setStatesByGame((current) => ({ ...current, [next.gameNumber]: next }));
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<ChampionRole | null>(null);
+  // Two-step drafting: clicking a champion only SELECTS it (broadcast to the
+  // room as a ghost); the Lock In button confirms. pendingPick is the
+  // viewer's own selection, remoteIntents are the other clients', per game.
+  const [pendingPick, setPendingPick] = useState<{ stepIndex: number; champion: string } | null>(null);
+  const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
+  const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const [imageSizeIndex, setImageSizeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -292,7 +412,12 @@ export default function MatchDraftBoard({
     if (!seriesFormat.fearless) return state.blockedChampions.length ? state.blockedChampions : [];
     const priorPicks = Object.values(statesByGame)
       .filter((game) => game.gameNumber < gameNumber)
-      .flatMap((game) => game.actions.filter((action) => action.kind === "pick").map((action) => action.champion));
+      .flatMap((game) =>
+        game.actions
+          .filter((action) => action.kind === "pick")
+          .map((action) => action.champion)
+          .filter((champion): champion is string => Boolean(champion)),
+      );
     return [...new Set([...state.blockedChampions, ...priorPicks])];
   }, [seriesFormat.fearless, state.blockedChampions, statesByGame, gameNumber]);
   const sameTeam = (a: string | null | undefined, b: string | null | undefined) =>
@@ -319,10 +444,25 @@ export default function MatchDraftBoard({
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
-      .channel(`match-draft-${initialState.fixtureId}`)
+      .channel(`${lobby ? "open-draft" : "match-draft"}-${initialState.fixtureId}`)
+      .on("presence", { event: "sync" }, () => {
+        const present = new Set<string>();
+        for (const entries of Object.values(channel.presenceState<{ team?: string }>())) {
+          for (const entry of entries) {
+            if (entry.team) present.add(entry.team);
+          }
+        }
+        setOnlineTeams(present);
+      })
+      .on("broadcast", { event: "draft-intent" }, ({ payload }) => {
+        const intent = payload as { gameNumber: number; stepIndex: number; champion: string | null };
+        setRemoteIntents((current) => ({ ...current, [intent.gameNumber]: intent }));
+      })
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
+        lobby
+          ? { event: "*", schema: "public", table: "open_drafts", filter: `lobby_id=eq.${lobby.lobbyId}` }
+          : { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
         (payload) => {
           if (payload.eventType === "DELETE") {
             window.location.reload();
@@ -339,7 +479,7 @@ export default function MatchDraftBoard({
               window.location.reload();
               return current;
             }
-            const actions = (row.actions ?? []).filter((action) => Boolean(action?.champion));
+            const actions = (row.actions ?? []).filter((action) => Boolean(action && (action.champion || action.skipped)));
             return {
               ...current,
               [row.game_number]: {
@@ -349,6 +489,7 @@ export default function MatchDraftBoard({
                 turnStartedAt: row.turn_started_at,
                 blueReady: row.blue_ready ?? false,
                 redReady: row.red_ready ?? false,
+                changeRequest: row.change_request ?? null,
                 actions,
                 canChooseSides: game.gameNumber > 1 && actions.length === 0,
               },
@@ -356,13 +497,21 @@ export default function MatchDraftBoard({
           });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
+        }
+      });
+    channelRef.current = channel;
     return () => {
+      channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [supabase, initialState.fixtureId]);
+  }, [supabase, initialState.fixtureId, viewerTeamName, lobby]);
 
   const setLayout = (layout: MatchDraftLayout) => setState({ ...state, layout });
+  const captainOnline = (side: DraftSide): boolean | undefined =>
+    onSave ? undefined : onlineTeams.has(teamForSide(side).name.trim().toLowerCase());
   const teamForSide = (side: DraftSide) => (side === "blue" ? state.blueTeam : state.redTeam);
   const playersForSide = (side: DraftSide) => teamForSide(side).players;
   const playerForCurrentPick = (side: DraftSide, slot?: number) => playersForSide(side)[(slot ?? 1) - 1] ?? "Player TBD";
@@ -389,6 +538,48 @@ export default function MatchDraftBoard({
     if (saveError) throw saveError;
   };
 
+  // A selection left over from an earlier step just stops applying — no
+  // effect-driven state clearing needed.
+  const activePendingPick = pendingPick && pendingPick.stepIndex === state.currentStepIndex ? pendingPick : null;
+
+  /** Fixture drafts call the match_draft_* RPCs keyed by fixture; public
+   *  lobbies call their token-checked open_draft_* twins (same names with
+   *  "match_draft" swapped for "open_draft", p_token instead of p_fixture). */
+  const draftRpc = (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) =>
+    lobby
+      ? client.rpc(name.replace("match_draft", "open_draft"), { p_token: lobby.token, ...params })
+      : client.rpc(name, { p_fixture: state.fixtureId, ...params });
+
+  const sendIntent = (champion: string | null) => {
+    void channelRef.current?.send({
+      type: "broadcast",
+      event: "draft-intent",
+      payload: { gameNumber: state.gameNumber, stepIndex: state.currentStepIndex, champion },
+    });
+  };
+
+  /** Step one of drafting: select a champion as your intent (ghosted for the
+   *  whole room); Lock In confirms it. */
+  const chooseChampion = (champion: string) => {
+    if (!currentStep || state.status === "complete" || !mayActFor(currentStep.side)) return;
+    setPendingPick({ stepIndex: currentStep.index, champion });
+    sendIntent(champion);
+  };
+
+  const lockIn = async () => {
+    if (!activePendingPick || activePendingPick.stepIndex !== currentStep?.index) return;
+    await selectChampion(activePendingPick.champion);
+    setPendingPick(null);
+    sendIntent(null);
+  };
+
+  const intentFor = (stepIndex: number): string | null => {
+    if (state.status === "complete" || stepIndex !== state.currentStepIndex) return null;
+    if (activePendingPick?.stepIndex === stepIndex) return activePendingPick.champion;
+    const remote = remoteIntents[state.gameNumber];
+    return remote && remote.stepIndex === stepIndex ? remote.champion : null;
+  };
+
   const selectChampion = async (champion: string) => {
     // A completed draft is locked — the final pick must not be replaceable.
     if (state.status === "complete") return;
@@ -401,23 +592,26 @@ export default function MatchDraftBoard({
       if (typeof action.stepIndex === "number") return action.stepIndex !== currentStep.index;
       return !(action.side === currentStep.side && action.kind === currentStep.kind && action.slot === currentStep.slot);
     });
-    const nextStepIndex = Math.min(state.currentStepIndex + 1, LCS_DRAFT_STEPS.length - 1);
+    const appended: MatchDraftAction[] = [
+      ...nextActions,
+      {
+        stepIndex: currentStep.index,
+        side: currentStep.side,
+        kind: currentStep.kind,
+        slot: currentStep.slot,
+        champion,
+        playerName: currentStep.kind === "pick" ? playerForCurrentPick(currentStep.side, currentStep.slot) : null,
+      },
+    ];
+    // Advancement mirrors the database: jump to the next EMPTY step so a
+    // reopened change-request step gets drafted before play resumes.
+    const nextStepIndex = nextEmptyStepIndex(appended);
     const next: MatchDraftState = {
       ...state,
-      currentStepIndex: nextStepIndex,
-      status: state.currentStepIndex >= LCS_DRAFT_STEPS.length - 1 ? "complete" : "drafting",
+      currentStepIndex: nextStepIndex ?? LCS_DRAFT_STEPS.length - 1,
+      status: nextStepIndex === null ? "complete" : "drafting",
       turnStartedAt: new Date().toISOString(),
-      actions: [
-        ...nextActions,
-        {
-          stepIndex: currentStep.index,
-          side: currentStep.side,
-          kind: currentStep.kind,
-          slot: currentStep.slot,
-          champion,
-          playerName: currentStep.kind === "pick" ? playerForCurrentPick(currentStep.side, currentStep.slot) : null,
-        },
-      ],
+      actions: appended,
     };
     setSaving(true);
     setError(null);
@@ -425,8 +619,7 @@ export default function MatchDraftBoard({
       if (onSave) {
         await persist(next);
       } else if (supabase) {
-        const { error: rpcError } = await supabase.rpc("apply_match_draft_action", {
-          p_fixture: state.fixtureId,
+        const { error: rpcError } = await draftRpc(supabase, "apply_match_draft_action", {
           p_game: state.gameNumber,
           p_step: currentStep.index,
           p_champion: champion,
@@ -452,8 +645,7 @@ export default function MatchDraftBoard({
       if (onSave) {
         await persist(next);
       } else if (supabase) {
-        const { error: rpcError } = await supabase.rpc("choose_match_draft_blue", {
-          p_fixture: state.fixtureId,
+        const { error: rpcError } = await draftRpc(supabase, "choose_match_draft_blue", {
           p_game: state.gameNumber,
           p_blue_name: blueTeam.name,
         });
@@ -483,8 +675,7 @@ export default function MatchDraftBoard({
       if (onSave) {
         await persist(next);
       } else if (supabase) {
-        const { error: rpcError } = await supabase.rpc("set_match_draft_ready", {
-          p_fixture: state.fixtureId,
+        const { error: rpcError } = await draftRpc(supabase, "set_match_draft_ready", {
           p_game: state.gameNumber,
           p_side: side,
           p_ready: nextReady,
@@ -497,6 +688,132 @@ export default function MatchDraftBoard({
     } finally {
       setSaving(false);
     }
+  };
+
+  const requestChange = async (stepIndex: number) => {
+    if (!supabase || state.changeRequest) return;
+    const action = state.actions.find((entry) => entry.stepIndex === stepIndex);
+    if (!action?.side) return;
+    setError(null);
+    try {
+      const { error: rpcError } = await draftRpc(supabase, "request_match_draft_change", {
+        p_game: state.gameNumber,
+        p_step: stepIndex,
+      });
+      if (rpcError) throw rpcError;
+      setState({ ...state, changeRequest: { stepIndex, side: action.side, champion: action.champion } });
+    } catch (err) {
+      setError(saveErrorMessage(err, "Change request could not be sent."));
+    }
+  };
+
+  const respondChange = async (approve: boolean) => {
+    if (!supabase || !state.changeRequest) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: rpcError } = await draftRpc(supabase, "respond_match_draft_change", {
+        p_game: state.gameNumber,
+        p_approve: approve,
+      });
+      if (rpcError) throw rpcError;
+      if (approve) {
+        const remaining = state.actions.filter((entry) => entry.stepIndex !== state.changeRequest?.stepIndex);
+        const nextStep = nextEmptyStepIndex(remaining);
+        setState({
+          ...state,
+          actions: remaining,
+          currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
+          status: "drafting",
+          turnStartedAt: new Date().toISOString(),
+          changeRequest: null,
+        });
+      } else {
+        setState({ ...state, changeRequest: null });
+      }
+    } catch (err) {
+      setError(saveErrorMessage(err, "The response could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const undoLast = async () => {
+    if (!supabase) return;
+    if (!window.confirm("Undo the last locked step?")) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc("undo_match_draft_last", {
+        p_fixture: state.fixtureId,
+        p_game: state.gameNumber,
+      });
+      if (rpcError) throw rpcError;
+      // Realtime brings the corrected row; recompute optimistically too.
+      const last = Math.max(...state.actions.map((entry) => entry.stepIndex ?? -1));
+      if (last >= 0) {
+        const remaining = state.actions.filter((entry) => entry.stepIndex !== last);
+        const nextStep = nextEmptyStepIndex(remaining);
+        setState({
+          ...state,
+          actions: remaining,
+          currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
+          status: "drafting",
+          turnStartedAt: new Date().toISOString(),
+          changeRequest: null,
+        });
+      }
+    } catch (err) {
+      setError(saveErrorMessage(err, "Undo failed."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Expired clock: after a 3s grace, any involved client (captain/admin)
+  // asks the server to skip the step. The server re-checks the elapsed time,
+  // so an early call is safely rejected; the ref stops repeat attempts.
+  const skipAttempted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!supabase || onSave) return;
+    if (!clockRunning || secondsLeft === null || secondsLeft > 0) return;
+    if (!(canReset || viewerSide)) return;
+    const key = `${state.gameNumber}:${state.currentStepIndex}`;
+    if (skipAttempted.current === key) return;
+    const timer = setTimeout(() => {
+      skipAttempted.current = key;
+      void draftRpc(supabase, "skip_match_draft_step", { p_game: state.gameNumber });
+    }, 3000);
+    return () => clearTimeout(timer);
+    // draftRpc is stable in everything this effect already tracks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, onSave, clockRunning, secondsLeft, canReset, viewerSide, lobby, state.fixtureId, state.gameNumber, state.currentStepIndex]);
+
+  // Ping + flash the tab when a NEW turn becomes the viewer's.
+  const lastTurnKey = useRef<string | null>(null);
+  const myTurn = Boolean(clockRunning && currentStep && viewerSide === currentStep.side);
+  useEffect(() => {
+    if (onSave) return;
+    const key = clockRunning && currentStep ? `${gameNumber}:${currentStep.index}` : null;
+    if (key && key !== lastTurnKey.current && myTurn) {
+      playTurnPing();
+      flashTitle();
+    }
+    lastTurnKey.current = key;
+  }, [onSave, clockRunning, currentStep, myTurn, gameNumber]);
+
+  const stepLabel = (stepIndex: number) => {
+    const step = LCS_DRAFT_STEPS[stepIndex];
+    return step ? `${step.side} ${step.kind} ${step.slot}` : `step ${stepIndex + 1}`;
+  };
+
+  /** ↺ affordance for a drafted step the viewer may ask to redo. */
+  const requestChangeFor = (stepIndex: number): (() => void) | null => {
+    if (onSave || !supabase || state.changeRequest) return null;
+    const action = state.actions.find((entry) => entry.stepIndex === stepIndex);
+    if (!action?.side) return null;
+    if (!(canReset || viewerSide === action.side)) return null;
+    return () => void requestChange(stepIndex);
   };
 
   const saveSeriesFormat = async (change: Partial<MatchDraftSeriesFormat>) => {
@@ -525,10 +842,18 @@ export default function MatchDraftBoard({
     setSaving(true);
     setError(null);
     try {
-      let query = supabase.from("match_drafts").delete().eq("fixture_id", state.fixtureId);
-      if (scope === "game") query = query.eq("game_number", state.gameNumber);
-      const { error: deleteError } = await query;
-      if (deleteError) throw deleteError;
+      if (lobby) {
+        const { error: rpcError } = await supabase.rpc("reset_open_draft", {
+          p_token: lobby.token,
+          p_game: scope === "game" ? state.gameNumber : null,
+        });
+        if (rpcError) throw rpcError;
+      } else {
+        let query = supabase.from("match_drafts").delete().eq("fixture_id", state.fixtureId);
+        if (scope === "game") query = query.eq("game_number", state.gameNumber);
+        const { error: deleteError } = await query;
+        if (deleteError) throw deleteError;
+      }
       // Rebuild everything (fearless blocks included) from the server.
       window.location.reload();
     } catch (err) {
@@ -579,6 +904,50 @@ export default function MatchDraftBoard({
         All picks and bans are locked in.
         {games.length > 1 ? " Use the game tabs to move to the next game." : ""}
       </span>
+    </section>
+  ) : null;
+
+  const changeBanner = state.changeRequest ? (
+    <section className="card-brand flex flex-wrap items-center gap-3 border-gold/40 p-3" aria-label="Change request">
+      <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold">
+        Change requested
+      </span>
+      <span className="text-sm text-steel">
+        {teamForSide(state.changeRequest.side).abbreviation} wants to redo{" "}
+        <span className="font-semibold uppercase text-white">{stepLabel(state.changeRequest.stepIndex)}</span>
+        {state.changeRequest.champion ? ` (${state.changeRequest.champion})` : " (skipped)"}.
+      </span>
+      {!onSave && (canReset || (viewerSide && viewerSide !== state.changeRequest.side)) ? (
+        <span className="flex gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void respondChange(true)}
+            className="rounded-full border border-mint/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-mint transition hover:bg-mint/15 disabled:opacity-40"
+          >
+            Approve
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void respondChange(false)}
+            className="rounded-full border border-red-400/60 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-400 transition hover:bg-red-500/15 disabled:opacity-40"
+          >
+            Deny
+          </button>
+        </span>
+      ) : !onSave && viewerSide === state.changeRequest.side ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void respondChange(false)}
+          className="rounded-full border border-line px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+        >
+          Withdraw
+        </button>
+      ) : (
+        <span className="text-xs uppercase tracking-wide text-steel">Waiting for the other team…</span>
+      )}
     </section>
   ) : null;
 
@@ -673,7 +1042,8 @@ export default function MatchDraftBoard({
               key={champion.id}
               type="button"
               disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
-              onClick={() => void selectChampion(champion.name)}
+              aria-pressed={activePendingPick?.champion === champion.name}
+              onClick={() => chooseChampion(champion.name)}
               aria-label={`${champion.name}${unavailable ? " unavailable" : ""}`}
               className={`group relative aspect-square overflow-hidden border border-line bg-panel text-left font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35 ${sizeByValue[imageSize].name}`}
             >
@@ -691,9 +1061,9 @@ export default function MatchDraftBoard({
     <section className="flex flex-col gap-4" aria-label="Stage draft layout">
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
         <div className="flex flex-col gap-3">
-          <TeamMark team={state.blueTeam} side="blue" />
-          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
-          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+          <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
+          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
         </div>
         <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
           <span className="label-dash">Game {state.gameNumber}</span>
@@ -709,9 +1079,9 @@ export default function MatchDraftBoard({
           </span>
         </div>
         <div className="flex flex-col gap-3">
-          <TeamMark team={state.redTeam} side="red" />
-          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
-          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+          <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
+          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
         </div>
       </div>
       {championPool}
@@ -721,18 +1091,51 @@ export default function MatchDraftBoard({
   const board = (
     <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]" aria-label="Board draft layout">
       <aside className="flex flex-col gap-3">
-        <TeamMark team={state.blueTeam} side="blue" />
-        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
-        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+        <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
+        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
-        <TeamMark team={state.redTeam} side="red" />
-        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
-        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+        <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
+        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} />
+        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
       </aside>
     </section>
   );
+
+  if (overlay) {
+    // OBS browser source: teams, picks, bans, and the clock — nothing else.
+    return (
+      <main className="flex w-full flex-col gap-4 bg-navy p-4 text-white">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
+          <div className="flex flex-col gap-3">
+            <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
+            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} />
+            <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+          </div>
+          <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+            <span className="label-dash">Game {state.gameNumber}</span>
+            <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
+              {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
+            </span>
+            <span className="mt-1 text-xs uppercase text-steel">
+              {state.status === "complete"
+                ? "draft complete"
+                : clockRunning
+                  ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
+                  : "waiting for ready check"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-3">
+            <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
+            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} />
+            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
@@ -751,7 +1154,7 @@ export default function MatchDraftBoard({
           <button type="button" aria-pressed={state.layout === "board"} onClick={() => setLayout("board")} className="btn-pill px-3 py-1.5 text-xs">
             Board layout
           </button>
-          {canReset && !onSave ? (
+          {(canReset || (lobby && viewerSide)) && !onSave ? (
             <>
               <button
                 type="button"
@@ -769,17 +1172,28 @@ export default function MatchDraftBoard({
               >
                 Reset series
               </button>
+              {!lobby ? (
+                <button
+                  type="button"
+                  disabled={saving || state.actions.length === 0}
+                  onClick={() => void undoLast()}
+                  className="rounded-full border border-gold/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold/15 disabled:opacity-40"
+                >
+                  Undo last
+                </button>
+              ) : null}
             </>
           ) : null}
         </div>
       </header>
 
       {completeBanner}
+      {changeBanner}
       {sideChooser}
       {readyCheck}
 
       <section className="card-brand flex flex-wrap items-end gap-3 p-3">
-        {!onSave ? (
+        {!onSave && !lobby ? (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Series format">
             <span className="label-dash">Format</span>
             {BEST_OF_OPTIONS.map((option) => (
@@ -840,6 +1254,14 @@ export default function MatchDraftBoard({
             {canReset ? "Admin — full control" : viewerSide ? `Drafting for ${teamForSide(viewerSide).abbreviation} (${viewerSide} side)` : "Spectating"}
           </span>
         ) : null}
+        <button
+          type="button"
+          disabled={saving || !activePendingPick || activePendingPick.stepIndex !== currentStep?.index}
+          onClick={() => void lockIn()}
+          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
+        >
+          {activePendingPick && activePendingPick.stepIndex === currentStep?.index ? `Lock in ${activePendingPick.champion}` : "Lock in"}
+        </button>
         <p className="text-sm text-steel">
           Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
           {currentAction ? <span> · locked {currentAction.champion}</span> : null}

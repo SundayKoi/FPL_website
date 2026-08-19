@@ -1,5 +1,25 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+// Lobby-mode tests run without onSave, so the board builds a live client;
+// give it a chainable realtime channel and a spyable rpc.
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn(async () => ({ error: null })) }));
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => {
+    const channel: Record<string, unknown> = {
+      track: () => Promise.resolve(),
+      presenceState: () => ({}),
+      send: () => Promise.resolve(),
+    };
+    channel.on = () => channel;
+    channel.subscribe = () => channel;
+    return {
+      rpc: rpcMock,
+      channel: () => channel,
+      removeChannel: () => Promise.resolve(),
+    };
+  },
+}));
 import MatchDraftBoard from "./MatchDraftBoard";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { CHAMPIONS } from "@/lib/match-draft/champions";
@@ -24,6 +44,7 @@ const state: MatchDraftState = {
   sideChoiceRequired: false,
   blueReady: true,
   redReady: true,
+  changeRequest: null,
   actions: [
     { stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Aatrox", playerName: null },
     { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue Mid" },
@@ -64,7 +85,10 @@ describe("MatchDraftBoard", () => {
     const onSave = vi.fn();
     render(<MatchDraftBoard initialState={{ ...state, actions: [] }} onSave={onSave} />);
 
+    // Two-step drafting: select, then Lock In.
     fireEvent.click(screen.getByRole("button", { name: "Amumu" }));
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /lock in Amumu/i }));
 
     const saved = onSave.mock.calls.at(-1)?.[0] as MatchDraftState;
     expect(saved.actions.find((action) => action.stepIndex === 6)?.playerName).toBe("Blue Top");
@@ -200,6 +224,7 @@ describe("MatchDraftBoard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Zyra" }));
+    fireEvent.click(screen.getByRole("button", { name: /lock in Zyra/i }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     const saved = onSave.mock.calls[0][0] as MatchDraftState;
@@ -268,6 +293,29 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("button", { name: "Zed" }).hasAttribute("disabled")).toBe(false);
   });
 
+  it("renders skipped steps and the pending change request banner", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          actions: [
+            { stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: null, skipped: true },
+            { stepIndex: 1, side: "red", kind: "ban", slot: 1, champion: "Aatrox", playerName: null },
+          ],
+          currentStepIndex: 2,
+          changeRequest: { stepIndex: 1, side: "red", champion: "Aatrox" },
+        }}
+        onSave={vi.fn()}
+        viewerTeamName="Blue Team"
+      />,
+    );
+
+    expect(screen.getAllByTestId("ban-blue-1")[0].textContent).toContain("Skip");
+    const banner = screen.getByRole("region", { name: /change request/i });
+    expect(banner.textContent).toContain("RED wants to redo");
+    expect(banner.textContent).toContain("Aatrox");
+  });
+
   it("hides the admin reset controls in preview mode and without the admin flag", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} canReset />);
     expect(screen.queryByRole("button", { name: /reset game/i })).toBeNull();
@@ -275,5 +323,35 @@ describe("MatchDraftBoard", () => {
     cleanup();
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
+  });
+
+  it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
+    rpcMock.mockClear();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, fixtureId: "lobby-1", actions: [], currentStepIndex: 0 }}
+        viewerTeamName="Blue Team"
+        lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+      />,
+    );
+
+    // Public lobbies fix the format at creation and swap the admin undo for
+    // captain-accessible resets.
+    expect(screen.queryByRole("group", { name: /series format/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /undo last/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /reset game/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Aatrox" }));
+    fireEvent.click(screen.getByRole("button", { name: /lock in Aatrox/i }));
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("apply_open_draft_action", {
+        p_token: "tok-a",
+        p_game: 1,
+        p_step: 0,
+        p_champion: "Aatrox",
+        p_player_name: null,
+      });
+    });
   });
 });
