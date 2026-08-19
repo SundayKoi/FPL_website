@@ -148,6 +148,23 @@ export default async function MatchDraftPage({
       players,
     };
   }
+  // Which of this fixture's teams (if any) the signed-in visitor captains —
+  // presentation only, the drafter RPCs re-check server-side.
+  const { data: userData } = await supabase.auth.getUser();
+  let viewerTeamName: string | null = null;
+  if (userData.user && teamNames.length) {
+    const { data: captainRows } = await supabase
+      .from("league_team_captains")
+      .select("league_teams(name)")
+      .eq("profile_id", userData.user.id)
+      .eq("season", fixture.season);
+    const fixtureNames = new Set(teamNames.map((name) => name.trim().toLowerCase()));
+    viewerTeamName =
+      ((captainRows ?? []) as unknown as { league_teams: { name: string } | null }[])
+        .map((row) => row.league_teams?.name ?? "")
+        .find((name) => fixtureNames.has(name.trim().toLowerCase())) ?? null;
+  }
+
   const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture, seriesFormat.bestOf).map((link) => ({
     gameNumber: link.gameNumber,
     href: link.href,
@@ -170,6 +187,7 @@ export default async function MatchDraftPage({
     <MatchDraftBoard
       initialState={states[gameNumber - 1] ?? states[0]}
       initialStates={states}
+      viewerTeamName={viewerTeamName}
       champions={champions}
       games={games}
       seriesFormat={seriesFormat}
