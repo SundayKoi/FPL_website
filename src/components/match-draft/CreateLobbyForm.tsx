@@ -19,9 +19,9 @@ function lobbyErrorMessage(err: unknown): string {
   return `The lobby could not be created. (${raw})`;
 }
 
-function LobbyLink({ label, hint, token }: { label: string; hint: string; token: string }) {
+function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: string; token: string; suffix?: string }) {
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}/drafter/${token}`;
+  const url = `${window.location.origin}/drafter/${token}${suffix}`;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -93,7 +93,13 @@ export default function CreateLobbyForm() {
         </p>
         <LobbyLink label={`${lobby.teamA} captain`} hint={`Drafts for ${lobby.teamA} (blue side in game 1).`} token={lobby.tokenA} />
         <LobbyLink label={`${lobby.teamB} captain`} hint={`Drafts for ${lobby.teamB} (red side in game 1).`} token={lobby.tokenB} />
-        <LobbyLink label="Spectators" hint="Watch-only. Add ?overlay=1 for a clean OBS browser source." token={lobby.tokenSpectator} />
+        <LobbyLink label="Spectators" hint="Watch-only — share with anyone who wants to follow along." token={lobby.tokenSpectator} />
+        <LobbyLink
+          label="OBS overlay"
+          hint="The spectator view stripped to teams, picks, bans, and the clock — paste into an OBS browser source."
+          token={lobby.tokenSpectator}
+          suffix="?overlay=1"
+        />
         <div>
           <a href={`/drafter/${lobby.tokenSpectator}`} className="btn-coral inline-block px-4 py-2 text-sm">
             Open the lobby

@@ -348,6 +348,7 @@ export default function MatchDraftBoard({
   seriesFormat = { bestOf: 3, fearless: true },
   canReset = false,
   lobby = null,
+  followLive = false,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -376,6 +377,9 @@ export default function MatchDraftBoard({
    *  open_draft_* RPCs and realtime follows open_drafts instead of
    *  match_drafts. state.fixtureId holds the lobby id in this mode. */
   lobby?: OpenDraftLobbyHandle | null;
+  /** Overlay only: auto-follow the latest active game so one OBS link covers
+   *  the whole series. Pages set it when the URL has no explicit ?game=. */
+  followLive?: boolean;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -384,7 +388,20 @@ export default function MatchDraftBoard({
     Object.fromEntries((initialStates?.length ? initialStates : [initialState]).map((game) => [game.gameNumber, game])),
   );
   const [gameNumber, setGameNumber] = useState(initialState.gameNumber);
-  const state = statesByGame[gameNumber] ?? initialState;
+  // Overlay auto-follow: one OBS link covers the whole series — with no
+  // explicit ?game= pin, the broadcast view tracks the latest game that has
+  // any activity (actions or a ready check under way).
+  const followedGame =
+    overlay && followLive
+      ? Object.values(statesByGame).reduce(
+          (latest, game) =>
+            (game.actions.length > 0 || game.blueReady || game.redReady) && game.gameNumber > latest
+              ? game.gameNumber
+              : latest,
+          gameNumber,
+        )
+      : null;
+  const state = statesByGame[followedGame ?? gameNumber] ?? initialState;
   const setState = (next: MatchDraftState) =>
     setStatesByGame((current) => ({ ...current, [next.gameNumber]: next }));
   const [query, setQuery] = useState("");
