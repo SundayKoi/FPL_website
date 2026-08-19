@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
@@ -71,7 +70,7 @@ function DraftSlot({
       {champion ? (
         // Riot Data Dragon splash art is served from a fixed CDN URL.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={champion.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+        <img src={champion.splashUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_20%] opacity-70" />
       ) : null}
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 to-transparent" />
       <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel">
@@ -235,6 +234,7 @@ function useTurnCountdown(turnStartedAt: string | null, running: boolean): numbe
 
 export default function MatchDraftBoard({
   initialState,
+  initialStates,
   champions = CHAMPIONS,
   games = [],
   seriesFormat = { bestOf: 3, fearless: true },
@@ -242,6 +242,10 @@ export default function MatchDraftBoard({
   onSave,
 }: {
   initialState: MatchDraftState;
+  /** Every game's state for the series — lets the game tabs switch
+   *  instantly client-side. Absent (preview/tests), only initialState's
+   *  game exists. */
+  initialStates?: MatchDraftState[];
   /** The champion roster — the live Data Dragon list from the server, or
    *  the static fallback bundle. */
   champions?: MatchDraftChampion[];
@@ -256,7 +260,14 @@ export default function MatchDraftBoard({
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
-  const [state, setState] = useState(initialState);
+  // One entry per game so the tabs switch instantly without a navigation.
+  const [statesByGame, setStatesByGame] = useState<Record<number, MatchDraftState>>(() =>
+    Object.fromEntries((initialStates?.length ? initialStates : [initialState]).map((game) => [game.gameNumber, game])),
+  );
+  const [gameNumber, setGameNumber] = useState(initialState.gameNumber);
+  const state = statesByGame[gameNumber] ?? initialState;
+  const setState = (next: MatchDraftState) =>
+    setStatesByGame((current) => ({ ...current, [next.gameNumber]: next }));
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<ChampionRole | null>(null);
   const [imageSizeIndex, setImageSizeIndex] = useState(0);
@@ -271,6 +282,13 @@ export default function MatchDraftBoard({
       (!roleFilter || champion.roles.includes(roleFilter)),
   );
   const imageSize = imageSizes[imageSizeIndex].value;
+  const blockedChampions = useMemo(() => {
+    if (!seriesFormat.fearless) return state.blockedChampions.length ? state.blockedChampions : [];
+    const priorPicks = Object.values(statesByGame)
+      .filter((game) => game.gameNumber < gameNumber)
+      .flatMap((game) => game.actions.filter((action) => action.kind === "pick").map((action) => action.champion));
+    return [...new Set([...state.blockedChampions, ...priorPicks])];
+  }, [seriesFormat.fearless, state.blockedChampions, statesByGame, gameNumber]);
   const draftStarted = state.actions.length > 0;
   const bothReady = state.blueReady && state.redReady;
   const drafting = state.status !== "complete";
@@ -278,12 +296,13 @@ export default function MatchDraftBoard({
   const secondsLeft = useTurnCountdown(state.turnStartedAt, clockRunning);
 
   // Live sync: both captains (and spectators) see picks, readiness, side
-  // swaps, and resets as they happen. Team identity changes and row deletes
-  // need server-resolved data (rosters, fearless blocks), so those reload.
+  // swaps, and resets as they happen — for EVERY game in the series, so
+  // switching tabs always shows current data. Team identity changes and row
+  // deletes need server-resolved data (rosters), so those reload.
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
-      .channel(`match-draft-${initialState.fixtureId}-${initialState.gameNumber}`)
+      .channel(`match-draft-${initialState.fixtureId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
@@ -293,11 +312,12 @@ export default function MatchDraftBoard({
             return;
           }
           const row = payload.new as MatchDraftRow;
-          if (row.game_number !== initialState.gameNumber) return;
-          setState((current) => {
+          setStatesByGame((current) => {
+            const game = current[row.game_number];
+            if (!game) return current;
             if (
-              (row.blue_team_name && row.blue_team_name !== current.blueTeam.name) ||
-              (row.red_team_name && row.red_team_name !== current.redTeam.name)
+              (row.blue_team_name && row.blue_team_name !== game.blueTeam.name) ||
+              (row.red_team_name && row.red_team_name !== game.redTeam.name)
             ) {
               window.location.reload();
               return current;
@@ -305,13 +325,16 @@ export default function MatchDraftBoard({
             const actions = (row.actions ?? []).filter((action) => Boolean(action?.champion));
             return {
               ...current,
-              status: row.status,
-              currentStepIndex: row.current_step_index,
-              turnStartedAt: row.turn_started_at,
-              blueReady: row.blue_ready ?? false,
-              redReady: row.red_ready ?? false,
-              actions,
-              canChooseSides: current.gameNumber > 1 && actions.length === 0,
+              [row.game_number]: {
+                ...game,
+                status: row.status,
+                currentStepIndex: row.current_step_index,
+                turnStartedAt: row.turn_started_at,
+                blueReady: row.blue_ready ?? false,
+                redReady: row.red_ready ?? false,
+                actions,
+                canChooseSides: game.gameNumber > 1 && actions.length === 0,
+              },
             };
           });
         },
@@ -320,9 +343,9 @@ export default function MatchDraftBoard({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [supabase, initialState.fixtureId, initialState.gameNumber]);
+  }, [supabase, initialState.fixtureId]);
 
-  const setLayout = (layout: MatchDraftLayout) => setState((current) => ({ ...current, layout }));
+  const setLayout = (layout: MatchDraftLayout) => setState({ ...state, layout });
   const teamForSide = (side: DraftSide) => (side === "blue" ? state.blueTeam : state.redTeam);
   const playersForSide = (side: DraftSide) => teamForSide(side).players;
   const playerForCurrentPick = (side: DraftSide, slot?: number) => playersForSide(side)[(slot ?? 1) - 1] ?? "Player TBD";
@@ -355,7 +378,7 @@ export default function MatchDraftBoard({
     const started = state.actions.length > 0;
     const ready = state.blueReady && state.redReady;
     if (!started && !ready) return;
-    if (!currentStep || state.sideChoiceRequired || isChampionUnavailable(champion, state.actions, state.blockedChampions)) return;
+    if (!currentStep || state.sideChoiceRequired || isChampionUnavailable(champion, state.actions, blockedChampions)) return;
     const nextActions = state.actions.filter((action) => {
       if (typeof action.stepIndex === "number") return action.stepIndex !== currentStep.index;
       return !(action.side === currentStep.side && action.kind === currentStep.kind && action.slot === currentStep.slot);
@@ -465,23 +488,34 @@ export default function MatchDraftBoard({
     }
   };
 
+  const switchGame = (game: MatchDraftGameTab) => {
+    if (!statesByGame[game.gameNumber]) return;
+    setGameNumber(game.gameNumber);
+    // Keep the URL shareable/refreshable without a navigation.
+    window.history.replaceState(null, "", game.href);
+  };
+
   const gameTabs = games.length > 1 ? (
     <nav aria-label="Series games" className="flex flex-wrap items-center gap-1.5">
       {games.map((game) => {
         const active = game.gameNumber === state.gameNumber;
+        // Live status from the client store (falls back to the server prop).
+        const liveGame = statesByGame[game.gameNumber];
+        const status = liveGame ? (liveGame.actions.length === 0 ? null : liveGame.status) : game.status;
         return (
-          <Link
+          <button
             key={game.gameNumber}
-            href={game.href}
+            type="button"
             aria-current={active ? "page" : undefined}
+            onClick={() => switchGame(game)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
               active ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
             }`}
           >
             Game {game.gameNumber}
-            {game.status === "complete" ? <span aria-label="complete" className={active ? "text-navy" : "text-mint"}>✓</span> : null}
-            {game.status === "drafting" ? <span aria-label="in progress" className={active ? "text-navy" : "text-gold"}>●</span> : null}
-          </Link>
+            {status === "complete" ? <span aria-label="complete" className={active ? "text-navy" : "text-mint"}>✓</span> : null}
+            {status === "drafting" ? <span aria-label="in progress" className={active ? "text-navy" : "text-gold"}>●</span> : null}
+          </button>
         );
       })}
     </nav>
@@ -584,7 +618,7 @@ export default function MatchDraftBoard({
       </div>
       <div className={`mt-3 grid gap-2 ${sizeByValue[imageSize].grid}`} data-testid="champion-pool-grid" data-size={imageSize}>
         {filteredChampions.map((champion) => {
-          const unavailable = isChampionUnavailable(champion.name, state.actions, state.blockedChampions);
+          const unavailable = isChampionUnavailable(champion.name, state.actions, blockedChampions);
           return (
             <button
               key={champion.id}

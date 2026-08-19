@@ -112,24 +112,33 @@ describe("MatchDraftBoard", () => {
     expect(screen.getAllByTestId("ban-red-1")[0].textContent).toContain("B1");
   });
 
-  it("renders game tabs for the series and marks completed games", () => {
+  it("switches games instantly from the tabs, without a navigation", () => {
+    const gameTwo: MatchDraftState = {
+      ...state,
+      gameNumber: 2,
+      status: "complete",
+      actions: [{ stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Zed", playerName: null }],
+    };
     render(
       <MatchDraftBoard
         initialState={state}
+        initialStates={[state, gameTwo]}
         onSave={vi.fn()}
         games={[
           { gameNumber: 1, href: "/match-draft/fixture-1?game=1", status: "drafting" },
           { gameNumber: 2, href: "/match-draft/fixture-1?game=2", status: "complete" },
-          { gameNumber: 3, href: "/match-draft/fixture-1?game=3", status: null },
         ]}
       />,
     );
 
     const tabs = screen.getByRole("navigation", { name: /series games/i });
-    expect(tabs.querySelectorAll("a")).toHaveLength(3);
-    expect(screen.getByRole("link", { name: /game 1/i }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("link", { name: /game 2/i }).getAttribute("href")).toBe("/match-draft/fixture-1?game=2");
-    expect(screen.getByRole("link", { name: /game 2/i }).textContent).toContain("✓");
+    expect(tabs.querySelectorAll("button")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /game 1/i }).getAttribute("aria-current")).toBe("page");
+    // The finished game is clickable and renders instantly (banner + ✓).
+    expect(screen.getByRole("button", { name: /game 2/i }).textContent).toContain("✓");
+    fireEvent.click(screen.getByRole("button", { name: /game 2/i }));
+    expect(screen.getByRole("button", { name: /game 2/i }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("region", { name: /draft complete/i })).toBeTruthy();
   });
 
   it("labels the series with its configured format", () => {
