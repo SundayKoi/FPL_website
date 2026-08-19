@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
-import { matchDraftLinksForFixture } from "@/lib/match-draft/rules";
+import { matchDraftHref } from "@/lib/match-draft/rules";
 import OpggMultiLink from "./OpggMultiLink";
 
 /** Section 1 of the captain page: the next unplayed fixture for this team. */
@@ -27,7 +27,6 @@ export default function NextMatchCard({
   const isTeamA = (fixture.team_a ?? "").trim().toLowerCase() === mine;
   const opponent = (isTeamA ? fixture.team_b : fixture.team_a)?.trim() || "TBD";
   const meta = stageMeta(fixture.stage);
-  const draftLinks = matchDraftLinksForFixture(fixture);
 
   return (
     <section className="card-brand p-5">
@@ -54,19 +53,17 @@ export default function NextMatchCard({
       ) : null}
       <div className="mt-4 rounded border border-line bg-navy/50 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Bo3 fearless drafter</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Series drafter</p>
           <span className="text-[11px] uppercase tracking-wide text-gold">30s turns</span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {draftLinks.map((link) => (
-            <Link
-              key={link.gameNumber}
-              href={link.href}
-              className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold text-steel transition hover:border-coral hover:text-coral"
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div className="mt-3">
+          <Link
+            href={matchDraftHref(fixture)}
+            className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Open match drafter →
+          </Link>
+          <p className="mt-2 text-[11px] text-steel">One link for the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
         </div>
       </div>
     </section>

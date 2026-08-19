@@ -95,4 +95,55 @@ describe("MatchDraftBoard", () => {
     const zeri = screen.getByRole("button", { name: /Zeri unavailable/i });
     expect(zeri.hasAttribute("disabled")).toBe(true);
   });
+
+  it("shows the banned champion's image and name in the ban tile", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+
+    const banTile = screen.getAllByTestId("ban-blue-1")[0];
+    const icon = banTile.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Aatrox.png"]');
+    expect(icon).toBeTruthy();
+    expect(banTile.textContent).toContain("Aatrox");
+    // An empty slot still shows its placeholder.
+    expect(screen.getAllByTestId("ban-red-1")[0].textContent).toContain("B1");
+  });
+
+  it("renders game tabs for the series and marks completed games", () => {
+    render(
+      <MatchDraftBoard
+        initialState={state}
+        onSave={vi.fn()}
+        games={[
+          { gameNumber: 1, href: "/match-draft/fixture-1?game=1", status: "drafting" },
+          { gameNumber: 2, href: "/match-draft/fixture-1?game=2", status: "complete" },
+          { gameNumber: 3, href: "/match-draft/fixture-1?game=3", status: null },
+        ]}
+      />,
+    );
+
+    const tabs = screen.getByRole("navigation", { name: /series games/i });
+    expect(tabs.querySelectorAll("a")).toHaveLength(3);
+    expect(screen.getByRole("link", { name: /game 1/i }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: /game 2/i }).getAttribute("href")).toBe("/match-draft/fixture-1?game=2");
+    expect(screen.getByRole("link", { name: /game 2/i }).textContent).toContain("✓");
+  });
+
+  it("labels the series with its configured format", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 5, fearless: false }} />);
+    expect(screen.getByText(/Bo5 · Game 1/i)).toBeTruthy();
+
+    cleanup();
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} seriesFormat={{ bestOf: 3, fearless: true }} />);
+    expect(screen.getByText(/Bo3 fearless · Game 1/i)).toBeTruthy();
+    // Format controls persist to the database, so preview mode hides them.
+    expect(screen.queryByRole("group", { name: /series format/i })).toBeNull();
+  });
+
+  it("hides the admin reset controls in preview mode and without the admin flag", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} canReset />);
+    expect(screen.queryByRole("button", { name: /reset game/i })).toBeNull();
+
+    cleanup();
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
+  });
 });

@@ -63,3 +63,28 @@ export interface MatchDraftLink {
   href: string;
   label: string;
 }
+
+export type MatchDraftBestOf = 1 | 3 | 5;
+
+/** The series' drafter format, chosen by captains/admins per fixture and
+ *  stored in match_draft_settings; absent rows fall back to code defaults. */
+export interface MatchDraftSeriesFormat {
+  bestOf: MatchDraftBestOf;
+  /** Fearless: champions picked in earlier games are blocked in later ones. */
+  fearless: boolean;
+}
+
+export interface MatchDraftSettingsRow {
+  fixture_id: string;
+  best_of: number;
+  fearless: boolean;
+}
+
+/** One game tab in the drafter header — the whole series shares one URL and
+ *  these switch the ?game= param. */
+export interface MatchDraftGameTab {
+  gameNumber: number;
+  href: string;
+  /** null = no draft row yet for that game. */
+  status: MatchDraftStatus | null;
+}
