@@ -1,9 +1,29 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import RegularSeasonHomePage from "./RegularSeasonHomePage";
 
-vi.mock("@/lib/home/standings", () => ({
-  fetchHomepageStandings: vi.fn(async () => ({
+const {
+  fetchHomepageAwards,
+  fetchHomepageSchedule,
+  fetchHomepageStandings,
+  fetchHomepageTwitch,
+  fetchLatestWeeklyStandouts,
+  fetchTeamIdentities,
+} = vi.hoisted(() => ({
+  fetchHomepageAwards: vi.fn(),
+  fetchHomepageSchedule: vi.fn(),
+  fetchHomepageStandings: vi.fn(),
+  fetchHomepageTwitch: vi.fn(),
+  fetchLatestWeeklyStandouts: vi.fn(),
+  fetchTeamIdentities: vi.fn(),
+}));
+
+function resetMocks() {
+  fetchHomepageTwitch.mockResolvedValue({
+    status: { state: "offline", title: null, viewerCount: null, startedAt: null },
+    clips: [],
+  });
+  fetchHomepageStandings.mockResolvedValue({
     teams: [
       {
         id: "team-alpha",
@@ -15,26 +35,15 @@ vi.mock("@/lib/home/standings", () => ({
       },
     ],
     race: [],
-  })),
-}));
-
-vi.mock("@/lib/home/schedule", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
-  fetchHomepageSchedule: vi.fn(async () => ({
+  });
+  fetchHomepageSchedule.mockResolvedValue({
     season: "S5",
     isNewestSeason: true,
     activeStage: "week_1",
     fixtures: [],
-  })),
-}));
-
-// Crest lookup is a server-side query; without a request scope it throws.
-vi.mock("@/lib/teams/identity", () => ({
-  fetchTeamIdentities: vi.fn(async () => ({})),
-}));
-
-vi.mock("@/lib/home/awards", () => ({
-  fetchHomepageAwards: vi.fn(async () => ({
+  });
+  fetchTeamIdentities.mockResolvedValue({});
+  fetchHomepageAwards.mockResolvedValue({
     season: "S5",
     periodLabel: "Week of Apr 27",
     playerOfWeek: {
@@ -55,11 +64,36 @@ vi.mock("@/lib/home/awards", () => ({
     },
     individualAwards: [],
     teamAwards: [],
-  })),
+  });
+  fetchLatestWeeklyStandouts.mockResolvedValue([]);
+}
+
+vi.mock("@/lib/home/twitch", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/home/twitch")>()),
+  fetchHomepageTwitch,
+}));
+
+vi.mock("@/lib/home/standings", () => ({
+  fetchHomepageStandings,
+}));
+
+vi.mock("@/lib/home/schedule", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/home/schedule")>()),
+  fetchHomepageSchedule,
+}));
+
+// Crest lookup is a server-side query; without a request scope it throws.
+vi.mock("@/lib/teams/identity", () => ({
+  fetchTeamIdentities,
+}));
+
+vi.mock("@/lib/home/awards", () => ({
+  fetchHomepageAwards,
+  PREMIER_SEASON: "S5",
 }));
 
 vi.mock("@/lib/stats/weekly", () => ({
-  fetchLatestWeeklyStandouts: vi.fn(async () => []),
+  fetchLatestWeeklyStandouts,
 }));
 
 expect.extend({
@@ -76,9 +110,12 @@ expect.extend({
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
 });
 
 describe("RegularSeasonHomePage", () => {
+  beforeEach(resetMocks);
+
   it("uses the wide dashboard spacing on desktop", async () => {
     render(await RegularSeasonHomePage());
 
@@ -167,5 +204,17 @@ describe("RegularSeasonHomePage", () => {
     render(await RegularSeasonHomePage());
 
     expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
+  });
+
+  it("renders the dashboard fallback when Supabase-backed homepage data is offline", async () => {
+    fetchHomepageStandings.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
+    fetchHomepageSchedule.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
+    fetchTeamIdentities.mockRejectedValue(new Error("connect ECONNREFUSED 127.0.0.1:54321"));
+
+    render(await RegularSeasonHomePage());
+
+    expect(screen.getByRole("region", { name: /homepage dashboard/i })).not.toBeNull();
+    expect(screen.getByRole("article", { name: /upcoming schedule/i })).not.toBeNull();
+    expect(within(screen.getByRole("article", { name: /team standings/i })).queryByText("Alpha")).toBeNull();
   });
 });

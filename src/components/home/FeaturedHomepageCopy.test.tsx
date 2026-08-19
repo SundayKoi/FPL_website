@@ -36,7 +36,7 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
     fixtures: [fixture],
   })),
 }));
-vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({})) }));
+vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({})), PREMIER_SEASON: "S5" }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities: vi.fn(async () => ({})) }));
 vi.mock("@/lib/stats/weekly", () => ({ fetchLatestWeeklyStandouts: vi.fn(async () => []) }));

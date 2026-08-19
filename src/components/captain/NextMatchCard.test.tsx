@@ -40,4 +40,19 @@ describe("NextMatchCard", () => {
 
     expect(screen.queryByRole("link", { name: "Opponent OP.GG Multi" })).toBeNull();
   });
+
+  it("shows Bo3 fearless drafter links for the scheduled match", () => {
+    render(<NextMatchCard fixture={fixture} myTeamName="My Team" />);
+
+    expect(screen.getByText(/Bo3 fearless/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Game 1 draft" }).getAttribute("href")).toBe(
+      "/match-draft/fixture-1?game=1&layout=stage",
+    );
+    expect(screen.getByRole("link", { name: "Game 2 draft" }).getAttribute("href")).toBe(
+      "/match-draft/fixture-1?game=2&layout=stage",
+    );
+    expect(screen.getByRole("link", { name: "Game 3 draft" }).getAttribute("href")).toBe(
+      "/match-draft/fixture-1?game=3&layout=stage",
+    );
+  });
 });
