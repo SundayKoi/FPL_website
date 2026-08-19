@@ -413,7 +413,9 @@ describe("MatchDraftBoard", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /confirm roles/i }));
-    fireEvent.click(screen.getByRole("button", { name: /move Ahri down/i }));
+    // Rows reorder by pointer drag; arrow keys drive the same move (and are
+    // what jsdom can exercise).
+    fireEvent.keyDown(screen.getByLabelText(/reorder Ahri/i), { key: "ArrowDown" });
     fireEvent.click(screen.getByRole("button", { name: /save roles/i }));
 
     await waitFor(() => {

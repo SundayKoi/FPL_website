@@ -866,15 +866,31 @@ export default function MatchDraftBoard({
       order: state.positions?.[side] ?? picksInDraftOrder(side),
     });
 
-  const moveRole = (index: number, delta: -1 | 1) =>
+  /** Move the entry at `from` to position `to` (others shift, drag-style). */
+  const moveRoleTo = (from: number, to: number) =>
     setRoleEditor((current) => {
-      if (!current) return current;
-      const target = index + delta;
-      if (target < 0 || target >= current.order.length) return current;
+      if (!current || from === to || from < 0 || to < 0) return current;
+      if (from >= current.order.length || to >= current.order.length) return current;
       const order = [...current.order];
-      [order[index], order[target]] = [order[target], order[index]];
+      const [moved] = order.splice(from, 1);
+      order.splice(to, 0, moved);
       return { ...current, order };
     });
+
+  // Live drag state: the dragged item's CURRENT index (it moves as the
+  // pointer crosses row midpoints, so the list re-orders under the finger).
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const roleListRef = useRef<HTMLUListElement | null>(null);
+  const roleRowAtY = (clientY: number): number | null => {
+    const list = roleListRef.current;
+    if (!list) return null;
+    const rows = Array.from(list.children) as HTMLElement[];
+    for (let i = 0; i < rows.length; i += 1) {
+      const rect = rows[i].getBoundingClientRect();
+      if (clientY < rect.top + rect.height / 2) return i;
+    }
+    return rows.length - 1;
+  };
 
   const saveRoles = async () => {
     if (!supabase || !activeRoleEditor) return;
@@ -1180,39 +1196,72 @@ export default function MatchDraftBoard({
                   </span>
                 )}
               </div>
-              <ul className="mt-2 grid gap-1">
+              <ul ref={editing ? roleListRef : undefined} className="mt-2 grid gap-1">
                 {(editing?.order ?? confirmed ?? picksInDraftOrder(side)).map((champion, index) => (
-                  <li key={`${side}-${index}`} className="flex items-center gap-2 rounded bg-navy/60 px-2 py-1.5 text-sm text-white">
+                  <li
+                    key={`${side}-${index}`}
+                    tabIndex={editing ? 0 : undefined}
+                    aria-label={editing ? `Reorder ${champion ?? "skipped pick"} — drag, or press the arrow keys` : undefined}
+                    onPointerDown={
+                      editing
+                        ? (event) => {
+                            event.preventDefault();
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            setDragFrom(index);
+                          }
+                        : undefined
+                    }
+                    onPointerMove={
+                      editing
+                        ? (event) => {
+                            if (dragFrom === null) return;
+                            const target = roleRowAtY(event.clientY);
+                            if (target !== null && target !== dragFrom) {
+                              moveRoleTo(dragFrom, target);
+                              setDragFrom(target);
+                            }
+                          }
+                        : undefined
+                    }
+                    onPointerUp={editing ? () => setDragFrom(null) : undefined}
+                    onPointerCancel={editing ? () => setDragFrom(null) : undefined}
+                    onKeyDown={
+                      editing
+                        ? (event) => {
+                            if (event.key === "ArrowUp") {
+                              event.preventDefault();
+                              moveRoleTo(index, index - 1);
+                            } else if (event.key === "ArrowDown") {
+                              event.preventDefault();
+                              moveRoleTo(index, index + 1);
+                            }
+                          }
+                        : undefined
+                    }
+                    className={`flex items-center gap-2 rounded bg-navy/60 px-2 py-1.5 text-sm text-white ${
+                      editing
+                        ? `cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral ${
+                            dragFrom === index ? "cursor-grabbing shadow-[0_0_0_1px] shadow-coral" : ""
+                          }`
+                        : ""
+                    }`}
+                  >
+                    {editing ? (
+                      <span aria-hidden className="shrink-0 text-xs leading-none text-steel">
+                        ⠿
+                      </span>
+                    ) : null}
                     <span className="w-14 shrink-0 text-[10px] font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[index]}</span>
                     <span className="min-w-0 flex-1 truncate font-semibold">
                       {champion ?? <span className="font-normal text-red-400/80">Skipped</span>}
                     </span>
                     {roster[index] ? <span className="truncate text-xs text-steel">{roster[index]}</span> : null}
-                    {editing ? (
-                      <span className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          aria-label={`Move ${champion ?? "skipped pick"} up`}
-                          disabled={index === 0}
-                          onClick={() => moveRole(index, -1)}
-                          className="rounded border border-line px-1.5 text-xs text-steel transition hover:text-white disabled:opacity-30"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Move ${champion ?? "skipped pick"} down`}
-                          disabled={index === editing.order.length - 1}
-                          onClick={() => moveRole(index, 1)}
-                          className="rounded border border-line px-1.5 text-xs text-steel transition hover:text-white disabled:opacity-30"
-                        >
-                          ↓
-                        </button>
-                      </span>
-                    ) : null}
                   </li>
                 ))}
               </ul>
+              {editing ? (
+                <p className="mt-1 text-[11px] text-steel">Drag each champion onto the role they&apos;ll play.</p>
+              ) : null}
               {editing ? (
                 <div className="mt-2 flex gap-2">
                   <button type="button" disabled={saving} onClick={() => void saveRoles()} className="btn-coral px-3 py-1.5 text-xs disabled:opacity-40">
