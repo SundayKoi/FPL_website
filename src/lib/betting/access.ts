@@ -19,16 +19,21 @@ export function _clearMemberCache(): void {
  * Guild membership + roles for a Discord id, fetched via the bot token.
  * 200 → the member's roles; 404 → not in the guild; anything else (rate
  * limit, outage, network error) → null ("inconclusive" — the caller decides
- * the fail-open policy, see `bettingAccess`). Cached per id for 60s so a
- * burst of checks in one request doesn't hammer Discord.
+ * the fail-open policy, see `bettingAccess`). Cached per guild+id for 60s so
+ * a burst of checks in one request doesn't hammer Discord. `guildId`
+ * defaults to the betting guild; other gates (the drafter's premium check)
+ * pass their own — the bot must be a member of that guild to answer.
  */
-export async function fetchGuildMember(discordId: string): Promise<GuildMember | null> {
-  const cached = memberCache.get(discordId);
+export async function fetchGuildMember(
+  discordId: string,
+  guildId: string | undefined = process.env.DISCORD_GUILD_ID,
+): Promise<GuildMember | null> {
+  const cacheKey = `${guildId ?? ""}:${discordId}`;
+  const cached = memberCache.get(cacheKey);
   if (cached && Date.now() - cached.at < MEMBER_CACHE_TTL_MS) {
     return cached.value;
   }
 
-  const guildId = process.env.DISCORD_GUILD_ID;
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   let value: GuildMember | null;
@@ -52,7 +57,7 @@ export async function fetchGuildMember(discordId: string): Promise<GuildMember |
     value = null;
   }
 
-  memberCache.set(discordId, { at: Date.now(), value });
+  memberCache.set(cacheKey, { at: Date.now(), value });
   return value;
 }
 

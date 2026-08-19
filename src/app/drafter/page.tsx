@@ -1,12 +1,44 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import CreateLobbyForm from "@/components/match-draft/CreateLobbyForm";
+import { drafterAccess } from "@/lib/match-draft/access";
 
 export const metadata: Metadata = {
   title: "Drafter — FPL",
-  description: "Create a free pick/ban lobby and draft with secret team links — no account needed.",
+  description: "Create a pick/ban lobby and draft with secret team links.",
 };
 
-export default function DrafterLandingPage() {
+export default async function DrafterLandingPage() {
+  // Creating lobbies is a premium-member perk (the server action re-checks);
+  // the lobby links themselves stay open to whoever holds them.
+  const access = await drafterAccess();
+  if (!access.signedIn) {
+    return (
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Drafter</span>
+        <h1 className="type-display text-3xl sm:text-4xl">Sign in to create draft lobbies</h1>
+        <p className="max-w-md text-sm text-steel">
+          The drafter is a perk for premium Discord members — sign in with Discord to check your access.
+          Draft links you&apos;ve been sent still work without signing in.
+        </p>
+        <Link href="/login?redirect=/drafter" className="btn-pill mt-2">
+          Sign in with Discord
+        </Link>
+      </main>
+    );
+  }
+  if (!access.allowed) {
+    return (
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Drafter</span>
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
+        <p className="max-w-md text-sm text-steel">
+          Creating draft lobbies is a perk for premium Discord members. Grab the premium role in the
+          Discord and come back — draft links you&apos;ve been sent still work without it.
+        </p>
+      </main>
+    );
+  }
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 bg-hash px-4 py-10 text-white">
       <header>
@@ -15,8 +47,8 @@ export default function DrafterLandingPage() {
         <p className="mt-3 max-w-2xl text-sm text-steel">
           Run a full LCS-style pick/ban phase for any custom game. Create a lobby, send each captain
           their secret link, and share the spectator link with everyone else — ready checks, a 30
-          second pick clock with skips, change requests, fearless mode, and live sync included. No
-          account needed.
+          second pick clock with skips, change requests, fearless mode, and live sync included.
+          Whoever you send the links to needs no account at all.
         </p>
       </header>
       <CreateLobbyForm />

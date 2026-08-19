@@ -1,23 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createOpenDraftLobbyAction } from "@/lib/match-draft/lobbyActions";
 import type { MatchDraftBestOf, OpenDraftLobbyTokens } from "@/lib/match-draft/types";
 
 const BEST_OF_OPTIONS: MatchDraftBestOf[] = [1, 3, 5];
-
-function lobbyErrorMessage(err: unknown): string {
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof (err as { message?: unknown })?.message === "string"
-        ? (err as { message: string }).message
-        : "";
-  if (!raw) return "The lobby could not be created — try again.";
-  // RPC validation errors read "CODE: human message" — show just the message.
-  if (/^[A-Z_]+:\s/.test(raw)) return raw.replace(/^[A-Z_]+:\s*/, "");
-  return `The lobby could not be created. (${raw})`;
-}
 
 function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: string; token: string; suffix?: string }) {
   const [copied, setCopied] = useState(false);
@@ -78,19 +65,23 @@ export default function CreateLobbyForm() {
     setCreating(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const { data, error: rpcError } = await supabase.rpc("create_open_draft_lobby", {
-        p_team_a: teamA.trim(),
-        p_team_b: teamB.trim(),
-        p_best_of: bestOf,
-        p_fearless: fearless,
-        p_players_a: parsePlayers(playersA),
-        p_players_b: parsePlayers(playersB),
+      // Creation runs through a server action: it re-checks the premium
+      // Discord gate and holds the only credentials the create RPC accepts.
+      const result = await createOpenDraftLobbyAction({
+        teamA: teamA.trim(),
+        teamB: teamB.trim(),
+        bestOf,
+        fearless,
+        playersA: parsePlayers(playersA),
+        playersB: parsePlayers(playersB),
       });
-      if (rpcError) throw rpcError;
-      setLobby({ ...(data as OpenDraftLobbyTokens), teamA: teamA.trim(), teamB: teamB.trim() });
-    } catch (err) {
-      setError(lobbyErrorMessage(err));
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setLobby({ ...result.lobby, teamA: teamA.trim(), teamB: teamB.trim() });
+    } catch {
+      setError("The lobby could not be created — try again.");
     } finally {
       setCreating(false);
     }
