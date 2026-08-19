@@ -29,13 +29,21 @@ function layoutParam(value: string | undefined): MatchDraftLayout {
   return value === "board" ? "board" : "stage";
 }
 
-function lobbyTeam(name: string): MatchDraftTeam {
+function lobbyTeam(name: string, info: OpenDraftLobbyInfo): MatchDraftTeam {
   const label = name.trim() || "TBD";
+  // Sides can swap between games, so player lists attach by team name.
+  const key = label.toLowerCase();
+  const players =
+    key === info.teamA.trim().toLowerCase()
+      ? info.teamAPlayers ?? []
+      : key === info.teamB.trim().toLowerCase()
+        ? info.teamBPlayers ?? []
+        : [];
   return {
     name: label,
     abbreviation: label.slice(0, 3).toUpperCase(),
     imageUrl: null,
-    players: [],
+    players,
   };
 }
 
@@ -63,9 +71,9 @@ function stateFor({
     layout,
     currentStepIndex: row?.current_step_index ?? 0,
     turnStartedAt: row?.turn_started_at ?? null,
-    blueTeam: lobbyTeam(row?.blue_team_name || info.teamA),
-    redTeam: lobbyTeam(row?.red_team_name || info.teamB),
-    scheduledTeams: [lobbyTeam(info.teamA), lobbyTeam(info.teamB)],
+    blueTeam: lobbyTeam(row?.blue_team_name || info.teamA, info),
+    redTeam: lobbyTeam(row?.red_team_name || info.teamB, info),
+    scheduledTeams: [lobbyTeam(info.teamA, info), lobbyTeam(info.teamB, info)],
     canChooseSides: gameNumber > 1 && actions.length === 0,
     blueReady: row?.blue_ready ?? false,
     redReady: row?.red_ready ?? false,

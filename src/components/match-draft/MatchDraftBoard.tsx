@@ -126,8 +126,8 @@ function DraftSlot({
       <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : "Open"}
       </p>
-      {kind === "pick" ? (
-        <p className="relative mt-1 truncate text-xs text-steel">{action?.playerName || playerName}</p>
+      {kind === "pick" && (action?.playerName || playerName) ? (
+        <p className="relative mt-1 truncate text-xs text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{action?.playerName || playerName}</p>
       ) : null}
     </div>
   );
@@ -162,7 +162,7 @@ function SlotColumn({
           slot={step.slot}
           action={actionForStep(actions, step)}
           active={step.index === currentStepIndex}
-          playerName={players[step.slot - 1] ?? "Player TBD"}
+          playerName={players[step.slot - 1] ?? ""}
           imageSize={imageSize}
           resolve={resolve}
           intent={intentFor?.(step.index) ?? null}
@@ -538,7 +538,9 @@ export default function MatchDraftBoard({
     onSave ? undefined : onlineTeams.has(teamForSide(side).name.trim().toLowerCase());
   const teamForSide = (side: DraftSide) => (side === "blue" ? state.blueTeam : state.redTeam);
   const playersForSide = (side: DraftSide) => teamForSide(side).players;
-  const playerForCurrentPick = (side: DraftSide, slot?: number) => playersForSide(side)[(slot ?? 1) - 1] ?? "Player TBD";
+  // Null when the team has no roster (public lobbies without entered names):
+  // the slot then shows just the champion instead of a placeholder.
+  const playerForCurrentPick = (side: DraftSide, slot?: number) => playersForSide(side)[(slot ?? 1) - 1] ?? null;
 
   const persist = async (next: MatchDraftState) => {
     if (onSave) {
