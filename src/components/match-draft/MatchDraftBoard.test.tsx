@@ -45,6 +45,7 @@ const state: MatchDraftState = {
   blueReady: true,
   redReady: true,
   changeRequest: null,
+  positions: null,
   actions: [
     { stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Aatrox", playerName: null },
     { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue Mid" },
@@ -368,6 +369,61 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByText("Game 2")).toBeTruthy();
     // No overlay controls sneak in.
     expect(screen.queryByRole("button", { name: /lock in/i })).toBeNull();
+  });
+
+  it("re-orders the pick column by role once positions are confirmed", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          status: "complete",
+          actions: [
+            { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue Top" },
+            { stepIndex: 9, side: "blue", kind: "pick", slot: 2, champion: "Zed", playerName: "Blue Jungle" },
+          ],
+          positions: { blue: ["Zed", "Ahri", null, null, null] },
+        }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    // Role labels replace "pick N" and the order follows the confirmation.
+    expect(screen.getAllByText("Top").length).toBeGreaterThan(0);
+    const column = screen.getByRole("region", { name: /stage draft layout/i });
+    const text = column.textContent ?? "";
+    expect(text.indexOf("Zed")).toBeLessThan(text.indexOf("Ahri"));
+  });
+
+  it("lets a lobby captain confirm roles through the open_draft RPC", async () => {
+    rpcMock.mockClear();
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          fixtureId: "lobby-1",
+          status: "complete",
+          actions: [
+            { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: null },
+            { stepIndex: 9, side: "blue", kind: "pick", slot: 2, champion: "Zed", playerName: null },
+          ],
+        }}
+        viewerTeamName="Blue Team"
+        lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /confirm roles/i }));
+    fireEvent.click(screen.getByRole("button", { name: /move Ahri down/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save roles/i }));
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("set_open_draft_positions", {
+        p_token: "tok-a",
+        p_game: 1,
+        p_side: "blue",
+        p_champions: ["Zed", "Ahri", null, null, null],
+      });
+    });
   });
 
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {

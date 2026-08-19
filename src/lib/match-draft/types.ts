@@ -30,6 +30,14 @@ export interface MatchDraftAction {
   playerName?: string | null;
 }
 
+/** Post-draft role confirmation: each side's five champions in role order
+ *  (top→support). Null entries mark skipped picks; an absent side means
+ *  that team hasn't confirmed yet. */
+export interface MatchDraftPositions {
+  blue?: (string | null)[];
+  red?: (string | null)[];
+}
+
 /** A captain's pending "let me redo this step" request — one at a time. */
 export interface MatchDraftChangeRequest {
   stepIndex: number;
@@ -51,6 +59,7 @@ export interface MatchDraftRow {
   blue_ready: boolean;
   red_ready: boolean;
   change_request: MatchDraftChangeRequest | null;
+  positions: MatchDraftPositions | null;
   actions: MatchDraftAction[];
   created_at: string;
   updated_at: string;
@@ -72,6 +81,7 @@ export interface MatchDraftState {
   blueReady: boolean;
   redReady: boolean;
   changeRequest: MatchDraftChangeRequest | null;
+  positions: MatchDraftPositions | null;
   actions: MatchDraftAction[];
   blockedChampions: string[];
 }
