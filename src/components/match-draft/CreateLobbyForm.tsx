@@ -109,7 +109,7 @@ export default function CreateLobbyForm() {
         <LobbyLink label="Spectators" hint="Watch-only — share with anyone who wants to follow along." token={lobby.tokenSpectator} />
         <LobbyLink
           label="OBS overlay"
-          hint="The spectator view stripped to teams, picks, bans, and the clock — paste into an OBS browser source."
+          hint="The spectator view stripped to teams, picks, bans, and the clock — paste into an OBS browser source. Add &bg=transparent to layer it over your own scene."
           token={lobby.tokenSpectator}
           suffix="?overlay=1"
         />

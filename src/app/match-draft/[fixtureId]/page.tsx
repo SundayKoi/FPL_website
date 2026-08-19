@@ -197,6 +197,7 @@ export default async function MatchDraftPage({
       seriesFormat={seriesFormat}
       canReset={staffTier.isAdmin || staffTier.isOwner}
       followLive={overlay && firstParam(query.game) === undefined}
+      overlayTransparent={firstParam(query.bg) === "transparent"}
     />
   );
 }

@@ -100,11 +100,16 @@ function DraftSlot({
     >
       {portraitUrl ? (
         // Riot Data Dragon loading art is served from a fixed CDN URL.
+        // Explicit h-full + a fixed 3:2 window matter: an absolutely
+        // positioned image sized only by width keeps its intrinsic height
+        // (the box never constrained it), and a width tied to the column
+        // made the crop random. This way every slot shows the same
+        // face-and-shoulders crop at any column width.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={portraitUrl}
           alt=""
-          className={`absolute inset-y-0 right-0 w-2/5 object-cover object-top [mask-image:linear-gradient(to_left,black_55%,transparent)] ${
+          className={`absolute right-0 top-0 h-full w-auto max-w-none aspect-[3/2] object-cover object-top [mask-image:linear-gradient(to_left,black_45%,transparent)] ${
             champion ? "" : "opacity-40"
           }`}
         />
@@ -395,6 +400,7 @@ export default function MatchDraftBoard({
   canReset = false,
   lobby = null,
   followLive = false,
+  overlayTransparent = false,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -426,6 +432,9 @@ export default function MatchDraftBoard({
   /** Overlay only: auto-follow the latest active game so one OBS link covers
    *  the whole series. Pages set it when the URL has no explicit ?game=. */
   followLive?: boolean;
+  /** Overlay only (?bg=transparent): no page background, so casters can
+   *  layer the overlay over their own scene. */
+  overlayTransparent?: boolean;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -557,6 +566,7 @@ export default function MatchDraftBoard({
                 redReady: row.red_ready ?? false,
                 changeRequest: row.change_request ?? null,
                 positions: row.positions ?? null,
+                winnerTeam: row.winner_team ?? null,
                 actions,
                 canChooseSides: game.gameNumber > 1 && actions.length === 0,
               },
@@ -807,6 +817,37 @@ export default function MatchDraftBoard({
       setSaving(false);
     }
   };
+
+  /** Toggle a lobby game's recorded winner (clicking the current winner
+   *  clears it — mis-clicks happen). Lobby captains only. */
+  const setWinner = async (teamName: string) => {
+    if (!supabase || !lobby) return;
+    const next = state.winnerTeam && sameTeam(state.winnerTeam, teamName) ? null : teamName;
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: rpcError } = await supabase.rpc("set_open_draft_winner", {
+        p_token: lobby.token,
+        p_game: state.gameNumber,
+        p_team: next,
+      });
+      if (rpcError) throw rpcError;
+      setState({ ...state, winnerTeam: next });
+    } catch (err) {
+      setError(saveErrorMessage(err, "The result could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Series score across the lobby's games, counted by TEAM (sides swap).
+  const seriesWins = (team: MatchDraftState["blueTeam"]) =>
+    Object.values(statesByGame).filter((game) => sameTeam(game.winnerTeam, team.name)).length;
+  const winsA = lobby ? seriesWins(state.scheduledTeams[0]) : 0;
+  const winsB = lobby ? seriesWins(state.scheduledTeams[1]) : 0;
+  const winsNeeded = Math.floor(seriesFormat.bestOf / 2) + 1;
+  const seriesWinner =
+    winsA >= winsNeeded ? state.scheduledTeams[0] : winsB >= winsNeeded ? state.scheduledTeams[1] : null;
 
   /** The side's five picks in the order they were drafted (nulls = skips) —
    *  the starting arrangement for role confirmation. */
@@ -1064,6 +1105,38 @@ export default function MatchDraftBoard({
       <span className="text-sm text-steel">
         All picks and bans are locked in.
         {games.length > 1 ? " Use the game tabs to move to the next game." : ""}
+      </span>
+    </section>
+  ) : null;
+
+  // Public lobbies: either captain records who won the finished game; the
+  // header tallies the series and calls it at the majority.
+  const winnerPicker = lobby && !onSave && state.status === "complete" ? (
+    <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Game result">
+      <span className="label-dash">Game {state.gameNumber} result</span>
+      {state.scheduledTeams.map((team) => {
+        const won = sameTeam(state.winnerTeam, team.name);
+        return (
+          <button
+            key={team.name}
+            type="button"
+            disabled={saving || !viewerSide}
+            aria-pressed={won}
+            onClick={() => void setWinner(team.name)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
+              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-line bg-panel text-steel hover:text-white"
+            }`}
+          >
+            {team.abbreviation} won{won ? " ✓" : ""}
+          </button>
+        );
+      })}
+      <span className={`text-sm ${seriesWinner ? "font-semibold text-mint" : "text-steel"}`}>
+        {seriesWinner
+          ? `${seriesWinner.abbreviation} takes the series ${Math.max(winsA, winsB)}–${Math.min(winsA, winsB)}!`
+          : viewerSide
+            ? "Either captain can record it — the header tracks the series score."
+            : "Waiting on a captain to record the result."}
       </span>
     </section>
   ) : null;
@@ -1362,7 +1435,7 @@ export default function MatchDraftBoard({
   if (overlay) {
     // OBS browser source: teams, picks, bans, and the clock — nothing else.
     return (
-      <main className="flex w-full flex-col gap-4 bg-navy p-4 text-white">
+      <main className={`flex w-full flex-col gap-4 p-4 text-white ${overlayTransparent ? "bg-transparent" : "bg-navy"}`}>
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
           <div className="flex flex-col gap-3">
             <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
@@ -1396,7 +1469,12 @@ export default function MatchDraftBoard({
     <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
-          <span className="label-dash">Bo{seriesFormat.bestOf}{seriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}</span>
+          <span className="label-dash">
+            Bo{seriesFormat.bestOf}{seriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}
+            {lobby && winsA + winsB > 0
+              ? ` · ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}`
+              : ""}
+          </span>
           <h1 className="type-display mt-1 text-2xl text-white">
             {state.blueTeam.abbreviation} vs {state.redTeam.abbreviation}
           </h1>
@@ -1443,6 +1521,7 @@ export default function MatchDraftBoard({
       </header>
 
       {completeBanner}
+      {winnerPicker}
       {roleConfirm}
       {changeBanner}
       {sideChooser}
