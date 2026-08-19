@@ -325,6 +325,23 @@ describe("MatchDraftBoard", () => {
     expect(screen.queryByRole("button", { name: /reset series/i })).toBeNull();
   });
 
+  it("auto-follows the latest active game in overlay mode", () => {
+    const gameTwo: MatchDraftState = { ...state, gameNumber: 2, actions: [state.actions[0]] };
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete" }}
+        initialStates={[{ ...state, status: "complete" }, gameTwo]}
+        overlay
+        followLive
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Game 2")).toBeTruthy();
+    // No overlay controls sneak in.
+    expect(screen.queryByRole("button", { name: /lock in/i })).toBeNull();
+  });
+
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
     rpcMock.mockClear();
     render(

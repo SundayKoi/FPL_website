@@ -148,6 +148,7 @@ export default async function OpenDraftLobbyPage({
       games={games}
       seriesFormat={seriesFormat}
       lobby={{ lobbyId: info.lobbyId, token }}
+      followLive={overlay && firstParam(query.game) === undefined}
     />
   );
 }
