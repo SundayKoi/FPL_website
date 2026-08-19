@@ -426,6 +426,37 @@ describe("MatchDraftBoard", () => {
     });
   });
 
+  it("records a lobby game's winner and shows the series score", async () => {
+    rpcMock.mockClear();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, fixtureId: "lobby-1", status: "complete" }}
+        viewerTeamName="Blue Team"
+        lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^BLU won$/i }));
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("set_open_draft_winner", {
+        p_token: "tok-a",
+        p_game: 1,
+        p_team: "Blue Team",
+      });
+    });
+    expect(screen.getByText(/BLU 1–0 RED/)).toBeTruthy();
+  });
+
+  it("renders the overlay without a page background when transparent", () => {
+    const { container } = render(
+      <MatchDraftBoard initialState={state} overlay overlayTransparent onSave={vi.fn()} />,
+    );
+    const main = container.querySelector("main");
+    expect(main?.className).toContain("bg-transparent");
+    expect(main?.className).not.toContain("bg-navy");
+  });
+
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
     rpcMock.mockClear();
     render(

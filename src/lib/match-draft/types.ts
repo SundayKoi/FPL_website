@@ -60,6 +60,8 @@ export interface MatchDraftRow {
   red_ready: boolean;
   change_request: MatchDraftChangeRequest | null;
   positions: MatchDraftPositions | null;
+  /** Public lobbies only: the winning TEAM's name once captains record it. */
+  winner_team?: string | null;
   actions: MatchDraftAction[];
   created_at: string;
   updated_at: string;
@@ -82,6 +84,8 @@ export interface MatchDraftState {
   redReady: boolean;
   changeRequest: MatchDraftChangeRequest | null;
   positions: MatchDraftPositions | null;
+  /** Public lobbies only: who won this game (team name), for series score. */
+  winnerTeam?: string | null;
   actions: MatchDraftAction[];
   blockedChampions: string[];
 }
