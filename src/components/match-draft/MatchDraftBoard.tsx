@@ -204,6 +204,8 @@ function saveErrorMessage(err: unknown, fallback: string): string {
   if (/JWT|token|not authenticated/i.test(raw)) {
     return "You're not signed in — log in as a captain or admin to draft.";
   }
+  // RPC validation errors read "CODE: human message" — show just the message.
+  if (/^[A-Z_]+:\s/.test(raw)) return raw.replace(/^[A-Z_]+:\s*/, "");
   return `${fallback} (${raw})`;
 }
 
@@ -235,6 +237,7 @@ function useTurnCountdown(turnStartedAt: string | null, running: boolean): numbe
 export default function MatchDraftBoard({
   initialState,
   initialStates,
+  viewerTeamName,
   champions = CHAMPIONS,
   games = [],
   seriesFormat = { bestOf: 3, fearless: true },
@@ -246,6 +249,9 @@ export default function MatchDraftBoard({
    *  instantly client-side. Absent (preview/tests), only initialState's
    *  game exists. */
   initialStates?: MatchDraftState[];
+  /** The team the signed-in visitor captains in this fixture (null =
+   *  spectator). Presentation only — the database RPCs re-check the side. */
+  viewerTeamName?: string | null;
   /** The champion roster — the live Data Dragon list from the server, or
    *  the static fallback bundle. */
   champions?: MatchDraftChampion[];
@@ -289,6 +295,17 @@ export default function MatchDraftBoard({
       .flatMap((game) => game.actions.filter((action) => action.kind === "pick").map((action) => action.champion));
     return [...new Set([...state.blockedChampions, ...priorPicks])];
   }, [seriesFormat.fearless, state.blockedChampions, statesByGame, gameNumber]);
+  const sameTeam = (a: string | null | undefined, b: string | null | undefined) =>
+    Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
+  const viewerSide: DraftSide | null = sameTeam(viewerTeamName, state.blueTeam.name)
+    ? "blue"
+    : sameTeam(viewerTeamName, state.redTeam.name)
+      ? "red"
+      : null;
+  // Admins act for any side; captains only for theirs; spectators never.
+  // Preview mode (onSave) without a viewer identity keeps full access.
+  const mayActFor = (side: DraftSide) =>
+    canReset || (onSave !== undefined && viewerTeamName === undefined) || viewerSide === side;
   const draftStarted = state.actions.length > 0;
   const bothReady = state.blueReady && state.redReady;
   const drafting = state.status !== "complete";
@@ -379,6 +396,7 @@ export default function MatchDraftBoard({
     const ready = state.blueReady && state.redReady;
     if (!started && !ready) return;
     if (!currentStep || state.sideChoiceRequired || isChampionUnavailable(champion, state.actions, blockedChampions)) return;
+    if (!mayActFor(currentStep.side)) return;
     const nextActions = state.actions.filter((action) => {
       if (typeof action.stepIndex === "number") return action.stepIndex !== currentStep.index;
       return !(action.side === currentStep.side && action.kind === currentStep.kind && action.slot === currentStep.slot);
@@ -404,7 +422,18 @@ export default function MatchDraftBoard({
     setSaving(true);
     setError(null);
     try {
-      await persist(next);
+      if (onSave) {
+        await persist(next);
+      } else if (supabase) {
+        const { error: rpcError } = await supabase.rpc("apply_match_draft_action", {
+          p_fixture: state.fixtureId,
+          p_game: state.gameNumber,
+          p_step: currentStep.index,
+          p_champion: champion,
+          p_player_name: currentStep.kind === "pick" ? playerForCurrentPick(currentStep.side, currentStep.slot) : null,
+        });
+        if (rpcError) throw rpcError;
+      }
       setState(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Draft could not be saved."));
@@ -420,7 +449,16 @@ export default function MatchDraftBoard({
     setSaving(true);
     setError(null);
     try {
-      await persist(next);
+      if (onSave) {
+        await persist(next);
+      } else if (supabase) {
+        const { error: rpcError } = await supabase.rpc("choose_match_draft_blue", {
+          p_fixture: state.fixtureId,
+          p_game: state.gameNumber,
+          p_blue_name: blueTeam.name,
+        });
+        if (rpcError) throw rpcError;
+      }
       setState(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Sides could not be saved."));
@@ -430,18 +468,29 @@ export default function MatchDraftBoard({
   };
 
   const toggleReady = async (side: DraftSide) => {
-    if (state.sideChoiceRequired || draftStarted) return;
+    if (state.sideChoiceRequired || draftStarted || !mayActFor(side)) return;
+    const nextReady = side === "blue" ? !state.blueReady : !state.redReady;
     const next: MatchDraftState = {
       ...state,
-      blueReady: side === "blue" ? !state.blueReady : state.blueReady,
-      redReady: side === "red" ? !state.redReady : state.redReady,
+      blueReady: side === "blue" ? nextReady : state.blueReady,
+      redReady: side === "red" ? nextReady : state.redReady,
     };
     // Both just went ready: the first turn's clock starts now.
     if (next.blueReady && next.redReady) next.turnStartedAt = new Date().toISOString();
     setSaving(true);
     setError(null);
     try {
-      await persist(next);
+      if (onSave) {
+        await persist(next);
+      } else if (supabase) {
+        const { error: rpcError } = await supabase.rpc("set_match_draft_ready", {
+          p_fixture: state.fixtureId,
+          p_game: state.gameNumber,
+          p_side: side,
+          p_ready: nextReady,
+        });
+        if (rpcError) throw rpcError;
+      }
       setState(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Ready check could not be saved."));
@@ -542,7 +591,7 @@ export default function MatchDraftBoard({
           <button
             key={side}
             type="button"
-            disabled={saving || state.sideChoiceRequired}
+            disabled={saving || state.sideChoiceRequired || !mayActFor(side)}
             aria-pressed={isReady}
             onClick={() => void toggleReady(side)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
@@ -623,7 +672,7 @@ export default function MatchDraftBoard({
             <button
               key={champion.id}
               type="button"
-              disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady)}
+              disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
               onClick={() => void selectChampion(champion.name)}
               aria-label={`${champion.name}${unavailable ? " unavailable" : ""}`}
               className={`group relative aspect-square overflow-hidden border border-line bg-panel text-left font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35 ${sizeByValue[imageSize].name}`}
@@ -782,6 +831,15 @@ export default function MatchDraftBoard({
             +
           </button>
         </div>
+        {!onSave || viewerTeamName !== undefined ? (
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+              canReset ? "border-gold/50 text-gold" : viewerSide ? sideClass[viewerSide] : "border-line text-steel"
+            }`}
+          >
+            {canReset ? "Admin — full control" : viewerSide ? `Drafting for ${teamForSide(viewerSide).abbreviation} (${viewerSide} side)` : "Spectating"}
+          </span>
+        ) : null}
         <p className="text-sm text-steel">
           Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
           {currentAction ? <span> · locked {currentAction.champion}</span> : null}

@@ -223,6 +223,51 @@ describe("MatchDraftBoard", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it("only lets the side whose turn it is act — the other captain is locked out", () => {
+    const onSave = vi.fn();
+    // Step 6 is blue pick 1; the viewer captains the RED team.
+    render(<MatchDraftBoard initialState={state} onSave={onSave} viewerTeamName="Red Team" />);
+
+    expect(screen.getByText(/drafting for RED \(red side\)/i)).toBeTruthy();
+    const zed = screen.getByRole("button", { name: "Zed" });
+    expect(zed.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(zed);
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("locks ready buttons to each captain's own side and spectators out entirely", () => {
+    const onSave = vi.fn();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, actions: [], blueReady: false, redReady: false }}
+        onSave={onSave}
+        viewerTeamName="Blue Team"
+      />,
+    );
+    expect(screen.getByRole("button", { name: /BLU ready\?/i }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: /RED ready\?/i }).hasAttribute("disabled")).toBe(true);
+
+    cleanup();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, actions: [], blueReady: false, redReady: false }}
+        onSave={onSave}
+        viewerTeamName={null}
+      />,
+    );
+    expect(screen.getByText(/spectating/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /BLU ready\?/i }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /RED ready\?/i }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("lets admins act for any side", () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={state} onSave={onSave} viewerTeamName={null} canReset />);
+
+    expect(screen.getByText(/admin — full control/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Zed" }).hasAttribute("disabled")).toBe(false);
+  });
+
   it("hides the admin reset controls in preview mode and without the admin flag", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} canReset />);
     expect(screen.queryByRole("button", { name: /reset game/i })).toBeNull();
