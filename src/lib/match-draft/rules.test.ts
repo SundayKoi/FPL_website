@@ -3,7 +3,9 @@ import {
   DRAFT_TURN_SECONDS,
   LCS_DRAFT_STEPS,
   fearlessBlockedChampions,
-  matchDraftLinksForFixture,
+  matchDraftBestOf,
+  matchDraftGameLinks,
+  matchDraftHref,
 } from "./rules";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -50,17 +52,20 @@ describe("LCS_DRAFT_STEPS", () => {
   });
 });
 
-describe("matchDraftLinksForFixture", () => {
-  it("creates three fearless game links for regular-season Bo3 fixtures", () => {
-    expect(matchDraftLinksForFixture(fixture)).toEqual([
-      { gameNumber: 1, href: "/match-draft/fixture-1?game=1&layout=stage", label: "Game 1 draft" },
-      { gameNumber: 2, href: "/match-draft/fixture-1?game=2&layout=stage", label: "Game 2 draft" },
-      { gameNumber: 3, href: "/match-draft/fixture-1?game=3&layout=stage", label: "Game 3 draft" },
+describe("match draft links", () => {
+  it("shares one link per fixture, with per-game tab links inside", () => {
+    expect(matchDraftHref(fixture)).toBe("/match-draft/fixture-1");
+    expect(matchDraftGameLinks(fixture)).toEqual([
+      { gameNumber: 1, href: "/match-draft/fixture-1?game=1", label: "Game 1" },
+      { gameNumber: 2, href: "/match-draft/fixture-1?game=2", label: "Game 2" },
+      { gameNumber: 3, href: "/match-draft/fixture-1?game=3", label: "Game 3" },
     ]);
   });
 
-  it("uses the fixture best_of count for non-regular-season fixtures", () => {
-    expect(matchDraftLinksForFixture({ ...fixture, stage: "finals", best_of: 5 })).toHaveLength(5);
+  it("forces regular-season series to Bo3 and honors best_of elsewhere", () => {
+    expect(matchDraftBestOf(fixture)).toBe(3);
+    expect(matchDraftBestOf({ ...fixture, stage: "finals", best_of: 5 })).toBe(5);
+    expect(matchDraftGameLinks({ ...fixture, stage: "finals", best_of: 5 })).toHaveLength(5);
   });
 });
 

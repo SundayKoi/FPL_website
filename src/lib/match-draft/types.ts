@@ -63,3 +63,12 @@ export interface MatchDraftLink {
   href: string;
   label: string;
 }
+
+/** One game tab in the drafter header — the whole series shares one URL and
+ *  these switch the ?game= param. */
+export interface MatchDraftGameTab {
+  gameNumber: number;
+  href: string;
+  /** null = no draft row yet for that game. */
+  status: MatchDraftStatus | null;
+}

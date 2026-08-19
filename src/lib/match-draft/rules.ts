@@ -34,14 +34,26 @@ export const LCS_DRAFT_STEPS: DraftStep[] = [
   step(19, "red", "pick", 5),
 ];
 
-export function matchDraftLinksForFixture(fixture: FixtureRow): MatchDraftLink[] {
-  const bestOf = stageMeta(fixture.stage).group === "Regular Season" ? 3 : fixture.best_of;
-  return Array.from({ length: bestOf }, (_, index) => {
+/** How many games the drafter offers for a fixture — regular-season series
+ *  are Bo3 fearless regardless of the fixture row's best_of. */
+export function matchDraftBestOf(fixture: FixtureRow): number {
+  return stageMeta(fixture.stage).group === "Regular Season" ? 3 : fixture.best_of;
+}
+
+/** The fixture's single shareable drafter link — games are tabs inside the
+ *  drafter (drafterlol-style) rather than separate per-game URLs. */
+export function matchDraftHref(fixture: FixtureRow): string {
+  return `/match-draft/${fixture.id}`;
+}
+
+/** Per-game tab links within one fixture's drafter. */
+export function matchDraftGameLinks(fixture: FixtureRow): MatchDraftLink[] {
+  return Array.from({ length: matchDraftBestOf(fixture) }, (_, index) => {
     const gameNumber = index + 1;
     return {
       gameNumber,
-      href: `/match-draft/${fixture.id}?game=${gameNumber}&layout=stage`,
-      label: `Game ${gameNumber} draft`,
+      href: `/match-draft/${fixture.id}?game=${gameNumber}`,
+      label: `Game ${gameNumber}`,
     };
   });
 }

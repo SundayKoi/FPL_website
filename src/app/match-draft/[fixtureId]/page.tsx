@@ -1,10 +1,11 @@
 import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
-import { fearlessBlockedChampions } from "@/lib/match-draft/rules";
-import type { MatchDraftAction, MatchDraftLayout, MatchDraftRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
+import { fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
+import type { MatchDraftAction, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { teamSlug } from "@/lib/teams/teamPage";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -100,14 +101,16 @@ export default async function MatchDraftPage({
     );
   }
 
-  const gameNumber = gameParam(firstParam(query.game), fixture.best_of);
+  const bestOf = matchDraftBestOf(fixture);
+  const gameNumber = gameParam(firstParam(query.game), bestOf);
   const layout = layoutParam(firstParam(query.layout));
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
-  const [draftRowsResult, teamsResult] = await Promise.all([
+  const [draftRowsResult, teamsResult, staffTier] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
     teamNames.length
       ? supabase.from("teams").select("id, name, abbreviation, image_url").in("name", teamNames)
       : Promise.resolve({ data: [] }),
+    fetchStaffTier(supabase),
   ]);
 
   const rows = (draftRowsResult.data as MatchDraftRow[]) ?? [];
@@ -134,6 +137,17 @@ export default async function MatchDraftPage({
     };
   }
   const row = rows.find((draft) => draft.game_number === gameNumber) ?? null;
+  const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture).map((link) => ({
+    gameNumber: link.gameNumber,
+    href: link.href,
+    status: rows.find((draft) => draft.game_number === link.gameNumber)?.status ?? null,
+  }));
 
-  return <MatchDraftBoard initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams })} />;
+  return (
+    <MatchDraftBoard
+      initialState={stateFor({ fixture, row, rows, gameNumber, layout, teams })}
+      games={games}
+      canReset={staffTier.isAdmin || staffTier.isOwner}
+    />
+  );
 }

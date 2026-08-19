@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CHAMPIONS, championByName } from "@/lib/match-draft/champions";
 import { actionForStep, isChampionUnavailable, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
-import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftImageSize, MatchDraftLayout, MatchDraftState } from "@/lib/match-draft/types";
+import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftState } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
@@ -116,26 +117,63 @@ function SlotColumn({
   );
 }
 
-function BanRow({ side, actions }: { side: DraftSide; actions: MatchDraftAction[] }) {
+function BanTile({ step, action, active }: { step: (typeof LCS_DRAFT_STEPS)[number]; action: MatchDraftAction | null; active: boolean }) {
+  const champion = action?.champion ? championByName(action.champion) : null;
   return (
-    <div className="grid grid-cols-5 gap-1">
-      {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban").map((step) => {
-        const action = actionForStep(actions, step);
-        return (
-          <div key={`${step.side}-ban-${step.slot}`} className="border border-line bg-panel px-1 py-1 text-center text-[10px] text-steel">
-            {action?.champion ?? `B${step.slot}`}
-          </div>
-        );
-      })}
+    <div
+      data-testid={`ban-${step.side}-${step.slot}`}
+      title={action?.champion ?? `Ban ${step.slot}`}
+      className={`relative aspect-square overflow-hidden rounded border ${
+        active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
+      }`}
+    >
+      {champion ? (
+        <>
+          {/* Riot Data Dragon square icon — banned champs render grayscale with a strike. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={champion.iconUrl} alt={champion.name} className="h-full w-full object-cover grayscale-[45%]" loading="lazy" />
+          <span aria-hidden className="absolute left-1/2 top-1/2 h-[145%] w-[3px] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-red-500/80" />
+          <span className="absolute inset-x-0 bottom-0 truncate bg-black/80 px-1 py-0.5 text-center text-[10px] font-semibold text-white">
+            {champion.name}
+          </span>
+        </>
+      ) : (
+        <span className="flex h-full items-center justify-center font-mono text-xs font-semibold text-steel">B{step.slot}</span>
+      )}
+    </div>
+  );
+}
+
+function BanRow({ side, actions, currentStepIndex }: { side: DraftSide; actions: MatchDraftAction[]; currentStepIndex: number }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
+      <div className="grid grid-cols-5 gap-1.5">
+        {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban").map((step) => (
+          <BanTile
+            key={`${step.side}-ban-${step.slot}`}
+            step={step}
+            action={actionForStep(actions, step)}
+            active={step.index === currentStepIndex}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
 export default function MatchDraftBoard({
   initialState,
+  games = [],
+  canReset = false,
   onSave,
 }: {
   initialState: MatchDraftState;
+  /** Game tabs for the whole series — one shared URL, ?game= switches. */
+  games?: MatchDraftGameTab[];
+  /** Admin-only: renders the reset controls. The database policies are the
+   *  real gate; this only controls presentation. */
+  canReset?: boolean;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -226,6 +264,47 @@ export default function MatchDraftBoard({
     }
   };
 
+  const resetDraft = async (scope: "game" | "series") => {
+    if (!supabase) return;
+    const label = scope === "game" ? `game ${state.gameNumber}'s draft` : "every game's draft in this series";
+    if (!window.confirm(`Reset ${label}? This cannot be undone.`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      let query = supabase.from("match_drafts").delete().eq("fixture_id", state.fixtureId);
+      if (scope === "game") query = query.eq("game_number", state.gameNumber);
+      const { error: deleteError } = await query;
+      if (deleteError) throw deleteError;
+      // Rebuild everything (fearless blocks included) from the server.
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Draft could not be reset.");
+      setSaving(false);
+    }
+  };
+
+  const gameTabs = games.length > 1 ? (
+    <nav aria-label="Series games" className="flex flex-wrap items-center gap-1.5">
+      {games.map((game) => {
+        const active = game.gameNumber === state.gameNumber;
+        return (
+          <Link
+            key={game.gameNumber}
+            href={game.href}
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+              active ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+            }`}
+          >
+            Game {game.gameNumber}
+            {game.status === "complete" ? <span aria-label="complete" className={active ? "text-navy" : "text-mint"}>✓</span> : null}
+            {game.status === "drafting" ? <span aria-label="in progress" className={active ? "text-navy" : "text-gold"}>●</span> : null}
+          </Link>
+        );
+      })}
+    </nav>
+  ) : null;
+
   const sideChooser = state.canChooseSides && state.actions.length === 0 ? (
     <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Side selection">
       <span className="label-dash">{state.sideChoiceRequired ? "Choose sides to start" : "Choose sides"}</span>
@@ -278,7 +357,7 @@ export default function MatchDraftBoard({
         <div className="flex flex-col gap-3">
           <TeamMark team={state.blueTeam} side="blue" />
           <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
-          <BanRow side="blue" actions={state.actions} />
+          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} />
         </div>
         <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
           <span className="label-dash">Game {state.gameNumber}</span>
@@ -290,7 +369,7 @@ export default function MatchDraftBoard({
         <div className="flex flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" />
           <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
-          <BanRow side="red" actions={state.actions} />
+          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} />
         </div>
       </div>
       {championPool}
@@ -302,13 +381,13 @@ export default function MatchDraftBoard({
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" />
         <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} />
-        <BanRow side="blue" actions={state.actions} />
+        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.redTeam} side="red" />
         <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} />
-        <BanRow side="red" actions={state.actions} />
+        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} />
       </aside>
     </section>
   );
@@ -323,12 +402,33 @@ export default function MatchDraftBoard({
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {gameTabs}
           <button type="button" aria-pressed={state.layout === "stage"} onClick={() => setLayout("stage")} className="btn-pill px-3 py-1.5 text-xs">
             Stage layout
           </button>
           <button type="button" aria-pressed={state.layout === "board"} onClick={() => setLayout("board")} className="btn-pill px-3 py-1.5 text-xs">
             Board layout
           </button>
+          {canReset && !onSave ? (
+            <>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void resetDraft("game")}
+                className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-400 transition hover:bg-red-500/15 disabled:opacity-40"
+              >
+                Reset game
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void resetDraft("series")}
+                className="rounded-full border border-red-400/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-400 transition hover:bg-red-500/15 disabled:opacity-40"
+              >
+                Reset series
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
