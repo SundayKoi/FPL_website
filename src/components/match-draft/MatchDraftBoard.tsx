@@ -12,11 +12,14 @@ const sideClass: Record<DraftSide, string> = {
   red: "border-coral/50 bg-coral/10 text-coral",
 };
 
-const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slot: string; name: string }[] = [
-  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-16", name: "text-[10px]" },
-  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-20", name: "text-[11px]" },
-  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-24", name: "text-xs" },
-  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-28", name: "text-sm" },
+// `grid` sizes the champion pool; `slot` is the pick rows' height (the art
+// crop scales with it); `ban` is a FIXED tile size — bans stay compact
+// instead of stretching to fill the column.
+const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slot: string; ban: string; name: string }[] = [
+  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-20", ban: "h-10 w-10", name: "text-[10px]" },
+  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-24", ban: "h-12 w-12", name: "text-[11px]" },
+  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-28", ban: "h-14 w-14", name: "text-xs" },
+  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-32", ban: "h-16 w-16", name: "text-sm" },
 ];
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
@@ -222,12 +225,14 @@ function BanTile({
   action,
   active,
   resolve,
+  imageSize,
   onRequestChange = null,
 }: {
   step: (typeof LCS_DRAFT_STEPS)[number];
   action: MatchDraftAction | null;
   active: boolean;
   resolve: (name: string) => MatchDraftChampion | null;
+  imageSize: MatchDraftImageSize;
   onRequestChange?: (() => void) | null;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
@@ -235,7 +240,7 @@ function BanTile({
     <div
       data-testid={`ban-${step.side}-${step.slot}`}
       title={action ? (action.champion ?? "Skipped") : `Ban ${step.slot}`}
-      className={`relative aspect-square overflow-hidden rounded border ${
+      className={`relative ${sizeByValue[imageSize].ban} shrink-0 overflow-hidden rounded border ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
       }`}
     >
@@ -245,7 +250,7 @@ function BanTile({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={champion.iconUrl} alt={champion.name} className="h-full w-full object-cover grayscale-[45%]" loading="lazy" />
           <span aria-hidden className="absolute left-1/2 top-1/2 h-[145%] w-[3px] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-red-500/80" />
-          <span className="absolute inset-x-0 bottom-0 truncate bg-black/80 px-1 py-0.5 text-center text-[10px] font-semibold text-white">
+          <span className="absolute inset-x-0 bottom-0 truncate bg-black/80 px-0.5 text-center text-[8px] font-semibold leading-tight text-white">
             {champion.name}
           </span>
         </>
@@ -274,29 +279,30 @@ function BanRow({
   actions,
   currentStepIndex,
   resolve,
+  imageSize,
   requestChangeFor,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
   currentStepIndex: number;
   resolve: (name: string) => MatchDraftChampion | null;
+  imageSize: MatchDraftImageSize;
   requestChangeFor?: (stepIndex: number) => (() => void) | null;
 }) {
   return (
-    <div>
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
-      <div className="grid grid-cols-5 gap-1.5">
-        {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban").map((step) => (
-          <BanTile
-            key={`${step.side}-ban-${step.slot}`}
-            step={step}
-            action={actionForStep(actions, step)}
-            active={step.index === currentStepIndex}
-            resolve={resolve}
-            onRequestChange={requestChangeFor?.(step.index) ?? null}
-          />
-        ))}
-      </div>
+    <div className={`flex flex-wrap items-center gap-1.5 ${side === "red" ? "justify-end" : ""}`}>
+      <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
+      {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban").map((step) => (
+        <BanTile
+          key={`${step.side}-ban-${step.slot}`}
+          step={step}
+          action={actionForStep(actions, step)}
+          active={step.index === currentStepIndex}
+          resolve={resolve}
+          imageSize={imageSize}
+          onRequestChange={requestChangeFor?.(step.index) ?? null}
+        />
+      ))}
     </div>
   );
 }
@@ -1328,34 +1334,49 @@ export default function MatchDraftBoard({
     </section>
   ) : null;
 
+  const notReadyTeams = (["blue", "red"] as DraftSide[])
+    .filter((side) => !(side === "blue" ? state.blueReady : state.redReady))
+    .map((side) => teamForSide(side).abbreviation);
   const readyCheck = drafting && !draftStarted ? (
-    <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Ready check">
-      <span className="label-dash">{bothReady ? "Both teams ready" : "Ready check"}</span>
-      {(["blue", "red"] as DraftSide[]).map((side) => {
-        const isReady = side === "blue" ? state.blueReady : state.redReady;
-        return (
-          <button
-            key={side}
-            type="button"
-            disabled={saving || state.sideChoiceRequired || !mayActFor(side)}
-            aria-pressed={isReady}
-            onClick={() => void toggleReady(side)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-              isReady
-                ? "border border-mint/60 bg-mint/15 text-mint"
-                : `border ${sideClass[side]} hover:brightness-125`
-            }`}
-          >
-            {teamForSide(side).abbreviation} {isReady ? "ready ✓" : "ready?"}
-          </button>
-        );
-      })}
-      <span className="text-xs text-steel">
+    <section className="card-brand flex flex-col items-center gap-4 border-gold/50 p-6 text-center" aria-label="Ready check">
+      <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-gold">
+        Ready check
+      </span>
+      <h2 className="type-display text-2xl text-white sm:text-3xl">
         {state.sideChoiceRequired
-          ? "Choose sides first."
+          ? "Choose sides first, then ready up"
+          : bothReady
+            ? "Both teams ready — the draft is live!"
+            : "Both teams must ready up to start"}
+      </h2>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {(["blue", "red"] as DraftSide[]).map((side) => {
+          const isReady = side === "blue" ? state.blueReady : state.redReady;
+          const canPress = !saving && !state.sideChoiceRequired && mayActFor(side);
+          return (
+            <button
+              key={side}
+              type="button"
+              disabled={saving || state.sideChoiceRequired || !mayActFor(side)}
+              aria-pressed={isReady}
+              onClick={() => void toggleReady(side)}
+              className={`rounded-full border-2 px-6 py-3 text-sm font-bold uppercase tracking-wide transition disabled:opacity-40 ${
+                isReady
+                  ? "border-mint/70 bg-mint/15 text-mint"
+                  : `${sideClass[side]} ${canPress && !isReady ? "animate-pulse hover:brightness-125" : ""}`
+              }`}
+            >
+              {teamForSide(side).abbreviation} {isReady ? "ready ✓" : "ready?"}
+            </button>
+          );
+        })}
+      </div>
+      <span className="text-xs uppercase tracking-wide text-steel">
+        {state.sideChoiceRequired
+          ? "Pick which team takes blue side above."
           : bothReady
             ? "The clock is running — blue's first ban is up."
-            : "Picks unlock once both teams check in."}
+            : `Waiting on ${notReadyTeams.join(" and ")} — picks unlock once both teams check in.`}
       </span>
     </section>
   ) : null;
@@ -1434,31 +1455,36 @@ export default function MatchDraftBoard({
     </section>
   );
 
+  // The turn clock card — center column on stage, top strip on board.
+  const timerCard = (
+    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+      <span className="label-dash">Game {state.gameNumber}</span>
+      <span className={`type-display mt-1 text-4xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
+        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
+      </span>
+      <span className="mt-1 text-xs uppercase text-steel">
+        {state.status === "complete"
+          ? "draft complete"
+          : clockRunning
+            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
+            : "waiting for ready check"}
+      </span>
+    </div>
+  );
+
   const stage = (
     <section className="flex flex-col gap-4" aria-label="Stage draft layout">
       <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
         <div className="flex flex-col gap-3">
           <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
           <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
-          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
+          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
         </div>
-        <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
-          <span className="label-dash">Game {state.gameNumber}</span>
-          <span className={`type-display mt-1 text-4xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-            {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-          </span>
-          <span className="mt-1 text-xs uppercase text-steel">
-            {state.status === "complete"
-              ? "draft complete"
-              : clockRunning
-                ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-                : "waiting for ready check"}
-          </span>
-        </div>
+        {timerCard}
         <div className="flex flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
           <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
-          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
+          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
         </div>
       </div>
       {championPool}
@@ -1466,18 +1492,21 @@ export default function MatchDraftBoard({
   );
 
   const board = (
-    <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]" aria-label="Board draft layout">
+    <section className="flex flex-col gap-4" aria-label="Board draft layout">
+      <div className="flex justify-center">{timerCard}</div>
+      <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
         <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
-        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
+        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
       </aside>
       {championPool}
       <aside className="flex flex-col gap-3">
         <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
         <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
-        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} requestChangeFor={requestChangeFor} />
+        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
       </aside>
+      </div>
     </section>
   );
 
@@ -1489,7 +1518,7 @@ export default function MatchDraftBoard({
           <div className="flex flex-col gap-3">
             <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
             <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.blue ?? null} />
-            <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+            <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" />
           </div>
           <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
             <span className="label-dash">Game {state.gameNumber}</span>
@@ -1507,7 +1536,7 @@ export default function MatchDraftBoard({
           <div className="flex flex-col gap-3">
             <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
             <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} />
-            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} />
+            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" />
           </div>
         </div>
       </main>
