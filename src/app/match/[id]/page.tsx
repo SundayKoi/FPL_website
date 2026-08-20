@@ -5,6 +5,8 @@ import { buildScoreboard, seriesRecord, type RawStatRow } from "@/lib/match/scor
 import { formatKickoff, hasResult, stageMeta, teamLabel } from "@/lib/schedule/format";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { MatchDraftRow } from "@/lib/match-draft/types";
+import MatchDraftSummary from "@/components/matches/MatchDraftSummary";
 
 const int = new Intl.NumberFormat("en-US");
 
@@ -26,9 +28,22 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const fixture = fixtureRow as FixtureRow;
 
   // fixtures -> match_reports -> match_report_games gives the Riot match ids
-  // the nightly ingest wrote raw_stats rows under.
-  const { data: reports } = await supabase.from("match_reports").select("id").eq("fixture_id", id);
+  // the nightly ingest wrote raw_stats rows under. The drafter's own record
+  // of the pick/ban phase is fetched alongside — it exists the moment a
+  // draft finishes, usually well before any stats do.
+  const [{ data: reports }, { data: draftRows }] = await Promise.all([
+    supabase.from("match_reports").select("id").eq("fixture_id", id),
+    supabase.from("match_drafts").select("*").eq("fixture_id", id).order("game_number"),
+  ]);
   const reportIds = ((reports as { id: string }[]) ?? []).map((r) => r.id);
+  const draftGames = (((draftRows as MatchDraftRow[]) ?? [])).map((row) => ({
+    gameNumber: row.game_number,
+    blueTeamName: row.blue_team_name ?? fixture.team_a,
+    redTeamName: row.red_team_name ?? fixture.team_b,
+    winnerTeam: row.winner_team ?? null,
+    actions: (row.actions ?? []).filter((action) => Boolean(action && (action.champion || action.skipped))),
+    positions: row.positions ?? null,
+  }));
 
   let rows: RawStatRow[] = [];
   if (reportIds.length > 0) {
@@ -76,6 +91,8 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           ← Back to the schedule
         </Link>
       </header>
+
+      <MatchDraftSummary games={draftGames} />
 
       {games.length === 0 ? (
         <section className="card-brand p-6 text-sm text-steel">

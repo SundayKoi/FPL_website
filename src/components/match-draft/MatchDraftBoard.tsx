@@ -24,6 +24,29 @@ const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slo
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
 
+/** The current game's tourney code with a copy button — rendered in the
+ *  draft-complete banner so captains go straight from draft to lobby. */
+function TourneyCodeChip({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="flex items-center gap-2 rounded border border-line/60 bg-navy/60 px-2.5 py-1.5">
+      <code className="font-mono text-sm text-white">{code}</code>
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard.writeText(code).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+        className="rounded-full border border-line bg-panel px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </span>
+  );
+}
+
 function TeamMark({
   team,
   side,
@@ -407,6 +430,8 @@ export default function MatchDraftBoard({
   lobby = null,
   followLive = false,
   overlayTransparent = false,
+  tourneyCodes = {},
+  reportHref = null,
   onSave,
 }: {
   initialState: MatchDraftState;
@@ -441,6 +466,13 @@ export default function MatchDraftBoard({
   /** Overlay only (?bg=transparent): no page background, so casters can
    *  layer the overlay over their own scene. */
   overlayTransparent?: boolean;
+  /** Fixture drafts: this fixture's tourney codes by game number. The page
+   *  fetches them under RLS, so only the two teams' captains (and admins)
+   *  ever receive any — spectators get an empty object. */
+  tourneyCodes?: Record<number, string>;
+  /** Fixture drafts: where "Report this result" points once the series is
+   *  decided — the fixture's league's captain page. */
+  reportHref?: string | null;
   onSave?: (state: MatchDraftState) => void | Promise<void>;
 }) {
   const supabase = useMemo(() => (onSave ? null : createClient()), [onSave]);
@@ -824,16 +856,16 @@ export default function MatchDraftBoard({
     }
   };
 
-  /** Toggle a lobby game's recorded winner (clicking the current winner
-   *  clears it — mis-clicks happen). Lobby captains only. */
+  /** Toggle the game's recorded winner (clicking the current winner clears
+   *  it — mis-clicks happen). Captains only; fixture drafts and public
+   *  lobbies go through their respective RPC twins via draftRpc. */
   const setWinner = async (teamName: string) => {
-    if (!supabase || !lobby) return;
+    if (!supabase) return;
     const next = state.winnerTeam && sameTeam(state.winnerTeam, teamName) ? null : teamName;
     setSaving(true);
     setError(null);
     try {
-      const { error: rpcError } = await supabase.rpc("set_open_draft_winner", {
-        p_token: lobby.token,
+      const { error: rpcError } = await draftRpc(supabase, "set_match_draft_winner", {
         p_game: state.gameNumber,
         p_team: next,
       });
@@ -846,11 +878,11 @@ export default function MatchDraftBoard({
     }
   };
 
-  // Series score across the lobby's games, counted by TEAM (sides swap).
+  // Series score across the series' games, counted by TEAM (sides swap).
   const seriesWins = (team: MatchDraftState["blueTeam"]) =>
     Object.values(statesByGame).filter((game) => sameTeam(game.winnerTeam, team.name)).length;
-  const winsA = lobby ? seriesWins(state.scheduledTeams[0]) : 0;
-  const winsB = lobby ? seriesWins(state.scheduledTeams[1]) : 0;
+  const winsA = seriesWins(state.scheduledTeams[0]);
+  const winsB = seriesWins(state.scheduledTeams[1]);
   const winsNeeded = Math.floor(seriesFormat.bestOf / 2) + 1;
   const seriesWinner =
     winsA >= winsNeeded ? state.scheduledTeams[0] : winsB >= winsNeeded ? state.scheduledTeams[1] : null;
@@ -1119,6 +1151,10 @@ export default function MatchDraftBoard({
     </div>
   ) : null;
 
+  // The code for the game being viewed — captains-only by construction
+  // (spectators receive an empty tourneyCodes object; see the prop doc).
+  const currentTourneyCode = tourneyCodes[state.gameNumber] ?? null;
+
   const completeBanner = state.status === "complete" ? (
     <section className="card-brand flex flex-wrap items-center gap-3 border-mint/40 p-3" aria-label="Draft complete">
       <span className="rounded-full border border-mint/50 bg-mint/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-mint">
@@ -1126,14 +1162,19 @@ export default function MatchDraftBoard({
       </span>
       <span className="text-sm text-steel">
         All picks and bans are locked in.
-        {games.length > 1 ? " Use the game tabs to move to the next game." : ""}
+        {currentTourneyCode
+          ? " Create the custom lobby with this game's tourney code:"
+          : games.length > 1
+            ? " Use the game tabs to move to the next game."
+            : ""}
       </span>
+      {currentTourneyCode ? <TourneyCodeChip code={currentTourneyCode} /> : null}
     </section>
   ) : null;
 
-  // Public lobbies: either captain records who won the finished game; the
-  // header tallies the series and calls it at the majority.
-  const winnerPicker = lobby && !onSave && state.status === "complete" ? (
+  // Either captain (or an admin, on fixture drafts) records who won the
+  // finished game; the tally calls the series at the majority.
+  const winnerPicker = !onSave && state.status === "complete" ? (
     <section className="card-brand flex flex-wrap items-center gap-3 p-3" aria-label="Game result">
       <span className="label-dash">Game {state.gameNumber} result</span>
       {state.scheduledTeams.map((team) => {
@@ -1142,7 +1183,7 @@ export default function MatchDraftBoard({
           <button
             key={team.name}
             type="button"
-            disabled={saving || !viewerSide}
+            disabled={saving || !(viewerSide || canReset)}
             aria-pressed={won}
             onClick={() => void setWinner(team.name)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
@@ -1156,10 +1197,19 @@ export default function MatchDraftBoard({
       <span className={`text-sm ${seriesWinner ? "font-semibold text-mint" : "text-steel"}`}>
         {seriesWinner
           ? `${seriesWinner.abbreviation} takes the series ${Math.max(winsA, winsB)}–${Math.min(winsA, winsB)}!`
-          : viewerSide
-            ? "Either captain can record it — the header tracks the series score."
+          : viewerSide || canReset
+            ? "Either captain can record it — recorded results prefill your match report."
             : "Waiting on a captain to record the result."}
       </span>
+      {/* Once the series is called, the shortest path to the paperwork. */}
+      {!lobby && reportHref && seriesWinner ? (
+        <a
+          href={reportHref}
+          className="ml-auto inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+        >
+          Report this result →
+        </a>
+      ) : null}
     </section>
   ) : null;
 

@@ -3,11 +3,13 @@ import {
   fetchAnnouncements,
   fetchCaptainContext,
   fetchCodes,
+  fetchDraftGames,
   fetchMyReports,
   fetchMyResults,
   fetchMyRoster,
   type MatchCode,
 } from "@/lib/captain/queries";
+import { matchDraftHref } from "@/lib/match-draft/rules";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
 import { matchTeamId, normalizeName } from "@/lib/captain/teamNames";
 import { opggMultiSearchUrlFromRiotIds, opggMultiSearchUrlFromRosterPlayers } from "@/lib/opgg/multiSearch";
@@ -94,14 +96,33 @@ export async function CaptainPageView({
     opponentTeamId = activeIsA ? prefillTeamBId : prefillTeamAId;
   }
 
-  const [codes, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
+  const [codes, draftGames, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
+    nextFixture ? fetchDraftGames(supabase, nextFixture.id, context.teams) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
     fetchMyRoster(supabase, activeTeamId, context.season, league),
     opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
   ]);
+
+  // What the drafter already knows about the next series feeds the report
+  // form: completed games arrive as pre-built rows with the drafted blue
+  // side filled in, and recorded winners become the score. Everything stays
+  // editable — the drafter's record is a head start, not the truth (teams
+  // occasionally swap sides in the lobby after drafting).
+  const completedDraftGames = draftGames.filter((game) => game.status === "complete");
+  const draftWinsA = prefillTeamAId ? completedDraftGames.filter((game) => game.winnerTeamId === prefillTeamAId).length : 0;
+  const draftWinsB = prefillTeamBId ? completedDraftGames.filter((game) => game.winnerTeamId === prefillTeamBId).length : 0;
+  const draftPrefill =
+    nextFixture && completedDraftGames.length > 0
+      ? {
+          draftUrl: matchDraftHref(nextFixture),
+          games: completedDraftGames.map((game) => ({ gameNumber: game.gameNumber, blueTeamId: game.blueTeamId })),
+          scoreA: draftWinsA + draftWinsB > 0 ? draftWinsA : null,
+          scoreB: draftWinsA + draftWinsB > 0 ? draftWinsB : null,
+        }
+      : null;
   const opponentMultiOpggUrl = opponentRoster
     ? opggMultiSearchUrlFromRosterPlayers(opponentRoster.draftPlayers) ??
       opggMultiSearchUrlFromRiotIds(opponentRoster.riotAccounts)
@@ -183,6 +204,7 @@ export async function CaptainPageView({
                 fixture={nextFixture}
                 myTeamName={activeTeam.name}
                 opponentMultiOpggUrl={opponentMultiOpggUrl}
+                draftGames={draftGames}
               />
               <TourneyCodes codes={codes} />
               <MyRoster
@@ -199,6 +221,7 @@ export async function CaptainPageView({
               fixtureId={nextFixture?.id ?? null}
               prefillTeamAId={prefillTeamAId}
               prefillTeamBId={prefillTeamBId}
+              draftPrefill={draftPrefill}
               myReports={myReports}
             />
           </div>

@@ -75,3 +75,54 @@ describe("ReportBox blue-side requirement", () => {
     expect(input.games[0].blueTeamId).toBe("team-b");
   });
 });
+
+describe("ReportBox draft prefill", () => {
+  const draftPrefill = {
+    draftUrl: "/match-draft/fixture-1",
+    games: [
+      { gameNumber: 1, blueTeamId: "team-a" },
+      { gameNumber: 2, blueTeamId: "team-b" },
+    ],
+    scoreA: 2,
+    scoreB: 0,
+  };
+
+  function renderPrefilled() {
+    return render(
+      <ReportBox
+        teams={teams}
+        defaultSeason="S5"
+        defaultPhase="Regular"
+        fixtureId="fixture-1"
+        prefillTeamAId="team-a"
+        prefillTeamBId="team-b"
+        draftPrefill={draftPrefill}
+        myReports={[]}
+      />,
+    );
+  }
+
+  it("pre-builds game rows with drafted blue sides, the draft URL, and the recorded score", () => {
+    renderPrefilled();
+
+    // Two rows, blue sides already set (no "Blue side?" placeholder left).
+    expect(screen.getAllByPlaceholderText("NA1_1234567890")).toHaveLength(2);
+    expect(screen.queryByDisplayValue("Blue side?")).toBeNull();
+    expect((screen.getByLabelText(/draft url/i) as HTMLInputElement).value).toBe("/match-draft/fixture-1");
+    expect((screen.getByLabelText(/score a/i) as HTMLInputElement).value).toBe("2");
+    expect((screen.getByLabelText(/score b/i) as HTMLInputElement).value).toBe("0");
+  });
+
+  it("keeps drafted blue sides on parsed games", async () => {
+    renderPrefilled();
+    fireEvent.change(screen.getByPlaceholderText(/MIC 3-0 BBC/), {
+      target: { value: "ALC 2-0 WLD\nhttps://drafter.lol/draft/abc?game=1 5568297187\nhttps://drafter.lol/draft/abc?game=2 5568352310" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /parse paste/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit report/i }));
+
+    await waitFor(() => expect(submitReport).toHaveBeenCalledTimes(1));
+    const input = submitReport.mock.calls[0][1] as { games: { gameNumber: number; blueTeamId: string | null }[] };
+    expect(input.games.map((g) => g.blueTeamId)).toEqual(["team-a", "team-b"]);
+  });
+});

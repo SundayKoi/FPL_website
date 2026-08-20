@@ -37,21 +37,40 @@ function makeKey(): string {
   return Math.random().toString(36).slice(2);
 }
 
+/** What the fixture's match drafter already recorded — completed games with
+ *  their drafted blue side, plus the series score once winners are marked.
+ *  Used only to prefill; every field stays editable. */
+export interface DraftPrefill {
+  draftUrl: string;
+  games: { gameNumber: number; blueTeamId: string | null }[];
+  scoreA: number | null;
+  scoreB: number | null;
+}
+
 function emptyForm(defaults: {
   season: string;
   phase: string;
   teamAId: string | null;
   teamBId: string | null;
+  draftPrefill: DraftPrefill | null;
 }): ReportForm {
+  const prefill = defaults.draftPrefill;
   return {
     season: defaults.season,
     phase: defaults.phase,
     teamAId: defaults.teamAId ?? "",
     teamBId: defaults.teamBId ?? "",
-    scoreA: "",
-    scoreB: "",
-    draftUrl: "",
-    games: [],
+    scoreA: prefill?.scoreA != null ? String(prefill.scoreA) : "",
+    scoreB: prefill?.scoreB != null ? String(prefill.scoreB) : "",
+    draftUrl: prefill?.draftUrl ?? "",
+    // One row per game the drafter finished: blue side filled in, the Riot
+    // match id left for the captain — the one fact the drafter can't know.
+    games: (prefill?.games ?? []).map((game) => ({
+      key: makeKey(),
+      gameNumber: game.gameNumber,
+      matchId: "",
+      blueTeamId: game.blueTeamId,
+    })),
   };
 }
 
@@ -70,6 +89,7 @@ export default function ReportBox({
   fixtureId,
   prefillTeamAId,
   prefillTeamBId,
+  draftPrefill = null,
   myReports,
 }: {
   teams: LeagueTeam[];
@@ -78,6 +98,9 @@ export default function ReportBox({
   fixtureId: string | null;
   prefillTeamAId: string | null;
   prefillTeamBId: string | null;
+  /** The fixture's completed match-draft games, if any — prefills game rows
+   *  (blue sides), the draft URL, and the score from recorded winners. */
+  draftPrefill?: DraftPrefill | null;
   myReports: MyReportRow[];
 }) {
   const supabase = createClient();
@@ -86,13 +109,17 @@ export default function ReportBox({
   const [pasteText, setPasteText] = useState("");
   const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [form, setForm] = useState<ReportForm>(() =>
-    emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId })
+    emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill })
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? "Unknown team";
+
+  /** The drafted blue side for a game number, when the drafter recorded one. */
+  const draftBlueFor = (gameNumber: number): string | null =>
+    draftPrefill?.games.find((game) => game.gameNumber === gameNumber)?.blueTeamId ?? null;
 
   const handleParse = () => {
     const parsed = parseReport(pasteText, teams);
@@ -105,7 +132,7 @@ export default function ReportBox({
       draftUrl: parsed.draftUrl ?? prev.draftUrl,
       games:
         parsed.games.length > 0
-          ? parsed.games.map((g) => ({ key: makeKey(), gameNumber: g.gameNumber, matchId: g.matchId, blueTeamId: null }))
+          ? parsed.games.map((g) => ({ key: makeKey(), gameNumber: g.gameNumber, matchId: g.matchId, blueTeamId: draftBlueFor(g.gameNumber) }))
           : prev.games,
     }));
     setParseWarnings(parsed.warnings);
@@ -122,10 +149,13 @@ export default function ReportBox({
   };
 
   const addGame = () => {
-    setForm((prev) => ({
-      ...prev,
-      games: [...prev.games, { key: makeKey(), gameNumber: prev.games.length + 1, matchId: "", blueTeamId: null }],
-    }));
+    setForm((prev) => {
+      const gameNumber = prev.games.length + 1;
+      return {
+        ...prev,
+        games: [...prev.games, { key: makeKey(), gameNumber, matchId: "", blueTeamId: draftBlueFor(gameNumber) }],
+      };
+    });
   };
 
   const handleSubmit = async () => {
@@ -201,7 +231,7 @@ export default function ReportBox({
       });
       setPasteText("");
       setParseWarnings([]);
-      setForm(emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId }));
+      setForm(emptyForm({ season: defaultSeason, phase: defaultPhase, teamAId: prefillTeamAId, teamBId: prefillTeamBId, draftPrefill }));
       setSuccess(true);
       router.refresh();
     } catch (err) {
@@ -331,6 +361,12 @@ export default function ReportBox({
 
       <div className="mt-4 flex flex-col gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-steel">Games</p>
+        {draftPrefill && (
+          <p className="text-xs text-steel">
+            Blue sides{draftPrefill.scoreA != null ? ", score," : ""} and the draft link are pre-filled from your match
+            drafter — double-check them, then add each game&apos;s Riot match id.
+          </p>
+        )}
         {form.games.length === 0 && <p className="text-sm text-steel">No games yet — parse a paste or add one.</p>}
         {form.games.map((g) => (
           <div key={g.key} className="flex flex-wrap items-center gap-2">

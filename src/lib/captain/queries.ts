@@ -15,6 +15,7 @@
 // supabase/migrations/20260811100003_captain_page.sql exactly.
 
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { matchTeamId } from "@/lib/captain/teamNames";
 import type { LeagueTeam, MatchReport, MatchReportGame, RiotAccount } from "@/lib/matches/types";
 import type { Player } from "@/lib/draft/types";
 import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
@@ -166,6 +167,55 @@ export async function fetchCaptainContext(supabase: SupabaseClient, league: "pre
   }
 
   return { profileId, isAdmin, isOwner, teams, activeTeams, myTeamId, season };
+}
+
+/** What the match drafter already recorded about one of a fixture's games —
+ *  the facts the report form would otherwise ask the captain to re-type. */
+export interface DraftGameInfo {
+  gameNumber: number;
+  status: "drafting" | "complete";
+  /** True once any pick/ban is locked — untouched rows (auto-created by a
+   *  ready check) don't count as "in progress" for display. */
+  started: boolean;
+  /** The drafted blue side, resolved to a league_teams id (null when the
+   *  name doesn't match — e.g. renamed teams). */
+  blueTeamId: string | null;
+  /** The recorded game winner, resolved to a league_teams id. */
+  winnerTeamId: string | null;
+}
+
+/**
+ * The fixture's match-draft rows, distilled for the captain page: per-game
+ * draft status for the next-match card, and drafted blue sides + recorded
+ * winners to prefill the report form. The drafter stores team NAMES (sides
+ * swap between games; fixtures store free text), so both are resolved
+ * against league_teams here, same convention as the fixture's own names.
+ */
+export async function fetchDraftGames(
+  supabase: SupabaseClient,
+  fixtureId: string,
+  teams: LeagueTeam[],
+): Promise<DraftGameInfo[]> {
+  const { data, error } = await supabase
+    .from("match_drafts")
+    .select("*")
+    .eq("fixture_id", fixtureId)
+    .order("game_number");
+  if (error) throw error;
+  const rows = (data as {
+    game_number: number;
+    status: "drafting" | "complete";
+    actions: unknown[] | null;
+    blue_team_name: string | null;
+    winner_team?: string | null;
+  }[]) ?? [];
+  return rows.map((row) => ({
+    gameNumber: row.game_number,
+    status: row.status,
+    started: (row.actions ?? []).length > 0,
+    blueTeamId: matchTeamId(teams, row.blue_team_name),
+    winnerTeamId: matchTeamId(teams, row.winner_team ?? null),
+  }));
 }
 
 /** Tourney codes for one fixture, ordered by game number. */

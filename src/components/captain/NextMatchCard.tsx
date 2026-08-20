@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { DraftGameInfo } from "@/lib/captain/queries";
 import { matchDraftHref } from "@/lib/match-draft/rules";
 import OpggMultiLink from "./OpggMultiLink";
 
@@ -9,10 +10,13 @@ export default function NextMatchCard({
   fixture,
   myTeamName,
   opponentMultiOpggUrl = null,
+  draftGames = [],
 }: {
   fixture: FixtureRow | null;
   myTeamName: string;
   opponentMultiOpggUrl?: string | null;
+  /** The fixture's match-draft rows — shows live per-game draft status. */
+  draftGames?: DraftGameInfo[];
 }) {
   if (!fixture) {
     return (
@@ -57,12 +61,27 @@ export default function NextMatchCard({
           <span className="text-[11px] uppercase tracking-wide text-gold">30s turns</span>
         </div>
         <div className="mt-3">
-          <Link
-            href={matchDraftHref(fixture)}
-            className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Open match drafter →
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={matchDraftHref(fixture)}
+              className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+            >
+              Open match drafter →
+            </Link>
+            {/* Untouched rows (a lone ready check) aren't worth a chip. */}
+            {draftGames
+              .filter((game) => game.started || game.status === "complete")
+              .map((game) => (
+                <span
+                  key={game.gameNumber}
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                    game.status === "complete" ? "border-mint/50 text-mint" : "border-gold/50 text-gold"
+                  }`}
+                >
+                  G{game.gameNumber} {game.status === "complete" ? "drafted ✓" : "drafting ●"}
+                </span>
+              ))}
+          </div>
           <p className="mt-2 text-[11px] text-steel">One link for the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
         </div>
       </div>

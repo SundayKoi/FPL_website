@@ -49,4 +49,23 @@ describe("NextMatchCard", () => {
       "/match-draft/fixture-1",
     );
   });
+
+  it("shows per-game draft status chips, skipping untouched draft rows", () => {
+    render(
+      <NextMatchCard
+        fixture={fixture}
+        myTeamName="My Team"
+        draftGames={[
+          { gameNumber: 1, status: "complete", started: true, blueTeamId: null, winnerTeamId: null },
+          { gameNumber: 2, status: "drafting", started: true, blueTeamId: null, winnerTeamId: null },
+          // A lone ready check creates a row with no actions — no chip.
+          { gameNumber: 3, status: "drafting", started: false, blueTeamId: null, winnerTeamId: null },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/G1 drafted/)).toBeTruthy();
+    expect(screen.getByText(/G2 drafting/)).toBeTruthy();
+    expect(screen.queryByText(/G3/)).toBeNull();
+  });
 });

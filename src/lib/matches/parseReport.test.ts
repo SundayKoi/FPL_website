@@ -34,6 +34,28 @@ describe("parseReport", () => {
     });
   });
 
+  it("treats the site's own match-draft links as match lines and never reads the fixture uuid as an id", () => {
+    // 12345678 in the uuid must NOT become a match id; the trailing id must.
+    const text = `MIC 2-0 BBC
+https://fpl.example.com/match-draft/12345678-90ab-4cde-8f01-234567890abc?game=1 5568297187
+https://fpl.example.com/match-draft/12345678-90ab-4cde-8f01-234567890abc?game=2 5568352310
+random prose with 99887766 in it`;
+    const result = parseReport(text, [mic, bbc]);
+    expect(result.draftUrl).toBe("https://fpl.example.com/match-draft/12345678-90ab-4cde-8f01-234567890abc");
+    expect(result.games).toEqual([
+      { gameNumber: 1, matchId: "NA1_5568297187" },
+      { gameNumber: 2, matchId: "NA1_5568352310" },
+    ]);
+    expect(result.warnings).toEqual(["Ignored 1 number(s) outside the match lines"]);
+  });
+
+  it("treats public /drafter lobby links as match lines too", () => {
+    const text = "http://localhost:3000/drafter/aBcD1234tok?game=1 5568297187";
+    const result = parseReport(text, [mic, bbc]);
+    expect(result.draftUrl).toBe("http://localhost:3000/drafter/aBcD1234tok");
+    expect(result.games).toEqual([{ gameNumber: 1, matchId: "NA1_5568297187" }]);
+  });
+
   it("accepts already-prefixed NA1_ ids as-is (no double prefix)", () => {
     const text = `MIC 2-1 BBC
 https://drafter.lol/draft/abc?game=1 NA1_5568297187

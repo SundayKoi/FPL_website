@@ -49,25 +49,32 @@ const SCORE_LINE = /^\s*([A-Za-z0-9]{1,5})\s+(\d+)\s*[-–]\s*(\d+)\s+([A-Za-z0-
 const MATCH_ID = /\bNA1_\d{8,}\b|\b\d{8,12}\b/g;
 
 // A line counts as a "match line" — the documented one-line-per-game format
-// — if it carries a drafter.lol link or an explicit NA1_-prefixed id. When
-// at least one such line exists anywhere in the post, id extraction is
-// scoped to ONLY match lines (see `hasMatchLine` below): a CDN screenshot
-// link, a message permalink, or plain prose living on any other line is
-// never scanned for ids, no matter what digits it contains. This is the
-// primary defense; the MATCH_ID digit cap above is the secondary one for
-// the fallback path (and belt-and-braces on match lines themselves).
-const MATCH_LINE = /https:\/\/drafter\.lol\/|\bNA1_\d{8,}\b/;
+// — if it carries a drafter link (drafter.lol or the site's own
+// /match-draft/ and /drafter/ pages, whatever host they're pasted from) or
+// an explicit NA1_-prefixed id. When at least one such line exists anywhere
+// in the post, id extraction is scoped to ONLY match lines (see
+// `hasMatchLine` below): a CDN screenshot link, a message permalink, or
+// plain prose living on any other line is never scanned for ids, no matter
+// what digits it contains. This is the primary defense; the MATCH_ID digit
+// cap above is the secondary one for the fallback path.
+const MATCH_LINE = /https:\/\/drafter\.lol\/|https?:\/\/[^/\s]+\/(?:match-draft|drafter)\/|\bNA1_\d{8,}\b/;
 
 // Fallback mode only (no match line anywhere in the post): strip every
-// non-drafter.lol http(s) URL before scanning, so a CDN link or permalink
+// non-drafter http(s) URL before scanning, so a CDN link or permalink
 // pasted without any recognizable game line still can't leak its digits.
-const NON_DRAFTER_URL = /https?:\/\/(?!drafter\.lol\/)\S+/g;
+const NON_DRAFTER_URL = /https?:\/\/(?!drafter\.lol\/)(?![^/\s]+\/(?:match-draft|drafter)\/)\S+/g;
+
+// Every http(s) URL — match ids are stripped-URL scanned so a fixture uuid
+// in a site drafter link (or digits in a drafter.lol token) can never be
+// mistaken for a Riot match id. The id always lives NEXT TO the link.
+const ANY_URL = /https?:\/\/\S+/g;
 
 // Same-line game number, e.g. "?game=2".
 const GAME_PARAM = /\?game=(\d+)/;
 
-// First drafter.lol link on a line; query string is stripped by the caller.
-const DRAFT_URL = /https:\/\/drafter\.lol\/\S+/;
+// First drafter link on a line — drafter.lol or the site's own drafter
+// pages; query string is stripped by the caller.
+const DRAFT_URL = /https:\/\/drafter\.lol\/\S+|https?:\/\/[^/\s]+\/(?:match-draft|drafter)\/\S+/;
 
 function resolveTeamId(token: string, teams: LeagueTeam[]): string | null {
   const lower = token.toLowerCase();
@@ -133,9 +140,12 @@ export function parseReport(text: string, teams: LeagueTeam[]): ParsedReport {
         if (excluded) ignoredCandidateCount += excluded.length;
         continue;
       }
-      idScanText = line;
+      // Scan a trusted match line with its URLs removed: a site drafter
+      // link carries the fixture's uuid, whose digit runs must never be
+      // read as match ids. The DRAFT_URL capture above already happened.
+      idScanText = line.replace(ANY_URL, " ");
     } else {
-      idScanText = line.replace(NON_DRAFTER_URL, "");
+      idScanText = line.replace(NON_DRAFTER_URL, " ");
     }
 
     const idsOnLine = idScanText.match(MATCH_ID);

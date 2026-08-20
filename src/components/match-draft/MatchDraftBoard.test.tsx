@@ -450,6 +450,44 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByText(/BLU 1–0 RED/)).toBeTruthy();
   });
 
+  it("records a fixture game's winner through the match_draft RPC and links to reporting once the series is called", async () => {
+    rpcMock.mockClear();
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete" }}
+        viewerTeamName="Blue Team"
+        seriesFormat={{ bestOf: 1, fearless: true }}
+        reportHref="/captain"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^BLU won$/i }));
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("set_match_draft_winner", {
+        p_fixture: "fixture-1",
+        p_game: 1,
+        p_team: "Blue Team",
+      });
+    });
+    // Bo1: one recorded win calls the series and surfaces the report link.
+    expect(screen.getByText(/BLU takes the series/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /report this result/i }).getAttribute("href")).toBe("/captain");
+  });
+
+  it("shows the game's tourney code in the complete banner when the viewer received one", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete" }}
+        viewerTeamName="Blue Team"
+        tourneyCodes={{ 1: "NA0451-TOURN-CODE" }}
+      />,
+    );
+
+    expect(screen.getByText("NA0451-TOURN-CODE")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /copy/i })).toBeTruthy();
+  });
+
   it("renders the overlay without a page background when transparent", () => {
     const { container } = render(
       <MatchDraftBoard initialState={state} overlay overlayTransparent onSave={vi.fn()} />,

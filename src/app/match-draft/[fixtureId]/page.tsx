@@ -7,6 +7,7 @@ import type { MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftL
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { leaguePath } from "@/lib/league/links";
 import { teamSlug } from "@/lib/teams/teamPage";
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -77,6 +78,7 @@ function stateFor({
     redReady: row?.red_ready ?? false,
     changeRequest: row?.change_request ?? null,
     positions: row?.positions ?? null,
+    winnerTeam: row?.winner_team ?? null,
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions: actions.filter((action): action is MatchDraftAction => Boolean(action && (action.champion || action.skipped))),
     blockedChampions: fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
@@ -111,7 +113,7 @@ export default async function MatchDraftPage({
   const layout = layoutParam(firstParam(query.layout));
   const overlay = firstParam(query.overlay) === "1";
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
-  const [draftRowsResult, teamsResult, staffTier, settingsResult, champions] = await Promise.all([
+  const [draftRowsResult, teamsResult, staffTier, settingsResult, champions, codesResult, leagueSettingsResult] = await Promise.all([
     supabase.from("match_drafts").select("*").eq("fixture_id", fixture.id).order("game_number"),
     teamNames.length
       ? supabase.from("teams").select("id, name, abbreviation, image_url").in("name", teamNames)
@@ -119,7 +121,20 @@ export default async function MatchDraftPage({
     fetchStaffTier(supabase),
     supabase.from("match_draft_settings").select("fixture_id, best_of, fearless").eq("fixture_id", fixture.id).maybeSingle(),
     fetchLiveChampions(),
+    // Tourney codes for this fixture. RLS (match_codes_select) does the
+    // gating: this returns rows only for the two teams' captains and
+    // admins — spectators and the OBS overlay get an empty list.
+    supabase.from("match_codes").select("game_number, code").eq("fixture_id", fixture.id).order("game_number"),
+    supabase.from("league_settings").select("academy_season").eq("id", 1).maybeSingle(),
   ]);
+  const tourneyCodes: Record<number, string> = {};
+  for (const row of (codesResult.data as { game_number: number; code: string }[]) ?? []) {
+    tourneyCodes[row.game_number] = row.code;
+  }
+  // Academy runs on its own season code, so the season tells us which
+  // league's captain page the "report this result" link should target.
+  const academySeason = (leagueSettingsResult.data as { academy_season: string | null } | null)?.academy_season ?? null;
+  const reportHref = leaguePath("captain", academySeason && fixture.season === academySeason ? "academy" : "premier");
 
   const settings = settingsResult.data as MatchDraftSettingsRow | null;
   const seriesFormat: MatchDraftSeriesFormat = {
@@ -198,6 +213,8 @@ export default async function MatchDraftPage({
       canReset={staffTier.isAdmin || staffTier.isOwner}
       followLive={overlay && firstParam(query.game) === undefined}
       overlayTransparent={firstParam(query.bg) === "transparent"}
+      tourneyCodes={tourneyCodes}
+      reportHref={reportHref}
     />
   );
 }
