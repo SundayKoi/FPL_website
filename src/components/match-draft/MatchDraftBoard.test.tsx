@@ -488,6 +488,24 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("button", { name: /copy/i })).toBeTruthy();
   });
 
+  it("offers spectator and OBS overlay copy links on fixture drafts but not lobbies", () => {
+    const { unmount } = render(<MatchDraftBoard initialState={state} viewerTeamName="Blue Team" />);
+    expect(screen.getByRole("button", { name: /spectator link/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /obs overlay/i })).toBeTruthy();
+    unmount();
+
+    // Lobby links are secret per-token URLs handed out at creation — the
+    // board must not offer to copy a generic one.
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, fixtureId: "lobby-1" }}
+        viewerTeamName="Blue Team"
+        lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /spectator link/i })).toBeNull();
+  });
+
   it("renders the overlay without a page background when transparent", () => {
     const { container } = render(
       <MatchDraftBoard initialState={state} overlay overlayTransparent onSave={vi.fn()} />,

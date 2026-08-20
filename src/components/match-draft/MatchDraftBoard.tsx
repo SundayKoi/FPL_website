@@ -24,6 +24,26 @@ const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slo
 
 const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
 
+/** Copies a shareable drafter URL (built from the page's own origin, so it
+ *  works on any deploy) with per-button "Copied" feedback. */
+function CopyLinkButton({ label, path }: { label: string; path: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(`${window.location.origin}${path}`).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+    >
+      {copied ? "Copied ✓" : label}
+    </button>
+  );
+}
+
 /** The current game's tourney code with a copy button — rendered in the
  *  draft-complete banner so captains go straight from draft to lobby. */
 function TourneyCodeChip({ code }: { code: string }) {
@@ -1523,15 +1543,18 @@ export default function MatchDraftBoard({
   );
 
   const stage = (
+    // Phones: the timer strip sits on top and the two team columns share a
+    // row (halving the scroll to the champion pool); lg restores the
+    // broadcast-style blue | clock | red arrangement.
     <section className="flex flex-col gap-4" aria-label="Stage draft layout">
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
-        <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
+        <div className="order-2 flex min-w-0 flex-col gap-3 lg:order-1">
           <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
           <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
           <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
         </div>
-        {timerCard}
-        <div className="flex flex-col gap-3">
+        <div className="order-1 col-span-2 lg:order-2 lg:col-span-1">{timerCard}</div>
+        <div className="order-3 flex min-w-0 flex-col gap-3">
           <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
           <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
           <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
@@ -1542,16 +1565,18 @@ export default function MatchDraftBoard({
   );
 
   const board = (
+    // Below xl the sidebars pair up above a full-width pool instead of
+    // stacking into one long column.
     <section className="flex flex-col gap-4" aria-label="Board draft layout">
       <div className="flex justify-center">{timerCard}</div>
-      <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
-      <aside className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
+      <aside className="order-1 flex min-w-0 flex-col gap-3">
         <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
         <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
         <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
       </aside>
-      {championPool}
-      <aside className="flex flex-col gap-3">
+      <div className="order-3 col-span-2 min-w-0 xl:order-2 xl:col-span-1">{championPool}</div>
+      <aside className="order-2 flex min-w-0 flex-col gap-3 xl:order-3">
         <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
         <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
         <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
@@ -1684,6 +1709,15 @@ export default function MatchDraftBoard({
             >
               Fearless {seriesFormat.fearless ? "on" : "off"}
             </button>
+          </div>
+        ) : null}
+        {!lobby && !onSave ? (
+          // Public lobbies hand out their three secret links at creation;
+          // fixture drafts share one URL for everyone, plus the OBS source.
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Share links">
+            <span className="label-dash">Share</span>
+            <CopyLinkButton label="Spectator link" path={`/match-draft/${state.fixtureId}`} />
+            <CopyLinkButton label="OBS overlay" path={`/match-draft/${state.fixtureId}?overlay=1&bg=transparent`} />
           </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
