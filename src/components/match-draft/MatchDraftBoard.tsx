@@ -90,11 +90,11 @@ function DraftSlot({
   const champion = action?.champion ? resolve(action.champion) : null;
   const ghost = !action && intent ? resolve(intent) : null;
   const size = sizeByValue[imageSize];
-  // Loading-screen portraits keep the champion's head at the top, so a short
-  // wide slot crops predictably (face and shoulders) — splash art lands on a
-  // random torso strip and looks butchered.
+  // "Centered" splash art is Riot's horizontal crop with the champion centered,
+  // so it can bleed across the full slot width. Portrait loading art in a wide
+  // slot ends up as a narrow strip hugging one edge.
   const art = champion ?? ghost;
-  const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/loading/") : null;
+  const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/centered/") : null;
   return (
     <div
       className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${
@@ -102,20 +102,20 @@ function DraftSlot({
       }`}
     >
       {portraitUrl ? (
-        // Riot Data Dragon loading art is served from a fixed CDN URL.
-        // Explicit h-full + a fixed 3:2 window matter: an absolutely
-        // positioned image sized only by width keeps its intrinsic height
-        // (the box never constrained it), and a width tied to the column
-        // made the crop random. This way every slot shows the same
-        // face-and-shoulders crop at any column width.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={portraitUrl}
-          alt=""
-          className={`absolute right-0 top-0 h-full w-auto max-w-none aspect-[3/2] object-cover object-top [mask-image:linear-gradient(to_left,black_45%,transparent)] ${
-            champion ? "" : "opacity-40"
-          }`}
-        />
+        <>
+          {/* Riot Data Dragon centered splash art is served from a fixed CDN URL.
+              The art fills the whole slot; a short wide slot crops it vertically,
+              so bias the window toward the top of the image (object-[center_20%])
+              to keep the champion's head in frame instead of a torso strip. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={portraitUrl}
+            alt=""
+            className={`absolute inset-0 h-full w-full object-cover object-[center_20%] ${champion ? "" : "opacity-40"}`}
+          />
+          {/* Left-edge scrim keeps the slot label and names readable over the art. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
+        </>
       ) : null}
       <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
         <span>{label ?? `${kind} ${slot}`}</span>

@@ -60,9 +60,9 @@ describe("MatchDraftBoard", () => {
     expect(screen.getAllByText("BLU").length).toBeGreaterThan(0);
     expect(screen.getAllByText("RED").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
-    // Pick slots use loading-screen portraits (head at the top) so short wide
-    // slots crop predictably instead of landing on a random splash strip.
-    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/loading/Ahri_0.jpg"]')).toBeTruthy();
+    // Pick slots use horizontal centered splash art so it fills the wide slot,
+    // cropped toward the top of the image to keep the champion's head in frame.
+    expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Ahri_0.jpg"]')).toBeTruthy();
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
     expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
     // The turn clock is live now — this fixture's turn started long ago, so it reads 0s.
