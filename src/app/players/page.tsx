@@ -26,9 +26,10 @@ export default async function PlayersPage() {
   );
   // Rows without a stored op.gg link fall back to the league's linked
   // accounts sheet, so player names in the directory link somewhere useful.
+  // ?? alone misses empty-string rows, which the pool does contain.
   const linkedPlayers = (canonicalPlayers ?? []).map((player) => ({
     ...player,
-    opgg_url: player.opgg_url ?? primaryLinkedAccountUrl(player.display_name),
+    opgg_url: player.opgg_url?.trim() ? player.opgg_url : primaryLinkedAccountUrl(player.display_name),
   }));
   const seasons = adaptCanonicalPlayerPool(linkedPlayers);
   const canonicalAdminRows = (canonicalPlayers ?? []).map((player) => ({
