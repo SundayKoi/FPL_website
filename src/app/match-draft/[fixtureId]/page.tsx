@@ -19,8 +19,10 @@ function gameParam(value: string | undefined, bestOf: number): number {
   return Math.min(parsed, bestOf);
 }
 
-function layoutParam(value: string | undefined): MatchDraftLayout {
-  return value === "board" ? "board" : "stage";
+/** Explicit ?layout= choice, or null to fall back to the viewer-based
+ *  default (captains/admins get board, spectators get stage). */
+function layoutParam(value: string | undefined): MatchDraftLayout | null {
+  return value === "board" ? "board" : value === "stage" ? "stage" : null;
 }
 
 function fallbackIdentity(name: string | null, side: "Blue" | "Red"): MatchDraftTeam {
@@ -66,7 +68,7 @@ function stateFor({
     fixtureId: fixture.id,
     gameNumber,
     status: row?.status ?? "drafting",
-    layout: row?.layout ?? layout,
+    layout,
     currentStepIndex: row?.current_step_index ?? 0,
     turnStartedAt: row?.turn_started_at ?? null,
     blueTeam,
@@ -108,7 +110,6 @@ export default async function MatchDraftPage({
     );
   }
 
-  const layout = layoutParam(firstParam(query.layout));
   const overlay = firstParam(query.overlay) === "1";
   const teamNames = [fixture.team_a, fixture.team_b].filter((name): name is string => Boolean(name?.trim()));
   const [draftRowsResult, teamsResult, staffTier, settingsResult, champions] = await Promise.all([
@@ -167,6 +168,12 @@ export default async function MatchDraftPage({
         .map((row) => row.league_teams?.name ?? "")
         .find((name) => fixtureNames.has(name.trim().toLowerCase())) ?? null;
   }
+
+  // Captains and admins default to the board layout (pool front and
+  // center); spectators get the stage view. ?layout= still overrides.
+  const layout: MatchDraftLayout =
+    layoutParam(firstParam(query.layout)) ??
+    (viewerTeamName || staffTier.isAdmin || staffTier.isOwner ? "board" : "stage");
 
   const games: MatchDraftGameTab[] = matchDraftGameLinks(fixture, seriesFormat.bestOf).map((link) => ({
     gameNumber: link.gameNumber,

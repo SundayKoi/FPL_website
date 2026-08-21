@@ -25,8 +25,10 @@ function gameParam(value: string | undefined, bestOf: number): number {
   return Math.min(parsed, bestOf);
 }
 
-function layoutParam(value: string | undefined): MatchDraftLayout {
-  return value === "board" ? "board" : "stage";
+/** Explicit ?layout= choice, or null to fall back to the viewer-based
+ *  default (captain links get board, spectator links get stage). */
+function layoutParam(value: string | undefined): MatchDraftLayout | null {
+  return value === "board" ? "board" : value === "stage" ? "stage" : null;
 }
 
 function lobbyTeam(name: string, info: OpenDraftLobbyInfo): MatchDraftTeam {
@@ -117,7 +119,7 @@ export default async function OpenDraftLobbyPage({
 
   const bestOf: MatchDraftBestOf = info.bestOf === 1 || info.bestOf === 5 ? info.bestOf : 3;
   const seriesFormat: MatchDraftSeriesFormat = { bestOf, fearless: info.fearless };
-  const layout = layoutParam(firstParam(query.layout));
+  const layout = layoutParam(firstParam(query.layout)) ?? (info.teamName ? "board" : "stage");
   const overlay = firstParam(query.overlay) === "1";
   const gameNumber = gameParam(firstParam(query.game), bestOf);
 
