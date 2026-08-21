@@ -447,7 +447,8 @@ describe("MatchDraftBoard", () => {
         p_team: "Blue Team",
       });
     });
-    expect(screen.getByText(/BLU 1–0 RED/)).toBeTruthy();
+    // Header chip and the neutral result-strip score line both show it.
+    expect(screen.getAllByText(/BLU 1–0 RED/).length).toBeGreaterThan(0);
   });
 
   it("records a fixture game's winner through the match_draft RPC and links to reporting once the series is called", async () => {
@@ -471,7 +472,10 @@ describe("MatchDraftBoard", () => {
       });
     });
     // Bo1: one recorded win calls the series and surfaces the report link.
-    expect(screen.getByText(/BLU takes the series/i)).toBeTruthy();
+    // The strip shows a neutral score (no "takes the series" call — scrim
+    // blocks play every game), while the report link still appears at the
+    // series majority.
+    expect(screen.getAllByText(/Series score: BLU 1–0 RED/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /report this result/i }).getAttribute("href")).toBe("/captain");
   });
 

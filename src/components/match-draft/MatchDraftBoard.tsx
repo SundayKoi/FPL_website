@@ -1214,9 +1214,13 @@ export default function MatchDraftBoard({
           </button>
         );
       })}
-      <span className={`text-sm ${seriesWinner ? "font-semibold text-mint" : "text-steel"}`}>
-        {seriesWinner
-          ? `${seriesWinner.abbreviation} takes the series ${Math.max(winsA, winsB)}–${Math.min(winsA, winsB)}!`
+      <span className="text-sm text-steel">
+        {winsA + winsB > 0
+          ? // Just the score, no series call — scrim blocks play every game
+            // regardless, and all games stay open either way.
+            `Series score: ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}.${
+              winsA + winsB < seriesFormat.bestOf ? " Remaining games stay open." : ""
+            }`
           : viewerSide || canReset
             ? "Either captain can record it — recorded results prefill your match report."
             : "Waiting on a captain to record the result."}
