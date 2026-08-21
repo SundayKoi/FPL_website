@@ -14,7 +14,7 @@ export interface DraftSummaryGame {
   positions: MatchDraftPositions | null;
 }
 
-function ChampionIcon({ name, banned = false, size = "h-9 w-9" }: { name: string | null; banned?: boolean; size?: string }) {
+export function ChampionIcon({ name, banned = false, size = "h-9 w-9" }: { name: string | null; banned?: boolean; size?: string }) {
   const src = name ? championIconUrl(name) : null;
   if (!src) {
     return <span className={`${size} rounded border border-dashed border-line/60 bg-navy/40`} title={name ?? "Skipped"} />;
@@ -32,7 +32,7 @@ function ChampionIcon({ name, banned = false, size = "h-9 w-9" }: { name: string
   );
 }
 
-function sideRows(game: DraftSummaryGame, side: DraftSide): { bans: (string | null)[]; picks: (string | null)[]; confirmed: boolean } {
+export function sideRows(game: DraftSummaryGame, side: DraftSide): { bans: (string | null)[]; picks: (string | null)[]; confirmed: boolean } {
   const steps = LCS_DRAFT_STEPS.filter((step) => step.side === side);
   const forKind = (kind: "pick" | "ban") =>
     steps.filter((step) => step.kind === kind).map((step) => actionForStep(game.actions, step)?.champion ?? null);

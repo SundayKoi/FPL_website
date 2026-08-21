@@ -16,6 +16,9 @@ import { fetchAcademyPlayers, individualOpggUrl } from "@/lib/academy/playerShee
 import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { sideRows, type DraftSummaryGame } from "@/components/matches/MatchDraftSummary";
+import TeamRecentDrafts, { type TeamDraftRow } from "@/components/teams/TeamRecentDrafts";
+import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 
 
 /**
@@ -92,6 +95,64 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
 
   const record = teamRecord(fixtures, team.name);
   const { upcoming, results } = splitTeamFixtures(fixtures, team.name);
+
+  // "Recent drafts": game 1's picks and bans for the team's last few
+  // series, from the site drafter's own records (same source the match
+  // pages read). Fixtures with no drafted games simply don't appear.
+  const recentFixtures = results.slice(0, 5);
+  const { data: teamDraftData } = recentFixtures.length
+    ? await supabase
+        .from("match_drafts")
+        .select("fixture_id, game_number, blue_team_name, red_team_name, actions, positions")
+        .in("fixture_id", recentFixtures.map((f) => f.id))
+        .order("game_number")
+    : { data: [] };
+  const teamDraftRowsRaw = (teamDraftData ?? []) as {
+    fixture_id: string;
+    game_number: number;
+    blue_team_name: string | null;
+    red_team_name: string | null;
+    actions: MatchDraftAction[] | null;
+    positions: MatchDraftPositions | null;
+  }[];
+  const sameName = (a?: string | null, b?: string | null) =>
+    Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
+  const recentDraftRows: TeamDraftRow[] = recentFixtures.flatMap((fixture) => {
+    const drafted = teamDraftRowsRaw.filter(
+      (row) =>
+        row.fixture_id === fixture.id &&
+        (row.actions ?? []).some((action) => Boolean(action && (action.champion || action.skipped))),
+    );
+    const first = drafted[0];
+    if (!first) return [];
+    const game: DraftSummaryGame = {
+      gameNumber: first.game_number,
+      blueTeamName: first.blue_team_name ?? fixture.team_a,
+      redTeamName: first.red_team_name ?? fixture.team_b,
+      winnerTeam: null,
+      actions: (first.actions ?? []).filter((action) => Boolean(action && (action.champion || action.skipped))),
+      positions: first.positions ?? null,
+    };
+    const side = sameName(game.blueTeamName, team.name)
+      ? ("blue" as const)
+      : sameName(game.redTeamName, team.name)
+        ? ("red" as const)
+        : null;
+    if (!side) return [];
+    const { picks, bans, confirmed } = sideRows(game, side);
+    return [
+      {
+        fixtureId: fixture.id,
+        opponent: opponentOf(fixture, team.name),
+        won: didWin(fixture, team.name),
+        score: fixture.score_a != null && fixture.score_b != null ? `${fixture.score_a}–${fixture.score_b}` : null,
+        stageLabel: stageMeta(fixture.stage).label,
+        picks,
+        bans,
+        confirmed,
+      },
+    ];
+  });
   const multiOpggUrl = opggMultiSearchUrlFromRosterPlayers(team.players);
   const winRate =
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
@@ -169,7 +230,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                     </span>
                   ) : (
                     <Link
-                      href={`${league === "academy" ? "/academy/stats" : "/stats"}?player=${encodeURIComponent(player.displayName)}`}
+                      href={`/players/${encodeURIComponent(player.displayName)}`}
                       className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
                     >
                       {player.displayName}
@@ -235,9 +296,12 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         >
                           {won === null ? "–" : won ? "W" : "L"}
                         </span>
-                        <span className="text-sm font-semibold text-white">
+                        <Link
+                          href={`/match/${f.id}`}
+                          className="text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
+                        >
                           vs {opponentOf(f, team.name)}
-                        </span>
+                        </Link>
                         <span className="rounded border border-line bg-navy px-2 py-0.5 text-xs font-bold text-white">
                           {f.score_a}–{f.score_b}
                         </span>
@@ -251,6 +315,10 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
               )}
             </section>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <TeamRecentDrafts rows={recentDraftRows} />
         </div>
       </div>
     </main>

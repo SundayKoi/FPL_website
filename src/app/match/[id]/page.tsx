@@ -148,7 +148,14 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   <tbody>
                     {side.players.map((p) => (
                       <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-line/60">
-                        <td className="truncate py-1 pr-2">{p.summonerName}</td>
+                        <td className="truncate py-1 pr-2">
+                          <Link
+                            href={`/players/${encodeURIComponent(p.summonerName)}`}
+                            className="underline-offset-4 hover:text-coral hover:underline"
+                          >
+                            {p.summonerName}
+                          </Link>
+                        </td>
                         <td className="truncate py-1 pr-2 text-steel">{p.champion}</td>
                         <td className="py-1 pr-2">
                           {p.kills}/{p.deaths}/{p.assists}
