@@ -112,24 +112,17 @@ export default function TeamRosterCard({
               <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-steel">
                 {ROLE_LABELS_SHORT[player.role]}
               </span>
-              {!empty && editable ? (
-                // Admin roster editor keeps the plain link — a disclosure
-                // menu would fight the row-drag swap gesture.
-                // draggable={false}: anchors are natively draggable, which
-                // would hijack the admin editor's row-drag gesture — with it
-                // off, dragging the row still swaps and clicking navigates.
-                <Link
-                  href={`/stats?player=${encodeURIComponent(player.displayName)}`}
-                  draggable={false}
-                  className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
-                >
-                  {player.displayName}
-                </Link>
-              ) : !empty ? (
+              {!empty ? (
                 // Click a player for their stats profile or linked OP.GG
-                // accounts (from the league's account sheet).
+                // accounts (from the league's account sheet). Everything
+                // inside is draggable={false} so the menu never hijacks the
+                // admin editor's row-drag swap gesture — dragging the row
+                // still swaps, clicking still opens the menu.
                 <details className="group/menu relative min-w-0 flex-1">
-                  <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                  <summary
+                    draggable={false}
+                    className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"
+                  >
                     <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline group-open/menu:text-coral">
                       {player.displayName}
                     </span>
@@ -140,6 +133,7 @@ export default function TeamRosterCard({
                   <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-line bg-navy p-1 shadow-lg">
                     <Link
                       href={`/players/${encodeURIComponent(player.displayName)}`}
+                      draggable={false}
                       className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
                     >
                       Stats profile
@@ -150,6 +144,7 @@ export default function TeamRosterCard({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        draggable={false}
                         className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
                       >
                         {linkedAccountLabel(url, index)} ↗
