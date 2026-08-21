@@ -64,21 +64,12 @@ export default async function SchedulePage({
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
-          <span className="label-dash">LEAGUE CALENDAR</span>
-          <h1 className="type-display mt-3 text-5xl sm:text-6xl">Schedule</h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
-            Five weeks of intra-division Bo3s, then the gauntlet and playoffs.
-            Matches are played Mondays at 8:00pm ET in Fearless format.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {["Mondays 8pm ET", "Fearless Format", "Solari & Lunari divisions"].map((chip) => (
-              <span
-                key={chip}
-                className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-steel"
-              >
-                {chip}
-              </span>
-            ))}
+          <div>
+            <span className="label-dash">LEAGUE CALENDAR</span>
+            <h1 className="type-display mt-3 text-5xl sm:text-6xl">Schedule</h1>
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+              Bo3 fearless, Mondays at 8:00pm ET — regular season, gauntlet, then playoffs.
+            </p>
           </div>
           <LeaguePageToggle page="schedule" view="premier" params={{ season: requested }} />
         </header>
