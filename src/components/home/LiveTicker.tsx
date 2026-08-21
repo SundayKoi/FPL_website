@@ -41,7 +41,7 @@ export default function LiveTicker({ items }: { items: TickerItem[] }) {
   return (
     <div
       aria-label="League ticker"
-      className="ticker-mask overflow-hidden rounded border border-line bg-navy/85 py-2"
+      className="ticker-mask overflow-hidden rounded border border-gold/30 bg-navy/85 py-2"
     >
       <div className="ticker-track flex w-max motion-reduce:w-full motion-reduce:overflow-x-auto">
         {half(0)}

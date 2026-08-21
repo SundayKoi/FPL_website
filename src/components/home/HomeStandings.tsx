@@ -52,14 +52,18 @@ export default function HomeStandings({
         </p>
       ) : (
         <div className="mt-5 flex flex-col">
-          {teams.map((team) => (
+          {teams.map((team, index) => (
             <div
               key={team.id}
               tabIndex={0}
-              className="group border-t border-line/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-line/15 focus-visible:bg-line/15 focus-visible:outline-none"
+              className={`group border-t border-line/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-line/15 focus-visible:bg-line/15 focus-visible:outline-none ${
+                index === 0 ? "row-rank-1" : ""
+              }`}
             >
               <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto_auto_auto] items-center gap-2">
-                <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position}</span>
+                <span className={`font-mono text-xs font-semibold ${index === 0 ? "text-gold" : "text-steel"}`}>
+                  #{team.nomination_position}
+                </span>
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>
                   <span className="min-w-0 truncate text-sm font-semibold text-white">{team.name}</span>

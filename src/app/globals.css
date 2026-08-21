@@ -43,10 +43,12 @@ body {
 }
 
 @utility bg-hash {
+  /* Gold-tinted hash lines — a faint warm shimmer over the navy base so
+     page backgrounds stop reading as wall-to-wall blue. */
   background-image: repeating-linear-gradient(
     135deg,
-    rgb(255 255 255 / 0.03) 0px,
-    rgb(255 255 255 / 0.03) 1px,
+    rgb(245 182 46 / 0.04) 0px,
+    rgb(245 182 46 / 0.04) 1px,
     transparent 1px,
     transparent 14px
   );
@@ -67,7 +69,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.22em;
   color: var(--color-steel);
-  &::before { content: "— "; color: var(--color-coral); }
+  &::before { content: "— "; color: var(--color-gold); }
 }
 
 @utility btn-pill {
@@ -108,24 +110,27 @@ body {
 
 @utility card-brand {
   background: var(--color-panel);
-  border: 1px solid var(--color-line);
+  /* Gold-warmed border + top hairline + a faint warm wash from the top —
+     cards used to be blue boxes with blue borders on a blue page; the warm
+     trim is what separates them from the background now. */
+  border: 1px solid rgb(245 182 46 / 0.28);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
-  /* Coral hairline along the top edge, painted as a background layer so
-     cards need no overflow clipping or pseudo-elements. */
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgb(255 107 53 / 0.45) 30%,
-    rgb(255 107 53 / 0.45) 70%,
-    transparent
-  );
-  background-size: 100% 1px;
-  background-position: top;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgb(245 182 46 / 0.55) 30%,
+      rgb(245 182 46 / 0.55) 70%,
+      transparent
+    ),
+    linear-gradient(180deg, rgb(245 182 46 / 0.05), transparent 45%);
+  background-size: 100% 1px, 100% 100%;
+  background-position: top, top;
   background-repeat: no-repeat;
 }
 
-/* Coral→mint hairline for underlining major section headers. */
+/* Coral→gold→mint hairline for underlining major section headers. */
 @utility accent-rule {
   height: 1px;
   border: 0;
@@ -133,6 +138,7 @@ body {
     90deg,
     transparent,
     var(--color-coral),
+    var(--color-gold),
     var(--color-mint),
     transparent
   );

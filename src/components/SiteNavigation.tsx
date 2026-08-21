@@ -61,7 +61,7 @@ const linkBase =
 
 function topLinkClass(active: boolean, extra = "") {
   return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 py-2 sm:px-0 sm:py-1 ${
-    active ? "text-white sm:text-coral" : "text-steel hover:text-white hover:bg-line/40 sm:hover:bg-transparent"
+    active ? "text-white sm:text-coral" : "text-steel hover:text-gold hover:bg-line/40 sm:hover:bg-transparent"
   }`;
 }
 
@@ -125,7 +125,7 @@ export default function SiteNavigation({
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-40 border-b border-line backdrop-blur"
+      className="sticky top-0 z-40 border-b border-gold/30 backdrop-blur"
       style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
       <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
