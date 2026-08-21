@@ -121,7 +121,9 @@ export default function TeamRosterCard({
                 // inside is draggable={false} so the menu never hijacks the
                 // admin editor's row-drag swap gesture — dragging the row
                 // still swaps, clicking still opens the menu.
-                <details className="group/menu relative min-w-0 flex-1">
+                // name groups every player menu into one native accordion:
+                // opening a player's menu closes whichever other one is open.
+                <details name="player-account-menu" className="group/menu relative min-w-0 flex-1">
                   <summary
                     draggable={false}
                     className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"

@@ -235,7 +235,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                     // Native disclosure menu: click a player for their stats
                     // profile or linked OP.GG accounts (from the league's
                     // account sheet, falling back to the stored roster link).
-                    <details className="group relative min-w-0 flex-1">
+                    <details name="player-account-menu" className="group relative min-w-0 flex-1">
                       <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
                         <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-coral group-hover:text-coral group-hover:underline">
                           {player.displayName}
