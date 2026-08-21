@@ -1,0 +1,75 @@
+import Link from "next/link";
+import { ChampionIcon } from "@/components/matches/MatchDraftSummary";
+
+/** One drafted series from this team's perspective — game 1's picks and
+ *  bans as champion chips, linking to the match page. */
+export interface TeamDraftRow {
+  fixtureId: string;
+  opponent: string;
+  /** null = played but result unknown (e.g. draft done, score unreported). */
+  won: boolean | null;
+  score: string | null;
+  stageLabel: string;
+  picks: (string | null)[];
+  bans: (string | null)[];
+  /** Picks are in captain-confirmed role order (top→support). */
+  confirmed: boolean;
+}
+
+/**
+ * "Recent drafts" module for team pages: what this team locked in over its
+ * last few series, straight from the site drafter's records. Scouting at a
+ * glance — each row links to the full match page.
+ */
+export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <section aria-labelledby="recent-drafts-heading" className="card-brand overflow-hidden">
+      <h2 id="recent-drafts-heading" className="border-b border-line px-4 py-3 type-display text-xl">
+        Recent drafts
+      </h2>
+      <ul className="divide-y divide-line/60">
+        {rows.map((row) => (
+          <li key={row.fixtureId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+            <span
+              className={`w-14 shrink-0 rounded py-0.5 text-center font-display text-xs font-bold not-italic ${
+                row.won === null
+                  ? "border border-line text-steel"
+                  : row.won
+                    ? "border border-mint/40 bg-mint/15 text-mint"
+                    : "border border-red-400/35 bg-red-500/10 text-red-400"
+              }`}
+            >
+              {row.won === null ? "–" : row.won ? "W" : "L"}
+              {row.score ? ` ${row.score}` : ""}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span className="text-sm">
+                vs <span className="font-semibold text-white">{row.opponent}</span>
+                <span className="ml-2 font-mono text-[11px] text-steel">
+                  {row.stageLabel}
+                  {row.confirmed ? " · role order" : " · draft order"}
+                </span>
+              </span>
+              <span className="flex flex-wrap items-center gap-1.5" aria-label="Game one picks and bans">
+                {row.picks.map((champion, index) => (
+                  <ChampionIcon key={`pick-${index}`} name={champion} size="h-7 w-7" />
+                ))}
+                <span aria-hidden className="mx-1 h-5 w-px bg-line" />
+                {row.bans.map((champion, index) => (
+                  <ChampionIcon key={`ban-${index}`} name={champion} banned size="h-6 w-6" />
+                ))}
+              </span>
+            </div>
+            <Link
+              href={`/match/${row.fixtureId}`}
+              className="text-xs font-semibold uppercase tracking-wide text-coral underline-offset-4 hover:underline"
+            >
+              Match →
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
