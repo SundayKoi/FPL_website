@@ -38,11 +38,14 @@ export default function TeamRosterCard({
   };
 
   return (
-    <article aria-labelledby={headingId} className="card-brand overflow-hidden">
+    // No overflow-hidden on the card: the player account menus open past
+    // the bottom edge (the last row's menu was unreachable). The banner and
+    // list round their own corners instead.
+    <article aria-labelledby={headingId} className="card-brand">
       <div
         aria-label={`${team.name} banner`}
         role="group"
-        className={`${team.accentClass} relative flex h-36 items-end justify-between gap-4 overflow-hidden px-5 py-5`}
+        className={`${team.accentClass} relative flex h-36 items-end justify-between gap-4 overflow-hidden rounded-t-[calc(0.5rem-1px)] px-5 py-5`}
         style={bannerStyle}
       >
         <div className="flex min-w-0 items-end gap-4">
@@ -105,7 +108,7 @@ export default function TeamRosterCard({
                 event.preventDefault();
                 onDrop?.(player);
               }}
-              className={`group flex min-h-12 items-center gap-3 px-4 py-2 ${
+              className={`group flex min-h-12 items-center gap-3 px-4 py-2 last:rounded-b-[calc(0.5rem-1px)] ${
                 editable && !captain && !empty ? "cursor-grab hover:bg-white/5" : ""
               }`}
             >
