@@ -69,12 +69,12 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
   // then to the constructed Academy URL; Premier rows stay null.
   const withAcademyOpgg = <T extends { display_name: string; opgg_url: string | null }>(player: T): T => ({
     ...player,
-    opgg_url:
-      player.opgg_url ??
-      (league === "academy"
+    opgg_url: player.opgg_url?.trim()
+      ? player.opgg_url
+      : league === "academy"
         ? individualOpggUrl(academySheetByName.get(normalizePlayerName(player.display_name)), player.display_name) ??
           academyOpggUrlForPlayer(player.display_name)
-        : null),
+        : null,
   });
   const canonicalPlayers = ((canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [])
     .map(withAcademyOpgg);
@@ -251,7 +251,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         </Link>
                         {(linkedAccountUrls(player.displayName).length
                           ? linkedAccountUrls(player.displayName)
-                          : player.opggUrl
+                          : player.opggUrl?.trim() && player.opggUrl !== "#"
                             ? [player.opggUrl]
                             : []
                         ).map((url, index) => (
