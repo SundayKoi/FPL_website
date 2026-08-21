@@ -215,7 +215,9 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         </header>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section aria-labelledby="roster-heading" className="card-brand overflow-hidden">
+          {/* No overflow-hidden: the last player's account menu opens past
+              the card's bottom edge and must stay clickable. */}
+          <section aria-labelledby="roster-heading" className="card-brand">
             <h2 id="roster-heading" className="border-b border-line px-4 py-3 type-display text-xl">
               Roster
             </h2>
