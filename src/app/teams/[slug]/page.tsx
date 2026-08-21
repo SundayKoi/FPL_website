@@ -17,6 +17,7 @@ import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { sideRows, type DraftSummaryGame } from "@/components/matches/MatchDraftSummary";
+import { linkedAccountLabel, linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import TeamRecentDrafts, { type TeamDraftRow } from "@/components/teams/TeamRecentDrafts";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 
@@ -229,12 +230,43 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                       {player.displayName}
                     </span>
                   ) : (
-                    <Link
-                      href={`/players/${encodeURIComponent(player.displayName)}`}
-                      className="min-w-0 flex-1 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
-                    >
-                      {player.displayName}
-                    </Link>
+                    // Native disclosure menu: click a player for their stats
+                    // profile or linked OP.GG accounts (from the league's
+                    // account sheet, falling back to the stored roster link).
+                    <details className="group relative min-w-0 flex-1">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                        <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-coral group-hover:text-coral group-hover:underline">
+                          {player.displayName}
+                        </span>
+                        <span aria-hidden className="text-[0.55rem] text-steel transition group-open:rotate-180">
+                          ▾
+                        </span>
+                      </summary>
+                      <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-line bg-navy p-1 shadow-lg">
+                        <Link
+                          href={`/players/${encodeURIComponent(player.displayName)}`}
+                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                        >
+                          Stats profile
+                        </Link>
+                        {(linkedAccountUrls(player.displayName).length
+                          ? linkedAccountUrls(player.displayName)
+                          : player.opggUrl
+                            ? [player.opggUrl]
+                            : []
+                        ).map((url, index) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                          >
+                            {linkedAccountLabel(url, index)} ↗
+                          </a>
+                        ))}
+                      </div>
+                    </details>
                   )}
                 </li>
               ))}

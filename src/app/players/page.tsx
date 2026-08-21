@@ -2,6 +2,7 @@ import PlayersDirectory from "@/components/players/PlayersDirectory";
 import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { FREE_AGENCY_PLAYER_SUMMARIES } from "@/lib/players/freeAgencyData";
 import { adaptCanonicalPlayerPool } from "@/lib/players/freeAgency";
+import { primaryLinkedAccountUrl } from "@/lib/players/linkedAccounts";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 
@@ -23,7 +24,13 @@ export default async function PlayersPage() {
   const initialAvgBids = Object.fromEntries(
     (bids ?? []).map((bid) => [bid.player_name, bid.avg_bid]),
   );
-  const seasons = adaptCanonicalPlayerPool(canonicalPlayers ?? []);
+  // Rows without a stored op.gg link fall back to the league's linked
+  // accounts sheet, so player names in the directory link somewhere useful.
+  const linkedPlayers = (canonicalPlayers ?? []).map((player) => ({
+    ...player,
+    opgg_url: player.opgg_url ?? primaryLinkedAccountUrl(player.display_name),
+  }));
+  const seasons = adaptCanonicalPlayerPool(linkedPlayers);
   const canonicalAdminRows = (canonicalPlayers ?? []).map((player) => ({
     id: player.id,
     season_key: player.season_key,
