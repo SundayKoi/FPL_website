@@ -49,6 +49,7 @@ const LINKED_ACCOUNTS: Record<string, string[]> = {
     "https://op.gg/lol/multisearch/na?summoners=Drexnezod%23NA1%2Cdental+floss%23NA1%2Cclash+of+clans%23NA1%2Chappyhippo%23dead%2Csadroad%23NA1%2CMMO%23NA1",
   ],
   "nickle": ["https://op.gg/lol/summoners/na/Nickle-2537"],
+  "pinei nessa poha": ["https://op.gg/lol/multisearch/na?summoners=Pineifoimal%2300027%2Cpinei+nessa+poha%2300027"],
   "pr1mus": ["https://op.gg/lol/summoners/na/Pr1mus-NA1", "https://op.gg/lol/summoners/na/IWillCrankYou-hookd"],
   "promech": ["https://op.gg/lol/summoners/na/Promech-NA1", "https://op.gg/lol/summoners/lan/avuelo%20bipolar-ElPro"],
   "qball": ["https://op.gg/lol/multisearch/na?summoners=QBall%231032%2CJBall%231032%2CTheBouncy%23Ball"],
