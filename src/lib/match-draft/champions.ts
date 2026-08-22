@@ -427,6 +427,13 @@ export function championSplashUrl(name: string): string | null {
   return championByName(name)?.splashUrl ?? null;
 }
 
+/** Riot's "centered" splash — the horizontal crop with the champion in the
+ *  middle, made for wide/tall UI windows (same variant the drafter's pick
+ *  slots use). */
+export function championCenteredUrl(name: string): string | null {
+  return championSplashUrl(name)?.replace("/champion/splash/", "/champion/centered/") ?? null;
+}
+
 /** Name → champion resolver over an arbitrary roster (the live Data Dragon
  *  roster or the static fallback), tolerant of spacing/case differences. */
 export function championLookup(champions: MatchDraftChampion[]): (name: string) => MatchDraftChampion | null {
