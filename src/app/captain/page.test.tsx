@@ -24,7 +24,7 @@ const {
   fetchMyRoster: vi.fn(),
   fetchAnnouncements: vi.fn(),
   fetchScoutingHistory: vi.fn(),
-  opponentScout: vi.fn((props: { source: { opponentName: string } }) => <section>Opponent scouting: {props.source.opponentName}</section>),
+  opponentScout: vi.fn((props: { source: { opponentName: string } }) => <section>Scouting: {props.source.opponentName}</section>),
   adminCodeEditor: vi.fn((props: unknown) => {
     void props;
     return null;
@@ -118,7 +118,7 @@ afterEach(() => {
 });
 
 describe("CaptainPage layout", () => {
-  it("loads Premier scouting with the next opponent and current roster", async () => {
+  it("links the Premier captain hub to the dedicated Scouting page", async () => {
     const teams = [{ id: "one", name: "Team One" }, { id: "two", name: "Night Vale" }];
     fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "S5" });
     mockCaptainData();
@@ -126,20 +126,19 @@ describe("CaptainPage layout", () => {
     const next = upcomingFixture("f", "Team One", "Night Vale");
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : table === "league_settings" ? query({ data: { current_phase: "Regular" } }) : query({ data: [] }));
     render(await CaptainPageView({ searchParams: Promise.resolve({}), league: "premier" }));
-    expect(fetchScoutingHistory).toHaveBeenCalledWith(expect.anything(), { league: "premier", leagueTeamNames: ["Team One", "Night Vale"] });
-    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ opponentName: "Night Vale", currentSeason: "S5", nextFixture: next, roster: [{ id: "opp", displayName: "Mid", role: "mid" }] }) }));
-    expect(screen.getByText("Opponent scouting: Night Vale")).toBeTruthy();
+    expect(fetchScoutingHistory).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /scouting/i }).getAttribute("href")).toBe("/captain/scouting");
   });
 
-  it("loads Academy scouting with Academy context", async () => {
+  it("links the Academy captain hub to the dedicated Scouting page", async () => {
     const teams = [{ id: "one", name: "Academy One" }, { id: "two", name: "Academy Two" }];
     fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "A5" });
     mockCaptainData();
     const next = upcomingFixture("f", "Academy One", "Academy Two");
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : query({ data: { current_phase: "Regular" } }));
     render(await CaptainPageView({ searchParams: Promise.resolve({}), league: "academy" }));
-    expect(fetchScoutingHistory).toHaveBeenCalledWith(expect.anything(), { league: "academy", leagueTeamNames: ["Academy One", "Academy Two"] });
-    expect(screen.getByText("Opponent scouting: Academy Two")).toBeTruthy();
+    expect(fetchScoutingHistory).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /scouting/i }).getAttribute("href")).toBe("/academy/captain/scouting");
   });
 
   it("does not load scouting without an upcoming fixture", async () => {
@@ -149,14 +148,13 @@ describe("CaptainPage layout", () => {
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [] }) : query({ data: { current_phase: "Regular" } }));
     render(await CaptainPageView({ searchParams: Promise.resolve({}) }));
     expect(fetchScoutingHistory).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Opponent scouting/)).toBeNull();
+    expect(screen.queryByRole("link", { name: /scouting/i })).toBeNull();
   });
 
   it("isolates a rejected scout query from the rest of the captain page", async () => {
     const teams = [{ id: "one", name: "Team One" }, { id: "two", name: "Night Vale" }];
     fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "S5" });
     mockCaptainData();
-    fetchScoutingHistory.mockRejectedValue(new Error("unavailable"));
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [upcomingFixture("f", "Team One", "Night Vale")] }) : query({ data: { current_phase: "Regular" } }));
     render(await CaptainPageView({ searchParams: Promise.resolve({}) }));
     expect(screen.getByText("Next Match")).toBeTruthy();
@@ -165,7 +163,8 @@ describe("CaptainPage layout", () => {
     expect(screen.getByText("My roster")).toBeTruthy();
     expect(screen.getByText("My results & stats")).toBeTruthy();
     expect(screen.getByText("Announcements")).toBeTruthy();
-    expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
+    expect(fetchScoutingHistory).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: /scouting/i })).toBeTruthy();
   });
 
   it("uses the admin-selected team when resolving the scout opponent", async () => {
@@ -176,7 +175,7 @@ describe("CaptainPage layout", () => {
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : table === "league_settings" ? query({ data: { current_phase: "Regular" } }) : query({ data: [] }));
     render(await CaptainPageView({ searchParams: Promise.resolve({ team: "two" }) }));
     expect(screen.getByRole("heading", { name: "Team Two" })).toBeTruthy();
-    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ opponentName: "Team Three" }) }));
+    expect(screen.getByRole("link", { name: /scouting/i }).getAttribute("href")).toBe("/captain/scouting?team=two");
   });
   it("uses a wide responsive action layout and keeps lower sections below it", async () => {
     const team = { id: "team-1", name: "Team One" };

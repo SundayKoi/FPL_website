@@ -27,13 +27,13 @@ const source: ScoutSource = {
 function renderScout(overrides: Partial<ScoutSource> = {}) { return render(<OpponentScout source={{ ...source, ...overrides }} />); }
 
 describe("OpponentScout", () => {
-  it("renders premium draft intel and changes sampled scope", () => {
+  it("renders the Scouting page and changes sampled scope", () => {
     renderScout();
-    expect(screen.getByText("Premium · Opponent scouting")).toBeTruthy();
+    expect(screen.getByText("Premium · Scouting")).toBeTruthy();
     expect(screen.getByText("Opponent")).toBeTruthy();
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/0 picks · 0 champions · 0 games/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "Draft intel" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Scouting" })).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("2");
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });

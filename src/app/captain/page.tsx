@@ -1,4 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
+import Link from "next/link";
 import {
   fetchAnnouncements,
   fetchCaptainContext,
@@ -28,8 +29,6 @@ import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { leaguePath } from "@/lib/league/links";
-import { fetchScoutingHistory } from "@/lib/scouting/queries";
-import OpponentScout from "@/components/captain/OpponentScout";
 
 export async function CaptainPageView({
   searchParams,
@@ -103,18 +102,7 @@ export async function CaptainPageView({
       ? nextFixture.team_b
       : nextFixture.team_a
     : null;
-  const scoutingHistoryPromise = nextFixture && opponentName
-    ? fetchScoutingHistory(supabase, {
-        league,
-        leagueTeamNames: context.teams.map((team) => team.name),
-      }).then((history) => ({ ok: true as const, history }))
-        .catch((error: unknown) => {
-          console.error("Unable to load opponent scouting", error);
-          return { ok: false as const };
-        })
-    : null;
-
-  const [codes, draftGames, myReports, roster, opponentRoster, results, announcements, scoutingHistoryResult] = await Promise.all([
+  const [codes, draftGames, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     nextFixture ? fetchDraftGames(supabase, nextFixture.id, context.teams) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
@@ -122,22 +110,7 @@ export async function CaptainPageView({
     opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
-    scoutingHistoryPromise ?? Promise.resolve(null),
   ]);
-
-  const scoutingSource = scoutingHistoryResult?.ok && nextFixture && opponentName
-    ? {
-        ...scoutingHistoryResult.history,
-        opponentName,
-        currentSeason: context.season,
-        nextFixture,
-        roster: (opponentRoster?.draftPlayers ?? []).map((player) => ({
-          id: player.id,
-          displayName: player.display_name,
-          role: player.role,
-        })),
-      }
-    : null;
 
   // What the drafter already knows about the next series feeds the report
   // form: completed games arrive as pre-built rows with the drafted blue
@@ -239,11 +212,17 @@ export async function CaptainPageView({
                 opponentMultiOpggUrl={opponentMultiOpggUrl}
                 draftGames={draftGames}
               />
-              {scoutingSource ? <OpponentScout source={scoutingSource} /> : scoutingHistoryResult?.ok === false ? (
-                <section className="card-brand p-5" aria-label="Opponent scouting unavailable">
-                  <span className="label-dash text-gold">Premium · Opponent scouting</span>
-                  <p className="mt-2 text-sm text-steel">Scouting data is temporarily unavailable.</p>
-                </section>
+              {nextFixture && opponentName ? (
+                <Link
+                  href={`${league === "academy" ? "/academy/captain/scouting" : "/captain/scouting"}${context.isAdmin && activeTeamId ? `?team=${encodeURIComponent(activeTeamId)}` : ""}`}
+                  className="card-brand block p-5 transition hover:border-coral/60"
+                  aria-label={`Open Scouting for ${opponentName}`}
+                >
+                  <span className="label-dash text-gold">Premium · Scouting</span>
+                  <h2 className="type-display mt-2 text-2xl">Scouting</h2>
+                  <p className="mt-2 text-sm text-steel">Draft history and player pools for your next opponent: <span className="font-semibold text-white">{opponentName}</span></p>
+                  <span className="mt-4 inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral">Open Scouting →</span>
+                </Link>
               ) : null}
               <TourneyCodes codes={codes} />
               <MyRoster

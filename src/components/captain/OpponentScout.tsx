@@ -14,10 +14,10 @@ export default function OpponentScout({ source }: { source: ScoutSource }) {
   const blueShare = data.gamesSampled ? Math.round((data.blueGames / data.gamesSampled) * 100) : 0;
   const hasDrafts = data.pastDrafts.length > 0;
 
-  return <section aria-labelledby="draft-intel-heading" className="mt-8 space-y-4">
+  return <section aria-labelledby="scouting-heading" className="mt-8 space-y-4">
     <header className="card-brand p-5">
-      <span className="label-dash text-gold">Premium · Opponent scouting</span>
-      <h2 id="draft-intel-heading" className="type-display mt-2 text-3xl">Draft intel</h2>
+      <span className="label-dash text-gold">Premium · Scouting</span>
+      <h2 id="scouting-heading" className="type-display mt-2 text-3xl">Scouting</h2>
       <p className="mt-2 max-w-2xl text-sm text-steel">A clear record of draft patterns and history. This section presents scouting context only.</p>
       <p className="mt-3 text-sm text-steel"><span className="label-dash">Opponent</span> <span className="font-semibold text-white">{source.opponentName}</span></p>
       <label className="mt-4 flex items-center gap-3 text-sm text-steel">Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className="input-brand px-3 py-2"><option value="season">Current season</option><option value="recent">Recent 5 series</option><option value="all">All history</option></select></label>
