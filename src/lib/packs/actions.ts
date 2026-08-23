@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -59,7 +60,12 @@ export async function openPackAction(
   });
   if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
 
-  const pulls = rollPack(cards, Math.random);
+  // CSPRNG, not Math.random: V8's PRNG state is recoverable from observed
+  // outputs, and pack contents gate real (betting-dollar) value. Six bytes
+  // over 2^48 gives a uniform [0,1) with more than enough resolution for
+  // the roll tables.
+  const rand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
+  const pulls = rollPack(cards, rand);
   const editionWeek = mondayOf(new Date());
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
