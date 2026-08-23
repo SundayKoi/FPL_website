@@ -413,10 +413,37 @@ function championMeta(name: string): MatchDraftChampion {
 
 export const CHAMPIONS = CHAMPION_NAMES.map(championMeta);
 
-const CHAMPIONS_BY_NAME = new Map(CHAMPIONS.map((champion) => [normalizeChampionName(champion.name), champion]));
+/** Display name, Data Dragon id, and punctuation-stripped aliases →
+ *  champion. The drafter stores display names ("Wukong", "Kai'Sa"), but
+ *  raw_stats stores Riot's championName field — the DDragon id
+ *  ("MonkeyKing", "Kaisa", "MissFortune") — so resolution must answer for
+ *  both spellings of every champion. */
+const CHAMPIONS_BY_ALIAS = (() => {
+  const map = new Map<string, MatchDraftChampion>();
+  for (const champion of CHAMPIONS) {
+    for (const alias of [
+      normalizeChampionName(champion.name),
+      champion.id.toLowerCase(),
+      champion.name.replace(/[^A-Za-z0-9]/g, "").toLowerCase(),
+    ]) {
+      if (alias && !map.has(alias)) map.set(alias, champion);
+    }
+  }
+  return map;
+})();
 
 export function championByName(name: string): MatchDraftChampion | null {
-  return CHAMPIONS_BY_NAME.get(normalizeChampionName(name)) ?? null;
+  return (
+    CHAMPIONS_BY_ALIAS.get(normalizeChampionName(name)) ??
+    CHAMPIONS_BY_ALIAS.get(name.replace(/[^A-Za-z0-9]/g, "").toLowerCase()) ??
+    null
+  );
+}
+
+/** The pretty display name for any alias ("MonkeyKing" -> "Wukong"), or
+ *  the input unchanged when nothing matches. */
+export function championDisplayName(name: string): string {
+  return championByName(name)?.name ?? name;
 }
 
 export function championIconUrl(name: string): string | null {

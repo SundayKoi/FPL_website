@@ -6,6 +6,7 @@
 // where it matters) so a 90 means top of THIS league, and every number
 // moves automatically as the nightly ingest lands new games.
 
+import { championDisplayName } from "@/lib/match-draft/champions";
 import { powerRanking } from "@/lib/stats/formulas";
 import type { PlayerAggRow } from "@/lib/stats/types";
 
@@ -208,15 +209,18 @@ export function buildCard({ row, cohort, games, durations }: BuildCardInput): Pl
                   ? "Born Winner"
                   : "All-Rounder";
 
-  // Champion pool: most-played first, win rate breaking ties.
+  // Champion pool: most-played first, win rate breaking ties. raw_stats
+  // stores Riot's internal championName ("MonkeyKing", "MissFortune") —
+  // canonicalize to display names so art resolves and aliases merge.
   const byChampion = new Map<string, { games: number; wins: number }>();
   for (const g of dated) {
     const name = g.champion?.trim();
     if (!name) continue;
-    const entry = byChampion.get(name) ?? { games: 0, wins: 0 };
+    const display = championDisplayName(name);
+    const entry = byChampion.get(display) ?? { games: 0, wins: 0 };
     entry.games += 1;
     if (g.win === true) entry.wins += 1;
-    byChampion.set(name, entry);
+    byChampion.set(display, entry);
   }
   const topChampions = [...byChampion.entries()]
     .map(([champion, stats]) => ({ champion, ...stats }))

@@ -146,6 +146,19 @@ describe("buildCard", () => {
     expect(card.level).toBe(10);
   });
 
+  it("canonicalizes Riot internal championName spellings so art resolves and aliases merge", () => {
+    const riotNamed = [
+      gameRow({ match_id: "NA1_10", game_date: "2026-08-01T00:00:00Z", champion: "MissFortune", win: true }),
+      gameRow({ match_id: "NA1_11", game_date: "2026-08-02T00:00:00Z", champion: "Miss Fortune", win: false }),
+      gameRow({ match_id: "NA1_12", game_date: "2026-08-03T00:00:00Z", champion: "MonkeyKing", win: true }),
+    ];
+    const built = buildCard({ row: target, cohort: cohortOf(target), games: riotNamed, durations: new Map() });
+
+    // Both spellings merge into one display-named pool entry.
+    expect(built.signature).toEqual({ champion: "Miss Fortune", games: 2 });
+    expect(built.topChampions.map((c) => c.champion)).toEqual(["Miss Fortune", "Wukong"]);
+  });
+
   it("labels a low-death high-KDA player The Surgeon", () => {
     const surgeon = agg({ summoner_name: "Surgeon", kda: 8, avg_deaths: 0.8 });
     const cohort = [...cohortOf(target), surgeon];
