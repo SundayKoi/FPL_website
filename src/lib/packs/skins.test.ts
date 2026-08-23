@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchChampionSkinNums, rollSkinNum } from "./skins";
+import { fetchChampionSkinNums, rollPrint, rollSkinNum } from "./skins";
 
 /** Same scripted rand as rng.test.ts: throws when overrun, so a test that
  *  says "consumes one value" fails loudly if the roll consumes two. */
@@ -37,6 +37,34 @@ describe("rollSkinNum", () => {
 
   it("stays inside the catalog when the roll lands at the very top", () => {
     expect(rollSkinNum([0, 1, 2], scripted([1]))).toBe(2);
+  });
+});
+
+describe("rollPrint", () => {
+  // Riot's catalog lists nums whose centered splash was never uploaded —
+  // the validator is what keeps those prints out of pulled copies.
+  const validOnly = (valid: number[]) => async (_champion: string, num: number) => valid.includes(num);
+
+  it("returns a validated alternate print", async () => {
+    await expect(rollPrint("Jhin", [0, 1, 4], scripted([0.5]), validOnly([1, 4]))).resolves.toBe(1);
+  });
+
+  it("re-rolls off catalog nums whose art does not exist", async () => {
+    // First roll hits 13 (invalid, removed), second lands on 4.
+    await expect(rollPrint("Jhin", [0, 4, 13], scripted([0.99, 0.99]), validOnly([4]))).resolves.toBe(4);
+  });
+
+  it("returns base without consulting the validator", async () => {
+    const neverValid = async () => {
+      throw new Error("validator must not run for base");
+    };
+    await expect(rollPrint("Jhin", [0, 7], scripted([0.1]), neverValid)).resolves.toBe(0);
+  });
+
+  it("floors at base when nothing validates", async () => {
+    await expect(
+      rollPrint("Jhin", [3, 5, 9], scripted([0.9, 0.9, 0.9]), validOnly([])),
+    ).resolves.toBe(0);
   });
 
   it("answers base splash for an empty catalog", () => {

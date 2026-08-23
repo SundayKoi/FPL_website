@@ -9,7 +9,7 @@ import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { PACK_COST } from "./config";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
-import { fetchChampionSkinNums, rollSkinNum } from "./skins";
+import { fetchChampionSkinNums, rollPrint } from "./skins";
 import { mondayOf } from "./week";
 
 /** slug -> that player's inked signature, for everyone in `season` who has
@@ -112,14 +112,23 @@ export async function openPackAction(
   const skinNums = new Map(
     await Promise.all(champions.map(async (champion) => [champion, await fetchChampionSkinNums(champion)] as const)),
   );
-  const prints = pulls.map((pull) => {
+  // rollPrint (not rollSkinNum): the catalog lists nums whose centered art
+  // was never uploaded, and a print frozen against a 403 renders as base —
+  // validation happens here, before the copy is written. Sequential on
+  // purpose: five pulls of one champion then share the validity cache
+  // instead of racing duplicate HEAD requests.
+  const prints = [];
+  for (const pull of pulls) {
     const champion = pull.card.signature?.champion;
     // the autograph rides inside the card too, so this copy keeps the
     // signature it was pulled with even if the player redraws it later
     const card: PlayerCardData = { ...pull.card, autograph: pull.autograph };
-    if (!champion) return { ...pull, card };
-    return { ...pull, card: { ...card, artSkin: rollSkinNum(skinNums.get(champion) ?? [0], rand) } };
-  });
+    if (!champion) {
+      prints.push({ ...pull, card });
+      continue;
+    }
+    prints.push({ ...pull, card: { ...card, artSkin: await rollPrint(champion, skinNums.get(champion) ?? [0], rand) } });
+  }
 
   const editionWeek = mondayOf(new Date());
   const { data: inserted, error: insertError } = await service
