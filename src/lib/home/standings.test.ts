@@ -28,6 +28,27 @@ afterEach(() => {
 });
 
 describe("fetchHomepageStandings", () => {
+  it("requests team divisions for homepage grouping", async () => {
+    const teamSelects: string[] = [];
+    const from = vi.fn((table: string) =>
+      table === "league_settings"
+        ? query({ data: { featured_draft_id: "draft-s5" }, error: null })
+        : table === "fixtures"
+          ? query({ data: [], error: null })
+          : {
+              select: (columns: string) => {
+                teamSelects.push(columns);
+                return query({ data: draftTeams, error: null });
+              },
+            },
+    );
+    createServerSupabase.mockResolvedValue({ from });
+
+    await fetchHomepageStandings();
+
+    expect(teamSelects).toContain("id, name, abbreviation, nomination_position, division");
+  });
+
   it("builds series records from the season's fixtures", async () => {
     const from = vi.fn((table: string) =>
       table === "league_settings"

@@ -10,6 +10,7 @@ export interface HomeStandingTeam {
   name: string;
   abbreviation: string;
   nomination_position: number;
+  division?: string | null;
   wins: number;
   losses: number;
   winrate_pct?: number;
@@ -20,7 +21,7 @@ export interface HomeStandingTeam {
   next_opponent?: string | null;
 }
 
-type TeamRow = Pick<HomeStandingTeam, "id" | "name" | "abbreviation" | "nomination_position">;
+type TeamRow = Pick<HomeStandingTeam, "id" | "name" | "abbreviation" | "nomination_position" | "division">;
 
 export interface StandingsFixture {
   season: string;
@@ -193,7 +194,7 @@ export async function fetchHomepageStandings(
 
   const { data: teams, error: teamsError } = await supabase
     .from("teams")
-    .select("id, name, abbreviation, nomination_position")
+    .select("id, name, abbreviation, nomination_position, division")
     .eq("draft_id", featuredDraftId)
     .order("nomination_position", { ascending: true });
 

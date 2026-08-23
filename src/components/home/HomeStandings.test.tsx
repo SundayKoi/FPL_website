@@ -3,12 +3,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import HomeStandings from "./HomeStandings";
 import type { HomeStandingTeam } from "@/lib/home/standings";
 
-function team(name: string, nomination_position: number): HomeStandingTeam {
+function team(name: string, nomination_position: number, division?: string | null): HomeStandingTeam {
   return {
     id: name.toLowerCase(),
     name,
     abbreviation: name.slice(0, 2).toUpperCase(),
     nomination_position,
+    division,
     wins: 0,
     losses: 0,
   };
@@ -68,5 +69,25 @@ describe("HomeStandings", () => {
     );
 
     expect(screen.getByText(/a1 standings/i)).toBeTruthy();
+  });
+
+  it("splits standings into division sections when teams have divisions", () => {
+    render(
+      <HomeStandings
+        teams={[
+          { ...team("Lunari One", 1, "Lunari"), wins: 2, losses: 0, winrate_pct: 100 },
+          { ...team("Solari One", 2, "Solari"), wins: 1, losses: 1, winrate_pct: 50 },
+          { ...team("Lunari Two", 3, "Lunari"), wins: 0, losses: 2, winrate_pct: 0 },
+        ]}
+      />,
+    );
+
+    const lunari = screen.getByRole("group", { name: /lunari division/i });
+    const solari = screen.getByRole("group", { name: /solari division/i });
+
+    expect(lunari.textContent).toContain("Lunari One");
+    expect(lunari.textContent).toContain("Lunari Two");
+    expect(lunari.textContent).not.toContain("Solari One");
+    expect(solari.textContent).toContain("Solari One");
   });
 });
