@@ -32,6 +32,7 @@ describe("OpponentScout", () => {
     expect(screen.getByText("Premium · Opponent scouting")).toBeTruthy();
     expect(screen.getByText("Opponent")).toBeTruthy();
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/0 picks · 0 champions · 0 games/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Draft intel" })).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("2");
