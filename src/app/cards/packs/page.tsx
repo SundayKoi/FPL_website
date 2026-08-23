@@ -89,7 +89,12 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
       <PackShop league={league} balance={user.balance} packCost={PACK_COST} openCount={openCount} />
 
       <section className="flex flex-col gap-4">
-        <h2 className="type-display text-2xl sm:text-3xl">Your collection</h2>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 className="type-display text-2xl sm:text-3xl">Your collection</h2>
+          <Link href={`${base}/trades`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+            Trading post →
+          </Link>
+        </div>
         <CollectionGrid inventory={inventory} />
       </section>
     </main>

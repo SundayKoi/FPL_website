@@ -1,0 +1,160 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
+import TradeBuilder, { type TradeCardOption } from "@/components/cards/TradeBuilder";
+import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { getBettingUser } from "@/lib/betting/wallet";
+import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchInventory } from "@/lib/packs/queries";
+import { fetchCollectors, fetchTradesFor, type TradeCard, type TradeRow } from "@/lib/trades/queries";
+
+export const metadata: Metadata = {
+  title: "Trading Post — FPL",
+  description: "Trade player cards and betting dollars with other collectors.",
+};
+
+const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
+
+/** A hydrated trade card, minus the frozen `card` json — the inbox renders
+ *  chips, not cards, and that json is the heavy half of every row. */
+function toInboxCard(card: TradeCard) {
+  return {
+    id: card.id,
+    playerName: card.playerName,
+    overall: card.overall,
+    editionWeek: card.editionWeek,
+    foil: card.foil,
+    signed: card.signed,
+    stale: card.stale,
+  };
+}
+
+function toInboxTrade(trade: TradeRow): InboxTrade {
+  return {
+    id: trade.id,
+    fromDiscordId: trade.fromDiscordId,
+    fromUsername: trade.fromUsername,
+    toDiscordId: trade.toDiscordId,
+    toUsername: trade.toUsername,
+    offered: trade.offered.map(toInboxCard),
+    requested: trade.requested.map(toInboxCard),
+    offeredDollars: trade.offeredDollars,
+    requestedDollars: trade.requestedDollars,
+    status: trade.status,
+    stale: trade.stale,
+  };
+}
+
+/**
+ * The trading post: offers in, offers out, and the form that writes new ones.
+ *
+ * Gated on FPL Better rather than the premium card role, same as /cards/packs
+ * — a trade can carry betting dollars, so the wallet is the thing you need to
+ * be party to one.
+ *
+ * Every read goes through the service client: card_inventory and card_trades
+ * both have RLS on with no policies (see src/lib/trades/queries.ts), and the
+ * Discord id comes from the session, so this page can only ever ask for the
+ * signed-in collector's trades.
+ */
+export async function TradesPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+  const base = league === "academy" ? "/academy/cards" : "/cards";
+  const user = await getBettingUser();
+
+  if (!user) {
+    return (
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Trading post</span>
+        <h1 className="type-display text-3xl sm:text-4xl">Sign in to trade cards</h1>
+        <p className="max-w-md text-sm text-steel">
+          Trades move cards and betting dollars between collectors, so they ride on your FPL Better
+          wallet — sign in with Discord to check your access.
+        </p>
+        <Link href={`/login?redirect=${base}/trades`} className="btn-pill mt-2">
+          Sign in with Discord
+        </Link>
+      </main>
+    );
+  }
+
+  if (!user.allowed) {
+    return (
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Trading post</span>
+        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
+        <p className="max-w-md text-sm text-steel">
+          Trades can carry betting dollars, and only FPL Better members have a wallet to spend. Join the
+          FPL Better role in Discord and come back to start dealing.
+        </p>
+      </main>
+    );
+  }
+
+  const service = createBettingServiceClient();
+  const season = await fetchCardSeason(service, league);
+  const [trades, collectors, inventory] = season
+    ? await Promise.all([
+        fetchTradesFor(service, user.discordId, season),
+        fetchCollectors(service, season),
+        fetchInventory(service, user.discordId, season),
+      ])
+    : [{ incoming: [], outgoing: [] }, [], []];
+
+  const myInventory: TradeCardOption[] = inventory.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    playerName: row.playerName,
+    role: row.role,
+    overall: row.overall,
+    tier: row.tier,
+    foil: row.foil,
+    signed: row.signed,
+    editionWeek: row.editionWeek,
+  }));
+
+  return (
+    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="label-dash">
+            Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
+          </span>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Trading Post</h1>
+          <p className="mt-3 max-w-2xl text-sm text-steel">
+            Trade cards and betting dollars with other collectors — either side of an offer can be cards,
+            money, or both. Nothing moves until the other person accepts, and a card fielded in this
+            week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
+          </p>
+          <Link
+            href={base}
+            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+          >
+            ← Back to player cards
+          </Link>
+        </div>
+        <CardsLeagueToggle league={league} suffix="/trades" />
+      </header>
+
+      <TradeInbox
+        incoming={trades.incoming.map(toInboxTrade)}
+        outgoing={trades.outgoing.map(toInboxTrade)}
+        viewerDiscordId={user.discordId}
+      />
+
+      <section className="flex flex-col gap-3">
+        <h2 className="type-display text-2xl sm:text-3xl">New trade</h2>
+        <TradeBuilder
+          collectors={collectors}
+          myInventory={myInventory}
+          viewerDiscordId={user.discordId}
+          league={league}
+        />
+      </section>
+    </main>
+  );
+}
+
+export default async function TradesPage() {
+  return TradesPageView({ league: "premier" });
+}

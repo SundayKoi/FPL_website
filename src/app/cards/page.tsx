@@ -87,6 +87,12 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             Packs →
           </Link>
           <Link
+            href={`${base}/trades`}
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Trades →
+          </Link>
+          <Link
             href={`${base}/fantasy`}
             className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
           >

@@ -88,9 +88,56 @@ export const SIGNED_CHANCE = 0.01;
  */
 export const GUARANTEED_CLASS: RarityClass = "rare";
 
+/**
+ * What a copy is worth when dusted — sold back for betting dollars.
+ *
+ * Dusting is a floor for duplicates, never an arbitrage loop, and the
+ * numbers are set so the arithmetic says so. At the RARITY_WEIGHTS above a
+ * single slot dusts for 0.75×10 + 0.20×25 + 0.04×60 + 0.01×150 ≈ $16.4, so
+ * a PACK_SIZE of five expects roughly $82 against a PACK_COST of 200 — about
+ * 41 cents back on the dollar (a little more once the guaranteed
+ * rare-or-better slot and the foil/signed multipliers are counted, still
+ * nowhere near even). Grinding packs to dust therefore burns money; the only
+ * thing dusting is good for is turning a fourth copy of the same bronze into
+ * something.
+ *
+ * Push these much higher and packs become a money printer for anyone
+ * willing to click; push them to zero and dupes are just litter.
+ */
+export const DUST_VALUES: Record<RarityClass, number> = {
+  common: 10,
+  rare: 25,
+  epic: 60,
+  legendary: 150,
+};
+
+/** Foils dust for double — the same premium the pull itself carries. */
+export const FOIL_DUST_MULT = 2;
+
+/** Autographs dust for 5×. Deliberately steep: nobody should ever *want* to
+ *  dust a signed copy, and the price tag is how that gets said out loud. */
+export const SIGNED_DUST_MULT = 5;
+
 /** The rarity bucket a card tier belongs to. */
 export function rarityOf(tier: CardTierKey): RarityClass {
   return RARITY_BY_TIER[tier];
+}
+
+/**
+ * The dust value of one owned copy. Multipliers stack multiplicatively, so a
+ * signed foil legendary is 150 × 2 × 5 = $1,500 — the top of the table by a
+ * distance, as the rarest thing in the game should be.
+ *
+ * `tier` is typed loosely because it arrives from card_inventory's flat
+ * `tier` column (a plain text column, see queries.ts's InventoryRow): an
+ * unrecognized tier dusts as common rather than crashing the collection.
+ */
+export function dustValueOf(row: { tier: CardTierKey | string; foil: boolean; signed: boolean }): number {
+  const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
+  let value = DUST_VALUES[rarity];
+  if (row.foil) value *= FOIL_DUST_MULT;
+  if (row.signed) value *= SIGNED_DUST_MULT;
+  return value;
 }
 
 /** Position in RARITY_ORDER — higher is better. */

@@ -19,3 +19,16 @@ export function mondayOf(date: Date): string {
   start.setUTCHours(0, 0, 0, 0);
   return start.toISOString().slice(0, 10);
 }
+
+/**
+ * An edition week as a chip label: "2026-08-17" → "WK Aug 17".
+ *
+ * Read back as UTC on purpose, for the same reason mondayOf writes it that
+ * way: letting the browser's local timezone parse the string would slide a
+ * chunk of the world back a day and print the wrong print run.
+ */
+export function editionLabel(week: string): string {
+  const date = new Date(`${week}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return week;
+  return `WK ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
+}

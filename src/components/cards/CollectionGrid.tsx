@@ -7,19 +7,14 @@
 // field (and the one worth looking at).
 //
 // No hooks: the grid is pure derivation over rows the page already fetched,
-// so it stays a server component and only PlayerCard3D ships to the client.
+// so it stays a server component — only PlayerCard3D and the dust drawer
+// (which needs state for its two-step confirm) ship to the client, and the
+// drawer is handed flat copy fields rather than the frozen `card` json.
 
 import type { InventoryRow } from "@/lib/packs/queries";
+import { editionLabel } from "@/lib/packs/week";
+import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
-
-/** "2026-08-17" → "WK Aug 17". Parsed as UTC on purpose: edition weeks are
- *  Mondays in UTC (src/lib/packs/week.ts), and letting the browser's local
- *  timezone read the string would slide a chunk of the world back a day. */
-function editionLabel(week: string): string {
-  const date = new Date(`${week}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return week;
-  return `WK ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
-}
 
 /** The copy to put on the shelf: an autographed copy outranks everything —
  *  the ink is the rarest thing that can happen to a pull, and nobody shelves
@@ -51,6 +46,17 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
       signatures: copies.filter((copy) => copy.signed).length,
       // Chronological, so the chips read as a print history.
       editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
+      // Only what the dust drawer needs, flattened: DustControls is a client
+      // component, so the frozen `card` json stays out of the payload.
+      copies: copies
+        .map((copy) => ({
+          id: copy.id,
+          tier: copy.tier,
+          foil: copy.foil,
+          signed: copy.signed,
+          editionWeek: copy.editionWeek,
+        }))
+        .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
     }))
     .sort((a, b) => b.best.overall - a.best.overall);
 
@@ -92,6 +98,7 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
                 </span>
               ) : null}
             </div>
+            <DustControls playerName={entry.best.playerName} copies={entry.copies} />
           </div>
         </div>
       ))}
