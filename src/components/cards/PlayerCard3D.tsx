@@ -61,6 +61,7 @@ export default function PlayerCard3D({
   interactive = true,
   reveal = false,
   bloom = false,
+  forceFoil = false,
   className = "",
 }: {
   card: PlayerCardData;
@@ -70,6 +71,9 @@ export default function PlayerCard3D({
   reveal?: boolean;
   /** Ambient tier-colored glow behind the card (share-page pedestal). */
   bloom?: boolean;
+  /** Holograph the card whatever its tier — the pack economy's foil pull is
+   *  a cosmetic rolled independently of rarity, so a foil Bronze exists. */
+  forceFoil?: boolean;
   className?: string;
 }) {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -278,7 +282,7 @@ export default function PlayerCard3D({
               </div>
             </div>
 
-            {/* Glare follows the pointer; foil only on Emerald+. */}
+            {/* Glare follows the pointer; foil on Emerald+, or on request. */}
             {interactive ? (
               <div
                 aria-hidden
@@ -290,7 +294,7 @@ export default function PlayerCard3D({
                 }}
               />
             ) : null}
-            {style.foil || card.standout ? (
+            {style.foil || card.standout || forceFoil ? (
               <div
                 aria-hidden
                 data-testid="foil"

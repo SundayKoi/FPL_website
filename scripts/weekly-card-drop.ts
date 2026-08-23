@@ -1,8 +1,9 @@
 /**
- * Weekly card drop: posts each league's player-card movers to Discord and
- * refreshes the card_snapshots baselines that movement is measured against.
- * Premier and Academy run back to back — they share every table, separated
- * by season code, so each gets its own embed.
+ * Weekly card drop: posts each league's player-card movers to Discord,
+ * refreshes the card_snapshots baselines that movement is measured against,
+ * and grades + pays out the week's fantasy lineups. Premier and Academy run
+ * back to back — they share every table, separated by season code, so each
+ * gets its own embeds.
  *
  * Run: npx tsx scripts/weekly-card-drop.ts
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY; DISCORD_CARDS_WEBHOOK_URL
@@ -17,6 +18,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllCardSeasons, fetchSeasonCards, type CardLeague } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
+import { planPayouts } from "../src/lib/fantasy/payouts";
+import { fetchBettingUsernames, fetchWeekLineups, type FantasyLineupRow } from "../src/lib/fantasy/queries";
+import { scoreLineup, weeklyScoresBySlug } from "../src/lib/fantasy/scoring";
+import { lastCompletedWeek } from "../src/lib/fantasy/week";
+import { mondayOf } from "../src/lib/packs/week";
+import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 
 interface SnapshotRow {
   slug: string;
@@ -162,6 +169,163 @@ async function processSeason(
   }
 }
 
+/** The raw_stats columns the weekly power aggregation reads, plus the date
+ *  the week filter needs. Deduplicated because WEEKLY_STAT_COLUMNS already
+ *  carries summoner_name/tag/season. */
+const FANTASY_STAT_COLUMNS = [...new Set<string>([...WEEKLY_STAT_COLUMNS, "game_date"])].join(",");
+
+function fantasyStandings(lineups: FantasyLineupRow[]): FantasyLineupRow[] {
+  return [...lineups].sort(
+    (a, b) => (b.score ?? -1) - (a.score ?? -1) || a.submittedAt.localeCompare(b.submittedAt),
+  );
+}
+
+/**
+ * Grades and pays out one league's fantasy week.
+ *
+ * Two separately idempotent halves, both keyed off columns already on the
+ * row: an entry with `scored_at` set is never re-scored (so a re-run can't
+ * move a published leaderboard), and a payout is claimed with a
+ * `paid_out is null` guard before `fantasy_payout` credits it — the
+ * exactly-once contract the RPC's comment spells out
+ * (20260826000015_card_packs_fantasy.sql). A crash between the claim and
+ * the credit therefore under-pays rather than double-pays, which is the
+ * side of that trade a human can fix from the ledger.
+ */
+async function scoreFantasyWeek(
+  supabase: SupabaseClient,
+  league: CardLeague,
+  season: string,
+  webhookUrl: string | null,
+  origin: string | null,
+): Promise<void> {
+  const label = LEAGUE_LABELS[league];
+  const hubPath = league === "academy" ? "/academy/cards/fantasy" : "/cards/fantasy";
+  const footer = origin ? `${origin}${hubPath}` : `FPL ${label.toLowerCase()} fantasy`;
+
+  // The week whose lock has passed — i.e. the one Monday night's games just
+  // decided, not the one managers are currently drafting for.
+  const week = lastCompletedWeek(new Date());
+  const lineups = await fetchWeekLineups(supabase, season, week);
+  if (lineups.length === 0) {
+    console.log(`[${label}] No fantasy lineups for the week of ${week} — nothing to score.`);
+    return;
+  }
+
+  const unscored = lineups.filter((lineup) => lineup.scoredAt === null);
+  let scoredNow = 0;
+
+  if (unscored.length === 0) {
+    console.log(`[${label}] Fantasy week ${week}: all ${lineups.length} lineup(s) already scored.`);
+  } else {
+    const { data, error } = await supabase.from("raw_stats").select(FANTASY_STAT_COLUMNS).eq("season", season);
+    if (error) throw error;
+    // Filtered in JS rather than with a date range so the week boundary is
+    // the same mondayOf the lineups were filed against — one definition of
+    // a week, not a second one written in query params.
+    const weekRows = (((data ?? []) as unknown) as WeeklyRawStatRow[]).filter(
+      (row) => row.game_date && mondayOf(new Date(row.game_date)) === week,
+    );
+    const scores = weeklyScoresBySlug(weekRows);
+    console.log(
+      `[${label}] Fantasy week ${week}: ${weekRows.length} stat rows, ${scores.size} players rated — scoring ${unscored.length} lineup(s).`,
+    );
+
+    const scoredAt = new Date().toISOString();
+    for (const lineup of unscored) {
+      const { score, breakdown } = scoreLineup(lineup.slots, scores);
+      const { error: updateError } = await supabase
+        .from("fantasy_lineups")
+        .update({ score, breakdown, scored_at: scoredAt })
+        .eq("discord_id", lineup.discordId)
+        .eq("season", season)
+        .eq("week_start", week);
+      if (updateError) throw updateError;
+      // Merged in memory so the payout pass below doesn't need a re-read.
+      lineup.score = score;
+      lineup.breakdown = breakdown;
+      lineup.scoredAt = scoredAt;
+      scoredNow += 1;
+    }
+    console.log(`[${label}] Scored ${scoredNow} fantasy lineup(s).`);
+  }
+
+  const standings = fantasyStandings(lineups);
+  const byDiscordId = new Map(lineups.map((lineup) => [lineup.discordId, lineup]));
+  const plans = planPayouts(standings.map((lineup) => ({ discordId: lineup.discordId, score: lineup.score ?? 0 })));
+
+  for (const plan of plans) {
+    const lineup = byDiscordId.get(plan.discordId);
+    if (!lineup || lineup.paidOut !== null) continue;
+
+    // Claim first: the `paid_out is null` filter is what makes the pair
+    // exactly-once, and fantasy_payout refuses to credit without it.
+    const { data: claimed, error: claimError } = await supabase
+      .from("fantasy_lineups")
+      .update({ paid_out: plan.amount })
+      .eq("discord_id", plan.discordId)
+      .eq("season", season)
+      .eq("week_start", week)
+      .is("paid_out", null)
+      .select("discord_id");
+    if (claimError) {
+      console.error(`[${label}] Could not claim $${plan.amount} for ${plan.discordId} (week ${week}): ${claimError.message}`);
+      continue;
+    }
+    if (!claimed || claimed.length === 0) {
+      console.log(`[${label}] Payout for ${plan.discordId} (week ${week}) was already claimed — skipping.`);
+      continue;
+    }
+
+    const { error: payError } = await supabase.rpc("fantasy_payout", {
+      p_user: plan.discordId,
+      p_amount: plan.amount,
+      p_season: season,
+      p_week: week,
+    });
+    if (payError) {
+      // The claim stands, so a retry won't pay twice — this needs a human
+      // with the ledger, not another automatic attempt.
+      console.error(
+        `[${label}] CLAIMED BUT UNPAID: $${plan.amount} for ${plan.discordId} (week ${week}) — reconcile via betting_ledger: ${payError.message}`,
+      );
+      continue;
+    }
+    lineup.paidOut = plan.amount;
+    console.log(`[${label}] Paid $${plan.amount} to ${plan.discordId} (rank ${plan.rank}, week ${week}).`);
+  }
+
+  if (!webhookUrl) {
+    console.log(`[${label}] DISCORD_CARDS_WEBHOOK_URL not set — skipping the fantasy post.`);
+    return;
+  }
+  // Only a run that actually graded something posts: a re-run of an already
+  // scored week shouldn't repost last week's leaderboard.
+  if (scoredNow === 0) {
+    console.log(`[${label}] Fantasy week ${week} was already graded — not reposting.`);
+    return;
+  }
+
+  const names = await fetchBettingUsernames(supabase, standings.map((lineup) => lineup.discordId));
+  const nameOf = (discordId: string) => names.get(discordId) ?? discordId;
+  const scored = standings.filter((lineup) => lineup.score !== null);
+
+  const lines = [
+    "**Top lineups**",
+    ...scored.slice(0, 5).map(
+      (lineup, index) => `**${index + 1}.** ${nameOf(lineup.discordId)} — ${(lineup.score ?? 0).toFixed(1)} pts`,
+    ),
+  ];
+  const paidLines = plans
+    .filter((plan) => (byDiscordId.get(plan.discordId)?.paidOut ?? null) !== null)
+    .map((plan) => `💰 $${plan.amount} → ${nameOf(plan.discordId)}`);
+  if (paidLines.length > 0) lines.push("", "**Payouts**", ...paidLines);
+  lines.push("", `${lineups.length} lineup${lineups.length === 1 ? "" : "s"} entered.`);
+
+  await postEmbed(webhookUrl, `🏆 ${label} fantasy — week of ${week}`, lines.join("\n"), footer);
+  console.log(`[${label}] Posted the fantasy leaderboard (${lineups.length} entrants, ${paidLines.length} payouts).`);
+}
+
 async function main(): Promise<void> {
   const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
@@ -174,6 +338,14 @@ async function main(): Promise<void> {
 
   for (const { league, season } of seasons) {
     await processSeason(supabase, league, season, webhookUrl, origin);
+    // Non-fatal by construction: fantasy is a later migration than the card
+    // drop, and an environment without it (or a bad week of stats) must
+    // still get its snapshots and its movers post.
+    try {
+      await scoreFantasyWeek(supabase, league, season, webhookUrl, origin);
+    } catch (error) {
+      console.error(`[${LEAGUE_LABELS[league]}] Fantasy scoring failed — card drop unaffected:`, error);
+    }
   }
 }
 

@@ -80,6 +80,18 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           >
             Card vs Card →
           </Link>
+          <Link
+            href={`${base}/packs`}
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Packs →
+          </Link>
+          <Link
+            href={`${base}/fantasy`}
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Fantasy →
+          </Link>
         </div>
       </header>
       {cards.length === 0 ? (

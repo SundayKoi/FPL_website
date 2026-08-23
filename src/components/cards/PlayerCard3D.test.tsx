@@ -89,6 +89,16 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
   });
 
+  it("foils any tier when forceFoil is set", () => {
+    // Pack foils are rolled independently of rarity, so a Platinum pull can
+    // come out holographic even though the tier itself doesn't foil.
+    const { container, rerender } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector('[data-testid="foil"]')).toBeNull();
+
+    rerender(<PlayerCard3D card={card} forceFoil />);
+    expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
+  });
+
   it("renders statically without a button when not interactive", () => {
     render(<PlayerCard3D card={card} interactive={false} />);
     expect(screen.queryByRole("button")).toBeNull();
