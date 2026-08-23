@@ -55,6 +55,9 @@ describe("OpponentScout", () => {
   });
   it("uses champion icons and complete blue/red draft slots", () => {
     renderScout();
+    const patterns = screen.getByRole("heading", { name: "Draft patterns" }).parentElement;
+    expect(within(patterns!).queryByText("Ban phase 1 · first 3")).toBeNull();
+    expect(within(patterns!).queryByText("Ban phase 2 · last 2")).toBeNull();
     const image = document.querySelector("img") as HTMLImageElement;
     expect(image.getAttribute("src")).toBe(championIconUrl("Ahri"));
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);

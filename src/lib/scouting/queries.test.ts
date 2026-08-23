@@ -91,12 +91,17 @@ describe("fetchScoutingHistory", () => {
   it("loads completed historical drafts from the Drafter URL stored on a match report", async () => {
     const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
     const draftQuery = builder([]);
+    const leagueTeamsQuery = builder([
+      { id: "team-a", name: "Other" },
+      { id: "team-b", name: "Night Vale" },
+    ]);
     const reportQuery = builder([{ id: "report-1", fixture_id: "f", draft_url: "https://drafter.lol/draft/series-1", team_a_id: "team-a", team_b_id: "team-b" }]);
     const reportGamesQuery = builder([{ report_id: "report-1", game_number: 1, blue_team_id: "team-b" }]);
     const html = `<script>self.__next_f.push([1,"1d:[\\\"$\\\",null,{\\\"drafts\\\":[{\\\"id\\\":42,\\\"done\\\":true,\\\"blueBan1\\\":\\\"Annie\\\",\\\"redBan1\\\":\\\"Viktor\\\",\\\"bluePick1\\\":\\\"Morgana\\\",\\\"redPick1\\\":\\\"Jhin\\\"}]}]"])</script>`;
     const from = vi.fn((table: string) => ({
       fixtures: fixtureQuery,
       match_drafts: draftQuery,
+      league_teams: leagueTeamsQuery,
       match_reports: reportQuery,
       match_report_games: reportGamesQuery,
     }[table] ?? builder([])));
@@ -107,8 +112,8 @@ describe("fetchScoutingHistory", () => {
     });
 
     expect(history.drafts).toHaveLength(1);
-    expect(history.drafts[0].blue_team_name).toBe("Other");
-    expect(history.drafts[0].red_team_name).toBe("Night Vale");
+    expect(history.drafts[0].blue_team_name).toBe("Night Vale");
+    expect(history.drafts[0].red_team_name).toBe("Other");
     expect(history.drafts[0].actions.some((action) => action.champion === "Morgana")).toBe(true);
     vi.unstubAllGlobals();
   });

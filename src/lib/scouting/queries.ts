@@ -8,6 +8,7 @@ export const FIXTURE_COLUMNS =
   "id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b";
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
+const TEAM_COLUMNS = "id, name";
 const REPORT_COLUMNS = "id, fixture_id, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "report_id, game_number, blue_team_id";
 
@@ -96,6 +97,7 @@ async function loadReportedDrafts(
   reports: UnknownRow[],
   reportGames: UnknownRow[],
   fixturesById: Map<string, ScoutFixtureRow>,
+  teamNamesById: Map<string, string>,
 ): Promise<ScoutDraftRow[]> {
   const gamesByReport = new Map<string, UnknownRow[]>();
   for (const game of reportGames) {
@@ -121,14 +123,16 @@ async function loadReportedDrafts(
       const gameSides: Record<number, { blueTeamName: string | null; redTeamName: string | null }> = {};
       const reportTeamA = asNullableString(report.team_a_id);
       const reportTeamB = asNullableString(report.team_b_id);
+      const reportTeamAName = (reportTeamA && teamNamesById.get(reportTeamA)) ?? fixture.team_a;
+      const reportTeamBName = (reportTeamB && teamNamesById.get(reportTeamB)) ?? fixture.team_b;
       for (const game of gamesByReport.get(reportId) ?? []) {
         const gameNumber = asNumber(game.game_number);
         const blueTeamId = asNullableString(game.blue_team_id);
         if (!gameNumber || !blueTeamId) continue;
         gameSides[gameNumber] = blueTeamId === reportTeamB
-          ? { blueTeamName: fixture.team_b, redTeamName: fixture.team_a }
+          ? { blueTeamName: reportTeamBName, redTeamName: reportTeamAName }
           : blueTeamId === reportTeamA
-            ? { blueTeamName: fixture.team_a, redTeamName: fixture.team_b }
+            ? { blueTeamName: reportTeamAName, redTeamName: reportTeamBName }
             : { blueTeamName: fixture.team_a, redTeamName: fixture.team_b };
       }
       return parseDrafterPage(await response.text(), {
@@ -149,14 +153,16 @@ export async function fetchScoutingHistory(
   supabase: SupabaseClient,
   input: FetchScoutingHistoryInput,
 ): Promise<ScoutHistory> {
-  const [fixtureResult, draftResult, reportResult, reportGameResult] = await Promise.all([
+  const [fixtureResult, draftResult, teamResult, reportResult, reportGameResult] = await Promise.all([
     supabase.from("fixtures").select(FIXTURE_COLUMNS),
     supabase.from("match_drafts").select(DRAFT_COLUMNS),
+    supabase.from("league_teams").select(TEAM_COLUMNS),
     supabase.from("match_reports").select(REPORT_COLUMNS),
     supabase.from("match_report_games").select(REPORT_GAME_COLUMNS),
   ]);
   if (fixtureResult.error) throw fixtureResult.error;
   if (draftResult.error) throw draftResult.error;
+  if (teamResult.error) throw teamResult.error;
   if (reportResult.error) throw reportResult.error;
   if (reportGameResult.error) throw reportGameResult.error;
 
@@ -171,6 +177,14 @@ export async function fetchScoutingHistory(
     });
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const fixtureIds = new Set(fixturesById.keys());
+  const teamNamesById = new Map(
+    asRows(teamResult.data)
+      .flatMap((row) => {
+        const id = asNullableString(row.id);
+        const name = asNullableString(row.name);
+        return id && name ? [[id, name] as const] : [];
+      }),
+  );
   const drafts = asRows(draftResult.data)
     .map(mapDraft)
     .filter((draft): draft is ScoutDraftRow => Boolean(draft && fixtureIds.has(draft.fixture_id)))
@@ -185,7 +199,7 @@ export async function fetchScoutingHistory(
         : draft;
     });
   const reports = asRows(reportResult.data).filter((report) => fixtureIds.has(asNullableString(report.fixture_id) ?? ""));
-  const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameResult.data), fixturesById);
+  const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameResult.data), fixturesById, teamNamesById);
   for (const reportedDraft of reportedDrafts) {
     const current = drafts.find((draft) => draft.fixture_id === reportedDraft.fixture_id && draft.game_number === reportedDraft.game_number);
     if (!current || current.actions.length === 0) drafts.push(reportedDraft);
