@@ -4,7 +4,6 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
-import { fetchStandoutKeys } from "@/lib/cards/standout";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { PlayerCardData } from "@/lib/cards/build";
 
@@ -62,8 +61,7 @@ function SeasonJourney({ history, card }: { history: RatingHistoryPoint[]; card:
 async function loadCard(slug: string) {
   const supabase = await createServerSupabase();
   for (const { league, season } of await fetchAllCardSeasons(supabase)) {
-    const standoutKeys = await fetchStandoutKeys(season);
-    const card = await fetchCardBySlug(supabase, season, slug, { standoutKeys });
+    const card = await fetchCardBySlug(supabase, season, slug);
     if (card) return { card, league };
   }
   return null;

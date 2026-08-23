@@ -585,8 +585,6 @@ export interface BuildSeasonCardsInput {
   teamImages?: Map<string, string>;
   /** player key -> chosen art (skin + motto) from card_art_prefs. */
   artPrefs?: Map<string, { skin: number; motto: string | null }>;
-  /** This week's per-role Weekly Standout winners (player keys). */
-  standoutKeys?: Set<string> | null;
 }
 
 /** The whole league's cards with league-wide scarce archetypes, best
@@ -598,7 +596,6 @@ export function buildSeasonCards({
   recordsByPlayer,
   teamImages,
   artPrefs,
-  standoutKeys = null,
 }: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
   for (const row of cohort) {
@@ -611,7 +608,7 @@ export function buildSeasonCards({
   }
   const archetypes = assignArchetypes(cohort, extrasByKey);
 
-  return cohort
+  const cards = cohort
     .map((row) => {
       const key = playerKey(row);
       const prefs = artPrefs?.get(key) ?? null;
@@ -625,12 +622,23 @@ export function buildSeasonCards({
         teamImages,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
-        standout: standoutKeys?.has(key) ?? false,
       });
     })
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name))
     // Collector serials: rank in the sorted collection, best card = #001.
     .map((card, index) => ({ ...card, serial: index + 1 }));
+
+  // Cards of the Week: the highest-rated card in each role. Judged by the
+  // cards' own OVR (not the homepage's weekly-power pipeline, whose
+  // slightly different aggregation can disagree with the ratings printed
+  // on the cards) — the crown always sits on the role's top card, and it
+  // still changes hands as ratings move week to week.
+  const crowned = new Set<string>();
+  return cards.map((card) => {
+    if (crowned.has(card.role)) return card;
+    crowned.add(card.role);
+    return { ...card, standout: true };
+  });
 }
 
 /** The shared player key ("name#tag", lowercased) — exported so data

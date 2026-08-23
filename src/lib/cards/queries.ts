@@ -53,22 +53,12 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
   return seasons;
 }
 
-export interface FetchSeasonCardsOptions {
-  /** Per-role Weekly Standout player keys (cardPlayerKey) — flags each
-   *  role's Card of the Week. */
-  standoutKeys?: Set<string> | null;
-}
-
 /**
  * Every player's card for `season`, best overall first. One fetch pass for
  * the whole league: the rating engine needs the full cohort anyway (all
  * ratings are league-relative), so per-player fetching would save nothing.
  */
-export async function fetchSeasonCards(
-  supabase: SupabaseClient,
-  season: string,
-  options: FetchSeasonCardsOptions = {},
-): Promise<PlayerCardData[]> {
+export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
   const [aggResult, gamesResult, logResult, recordsResult, teamsResult, artResult] = await Promise.all([
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
@@ -141,7 +131,6 @@ export async function fetchSeasonCards(
     recordsByPlayer,
     teamImages,
     artPrefs,
-    standoutKeys: options.standoutKeys ?? null,
   });
 }
 
@@ -178,8 +167,7 @@ export async function fetchCardBySlug(
   supabase: SupabaseClient,
   season: string,
   slug: string,
-  options: FetchSeasonCardsOptions = {},
 ): Promise<PlayerCardData | null> {
-  const cards = await fetchSeasonCards(supabase, season, options);
+  const cards = await fetchSeasonCards(supabase, season);
   return cards.find((card) => card.slug === slug) ?? null;
 }

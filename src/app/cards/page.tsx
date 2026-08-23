@@ -3,7 +3,6 @@ import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
-import { fetchStandoutKeys } from "@/lib/cards/standout";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -51,8 +50,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
 
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
-  const standoutKeys = season ? await fetchStandoutKeys(season) : null;
-  const cards = season ? await fetchSeasonCards(supabase, season, { standoutKeys }) : [];
+  const cards = season ? await fetchSeasonCards(supabase, season) : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">

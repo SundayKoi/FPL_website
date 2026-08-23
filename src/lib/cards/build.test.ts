@@ -251,6 +251,18 @@ describe("archetype scarcity", () => {
     expect(cards[0].collectionSize).toBe(cohort.length);
   });
 
+  it("crowns the highest-OVR card in each role as Card of the Week", () => {
+    // cohortOf builds one BOTTOM role cohort with a clear ranking; the top
+    // card must wear the crown and nobody else in the role may.
+    const cohort = cohortOf(agg());
+    const cards = buildSeasonCards({ cohort, gamesByPlayer: new Map(), gameLog: new Map() });
+
+    const bots = cards.filter((card) => card.role === "Bot");
+    expect(bots[0].standout).toBe(true);
+    expect(bots[0].overall).toBe(Math.max(...bots.map((card) => card.overall)));
+    expect(bots.slice(1).every((card) => !card.standout)).toBe(true);
+  });
+
   it("threads art prefs (skin + motto) through to the built card", () => {
     const cohort = cohortOf(agg());
     const cards = buildSeasonCards({
