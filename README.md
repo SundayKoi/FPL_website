@@ -1,73 +1,105 @@
-# FPL Draft League
+# FPL League Platform
 
-A live auction draft board for a League of Legends fantasy-style league.
-Admins set up a draft (teams, captains, player pool), then captains take
-turns nominating players into an auction lot; everyone bids in real time
-until a countdown expires and the lot sells to the highest bidder. Anyone
-with the link can spectate the board live; only captains can bid, and only
-admins can run setup and draft-night overrides.
+The FPL League Platform is a League of Legends fantasy-league site for the
+Premier and Academy leagues. It combines league operations, live drafting,
+match reporting, stats, betting, and player-card features in one Next.js app.
 
-**Roles**
+The original live auction draft is still a core workflow: captains nominate
+players, teams bid in real time, and a database transaction settles each lot.
+The site now also includes:
 
-- **Spectator** — anyone signed in (or not) can watch a draft's board live:
-  current lot, countdown, bid feed, and every team's roster, over Supabase
-  Realtime.
-- **Captain** — signs in with Discord (or the dev email/password form
-  locally), is linked to a team by an admin, and can nominate players and
-  place bids for their team during their draft.
-- **Admin** — creates and configures drafts (teams, captains, player pool
-  via CSV paste), and during a live draft can pause/resume, undo the last
-  sale, cancel or force-close the open lot, and change the countdown
-  duration.
+- league and season administration, teams, rosters, fixtures, schedules, and
+  captain tools;
+- Riot match-stat ingestion, aggregate stats views, standings, weekly briefs,
+  and match-report workflows;
+- a parimutuel betting exchange, pick'ems, a points wallet, staff tooling, and
+  Discord commands/interactions;
+- fixture-based and public token-based champion drafts, including realtime
+  presence and draft state; and
+- player cards, weekly rating snapshots, card art, mottos, and share images.
 
-**Stack**: Next.js 16 (App Router, TypeScript), Tailwind CSS v4, Supabase
-(Postgres with a PL/pgSQL auction engine exposed as RPCs, Discord OAuth,
-Realtime), Vitest, Playwright, pgTAP.
+See [docs/backend.md](docs/backend.md) for the backend architecture and the
+source-file map intended for agents picking up work.
+
+## Roles and access
+
+- **Visitors** can browse public league pages, stats, cards, schedules, and
+  public draft views.
+- **Signed-in users** authenticate through Supabase Auth with Discord in
+  production. Local development also exposes the email/password form.
+- **Captains** are linked to league teams for a season and can perform the
+  captain and match-report workflows for those teams.
+- **Admins and owners** manage league data, drafts, fixtures, staff, and
+  betting operations according to the database policies and domain gates.
+- **Discord members** may receive additional access to betting and public
+  lobby creation based on configured guild roles.
+
+## Stack and repository map
+
+Next.js 16.3 App Router, React 19, TypeScript, Tailwind CSS v4, Supabase
+(Auth, Postgres, RLS, PL/pgSQL RPCs, Realtime, and Edge Functions), Vercel,
+GitHub Actions, Vitest, Playwright, and pgTAP. Riot, Discord, Twitch, and
+Anthropic are external integrations used by specific workflows.
+
+- `src/app/` — App Router pages, server actions, auth callback, API routes,
+  share-image routes, and the Discord interactions endpoint.
+- `src/components/` — page and interactive UI components.
+- `src/lib/` — domain queries, rules, formatting, access checks, Supabase
+  clients, and reusable server/client logic.
+- `supabase/migrations/` — the complete append-only database history: tables,
+  views, RLS policies, grants, triggers, and RPCs.
+- `supabase/tests/` — pgTAP database contract and authorization tests.
+- `supabase/functions/` — Deno Edge Functions, currently the scheduled
+  Discord betting announcer/watchdog.
+- `scripts/` — local seeders, stats ingestion, scheduled-job entry points,
+  Discord registration, and data utilities.
+- `.github/workflows/` — nightly stats ingestion and weekly homepage/card jobs.
+- `e2e/` — Playwright specs and their self-seeding fixtures.
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 20+
+- [Node.js](https://nodejs.org/) 20.9+ (Node 22 is recommended)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
   (the local Supabase stack runs in Docker)
 
 ## Local setup
 
-```powershell
+The quickest path is the repository helper. It checks Node and Docker,
+starts local Supabase, updates `.env.local` with the local API URL and anon
+key, and starts Next.js:
+
+```sh
+npm run run-locally
+```
+
+For a manual setup:
+
+```sh
 npm install
 npx supabase start
-```
-
-`supabase start` prints local API URL and keys, e.g.:
-
-```
-API URL: http://127.0.0.1:54321
-anon key: eyJ...
-```
-
-Copy `.env.example` to `.env.local` and fill in the anon key from that
-output (the URL is already the default local one):
-
-```powershell
-Copy-Item .env.example .env.local
-```
-
-```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key from supabase status>
-```
-
-(You can re-print these any time with `npx supabase status`.)
-
-Then run the app:
-
-```powershell
+cp .env.example .env.local
+npx supabase status
 npm run dev
 ```
 
-Open http://localhost:3000. On `/login`, local URLs additionally show a
-dev email/password sign-in form below the Discord button (production only
-shows Discord) — use this to sign in as any seeded user without a real
-Discord account.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in
+`.env.local` from `supabase status`. The local defaults are
+`http://127.0.0.1:54321` and the local anon key. `.env.example` also lists
+server-only integration variables; never expose or commit
+`SUPABASE_SERVICE_ROLE_KEY`, Riot keys, bot tokens, or other secrets.
+
+Open http://localhost:3000. On `/login`, local URLs show a dev
+email/password sign-in form below the Discord button. Use it with the seeded
+users or another local Supabase Auth user without a real Discord account.
+
+To build a full local demonstration draft and betting fixture:
+
+```sh
+npm run seed:demo
+```
+
+The script is idempotent and creates the demo users described in
+`scripts/seed-demo.ts`.
 
 **Making yourself an admin locally**: sign up/in once so a `profiles` row
 exists, then in the local Supabase Studio SQL editor (or via `psql`) run:
@@ -76,12 +108,14 @@ exists, then in the local Supabase Studio SQL editor (or via `psql`) run:
 update profiles set is_admin = true where id = '<your auth user uuid>';
 ```
 
-## Tests
+## Tests and checks
 
-```powershell
-npx supabase test db   # pgTAP suite against the local DB (needs supabase start)
-npm test                # Vitest unit test suite
-npm run e2e              # Playwright: end-to-end smoke tests (auction + betting)
+```sh
+npm run lint             # ESLint
+npm test                 # Vitest unit/component suite
+npm run build            # production Next.js build
+npx supabase test db     # pgTAP suite; local Supabase must be running
+npm run e2e              # Playwright auction + betting smoke tests
 ```
 
 Notes on `npm run e2e`:
@@ -101,6 +135,10 @@ Notes on `npm run e2e`:
 - Playwright is configured single-worker / not fully parallel
   (`playwright.config.ts`), since the test drives two real browser
   contexts against one shared draft — do not raise the worker count.
+
+For database or authorization changes, run the pgTAP suite as well as the
+relevant Vitest tests. For realtime or multi-user changes, run the auction or
+match-draft Playwright coverage when the local stack is available.
 
 ## Deploy runbook
 
@@ -156,15 +194,31 @@ service's dashboard in a browser.
    and set it), and add `http://localhost:3000` under **Additional
    Redirect URLs** (so local dev keeps working against the cloud
    project if you ever point `.env.local` at it).
+5. For Discord slash commands, buttons, and modals, set the Discord
+   application's **Interactions Endpoint URL** to
+   `https://<site-origin>/api/discord/interactions`. Copy the application's
+   public key into `DISCORD_PUBLIC_KEY` and register the commands with
+   `npm run register:discord-commands` using the bot/app environment values.
 
 ### Step 3 — Vercel
 
 1. At [vercel.com](https://vercel.com), import the `SundayKoi/FPL_website`
    GitHub repo (framework is auto-detected as Next.js).
-2. Set environment variables to the **new** cloud project's values (from
-   its dashboard → Settings → API):
+2. Set the environment variables described in `.env.example`. At minimum,
+   production needs:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SITE_URL`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY` (server-only; required by trusted server
+     actions such as public-lobby creation and betting)
+   - `DISCORD_PUBLIC_KEY` (for `/api/discord/interactions`)
+   - `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, and the configured betting role
+     IDs when Discord-gated betting is enabled
+   - `DRAFTER_GUILD_ID` and `DRAFTER_ROLE_ID` when the premium lobby gate is
+     enabled
+   - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if the live-channel status
+     feature is used
 3. Deploy.
 4. Go back to Step 2's URL Configuration and set **Site URL** to the
    resulting Vercel production URL.
