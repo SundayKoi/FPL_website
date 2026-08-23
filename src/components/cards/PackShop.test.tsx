@@ -44,11 +44,11 @@ function makeCard(name: string, tier: PlayerCardData["tier"], overall: number): 
 // Deliberately handed to the shop best-first, so a passing reveal-order
 // assertion can only come from the component's own sort.
 const pulls = [
-  { card: makeCard("Chaseworthy", { key: "challenger", label: "Challenger" }, 92), foil: true, inventoryId: 5 },
-  { card: makeCard("Epicsson", { key: "diamond", label: "Diamond" }, 84), foil: false, inventoryId: 4 },
-  { card: makeCard("Rarity", { key: "platinum", label: "Platinum" }, 76), foil: false, inventoryId: 3 },
-  { card: makeCard("Commonly", { key: "silver", label: "Silver" }, 62), foil: false, inventoryId: 2 },
-  { card: makeCard("Bronzey", { key: "bronze", label: "Bronze" }, 51), foil: false, inventoryId: 1 },
+  { card: makeCard("Chaseworthy", { key: "challenger", label: "Challenger" }, 92), foil: true, signed: false, inventoryId: 5 },
+  { card: makeCard("Epicsson", { key: "diamond", label: "Diamond" }, 84), foil: false, signed: true, inventoryId: 4 },
+  { card: makeCard("Rarity", { key: "platinum", label: "Platinum" }, 76), foil: false, signed: false, inventoryId: 3 },
+  { card: makeCard("Commonly", { key: "silver", label: "Silver" }, 62), foil: false, signed: false, inventoryId: 2 },
+  { card: makeCard("Bronzey", { key: "bronze", label: "Bronze" }, 51), foil: false, signed: false, inventoryId: 1 },
 ];
 
 function renderShop() {
@@ -111,8 +111,10 @@ describe("PackShop", () => {
     for (const pull of pulls) {
       expect(screen.getAllByText(pull.card.name).length).toBeGreaterThan(0);
     }
-    // Foil pulls are chipped; the other four aren't.
+    // Foil pulls are chipped; the other four aren't. The autographed pull
+    // gets its own, louder chip.
     expect(screen.getAllByText("✦ Foil")).toHaveLength(1);
+    expect(screen.getAllByText("✍ Signed")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Open another" })).toBeTruthy();
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
 // Card customization: which of the signature champion's skins the card
-// wears, plus the motto line on the back. Rendered only for viewers the
+// wears, the motto line on the back, and the player's autograph. Rendered
+// only for viewers the
 // server says may edit (the card's captain or an admin — see
 // can_edit_card_art in 20260826000013); RLS re-checks on write. Skin
 // numbers are probed optimistically 1..MAX and thumbnails that 404 remove
@@ -11,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
+import SignaturePad from "./SignaturePad";
 
 const MAX_SKIN_PROBE = 20;
 const MOTTO_MAX = 60;
@@ -22,6 +24,7 @@ export default function SkinPicker({
   champion,
   currentSkin,
   currentMotto = null,
+  currentSignature = null,
 }: {
   season: string;
   summonerName: string;
@@ -29,6 +32,7 @@ export default function SkinPicker({
   champion: string;
   currentSkin: number;
   currentMotto?: string | null;
+  currentSignature?: string | null;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -96,6 +100,14 @@ export default function SkinPicker({
                 Save
               </button>
             </div>
+          </div>
+
+          <div className="flex w-full flex-col items-center gap-2">
+            <span className="label-dash">Signature</span>
+            <p className="text-center text-xs text-steel">
+              Sign your card — roughly 1 in 100 of your pulls comes out autographed.
+            </p>
+            <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} />
           </div>
 
           <div className="flex flex-col items-center gap-2">

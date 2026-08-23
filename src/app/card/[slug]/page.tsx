@@ -90,6 +90,11 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
   // failure — signed out, migration not applied — just hides the picker.
   let canEditArt = false;
   let history: RatingHistoryPoint[] = [];
+  // The saved autograph, for the signature pad's preview only. It is
+  // deliberately NOT part of the live card: ink belongs on pulled copies
+  // that rolled signed (src/lib/packs/signatures.ts), never on the card
+  // everyone can see here.
+  let signature: string | null = null;
   if (card) {
     const supabase = await createServerSupabase();
     const { data } = await supabase
@@ -97,6 +102,19 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
       .then((result) => result, () => ({ data: null }));
     canEditArt = data === true;
     history = await fetchRatingHistory(supabase, card.season, card.slug);
+    if (canEditArt) {
+      // One narrow read, and only for the editor — a failure (the signature
+      // migration not applied yet) just shows an empty pad.
+      const { data: prefs } = await supabase
+        .from("card_art_prefs")
+        .select("signature")
+        .eq("season", card.season)
+        .eq("summoner_name", card.name)
+        .eq("tag", card.tag)
+        .maybeSingle()
+        .then((result) => result, () => ({ data: null }));
+      signature = (prefs as { signature: string | null } | null)?.signature ?? null;
+    }
   }
 
   if (!card) {
@@ -131,6 +149,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
           champion={card.signature.champion}
           currentSkin={card.artSkin}
           currentMotto={card.motto}
+          currentSignature={signature}
         />
       ) : null}
       <p className="max-w-md text-center text-xs text-steel">

@@ -25,6 +25,8 @@ const REVEAL_MS = 700;
 interface Pull {
   card: PlayerCardData;
   foil: boolean;
+  /** This copy pulled autographed — rarer than foil, and chipped louder. */
+  signed: boolean;
   inventoryId: number;
 }
 
@@ -123,6 +125,11 @@ export default function PackShop({
                   <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-steel">
                     {pull.card.tier.label}
                   </span>
+                  {pull.signed ? (
+                    <span className="rounded-full border border-gold bg-gold/20 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.2em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
+                      ✍ Signed
+                    </span>
+                  ) : null}
                   {pull.foil ? (
                     <span className="rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-gold">
                       ✦ Foil

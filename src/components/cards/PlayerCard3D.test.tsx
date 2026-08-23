@@ -163,6 +163,24 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="sparkles"]')).toBeTruthy();
   });
 
+  it("inks the autograph and chips a signed copy on the front", () => {
+    const autograph = "data:image/png;base64,AAAA";
+    const { container } = render(<PlayerCard3D card={{ ...card, autograph }} />);
+
+    const ink = container.querySelector('[data-testid="autograph"]') as HTMLImageElement;
+    expect(ink).toBeTruthy();
+    expect(ink.getAttribute("src")).toBe(autograph);
+    expect(screen.getByText("✍ Signed")).toBeTruthy();
+  });
+
+  it("leaves an unsigned card unmarked", () => {
+    // Autographs only exist on pack-frozen copies that rolled signed, so a
+    // live-built card must never show ink.
+    const { container } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector('[data-testid="autograph"]')).toBeNull();
+    expect(screen.queryByText("✍ Signed")).toBeNull();
+  });
+
   it("renders the pedestal bloom only when asked", () => {
     const { container, rerender } = render(<PlayerCard3D card={card} />);
     expect(container.querySelector(".blur-3xl")).toBeNull();

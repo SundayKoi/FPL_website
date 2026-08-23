@@ -74,6 +74,12 @@ export interface PlayerCardData {
   artSkin: number;
   /** Player-chosen motto line (card_art_prefs), shown on the back. */
   motto: string | null;
+  /** The player's inked autograph (a PNG data URI), printed across the
+   *  front. Never set on a live-built card — it is injected only into the
+   *  frozen copies of pulls that rolled signed (src/lib/packs/signatures.ts),
+   *  which is what keeps a signed card rare rather than a setting anyone
+   *  can turn on. */
+  autograph?: string | null;
   /** Collector serial — the card's rank by overall in this season's
    *  collection (1 = best). 0 on solo builds where rank is unknown. */
   serial: number;

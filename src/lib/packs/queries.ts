@@ -23,6 +23,9 @@ export interface InventoryRow {
   overall: number;
   tier: string;
   foil: boolean;
+  /** This copy came out autographed — the rarest print there is. The ink
+   *  itself lives on `card.autograph`. */
+  signed: boolean;
   /** The full card as it looked when pulled, frozen against restats. */
   card: PlayerCardData;
   packOpenId: number | null;
@@ -39,6 +42,7 @@ interface InventoryDbRow {
   overall: number;
   tier: string;
   foil: boolean;
+  signed: boolean | null;
   card: PlayerCardData;
   pack_open_id: number | null;
   acquired_at: string;
@@ -54,7 +58,7 @@ export async function fetchInventory(
 ): Promise<InventoryRow[]> {
   const { data, error } = await supabase
     .from("card_inventory")
-    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, card, pack_open_id, acquired_at")
+    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, signed, card, pack_open_id, acquired_at")
     .eq("discord_id", discordId)
     .eq("season", season)
     .order("acquired_at", { ascending: false });
@@ -69,6 +73,7 @@ export async function fetchInventory(
     overall: row.overall,
     tier: row.tier,
     foil: row.foil,
+    signed: row.signed === true,
     card: row.card,
     packOpenId: row.pack_open_id,
     acquiredAt: row.acquired_at,

@@ -21,9 +21,12 @@ function editionLabel(week: string): string {
   return `WK ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
 }
 
-/** The copy to put on the shelf: highest overall, foil winning a tie — two
- *  identical ratings are the same card, and the foil is the nicer print. */
+/** The copy to put on the shelf: an autographed copy outranks everything —
+ *  the ink is the rarest thing that can happen to a pull, and nobody shelves
+ *  a plain copy over a signed one — then highest overall, foil winning a tie
+ *  (identical ratings are the same card, and the foil is the nicer print). */
 function betterCopy(a: InventoryRow, b: InventoryRow): InventoryRow {
+  if (a.signed !== b.signed) return b.signed ? b : a;
   if (b.overall !== a.overall) return b.overall > a.overall ? b : a;
   return b.foil && !a.foil ? b : a;
 }
@@ -45,6 +48,7 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
       best: copies.reduce(betterCopy),
       count: copies.length,
       foils: copies.filter((copy) => copy.foil).length,
+      signatures: copies.filter((copy) => copy.signed).length,
       // Chronological, so the chips read as a print history.
       editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
     }))
@@ -69,6 +73,14 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
                   {editionLabel(week)}
                 </span>
               ))}
+              {entry.signatures > 0 ? (
+                <span
+                  className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold"
+                  title={`${entry.signatures} autographed ${entry.signatures === 1 ? "copy" : "copies"}`}
+                >
+                  {"✍".repeat(entry.signatures)}
+                </span>
+              ) : null}
               {entry.foils > 0 ? (
                 <span
                   className="rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold"

@@ -58,6 +58,16 @@ export const RARITY_WEIGHTS: Record<RarityClass, number> = {
 export const FOIL_CHANCE = 0.06;
 
 /**
+ * Chance a pulled card comes out autographed — the pen mark of the player
+ * themselves, inked onto that copy forever. Only rolls for players who have
+ * actually drawn a signature (card_art_prefs.signature), so the real odds
+ * are this times however much of the league has signed. Deliberately an
+ * order of magnitude below FOIL_CHANCE: a foil is a nice pull, a signed
+ * card is the story you tell about the pack you opened.
+ */
+export const SIGNED_CHANCE = 0.01;
+
+/**
  * Every pack contains at least one card of this class or better. Without it
  * ~9% of packs would be five commons, which reads as a broken pack rather
  * than a bad roll. Enforced by rng.ts replacing the last slot.

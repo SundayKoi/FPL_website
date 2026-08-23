@@ -203,6 +203,22 @@ export default function PlayerCard3D({
                 loading="lazy"
               />
             ) : null}
+            {card.autograph ? (
+              // The pen mark itself, laid across the splash above the stat
+              // block at the angle a hand signs at. White ink, so it needs a
+              // dark halo of its own to read over a bright splash.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={card.autograph}
+                alt={`${card.name}'s autograph`}
+                data-testid="autograph"
+                className="pointer-events-none absolute bottom-[34%] left-1/2 w-[55%] object-contain"
+                style={{
+                  transform: "translateX(-42%) rotate(-6deg)",
+                  filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
+                }}
+              />
+            ) : null}
 
             {/* Tier banner */}
             <div className="relative flex items-center justify-between px-4 pt-3">
@@ -231,6 +247,13 @@ export default function PlayerCard3D({
               <div className="relative mt-1 flex justify-center">
                 <span className="rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
                   ★ {card.role} of the Week ★
+                </span>
+              </div>
+            ) : null}
+            {card.autograph ? (
+              <div className="relative mt-1 flex justify-center">
+                <span className="rounded-full border border-gold/70 bg-black/70 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-gold">
+                  ✍ Signed
                 </span>
               </div>
             ) : null}
