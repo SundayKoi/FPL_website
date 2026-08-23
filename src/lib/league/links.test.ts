@@ -8,4 +8,11 @@ describe("league page links", () => {
       academy: "/academy/stats?tab=Teams&season=S5",
     });
   });
+
+  it("keeps the dedicated Scouting route and selected admin team", () => {
+    expect(leaguePageLinks("scouting", "academy", { team: "team-2" })).toEqual({
+      premier: "/captain/scouting?team=team-2",
+      academy: "/academy/captain/scouting?team=team-2",
+    });
+  });
 });

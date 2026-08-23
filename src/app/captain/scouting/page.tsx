@@ -97,7 +97,7 @@ export async function CaptainScoutingPageView({
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Scouting</h1>
             <p className="mt-4 text-lg leading-8 text-steel">Review your next opponent&apos;s draft history.</p>
           </div>
-          <LeaguePageToggle page="captain" view={league} />
+          <LeaguePageToggle page="scouting" view={league} params={context.isAdmin && activeTeamId ? { team: activeTeamId } : undefined} />
         </header>
 
         {context.isAdmin && context.activeTeams.length > 1 && (

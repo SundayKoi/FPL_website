@@ -1,6 +1,6 @@
 import type { LeagueView } from "./context";
 
-export type LeaguePage = "home" | "players" | "stats" | "schedule" | "teams" | "captain";
+export type LeaguePage = "home" | "players" | "stats" | "schedule" | "teams" | "captain" | "scouting";
 
 const PREMIER_PATHS: Record<Exclude<LeaguePage, "home">, string> = {
   players: "/players",
@@ -8,6 +8,7 @@ const PREMIER_PATHS: Record<Exclude<LeaguePage, "home">, string> = {
   schedule: "/schedule",
   teams: "/teams",
   captain: "/captain",
+  scouting: "/captain/scouting",
 };
 
 export function leaguePath(page: LeaguePage, view: LeagueView): string {
