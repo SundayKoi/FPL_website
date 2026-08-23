@@ -137,7 +137,8 @@ describe("rollPack", () => {
         ...slot(CLASS.common),
         ...slot(CLASS.common),
         ...slot(CLASS.common),
-        // the forced guarantee pull: index, then foil
+        // the forced guarantee pull: class, then index, then foil
+        FIRST,
         FIRST,
         NO_FOIL,
       ]),
@@ -146,14 +147,20 @@ describe("rollPack", () => {
     expect(tiersOf(pulls)).toEqual(["bronze", "bronze", "bronze", "bronze", "platinum"]);
   });
 
-  it("forces the guarantee from the best available class, not merely rare", () => {
+  it("rolls the guarantee across rare-and-better classes by weight, not from the top", () => {
+    // Eligible classes here are rare (24) and legendary (4): renormalized,
+    // rare owns [0, 24/28) of the ticket. A middling roll upgrades to a
+    // platinum; only the tail of the ticket hands out the Master — the old
+    // best-class behavior made the league's rarest card the GUARANTEED pull
+    // of every bad-beat pack, which inverted rarity.
     const pool = [card("bronzey", "bronze"), card("platty", "platinum"), card("mastery", "master")];
-    const pulls = rollPack(
-      pool,
-      scripted([...Array(PACK_SIZE)].flatMap(() => slot(CLASS.common)).concat([FIRST, NO_FOIL])),
-    );
+    const allCommons = [...Array(PACK_SIZE)].flatMap(() => slot(CLASS.common));
 
-    expect(tiersOf(pulls)).toEqual(["bronze", "bronze", "bronze", "bronze", "master"]);
+    const modest = rollPack(pool, scripted(allCommons.concat([0.5, FIRST, NO_FOIL])));
+    expect(tiersOf(modest)).toEqual(["bronze", "bronze", "bronze", "bronze", "platinum"]);
+
+    const jackpot = rollPack(pool, scripted(allCommons.concat([0.99, FIRST, NO_FOIL])));
+    expect(tiersOf(jackpot)).toEqual(["bronze", "bronze", "bronze", "bronze", "master"]);
   });
 
   it("leaves an all-common pack alone when the league has nothing rarer", () => {

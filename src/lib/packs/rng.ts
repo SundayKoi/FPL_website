@@ -66,13 +66,23 @@ function resolveClass(pool: Pool, wanted: RarityClass): RarityClass | null {
   return null;
 }
 
-/** Best non-empty class at `floor` or above, walking down from the top —
- *  the class the guarantee slot is forced from. Null if none qualify. */
-function bestClassAtLeast(pool: Pool, floor: RarityClass): RarityClass | null {
-  for (let i = RARITY_ORDER.length - 1; i >= rarityRank(floor); i--) {
-    if (pool.get(RARITY_ORDER[i])!.length > 0) return RARITY_ORDER[i];
+/** Weighted class draw restricted to non-empty classes at `floor` or above —
+ *  what the guarantee slot rolls. Same weights as the open roll, renormalized
+ *  over the eligible classes, so a bad-beat pack usually upgrades to a rare
+ *  and only occasionally to the top of the collection. (Forcing the BEST
+ *  class here would invert rarity: in a league whose only legendary is one
+ *  Master card, every all-common pack would hand that card out guaranteed.)
+ *  Consumes one rand value; null when nothing at or above the floor exists. */
+function rollClassAtLeast(pool: Pool, floor: RarityClass, rand: () => number): RarityClass | null {
+  const eligible = RARITY_ORDER.slice(rarityRank(floor)).filter((rarity) => pool.get(rarity)!.length > 0);
+  if (eligible.length === 0) return null;
+  const total = eligible.reduce((sum, rarity) => sum + RARITY_WEIGHTS[rarity], 0);
+  let ticket = rand() * total;
+  for (const rarity of eligible) {
+    ticket -= RARITY_WEIGHTS[rarity];
+    if (ticket < 0) return rarity;
   }
-  return null;
+  return eligible[eligible.length - 1];
 }
 
 /** Uniform pick within a class, then the foil roll — two rand values, in
@@ -106,12 +116,13 @@ export function rollPack(cards: PlayerCardData[], rand: () => number): PackPull[
   }
 
   // The bad-beat guarantee: an all-common pack is replaced at its last slot
-  // by a forced rare-or-better pull. Done after the fact rather than by
-  // reserving a slot up front so that lucky packs keep all five free rolls.
+  // by a weighted rare-or-better pull (class → index → foil, one extra rand
+  // triplet). Done after the fact rather than by reserving a slot up front
+  // so that lucky packs keep all five free rolls.
   const guaranteeRank = rarityRank(GUARANTEED_CLASS);
   const hasGuarantee = pulls.some((entry) => rarityRank(rarityOf(entry.card.tier.key)) >= guaranteeRank);
   if (!hasGuarantee) {
-    const forced = bestClassAtLeast(pool, GUARANTEED_CLASS);
+    const forced = rollClassAtLeast(pool, GUARANTEED_CLASS, rand);
     // No rare-or-better card exists in this league at all — nothing to
     // upgrade to, so the pack stands as rolled.
     if (forced) pulls[pulls.length - 1] = pull(pool, forced, rand);
