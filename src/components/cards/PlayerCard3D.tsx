@@ -290,24 +290,6 @@ export default function PlayerCard3D({
                 decoding="async"
               />
             ) : null}
-            {card.autograph ? (
-              // The pen mark itself, laid across the splash above the stat
-              // block at the angle a hand signs at. White ink, so it needs a
-              // dark halo of its own to read over a bright splash.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={card.autograph}
-                alt={`${card.name}'s autograph`}
-                data-testid="autograph"
-                decoding="async"
-                className="pointer-events-none absolute bottom-[34%] left-1/2 w-[55%] object-contain"
-                style={{
-                  transform: "translateX(-42%) rotate(-6deg)",
-                  filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
-                }}
-              />
-            ) : null}
-
             {/* Tier banner */}
             <div className="relative flex items-center justify-between px-4 pt-3">
               <span
@@ -357,6 +339,24 @@ export default function PlayerCard3D({
 
             {/* Archetype + stats anchored to the bottom */}
             <div className="relative mt-auto flex flex-col gap-2 px-4 pb-3">
+              {card.autograph ? (
+                // The pen mark itself — anchored to this block so it always
+                // hovers right above the archetype label, at the angle a
+                // hand signs at. White ink, so it needs a dark halo of its
+                // own to read over a bright splash.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={card.autograph}
+                  alt={`${card.name}'s autograph`}
+                  data-testid="autograph"
+                  decoding="async"
+                  className="pointer-events-none absolute -top-[4.5rem] left-1/2 w-[58%] object-contain"
+                  style={{
+                    transform: "translateX(-50%) rotate(-6deg)",
+                    filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
+                  }}
+                />
+              ) : null}
               <div className="rounded-lg bg-black/65 px-3 py-1.5 text-center backdrop-blur-[2px]">
                 <span className="font-display text-base font-bold not-italic text-white">{card.archetype}</span>
               </div>

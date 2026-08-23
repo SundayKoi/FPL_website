@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -52,6 +53,22 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const season = await fetchCardSeason(supabase, league);
   const cards = season ? await fetchSeasonCards(supabase, season) : [];
 
+  // Whether to point at the approvals queue. Working out if THIS viewer is a
+  // captain of some roster costs a round trip per claim, so don't: admins
+  // always get the link (with the backlog on it), and everyone else gets it
+  // whenever any claim is pending. /cards/claims is the thing that knows what
+  // each viewer may actually act on, and says "nothing" when that's the answer.
+  const staffTier = await fetchStaffTier(supabase);
+  const { count: pendingClaims } = season
+    ? await supabase
+        .from("card_claims")
+        .select("season", { count: "exact", head: true })
+        .eq("season", season)
+        .eq("status", "pending")
+        .then((result) => result, () => ({ count: null }))
+    : { count: null };
+  const showClaims = staffTier.isAdmin || (pendingClaims ?? 0) > 0;
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -98,6 +115,14 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           >
             Fantasy →
           </Link>
+          {showClaims ? (
+            <Link
+              href="/cards/claims"
+              className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+            >
+              Claims{(pendingClaims ?? 0) > 0 ? ` (${pendingClaims})` : ""} →
+            </Link>
+          ) : null}
         </div>
       </header>
       {cards.length === 0 ? (
