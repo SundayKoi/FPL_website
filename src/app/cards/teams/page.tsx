@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import TeamCardsSection from "@/components/cards/TeamCardsSection";
-import { fetchCardSeason, fetchSeasonCards } from "@/lib/cards/queries";
-import { fetchStandoutKeys } from "@/lib/cards/standout";
+import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -13,7 +13,8 @@ export const metadata: Metadata = {
 
 /** Premium (same gate as the hub): the team-card collection on its own
  *  page, so it isn't buried under the full player grid. */
-export default async function TeamCardsPage() {
+export async function TeamCardsPageView({ league = "premier" }: { league?: CardLeague }) {
+  const base = league === "academy" ? "/academy/cards" : "/cards";
   const access = await drafterAccess();
   if (!access.signedIn || !access.allowed) {
     return (
@@ -25,7 +26,7 @@ export default async function TeamCardsPage() {
           {access.signedIn ? " Grab the premium role in the Discord to browse them." : " Sign in with Discord to check your access."}
         </p>
         {!access.signedIn && (
-          <Link href="/login?redirect=/cards/teams" className="btn-pill mt-2">
+          <Link href={`/login?redirect=${base}/teams`} className="btn-pill mt-2">
             Sign in with Discord
           </Link>
         )}
@@ -34,22 +35,26 @@ export default async function TeamCardsPage() {
   }
 
   const supabase = await createServerSupabase();
-  const season = await fetchCardSeason(supabase);
-  const standoutKeys = season ? await fetchStandoutKeys(season) : null;
-  const cards = season ? await fetchSeasonCards(supabase, season, { standoutKeys }) : [];
+  const season = await fetchCardSeason(supabase, league);
+  const cards = season ? await fetchSeasonCards(supabase, season) : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">Premium · Season {season ?? "—"}</span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team Cards</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          Every roster as one card — Team OVR is the average of its five best player cards, so the
-          frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s Card of the Week.
-        </p>
-        <Link href="/cards" className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-          ← Back to player cards
-        </Link>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="label-dash">
+            Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
+          </span>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team Cards</h1>
+          <p className="mt-3 max-w-2xl text-sm text-steel">
+            Every roster as one card — Team OVR is the average of its five best player cards, so the
+            frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s Card of the Week.
+          </p>
+          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+            ← Back to player cards
+          </Link>
+        </div>
+        <CardsLeagueToggle league={league} suffix="/teams" />
       </header>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — team cards appear once this season&apos;s first games are ingested.</p>
@@ -58,4 +63,8 @@ export default async function TeamCardsPage() {
       )}
     </main>
   );
+}
+
+export default async function TeamCardsPage() {
+  return TeamCardsPageView({ league: "premier" });
 }

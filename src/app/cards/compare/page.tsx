@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CompareClient from "@/components/cards/CompareClient";
-import { fetchCardSeason, fetchSeasonCards } from "@/lib/cards/queries";
-import { fetchStandoutKeys } from "@/lib/cards/standout";
+import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -17,11 +17,14 @@ function firstParam(value: string | string[] | undefined): string | null {
 
 /** Premium (same gate as the hub): two cards side by side with the stat
  *  rows scored between them. */
-export default async function CompareCardsPage({
+export async function CompareCardsPageView({
   searchParams,
+  league = "premier",
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  league?: CardLeague;
 }) {
+  const base = league === "academy" ? "/academy/cards" : "/cards";
   const access = await drafterAccess();
   if (!access.signedIn || !access.allowed) {
     return (
@@ -33,7 +36,7 @@ export default async function CompareCardsPage({
           {access.signedIn ? " Grab the premium role in the Discord to use them." : " Sign in with Discord to check your access."}
         </p>
         {!access.signedIn && (
-          <Link href="/login?redirect=/cards/compare" className="btn-pill mt-2">
+          <Link href={`/login?redirect=${base}/compare`} className="btn-pill mt-2">
             Sign in with Discord
           </Link>
         )}
@@ -43,24 +46,36 @@ export default async function CompareCardsPage({
 
   const query = await searchParams;
   const supabase = await createServerSupabase();
-  const season = await fetchCardSeason(supabase);
-  const standoutKeys = season ? await fetchStandoutKeys(season) : null;
-  const cards = season ? await fetchSeasonCards(supabase, season, { standoutKeys }) : [];
+  const season = await fetchCardSeason(supabase, league);
+  const cards = season ? await fetchSeasonCards(supabase, season) : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">Premium · Season {season ?? "—"}</span>
-        <h1 className="type-display mt-2 text-4xl">Card vs Card</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          Put any two cards head to head — the better number lights up green. The URL follows your
-          picks, so paste it into Discord for match-night arguments.
-        </p>
-        <Link href="/cards" className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-          ← Back to the collection
-        </Link>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="label-dash">
+            Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
+          </span>
+          <h1 className="type-display mt-2 text-4xl">Card vs Card</h1>
+          <p className="mt-3 max-w-2xl text-sm text-steel">
+            Put any two cards head to head — the better number lights up green. The URL follows your
+            picks, so paste it into Discord for match-night arguments.
+          </p>
+          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+            ← Back to the collection
+          </Link>
+        </div>
+        <CardsLeagueToggle league={league} suffix="/compare" />
       </header>
-      <CompareClient cards={cards} initialA={firstParam(query.a)} initialB={firstParam(query.b)} />
+      <CompareClient cards={cards} initialA={firstParam(query.a)} initialB={firstParam(query.b)} basePath={`${base}/compare`} />
     </main>
   );
+}
+
+export default async function CompareCardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  return CompareCardsPageView({ searchParams, league: "premier" });
 }

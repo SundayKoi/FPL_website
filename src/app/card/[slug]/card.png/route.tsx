@@ -5,7 +5,7 @@
 
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
-import { fetchCardBySlug, fetchCardSeason } from "@/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardBySlug } from "@/lib/cards/queries";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 
@@ -29,8 +29,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: { persistSession: false },
   });
-  const season = await fetchCardSeason(supabase);
-  const card = season ? await fetchCardBySlug(supabase, season, slug) : null;
+  // Share URLs span both leagues — try Premier's season, then Academy's.
+  let card: PlayerCardData | null = null;
+  for (const { season } of await fetchAllCardSeasons(supabase)) {
+    card = await fetchCardBySlug(supabase, season, slug);
+    if (card) break;
+  }
 
   if (!card) {
     return new ImageResponse(

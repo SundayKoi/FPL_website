@@ -1,18 +1,21 @@
 /**
- * Weekly card drop: posts the player-card movers to Discord and refreshes
- * the card_snapshots table that movement is measured against.
+ * Weekly card drop: posts each league's player-card movers to Discord and
+ * refreshes the card_snapshots baselines that movement is measured against.
+ * Premier and Academy run back to back — they share every table, separated
+ * by season code, so each gets its own embed.
  *
  * Run: npx tsx scripts/weekly-card-drop.ts
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY; DISCORD_CARDS_WEBHOOK_URL
- * is optional — without it the snapshot still refreshes (first run seeds
- * the baseline silently), the post is just skipped. SITE_ORIGIN (optional)
- * turns names into card links.
+ * is optional — without it the snapshots still refresh (first run seeds
+ * the baseline silently), the posts are just skipped. SITE_ORIGIN
+ * (optional) turns names into card links. SHOWCASE=true (manual workflow
+ * runs) posts the current collection even with no movement.
  *
  * Scheduled by .github/workflows/weekly-card-drop.yml after Monday night's
  * games have been ingested, mirroring the weekly-brief jobs.
  */
-import { createClient } from "@supabase/supabase-js";
-import { fetchSeasonCards } from "../src/lib/cards/queries";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllCardSeasons, fetchSeasonCards, type CardLeague } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
 
 interface SnapshotRow {
@@ -20,6 +23,8 @@ interface SnapshotRow {
   overall: number;
   tier: string;
 }
+
+const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -35,24 +40,36 @@ function moverLine(card: PlayerCardData, previous: SnapshotRow, origin: string |
   return `${name} ${previous.overall} → ${card.overall} (${arrow}${Math.abs(delta)})${tierNote}`;
 }
 
-async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
+async function postEmbed(webhookUrl: string, title: string, description: string, footer: string): Promise<void> {
+  const response = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      embeds: [{ title, description: description.slice(0, 4000), color: 0xf5b62e, footer: { text: footer } }],
+    }),
   });
-  const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
-  const origin = process.env.SITE_ORIGIN?.replace(/\/$/, "") ?? null;
+  if (!response.ok) {
+    throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  }
+}
 
-  const { data: settings, error: settingsError } = await supabase
-    .from("league_settings")
-    .select("current_season")
-    .eq("id", 1)
-    .single();
-  if (settingsError) throw settingsError;
-  const season = (settings as { current_season: string | null }).current_season;
-  if (!season) throw new Error("league_settings.current_season is not set");
+async function processSeason(
+  supabase: SupabaseClient,
+  league: CardLeague,
+  season: string,
+  webhookUrl: string | null,
+  origin: string | null,
+): Promise<void> {
+  const label = LEAGUE_LABELS[league];
+  const hubPath = league === "academy" ? "/academy/cards" : "/cards";
+  const footer = origin ? `${origin}${hubPath}` : `FPL ${label.toLowerCase()} player cards`;
 
   const cards = await fetchSeasonCards(supabase, season);
-  console.log(`Built ${cards.length} cards for season ${season}.`);
+  console.log(`[${label}] Built ${cards.length} cards for season ${season}.`);
+  if (cards.length === 0) {
+    console.log(`[${label}] No cards — skipping.`);
+    return;
+  }
 
   const { data: snapshotRows, error: snapshotError } = await supabase
     .from("card_snapshots")
@@ -77,10 +94,10 @@ async function main(): Promise<void> {
   const showcase = process.env.SHOWCASE === "true" || snapshots.size === 0;
 
   if (!webhookUrl) {
-    console.log("DISCORD_CARDS_WEBHOOK_URL not set — skipping the post.");
+    console.log(`[${label}] DISCORD_CARDS_WEBHOOK_URL not set — skipping the post.`);
   } else if ((movers.length === 0 && newcomers.length === 0) || showcase) {
     if (!showcase) {
-      console.log("No card movement since the last drop — nothing to post.");
+      console.log(`[${label}] No card movement since the last drop — nothing to post.`);
     } else {
       const top = cards.slice(0, 8);
       const tierCounts = new Map<string, number>();
@@ -94,24 +111,8 @@ async function main(): Promise<void> {
         "",
         [...tierCounts.entries()].map(([tier, count]) => `${tier}: ${count}`).join(" · "),
       ];
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          embeds: [
-            {
-              title: `🃏 Player card collection — Season ${season}`,
-              description: lines.join("\n").slice(0, 4000),
-              color: 0xf5b62e,
-              footer: { text: origin ? `${origin}/cards` : "FPL player cards" },
-            },
-          ],
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-      }
-      console.log(`Posted the collection showcase (${cards.length} cards).`);
+      await postEmbed(webhookUrl, `🃏 ${label} card collection — Season ${season}`, lines.join("\n"), footer);
+      console.log(`[${label}] Posted the collection showcase (${cards.length} cards).`);
     }
   } else {
     const lines: string[] = [];
@@ -125,24 +126,8 @@ async function main(): Promise<void> {
     if (newcomers.length > 0) {
       lines.push("", `**New cards**: ${newcomers.map((card) => `${card.name} (${card.overall})`).join(", ")}`);
     }
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        embeds: [
-          {
-            title: `📈 Weekly card drop — Season ${season}`,
-            description: lines.join("\n").slice(0, 4000),
-            color: 0xf5b62e,
-            footer: { text: origin ? `${origin}/cards` : "FPL player cards" },
-          },
-        ],
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
-    }
-    console.log(`Posted: ${tierUps.length} tier ups, ${movers.length} movers, ${newcomers.length} new cards.`);
+    await postEmbed(webhookUrl, `📈 ${label} weekly card drop — Season ${season}`, lines.join("\n"), footer);
+    console.log(`[${label}] Posted: ${tierUps.length} tier ups, ${movers.length} movers, ${newcomers.length} new cards.`);
   }
 
   const takenAt = new Date().toISOString();
@@ -157,7 +142,7 @@ async function main(): Promise<void> {
     { onConflict: "season,slug" },
   );
   if (upsertError) throw upsertError;
-  console.log(`Snapshot refreshed for ${cards.length} cards.`);
+  console.log(`[${label}] Snapshot refreshed for ${cards.length} cards.`);
 
   // Append-only history feeds the share page's season-journey strip.
   // Tolerated failure: the 20260826000014 migration may not be applied yet.
@@ -171,9 +156,24 @@ async function main(): Promise<void> {
     })),
   );
   if (historyError) {
-    console.warn(`Could not append rating history (migration applied?): ${historyError.message}`);
+    console.warn(`[${label}] Could not append rating history (migration applied?): ${historyError.message}`);
   } else {
-    console.log(`Rating history appended for ${cards.length} cards.`);
+    console.log(`[${label}] Rating history appended for ${cards.length} cards.`);
+  }
+}
+
+async function main(): Promise<void> {
+  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+    auth: { persistSession: false },
+  });
+  const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
+  const origin = process.env.SITE_ORIGIN?.replace(/\/$/, "") ?? null;
+
+  const seasons = await fetchAllCardSeasons(supabase);
+  if (seasons.length === 0) throw new Error("league_settings has no seasons configured");
+
+  for (const { league, season } of seasons) {
+    await processSeason(supabase, league, season, webhookUrl, origin);
   }
 }
 
