@@ -47,9 +47,9 @@ function scripted(values: number[]): () => number {
   };
 }
 
-/** Class thresholds over weights {62, 24, 10, 4}: these rand values land in
- *  common / rare / epic / legendary respectively. */
-const CLASS = { common: 0.5, rare: 0.7, epic: 0.9, legendary: 0.99 };
+/** Class thresholds over weights {75, 20, 4, 1} (cumulative 0.75 / 0.95 /
+ *  0.99 / 1): these rand values land in common / rare / epic / legendary. */
+const CLASS = { common: 0.5, rare: 0.8, epic: 0.96, legendary: 0.995 };
 const NO_FOIL = 0.5;
 const FIRST = 0;
 
@@ -148,8 +148,8 @@ describe("rollPack", () => {
   });
 
   it("rolls the guarantee across rare-and-better classes by weight, not from the top", () => {
-    // Eligible classes here are rare (24) and legendary (4): renormalized,
-    // rare owns [0, 24/28) of the ticket. A middling roll upgrades to a
+    // Eligible classes here are rare (20) and legendary (1): renormalized,
+    // rare owns [0, 20/21) of the ticket. A middling roll upgrades to a
     // platinum; only the tail of the ticket hands out the Master — the old
     // best-class behavior made the league's rarest card the GUARANTEED pull
     // of every bad-beat pack, which inverted rarity.

@@ -42,15 +42,20 @@ export const RARITY_BY_TIER: Record<CardTierKey, RarityClass> = {
 
 /**
  * Per-slot class odds, as relative weights (they happen to sum to 100, but
- * the roller normalizes, so they don't have to). Deliberately flatter than
- * the underlying tier distribution: pulling a Challenger should feel rare
- * even in a season where several players rate that high.
+ * the roller normalizes, so they don't have to).
+ *
+ * Tuned for "rewarding but rare" (2026-08-23 balance pass, down from
+ * 62/24/10/4): a pack averages ~1.25 rare-or-better pulls, a Diamond
+ * appears in roughly every 5th pack, and a legendary in ~1 in 20 slots'
+ * packs (~5% per pack before the bad-beat guarantee's small tail) — an
+ * event, not an expectation. Steeper than this and most packs feel like
+ * blanks; flatter and the top of the collection stops meaning anything.
  */
 export const RARITY_WEIGHTS: Record<RarityClass, number> = {
-  common: 62,
-  rare: 24,
-  epic: 10,
-  legendary: 4,
+  common: 75,
+  rare: 20,
+  epic: 4,
+  legendary: 1,
 };
 
 /** Chance any given pulled card comes out foil — a cosmetic variant, rolled
@@ -69,8 +74,9 @@ export const SIGNED_CHANCE = 0.01;
 
 /**
  * Every pack contains at least one card of this class or better. Without it
- * ~9% of packs would be five commons, which reads as a broken pack rather
- * than a bad roll. Enforced by rng.ts replacing the last slot.
+ * ~24% of packs (0.75^5) would be five commons, which reads as a broken
+ * pack rather than a bad roll. Enforced by rng.ts replacing the last slot
+ * with a weighted rare-or-better re-roll.
  */
 export const GUARANTEED_CLASS: RarityClass = "rare";
 
