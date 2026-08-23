@@ -88,6 +88,9 @@ describe("opponent scouting derivation", () => {
     const recent = deriveScoutData(scoped, "recent").playerPools[0];
     expect(recent.gamesSampled).toBe(5);
     expect(recent.champions.map((row) => row.champion)).not.toContain("FormerTeamAhri");
+    const all = deriveScoutData(scoped, "all").playerPools[0];
+    expect(all.totalPicks).toBe(6);
+    expect(all.champions.map((row) => row.champion)).not.toContain("ShouldNotCount");
   });
 
   it("preserves pool aggregates when the visible champion list is capped at five", () => {

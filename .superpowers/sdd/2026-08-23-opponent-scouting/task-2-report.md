@@ -23,3 +23,5 @@ Complete. Added trade-aware modular player pools and neutral opening, pairing, s
 
 - Follow-up commit caps each player’s visible champion list at five while retaining full aggregate totals, adds season/recent/unattributed-pick coverage, and canonicalizes flex role ordering.
 - `npm test -- src/lib/scouting/derive.test.ts` — PASS (7 tests)
+
+Additional review coverage confirms all-history pools exclude picks with missing `playerName` while retaining the attributed fixture set.
