@@ -20,11 +20,11 @@ export default function OpponentScout({ source }: { source: ScoutSource }) {
       <h2 id="draft-intel-heading" className="type-display mt-2 text-3xl">Draft intel</h2>
       <p className="mt-2 max-w-2xl text-sm text-steel">A clear record of draft patterns and history. This section presents scouting context only.</p>
       <p className="mt-3 text-sm text-steel"><span className="label-dash">Opponent</span> <span className="font-semibold text-white">{source.opponentName}</span></p>
-      <label className="mt-4 flex items-center gap-3 text-sm text-steel">Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className="input-brand px-3 py-2"><option value="season">Current season</option><option value="recent">Recent drafts</option><option value="all">All drafts</option></select></label>
+      <label className="mt-4 flex items-center gap-3 text-sm text-steel">Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className="input-brand px-3 py-2"><option value="season">Current season</option><option value="recent">Recent 5 series</option><option value="all">All history</option></select></label>
       {hasDrafts ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div><span className="label-dash">Next fixture</span><p className="mt-1 text-sm font-semibold text-white">{formatKickoff(source.nextFixture.scheduled_at)}</p><p className="text-xs text-steel">Bo{source.nextFixture.best_of} · vs {source.opponentName}</p></div>
-        <div><span className="label-dash">Series sampled</span><p className="type-display mt-1 text-2xl">{data.gamesSampled}</p></div>
-        <div><span className="label-dash">Blue-series share</span><p className="type-display mt-1 text-2xl">{blueShare}%</p><p className="text-xs text-steel">{data.blueGames} of {data.gamesSampled} series</p></div>
+        <div><span className="label-dash">Drafts sampled</span><p className="type-display mt-1 text-2xl">{data.gamesSampled}</p></div>
+        <div><span className="label-dash">Blue-side share</span><p className="type-display mt-1 text-2xl">{blueShare}%</p><p className="text-xs text-steel">{data.blueGames} of {data.gamesSampled} games</p></div>
         <div><span className="label-dash">Champion pool</span><p className="type-display mt-1 text-2xl">{data.distinctChampions}</p></div>
         <div><span className="label-dash">Subject</span><p className="type-display mt-1 text-2xl">{source.opponentName}</p></div>
       </div> : null}

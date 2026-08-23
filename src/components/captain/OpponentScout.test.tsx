@@ -34,9 +34,9 @@ describe("OpponentScout", () => {
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Draft intel" })).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
-    expect(screen.getByText("Series sampled").parentElement?.textContent).toContain("2");
+    expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("2");
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
-    expect(screen.getByText("Series sampled").parentElement?.textContent).toContain("3");
+    expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("3");
     expect(screen.queryByText(/recommend|must ban|priority|threat score/i)).toBeNull();
   });
   it("handles no drafts and unavailable current roster independently", () => {
@@ -50,7 +50,7 @@ describe("OpponentScout", () => {
     expect(screen.getAllByText(/Scouted team: Blue side/).length).toBeGreaterThan(0);
     expect(screen.getByText("Current roster unavailable")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
-    expect(screen.getByText("All series")).toBeTruthy();
+    expect(screen.getAllByText("All history").length).toBeGreaterThan(0);
   });
   it("uses champion icons and complete blue/red draft slots", () => {
     renderScout();
@@ -69,6 +69,14 @@ describe("OpponentScout", () => {
     expect(within(details!).getAllByText("Ban phase 2 · last 2")).toHaveLength(2);
     expect(within(details!).getAllByTestId("blue-pick-slot")).toHaveLength(5);
     expect(within(details!).getAllByTestId("red-pick-slot")).toHaveLength(5);
+  });
+  it("groups games under one scheduled series heading", () => {
+    const grouped = structuredClone(source);
+    grouped.drafts.push({ ...grouped.drafts[0], id: "d1-game2", game_number: 2 });
+    renderScout(grouped);
+    expect(screen.getAllByRole("heading", { name: /Night Vale vs Other/ })).toHaveLength(2);
+    expect(screen.getAllByText(/Sat, Aug 1/).length).toBe(1);
+    expect(screen.getByText("Game 2")).toBeTruthy();
   });
   it("shows skipped pick labels in a complete draft", () => {
     const skipped = structuredClone(source);
