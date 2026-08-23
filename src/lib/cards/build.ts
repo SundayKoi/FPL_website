@@ -125,6 +125,195 @@ function mean(values: number[]): number {
   return values.reduce((s, v) => s + v, 0) / (values.length || 1);
 }
 
+/** Games at or past this duration count as "clutch" territory. */
+const CLUTCH_MINUTES = 32;
+
+/** Last-five results (oldest first) from date-sorted games. */
+function lastFiveOf(dated: CardGameRow[]): boolean[] {
+  return dated.slice(-5).map((g) => g.win === true);
+}
+
+/** Current win streak within the last five (what "On A Heater" reads). */
+function streakOf(lastFive: boolean[]): number {
+  let streak = 0;
+  for (let i = lastFive.length - 1; i >= 0 && lastFive[i]; i -= 1) streak += 1;
+  return streak;
+}
+
+/** Win rate (0-1) in long games, falling back to overall win rate when
+ *  there are too few to mean anything. */
+function clutchRate(dated: CardGameRow[], durations: Map<string, number>, fallbackWr01: number): number {
+  const longGames = dated.filter((g) => (durations.get(g.match_id) ?? 0) >= CLUTCH_MINUTES);
+  return longGames.length >= 2 ? longGames.filter((g) => g.win === true).length / longGames.length : fallbackWr01;
+}
+
+// ── Archetypes ────────────────────────────────────────────────────────────
+//
+// Titles are SCARCE on purpose: every player gets a score for every title
+// they qualify for, then assignArchetypes hands titles out league-wide,
+// best claim first, with a per-title cap — so "The Surgeon" belongs to the
+// league's actual surgeon(s), not to everyone with a decent KDA, and two
+// cards side by side rarely read the same.
+
+/** Everything a title score can look at, all percentiles vs role cohort
+ *  (0-100) unless noted. */
+interface ArchetypeFacts {
+  role: string;
+  winrate: number;
+  pentas: number;
+  streak: number;
+  /** 0-1 — long-game win rate. */
+  clutchWr: number;
+  kda: number;
+  dmg: number;
+  dmgShare: number;
+  dmgTaken: number;
+  kills: number;
+  assists: number;
+  diesALot: number;
+  safe: number;
+  kp: number;
+  cs: number;
+  gold: number;
+  at10: number;
+  vision: number;
+  solo: number;
+  fb: number;
+  plates: number;
+  multi: number;
+  fast: number;
+  gamesPct: number;
+}
+
+export interface ArchetypeExtras {
+  streak: number;
+  clutchWr: number;
+}
+
+function archetypeFacts(row: PlayerAggRow, cohort: PlayerAggRow[], extras: ArchetypeExtras): ArchetypeFacts {
+  const rc = roleCohort(cohort, row);
+  return {
+    role: row.role_mode,
+    winrate: row.winrate_pct,
+    pentas: row.total_pentas,
+    streak: extras.streak,
+    clutchWr: extras.clutchWr,
+    kda: pct(rc, row, (r) => r.kda),
+    dmg: pct(rc, row, (r) => r.avg_dmg_per_min),
+    dmgShare: pct(rc, row, (r) => r.avg_dmg_share_pct),
+    dmgTaken: pct(rc, row, (r) => r.avg_dmg_taken_per_min),
+    kills: pct(rc, row, (r) => r.avg_kills),
+    assists: pct(rc, row, (r) => r.avg_assists),
+    diesALot: pct(rc, row, (r) => r.avg_deaths),
+    safe: pct(rc, row, (r) => r.avg_deaths, true),
+    kp: pct(rc, row, (r) => r.avg_kp_pct),
+    cs: pct(rc, row, (r) => r.avg_cs_per_min),
+    gold: pct(rc, row, (r) => r.avg_gold_per_min),
+    at10: mean([
+      pct(rc, row, (r) => r.avg_cs_at_10),
+      pct(rc, row, (r) => r.avg_gold_at_10),
+      pct(rc, row, (r) => r.avg_xp_at_10),
+    ]),
+    vision: pct(rc, row, (r) => r.avg_vision_per_min),
+    solo: pct(rc, row, (r) => r.avg_solo_kills),
+    fb: pct(rc, row, (r) => r.first_blood_involvements / Math.max(r.games, 1)),
+    plates: pct(rc, row, (r) => r.total_plates / Math.max(r.games, 1)),
+    multi: pct(
+      rc,
+      row,
+      (r) => (r.total_doubles + r.total_triples * 2 + r.total_quadras * 3 + r.total_pentas * 4) / Math.max(r.games, 1),
+    ),
+    // Short average games, percentile-inverted: high = closes games out.
+    fast: pct(rc, row, (r) => r.avg_game_duration, true),
+    gamesPct: pct(rc, row, (r) => r.games),
+  };
+}
+
+/** Score 0 = doesn't qualify. `over` gates a percentile on a floor. */
+const over = (value: number, min: number): number => (value >= min ? value : 0);
+
+export const FALLBACK_ARCHETYPE = "Jack of All Trades";
+
+const ARCHETYPES: { title: string; score: (f: ArchetypeFacts) => number }[] = [
+  // Marquee feats first — rare by nature, so they outbid everything.
+  { title: "Pentakill Machine", score: (f) => (f.pentas > 0 ? 92 + f.pentas * 3 : 0) },
+  { title: "On A Heater", score: (f) => (f.streak >= 3 ? 62 + f.streak * 8 : 0) },
+
+  // Stat identities.
+  { title: "Glass Cannon", score: (f) => (f.dmg >= 65 && f.diesALot >= 60 ? (f.dmg + f.diesALot) / 2 : 0) },
+  { title: "The Surgeon", score: (f) => (f.kda >= 70 && f.safe >= 65 ? (f.kda + f.safe) / 2 : 0) },
+  { title: "The Warden", score: (f) => over(f.vision, 70) },
+  { title: "Duelist", score: (f) => over(f.solo, 70) },
+  { title: "Playmaker", score: (f) => (f.kp >= 65 && f.assists >= 60 ? (f.kp + f.assists) / 2 : 0) },
+  { title: "The Enabler", score: (f) => over(f.assists, 75) - 1 },
+  { title: "Executioner", score: (f) => over(f.kills, 75) - 1 },
+  { title: "Farm Demon", score: (f) => over(f.cs, 72) },
+  { title: "Gold Hoarder", score: (f) => over(f.gold, 72) - 1 },
+  { title: "Lane Bully", score: (f) => over(f.at10, 68) },
+  { title: "Plate Collector", score: (f) => over(f.plates, 70) - 2 },
+  { title: "First Blood Merchant", score: (f) => over(f.fb, 70) },
+  { title: "The Frontline", score: (f) => over(f.dmgTaken, 70) },
+  { title: "Highlight Reel", score: (f) => over(f.multi, 70) },
+  { title: "Silent Carry", score: (f) => (f.dmgShare >= 70 && f.kills <= 50 ? f.dmgShare : 0) },
+  { title: "Coinflip Gamer", score: (f) => (f.kills >= 60 && f.diesALot >= 60 ? (f.kills + f.diesALot) / 2 - 5 : 0) },
+
+  // Results identities.
+  { title: "Born Winner", score: (f) => (f.winrate >= 58 ? 40 + f.winrate / 2 : 0) },
+  { title: "Clutch Gene", score: (f) => (f.clutchWr >= 0.6 ? 30 + f.clutchWr * 60 : 0) },
+  { title: "Speedrunner", score: (f) => (f.fast >= 65 && f.winrate >= 50 ? (f.fast + f.winrate) / 2 : 0) },
+  { title: "The Anchor", score: (f) => (f.safe >= 60 && f.winrate >= 55 ? (f.safe + f.winrate) / 2 - 2 : 0) },
+
+  // Forgiving identities — lower floors so nearly everyone can claim
+  // SOMETHING real and the Jack of All Trades fallback stays rare.
+  { title: "The Veteran", score: (f) => over(f.gamesPct, 70) - 10 },
+  { title: "The Underdog", score: (f) => (f.winrate <= 45 && f.kda >= 45 ? 30 + f.kda / 3 : 0) },
+  { title: "Space Creator", score: (f) => (f.dmgTaken >= 55 && f.safe <= 45 ? f.dmgTaken - 8 : 0) },
+
+  // Role-flavored — the role gate alone spreads these across the league.
+  { title: "Island King", score: (f) => (f.role === "TOP" && f.solo >= 55 && f.cs >= 50 ? 52 + (f.solo + f.cs) / 4 : 0) },
+  { title: "Jungle Diff", score: (f) => (f.role === "JUNGLE" && f.kp >= 55 && f.winrate >= 50 ? 52 + (f.kp + f.winrate) / 4 : 0) },
+  { title: "Tempo Conductor", score: (f) => (f.role === "MIDDLE" && f.kp >= 55 && f.dmg >= 50 ? 52 + (f.kp + f.dmg) / 4 : 0) },
+  { title: "The Hypercarry", score: (f) => (f.role === "BOTTOM" && f.dmgShare >= 55 && f.dmg >= 50 ? 52 + (f.dmgShare + f.dmg) / 4 : 0) },
+  { title: "The Bodyguard", score: (f) => (f.role === "UTILITY" && f.assists >= 50 && f.safe >= 45 ? 52 + (f.assists + f.safe) / 4 : 0) },
+];
+
+/**
+ * League-wide scarce title assignment: every (player, title, score>0)
+ * claim is sorted best-first; each player takes their strongest still-
+ * available title, and each title serves at most `cap` players. Anyone
+ * left over (qualified for nothing) becomes a Jack of All Trades.
+ * Deterministic: ties break on player key then title name.
+ */
+export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string, ArchetypeExtras>): Map<string, string> {
+  const claims: { key: string; title: string; score: number }[] = [];
+  for (const row of cohort) {
+    const key = playerKey(row);
+    const facts = archetypeFacts(row, cohort, extrasByKey.get(key) ?? { streak: 0, clutchWr: row.winrate_pct / 100 });
+    for (const archetype of ARCHETYPES) {
+      const score = archetype.score(facts);
+      if (score > 0) claims.push({ key, title: archetype.title, score });
+    }
+  }
+  claims.sort((a, b) => b.score - a.score || a.key.localeCompare(b.key) || a.title.localeCompare(b.title));
+
+  const cap = Math.max(1, Math.ceil(cohort.length / ARCHETYPES.length));
+  const counts = new Map<string, number>();
+  const assigned = new Map<string, string>();
+  for (const claim of claims) {
+    if (assigned.has(claim.key)) continue;
+    if ((counts.get(claim.title) ?? 0) >= cap) continue;
+    assigned.set(claim.key, claim.title);
+    counts.set(claim.title, (counts.get(claim.title) ?? 0) + 1);
+  }
+  for (const row of cohort) {
+    const key = playerKey(row);
+    if (!assigned.has(key)) assigned.set(key, FALLBACK_ARCHETYPE);
+  }
+  return assigned;
+}
+
+// ── Card assembly ─────────────────────────────────────────────────────────
+
 export interface BuildCardInput {
   row: PlayerAggRow;
   /** Every qualifying player's agg row this season — the rating cohort. */
@@ -133,12 +322,12 @@ export interface BuildCardInput {
   games: CardGameRow[];
   /** match_id -> game duration in minutes, for the Clutch split. */
   durations: Map<string, number>;
+  /** League-wide assigned title (from assignArchetypes). Absent — e.g. a
+   *  single-card build in tests — the player's own best claim is used. */
+  archetype?: string;
 }
 
-/** Games at or past this duration count as "clutch" territory. */
-const CLUTCH_MINUTES = 32;
-
-export function buildCard({ row, cohort, games, durations }: BuildCardInput): PlayerCardData {
+export function buildCard({ row, cohort, games, durations, archetype }: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
   const key = playerKey(row);
   const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
@@ -166,48 +355,26 @@ export function buildCard({ row, cohort, games, durations }: BuildCardInput): Pl
   // Form: the last five results, weighted toward the streak the player is
   // currently on. A 5-0 heater reads 99; a 0-5 skid scrapes the floor.
   const dated = [...games].sort((a, b) => (a.game_date ?? "").localeCompare(b.game_date ?? ""));
-  const lastFive = dated.slice(-5).map((g) => g.win === true);
+  const lastFive = lastFiveOf(dated);
   const formWr = lastFive.length > 0 ? lastFive.filter(Boolean).length / lastFive.length : 0.5;
-  let streak = 0;
-  for (let i = lastFive.length - 1; i >= 0 && lastFive[i]; i -= 1) streak += 1;
+  const streak = streakOf(lastFive);
   const form = Math.max(1, Math.min(99, Math.round(20 + formWr * 70 + Math.max(0, streak - 1) * 3)));
 
-  // Clutch: win rate in long games, where a single fight decides it. Too
-  // few long games -> fall back to overall win rate so the bar means
-  // something instead of swinging on one match.
-  const longGames = dated.filter((g) => (durations.get(g.match_id) ?? 0) >= CLUTCH_MINUTES);
-  const clutchWr =
-    longGames.length >= 2
-      ? longGames.filter((g) => g.win === true).length / longGames.length
-      : row.winrate_pct / 100;
+  const clutchWr = clutchRate(dated, durations, row.winrate_pct / 100);
   const clutch = Math.max(1, Math.min(99, Math.round(15 + clutchWr * 80)));
 
-  // Archetype: first matching identity, checked most-distinctive first.
-  const p = {
-    dmg: pct(rc, row, (r) => r.avg_dmg_per_min),
-    diesALot: pct(rc, row, (r) => r.avg_deaths),
-    kda: pct(rc, row, (r) => r.kda),
-    visionP: pct(rc, row, (r) => r.avg_vision_per_min),
-    solo: pct(rc, row, (r) => r.avg_solo_kills),
-    kp: pct(rc, row, (r) => r.avg_kp_pct),
-    cs: pct(rc, row, (r) => r.avg_cs_per_min),
-  };
-  const archetype =
-    p.dmg >= 70 && p.diesALot >= 65
-      ? "Glass Cannon"
-      : p.kda >= 75 && p.diesALot <= 30
-        ? "The Surgeon"
-        : p.visionP >= 80
-          ? "The Warden"
-          : p.solo >= 80
-            ? "Duelist"
-            : p.kp >= 80
-              ? "Playmaker"
-              : p.cs >= 80
-                ? "Farm Demon"
-                : row.winrate_pct >= 60
-                  ? "Born Winner"
-                  : "All-Rounder";
+  const resolvedArchetype =
+    archetype ??
+    (() => {
+      // Solo build: the player's own strongest claim, no scarcity.
+      const facts = archetypeFacts(row, cohort, { streak, clutchWr });
+      let best = { title: FALLBACK_ARCHETYPE, score: 0 };
+      for (const candidate of ARCHETYPES) {
+        const s = candidate.score(facts);
+        if (s > best.score) best = { title: candidate.title, score: s };
+      }
+      return best.title;
+    })();
 
   // Champion pool: most-played first, win rate breaking ties. raw_stats
   // stores Riot's internal championName ("MonkeyKing", "MissFortune") —
@@ -237,7 +404,7 @@ export function buildCard({ row, cohort, games, durations }: BuildCardInput): Pl
     role: ROLE_LABELS[row.role_mode] ?? row.role_mode,
     overall,
     tier: tierFor(overall),
-    archetype,
+    archetype: resolvedArchetype,
     signature: topChampions[0] ? { champion: topChampions[0].champion, games: topChampions[0].games } : null,
     topChampions,
     form: lastFive,
@@ -255,4 +422,38 @@ export function buildCard({ row, cohort, games, durations }: BuildCardInput): Pl
     pentas: row.total_pentas,
     season: row.season,
   };
+}
+
+export interface BuildSeasonCardsInput {
+  cohort: PlayerAggRow[];
+  gamesByPlayer: Map<string, CardGameRow[]>;
+  durations: Map<string, number>;
+}
+
+/** The whole league's cards with league-wide scarce archetypes, best
+ *  overall first. */
+export function buildSeasonCards({ cohort, gamesByPlayer, durations }: BuildSeasonCardsInput): PlayerCardData[] {
+  const extrasByKey = new Map<string, ArchetypeExtras>();
+  for (const row of cohort) {
+    const key = playerKey(row);
+    const dated = [...(gamesByPlayer.get(key) ?? [])].sort((a, b) => (a.game_date ?? "").localeCompare(b.game_date ?? ""));
+    extrasByKey.set(key, {
+      streak: streakOf(lastFiveOf(dated)),
+      clutchWr: clutchRate(dated, durations, row.winrate_pct / 100),
+    });
+  }
+  const archetypes = assignArchetypes(cohort, extrasByKey);
+
+  return cohort
+    .map((row) => {
+      const key = playerKey(row);
+      return buildCard({
+        row,
+        cohort,
+        games: gamesByPlayer.get(key) ?? [],
+        durations,
+        archetype: archetypes.get(key),
+      });
+    })
+    .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
 }

@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
-import { buildCard, type CardGameRow, type PlayerCardData } from "./build";
+import { buildSeasonCards, type CardGameRow, type PlayerCardData } from "./build";
 
 /** The season the cards page rates — the site's current one. */
 export async function fetchCardSeason(supabase: SupabaseClient): Promise<string | null> {
@@ -53,16 +53,9 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     durations.set(log.match_id, log.duration_min);
   }
 
-  return cohort
-    .map((row) =>
-      buildCard({
-        row,
-        cohort,
-        games: gamesByPlayer.get(`${row.summoner_name.trim().toLowerCase()}#${row.tag.trim().toLowerCase()}`) ?? [],
-        durations,
-      }),
-    )
-    .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
+  // buildSeasonCards (not per-player buildCard): archetypes are assigned
+  // league-wide with per-title caps, so titles stay scarce and distinctive.
+  return buildSeasonCards({ cohort, gamesByPlayer, durations });
 }
 
 /** One card by its URL slug, or null. */

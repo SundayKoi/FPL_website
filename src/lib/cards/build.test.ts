@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerAggRow } from "@/lib/stats/types";
-import { buildCard, cardSlug, tierFor, type CardGameRow } from "./build";
+import { assignArchetypes, buildCard, buildSeasonCards, cardSlug, FALLBACK_ARCHETYPE, tierFor, type CardGameRow } from "./build";
 
 const agg = (over: Partial<PlayerAggRow> = {}): PlayerAggRow => ({
   summoner_name: "Player",
@@ -164,5 +164,43 @@ describe("buildCard", () => {
     const cohort = [...cohortOf(target), surgeon];
     const built = buildCard({ row: surgeon, cohort, games: [], durations: new Map() });
     expect(built.archetype).toBe("The Surgeon");
+  });
+});
+
+describe("archetype scarcity", () => {
+  it("gives a title to at most cap players — two surgeons can't both be The Surgeon", () => {
+    const surgeonOne = agg({ summoner_name: "SurgeonOne", kda: 8, avg_deaths: 0.8 });
+    const surgeonTwo = agg({ summoner_name: "SurgeonTwo", kda: 7.9, avg_deaths: 0.9 });
+    const cohort = [...cohortOf(agg()), surgeonOne, surgeonTwo];
+
+    const assigned = assignArchetypes(cohort, new Map());
+
+    // The stronger claim wins the title; the other player gets something else.
+    expect(assigned.get("surgeonone#na1")).toBe("The Surgeon");
+    expect(assigned.get("surgeontwo#na1")).toBeTruthy();
+    expect(assigned.get("surgeontwo#na1")).not.toBe("The Surgeon");
+  });
+
+  it("assigns every player some title", () => {
+    const cohort = cohortOf(agg());
+    const assigned = assignArchetypes(cohort, new Map());
+    for (const row of cohort) {
+      expect(assigned.get(`${row.summoner_name.toLowerCase()}#na1`), row.summoner_name).toBeTruthy();
+    }
+  });
+
+  it("buildSeasonCards spreads titles across the league", () => {
+    const cohort = cohortOf(agg());
+    const cards = buildSeasonCards({ cohort, gamesByPlayer: new Map(), durations: new Map() });
+
+    expect(cards).toHaveLength(cohort.length);
+    // Small league, generous title pool: only the fallback may repeat.
+    const titles = cards.map((card) => card.archetype).filter((title) => title !== FALLBACK_ARCHETYPE);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(titles.length).toBeGreaterThan(0);
+    // Sorted best first.
+    for (let i = 1; i < cards.length; i += 1) {
+      expect(cards[i - 1].overall).toBeGreaterThanOrEqual(cards[i].overall);
+    }
   });
 });
