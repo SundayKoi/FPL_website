@@ -1,21 +1,20 @@
 import "server-only";
 
-// The Weekly Standout winner as a card player key — the one card input
-// whose pipeline (src/lib/home/awards.ts) is Next-coupled, so it lives
-// apart from the framework-free queries.ts and gets passed into
-// fetchSeasonCards by pages. Failures return null: no standout is a
-// cosmetic downgrade, never an error.
+// The Weekly Standouts as card player keys — one Card of the Week PER ROLE
+// (top/jungle/mid/bot/support), from the same weekly power pipeline as the
+// homepage awards. This is the one card input that is Next-coupled, so it
+// lives apart from the framework-free queries.ts and gets passed into
+// fetchSeasonCards by pages. Failures return an empty set: no standout is
+// a cosmetic downgrade, never an error.
 
-import { fetchHomepageAwards } from "@/lib/home/awards";
+import { deriveWeeklyRoleStandouts, fetchHomepageRawStats } from "@/lib/home/awards";
 import { cardPlayerKey } from "./build";
 
-export async function fetchStandoutKey(season: string): Promise<string | null> {
+export async function fetchStandoutKeys(season: string): Promise<Set<string>> {
   try {
-    const awards = await fetchHomepageAwards(season);
-    const player = awards.playerOfWeek;
-    if (!player.name || !player.tag) return null;
-    return cardPlayerKey(player.name, player.tag);
+    const rows = await fetchHomepageRawStats(season);
+    return new Set(deriveWeeklyRoleStandouts(rows, season).map((player) => cardPlayerKey(player.name, player.tag)));
   } catch {
-    return null;
+    return new Set();
   }
 }

@@ -189,7 +189,7 @@ export default function PlayerCard3D({
             {card.standout ? (
               <div className="relative mt-1 flex justify-center">
                 <span className="rounded-full border border-gold/70 bg-black/70 px-3 py-0.5 text-[10px] font-black uppercase tracking-[0.22em] text-gold [text-shadow:0_0_10px_rgb(245_182_46/0.8)]">
-                  ★ Card of the Week ★
+                  ★ {card.role} of the Week ★
                 </span>
               </div>
             ) : null}

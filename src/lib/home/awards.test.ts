@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rankLatestWeeklyStandoutsFromRows } from "@/lib/stats/weekly";
-import { deriveHomepageAwards, type HomepageRawStatRow } from "./awards";
+import { deriveHomepageAwards, deriveWeeklyRoleStandouts, type HomepageRawStatRow } from "./awards";
 
 type RowOverrides = Partial<HomepageRawStatRow>;
 
@@ -135,5 +135,47 @@ describe("deriveHomepageAwards", () => {
     expect(result.season).toBe("S5");
     expect(result.playerOfWeek.name).toBeNull();
     expect(result.teamOfWeek.teamName).toBeNull();
+  });
+});
+
+describe("deriveWeeklyRoleStandouts", () => {
+  /** Two latest-week games for one player (MIN_PLAYER_GAMES = 2). */
+  const pair = (player: string, role: string, strong: boolean): HomepageRawStatRow[] =>
+    [0, 1].map((index) =>
+      row({
+        summoner_name: player,
+        tag: "FPL",
+        role,
+        match_id: `${player}-${index}`,
+        game_date: `2026-04-28 ${String(20 + index).padStart(2, "0")}:00:00`,
+        win: strong,
+        kills: strong ? 10 : 1,
+        deaths: strong ? 1 : 7,
+        damage_per_min: strong ? 900 : 300,
+      }),
+    );
+
+  it("crowns the latest week's best player in each role", () => {
+    const rows = [
+      ...pair("MidGod", "MIDDLE", true),
+      ...pair("MidOk", "MIDDLE", false),
+      ...pair("BotGod", "BOTTOM", true),
+      // A monster week — but LAST week, so it must not count.
+      row({ summoner_name: "OldTimer", role: "TOP", match_id: "old-1", game_date: "2026-04-20 20:00:00", kills: 20 }),
+      row({ summoner_name: "OldTimer", role: "TOP", match_id: "old-2", game_date: "2026-04-20 21:00:00", kills: 20 }),
+    ];
+
+    const standouts = deriveWeeklyRoleStandouts(rows, "S5");
+    const byRole = new Map(standouts.map((player) => [player.role, player.name]));
+
+    expect(byRole.get("MIDDLE")).toBe("MidGod");
+    expect(byRole.get("BOTTOM")).toBe("BotGod");
+    expect(byRole.has("TOP")).toBe(false);
+    // One winner per role, never more.
+    expect(standouts).toHaveLength(2);
+  });
+
+  it("returns empty for a season with no rows", () => {
+    expect(deriveWeeklyRoleStandouts([row({ season: "S4" })], "S5")).toEqual([]);
   });
 });

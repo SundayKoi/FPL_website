@@ -4,7 +4,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchCardBySlug, fetchCardSeason } from "@/lib/cards/queries";
-import { fetchStandoutKey } from "@/lib/cards/standout";
+import { fetchStandoutKeys } from "@/lib/cards/standout";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 // The public face of one player's card — shareable by design: anyone with
@@ -16,8 +16,8 @@ async function loadCard(slug: string) {
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase);
   if (!season) return null;
-  const standoutKey = await fetchStandoutKey(season);
-  return await fetchCardBySlug(supabase, season, slug, { standoutKey });
+  const standoutKeys = await fetchStandoutKeys(season);
+  return await fetchCardBySlug(supabase, season, slug, { standoutKeys });
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

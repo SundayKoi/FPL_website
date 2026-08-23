@@ -255,6 +255,31 @@ function standardDeviation(values: number[]): number {
   return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
 }
 
+/** The latest week's top-power player in EACH role — the per-role Cards of
+ *  the Week. Same window, aggregation, and scoring as playerOfWeek
+ *  (aggregateWeeklyPlayerRows → powerRanking over the ungated cohort);
+ *  the MIN_PLAYER_GAMES gate applies only when picking winners. */
+export function deriveWeeklyRoleStandouts(
+  inputRows: HomepageRawStatRow[],
+  season: string = PREMIER_SEASON,
+): { name: string; tag: string; role: string }[] {
+  const rows = rowsForSeason(inputRows, season);
+  const latest = latestWeek(rows);
+  if (!latest) return [];
+  const latestRows = rowsForWeek(rows, latest.start);
+  const players = aggregatePlayers(latestRows).filter(
+    (player) => player.games >= MIN_PLAYER_GAMES && player.role !== "UNKNOWN",
+  );
+  const power = powerScores(latestRows);
+  const score = (player: PlayerAggregate) => power.get(playerKey(player.name, player.tag)) ?? 0;
+  const byRole = new Map<string, PlayerAggregate>();
+  for (const player of players) {
+    const current = byRole.get(player.role);
+    if (!current || score(player) > score(current)) byRole.set(player.role, player);
+  }
+  return [...byRole.values()].map((player) => ({ name: player.name, tag: player.tag, role: player.role }));
+}
+
 export function deriveHomepageAwards(
   inputRows: HomepageRawStatRow[],
   prices: Map<string, number>,

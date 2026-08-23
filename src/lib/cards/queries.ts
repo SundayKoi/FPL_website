@@ -27,8 +27,9 @@ export async function fetchCardSeason(supabase: SupabaseClient): Promise<string 
 }
 
 export interface FetchSeasonCardsOptions {
-  /** Weekly Standout player key (cardPlayerKey) — flags Card of the Week. */
-  standoutKey?: string | null;
+  /** Per-role Weekly Standout player keys (cardPlayerKey) — flags each
+   *  role's Card of the Week. */
+  standoutKeys?: Set<string> | null;
 }
 
 /**
@@ -109,7 +110,7 @@ export async function fetchSeasonCards(
     recordsByPlayer,
     teamImages,
     artSkins,
-    standoutKey: options.standoutKey ?? null,
+    standoutKeys: options.standoutKeys ?? null,
   });
 }
 

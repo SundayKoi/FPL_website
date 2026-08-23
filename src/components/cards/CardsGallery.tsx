@@ -21,20 +21,30 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
       (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
       (!role || card.role === role),
   );
-  const standout = cards.find((card) => card.standout) ?? null;
+  // One Card of the Week per role, in on-Rift order.
+  const roleOrder = ["Top", "Jungle", "Mid", "Bot", "Support"];
+  const standouts = cards
+    .filter((card) => card.standout)
+    .sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role));
 
   return (
     <div className="flex flex-col gap-6">
-      {standout ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-gold/40 bg-gold/5 p-6">
-          <span className="label-dash">Card of the Week</span>
-          <PlayerCard3D card={standout} />
-          <Link
-            href={`/card/${standout.slug}`}
-            className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
-          >
-            Share page →
-          </Link>
+      {standouts.length > 0 ? (
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-gold/5 p-6">
+          <span className="label-dash">Cards of the Week</span>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-6">
+            {standouts.map((card) => (
+              <div key={card.slug} className="flex flex-col items-center gap-2">
+                <PlayerCard3D card={card} />
+                <Link
+                  href={`/card/${card.slug}`}
+                  className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+                >
+                  Share page →
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
       <div className="flex flex-wrap items-end gap-3">

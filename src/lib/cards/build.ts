@@ -572,8 +572,8 @@ export interface BuildSeasonCardsInput {
   teamImages?: Map<string, string>;
   /** player key -> chosen art skin number. */
   artSkins?: Map<string, number>;
-  /** This week's Weekly Standout winner (player key), if known. */
-  standoutKey?: string | null;
+  /** This week's per-role Weekly Standout winners (player keys). */
+  standoutKeys?: Set<string> | null;
 }
 
 /** The whole league's cards with league-wide scarce archetypes, best
@@ -585,7 +585,7 @@ export function buildSeasonCards({
   recordsByPlayer,
   teamImages,
   artSkins,
-  standoutKey = null,
+  standoutKeys = null,
 }: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
   for (const row of cohort) {
@@ -610,7 +610,7 @@ export function buildSeasonCards({
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
         artSkin: artSkins?.get(key) ?? 0,
-        standout: standoutKey !== null && key === standoutKey,
+        standout: standoutKeys?.has(key) ?? false,
       });
     })
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));

@@ -99,9 +99,9 @@ describe("PlayerCard3D", () => {
     expect(screen.getByText("Pentakiller")).toBeTruthy();
   });
 
-  it("gives the Card of the Week the molten-gold frame, ribbon, and foil", () => {
+  it("gives the Card of the Week the molten-gold frame, role ribbon, and foil", () => {
     const { container } = render(<PlayerCard3D card={{ ...card, standout: true }} />);
-    expect(screen.getByText(/Card of the Week/i)).toBeTruthy();
+    expect(screen.getByText(/Bot of the Week/i)).toBeTruthy();
     expect(container.querySelector(".card-frame-standout")).toBeTruthy();
     // Standout foils even below Emerald tier.
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
