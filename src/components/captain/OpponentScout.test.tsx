@@ -30,6 +30,8 @@ describe("OpponentScout", () => {
   it("renders premium draft intel and changes sampled scope", () => {
     renderScout();
     expect(screen.getByText("Premium · Opponent scouting")).toBeTruthy();
+    expect(screen.getByText("Opponent")).toBeTruthy();
+    expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Draft intel" })).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
     expect(screen.getByText("2 drafts sampled")).toBeTruthy();
@@ -53,6 +55,9 @@ describe("OpponentScout", () => {
     const image = document.querySelector("img") as HTMLImageElement;
     expect(image.getAttribute("src")).toBe(championIconUrl("Ahri"));
     expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
+    for (const champion of ["Ahri", "Vi", "Nautilus", "Garen", "Orianna", "Zed", "Lee Sin", "Jinx", "Leona", "Malphite"]) {
+      expect(screen.getAllByText(champion).some((node) => node.parentElement?.querySelector("img")?.getAttribute("src") === championIconUrl(champion))).toBe(true);
+    }
     const details = screen.getAllByRole("group").find((el) => el.tagName === "DETAILS");
     expect(details).toBeTruthy();
     fireEvent.click(within(details!).getByText(/Game 1/));
