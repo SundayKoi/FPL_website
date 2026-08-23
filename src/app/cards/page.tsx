@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
-import TeamCardsSection from "@/components/cards/TeamCardsSection";
 import { fetchCardSeason, fetchSeasonCards } from "@/lib/cards/queries";
 import { fetchStandoutKeys } from "@/lib/cards/standout";
 import { drafterAccess } from "@/lib/match-draft/access";
@@ -62,20 +61,25 @@ export default async function CardsPage() {
             tilt, click to flip, and share your card straight into Discord.
           </p>
         </div>
-        <Link
-          href="/cards/compare"
-          className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-        >
-          Card vs Card →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/cards/teams"
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Team cards →
+          </Link>
+          <Link
+            href="/cards/compare"
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Card vs Card →
+          </Link>
+        </div>
       </header>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
       ) : (
-        <>
-          <CardsGallery cards={cards} />
-          <TeamCardsSection cards={cards} />
-        </>
+        <CardsGallery cards={cards} />
       )}
     </main>
   );

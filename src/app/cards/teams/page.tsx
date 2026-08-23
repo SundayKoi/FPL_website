@@ -1,0 +1,61 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import TeamCardsSection from "@/components/cards/TeamCardsSection";
+import { fetchCardSeason, fetchSeasonCards } from "@/lib/cards/queries";
+import { fetchStandoutKeys } from "@/lib/cards/standout";
+import { drafterAccess } from "@/lib/match-draft/access";
+import { createServerSupabase } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Team Cards — FPL",
+  description: "Every roster as a composite card, rated by its five best players.",
+};
+
+/** Premium (same gate as the hub): the team-card collection on its own
+ *  page, so it isn't buried under the full player grid. */
+export default async function TeamCardsPage() {
+  const access = await drafterAccess();
+  if (!access.signedIn || !access.allowed) {
+    return (
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Team cards</span>
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
+        <p className="max-w-md text-sm text-steel">
+          Team cards are part of the premium card collection.
+          {access.signedIn ? " Grab the premium role in the Discord to browse them." : " Sign in with Discord to check your access."}
+        </p>
+        {!access.signedIn && (
+          <Link href="/login?redirect=/cards/teams" className="btn-pill mt-2">
+            Sign in with Discord
+          </Link>
+        )}
+      </main>
+    );
+  }
+
+  const supabase = await createServerSupabase();
+  const season = await fetchCardSeason(supabase);
+  const standoutKeys = season ? await fetchStandoutKeys(season) : null;
+  const cards = season ? await fetchSeasonCards(supabase, season, { standoutKeys }) : [];
+
+  return (
+    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <header>
+        <span className="label-dash">Premium · Season {season ?? "—"}</span>
+        <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team Cards</h1>
+        <p className="mt-3 max-w-2xl text-sm text-steel">
+          Every roster as one card — Team OVR is the average of its five best player cards, so the
+          frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s Card of the Week.
+        </p>
+        <Link href="/cards" className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          ← Back to player cards
+        </Link>
+      </header>
+      {cards.length === 0 ? (
+        <p className="text-sm text-steel">No rated players yet — team cards appear once this season&apos;s first games are ingested.</p>
+      ) : (
+        <TeamCardsSection cards={cards} showHeading={false} />
+      )}
+    </main>
+  );
+}

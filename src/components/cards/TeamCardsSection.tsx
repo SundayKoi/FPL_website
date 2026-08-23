@@ -49,15 +49,24 @@ export function buildTeamCards(cards: PlayerCardData[]): TeamCardEntry[] {
     .sort((a, b) => b.overall - a.overall || a.teamName.localeCompare(b.teamName));
 }
 
-export default function TeamCardsSection({ cards }: { cards: PlayerCardData[] }) {
+export default function TeamCardsSection({
+  cards,
+  showHeading = true,
+}: {
+  cards: PlayerCardData[];
+  /** false when the hosting page provides its own header (/cards/teams). */
+  showHeading?: boolean;
+}) {
   const teams = buildTeamCards(cards);
   if (teams.length === 0) return null;
   return (
     <section className="flex flex-col gap-4" aria-label="Team cards">
-      <div>
-        <span className="label-dash">Team cards</span>
-        <p className="mt-1 text-sm text-steel">Rosters rated by their five best cards.</p>
-      </div>
+      {showHeading ? (
+        <div>
+          <span className="label-dash">Team cards</span>
+          <p className="mt-1 text-sm text-steel">Rosters rated by their five best cards.</p>
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {teams.map((team) => {
           const accent = TIER_ACCENTS[team.tier.key];
