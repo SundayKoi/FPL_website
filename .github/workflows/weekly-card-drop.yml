@@ -11,6 +11,14 @@ on:
         description: "Post the collection showcase even with no movement"
         type: boolean
         default: true
+      fantasy_dry_run:
+        description: "Fantasy: compute scores/payouts/post but write and pay NOTHING (rehearsal)"
+        type: boolean
+        default: false
+      fantasy_week:
+        description: "Fantasy: grade this Monday (YYYY-MM-DD) instead of the last completed week — pair with dry run unless you mean it"
+        type: string
+        default: ""
 
 concurrency:
   group: card-drop
@@ -33,6 +41,9 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_CARDS_WEBHOOK_URL: ${{ secrets.DISCORD_CARDS_WEBHOOK_URL }}
           SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
-          # Scheduled runs get no inputs -> empty -> movement-only posting.
+          # Scheduled runs get no inputs -> empty -> movement-only posting
+          # and a real (non-dry) fantasy grade of the last completed week.
           SHOWCASE: ${{ inputs.showcase }}
+          FANTASY_DRY_RUN: ${{ inputs.fantasy_dry_run }}
+          FANTASY_WEEK: ${{ inputs.fantasy_week }}
         # supabase-js needs a native WebSocket -> Node 22 (see weekly-brief).

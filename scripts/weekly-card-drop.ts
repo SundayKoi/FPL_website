@@ -203,9 +203,22 @@ async function scoreFantasyWeek(
   const hubPath = league === "academy" ? "/academy/cards/fantasy" : "/cards/fantasy";
   const footer = origin ? `${origin}${hubPath}` : `FPL ${label.toLowerCase()} fantasy`;
 
+  // Test knobs (manual workflow runs): FANTASY_DRY_RUN computes scores,
+  // payout plans, and the Discord body but writes NOTHING — no scored_at,
+  // no claims, no credits, no post — so admins can rehearse a grading run
+  // against live data without moving a published week or a wallet.
+  // FANTASY_WEEK points the run at a specific Monday instead of the last
+  // completed one (pair it with dry-run unless you truly mean to grade).
+  const dryRun = process.env.FANTASY_DRY_RUN === "true";
+  const weekOverride = process.env.FANTASY_WEEK?.trim() || null;
+  if (weekOverride && weekOverride !== mondayOf(new Date(`${weekOverride}T12:00:00Z`))) {
+    throw new Error(`FANTASY_WEEK must be a Monday in YYYY-MM-DD form; got "${weekOverride}"`);
+  }
+
   // The week whose lock has passed — i.e. the one Monday night's games just
   // decided, not the one managers are currently drafting for.
-  const week = lastCompletedWeek(new Date());
+  const week = weekOverride ?? lastCompletedWeek(new Date());
+  if (dryRun) console.log(`[${label}] FANTASY DRY RUN — week ${week}: nothing will be written, paid, or posted.`);
   const lineups = await fetchWeekLineups(supabase, season, week);
   if (lineups.length === 0) {
     console.log(`[${label}] No fantasy lineups for the week of ${week} — nothing to score.`);
@@ -234,20 +247,24 @@ async function scoreFantasyWeek(
     const scoredAt = new Date().toISOString();
     for (const lineup of unscored) {
       const { score, breakdown } = scoreLineup(lineup.slots, scores);
-      const { error: updateError } = await supabase
-        .from("fantasy_lineups")
-        .update({ score, breakdown, scored_at: scoredAt })
-        .eq("discord_id", lineup.discordId)
-        .eq("season", season)
-        .eq("week_start", week);
-      if (updateError) throw updateError;
+      if (!dryRun) {
+        const { error: updateError } = await supabase
+          .from("fantasy_lineups")
+          .update({ score, breakdown, scored_at: scoredAt })
+          .eq("discord_id", lineup.discordId)
+          .eq("season", season)
+          .eq("week_start", week);
+        if (updateError) throw updateError;
+      } else {
+        console.log(`[${label}] [dry-run] would score ${lineup.discordId}: ${score.toFixed(1)} pts`);
+      }
       // Merged in memory so the payout pass below doesn't need a re-read.
       lineup.score = score;
       lineup.breakdown = breakdown;
       lineup.scoredAt = scoredAt;
       scoredNow += 1;
     }
-    console.log(`[${label}] Scored ${scoredNow} fantasy lineup(s).`);
+    console.log(`[${label}] ${dryRun ? "[dry-run] would have scored" : "Scored"} ${scoredNow} fantasy lineup(s).`);
   }
 
   const standings = fantasyStandings(lineups);
@@ -257,6 +274,10 @@ async function scoreFantasyWeek(
   for (const plan of plans) {
     const lineup = byDiscordId.get(plan.discordId);
     if (!lineup || lineup.paidOut !== null) continue;
+    if (dryRun) {
+      console.log(`[${label}] [dry-run] would pay $${plan.amount} to ${plan.discordId} (rank ${plan.rank}, week ${week}).`);
+      continue;
+    }
 
     // Claim first: the `paid_out is null` filter is what makes the pair
     // exactly-once, and fantasy_payout refuses to credit without it.
@@ -295,15 +316,18 @@ async function scoreFantasyWeek(
     console.log(`[${label}] Paid $${plan.amount} to ${plan.discordId} (rank ${plan.rank}, week ${week}).`);
   }
 
-  if (!webhookUrl) {
-    console.log(`[${label}] DISCORD_CARDS_WEBHOOK_URL not set — skipping the fantasy post.`);
-    return;
-  }
   // Only a run that actually graded something posts: a re-run of an already
-  // scored week shouldn't repost last week's leaderboard.
-  if (scoredNow === 0) {
-    console.log(`[${label}] Fantasy week ${week} was already graded — not reposting.`);
-    return;
+  // scored week shouldn't repost last week's leaderboard. (Dry runs always
+  // build the preview — that's the point of rehearsing.)
+  if (!dryRun) {
+    if (!webhookUrl) {
+      console.log(`[${label}] DISCORD_CARDS_WEBHOOK_URL not set — skipping the fantasy post.`);
+      return;
+    }
+    if (scoredNow === 0) {
+      console.log(`[${label}] Fantasy week ${week} was already graded — not reposting.`);
+      return;
+    }
   }
 
   const names = await fetchBettingUsernames(supabase, standings.map((lineup) => lineup.discordId));
@@ -316,12 +340,17 @@ async function scoreFantasyWeek(
       (lineup, index) => `**${index + 1}.** ${nameOf(lineup.discordId)} — ${(lineup.score ?? 0).toFixed(1)} pts`,
     ),
   ];
-  const paidLines = plans
-    .filter((plan) => (byDiscordId.get(plan.discordId)?.paidOut ?? null) !== null)
+  const paidLines = (dryRun ? plans : plans.filter((plan) => (byDiscordId.get(plan.discordId)?.paidOut ?? null) !== null))
     .map((plan) => `💰 $${plan.amount} → ${nameOf(plan.discordId)}`);
   if (paidLines.length > 0) lines.push("", "**Payouts**", ...paidLines);
   lines.push("", `${lineups.length} lineup${lineups.length === 1 ? "" : "s"} entered.`);
 
+  if (dryRun) {
+    console.log(`[${label}] [dry-run] Discord embed preview:\n🏆 ${label} fantasy — week of ${week}\n${lines.join("\n")}`);
+    return;
+  }
+  // Unreachable when null (guarded above for real runs) — narrows the type.
+  if (!webhookUrl) return;
   await postEmbed(webhookUrl, `🏆 ${label} fantasy — week of ${week}`, lines.join("\n"), footer);
   console.log(`[${label}] Posted the fantasy leaderboard (${lineups.length} entrants, ${paidLines.length} payouts).`);
 }
