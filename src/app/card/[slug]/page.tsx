@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
@@ -85,11 +86,20 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
   const card = loaded?.card ?? null;
   const collectionHref = loaded?.league === "academy" ? "/academy/cards" : "/cards";
 
-  // May this viewer restyle the card's art? Admins, or a captain whose
-  // roster contains the player (can_edit_card_art, security definer). Any
-  // failure — signed out, migration not applied — just hides the picker.
+  // May this viewer restyle the card's art? Admins, a captain whose roster
+  // contains the player, or — since 20260826000017 — the player who claimed
+  // this card and was approved. can_edit_card_art folds the approved claim in
+  // itself, so the customizer below lights up for a claimant with no extra
+  // wiring here. Any failure — signed out, migration not applied — just hides
+  // the picker.
   let canEditArt = false;
   let history: RatingHistoryPoint[] = [];
+  // The claim row and who may rule on it. canModerate is the narrower
+  // "admin or captain" half of the predicate above — an approved claimant can
+  // edit their card but must not be able to approve the next claim on it.
+  let claim: CardClaimState | null = null;
+  let canModerate = false;
+  let viewerProfileId: string | null = null;
   // The saved autograph, for the signature pad's preview only. It is
   // deliberately NOT part of the live card: ink belongs on pulled copies
   // that rolled signed (src/lib/packs/signatures.ts), never on the card
@@ -114,6 +124,42 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
         .maybeSingle()
         .then((result) => result, () => ({ data: null }));
       signature = (prefs as { signature: string | null } | null)?.signature ?? null;
+    }
+
+    const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
+    viewerProfileId = viewer.user?.id ?? null;
+
+    const { data: moderates } = await supabase
+      .rpc("can_moderate_card", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
+      .then((result) => result, () => ({ data: null }));
+    canModerate = moderates === true;
+
+    // Failure-tolerant like the signature read above: before the claims
+    // migration lands this table doesn't exist, and the row simply reads as
+    // "unclaimed".
+    const { data: claimRow } = await supabase
+      .from("card_claims")
+      .select("profile_id, status")
+      .eq("season", card.season)
+      .eq("summoner_name", card.name)
+      .eq("tag", card.tag)
+      .maybeSingle()
+      .then((result) => result, () => ({ data: null }));
+    const row = claimRow as { profile_id: string; status: "pending" | "approved" } | null;
+    if (row) {
+      // profiles carries a public read policy (profiles_public_read,
+      // 20260807000001), so the anon page client can name the claimant.
+      const { data: claimant } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", row.profile_id)
+        .maybeSingle()
+        .then((result) => result, () => ({ data: null }));
+      claim = {
+        profileId: row.profile_id,
+        status: row.status,
+        displayName: (claimant as { display_name: string | null } | null)?.display_name ?? null,
+      };
     }
   }
 
@@ -141,6 +187,14 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
       <p className="text-xs text-steel">Hover to tilt · click to flip</p>
       <SeasonJourney history={history} card={card} />
       <ShareCardActions slug={card.slug} />
+      <CardClaim
+        season={card.season}
+        summonerName={card.name}
+        tag={card.tag}
+        viewerProfileId={viewerProfileId}
+        canModerate={canModerate}
+        claim={claim}
+      />
       {canEditArt && card.signature ? (
         <SkinPicker
           season={card.season}
