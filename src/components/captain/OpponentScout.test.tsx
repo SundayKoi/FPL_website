@@ -42,10 +42,17 @@ describe("OpponentScout", () => {
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();
     expect(screen.getByText("Current roster unavailable")).toBeTruthy();
   });
+  it("keeps valid draft history visible when the current roster is empty", () => {
+    renderScout({ roster: [] });
+    expect(screen.getByText("Past drafts")).toBeTruthy();
+    expect(screen.getAllByText(/Scouted team: Blue side/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Current roster unavailable")).toBeTruthy();
+  });
   it("uses champion icons and complete blue/red draft slots", () => {
     renderScout();
     const image = document.querySelector("img") as HTMLImageElement;
     expect(image.getAttribute("src")).toBe(championIconUrl("Ahri"));
+    expect(screen.getAllByText("Ahri").length).toBeGreaterThan(0);
     const details = screen.getAllByRole("group").find((el) => el.tagName === "DETAILS");
     expect(details).toBeTruthy();
     fireEvent.click(within(details!).getByText(/Game 1/));
@@ -55,6 +62,14 @@ describe("OpponentScout", () => {
     expect(within(details!).getAllByText("Ban phase 2 · last 2")).toHaveLength(2);
     expect(within(details!).getAllByTestId("blue-pick-slot")).toHaveLength(5);
     expect(within(details!).getAllByTestId("red-pick-slot")).toHaveLength(5);
+  });
+  it("shows skipped pick labels in a complete draft", () => {
+    const skipped = structuredClone(source);
+    skipped.drafts[0].actions = skipped.drafts[0].actions.map((action) => action.stepIndex === 7 ? { ...action, champion: null, skipped: true } : action);
+    renderScout(skipped);
+    const details = screen.getAllByRole("group").find((el) => el.tagName === "DETAILS");
+    fireEvent.click(within(details!).getByText(/Game 1/));
+    expect(screen.getAllByText("R1").length).toBeGreaterThan(0);
   });
   it("keeps player pool chips neutral", () => {
     renderScout();
