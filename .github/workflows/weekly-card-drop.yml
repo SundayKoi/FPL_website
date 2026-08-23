@@ -6,6 +6,11 @@ on:
     # games are ingested and the ratings the drop reports are current.
     - cron: "0 15 * * 2"
   workflow_dispatch:
+    inputs:
+      showcase:
+        description: "Post the collection showcase even with no movement"
+        type: boolean
+        default: true
 
 concurrency:
   group: card-drop
@@ -28,4 +33,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_CARDS_WEBHOOK_URL: ${{ secrets.DISCORD_CARDS_WEBHOOK_URL }}
           SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+          # Scheduled runs get no inputs -> empty -> movement-only posting.
+          SHOWCASE: ${{ inputs.showcase }}
         # supabase-js needs a native WebSocket -> Node 22 (see weekly-brief).

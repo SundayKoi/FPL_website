@@ -71,12 +71,48 @@ async function main(): Promise<void> {
   );
   const newcomers = cards.filter((card) => !snapshots.has(card.slug));
 
+  // Manual runs (workflow_dispatch) can force a showcase post so the
+  // webhook can be seen working without waiting a week for movement; a
+  // fresh baseline (true first run) debuts the collection the same way.
+  const showcase = process.env.SHOWCASE === "true" || snapshots.size === 0;
+
   if (!webhookUrl) {
     console.log("DISCORD_CARDS_WEBHOOK_URL not set — skipping the post.");
-  } else if (snapshots.size === 0) {
-    console.log("First run — baseline snapshot only, nothing to compare yet.");
-  } else if (movers.length === 0 && newcomers.length === 0) {
-    console.log("No card movement since the last drop — nothing to post.");
+  } else if ((movers.length === 0 && newcomers.length === 0) || showcase) {
+    if (!showcase) {
+      console.log("No card movement since the last drop — nothing to post.");
+    } else {
+      const top = cards.slice(0, 8);
+      const tierCounts = new Map<string, number>();
+      for (const card of cards) tierCounts.set(card.tier.label, (tierCounts.get(card.tier.label) ?? 0) + 1);
+      const lines = [
+        "**Top of the collection**",
+        ...top.map((card) => {
+          const name = origin ? `[${card.name}](${origin}/card/${card.slug})` : `**${card.name}**`;
+          return `${name} — ${card.overall} OVR ${card.tier.label} · ${card.archetype}`;
+        }),
+        "",
+        [...tierCounts.entries()].map(([tier, count]) => `${tier}: ${count}`).join(" · "),
+      ];
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [
+            {
+              title: `🃏 Player card collection — Season ${season}`,
+              description: lines.join("\n").slice(0, 4000),
+              color: 0xf5b62e,
+              footer: { text: origin ? `${origin}/cards` : "FPL player cards" },
+            },
+          ],
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+      }
+      console.log(`Posted the collection showcase (${cards.length} cards).`);
+    }
   } else {
     const lines: string[] = [];
     if (tierUps.length > 0) {
