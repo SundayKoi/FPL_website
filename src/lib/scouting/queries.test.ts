@@ -52,4 +52,23 @@ describe("fetchScoutingHistory", () => {
     const draftError = new Error("draft failed");
     await expect(fetchScoutingHistory({ from: vi.fn((table: string) => table === "fixtures" ? builder([], null) : builder([], draftError)) } as unknown as SupabaseClient, { league: "premier", leagueTeamNames: [] })).rejects.toThrow("draft failed");
   });
+
+  it("drops malformed nested actions and normalizes invalid position sides", async () => {
+    const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
+    const draftQuery = builder([{
+      id: "d", fixture_id: "f", game_number: 1, blue_team_name: "Night Vale", red_team_name: "Other",
+      winner_team: null,
+      actions: [
+        { stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" },
+        null, "not an action", { kind: "pick", champion: 42 }, { kind: "unknown", champion: "Lux" },
+        { stepIndex: "bad", kind: "pick", champion: "Lux" },
+      ],
+      positions: { blue: ["Ahri", null], red: ["bad", 42] },
+      created_at: "2026-08-01",
+    }]);
+    const from = vi.fn((table: string) => table === "fixtures" ? fixtureQuery : draftQuery);
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, { league: "premier", leagueTeamNames: ["Night Vale", "Other"] });
+    expect(history.drafts[0].actions).toEqual([{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }]);
+    expect(history.drafts[0].positions).toEqual({ blue: ["Ahri", null] });
+  });
 });

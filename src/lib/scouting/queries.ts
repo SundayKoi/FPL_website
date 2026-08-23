@@ -21,6 +21,32 @@ const asRows = (data: unknown): UnknownRow[] =>
 const asNullableString = (value: unknown): string | null => typeof value === "string" ? value : null;
 const asNumber = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
 
+function validAction(value: unknown): value is MatchDraftAction {
+  if (!value || typeof value !== "object") return false;
+  const action = value as Record<string, unknown>;
+  if (action.kind !== "pick" && action.kind !== "ban") return false;
+  if (action.champion !== null && typeof action.champion !== "string") return false;
+  if (action.side !== undefined && action.side !== "blue" && action.side !== "red") return false;
+  if (action.stepIndex !== undefined && asNumber(action.stepIndex) === null) return false;
+  if (action.slot !== undefined && asNumber(action.slot) === null) return false;
+  if (action.skipped !== undefined && typeof action.skipped !== "boolean") return false;
+  if (action.playerName !== undefined && action.playerName !== null && typeof action.playerName !== "string") return false;
+  return true;
+}
+
+function validPositionSide(value: unknown): value is (string | null)[] {
+  return Array.isArray(value) && value.every((entry) => entry === null || typeof entry === "string");
+}
+
+function mapPositions(value: unknown): MatchDraftPositions | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const positions: MatchDraftPositions = {};
+  if (validPositionSide(raw.blue)) positions.blue = [...raw.blue];
+  if (validPositionSide(raw.red)) positions.red = [...raw.red];
+  return positions.blue || positions.red ? positions : null;
+}
+
 function mapFixture(row: UnknownRow): ScoutFixtureRow | null {
   if (typeof row.id !== "string" || typeof row.season !== "string" || typeof row.stage !== "string") return null;
   return {
@@ -38,8 +64,8 @@ function mapFixture(row: UnknownRow): ScoutFixtureRow | null {
 
 function mapDraft(row: UnknownRow): ScoutDraftRow | null {
   if (typeof row.id !== "string" || typeof row.fixture_id !== "string" || typeof row.game_number !== "number") return null;
-  const actions = Array.isArray(row.actions) ? row.actions as MatchDraftAction[] : [];
-  const positions = row.positions && typeof row.positions === "object" ? row.positions as MatchDraftPositions : null;
+  const actions = Array.isArray(row.actions) ? row.actions.filter(validAction) : [];
+  const positions = mapPositions(row.positions);
   return {
     id: row.id,
     fixture_id: row.fixture_id,
