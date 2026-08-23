@@ -15,7 +15,7 @@ const STATUS_CLASS: Record<string, string> = {
   setup: "bg-panel text-steel",
 };
 
-export default function DraftHeader({ draft, connected }: { draft: Draft; connected: boolean }) {
+export default function DraftHeader({ draft }: { draft: Draft }) {
   const minimum = draft.round_minimums.length ? roundMinimum(draft) : null;
 
   return (
@@ -32,11 +32,6 @@ export default function DraftHeader({ draft, connected }: { draft: Draft; connec
       >
         {STATUS_LABEL[draft.status] ?? draft.status}
       </span>
-      {!connected && (
-        <span className="w-full rounded border border-red-500/50 bg-red-500/10 px-2 py-1 text-center text-xs text-red-400 sm:w-auto">
-          Realtime disconnected — reconnecting…
-        </span>
-      )}
     </header>
   );
 }

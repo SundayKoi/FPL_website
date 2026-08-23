@@ -1,9 +1,12 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Lobby-mode tests run without onSave, so the board builds a live client;
 // give it a chainable realtime channel and a spyable rpc.
-const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn(async () => ({ error: null })) }));
+const { rpcMock, realtime } = vi.hoisted(() => ({
+  rpcMock: vi.fn(async () => ({ error: null })),
+  realtime: { callback: null as null | ((status: string) => void) },
+}));
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => {
     const channel: Record<string, unknown> = {
@@ -12,7 +15,10 @@ vi.mock("@/lib/supabase/client", () => ({
       send: () => Promise.resolve(),
     };
     channel.on = () => channel;
-    channel.subscribe = () => channel;
+    channel.subscribe = (callback: (status: string) => void) => {
+      realtime.callback = callback;
+      return channel;
+    };
     return {
       rpc: rpcMock,
       channel: () => channel,
@@ -54,6 +60,19 @@ const state: MatchDraftState = {
 };
 
 describe("MatchDraftBoard", () => {
+  it("surfaces an interrupted lobby connection", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, fixtureId: "lobby-1" }}
+        lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toMatch(/connecting to live updates/i);
+    act(() => realtime.callback?.("CHANNEL_ERROR"));
+    expect(screen.getByRole("alert").textContent).toMatch(/live updates interrupted/i);
+  });
+
   it("renders the stage layout with team abbreviations, champion names, player names, and timer", () => {
     const { container } = render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 

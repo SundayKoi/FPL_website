@@ -13,6 +13,7 @@ import { placeBet, cashoutBet } from "@/lib/betting/actions";
 import { fmtPoints } from "@/lib/betting/format";
 import { displayedShareA, americanOdds } from "@/lib/betting/parimutuel";
 import { DRAW_TEAM, type BettingTeam, type MarketDetailData, type OpenBetRow } from "@/lib/betting/types";
+import ConnectionBanner from "@/components/system/ConnectionBanner";
 
 /** The viewer's open stake(s) on this market, with a projected win at
  * current pools and (while open) a cashout button per side held. */
@@ -94,7 +95,7 @@ export function MarketDetail({
   openBets: OpenBetRow[];
 }) {
   const router = useRouter();
-  const { market, refetch } = useMarketDetail(initial.id, initial);
+  const { market, connectionStatus, refetch } = useMarketDetail(initial.id, initial);
   const [balance, setBalance] = useState(initialBalance);
   const [openBets, setOpenBets] = useState(initialOpenBets);
   const [error, setError] = useState<string | null>(null);
@@ -140,80 +141,84 @@ export function MarketDetail({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
-      <div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href={`/betting/event/${market.event_id}`}
-            className="text-xs uppercase tracking-wide text-steel hover:text-coral"
-          >
-            ← {market.event_name || "Event"}
-          </Link>
-          <StatusPill status={market.status} />
-          <LockCountdown lockAt={market.lock_at} status={market.status} />
-          <span className="text-xs text-steel">{new Date(market.game_at).toLocaleString()}</span>
-        </div>
-        <h1 className="type-display mt-2 text-3xl sm:text-4xl">
-          <span style={{ color: market.team_a.color }}>{market.team_a.name}</span>{" "}
-          <span className="text-steel">VS</span> <span style={{ color: market.team_b.color }}>{market.team_b.name}</span>
-        </h1>
+    <div className="space-y-4">
+      <ConnectionBanner status={connectionStatus} onRetry={() => void refetch()} />
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr] lg:items-start">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/betting/event/${market.event_id}`}
+              className="text-xs uppercase tracking-wide text-steel hover:text-coral"
+            >
+              ← {market.event_name || "Event"}
+            </Link>
+            <StatusPill status={market.status} />
+            <LockCountdown lockAt={market.lock_at} status={market.status} />
+            <span className="text-xs text-steel">{new Date(market.game_at).toLocaleString()}</span>
+          </div>
+          <h1 className="type-display mt-2 text-3xl sm:text-4xl">
+            <span style={{ color: market.team_a.color }}>{market.team_a.name}</span>{" "}
+            <span className="text-steel">VS</span>{" "}
+            <span style={{ color: market.team_b.color }}>{market.team_b.name}</span>
+          </h1>
 
-        <div className="mt-4">
-          <OddsBar team={market.team_a} percent={shareA} volume={market.pool_a} odds={americanOdds(shareA)} />
-          {market.draw_enabled && (
-            <OddsBar team={DRAW_TEAM} percent={shareDraw} volume={market.pool_draw} odds={americanOdds(shareDraw)} />
-          )}
-          <OddsBar team={market.team_b} percent={shareB} volume={market.pool_b} odds={americanOdds(shareB)} />
-        </div>
+          <div className="mt-4">
+            <OddsBar team={market.team_a} percent={shareA} volume={market.pool_a} odds={americanOdds(shareA)} />
+            {market.draw_enabled && (
+              <OddsBar team={DRAW_TEAM} percent={shareDraw} volume={market.pool_draw} odds={americanOdds(shareDraw)} />
+            )}
+            <OddsBar team={market.team_b} percent={shareB} volume={market.pool_b} odds={americanOdds(shareB)} />
+          </div>
 
-        <div className="mt-6">
-          <h2 className="label-dash">Rules</h2>
-          <div className="mt-2 rounded-lg border border-line bg-panel p-3 text-sm text-steel">
-            {market.rules ?? "No rules provided."}
+          <div className="mt-6">
+            <h2 className="label-dash">Rules</h2>
+            <div className="mt-2 rounded-lg border border-line bg-panel p-3 text-sm text-steel">
+              {market.rules ?? "No rules provided."}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h2 className="label-dash">Top Bets</h2>
+            {market.top_bets.length === 0 ? (
+              <p className="mt-2 text-sm text-steel">No bets yet — be the first.</p>
+            ) : (
+              <ul className="mt-2 flex flex-col gap-1.5">
+                {market.top_bets.map((b) => {
+                  const team = b.is_draw ? DRAW_TEAM : b.team_id === market.team_a.id ? market.team_a : market.team_b;
+                  return (
+                    <li
+                      key={`${b.discord_id}-${b.team_id ?? "draw"}`}
+                      className="flex items-center justify-between rounded border border-line bg-panel px-3 py-1.5 text-sm"
+                    >
+                      <span className="truncate text-steel">{b.username}</span>
+                      <span className="font-semibold" style={{ color: team.color }}>
+                        {fmtPoints(b.amount)} · {team.short_code}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
 
-        <div className="mt-6">
-          <h2 className="label-dash">Top Bets</h2>
-          {market.top_bets.length === 0 ? (
-            <p className="mt-2 text-sm text-steel">No bets yet — be the first.</p>
-          ) : (
-            <ul className="mt-2 flex flex-col gap-1.5">
-              {market.top_bets.map((b) => {
-                const team = b.is_draw ? DRAW_TEAM : b.team_id === market.team_a.id ? market.team_a : market.team_b;
-                return (
-                  <li
-                    key={`${b.discord_id}-${b.team_id ?? "draw"}`}
-                    className="flex items-center justify-between rounded border border-line bg-panel px-3 py-1.5 text-sm"
-                  >
-                    <span className="truncate text-steel">{b.username}</span>
-                    <span className="font-semibold" style={{ color: team.color }}>
-                      {fmtPoints(b.amount)} · {team.short_code}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        <div>
+          <YourPosition market={market} openBets={openBets} locked={locked} busy={pending} onCashout={handleCashout} />
+          <BetPanel
+            teamA={market.team_a}
+            teamB={market.team_b}
+            poolA={market.pool_a}
+            poolB={market.pool_b}
+            poolDraw={market.pool_draw}
+            drawEnabled={market.draw_enabled}
+            balance={balance}
+            locked={locked || pending}
+            loggedIn={loggedIn}
+            error={error}
+            onBet={handleBet}
+          />
+          <div className="mt-3 text-center text-xs text-steel">Total volume {fmtPoints(total)}</div>
         </div>
-      </div>
-
-      <div>
-        <YourPosition market={market} openBets={openBets} locked={locked} busy={pending} onCashout={handleCashout} />
-        <BetPanel
-          teamA={market.team_a}
-          teamB={market.team_b}
-          poolA={market.pool_a}
-          poolB={market.pool_b}
-          poolDraw={market.pool_draw}
-          drawEnabled={market.draw_enabled}
-          balance={balance}
-          locked={locked || pending}
-          loggedIn={loggedIn}
-          error={error}
-          onBet={handleBet}
-        />
-        <div className="mt-3 text-center text-xs text-steel">Total volume {fmtPoints(total)}</div>
       </div>
     </div>
   );

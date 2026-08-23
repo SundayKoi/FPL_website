@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import ConnectionBanner from "@/components/system/ConnectionBanner";
+import {
+  connectionStatusForChannel,
+  type LiveConnectionStatus,
+} from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex } from "@/lib/match-draft/rules";
 import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
@@ -529,6 +534,10 @@ export default function MatchDraftBoard({
   const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
   const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const reconnectCatchupRef = useRef(false);
+  const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
+    onSave ? "connected" : "connecting",
+  );
   const [imageSizeIndex, setImageSizeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -633,9 +642,15 @@ export default function MatchDraftBoard({
         },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
+        const next = connectionStatusForChannel(status);
+        if (!next) return;
+        setConnectionStatus(next);
+        if (next !== "connected") {
+          reconnectCatchupRef.current = true;
+          return;
         }
+        void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
+        if (reconnectCatchupRef.current) window.location.reload();
       });
     channelRef.current = channel;
     return () => {
@@ -1676,6 +1691,8 @@ export default function MatchDraftBoard({
           ) : null}
         </div>
       </header>
+
+      <ConnectionBanner status={connectionStatus} onRetry={() => window.location.reload()} />
 
       {completeBanner}
       {winnerPicker}

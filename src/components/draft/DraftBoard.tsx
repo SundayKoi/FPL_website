@@ -19,6 +19,7 @@ import DraftChat from "./DraftChat";
 import NominationAlert from "./NominationAlert";
 import Toast from "./Toast";
 import DraftSetupPreview from "./DraftSetupPreview";
+import ConnectionBanner from "@/components/system/ConnectionBanner";
 
 export default function DraftBoard({
   draftId,
@@ -77,8 +78,13 @@ export default function DraftBoard({
   return (
     <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
       <div className={chatTopReserve}>
-        <DraftHeader draft={draft} connected={s.connected} />
+        <DraftHeader draft={draft} />
       </div>
+
+      <ConnectionBanner
+        status={s.connected ? "connected" : s.loaded ? "reconnecting" : "connecting"}
+        onRetry={() => void s.refetch()}
+      />
 
       <NominationAlert
         isMyNomination={isMyNomination}

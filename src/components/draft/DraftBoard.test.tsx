@@ -57,6 +57,33 @@ describe("DraftBoard missing-draft states", () => {
 describe("DraftBoard live layout", () => {
   beforeEach(() => vi.mocked(useDraftState).mockReset());
 
+  it("lets a disconnected viewer manually refresh the auction state", () => {
+    const refetch = vi.fn(async () => {});
+    vi.mocked(useDraftState).mockReturnValue({
+      ...baseState,
+      loaded: true,
+      connected: false,
+      refetch,
+      draft: {
+        id: "draft-1",
+        name: "Summer Draft",
+        status: "live",
+        countdown_seconds: 30,
+        round_minimums: [1],
+        current_round: 1,
+        current_nominator_team_id: null,
+        paused_time_remaining: null,
+        created_at: "2026-01-01T00:00:00.000Z",
+      },
+    } as never);
+
+    render(<DraftBoard draftId="draft-1" />);
+
+    expect(screen.getByRole("alert").textContent).toMatch(/live updates interrupted/i);
+    fireEvent.click(screen.getByRole("button", { name: /retry now/i }));
+    expect(refetch).toHaveBeenCalledOnce();
+  });
+
   it("keeps every team in the teams rail and renders one chat rail", () => {
     vi.mocked(useDraftState).mockReturnValue({
       ...baseState,

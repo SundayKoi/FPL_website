@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computePools } from "@/lib/betting/pools";
 import type { MarketDetailData, MarketStatus, OpenBetRow } from "@/lib/betting/types";
+import {
+  connectionStatusForChannel,
+  type LiveConnectionStatus,
+} from "@/lib/realtime/connection";
 
 /**
  * Live-updates one market's pools/status on the client. Pattern ported from
@@ -17,7 +21,7 @@ import type { MarketDetailData, MarketStatus, OpenBetRow } from "@/lib/betting/t
 export function useMarketDetail(marketId: number, initial: MarketDetailData) {
   const supabase = useMemo(() => createClient(), []);
   const [market, setMarket] = useState<MarketDetailData>(initial);
-  const [connected, setConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>("connecting");
 
   // A page navigation to a different market swaps `initial` in wholesale.
   // Compare-and-adjust during render (not in an effect body, which the lint
@@ -76,13 +80,23 @@ export function useMarketDetail(marketId: number, initial: MarketDetailData) {
           }));
         }
       )
-      .subscribe((status) => setConnected(status === "SUBSCRIBED"));
+      .subscribe((status) => {
+        const next = connectionStatusForChannel(status);
+        if (!next) return;
+        setConnectionStatus(next);
+        if (next === "connected") void refetchPools();
+      });
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [supabase, marketId, refetchPools]);
 
-  return { market, connected, refetch: refetchPools };
+  return {
+    market,
+    connected: connectionStatus === "connected",
+    connectionStatus,
+    refetch: refetchPools,
+  };
 }
 
 /** The signed-in viewer's own open bets on a market, refetched after a
