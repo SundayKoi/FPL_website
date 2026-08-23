@@ -77,6 +77,29 @@ describe("opponent scouting derivation", () => {
     expect(pools.some((row) => row.playerName === "Former Mid")).toBe(false);
   });
 
+  it("keeps current-season former-team history and limits recent pools to five fixture groups", () => {
+    const scoped = structuredClone(source);
+    scoped.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    const pick = (fixtureId: string, champion: string, playerName: string | null = "Northstar") => ({ ...scoped.drafts[0], id: `pool-${fixtureId}-${champion}`, fixture_id: fixtureId, actions: [{ stepIndex: 6, side: "blue" as const, kind: "pick" as const, slot: 1, champion, playerName }] });
+    scoped.drafts = [pick("1", "FormerTeamAhri"), pick("2", "Orianna"), pick("3", "Zed"), pick("4", "Syndra"), pick("5", "Viktor"), pick("6", "LeBlanc"), pick("old", "ShouldNotCount", null)];
+    const season = deriveScoutData(scoped, "season").playerPools[0];
+    expect(season.champions.map((row) => row.champion)).toContain("FormerTeamAhri");
+    expect(season.totalPicks).toBe(2);
+    const recent = deriveScoutData(scoped, "recent").playerPools[0];
+    expect(recent.gamesSampled).toBe(5);
+    expect(recent.champions.map((row) => row.champion)).not.toContain("FormerTeamAhri");
+  });
+
+  it("preserves pool aggregates when the visible champion list is capped at five", () => {
+    const capped = structuredClone(source);
+    capped.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    capped.drafts = Array.from({ length: 6 }, (_, index) => ({ ...capped.drafts[0], id: `cap-${index}`, actions: [{ stepIndex: 6, side: "blue" as const, kind: "pick" as const, slot: 1, champion: `Champion ${index}`, playerName: "Northstar" }] }));
+    const pool = deriveScoutData(capped, "all").playerPools[0];
+    expect(pool.champions).toHaveLength(5);
+    expect(pool.distinctChampions).toBe(6);
+    expect(pool.totalPicks).toBe(6);
+  });
+
   it("derives openings, pairings, side facts, adaptation, and confirmed flexes", () => {
     const patterned = structuredClone(source);
     patterned.roster = [];

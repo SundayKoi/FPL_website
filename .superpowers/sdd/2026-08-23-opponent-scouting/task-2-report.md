@@ -18,3 +18,8 @@ Complete. Added trade-aware modular player pools and neutral opening, pairing, s
 
 - Pool champion rows and neutral pattern rows intentionally omit `rate`; `ChampionCount.rate` is now optional because these are count-only facts.
 - Player pool output is limited to five current-roster players after role/name ordering, while attribution scans all league draft rows and ignores action team names to preserve trade history.
+
+## Review fix
+
+- Follow-up commit caps each player’s visible champion list at five while retaining full aggregate totals, adds season/recent/unattributed-pick coverage, and canonicalizes flex role ordering.
+- `npm test -- src/lib/scouting/derive.test.ts` — PASS (7 tests)
