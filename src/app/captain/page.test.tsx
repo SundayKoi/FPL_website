@@ -10,6 +10,8 @@ const {
   fetchMyResults,
   fetchMyRoster,
   fetchAnnouncements,
+  fetchScoutingHistory,
+  opponentScout,
   adminCodeEditor,
   myRoster,
 } = vi.hoisted(() => ({
@@ -21,6 +23,8 @@ const {
   fetchMyResults: vi.fn(),
   fetchMyRoster: vi.fn(),
   fetchAnnouncements: vi.fn(),
+  fetchScoutingHistory: vi.fn(),
+  opponentScout: vi.fn((props: { source: { opponentName: string } }) => <section>Opponent scouting: {props.source.opponentName}</section>),
   adminCodeEditor: vi.fn((props: unknown) => {
     void props;
     return null;
@@ -46,7 +50,10 @@ vi.mock("@/lib/captain/queries", () => ({
   MatchCode: {},
 }));
 
+vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory }));
+
 vi.mock("@/components/captain/NextMatchCard", () => ({ default: () => <section>Next Match</section> }));
+vi.mock("@/components/captain/OpponentScout", () => ({ default: (props: { source: { opponentName: string } }) => opponentScout(props) }));
 vi.mock("@/components/captain/TourneyCodes", () => ({ default: () => <section>Tourney Codes</section> }));
 vi.mock("@/components/captain/ReportBox", () => ({ default: () => <section>Report a Result</section> }));
 vi.mock("@/components/captain/MyRoster", () => ({
@@ -92,12 +99,17 @@ function fixture(id: string, teamA: string, teamB: string) {
   };
 }
 
+function upcomingFixture(id: string, teamA: string, teamB: string) {
+  return { ...fixture(id, teamA, teamB), scheduled_at: "2026-09-01T00:00:00Z" };
+}
+
 function mockCaptainData() {
   fetchCodes.mockResolvedValue([]);
   fetchMyReports.mockResolvedValue([]);
   fetchMyRoster.mockResolvedValue({ draftPlayers: [], riotAccounts: [] });
   fetchMyResults.mockResolvedValue({ games: [], players: [] });
   fetchAnnouncements.mockResolvedValue([]);
+  fetchScoutingHistory.mockResolvedValue({ fixtures: [], drafts: [] });
 }
 
 afterEach(() => {
@@ -106,6 +118,66 @@ afterEach(() => {
 });
 
 describe("CaptainPage layout", () => {
+  it("loads Premier scouting with the next opponent and current roster", async () => {
+    const teams = [{ id: "one", name: "Team One" }, { id: "two", name: "Night Vale" }];
+    fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "S5" });
+    mockCaptainData();
+    fetchMyRoster.mockImplementation(async (_s, id) => id === "two" ? { draftPlayers: [{ id: "opp", display_name: "Mid", role: "mid" }], riotAccounts: [] } : { draftPlayers: [], riotAccounts: [] });
+    const next = upcomingFixture("f", "Team One", "Night Vale");
+    from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : table === "league_settings" ? query({ data: { current_phase: "Regular" } }) : query({ data: [] }));
+    render(await CaptainPageView({ searchParams: Promise.resolve({}), league: "premier" }));
+    expect(fetchScoutingHistory).toHaveBeenCalledWith(expect.anything(), { league: "premier", leagueTeamNames: ["Team One", "Night Vale"] });
+    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ opponentName: "Night Vale", currentSeason: "S5", nextFixture: next, roster: [{ id: "opp", displayName: "Mid", role: "mid" }] }) }));
+    expect(screen.getByText("Opponent scouting: Night Vale")).toBeTruthy();
+  });
+
+  it("loads Academy scouting with Academy context", async () => {
+    const teams = [{ id: "one", name: "Academy One" }, { id: "two", name: "Academy Two" }];
+    fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "A5" });
+    mockCaptainData();
+    const next = upcomingFixture("f", "Academy One", "Academy Two");
+    from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : query({ data: { current_phase: "Regular" } }));
+    render(await CaptainPageView({ searchParams: Promise.resolve({}), league: "academy" }));
+    expect(fetchScoutingHistory).toHaveBeenCalledWith(expect.anything(), { league: "academy", leagueTeamNames: ["Academy One", "Academy Two"] });
+    expect(screen.getByText("Opponent scouting: Academy Two")).toBeTruthy();
+  });
+
+  it("does not load scouting without an upcoming fixture", async () => {
+    const team = { id: "one", name: "Team One" };
+    fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams: [team], activeTeams: [team], myTeamId: "one", season: "S5" });
+    mockCaptainData();
+    from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [] }) : query({ data: { current_phase: "Regular" } }));
+    render(await CaptainPageView({ searchParams: Promise.resolve({}) }));
+    expect(fetchScoutingHistory).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Opponent scouting/)).toBeNull();
+  });
+
+  it("isolates a rejected scout query from the rest of the captain page", async () => {
+    const teams = [{ id: "one", name: "Team One" }, { id: "two", name: "Night Vale" }];
+    fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "S5" });
+    mockCaptainData();
+    fetchScoutingHistory.mockRejectedValue(new Error("unavailable"));
+    from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [upcomingFixture("f", "Team One", "Night Vale")] }) : query({ data: { current_phase: "Regular" } }));
+    render(await CaptainPageView({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByText("Next Match")).toBeTruthy();
+    expect(screen.getByText("Tourney Codes")).toBeTruthy();
+    expect(screen.getByText("Report a Result")).toBeTruthy();
+    expect(screen.getByText("My roster")).toBeTruthy();
+    expect(screen.getByText("My results & stats")).toBeTruthy();
+    expect(screen.getByText("Announcements")).toBeTruthy();
+    expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
+  });
+
+  it("uses the admin-selected team when resolving the scout opponent", async () => {
+    const teams = [{ id: "one", name: "Team One" }, { id: "two", name: "Team Two" }, { id: "three", name: "Team Three" }];
+    fetchCaptainContext.mockResolvedValue({ profileId: "admin", isAdmin: true, teams, activeTeams: teams, myTeamId: null, season: "S5" });
+    mockCaptainData();
+    const next = upcomingFixture("f", "Team Two", "Team Three");
+    from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [next] }) : table === "league_settings" ? query({ data: { current_phase: "Regular" } }) : query({ data: [] }));
+    render(await CaptainPageView({ searchParams: Promise.resolve({ team: "two" }) }));
+    expect(screen.getByRole("heading", { name: "Team Two" })).toBeTruthy();
+    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({ source: expect.objectContaining({ opponentName: "Team Three" }) }));
+  });
   it("uses a wide responsive action layout and keeps lower sections below it", async () => {
     const team = { id: "team-1", name: "Team One" };
     fetchCaptainContext.mockResolvedValue({

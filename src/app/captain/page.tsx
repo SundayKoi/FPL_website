@@ -28,6 +28,8 @@ import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { leaguePath } from "@/lib/league/links";
+import { fetchScoutingHistory } from "@/lib/scouting/queries";
+import OpponentScout from "@/components/captain/OpponentScout";
 
 export async function CaptainPageView({
   searchParams,
@@ -96,7 +98,23 @@ export async function CaptainPageView({
     opponentTeamId = activeIsA ? prefillTeamBId : prefillTeamAId;
   }
 
-  const [codes, draftGames, myReports, roster, opponentRoster, results, announcements] = await Promise.all([
+  const opponentName = nextFixture
+    ? normalizeName(nextFixture.team_a) === normalizeName(activeTeam.name)
+      ? nextFixture.team_b
+      : nextFixture.team_a
+    : null;
+  const scoutingHistoryPromise = nextFixture && opponentName
+    ? fetchScoutingHistory(supabase, {
+        league,
+        leagueTeamNames: context.teams.map((team) => team.name),
+      }).then((history) => ({ ok: true as const, history }))
+        .catch((error: unknown) => {
+          console.error("Unable to load opponent scouting", error);
+          return { ok: false as const };
+        })
+    : null;
+
+  const [codes, draftGames, myReports, roster, opponentRoster, results, announcements, scoutingHistoryResult] = await Promise.all([
     nextFixture ? fetchCodes(supabase, nextFixture.id) : Promise.resolve([]),
     nextFixture ? fetchDraftGames(supabase, nextFixture.id, context.teams) : Promise.resolve([]),
     fetchMyReports(supabase, activeTeamId, context.season),
@@ -104,7 +122,22 @@ export async function CaptainPageView({
     opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
     fetchMyResults(supabase, activeTeam.name, context.season),
     fetchAnnouncements(supabase),
+    scoutingHistoryPromise ?? Promise.resolve(null),
   ]);
+
+  const scoutingSource = scoutingHistoryResult?.ok && nextFixture && opponentName
+    ? {
+        ...scoutingHistoryResult.history,
+        opponentName,
+        currentSeason: context.season,
+        nextFixture,
+        roster: (opponentRoster?.draftPlayers ?? []).map((player) => ({
+          id: player.id,
+          displayName: player.display_name,
+          role: player.role,
+        })),
+      }
+    : null;
 
   // What the drafter already knows about the next series feeds the report
   // form: completed games arrive as pre-built rows with the drafted blue
@@ -206,6 +239,12 @@ export async function CaptainPageView({
                 opponentMultiOpggUrl={opponentMultiOpggUrl}
                 draftGames={draftGames}
               />
+              {scoutingSource ? <OpponentScout source={scoutingSource} /> : scoutingHistoryResult?.ok === false ? (
+                <section className="card-brand p-5" aria-label="Opponent scouting unavailable">
+                  <span className="label-dash text-gold">Premium · Opponent scouting</span>
+                  <p className="mt-2 text-sm text-steel">Scouting data is temporarily unavailable.</p>
+                </section>
+              ) : null}
               <TourneyCodes codes={codes} />
               <MyRoster
                 draftPlayers={roster.draftPlayers}
