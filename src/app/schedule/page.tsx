@@ -6,6 +6,7 @@ import {
   groupByStage,
   nextUp,
   resolveSeason,
+  selectDefaultOpenStages,
   seasonsOf,
   stageMeta,
 } from "@/lib/schedule/format";
@@ -14,6 +15,7 @@ import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
+import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
@@ -58,6 +60,7 @@ export default async function SchedulePage({
 
   const grouped = groupByStage(fixtures);
   const upNext = nextUp(fixtures, new Date());
+  const defaultOpenStages = selectDefaultOpenStages(fixtures, upNext?.stage ?? null);
   const groups = ["Regular Season", "Gauntlet", "Playoffs"] as const;
 
   return (
@@ -134,11 +137,13 @@ export default async function SchedulePage({
                 {grouped
                   .filter(({ meta }) => meta.group === group)
                   .map(({ meta, fixtures: stageFixtures }) => (
-                    <div id={meta.stage} key={meta.stage} className="card-brand scroll-mt-24 overflow-hidden">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
-                        <h3 className="type-display text-xl">{meta.label}</h3>
-                        <span className="text-xs text-steel">{meta.note}</span>
-                      </div>
+                    <CollapsibleScheduleStage
+                      key={meta.stage}
+                      stageId={meta.stage}
+                      label={meta.label}
+                      note={meta.note}
+                      initiallyOpen={defaultOpenStages.has(meta.stage)}
+                    >
                       {stageFixtures.length === 0 ? (
                         <p className="px-4 py-4 text-sm text-steel">
                           Matchups TBD — check back once they&apos;re announced.
@@ -148,7 +153,7 @@ export default async function SchedulePage({
                           <FixtureCard key={fixture.id} fixture={fixture} identities={identities} />
                         ))
                       )}
-                    </div>
+                    </CollapsibleScheduleStage>
                   ))}
               </div>
             </section>

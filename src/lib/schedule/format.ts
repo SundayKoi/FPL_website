@@ -136,6 +136,22 @@ export function groupByStage(rows: FixtureRow[]): { meta: StageMeta; fixtures: F
   }));
 }
 
+/** The stages that should be expanded when a schedule page first loads. */
+export function selectDefaultOpenStages(
+  rows: FixtureRow[],
+  upcomingStage: FixtureStage | null,
+): Set<FixtureStage> {
+  const latestPlayedStage = [...STAGE_META]
+    .reverse()
+    .find(({ stage }) => rows.some((row) => row.stage === stage && hasResult(row)))?.stage;
+
+  return new Set(
+    [latestPlayedStage, upcomingStage].filter(
+      (stage): stage is FixtureStage => stage !== undefined && stage !== null,
+    ),
+  );
+}
+
 /**
  * The next thing happening in the season, for the schedule's "Up Next"
  * banner: the earliest future-dated unplayed fixture's stage (with its

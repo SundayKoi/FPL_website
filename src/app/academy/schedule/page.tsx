@@ -3,9 +3,10 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { academyTeamNames } from "@/lib/league/context";
-import { formatKickoff, groupByStage, nextUp, resolveSeason, seasonsOf, stageMeta } from "@/lib/schedule/format";
+import { formatKickoff, groupByStage, nextUp, resolveSeason, selectDefaultOpenStages, seasonsOf, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import FixtureCard from "@/components/schedule/FixtureCard";
+import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
@@ -23,6 +24,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
   const seasonFixtures = season ? fixtures.filter((fixture) => fixture.season === season) : [];
   const grouped = groupByStage(seasonFixtures);
   const upNext = nextUp(seasonFixtures, new Date());
+  const defaultOpenStages = selectDefaultOpenStages(seasonFixtures, upNext?.stage ?? null);
   return (
     <main className="bg-hash flex-1"><div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
       <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between"><div><span className="label-dash">ACADEMY LEAGUE CALENDAR</span><h1 className="type-display mt-3 text-5xl sm:text-6xl">Academy Schedule</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-steel">Academy fixtures filtered to the teams in the S1 Academy draft.</p></div><LeaguePageToggle page="schedule" view="academy" params={{ season: Array.isArray(requested) ? requested[0] : requested }} /></header>
@@ -30,7 +32,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
       {seasonsOf(fixtures).length > 1 ? <nav aria-label="Season" className="mt-8 flex flex-wrap gap-2">{seasonsOf(fixtures).map((value) => <Link key={value} href={`/academy/schedule?season=${encodeURIComponent(value)}`} className="rounded-full border border-line bg-panel px-3 py-1 text-xs text-steel">{value}</Link>)}</nav> : null}
       {/* No Gauntlet in Academy: the split goes straight from the regular
           season into the playoff bracket. */}
-      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <div id={meta.stage} key={meta.stage} className="card-brand scroll-mt-24 overflow-hidden"><div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3"><h3 className="type-display text-xl">{meta.label}</h3><span className="text-xs text-steel">{meta.note}</span></div>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={null} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</div>)}</div></section>)}</div>
+      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <CollapsibleScheduleStage key={meta.stage} stageId={meta.stage} label={meta.label} note={meta.note} initiallyOpen={defaultOpenStages.has(meta.stage)}>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={null} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</CollapsibleScheduleStage>)}</div></section>)}</div>
     </div></main>
   );
 }

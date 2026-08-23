@@ -8,6 +8,7 @@ import {
   hasResult,
   nextUp,
   resolveSeason,
+  selectDefaultOpenStages,
   selectActiveRegularSeasonStage,
   seasonsOf,
   stageMeta,
@@ -155,6 +156,27 @@ describe("selectActiveRegularSeasonStage", () => {
       fixture({ stage, score_a: 2, score_b: 1 }),
     );
     expect(selectActiveRegularSeasonStage(rows)).toBeNull();
+  });
+});
+
+describe("selectDefaultOpenStages", () => {
+  it("opens the latest played stage and the upcoming stage", () => {
+    const rows = [
+      fixture({ stage: "week_1", score_a: 2, score_b: 1 }),
+      fixture({ stage: "week_2", score_a: 2, score_b: 0 }),
+      fixture({ stage: "week_3" }),
+    ];
+
+    expect([...selectDefaultOpenStages(rows, "week_3")]).toEqual(["week_2", "week_3"]);
+  });
+
+  it("opens only the latest played stage when there is no upcoming stage", () => {
+    const rows = [
+      fixture({ stage: "week_1", score_a: 2, score_b: 1 }),
+      fixture({ stage: "week_2", score_a: 2, score_b: 0 }),
+    ];
+
+    expect([...selectDefaultOpenStages(rows, null)]).toEqual(["week_2"]);
   });
 });
 
