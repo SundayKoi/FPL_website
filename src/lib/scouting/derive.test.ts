@@ -103,6 +103,24 @@ describe("opponent scouting derivation", () => {
     expect(pool.totalPicks).toBe(6);
   });
 
+  it("counts games rather than fixture series for sampled metrics and player pools", () => {
+    const series = structuredClone(source);
+    series.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    const playerAction = (champion: string): MatchDraftAction => ({ stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion, playerName: "Northstar" });
+    series.drafts = [
+      ...series.drafts,
+      { ...series.drafts[0], id: "series-game-2", fixture_id: "2", game_number: 2, actions: [playerAction("Ahri")] },
+    ];
+    series.drafts = series.drafts.map((draft) => draft.fixture_id === "2" && draft.game_number === 1 ? { ...draft, actions: [playerAction("Orianna")] } : draft);
+    expect(scopeTeamGames(series, "recent")).toHaveLength(6);
+    const data = deriveScoutData(series, "recent");
+    expect(data.gamesSampled).toBe(6);
+    expect(data.blueGames).toBe(6);
+    expect(data.playerPools[0]?.gamesSampled).toBe(2);
+    const all = deriveScoutData(series, "all");
+    expect(all.playerPools[0]?.gamesSampled).toBe(2);
+  });
+
   it("derives openings, pairings, side facts, adaptation, and confirmed flexes", () => {
     const patterned = structuredClone(source);
     patterned.roster = [];
@@ -112,7 +130,7 @@ describe("opponent scouting derivation", () => {
       actions: LCS_DRAFT_STEPS.map((step) => ({ stepIndex: step.index, side: step.side, kind: step.kind, slot: step.slot, champion: step.kind === "pick" ? (step.side === "blue" ? [first, "Vi", "Nautilus", "Ahri", "Garen"][step.slot - 1] : `red-${step.slot}`) : `ban-${step.index}` })),
     });
     patterned.fixtures = [fixture("p1", "S5", "2026-08-10T00:00:00Z")];
-    patterned.drafts = [game("p1", 1, "Other", "Ahri", ["Ahri", "Vi", "Ahri", "Nautilus", "Garen"]), { ...game("p2", 2, "Night Vale", "Ahri"), fixture_id: "p1" }];
+    patterned.drafts = [game("p1", 1, "Other", "Ahri", ["Ahri", "Vi", "Ahri", "Nautilus", "Garen"]), { ...game("p2", 2, "Night Vale", "ahri"), fixture_id: "p1" }];
     const data = deriveScoutData(patterned, "all");
     expect(data.openings[0]).toMatchObject({ champion: "Ahri / Vi / Nautilus", count: 2 });
     expect(data.pairings.find((row) => row.champion === "Ahri + Vi")?.count).toBe(2);

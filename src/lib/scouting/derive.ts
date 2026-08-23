@@ -99,7 +99,9 @@ export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedS
       lossesFollowed++;
       const picksFor = (game: TeamGame) => LCS_DRAFT_STEPS.filter((step) => step.side === game.side && step.kind === "pick").map((step) => { const action = actionForStep(game.draft.actions, step); return action?.skipped ? null : cleanChampion(action?.champion); }).filter((champion): champion is string => Boolean(champion));
       const before = picksFor(current); const after = picksFor(next);
-      if (before[0] !== after[0]) changedFirstPick++;
+      const beforeKey = before[0] ? normalizeChampionName(championDisplayName(before[0])) : null;
+      const afterKey = after[0] ? normalizeChampionName(championDisplayName(after[0])) : null;
+      if (beforeKey !== afterKey) changedFirstPick++;
       const prior = new Set(before.map((champion) => normalizeChampionName(championDisplayName(champion))));
       repeatedChampions += after.filter((champion) => prior.has(normalizeChampionName(championDisplayName(champion)))).length;
     }
@@ -115,7 +117,7 @@ export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedS
     const counts: ChampionCounts = new Map();
     for (const draft of attributed) for (const action of draft.actions) if (action.kind === "pick" && action.champion && scoutKey(action.playerName) === scoutKey(player.displayName)) addChampion(counts, action.champion);
     const champions = rankNames(counts);
-    return { playerName: player.displayName.trim(), role: player.role, champions: champions.slice(0, 5), distinctChampions: champions.length, totalPicks: champions.reduce((sum, row) => sum + row.count, 0), gamesSampled: new Set(attributed.map((draft) => draft.fixture_id)).size };
+    return { playerName: player.displayName.trim(), role: player.role, champions: champions.slice(0, 5), distinctChampions: champions.length, totalPicks: champions.reduce((sum, row) => sum + row.count, 0), gamesSampled: attributed.length };
   });
   const flexCounts = new Map<string, Set<string>>();
   for (const game of games) {
@@ -124,7 +126,5 @@ export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedS
   }
   const flexes = [...flexCounts.entries()].filter(([, roles]) => roles.size > 1).map(([key, roles]) => ({ champion: championDisplayName(key), roles: [...roles].sort((a, b) => ROLE_ORDER.indexOf(a.toLowerCase() as typeof ROLE_ORDER[number]) - ROLE_ORDER.indexOf(b.toLowerCase() as typeof ROLE_ORDER[number])) })).sort((a, b) => a.champion.localeCompare(b.champion));
   const pastDrafts: PastDraft[] = games.map((game) => ({ fixture: game.fixture, gameNumber: game.draft.game_number, side: game.side, winnerTeam: game.draft.winner_team, blue: sideDraft(game.draft, "blue"), red: sideDraft(game.draft, "red") }));
-  const seriesIds = new Set(games.map((game) => game.fixture.id));
-  const blueSeriesIds = new Set(games.filter((game) => game.side === "blue").map((game) => game.fixture.id));
-  return { gamesSampled: seriesIds.size, blueGames: blueSeriesIds.size, distinctChampions: picked.size, firstPicks: rank(first, games.length), bannedAgainst: rank(against, games.length), banPhaseOne: rank(p1, games.length), banPhaseTwo: rank(p2, games.length), openings: rankNames(openingCounts), pairings: rankNames(pairingCounts), sideFacts, adaptation: { lossesFollowed, changedFirstPick, repeatedChampions }, flexes, playerPools, pastDrafts };
+  return { gamesSampled: games.length, blueGames: games.filter((game) => game.side === "blue").length, distinctChampions: picked.size, firstPicks: rank(first, games.length), bannedAgainst: rank(against, games.length), banPhaseOne: rank(p1, games.length), banPhaseTwo: rank(p2, games.length), openings: rankNames(openingCounts), pairings: rankNames(pairingCounts), sideFacts, adaptation: { lossesFollowed, changedFirstPick, repeatedChampions }, flexes, playerPools, pastDrafts };
 }

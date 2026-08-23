@@ -25,3 +25,10 @@ Complete. Added trade-aware modular player pools and neutral opening, pairing, s
 - `npm test -- src/lib/scouting/derive.test.ts` — PASS (7 tests)
 
 Additional review coverage confirms all-history pools exclude picks with missing `playerName` while retaining the attributed fixture set.
+
+## Final data fix
+
+- Sampling metrics now count attributed draft games, including multi-game series; blue counts use blue-side games, and player pool `gamesSampled` uses attributed draft rows.
+- Adaptation first-pick comparisons canonicalize champion aliases/case before detecting changes.
+- `npm test -- src/lib/scouting/derive.test.ts src/lib/scouting/queries.test.ts` — PASS (11 tests)
+- `git diff --check` — PASS
