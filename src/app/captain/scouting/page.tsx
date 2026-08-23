@@ -78,6 +78,7 @@ export async function CaptainScoutingPageView({
       scoutingSource = {
         ...history,
         opponentName,
+        teamName: opponentName,
         currentSeason: context.season,
         nextFixture,
         roster: (opponentRoster?.draftPlayers ?? []).map((player) => ({ id: player.id, displayName: player.display_name, role: player.role })),

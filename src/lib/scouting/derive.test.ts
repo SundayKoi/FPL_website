@@ -133,9 +133,50 @@ describe("opponent scouting derivation", () => {
     patterned.drafts = [game("p1", 1, "Other", "Ahri", ["Ahri", "Vi", "Ahri", "Nautilus", "Garen"]), { ...game("p2", 2, "Night Vale", "ahri"), fixture_id: "p1" }];
     const data = deriveScoutData(patterned, "all");
     expect(data.openings[0]).toMatchObject({ champion: "Ahri / Vi / Nautilus", count: 2 });
-    expect(data.pairings.find((row) => row.champion === "Ahri + Vi")?.count).toBe(2);
+    expect(data.pairings.find((row) => row.champion === "Ahri + Vi")).toBeUndefined();
     expect(data.sideFacts).toEqual(expect.arrayContaining([{ side: "blue", games: 2, commonOpening: expect.objectContaining({ champion: "Ahri", count: 2 }) }]));
     expect(data.adaptation).toEqual({ lossesFollowed: 1, changedFirstPick: 0, repeatedChampions: 5 });
     expect(data.flexes).toEqual([{ champion: "Ahri", roles: ["Top", "Mid"] }]);
+  });
+
+  it("only reports champion pairings repeated in at least three games", () => {
+    const patterned = structuredClone(source);
+    const pairingActions = (first: string): MatchDraftAction[] => LCS_DRAFT_STEPS.map((step) => ({
+      stepIndex: step.index, side: step.side, kind: step.kind, slot: step.slot,
+      champion: step.kind === "pick"
+        ? step.side === "blue" ? [first, "Vi", "Nautilus", "Syndra", "Garen"][step.slot - 1] : `red-${step.slot}`
+        : `ban-${step.index}`,
+    }));
+    patterned.fixtures = [fixture("pair-1"), fixture("pair-2"), fixture("pair-3")];
+    patterned.drafts = patterned.fixtures.map((row) => ({
+      ...patterned.drafts[0], id: `draft-${row.id}`, fixture_id: row.id, actions: pairingActions("Ahri"),
+    }));
+
+    const twoGames = structuredClone(patterned);
+    twoGames.fixtures = twoGames.fixtures.slice(0, 2);
+    twoGames.drafts = twoGames.drafts.slice(0, 2);
+    expect(deriveScoutData(twoGames, "all").pairings.find((row) => row.champion === "Ahri + Vi")).toBeUndefined();
+    const data = deriveScoutData(patterned, "all");
+    expect(data.pairings.find((row) => row.champion === "Ahri + Vi")).toEqual({ champion: "Ahri + Vi", count: 3 });
+  });
+
+  it("attributes unlabelled confirmed-role picks to the matching current-roster player", () => {
+    const attributed = structuredClone(source);
+    attributed.teamName = "Night Vale";
+    attributed.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    attributed.drafts = [{
+      ...attributed.drafts[0],
+      actions: actions("Ahri"),
+      positions: { blue: [null, null, "Ahri", null, null] },
+    }, {
+      ...attributed.drafts[0],
+      id: "other-side",
+      actions: actions("Ahri").map((action) => action.stepIndex === 16 ? { ...action, champion: "Ahri" } : action),
+      positions: { red: [null, null, "Ahri", null, null] },
+    }];
+
+    expect(deriveScoutData(attributed, "all").playerPools[0]).toMatchObject({
+      playerName: "Northstar", champions: [{ champion: "Ahri", count: 1 }], totalPicks: 1,
+    });
   });
 });

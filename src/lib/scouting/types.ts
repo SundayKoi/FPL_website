@@ -7,7 +7,7 @@ export interface ScoutFixtureRow { id: string; season: string; stage: FixtureRow
 export interface ScoutDraftRow { id: string; fixture_id: string; game_number: number; blue_team_name: string | null; red_team_name: string | null; winner_team: string | null; actions: MatchDraftAction[]; positions: MatchDraftPositions | null; created_at: string; }
 export interface ScoutRosterPlayer { id: string; displayName: string; role: LolRole; }
 export interface ScoutHistory { fixtures: ScoutFixtureRow[]; drafts: ScoutDraftRow[]; }
-export interface ScoutSource extends ScoutHistory { opponentName: string; currentSeason: string; nextFixture: ScoutFixtureRow; roster: ScoutRosterPlayer[]; }
+export interface ScoutSource extends ScoutHistory { opponentName: string; /** Team whose roster the source roster represents. */ teamName?: string; currentSeason: string; nextFixture: ScoutFixtureRow; roster: ScoutRosterPlayer[]; }
 export interface ChampionCount { champion: string; count: number; rate?: number; }
 export interface DraftSlot { champion: string | null; skipped: boolean; playerName?: string | null; }
 export interface FullDraftSide { teamName: string | null; picks: DraftSlot[]; banPhaseOne: DraftSlot[]; banPhaseTwo: DraftSlot[]; }
