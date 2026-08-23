@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { resolvePlayerOpggUrl, resolvePlayerRank } from "./playerMetadata";
+import { comparePlayerRanks, resolvePlayerOpggUrl, resolvePlayerRank } from "./playerMetadata";
+
+describe("comparePlayerRanks", () => {
+  it.each([
+    ["M10", "D1", "master before diamond"],
+    ["D2", "E1", "diamond before emerald"],
+    ["D1", "D2", "lower division first within a tier"],
+  ])("sorts %s before %s (%s)", (left, right) => {
+    expect(comparePlayerRanks(left, right)).toBeLessThan(0);
+  });
+
+  it("puts null or malformed ranks after known ranks", () => {
+    expect(comparePlayerRanks("M1", null)).toBeLessThan(0);
+    expect(comparePlayerRanks(null, "M1")).toBeGreaterThan(0);
+    expect(comparePlayerRanks("M1", "broken")).toBeLessThan(0);
+  });
+
+  it("returns zero for equal ranks", () => {
+    expect(comparePlayerRanks("D3", "D3")).toBe(0);
+  });
+});
 
 describe("resolvePlayerRank", () => {
   const canonical = [

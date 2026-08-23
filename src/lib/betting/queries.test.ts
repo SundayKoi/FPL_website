@@ -1,59 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { makeSupabaseFrom, type SupabaseFilterCall } from "@/test-utils/supabaseQuery";
 
 // queries.ts is `import "server-only"` — same stub as wallet.test.ts (vitest
 // resolves that package's default "throws by design" export, not the
 // "react-server" condition Next.js's bundler swaps it for).
 vi.mock("server-only", () => ({}));
-
-/**
- * A minimal chainable mock of the supabase-js query builder: every filter
- * method (`select`/`in`/`eq`/`gt`/`gte`/`not`/`order`/`limit`) returns the
- * same builder, and the builder resolves to `result` whether the caller
- * awaits it directly (PostgrestBuilder is thenable) or calls `.maybeSingle()`
- * — good enough for queries.ts's read-only chains, which never care which of
- * those the production code used to terminate the chain.
- */
-type FilterCall = { table: string; method: string; args: unknown[] };
-
-function chain(result: { data: unknown; error?: unknown }, record?: (method: string, args: unknown[]) => void) {
-  const filter =
-    (method: string) =>
-    (...args: unknown[]) => {
-      record?.(method, args);
-      return builder;
-    };
-  const builder: Record<string, unknown> = {
-    select: filter("select"),
-    in: filter("in"),
-    eq: filter("eq"),
-    gt: filter("gt"),
-    gte: filter("gte"),
-    not: filter("not"),
-    order: filter("order"),
-    limit: filter("limit"),
-    maybeSingle: () => Promise.resolve(result),
-    then: (resolve: (r: typeof result) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(result).then(resolve, reject),
-  };
-  return builder;
-}
-
-/** Builds a `from(table)` mock that replays a queue of results per table —
- * queries.ts calls `.from("betting_pickems")` up to twice per fetchOpenPickem
- * (the OPEN/LOCKED check, then the resolved/cancelled fallback) and
- * `.from("betting_pickem_cards")` twice (pool aggregation, then the viewer's
- * own card), so each table needs its own ordered queue. Filter-method calls
- * land in `log` (when given) so tests can assert on scoping like
- * `.eq("event_id", …)`. */
-function makeFrom(responses: Record<string, { data: unknown }[]>, log?: FilterCall[]) {
-  const counters: Record<string, number> = {};
-  return vi.fn((table: string) => {
-    const i = counters[table] ?? 0;
-    counters[table] = i + 1;
-    const queue = responses[table] ?? [];
-    return chain(queue[i] ?? { data: null }, (method, args) => log?.push({ table, method, args }));
-  });
-}
 
 const fromImpl = { current: vi.fn() };
 vi.mock("./service-client", () => ({
@@ -76,7 +27,7 @@ const market1 = {
 
 describe("fetchOpenPickem", () => {
   it("returns the OPEN pick'em when one is live", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_pickems: [{ data: { id: 9, title: "Friday Night", status: "OPEN", carryover: 500, lock_at: "2030-01-01T00:55:00Z" } }],
       betting_pickem_legs: [{ data: [{ market_id: 1 }] }],
       betting_markets: [{ data: [market1] }],
@@ -97,7 +48,7 @@ describe("fetchOpenPickem", () => {
   });
 
   it("falls back to the most recent RESOLVED pick'em when none is open, so the result stays reachable", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_pickems: [
         { data: null }, // no OPEN/LOCKED pick'em
         { data: { id: 4, title: "Last Night", status: "RESOLVED", carryover: 0, lock_at: "2030-01-01T00:00:00Z" } },
@@ -119,7 +70,7 @@ describe("fetchOpenPickem", () => {
   });
 
   it("returns null when there's no open pick'em and nothing resolved within the grace window", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_pickems: [{ data: null }, { data: null }],
     });
 
@@ -131,7 +82,7 @@ describe("fetchOpenPickem", () => {
   });
 
   it("returns null (without a viewer id) when nothing is live or recently settled", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_pickems: [{ data: null }, { data: null }],
     });
 
@@ -141,8 +92,8 @@ describe("fetchOpenPickem", () => {
   });
 
   it("scopes both the live query and the resolved fallback to the event when an eventId is given", async () => {
-    const log: FilterCall[] = [];
-    fromImpl.current = makeFrom(
+    const log: SupabaseFilterCall[] = [];
+    fromImpl.current = makeSupabaseFrom(
       {
         betting_pickems: [{ data: null }, { data: null }],
       },
@@ -159,7 +110,7 @@ describe("fetchOpenPickem", () => {
 
 describe("fetchEventSummaries", () => {
   it("aggregates per-event market counts and pick'em state, live events first by soonest lock", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_events: [
         {
           data: [
@@ -203,7 +154,7 @@ describe("fetchEventSummaries", () => {
   });
 
   it("returns an empty list when no events exist", async () => {
-    fromImpl.current = makeFrom({});
+    fromImpl.current = makeSupabaseFrom({});
 
     expect(await fetchEventSummaries()).toEqual([]);
   });

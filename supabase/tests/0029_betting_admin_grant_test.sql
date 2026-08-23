@@ -3,18 +3,7 @@
 -- pgTAP (same local-factory convention as 0025/0026).
 begin;
 create extension if not exists pgtap with schema extensions;
-
-create or replace function test_profile(p_balance bigint default 0) returns text
-language plpgsql as $$
-declare v_id text := 'u_' || substr(md5(random()::text || clock_timestamp()::text), 1, 20);
-begin
-  insert into betting_profiles(discord_id, username, balance) values (v_id, v_id, p_balance);
-  if p_balance <> 0 then
-    insert into betting_ledger(discord_id, delta, reason) values (v_id, p_balance, 'seed');
-  end if;
-  return v_id;
-end;
-$$;
+\ir helpers/_betting_fixtures.sql.inc
 
 select plan(14);
 

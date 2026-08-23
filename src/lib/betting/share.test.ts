@@ -1,39 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { makeSupabaseFrom } from "@/test-utils/supabaseQuery";
 
 // share.ts is `import "server-only"` — same stub as queries.test.ts/wallet.test.ts
 // (vitest resolves that package's default "throws by design" export, not the
 // "react-server" condition Next.js's bundler swaps it for).
 vi.mock("server-only", () => ({}));
-
-/**
- * A minimal chainable mock of the supabase-js query builder — same shape as
- * queries.test.ts's helper: every filter method returns the builder itself,
- * and the builder resolves to `result` whether the caller awaits it directly
- * or calls `.maybeSingle()`.
- */
-function chain(result: { data: unknown; error?: unknown }) {
-  const builder: Record<string, unknown> = {
-    select: () => builder,
-    eq: () => builder,
-    in: () => builder,
-    maybeSingle: () => Promise.resolve(result),
-    then: (resolve: (r: typeof result) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(result).then(resolve, reject),
-  };
-  return builder;
-}
-
-/** Builds a `from(table)` mock that replays a queue of results per table,
- * same convention as queries.test.ts's makeFrom. */
-function makeFrom(responses: Record<string, { data: unknown }[]>) {
-  const counters: Record<string, number> = {};
-  return vi.fn((table: string) => {
-    const i = counters[table] ?? 0;
-    counters[table] = i + 1;
-    const queue = responses[table] ?? [];
-    return chain(queue[i] ?? { data: null });
-  });
-}
 
 const fromImpl = { current: vi.fn() };
 vi.mock("./service-client", () => ({
@@ -58,12 +29,12 @@ const openMarket = {
 
 describe("shareModel", () => {
   it("returns null for an unknown market id", async () => {
-    fromImpl.current = makeFrom({ betting_markets: [{ data: null }] });
+    fromImpl.current = makeSupabaseFrom({ betting_markets: [{ data: null }] });
     expect(await shareModel(999)).toBeNull();
   });
 
   it("shapes an OPEN market's title/teams/pools with no resolve summary", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: openMarket }],
       betting_teams: [{ data: [teamA, teamB] }],
       betting_bets: [
@@ -90,7 +61,7 @@ describe("shareModel", () => {
   });
 
   it("falls back to 'A vs B' when the market has no title", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: { ...openMarket, title: null } }],
       betting_teams: [{ data: [teamA, teamB] }],
       betting_bets: [{ data: [] }],
@@ -101,7 +72,7 @@ describe("shareModel", () => {
   });
 
   it("computes a resolved market's winner + payout summary", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: { ...openMarket, status: "RESOLVED", winning_team_id: 11 } }],
       betting_teams: [{ data: [teamA, teamB] }],
       betting_bets: [
@@ -128,7 +99,7 @@ describe("shareModel", () => {
   });
 
   it("computes a drawn market's summary with no winning team", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: { ...openMarket, status: "RESOLVED", drawn: true, winning_team_id: null } }],
       betting_teams: [{ data: [teamA, teamB] }],
       betting_bets: [
@@ -152,7 +123,7 @@ describe("shareModel", () => {
   });
 
   it("handles a resolved market where nobody backed the winning side", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: { ...openMarket, status: "RESOLVED", winning_team_id: 11 } }],
       betting_teams: [{ data: [teamA, teamB] }],
       betting_bets: [{ data: [{ discord_id: "loser1", team_id: 12, is_draw: false, amount: 40, payout: 40 }] }],
@@ -167,7 +138,7 @@ describe("shareModel", () => {
   });
 
   it("returns null when a team referenced by the market is missing", async () => {
-    fromImpl.current = makeFrom({
+    fromImpl.current = makeSupabaseFrom({
       betting_markets: [{ data: openMarket }],
       betting_teams: [{ data: [teamA] }],
     });

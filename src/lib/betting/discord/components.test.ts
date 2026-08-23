@@ -1,33 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { makeSupabaseFrom } from "@/test-utils/supabaseQuery";
 
 // components.ts (via service-client.ts) is `import "server-only"` — same stub
 // as commands.test.ts/queries.test.ts (vitest resolves that package's default
 // "throws by design" export, not the "react-server" condition Next's
 // bundler swaps it for).
 vi.mock("server-only", () => ({}));
-
-/** A minimal chainable mock of the supabase-js query builder — mirrors
- * commands.test.ts's `chain()`. */
-function chain(result: { data: unknown; error?: unknown }) {
-  const builder: Record<string, unknown> = {
-    select: () => builder,
-    eq: () => builder,
-    maybeSingle: () => Promise.resolve(result),
-    then: (resolve: (r: typeof result) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(result).then(resolve, reject),
-  };
-  return builder;
-}
-
-function makeFrom(responses: Record<string, { data: unknown; error?: unknown }[]>) {
-  const counters: Record<string, number> = {};
-  return vi.fn((table: string) => {
-    const i = counters[table] ?? 0;
-    counters[table] = i + 1;
-    const queue = responses[table] ?? [];
-    return chain(queue[i] ?? { data: null });
-  });
-}
 
 const rpcImpl = { current: vi.fn() };
 const fromImpl = { current: vi.fn() };
@@ -50,7 +28,7 @@ const ORIGINAL_FETCH = global.fetch;
 
 beforeEach(() => {
   rpcImpl.current = vi.fn(() => Promise.resolve({ data: null, error: null }));
-  fromImpl.current = makeFrom({});
+  fromImpl.current = makeSupabaseFrom({});
   process.env = { ...ORIGINAL_ENV, SITE_URL: "https://fplexchange.com", DISCORD_BOT_TOKEN: "bot-token" };
 });
 
@@ -74,7 +52,7 @@ function memberInteraction(overrides: Partial<DiscordInteraction> = {}): Discord
 
 describe("bet button (componentHandlers.bet)", () => {
   it("responds with the stake modal when the market is OPEN", async () => {
-    fromImpl.current = makeFrom({ betting_markets: [{ data: { status: "OPEN" } }] });
+    fromImpl.current = makeSupabaseFrom({ betting_markets: [{ data: { status: "OPEN" } }] });
     const interaction = memberInteraction({ data: { custom_id: "bet:42:-1:ARS" } as unknown as DiscordInteraction["data"] });
 
     const res = (await componentHandlers.bet(interaction)) as {
@@ -89,7 +67,7 @@ describe("bet button (componentHandlers.bet)", () => {
   });
 
   it("returns an ephemeral closed error when the market is not OPEN", async () => {
-    fromImpl.current = makeFrom({ betting_markets: [{ data: { status: "LOCKED" } }] });
+    fromImpl.current = makeSupabaseFrom({ betting_markets: [{ data: { status: "LOCKED" } }] });
     const interaction = memberInteraction({ data: { custom_id: "bet:42:-1:ARS" } as unknown as DiscordInteraction["data"] });
 
     const res = (await componentHandlers.bet(interaction)) as { type: number; data: { flags?: number; embeds: Array<{ description: string }> } };

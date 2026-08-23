@@ -28,32 +28,42 @@ beforeEach(() => {
   revalidatePath.mockReset();
 });
 
-describe("placeBet", () => {
-  it("rejects a signed-out caller without touching the RPC", async () => {
+describe("betting action access guards", () => {
+  it.each([
+    ["placeBet", () => placeBet(5, 1, 100), "Sign in to place a bet."],
+    ["cashoutBet", () => cashoutBet(9), "Sign in to cash out."],
+    ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, 300), "Sign in to play the pick'em."],
+    ["suggestProp", () => suggestProp("How much will Chime go for?", "Over 500", "Under 500"), "Sign in to suggest a bet."],
+  ])("%s rejects a signed-out caller without touching the RPC", async (_name, run, error) => {
     getBettingUser.mockResolvedValue(null);
 
-    const result = await placeBet(5, 1, 100);
-
-    expect(result).toEqual({ ok: false, error: "Sign in to place a bet." });
+    expect(await run()).toEqual({ ok: false, error });
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("rejects a caller without betting access", async () => {
+  it.each([
+    ["placeBet", () => placeBet(5, 1, 100)],
+    ["cashoutBet", () => cashoutBet(9)],
+    ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, 300)],
+  ])("%s rejects a caller without betting access", async (_name, run) => {
     getBettingUser.mockResolvedValue({ ...ALLOWED_USER, allowed: false });
 
-    const result = await placeBet(5, 1, 100);
-
-    expect(result).toEqual({ ok: false, error: "FPL Better members only." });
+    expect(await run()).toEqual({ ok: false, error: "FPL Better members only." });
     expect(rpc).not.toHaveBeenCalled();
   });
+});
 
-  it("rejects a non-positive amount without touching the RPC", async () => {
-    const result = await placeBet(5, 1, 0);
-
-    expect(result).toEqual({ ok: false, error: "Enter a valid bet amount." });
+describe("positive stake guards", () => {
+  it.each([
+    ["placeBet", () => placeBet(5, 1, 0), "Enter a valid bet amount."],
+    ["placePickemCard", () => placePickemCard(7, { 1: 11, 2: 14 }, 0), "Enter a valid card amount."],
+  ])("%s rejects a non-positive amount without touching the RPC", async (_name, run, error) => {
+    expect(await run()).toEqual({ ok: false, error });
     expect(rpc).not.toHaveBeenCalled();
   });
+});
 
+describe("placeBet", () => {
   it("re-derives the discord id server-side and calls place_bet", async () => {
     const result = await placeBet(5, 1, 100);
 
@@ -98,24 +108,6 @@ describe("placeBet", () => {
 });
 
 describe("cashoutBet", () => {
-  it("rejects a signed-out caller without touching the RPC", async () => {
-    getBettingUser.mockResolvedValue(null);
-
-    const result = await cashoutBet(9);
-
-    expect(result).toEqual({ ok: false, error: "Sign in to cash out." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("rejects a caller without betting access", async () => {
-    getBettingUser.mockResolvedValue({ ...ALLOWED_USER, allowed: false });
-
-    const result = await cashoutBet(9);
-
-    expect(result).toEqual({ ok: false, error: "FPL Better members only." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
   it("re-derives the discord id server-side and calls cashout_bet", async () => {
     const result = await cashoutBet(9);
 
@@ -140,31 +132,6 @@ describe("cashoutBet", () => {
 });
 
 describe("placePickemCard", () => {
-  it("rejects a signed-out caller without touching the RPC", async () => {
-    getBettingUser.mockResolvedValue(null);
-
-    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
-
-    expect(result).toEqual({ ok: false, error: "Sign in to play the pick'em." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("rejects a caller without betting access", async () => {
-    getBettingUser.mockResolvedValue({ ...ALLOWED_USER, allowed: false });
-
-    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 300);
-
-    expect(result).toEqual({ ok: false, error: "FPL Better members only." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("rejects a non-positive amount without touching the RPC", async () => {
-    const result = await placePickemCard(7, { 1: 11, 2: 14 }, 0);
-
-    expect(result).toEqual({ ok: false, error: "Enter a valid card amount." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
   it("rejects an empty picks map without touching the RPC", async () => {
     const result = await placePickemCard(7, {}, 300);
 
@@ -204,15 +171,6 @@ describe("placePickemCard", () => {
 });
 
 describe("suggestProp", () => {
-  it("rejects a signed-out caller without touching the RPC", async () => {
-    getBettingUser.mockResolvedValue(null);
-
-    const result = await suggestProp("How much will Chime go for?", "Over 500", "Under 500");
-
-    expect(result).toEqual({ ok: false, error: "Sign in to suggest a bet." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
   it("rejects a too-short question before any RPC", async () => {
     const result = await suggestProp("Hi?", "Yes", "No");
 
