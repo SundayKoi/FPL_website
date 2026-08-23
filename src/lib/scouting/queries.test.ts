@@ -71,4 +71,20 @@ describe("fetchScoutingHistory", () => {
     expect(history.drafts[0].actions).toEqual([{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }]);
     expect(history.drafts[0].positions).toEqual({ blue: ["Ahri", null] });
   });
+
+  it("falls back to fixture teams when a draft has no recorded side names", async () => {
+    const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
+    const draftQuery = builder([{
+      id: "d", fixture_id: "f", game_number: 1, blue_team_name: null, red_team_name: null,
+      winner_team: null, actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }], positions: null, created_at: "2026-08-01",
+    }]);
+    const from = vi.fn((table: string) => table === "fixtures" ? fixtureQuery : draftQuery);
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier", leagueTeamNames: ["Night Vale", "Other"],
+    });
+
+    expect(history.drafts[0].blue_team_name).toBe("Night Vale");
+    expect(history.drafts[0].red_team_name).toBe("Other");
+  });
 });

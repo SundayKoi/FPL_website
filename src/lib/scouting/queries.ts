@@ -100,9 +100,20 @@ export async function fetchScoutingHistory(
       const teamB = names.has(normalizeTeamName(fixture.team_b));
       return input.league === "academy" ? teamA || teamB : teamA && teamB;
     });
-  const fixtureIds = new Set(fixtures.map((fixture) => fixture.id));
+  const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+  const fixtureIds = new Set(fixturesById.keys());
   const drafts = asRows(draftResult.data)
     .map(mapDraft)
-    .filter((draft): draft is ScoutDraftRow => Boolean(draft && fixtureIds.has(draft.fixture_id)));
+    .filter((draft): draft is ScoutDraftRow => Boolean(draft && fixtureIds.has(draft.fixture_id)))
+    .map((draft) => {
+      const fixture = fixturesById.get(draft.fixture_id);
+      return fixture
+        ? {
+            ...draft,
+            blue_team_name: draft.blue_team_name ?? fixture.team_a,
+            red_team_name: draft.red_team_name ?? fixture.team_b,
+          }
+        : draft;
+    });
   return { fixtures, drafts };
 }
