@@ -55,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   }
 
   const tint = TIER_COLORS[card.tier.key];
-  const splash = card.signature ? championCenteredUrl(card.signature.champion) : null;
+  const splash = card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
 
   return new ImageResponse(
     (

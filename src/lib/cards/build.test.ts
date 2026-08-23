@@ -46,8 +46,17 @@ const gameRow = (over: Partial<CardGameRow> = {}): CardGameRow => ({
   game_date: "2026-08-01T00:00:00Z",
   match_id: "NA1_1",
   team_name: "Gamblers",
+  kills: 5,
+  deaths: 3,
+  assists: 6,
+  cs: 200,
+  total_damage_to_champions: 20000,
   ...over,
 });
+
+/** gameLog meta with only durations set (team names optional per test). */
+const logOf = (durations: Record<string, number>) =>
+  new Map(Object.entries(durations).map(([id, mins]) => [id, { durationMin: mins, blueTeam: "Gamblers", redTeam: "Enemies" }]));
 
 /** A cohort with a clear spread so percentiles are deterministic. */
 function cohortOf(target: PlayerAggRow): PlayerAggRow[] {
@@ -94,16 +103,9 @@ describe("buildCard", () => {
     gameRow({ match_id: "NA1_5", game_date: "2026-08-05T00:00:00Z", champion: "Kai'Sa", win: true }),
     gameRow({ match_id: "NA1_6", game_date: "2026-08-06T00:00:00Z", champion: "Jhin", win: true }),
   ];
-  const durations = new Map([
-    ["NA1_1", 25],
-    ["NA1_2", 40],
-    ["NA1_3", 35],
-    ["NA1_4", 28],
-    ["NA1_5", 33],
-    ["NA1_6", 30],
-  ]);
+  const gameLog = logOf({ NA1_1: 25, NA1_2: 40, NA1_3: 35, NA1_4: 28, NA1_5: 33, NA1_6: 30 });
 
-  const card = buildCard({ row: target, cohort: cohortOf(target), games, durations });
+  const card = buildCard({ row: target, cohort: cohortOf(target), games, gameLog });
 
   it("produces a 1-99 overall with a matching tier", () => {
     expect(card.overall).toBeGreaterThanOrEqual(1);
@@ -152,7 +154,7 @@ describe("buildCard", () => {
       gameRow({ match_id: "NA1_11", game_date: "2026-08-02T00:00:00Z", champion: "Miss Fortune", win: false }),
       gameRow({ match_id: "NA1_12", game_date: "2026-08-03T00:00:00Z", champion: "MonkeyKing", win: true }),
     ];
-    const built = buildCard({ row: target, cohort: cohortOf(target), games: riotNamed, durations: new Map() });
+    const built = buildCard({ row: target, cohort: cohortOf(target), games: riotNamed, gameLog: new Map() });
 
     // Both spellings merge into one display-named pool entry.
     expect(built.signature).toEqual({ champion: "Miss Fortune", games: 2 });
@@ -162,8 +164,51 @@ describe("buildCard", () => {
   it("labels a low-death high-KDA player The Surgeon", () => {
     const surgeon = agg({ summoner_name: "Surgeon", kda: 8, avg_deaths: 0.8 });
     const cohort = [...cohortOf(target), surgeon];
-    const built = buildCard({ row: surgeon, cohort, games: [], durations: new Map() });
+    const built = buildCard({ row: surgeon, cohort, games: [], gameLog: new Map() });
     expect(built.archetype).toBe("The Surgeon");
+  });
+
+  it("collects season highs with champion + opponent details", () => {
+    const highlightGames = [
+      gameRow({ match_id: "NA1_1", kills: 12, deaths: 2, cs: 250, total_damage_to_champions: 41200, champion: "Jhin" }),
+      gameRow({ match_id: "NA1_2", kills: 4, deaths: 0, assists: 9, cs: 180, total_damage_to_champions: 18000, champion: "Jinx" }),
+    ];
+    const built = buildCard({ row: target, cohort: cohortOf(target), games: highlightGames, gameLog });
+
+    // Flawless (0-death win with 13 K+A) leads, then kills and damage peaks.
+    expect(built.highlights[0]).toEqual({ label: "Flawless game", value: "4/0/9", detail: "Jinx vs Enemies" });
+    expect(built.highlights[1]).toEqual({ label: "Most kills", value: "12", detail: "Jhin vs Enemies" });
+    expect(built.highlights[2]).toEqual({ label: "Damage high", value: "41k", detail: "Jhin vs Enemies" });
+  });
+
+  it("awards feat badges from the season line", () => {
+    const row = agg({ total_pentas: 2, games: 16, wins: 11, winrate_pct: 68.8, first_blood_involvements: 9 });
+    const built = buildCard({
+      row,
+      cohort: cohortOf(target),
+      games: [gameRow({ deaths: 0, win: true })],
+      gameLog: new Map(),
+      recordCategories: ["Most kills in a game"],
+    });
+
+    const keys = built.badges.map((badge) => badge.key);
+    // Capped at four, strongest feats first.
+    expect(keys).toEqual(["penta", "record", "first-blood", "flawless"]);
+  });
+
+  it("passes standout, team art, and chosen skin through", () => {
+    const built = buildCard({
+      row: target,
+      cohort: cohortOf(target),
+      games,
+      gameLog,
+      standout: true,
+      artSkin: 4,
+      teamImages: new Map([["gamblers", "https://cdn.example/gamblers.png"]]),
+    });
+    expect(built.standout).toBe(true);
+    expect(built.artSkin).toBe(4);
+    expect(built.teamImageUrl).toBe("https://cdn.example/gamblers.png");
   });
 });
 
@@ -191,7 +236,7 @@ describe("archetype scarcity", () => {
 
   it("buildSeasonCards spreads titles across the league", () => {
     const cohort = cohortOf(agg());
-    const cards = buildSeasonCards({ cohort, gamesByPlayer: new Map(), durations: new Map() });
+    const cards = buildSeasonCards({ cohort, gamesByPlayer: new Map(), gameLog: new Map() });
 
     expect(cards).toHaveLength(cohort.length);
     // Small league, generous title pool: only the fallback may repeat.

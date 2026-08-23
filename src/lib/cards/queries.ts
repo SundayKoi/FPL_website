@@ -2,11 +2,23 @@
 // views only — share pages render for signed-out visitors) and runs every
 // player through the rating engine. Cards are computed at request time, so
 // they update themselves the moment the nightly ingest lands new games.
+//
+// Deliberately framework-free (takes any SupabaseClient, no next/headers):
+// scripts/weekly-card-drop.ts runs this same code under tsx with a service
+// client. The one Next-coupled input — the Weekly Standout, whose pipeline
+// lives in src/lib/home/awards.ts — is passed IN via options; pages resolve
+// it with fetchStandoutKey (src/lib/cards/standout.ts).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
-import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
-import { buildSeasonCards, type CardGameRow, type PlayerCardData } from "./build";
+import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
+import {
+  buildSeasonCards,
+  cardPlayerKey,
+  type CardGameMeta,
+  type CardGameRow,
+  type PlayerCardData,
+} from "./build";
 
 /** The season the cards page rates — the site's current one. */
 export async function fetchCardSeason(supabase: SupabaseClient): Promise<string | null> {
@@ -14,48 +26,91 @@ export async function fetchCardSeason(supabase: SupabaseClient): Promise<string 
   return (data as { current_season: string | null } | null)?.current_season ?? null;
 }
 
+export interface FetchSeasonCardsOptions {
+  /** Weekly Standout player key (cardPlayerKey) — flags Card of the Week. */
+  standoutKey?: string | null;
+}
+
 /**
  * Every player's card for `season`, best overall first. One fetch pass for
  * the whole league: the rating engine needs the full cohort anyway (all
  * ratings are league-relative), so per-player fetching would save nothing.
  */
-export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult] = await Promise.all([
+export async function fetchSeasonCards(
+  supabase: SupabaseClient,
+  season: string,
+  options: FetchSeasonCardsOptions = {},
+): Promise<PlayerCardData[]> {
+  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, artResult] = await Promise.all([
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
       .from("raw_stats")
-      .select("summoner_name, tag, champion, win, game_date, match_id, team_name")
+      .select("summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, total_damage_to_champions")
       .eq("season", season),
-    supabase.from("stats_game_log").select("match_id, duration_min").eq("season", season),
+    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
+    supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
+    supabase.from("teams").select("name, image_url"),
+    supabase.from("card_art_prefs").select("summoner_name, tag, skin").eq("season", season),
   ]);
   if (aggResult.error) throw aggResult.error;
   if (gamesResult.error) throw gamesResult.error;
   if (logResult.error) throw logResult.error;
+  // Records / team art / skin prefs are garnish — a failure (e.g. the
+  // card_art_prefs migration not applied yet) must not take cards down.
+  const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
+  const teamRows = teamsResult.error ? [] : ((teamsResult.data as { name: string; image_url: string | null }[]) ?? []);
+  const artRows = artResult.error ? [] : ((artResult.data as { summoner_name: string; tag: string; skin: number }[]) ?? []);
 
   // The view emits one row per (season, phase) — merge Regular+Playoffs
   // into a single season row per player, same as the stats tabs do.
   const cohort = mergeRows(
     (aggResult.data as PlayerAggRow[]) ?? [],
-    (row) => `${row.summoner_name.trim().toLowerCase()}#${row.tag.trim().toLowerCase()}`,
+    (row) => cardPlayerKey(row.summoner_name, row.tag),
     (group) => combineSeasonRows(group, season),
   );
 
   const gamesByPlayer = new Map<string, CardGameRow[]>();
   for (const game of (gamesResult.data as CardGameRow[]) ?? []) {
-    const key = `${game.summoner_name.trim().toLowerCase()}#${game.tag.trim().toLowerCase()}`;
+    const key = cardPlayerKey(game.summoner_name, game.tag);
     const list = gamesByPlayer.get(key) ?? [];
     list.push(game);
     gamesByPlayer.set(key, list);
   }
 
-  const durations = new Map<string, number>();
-  for (const log of (logResult.data as Pick<GameLogRow, "match_id" | "duration_min">[]) ?? []) {
-    durations.set(log.match_id, log.duration_min);
+  const gameLog = new Map<string, CardGameMeta>();
+  for (const log of (logResult.data as Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">[]) ?? []) {
+    gameLog.set(log.match_id, { durationMin: log.duration_min, blueTeam: log.blue_team, redTeam: log.red_team });
   }
 
-  // buildSeasonCards (not per-player buildCard): archetypes are assigned
-  // league-wide with per-title caps, so titles stay scarce and distinctive.
-  return buildSeasonCards({ cohort, gamesByPlayer, durations });
+  const recordsByPlayer = new Map<string, string[]>();
+  for (const record of recordRows) {
+    const key = cardPlayerKey(record.summoner_name, record.tag);
+    const list = recordsByPlayer.get(key) ?? [];
+    if (!list.includes(record.category)) list.push(record.category);
+    recordsByPlayer.set(key, list);
+  }
+
+  const teamImages = new Map<string, string>();
+  for (const team of teamRows) {
+    if (team.image_url && !teamImages.has(team.name.trim().toLowerCase())) {
+      teamImages.set(team.name.trim().toLowerCase(), team.image_url);
+    }
+  }
+
+  const artSkins = new Map<string, number>();
+  for (const art of artRows) {
+    artSkins.set(cardPlayerKey(art.summoner_name, art.tag), art.skin);
+  }
+
+  return buildSeasonCards({
+    cohort,
+    gamesByPlayer,
+    gameLog,
+    recordsByPlayer,
+    teamImages,
+    artSkins,
+    standoutKey: options.standoutKey ?? null,
+  });
 }
 
 /** One card by its URL slug, or null. */
@@ -63,7 +118,8 @@ export async function fetchCardBySlug(
   supabase: SupabaseClient,
   season: string,
   slug: string,
+  options: FetchSeasonCardsOptions = {},
 ): Promise<PlayerCardData | null> {
-  const cards = await fetchSeasonCards(supabase, season);
+  const cards = await fetchSeasonCards(supabase, season, options);
   return cards.find((card) => card.slug === slug) ?? null;
 }

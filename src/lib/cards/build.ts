@@ -19,6 +19,32 @@ export interface CardGameRow {
   game_date: string | null;
   match_id: string;
   team_name: string | null;
+  kills: number | null;
+  deaths: number | null;
+  assists: number | null;
+  cs: number | null;
+  total_damage_to_champions: number | null;
+}
+
+/** Per-match context from stats_game_log — the clock and both team names. */
+export interface CardGameMeta {
+  durationMin: number;
+  blueTeam: string | null;
+  redTeam: string | null;
+}
+
+/** A single-game season high shown on the card back. */
+export interface CardHighlight {
+  label: string;
+  value: string;
+  detail: string | null;
+}
+
+/** A feat badge shown on the card back. */
+export interface CardBadge {
+  key: string;
+  label: string;
+  detail: string;
 }
 
 export interface CardTier {
@@ -37,15 +63,25 @@ export interface PlayerCardData {
   name: string;
   tag: string;
   teamName: string | null;
+  /** The team's logo, watermarked onto the card. */
+  teamImageUrl: string | null;
   role: string;
   overall: number;
   tier: CardTier;
   archetype: string;
   signature: { champion: string; games: number } | null;
+  /** Chosen card-art skin number (card_art_prefs; 0 = base splash). */
+  artSkin: number;
   topChampions: { champion: string; games: number; wins: number }[];
   /** Last five results, oldest first. */
   form: boolean[];
   subStats: CardSubStat[];
+  /** Single-game season highs, strongest first (card back). */
+  highlights: CardHighlight[];
+  /** Feat badges (card back). */
+  badges: CardBadge[];
+  /** Weekly Standout winner — Card of the Week treatment. */
+  standout: boolean;
   wins: number;
   losses: number;
   winratePct: number;
@@ -142,9 +178,88 @@ function streakOf(lastFive: boolean[]): number {
 
 /** Win rate (0-1) in long games, falling back to overall win rate when
  *  there are too few to mean anything. */
-function clutchRate(dated: CardGameRow[], durations: Map<string, number>, fallbackWr01: number): number {
-  const longGames = dated.filter((g) => (durations.get(g.match_id) ?? 0) >= CLUTCH_MINUTES);
+function clutchRate(dated: CardGameRow[], gameLog: Map<string, CardGameMeta>, fallbackWr01: number): number {
+  const longGames = dated.filter((g) => (gameLog.get(g.match_id)?.durationMin ?? 0) >= CLUTCH_MINUTES);
   return longGames.length >= 2 ? longGames.filter((g) => g.win === true).length / longGames.length : fallbackWr01;
+}
+
+/** "vs {opponent}" resolved from the game log's two team names. */
+function opponentOf(game: CardGameRow, gameLog: Map<string, CardGameMeta>): string | null {
+  const meta = gameLog.get(game.match_id);
+  const own = game.team_name?.trim().toLowerCase();
+  if (!meta || !own) return null;
+  const opponent = [meta.blueTeam, meta.redTeam].find((team) => team && team.trim().toLowerCase() !== own);
+  return opponent ?? null;
+}
+
+/** Single-game season highs for the card back: a flawless game leads when
+ *  one exists, then the kills / damage / CS peaks. At most three. */
+function computeHighlights(dated: CardGameRow[], gameLog: Map<string, CardGameMeta>): CardHighlight[] {
+  const highlights: CardHighlight[] = [];
+  const detail = (game: CardGameRow): string | null => {
+    const opponent = opponentOf(game, gameLog);
+    const champion = game.champion ? championDisplayName(game.champion) : null;
+    if (champion && opponent) return `${champion} vs ${opponent}`;
+    return champion ?? (opponent ? `vs ${opponent}` : null);
+  };
+  const peak = (pick: (g: CardGameRow) => number): CardGameRow | null =>
+    dated.reduce<CardGameRow | null>((best, g) => (pick(g) > (best ? pick(best) : 0) ? g : best), null);
+
+  const flawless = dated
+    .filter((g) => g.win === true && (g.deaths ?? 1) === 0 && (g.kills ?? 0) + (g.assists ?? 0) >= 8)
+    .sort((a, b) => (b.kills ?? 0) + (b.assists ?? 0) - ((a.kills ?? 0) + (a.assists ?? 0)))[0];
+  if (flawless) {
+    highlights.push({
+      label: "Flawless game",
+      value: `${flawless.kills ?? 0}/0/${flawless.assists ?? 0}`,
+      detail: detail(flawless),
+    });
+  }
+  const mostKills = peak((g) => g.kills ?? 0);
+  if (mostKills && (mostKills.kills ?? 0) > 0) {
+    highlights.push({ label: "Most kills", value: `${mostKills.kills}`, detail: detail(mostKills) });
+  }
+  const mostDamage = peak((g) => g.total_damage_to_champions ?? 0);
+  if (mostDamage && (mostDamage.total_damage_to_champions ?? 0) > 0) {
+    highlights.push({
+      label: "Damage high",
+      value: `${Math.round((mostDamage.total_damage_to_champions ?? 0) / 1000)}k`,
+      detail: detail(mostDamage),
+    });
+  }
+  const mostCs = peak((g) => g.cs ?? 0);
+  if (mostCs && (mostCs.cs ?? 0) > 0) {
+    highlights.push({ label: "CS high", value: `${mostCs.cs}`, detail: detail(mostCs) });
+  }
+  return highlights.slice(0, 3);
+}
+
+/** Feat badges: rare accomplishments worth pinning on the card. */
+function computeBadges(row: PlayerAggRow, dated: CardGameRow[], recordCategories: string[]): CardBadge[] {
+  const badges: CardBadge[] = [];
+  if (row.total_pentas > 0) {
+    badges.push({ key: "penta", label: "Pentakiller", detail: `${row.total_pentas} pentakill${row.total_pentas === 1 ? "" : "s"} this season` });
+  }
+  if (recordCategories.length > 0) {
+    badges.push({
+      key: "record",
+      label: "Record Holder",
+      detail: `Holds a league record: ${recordCategories.slice(0, 3).join(", ")}`,
+    });
+  }
+  if (row.games >= 5 && row.first_blood_involvements / row.games >= 0.5) {
+    badges.push({ key: "first-blood", label: "First Blood King", detail: `In on first blood in ${Math.round((row.first_blood_involvements / row.games) * 100)}% of games` });
+  }
+  if (dated.some((g) => g.win === true && (g.deaths ?? 1) === 0)) {
+    badges.push({ key: "flawless", label: "Flawless", detail: "Won a game without dying" });
+  }
+  if (row.games >= 8 && row.winrate_pct >= 65) {
+    badges.push({ key: "winner", label: "Winning Record", detail: `${row.winrate_pct}% win rate over ${row.games} games` });
+  }
+  if (row.games >= 15) {
+    badges.push({ key: "veteran", label: "Iron Lungs", detail: `${row.games} games played this season` });
+  }
+  return badges.slice(0, 4);
 }
 
 // ── Archetypes ────────────────────────────────────────────────────────────
@@ -320,14 +435,32 @@ export interface BuildCardInput {
   cohort: PlayerAggRow[];
   /** The player's own games, any order; sorted internally by date. */
   games: CardGameRow[];
-  /** match_id -> game duration in minutes, for the Clutch split. */
-  durations: Map<string, number>;
+  /** match_id -> duration + team names, from stats_game_log. */
+  gameLog: Map<string, CardGameMeta>;
   /** League-wide assigned title (from assignArchetypes). Absent — e.g. a
    *  single-card build in tests — the player's own best claim is used. */
   archetype?: string;
+  /** stats_records categories this player holds (Record Holder badge). */
+  recordCategories?: string[];
+  /** team name (lowercased) -> logo URL. */
+  teamImages?: Map<string, string>;
+  /** Chosen art skin number (card_art_prefs), 0 = base. */
+  artSkin?: number;
+  /** This week's Weekly Standout — Card of the Week. */
+  standout?: boolean;
 }
 
-export function buildCard({ row, cohort, games, durations, archetype }: BuildCardInput): PlayerCardData {
+export function buildCard({
+  row,
+  cohort,
+  games,
+  gameLog,
+  archetype,
+  recordCategories = [],
+  teamImages,
+  artSkin = 0,
+  standout = false,
+}: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
   const key = playerKey(row);
   const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
@@ -360,7 +493,7 @@ export function buildCard({ row, cohort, games, durations, archetype }: BuildCar
   const streak = streakOf(lastFive);
   const form = Math.max(1, Math.min(99, Math.round(20 + formWr * 70 + Math.max(0, streak - 1) * 3)));
 
-  const clutchWr = clutchRate(dated, durations, row.winrate_pct / 100);
+  const clutchWr = clutchRate(dated, gameLog, row.winrate_pct / 100);
   const clutch = Math.max(1, Math.min(99, Math.round(15 + clutchWr * 80)));
 
   const resolvedArchetype =
@@ -401,13 +534,18 @@ export function buildCard({ row, cohort, games, durations, archetype }: BuildCar
     name: row.summoner_name,
     tag: row.tag,
     teamName,
+    teamImageUrl: teamName ? teamImages?.get(teamName.toLowerCase()) ?? null : null,
     role: ROLE_LABELS[row.role_mode] ?? row.role_mode,
     overall,
     tier: tierFor(overall),
     archetype: resolvedArchetype,
     signature: topChampions[0] ? { champion: topChampions[0].champion, games: topChampions[0].games } : null,
+    artSkin,
     topChampions,
     form: lastFive,
+    highlights: computeHighlights(dated, gameLog),
+    badges: computeBadges(row, dated, recordCategories),
+    standout,
     subStats: [
       { key: "combat", label: "Combat", value: combat },
       { key: "economy", label: "Economy", value: economy },
@@ -427,19 +565,35 @@ export function buildCard({ row, cohort, games, durations, archetype }: BuildCar
 export interface BuildSeasonCardsInput {
   cohort: PlayerAggRow[];
   gamesByPlayer: Map<string, CardGameRow[]>;
-  durations: Map<string, number>;
+  gameLog: Map<string, CardGameMeta>;
+  /** player key -> stats_records categories they hold. */
+  recordsByPlayer?: Map<string, string[]>;
+  /** team name (lowercased) -> logo URL. */
+  teamImages?: Map<string, string>;
+  /** player key -> chosen art skin number. */
+  artSkins?: Map<string, number>;
+  /** This week's Weekly Standout winner (player key), if known. */
+  standoutKey?: string | null;
 }
 
 /** The whole league's cards with league-wide scarce archetypes, best
  *  overall first. */
-export function buildSeasonCards({ cohort, gamesByPlayer, durations }: BuildSeasonCardsInput): PlayerCardData[] {
+export function buildSeasonCards({
+  cohort,
+  gamesByPlayer,
+  gameLog,
+  recordsByPlayer,
+  teamImages,
+  artSkins,
+  standoutKey = null,
+}: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
   for (const row of cohort) {
     const key = playerKey(row);
     const dated = [...(gamesByPlayer.get(key) ?? [])].sort((a, b) => (a.game_date ?? "").localeCompare(b.game_date ?? ""));
     extrasByKey.set(key, {
       streak: streakOf(lastFiveOf(dated)),
-      clutchWr: clutchRate(dated, durations, row.winrate_pct / 100),
+      clutchWr: clutchRate(dated, gameLog, row.winrate_pct / 100),
     });
   }
   const archetypes = assignArchetypes(cohort, extrasByKey);
@@ -451,9 +605,19 @@ export function buildSeasonCards({ cohort, gamesByPlayer, durations }: BuildSeas
         row,
         cohort,
         games: gamesByPlayer.get(key) ?? [],
-        durations,
+        gameLog,
         archetype: archetypes.get(key),
+        recordCategories: recordsByPlayer?.get(key) ?? [],
+        teamImages,
+        artSkin: artSkins?.get(key) ?? 0,
+        standout: standoutKey !== null && key === standoutKey,
       });
     })
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
+}
+
+/** The shared player key ("name#tag", lowercased) — exported so data
+ *  layers key their maps the same way the engine does. */
+export function cardPlayerKey(summonerName: string, tag: string): string {
+  return playerKey({ summoner_name: summonerName, tag });
 }

@@ -306,3 +306,39 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .progress-fill { animation: none; width: 100%; }
 }
+
+/* Player cards — animated tier treatments. Diamond breathes an icy glow,
+   Master a violet one; Challenger's frame is a slow-cycling rainbow with
+   its own glow; Standout (Card of the Week) runs molten gold. The frames
+   loop seamlessly because each gradient starts and ends on one color. */
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 0 10px 0 var(--card-glow-color), 0 0 2px 0 var(--card-glow-color); }
+  50% { box-shadow: 0 0 26px 5px var(--card-glow-color), 0 0 8px 1px var(--card-glow-color); }
+}
+@keyframes cardFrameShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+@utility card-glow-diamond {
+  --card-glow-color: rgb(143 211 255 / 0.5);
+  animation: cardGlow 3.4s ease-in-out infinite;
+}
+@utility card-glow-master {
+  --card-glow-color: rgb(199 143 255 / 0.55);
+  animation: cardGlow 2.8s ease-in-out infinite;
+}
+@utility card-frame-challenger {
+  background: linear-gradient(115deg, #ffd166, #f0637a, #5cc8ff, #b06ef0, #ffd166);
+  background-size: 300% 300%;
+  --card-glow-color: rgb(255 209 102 / 0.5);
+  animation: cardFrameShift 7s linear infinite, cardGlow 2.4s ease-in-out infinite;
+}
+@utility card-frame-standout {
+  background: linear-gradient(115deg, #f5b62e, #fff3c4, #d99a10, #f5b62e);
+  background-size: 300% 300%;
+  --card-glow-color: rgb(245 182 46 / 0.55);
+  animation: cardFrameShift 4.5s linear infinite, cardGlow 2.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-glow-diamond, .card-glow-master, .card-frame-challenger, .card-frame-standout { animation: none; }
+}

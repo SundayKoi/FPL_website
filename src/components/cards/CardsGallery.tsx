@@ -21,9 +21,22 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
       (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
       (!role || card.role === role),
   );
+  const standout = cards.find((card) => card.standout) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
+      {standout ? (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-gold/40 bg-gold/5 p-6">
+          <span className="label-dash">Card of the Week</span>
+          <PlayerCard3D card={standout} />
+          <Link
+            href={`/card/${standout.slug}`}
+            className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          >
+            Share page →
+          </Link>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
           Search players or teams

@@ -456,9 +456,11 @@ export function championSplashUrl(name: string): string | null {
 
 /** Riot's "centered" splash — the horizontal crop with the champion in the
  *  middle, made for wide/tall UI windows (same variant the drafter's pick
- *  slots use). */
-export function championCenteredUrl(name: string): string | null {
-  return championSplashUrl(name)?.replace("/champion/splash/", "/champion/centered/") ?? null;
+ *  slots use). `skin` picks an alternate skin's art (0 = base; numbers are
+ *  Riot's skin nums, which can be sparse — callers should tolerate 404s). */
+export function championCenteredUrl(name: string, skin = 0): string | null {
+  const base = championSplashUrl(name)?.replace("/champion/splash/", "/champion/centered/") ?? null;
+  return base && skin > 0 ? base.replace(/_0\.jpg$/, `_${skin}.jpg`) : base;
 }
 
 /** Name → champion resolver over an arbitrary roster (the live Data Dragon

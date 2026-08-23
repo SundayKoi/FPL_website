@@ -10,11 +10,13 @@ const card: PlayerCardData = {
   name: "7gen",
   tag: "NA1",
   teamName: "Gamblers",
+  teamImageUrl: "https://cdn.example/gamblers.png",
   role: "Bot",
   overall: 74,
   tier: { key: "platinum", label: "Platinum" },
   archetype: "Glass Cannon",
   signature: { champion: "Jhin", games: 4 },
+  artSkin: 0,
   topChampions: [
     { champion: "Jhin", games: 4, wins: 3 },
     { champion: "Jinx", games: 2, wins: 1 },
@@ -27,6 +29,9 @@ const card: PlayerCardData = {
     { key: "form", label: "Form", value: 88 },
     { key: "clutch", label: "Clutch", value: 68 },
   ],
+  highlights: [{ label: "Most kills", value: "12", detail: "Jhin vs OMH" }],
+  badges: [{ key: "penta", label: "Pentakiller", detail: "1 pentakill this season" }],
+  standout: false,
   wins: 7,
   losses: 9,
   winratePct: 43.8,
@@ -84,5 +89,42 @@ describe("PlayerCard3D", () => {
   it("renders statically without a button when not interactive", () => {
     render(<PlayerCard3D card={card} interactive={false} />);
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows season highs and badges on the back", () => {
+    render(<PlayerCard3D card={card} />);
+    expect(screen.getByText("Season highs")).toBeTruthy();
+    expect(screen.getByText("Most kills")).toBeTruthy();
+    expect(screen.getByText("Jhin vs OMH")).toBeTruthy();
+    expect(screen.getByText("Pentakiller")).toBeTruthy();
+  });
+
+  it("gives the Card of the Week the molten-gold frame, ribbon, and foil", () => {
+    const { container } = render(<PlayerCard3D card={{ ...card, standout: true }} />);
+    expect(screen.getByText(/Card of the Week/i)).toBeTruthy();
+    expect(container.querySelector(".card-frame-standout")).toBeTruthy();
+    // Standout foils even below Emerald tier.
+    expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
+  });
+
+  it("animates the top-tier frames", () => {
+    const { container, rerender } = render(
+      <PlayerCard3D card={{ ...card, tier: { key: "challenger", label: "Challenger" } }} />,
+    );
+    expect(container.querySelector(".card-frame-challenger")).toBeTruthy();
+
+    rerender(<PlayerCard3D card={{ ...card, tier: { key: "diamond", label: "Diamond" } }} />);
+    expect(container.querySelector(".card-glow-diamond")).toBeTruthy();
+  });
+
+  it("watermarks the team logo onto the front", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector('img[src="https://cdn.example/gamblers.png"]')).toBeTruthy();
+  });
+
+  it("starts face-down and flips up when revealing", () => {
+    const { container } = render(<PlayerCard3D card={card} reveal />);
+    const flipLayer = container.querySelector('[style*="850ms"]') as HTMLElement;
+    expect(flipLayer.style.transform).toContain("rotateY(180deg)");
   });
 });

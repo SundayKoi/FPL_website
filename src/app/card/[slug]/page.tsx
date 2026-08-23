@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
+import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchCardBySlug, fetchCardSeason } from "@/lib/cards/queries";
+import { fetchStandoutKey } from "@/lib/cards/standout";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 // The public face of one player's card — shareable by design: anyone with
@@ -13,7 +15,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 async function loadCard(slug: string) {
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase);
-  return season ? await fetchCardBySlug(supabase, season, slug) : null;
+  if (!season) return null;
+  const standoutKey = await fetchStandoutKey(season);
+  return await fetchCardBySlug(supabase, season, slug, { standoutKey });
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -31,6 +35,18 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function CardSharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const card = await loadCard(slug);
+
+  // May this viewer restyle the card's art? Admins, or a captain whose
+  // roster contains the player (can_edit_card_art, security definer). Any
+  // failure — signed out, migration not applied — just hides the picker.
+  let canEditArt = false;
+  if (card) {
+    const supabase = await createServerSupabase();
+    const { data } = await supabase
+      .rpc("can_edit_card_art", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
+      .then((result) => result, () => ({ data: null }));
+    canEditArt = data === true;
+  }
 
   if (!card) {
     return (
@@ -52,9 +68,18 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
         <span className="label-dash">FPL player card · Season {card.season}</span>
         <h1 className="type-display mt-2 text-4xl">{card.name}</h1>
       </header>
-      <PlayerCard3D card={card} />
+      <PlayerCard3D card={card} reveal />
       <p className="text-xs text-steel">Hover to tilt · click to flip</p>
       <ShareCardActions slug={card.slug} />
+      {canEditArt && card.signature ? (
+        <SkinPicker
+          season={card.season}
+          summonerName={card.name}
+          tag={card.tag}
+          champion={card.signature.champion}
+          currentSkin={card.artSkin}
+        />
+      ) : null}
       <p className="max-w-md text-center text-xs text-steel">
         Cards rebuild themselves from the season&apos;s stats after every match night.{" "}
         <Link href="/cards" className="text-coral underline-offset-4 hover:underline">

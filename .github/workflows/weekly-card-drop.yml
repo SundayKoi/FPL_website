@@ -1,0 +1,31 @@
+name: Weekly card drop
+
+on:
+  schedule:
+    # 15:00 UTC Tuesday — an hour after the weekly briefs, so Monday night's
+    # games are ingested and the ratings the drop reports are current.
+    - cron: "0 15 * * 2"
+  workflow_dispatch:
+
+concurrency:
+  group: card-drop
+  cancel-in-progress: false
+
+jobs:
+  drop:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/weekly-card-drop.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_CARDS_WEBHOOK_URL: ${{ secrets.DISCORD_CARDS_WEBHOOK_URL }}
+          SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+        # supabase-js needs a native WebSocket -> Node 22 (see weekly-brief).

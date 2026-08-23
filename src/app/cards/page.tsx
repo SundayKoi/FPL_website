@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
+import TeamCardsSection from "@/components/cards/TeamCardsSection";
 import { fetchCardSeason, fetchSeasonCards } from "@/lib/cards/queries";
+import { fetchStandoutKey } from "@/lib/cards/standout";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -45,23 +47,35 @@ export default async function CardsPage() {
 
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase);
-  const cards = season ? await fetchSeasonCards(supabase, season) : [];
+  const standoutKey = season ? await fetchStandoutKey(season) : null;
+  const cards = season ? await fetchSeasonCards(supabase, season, { standoutKey }) : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">Premium · Season {season ?? "—"}</span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player Cards</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          The whole league as living trading cards — overall rating, tier, archetype, and form, all
-          computed from real season stats and rebuilt automatically after every match night. Hover to
-          tilt, click to flip, and share your card straight into Discord.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="label-dash">Premium · Season {season ?? "—"}</span>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player Cards</h1>
+          <p className="mt-3 max-w-2xl text-sm text-steel">
+            The whole league as living trading cards — overall rating, tier, archetype, and form, all
+            computed from real season stats and rebuilt automatically after every match night. Hover to
+            tilt, click to flip, and share your card straight into Discord.
+          </p>
+        </div>
+        <Link
+          href="/cards/compare"
+          className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+        >
+          Card vs Card →
+        </Link>
       </header>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
       ) : (
-        <CardsGallery cards={cards} />
+        <>
+          <CardsGallery cards={cards} />
+          <TeamCardsSection cards={cards} />
+        </>
       )}
     </main>
   );
