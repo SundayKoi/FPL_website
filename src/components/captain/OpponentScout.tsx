@@ -29,6 +29,6 @@ export default function OpponentScout({ source }: { source: ScoutSource }) {
         <div><span className="label-dash">Subject</span><p className="type-display mt-1 text-2xl">{source.opponentName}</p></div>
       </div> : null}
     </header>
-    {hasDrafts ? <><ScoutPatterns data={data} /><ScoutPlayerPools data={data} scope={scope} unavailable={source.roster.length === 0} /><ScoutPastDrafts drafts={data.pastDrafts} /></> : <p className="card-brand p-5 text-sm text-steel">No recorded drafts for this opponent yet</p>}
+    {hasDrafts ? <><ScoutPlayerPools data={data} scope={scope} unavailable={source.roster.length === 0} /><ScoutPatterns data={data} /><ScoutPastDrafts drafts={data.pastDrafts} /></> : <p className="card-brand p-5 text-sm text-steel">No recorded drafts for this opponent yet</p>}
   </section>;
 }

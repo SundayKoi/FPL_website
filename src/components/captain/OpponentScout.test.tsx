@@ -34,6 +34,10 @@ describe("OpponentScout", () => {
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/0 picks · 0 champions · 0 games/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Scouting" })).toBeTruthy();
+    const playerPools = screen.getByRole("heading", { name: "Player pools" }).closest("section");
+    const patterns = screen.getByRole("heading", { name: "Draft patterns" }).closest("section");
+    expect(playerPools?.compareDocumentPosition(patterns!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(playerPools?.querySelector("ul")?.className).not.toContain("md:grid-cols-2");
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("2");
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
@@ -56,7 +60,7 @@ describe("OpponentScout", () => {
   it("uses champion icons and complete blue/red draft slots", () => {
     renderScout();
     const patterns = screen.getByRole("heading", { name: "Draft patterns" }).parentElement;
-    expect(within(patterns!).queryByText("Bans against")).toBeNull();
+    expect(within(patterns!).getByText("Bans against")).toBeTruthy();
     expect(within(patterns!).queryByText("Ban phase 1 · first 3")).toBeNull();
     expect(within(patterns!).queryByText("Ban phase 2 · last 2")).toBeNull();
     const image = document.querySelector("img") as HTMLImageElement;
