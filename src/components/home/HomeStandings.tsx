@@ -61,8 +61,11 @@ export default function HomeStandings({
               }`}
             >
               <div className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto_auto_auto] items-center gap-2">
+                {/* Standings rank — the list arrives sorted by record
+                    (deriveSeriesStandings), so position is the index. The
+                    team's nomination_position is its DRAFT slot, not rank. */}
                 <span className={`font-mono text-xs font-semibold ${index === 0 ? "text-gold" : "text-steel"}`}>
-                  #{team.nomination_position}
+                  #{index + 1}
                 </span>
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>

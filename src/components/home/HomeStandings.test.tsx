@@ -42,6 +42,23 @@ describe("HomeStandings", () => {
     expect(screen.getByText("80%")).toBeTruthy();
   });
 
+  it("numbers rows by standings position, not by draft nomination slot", () => {
+    // The list arrives pre-sorted by record; Alcatraz drafted 12th but sits
+    // first, so their row must read #1.
+    render(
+      <HomeStandings
+        teams={[
+          { ...team("Alcatraz", 12), wins: 9, losses: 1, winrate_pct: 90 },
+          { ...team("Bravo", 1), wins: 2, losses: 8, winrate_pct: 20 },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("#1")).toBeTruthy();
+    expect(screen.getByText("#2")).toBeTruthy();
+    expect(screen.queryByText("#12")).toBeNull();
+  });
+
   it("labels the Academy season rather than Premier's", () => {
     render(
       <HomeStandings
