@@ -70,7 +70,10 @@ export interface PlayerCardData {
   tier: CardTier;
   archetype: string;
   signature: { champion: string; games: number } | null;
-  /** Chosen card-art skin number (card_art_prefs; 0 = base splash). */
+  /** Chosen card-art skin number (card_art_prefs; 0 = base splash). Frozen
+   *  pack copies override it with a print rolled at open time
+   *  (src/lib/packs/skins.ts), so a pulled copy wears a random skin of the
+   *  signature champion rather than the one its player picked. */
   artSkin: number;
   /** Player-chosen motto line (card_art_prefs), shown on the back. */
   motto: string | null;

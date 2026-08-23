@@ -9,6 +9,7 @@ import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { PACK_COST } from "./config";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
+import { fetchChampionSkinNums, rollSkinNum } from "./skins";
 import { mondayOf } from "./week";
 
 /** slug -> that player's inked signature, for everyone in `season` who has
@@ -93,25 +94,51 @@ export async function openPackAction(
   // Roll the pack, then ink it: the autograph pass rides the same CSPRNG so
   // a signed pull is as unguessable as the pull itself.
   const pulls = applyAutographs(rollPack(cards, rand), await fetchSignatures(service, season), rand);
+
+  // Pack prints roll their own art: every copy freezes a random skin of the
+  // player's signature champion, so opening the same player twice gives you
+  // two different prints. The player's chosen skin still drives their live
+  // card everywhere else — only these frozen copies are rolled. The rolls
+  // run after the autograph pass so the earlier stages' rand consumption is
+  // untouched. Catalogs are fetched per unique champion first: five pulls of
+  // one player must not open five requests before the cache is warm.
+  const champions = [
+    ...new Set(
+      pulls
+        .map((pull) => pull.card.signature?.champion)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+  const skinNums = new Map(
+    await Promise.all(champions.map(async (champion) => [champion, await fetchChampionSkinNums(champion)] as const)),
+  );
+  const prints = pulls.map((pull) => {
+    const champion = pull.card.signature?.champion;
+    // the autograph rides inside the card too, so this copy keeps the
+    // signature it was pulled with even if the player redraws it later
+    const card: PlayerCardData = { ...pull.card, autograph: pull.autograph };
+    if (!champion) return { ...pull, card };
+    return { ...pull, card: { ...card, artSkin: rollSkinNum(skinNums.get(champion) ?? [0], rand) } };
+  });
+
   const editionWeek = mondayOf(new Date());
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(
-      pulls.map((pull) => ({
+      prints.map((print) => ({
         discord_id: user.discordId,
         season,
-        slug: pull.card.slug,
-        player_name: pull.card.name,
-        role: pull.card.role,
+        slug: print.card.slug,
+        player_name: print.card.name,
+        role: print.card.role,
         edition_week: editionWeek,
-        overall: pull.card.overall,
-        tier: pull.card.tier.key,
-        foil: pull.foil,
-        signed: pull.signed,
+        overall: print.card.overall,
+        tier: print.card.tier.key,
+        foil: print.foil,
+        signed: print.signed,
         // the whole card, frozen: ratings restat nightly, collections don't
-        // — and the autograph rides along, so this copy keeps the signature
-        // it was pulled with even if the player redraws it later
-        card: { ...pull.card, autograph: pull.autograph },
+        // — and the autograph and rolled art ride along with it
+        card: print.card,
         pack_open_id: openId,
       })),
     )
@@ -142,11 +169,12 @@ export async function openPackAction(
   const ids = (inserted as { id: number }[]).map((row) => row.id);
   return {
     ok: true,
-    cards: pulls.map((pull, index) => ({
-      // the autograph travels inside the card so the reveal shows the ink
-      card: { ...pull.card, autograph: pull.autograph },
-      foil: pull.foil,
-      signed: pull.signed,
+    cards: prints.map((print, index) => ({
+      // the frozen copy, not the live card: the reveal shows the ink and the
+      // print this pull actually rolled
+      card: print.card,
+      foil: print.foil,
+      signed: print.signed,
       inventoryId: ids[index],
     })),
     balance: (profile as { balance: number } | null)?.balance ?? user.balance - PACK_COST,

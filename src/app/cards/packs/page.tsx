@@ -76,7 +76,8 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
             ratings — every card is stamped with the week it was pulled, so a player you open twice in
-            different weeks is two different prints. Foils are a rare pull on any tier.
+            different weeks is two different prints. Every copy comes printed in a random skin of that
+            player&apos;s signature champion, and foils are a rare pull on any tier.
           </p>
           <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
             ← Back to player cards
