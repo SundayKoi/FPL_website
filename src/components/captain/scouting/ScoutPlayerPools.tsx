@@ -1,0 +1,10 @@
+import { ROLE_LABELS_SHORT } from "@/lib/draft/types";
+import { useState } from "react";
+import type { ScoutScope, ScopedScoutData } from "@/lib/scouting/types";
+import ChampionDatum from "./ChampionDatum";
+
+export default function ScoutPlayerPools({ data, poolsByScope, unavailable = false }: { data: ScopedScoutData; poolsByScope?: Partial<Record<ScoutScope, ScopedScoutData>>; unavailable?: boolean }) {
+  const [poolScope, setPoolScope] = useState<ScoutScope>("season");
+  const pools = poolsByScope?.[poolScope]?.playerPools ?? data.playerPools;
+  return <section aria-labelledby="player-pools-heading" className="card-brand p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h2 id="player-pools-heading" className="type-display text-2xl">Player pools</h2><div className="flex gap-1" role="tablist" aria-label="Player pool history">{([["season", "Current"], ["recent", "Recent"], ["all", "All"]] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={poolScope === value} onClick={() => setPoolScope(value)} className={`rounded border px-2 py-1 text-xs ${poolScope === value ? "border-coral text-white" : "border-line text-steel"}`}>{label}</button>)}</div></div>{unavailable ? <p className="mt-4 text-sm text-steel">Current roster unavailable</p> : <ul className="mt-4 grid gap-3 md:grid-cols-2">{pools.map((row) => <li key={row.playerName} className="rounded border border-line/70 bg-navy/40 p-3"><div className="flex items-baseline justify-between gap-2"><span className="font-semibold text-white">{row.playerName}</span><span className="text-xs uppercase tracking-wider text-steel">{ROLE_LABELS_SHORT[row.role]}</span></div>{row.totalPicks === 0 ? <p className="mt-3 text-sm text-steel">No attributed picks yet</p> : <div className="mt-3 flex flex-wrap gap-2">{row.champions.slice(0, 5).map((champion) => <ChampionDatum key={champion.champion} champion={champion.champion} />)}</div>}<p className="mt-3 text-xs text-steel">{row.totalPicks} picks · {row.distinctChampions} champions · {row.gamesSampled} games</p></li>)}</ul>}</section>;
+}
