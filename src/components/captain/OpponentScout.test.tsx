@@ -34,21 +34,23 @@ describe("OpponentScout", () => {
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Draft intel" })).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
-    expect(screen.getByText("2 drafts sampled")).toBeTruthy();
+    expect(screen.getByText("Series sampled").parentElement?.textContent).toContain("2");
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
-    expect(screen.getByText("3 drafts sampled")).toBeTruthy();
+    expect(screen.getByText("Series sampled").parentElement?.textContent).toContain("3");
     expect(screen.queryByText(/recommend|must ban|priority|threat score/i)).toBeNull();
   });
   it("handles no drafts and unavailable current roster independently", () => {
     renderScout({ drafts: [], roster: [] });
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();
-    expect(screen.getByText("Current roster unavailable")).toBeTruthy();
+    expect(screen.queryByText("Current roster unavailable")).toBeNull();
   });
   it("keeps valid draft history visible when the current roster is empty", () => {
     renderScout({ roster: [] });
     expect(screen.getByText("Past drafts")).toBeTruthy();
     expect(screen.getAllByText(/Scouted team: Blue side/).length).toBeGreaterThan(0);
     expect(screen.getByText("Current roster unavailable")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
+    expect(screen.getByText("All series")).toBeTruthy();
   });
   it("uses champion icons and complete blue/red draft slots", () => {
     renderScout();
