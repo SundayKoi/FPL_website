@@ -17,6 +17,9 @@ const card: PlayerCardData = {
   archetype: "Glass Cannon",
   signature: { champion: "Jhin", games: 4 },
   artSkin: 0,
+  motto: "I fear nobody",
+  serial: 4,
+  collectionSize: 48,
   topChampions: [
     { champion: "Jhin", games: 4, wins: 3 },
     { champion: "Jinx", games: 2, wins: 1 },
@@ -126,5 +129,35 @@ describe("PlayerCard3D", () => {
     const { container } = render(<PlayerCard3D card={card} reveal />);
     const flipLayer = container.querySelector('[style*="850ms"]') as HTMLElement;
     expect(flipLayer.style.transform).toContain("rotateY(180deg)");
+  });
+
+  it("stamps the collector serial and shows the motto on the back", () => {
+    render(<PlayerCard3D card={card} />);
+    expect(screen.getByText("#004/48")).toBeTruthy();
+    expect(screen.getByText(/I fear nobody/)).toBeTruthy();
+  });
+
+  it("hides the serial on solo builds where rank is unknown", () => {
+    render(<PlayerCard3D card={{ ...card, serial: 0 }} />);
+    expect(screen.queryByText(/#0*\/\d/)).toBeNull();
+  });
+
+  it("sparkles only on Challenger tier and Cards of the Week", () => {
+    const { container, rerender } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector('[data-testid="sparkles"]')).toBeNull();
+
+    rerender(<PlayerCard3D card={{ ...card, tier: { key: "challenger", label: "Challenger" } }} />);
+    expect(container.querySelector('[data-testid="sparkles"]')).toBeTruthy();
+
+    rerender(<PlayerCard3D card={{ ...card, standout: true }} />);
+    expect(container.querySelector('[data-testid="sparkles"]')).toBeTruthy();
+  });
+
+  it("renders the pedestal bloom only when asked", () => {
+    const { container, rerender } = render(<PlayerCard3D card={card} />);
+    expect(container.querySelector(".blur-3xl")).toBeNull();
+
+    rerender(<PlayerCard3D card={card} bloom />);
+    expect(container.querySelector(".blur-3xl")).toBeTruthy();
   });
 });

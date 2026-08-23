@@ -72,6 +72,13 @@ export interface PlayerCardData {
   signature: { champion: string; games: number } | null;
   /** Chosen card-art skin number (card_art_prefs; 0 = base splash). */
   artSkin: number;
+  /** Player-chosen motto line (card_art_prefs), shown on the back. */
+  motto: string | null;
+  /** Collector serial — the card's rank by overall in this season's
+   *  collection (1 = best). 0 on solo builds where rank is unknown. */
+  serial: number;
+  /** How many cards exist in this season's collection. */
+  collectionSize: number;
   topChampions: { champion: string; games: number; wins: number }[];
   /** Last five results, oldest first. */
   form: boolean[];
@@ -446,6 +453,8 @@ export interface BuildCardInput {
   teamImages?: Map<string, string>;
   /** Chosen art skin number (card_art_prefs), 0 = base. */
   artSkin?: number;
+  /** Player-chosen motto line (card_art_prefs). */
+  motto?: string | null;
   /** This week's Weekly Standout — Card of the Week. */
   standout?: boolean;
 }
@@ -459,6 +468,7 @@ export function buildCard({
   recordCategories = [],
   teamImages,
   artSkin = 0,
+  motto = null,
   standout = false,
 }: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
@@ -541,6 +551,9 @@ export function buildCard({
     archetype: resolvedArchetype,
     signature: topChampions[0] ? { champion: topChampions[0].champion, games: topChampions[0].games } : null,
     artSkin,
+    motto,
+    serial: 0,
+    collectionSize: cohort.length,
     topChampions,
     form: lastFive,
     highlights: computeHighlights(dated, gameLog),
@@ -570,8 +583,8 @@ export interface BuildSeasonCardsInput {
   recordsByPlayer?: Map<string, string[]>;
   /** team name (lowercased) -> logo URL. */
   teamImages?: Map<string, string>;
-  /** player key -> chosen art skin number. */
-  artSkins?: Map<string, number>;
+  /** player key -> chosen art (skin + motto) from card_art_prefs. */
+  artPrefs?: Map<string, { skin: number; motto: string | null }>;
   /** This week's per-role Weekly Standout winners (player keys). */
   standoutKeys?: Set<string> | null;
 }
@@ -584,7 +597,7 @@ export function buildSeasonCards({
   gameLog,
   recordsByPlayer,
   teamImages,
-  artSkins,
+  artPrefs,
   standoutKeys = null,
 }: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
@@ -601,6 +614,7 @@ export function buildSeasonCards({
   return cohort
     .map((row) => {
       const key = playerKey(row);
+      const prefs = artPrefs?.get(key) ?? null;
       return buildCard({
         row,
         cohort,
@@ -609,11 +623,14 @@ export function buildSeasonCards({
         archetype: archetypes.get(key),
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
-        artSkin: artSkins?.get(key) ?? 0,
+        artSkin: prefs?.skin ?? 0,
+        motto: prefs?.motto ?? null,
         standout: standoutKeys?.has(key) ?? false,
       });
     })
-    .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
+    .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name))
+    // Collector serials: rank in the sorted collection, best card = #001.
+    .map((card, index) => ({ ...card, serial: index + 1 }));
 }
 
 /** The shared player key ("name#tag", lowercased) — exported so data

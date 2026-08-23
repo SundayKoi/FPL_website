@@ -51,7 +51,9 @@ export async function fetchSeasonCards(
     supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
     supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
     supabase.from("teams").select("name, image_url"),
-    supabase.from("card_art_prefs").select("summoner_name, tag, skin").eq("season", season),
+    // select * on purpose: the motto column arrived in a later migration
+    // than skin, and naming a missing column would fail the whole select.
+    supabase.from("card_art_prefs").select("*").eq("season", season),
   ]);
   if (aggResult.error) throw aggResult.error;
   if (gamesResult.error) throw gamesResult.error;
@@ -60,7 +62,9 @@ export async function fetchSeasonCards(
   // card_art_prefs migration not applied yet) must not take cards down.
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
   const teamRows = teamsResult.error ? [] : ((teamsResult.data as { name: string; image_url: string | null }[]) ?? []);
-  const artRows = artResult.error ? [] : ((artResult.data as { summoner_name: string; tag: string; skin: number }[]) ?? []);
+  const artRows = artResult.error
+    ? []
+    : ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? []);
 
   // The view emits one row per (season, phase) — merge Regular+Playoffs
   // into a single season row per player, same as the stats tabs do.
@@ -98,9 +102,9 @@ export async function fetchSeasonCards(
     }
   }
 
-  const artSkins = new Map<string, number>();
+  const artPrefs = new Map<string, { skin: number; motto: string | null }>();
   for (const art of artRows) {
-    artSkins.set(cardPlayerKey(art.summoner_name, art.tag), art.skin);
+    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), { skin: art.skin, motto: art.motto ?? null });
   }
 
   return buildSeasonCards({
@@ -109,9 +113,37 @@ export async function fetchSeasonCards(
     gameLog,
     recordsByPlayer,
     teamImages,
-    artSkins,
+    artPrefs,
     standoutKeys: options.standoutKeys ?? null,
   });
+}
+
+export interface RatingHistoryPoint {
+  overall: number;
+  tier: string;
+  takenAt: string;
+}
+
+/** One card's weekly rating readings, oldest first — the season journey.
+ *  Errors (e.g. the history migration not applied yet) return empty: the
+ *  journey strip is garnish. */
+export async function fetchRatingHistory(
+  supabase: SupabaseClient,
+  season: string,
+  slug: string,
+): Promise<RatingHistoryPoint[]> {
+  const { data, error } = await supabase
+    .from("card_rating_history")
+    .select("overall, tier, taken_at")
+    .eq("season", season)
+    .eq("slug", slug)
+    .order("taken_at");
+  if (error) return [];
+  return ((data as { overall: number; tier: string; taken_at: string }[]) ?? []).map((row) => ({
+    overall: row.overall,
+    tier: row.tier,
+    takenAt: row.taken_at,
+  }));
 }
 
 /** One card by its URL slug, or null. */

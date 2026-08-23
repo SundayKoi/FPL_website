@@ -10,8 +10,20 @@
 // pack-opening moment. No WebGL — layered gradients and blend modes do it.
 
 import { useEffect, useRef, useState } from "react";
+import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
+
+/** Fixed sparkle placements (percent coords + stagger) for the top-tier
+ *  glint layer — deterministic so SSR and client agree. */
+const SPARKLES = [
+  { left: "12%", top: "8%", delay: "0s", size: "text-sm" },
+  { left: "82%", top: "14%", delay: "0.9s", size: "text-xs" },
+  { left: "68%", top: "38%", delay: "1.7s", size: "text-base" },
+  { left: "22%", top: "52%", delay: "0.4s", size: "text-xs" },
+  { left: "88%", top: "64%", delay: "2.1s", size: "text-sm" },
+  { left: "40%", top: "22%", delay: "1.3s", size: "text-xs" },
+] as const;
 
 /** Frame + accent styling per tier. `foil` turns on the holographic layer;
  *  `frameClass` replaces the static gradient with an animated one, and
@@ -48,6 +60,7 @@ export default function PlayerCard3D({
   card,
   interactive = true,
   reveal = false,
+  bloom = false,
   className = "",
 }: {
   card: PlayerCardData;
@@ -55,6 +68,8 @@ export default function PlayerCard3D({
   interactive?: boolean;
   /** Start face-down and flip up shortly after mount (share pages). */
   reveal?: boolean;
+  /** Ambient tier-colored glow behind the card (share-page pedestal). */
+  bloom?: boolean;
   className?: string;
 }) {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -62,6 +77,8 @@ export default function PlayerCard3D({
   const [hovering, setHovering] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [revealed, setRevealed] = useState(!reveal);
+  // Stat bars sweep in from zero once mounted (after the reveal flip).
+  const [statsIn, setStatsIn] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const style = TIER_STYLES[card.tier.key];
   // Card of the Week outshines its tier: molten-gold animated frame.
@@ -74,6 +91,11 @@ export default function PlayerCard3D({
   useEffect(() => {
     if (!reveal) return;
     const timer = setTimeout(() => setRevealed(true), 650);
+    return () => clearTimeout(timer);
+  }, [reveal]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStatsIn(true), reveal ? 900 : 120);
     return () => clearTimeout(timer);
   }, [reveal]);
 
@@ -114,7 +136,15 @@ export default function PlayerCard3D({
   const showBack = flipped || !revealed;
 
   return (
-    <div className={`[perspective:1100px] ${className}`} style={{ width: "20rem" }}>
+    <div className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
+      {bloom ? (
+        // Pedestal glow: a soft tier-colored bloom the card floats on.
+        <div
+          aria-hidden
+          className="absolute -inset-10 -z-10 rounded-full opacity-45 blur-3xl"
+          style={{ background: `radial-gradient(ellipse at center, ${style.ring}, transparent 70%)` }}
+        />
+      ) : null}
       {/* Tilt (fast, follows the pointer) and flip (slow, on click or on
           reveal) live on separate layers so both stay smooth. */}
       <div
@@ -178,12 +208,19 @@ export default function PlayerCard3D({
               >
                 {card.tier.label}
               </span>
-              <div
-                className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-navy/85 text-center"
-                style={{ borderColor: style.ring }}
-              >
-                <span className="text-xl font-black leading-none text-white">{card.overall}</span>
-                <span className="text-[8px] font-bold uppercase tracking-widest text-steel">OVR</span>
+              <div className="flex flex-col items-end gap-0.5">
+                <div
+                  className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-navy/85 text-center"
+                  style={{ borderColor: style.ring }}
+                >
+                  <CountUp value={card.overall} className="text-xl font-black leading-none text-white" />
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-steel">OVR</span>
+                </div>
+                {card.serial > 0 ? (
+                  <span className="font-mono text-[9px] font-bold text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]">
+                    #{String(card.serial).padStart(3, "0")}/{card.collectionSize}
+                  </span>
+                ) : null}
               </div>
             </div>
             {card.standout ? (
@@ -222,9 +259,13 @@ export default function PlayerCard3D({
                   <div key={stat.key} className="flex items-center gap-2">
                     <span className="w-16 text-[9px] font-bold uppercase tracking-[0.14em] text-white/75">{stat.label}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
-                      <div className="h-full rounded-full" style={{ width: `${stat.value}%`, background: statTone(stat.value) }} />
+                      {/* Bars sweep in from zero on mount — the stat reveal. */}
+                      <div
+                        className="h-full rounded-full transition-[width] duration-700 ease-out"
+                        style={{ width: `${statsIn ? stat.value : 0}%`, background: statTone(stat.value) }}
+                      />
                     </div>
-                    <span className="w-6 text-right font-mono text-[11px] font-bold text-white">{stat.value}</span>
+                    <CountUp value={stat.value} className="w-6 text-right font-mono text-[11px] font-bold text-white" />
                   </div>
                 ))}
               </div>
@@ -261,6 +302,20 @@ export default function PlayerCard3D({
                 }}
               />
             ) : null}
+            {card.tier.key === "challenger" || card.standout ? (
+              // Drifting glints — the top of the collection literally sparkles.
+              <div aria-hidden data-testid="sparkles" className="pointer-events-none absolute inset-0">
+                {SPARKLES.map((sparkle, index) => (
+                  <span
+                    key={index}
+                    className={`card-sparkle ${sparkle.size}`}
+                    style={{ left: sparkle.left, top: sparkle.top, animationDelay: sparkle.delay }}
+                  >
+                    ✦
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -274,6 +329,9 @@ export default function PlayerCard3D({
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-steel">Season {card.season}</span>
             </div>
             <h3 className="font-display text-2xl font-bold not-italic text-white">{card.name}</h3>
+            {card.motto ? (
+              <p className="-mt-1 truncate text-xs italic text-steel">&ldquo;{card.motto}&rdquo;</p>
+            ) : null}
 
             <div className="flex flex-col gap-1.5">
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-steel">Champion pool</span>

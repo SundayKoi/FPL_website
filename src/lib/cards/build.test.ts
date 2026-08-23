@@ -243,9 +243,24 @@ describe("archetype scarcity", () => {
     const titles = cards.map((card) => card.archetype).filter((title) => title !== FALLBACK_ARCHETYPE);
     expect(new Set(titles).size).toBe(titles.length);
     expect(titles.length).toBeGreaterThan(0);
-    // Sorted best first.
+    // Sorted best first, with collector serials following the sort.
     for (let i = 1; i < cards.length; i += 1) {
       expect(cards[i - 1].overall).toBeGreaterThanOrEqual(cards[i].overall);
     }
+    expect(cards.map((card) => card.serial)).toEqual(cards.map((_, index) => index + 1));
+    expect(cards[0].collectionSize).toBe(cohort.length);
+  });
+
+  it("threads art prefs (skin + motto) through to the built card", () => {
+    const cohort = cohortOf(agg());
+    const cards = buildSeasonCards({
+      cohort,
+      gamesByPlayer: new Map(),
+      gameLog: new Map(),
+      artPrefs: new Map([["player#na1", { skin: 7, motto: "Lock in." }]]),
+    });
+    const mine = cards.find((card) => card.slug === "player-na1")!;
+    expect(mine.artSkin).toBe(7);
+    expect(mine.motto).toBe("Lock in.");
   });
 });

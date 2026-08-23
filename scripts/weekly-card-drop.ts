@@ -145,18 +145,36 @@ async function main(): Promise<void> {
     console.log(`Posted: ${tierUps.length} tier ups, ${movers.length} movers, ${newcomers.length} new cards.`);
   }
 
+  const takenAt = new Date().toISOString();
   const { error: upsertError } = await supabase.from("card_snapshots").upsert(
     cards.map((card) => ({
       season,
       slug: card.slug,
       overall: card.overall,
       tier: card.tier.label,
-      taken_at: new Date().toISOString(),
+      taken_at: takenAt,
     })),
     { onConflict: "season,slug" },
   );
   if (upsertError) throw upsertError;
   console.log(`Snapshot refreshed for ${cards.length} cards.`);
+
+  // Append-only history feeds the share page's season-journey strip.
+  // Tolerated failure: the 20260826000014 migration may not be applied yet.
+  const { error: historyError } = await supabase.from("card_rating_history").insert(
+    cards.map((card) => ({
+      season,
+      slug: card.slug,
+      overall: card.overall,
+      tier: card.tier.label,
+      taken_at: takenAt,
+    })),
+  );
+  if (historyError) {
+    console.warn(`Could not append rating history (migration applied?): ${historyError.message}`);
+  } else {
+    console.log(`Rating history appended for ${cards.length} cards.`);
+  }
 }
 
 main().catch((error) => {
