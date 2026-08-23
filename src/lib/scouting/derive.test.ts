@@ -20,14 +20,17 @@ const source: ScoutSource = {
   fixtures: [fixture("1", "S5", "2026-08-01T00:00:00Z"), fixture("2", "S5", "2026-08-02T00:00:00Z"), fixture("3", "S4", "2026-08-03T00:00:00Z"), fixture("4", "S4", "2026-08-04T00:00:00Z"), fixture("5", "S4", "2026-08-05T00:00:00Z"), fixture("6", "S4", "2026-08-06T00:00:00Z"), fixture("old", "S4", "2025-08-01T00:00:00Z")],
   drafts: [
     ...["1", "2", "3", "4", "5", "6"].map((id, i) => ({ id: `d${id}`, fixture_id: id, game_number: 1, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: null, actions: actions(i < 2 ? "Ahri" : "Zed", i === 1 || i === 5), positions: null, created_at: "2026-08-01" })),
-    { id: "old-draft", fixture_id: "old", game_number: 1, blue_team_name: "Other", red_team_name: "Night Vale", winner_team: null, actions: actions("Ahri"), positions: null, created_at: "2025-08-01" },
+    { id: "old-draft", fixture_id: "old", game_number: 1, blue_team_name: "Other", red_team_name: "Night Vale", winner_team: null, actions: actions("Ahri").map((action) => action.stepIndex === 7 ? { ...action, champion: "Ahri" } : action), positions: null, created_at: "2025-08-01" },
+    { id: "untouched", fixture_id: "1", game_number: 2, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: null, actions: [], positions: null, created_at: "2026-08-01" },
   ],
 };
 
 describe("opponent scouting derivation", () => {
   it("resolves sides and scopes recent series and season", () => {
     expect(resolveScoutedSide(source.drafts[0], " night vale ")).toBe("blue");
+    expect(resolveScoutedSide(source.drafts.find((draft) => draft.id === "old-draft")!, "NIGHT VALE")).toBe("red");
     expect(scopeTeamGames(source, "season").every((game) => game.fixture.season === "S5")).toBe(true);
+    expect(scopeTeamGames(source, "all").some((game) => game.draft.id === "untouched")).toBe(false);
     expect(new Set(scopeTeamGames(source, "recent").map((game) => game.fixture.id)).size).toBe(5);
   });
 
@@ -40,5 +43,12 @@ describe("opponent scouting derivation", () => {
     expect(data.pastDrafts[0].red.picks).toHaveLength(5);
     expect(data.pastDrafts.some((draft) => draft.red.picks.some((slot) => slot.champion === null && slot.skipped))).toBe(true);
     expect(data.firstPicks.every((row, i, all) => !i || row.count < all[i - 1].count || row.champion.localeCompare(all[i - 1].champion) >= 0)).toBe(true);
+  });
+
+  it("normalizes champion variants into one frequency row", () => {
+    const variant = structuredClone(source);
+    const firstPick = variant.drafts[0].actions.find((action) => action.stepIndex === 6)!;
+    firstPick.champion = "  ahri  ";
+    expect(deriveScoutData(variant, "all").firstPicks.find((row) => row.champion === "Ahri")?.count).toBe(3);
   });
 });

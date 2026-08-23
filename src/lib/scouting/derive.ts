@@ -1,4 +1,5 @@
-import { actionForStep, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
+import { actionForStep, LCS_DRAFT_STEPS, normalizeChampionName } from "@/lib/match-draft/rules";
+import { championDisplayName } from "@/lib/match-draft/champions";
 import type { DraftSide, MatchDraftAction } from "@/lib/match-draft/types";
 import type { ChampionCount, DraftSlot, FullDraftSide, PastDraft, ScoutDraftRow, ScoutScope, ScoutSource, ScopedScoutData } from "./types";
 
@@ -33,8 +34,15 @@ export function scopeTeamGames(source: ScoutSource, scope: ScoutScope): TeamGame
 }
 
 const cleanChampion = (value: string | null | undefined) => value?.trim().replace(/\s+/g, " ") || null;
-const rank = (counts: Map<string, number>, denominator: number): ChampionCount[] => [...counts.entries()]
-  .map(([champion, count]) => ({ champion, count, rate: denominator ? Math.round((count / denominator) * 1000) / 10 : 0 }))
+type ChampionCounts = Map<string, { champion: string; count: number }>;
+const addChampion = (counts: ChampionCounts, value: string) => {
+  const champion = championDisplayName(cleanChampion(value) ?? value);
+  const key = normalizeChampionName(champion);
+  const current = counts.get(key);
+  counts.set(key, { champion: current?.champion ?? champion, count: (current?.count ?? 0) + 1 });
+};
+const rank = (counts: ChampionCounts, denominator: number): ChampionCount[] => [...counts.values()]
+  .map(({ champion, count }) => ({ champion, count, rate: denominator ? Math.round((count / denominator) * 1000) / 10 : 0 }))
   .sort((a, b) => b.count - a.count || a.champion.localeCompare(b.champion));
 const slot = (action: MatchDraftAction | null): DraftSlot => ({ champion: cleanChampion(action?.champion), skipped: Boolean(action?.skipped || !action), playerName: action?.playerName ?? null });
 function sideDraft(draft: ScoutDraftRow, side: DraftSide): FullDraftSide {
@@ -45,11 +53,11 @@ function sideDraft(draft: ScoutDraftRow, side: DraftSide): FullDraftSide {
     banPhaseTwo: steps.filter((step) => step.kind === "ban" && step.slot > 3).map((step) => slot(actionForStep(draft.actions, step))), };
 }
 export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedScoutData {
-  const games = scopeTeamGames(source, scope); const first = new Map<string, number>(); const against = new Map<string, number>(); const p1 = new Map<string, number>(); const p2 = new Map<string, number>(); const picked = new Set<string>();
+  const games = scopeTeamGames(source, scope); const first: ChampionCounts = new Map(); const against: ChampionCounts = new Map(); const p1: ChampionCounts = new Map(); const p2: ChampionCounts = new Map(); const picked = new Set<string>();
   for (const game of games) {
     const own = LCS_DRAFT_STEPS.filter((step) => step.side === game.side && step.kind === "pick").map((step) => actionForStep(game.draft.actions, step));
-    const firstPick = own.find((action) => action?.champion && !action.skipped); if (firstPick?.champion) { const champion = cleanChampion(firstPick.champion)!; first.set(champion, (first.get(champion) ?? 0) + 1); }
-    for (const step of LCS_DRAFT_STEPS) { const action = actionForStep(game.draft.actions, step); const champion = cleanChampion(action?.champion); if (!champion || action?.skipped) continue; if (step.kind === "pick") picked.add(champion); else if (step.side !== game.side) { against.set(champion, (against.get(champion) ?? 0) + 1); } else { const target = step.slot <= 3 ? p1 : p2; target.set(champion, (target.get(champion) ?? 0) + 1); } }
+    const firstPick = own.find((action) => action?.champion && !action.skipped); if (firstPick?.champion) addChampion(first, firstPick.champion);
+    for (const step of LCS_DRAFT_STEPS) { const action = actionForStep(game.draft.actions, step); const champion = cleanChampion(action?.champion); if (!champion || action?.skipped) continue; if (step.kind === "pick") { if (step.side === game.side) picked.add(normalizeChampionName(championDisplayName(champion))); } else if (step.side !== game.side) { addChampion(against, champion); } else { addChampion(step.slot <= 3 ? p1 : p2, champion); } }
   }
   const pastDrafts: PastDraft[] = games.map((game) => ({ fixture: game.fixture, gameNumber: game.draft.game_number, side: game.side, winnerTeam: game.draft.winner_team, blue: sideDraft(game.draft, "blue"), red: sideDraft(game.draft, "red") }));
   return { gamesSampled: games.length, blueGames: games.filter((game) => game.side === "blue").length, distinctChampions: picked.size, firstPicks: rank(first, games.length), bannedAgainst: rank(against, games.length), banPhaseOne: rank(p1, games.length), banPhaseTwo: rank(p2, games.length), openings: [], pairings: [], sideFacts: [], adaptation: { lossesFollowed: 0, changedFirstPick: 0, repeatedChampions: 0 }, flexes: [], playerPools: [], pastDrafts };
