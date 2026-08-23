@@ -2,11 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeTeamName } from "@/lib/league/context";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory } from "./types";
+import { parseDrafterPage } from "./drafter";
 
 export const FIXTURE_COLUMNS =
   "id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b";
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
+const REPORT_COLUMNS = "id, fixture_id, draft_url, team_a_id, team_b_id";
+const REPORT_GAME_COLUMNS = "report_id, game_number, blue_team_id";
 
 export interface FetchScoutingHistoryInput {
   league: "premier" | "academy";
@@ -79,17 +82,83 @@ function mapDraft(row: UnknownRow): ScoutDraftRow | null {
   };
 }
 
+function isDrafterUrl(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "drafter.lol" && url.pathname.startsWith("/draft/");
+  } catch {
+    return false;
+  }
+}
+
+async function loadReportedDrafts(
+  reports: UnknownRow[],
+  reportGames: UnknownRow[],
+  fixturesById: Map<string, ScoutFixtureRow>,
+): Promise<ScoutDraftRow[]> {
+  const gamesByReport = new Map<string, UnknownRow[]>();
+  for (const game of reportGames) {
+    const reportId = asNullableString(game.report_id);
+    if (!reportId) continue;
+    gamesByReport.set(reportId, [...(gamesByReport.get(reportId) ?? []), game]);
+  }
+
+  const loaded = await Promise.all(reports.map(async (report) => {
+    const reportId = asNullableString(report.id);
+    const fixtureId = asNullableString(report.fixture_id);
+    const url = report.draft_url;
+    const fixture = fixtureId ? fixturesById.get(fixtureId) : undefined;
+    if (!reportId || !fixtureId || !fixture || !isDrafterUrl(url)) return [];
+
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: { accept: "text/html", "user-agent": "FPL scouting history" },
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!response.ok) return [];
+      const gameSides: Record<number, { blueTeamName: string | null; redTeamName: string | null }> = {};
+      const reportTeamA = asNullableString(report.team_a_id);
+      const reportTeamB = asNullableString(report.team_b_id);
+      for (const game of gamesByReport.get(reportId) ?? []) {
+        const gameNumber = asNumber(game.game_number);
+        const blueTeamId = asNullableString(game.blue_team_id);
+        if (!gameNumber || !blueTeamId) continue;
+        gameSides[gameNumber] = blueTeamId === reportTeamB
+          ? { blueTeamName: fixture.team_b, redTeamName: fixture.team_a }
+          : blueTeamId === reportTeamA
+            ? { blueTeamName: fixture.team_a, redTeamName: fixture.team_b }
+            : { blueTeamName: fixture.team_a, redTeamName: fixture.team_b };
+      }
+      return parseDrafterPage(await response.text(), {
+        fixtureId,
+        blueTeamName: fixture.team_a,
+        redTeamName: fixture.team_b,
+        gameSides,
+      });
+    } catch {
+      return [];
+    }
+  }));
+  return loaded.flat();
+}
+
 /** Load all compact draft history belonging to the currently selected league. */
 export async function fetchScoutingHistory(
   supabase: SupabaseClient,
   input: FetchScoutingHistoryInput,
 ): Promise<ScoutHistory> {
-  const [fixtureResult, draftResult] = await Promise.all([
+  const [fixtureResult, draftResult, reportResult, reportGameResult] = await Promise.all([
     supabase.from("fixtures").select(FIXTURE_COLUMNS),
     supabase.from("match_drafts").select(DRAFT_COLUMNS),
+    supabase.from("match_reports").select(REPORT_COLUMNS),
+    supabase.from("match_report_games").select(REPORT_GAME_COLUMNS),
   ]);
   if (fixtureResult.error) throw fixtureResult.error;
   if (draftResult.error) throw draftResult.error;
+  if (reportResult.error) throw reportResult.error;
+  if (reportGameResult.error) throw reportGameResult.error;
 
   const names = new Set([...input.leagueTeamNames].map(normalizeTeamName).filter(Boolean));
   const fixtures = asRows(fixtureResult.data)
@@ -115,5 +184,11 @@ export async function fetchScoutingHistory(
           }
         : draft;
     });
+  const reports = asRows(reportResult.data).filter((report) => fixtureIds.has(asNullableString(report.fixture_id) ?? ""));
+  const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameResult.data), fixturesById);
+  for (const reportedDraft of reportedDrafts) {
+    const current = drafts.find((draft) => draft.fixture_id === reportedDraft.fixture_id && draft.game_number === reportedDraft.game_number);
+    if (!current || current.actions.length === 0) drafts.push(reportedDraft);
+  }
   return { fixtures, drafts };
 }
