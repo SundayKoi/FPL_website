@@ -80,6 +80,21 @@ describe("PlayerCard3D", () => {
     expect(flipLayer.style.transform).toContain("rotateY(180deg)");
   });
 
+  it("keeps pointer tilt off the flip layer", () => {
+    // Tilt is written straight to the DOM on the outer layer; the flip stays
+    // React state on the inner one. Guarding the split: moving the pointer
+    // must never disturb the face the flip animation owns.
+    const { container } = render(<PlayerCard3D card={card} />);
+    const button = screen.getByRole("button");
+    const flipLayer = container.querySelector('[style*="450ms"]') as HTMLElement;
+    const before = flipLayer.style.transform;
+
+    fireEvent.pointerMove(button, { clientX: 40, clientY: 60 });
+    fireEvent.pointerMove(button, { clientX: 120, clientY: 200 });
+
+    expect(flipLayer.style.transform).toBe(before);
+  });
+
   it("adds the holographic foil only for Emerald tier and above", () => {
     const { container, rerender } = render(<PlayerCard3D card={card} />);
     // Platinum: no foil.

@@ -307,37 +307,58 @@ body {
   .progress-fill { animation: none; width: 100%; }
 }
 
-/* Player cards — animated tier treatments. Diamond breathes an icy glow,
-   Master a violet one; Challenger's frame is a slow-cycling rainbow with
-   its own glow; Standout (Card of the Week) runs molten gold. The frames
-   loop seamlessly because each gradient starts and ends on one color. */
-@keyframes cardGlow {
-  0%, 100% { box-shadow: 0 0 10px 0 var(--card-glow-color), 0 0 2px 0 var(--card-glow-color); }
-  50% { box-shadow: 0 0 26px 5px var(--card-glow-color), 0 0 8px 1px var(--card-glow-color); }
+/* Player cards — animated tier treatments. Diamond breathes an icy halo,
+   Master a violet one; Challenger's frame is a slow-cycling rainbow with a
+   gold halo; Standout (Card of the Week) runs molten gold. The frames loop
+   seamlessly because each gradient starts and ends on one color.
+
+   The halo is a blurred color field PlayerCard3D renders behind the card
+   (-z-10) and only its opacity pulses. It used to be an animated box-shadow
+   on the card itself, which repaints the card's whole bounding box every
+   frame — with a dozen glowing cards on /cards that alone ate the frame
+   budget. Opacity the compositor can animate on the GPU, touching nothing. */
+@keyframes cardGlowPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.7; }
 }
 @keyframes cardFrameShift {
   0% { background-position: 0% 50%; }
   100% { background-position: 300% 50%; }
 }
 @utility card-glow-diamond {
-  --card-glow-color: rgb(143 211 255 / 0.5);
-  animation: cardGlow 3.4s ease-in-out infinite;
+  background: rgb(143 211 255 / 0.5);
+  opacity: 0.35;
+  animation: cardGlowPulse 3.4s ease-in-out infinite;
 }
 @utility card-glow-master {
-  --card-glow-color: rgb(199 143 255 / 0.55);
-  animation: cardGlow 2.8s ease-in-out infinite;
+  background: rgb(199 143 255 / 0.55);
+  opacity: 0.35;
+  animation: cardGlowPulse 2.8s ease-in-out infinite;
 }
+@utility card-glow-challenger {
+  background: rgb(255 209 102 / 0.5);
+  opacity: 0.35;
+  animation: cardGlowPulse 2.4s ease-in-out infinite;
+}
+@utility card-glow-standout {
+  background: rgb(245 182 46 / 0.55);
+  opacity: 0.35;
+  animation: cardGlowPulse 2.2s ease-in-out infinite;
+}
+/* The drifting frame gradients still animate background-position, which does
+   repaint — left as-is deliberately: only Challenger and Card of the Week wear
+   them, so it's a handful of cards on screen rather than the whole grid, and
+   faking the drift with a translated child inside overflow-hidden costs the
+   rounded frame its clean corners. Revisit only if the top tiers get common. */
 @utility card-frame-challenger {
   background: linear-gradient(115deg, #ffd166, #f0637a, #5cc8ff, #b06ef0, #ffd166);
   background-size: 300% 300%;
-  --card-glow-color: rgb(255 209 102 / 0.5);
-  animation: cardFrameShift 7s linear infinite, cardGlow 2.4s ease-in-out infinite;
+  animation: cardFrameShift 7s linear infinite;
 }
 @utility card-frame-standout {
   background: linear-gradient(115deg, #f5b62e, #fff3c4, #d99a10, #f5b62e);
   background-size: 300% 300%;
-  --card-glow-color: rgb(245 182 46 / 0.55);
-  animation: cardFrameShift 4.5s linear infinite, cardGlow 2.2s ease-in-out infinite;
+  animation: cardFrameShift 4.5s linear infinite;
 }
 @keyframes cardSparkle {
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
@@ -351,6 +372,23 @@ body {
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .card-glow-diamond, .card-glow-master, .card-frame-challenger, .card-frame-standout, .card-sparkle { animation: none; }
+  .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout,
+  .card-frame-challenger, .card-frame-standout, .card-sparkle { animation: none; }
+  /* Halos hold mid-pulse rather than jumping to a full-strength 1. */
+  .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout { opacity: 0.5; }
   .card-sparkle { opacity: 0; }
+}
+
+/* One cell of a card grid. Cards are expensive — layered gradients, blend
+   modes, two rendered faces each — and the hub draws 50+ of them, so let the
+   browser skip layout and paint entirely for the ones scrolled out of view.
+   contain-intrinsic-size reserves each cell's real footprint (a 20rem card at
+   aspect 5/7 is 28rem tall, plus the chips underneath) so the scrollbar stays
+   honest while they're skipped. The padding is not decoration: content-visibility
+   brings paint containment with it, which clips to the padding box, and without
+   it the tier halo's bleed would be sheared off at the card's edge. */
+@utility card-cell {
+  content-visibility: auto;
+  contain-intrinsic-size: 21rem 31rem;
+  padding: 0.5rem;
 }

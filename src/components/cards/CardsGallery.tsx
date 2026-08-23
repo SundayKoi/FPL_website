@@ -32,9 +32,11 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
       {standouts.length > 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-gold/40 bg-gold/5 p-6">
           <span className="label-dash">Cards of the Week</span>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-6">
+          {/* card-cell carries its own padding, so the gaps come down by that
+              much to leave the strip spaced exactly as before. */}
+          <div className="flex flex-wrap justify-center gap-x-0 gap-y-2">
             {standouts.map((card) => (
-              <div key={card.slug} className="flex flex-col items-center gap-2">
+              <div key={card.slug} className="card-cell flex flex-col items-center gap-2">
                 <PlayerCard3D card={card} />
                 <Link
                   href={`/card/${card.slug}`}
@@ -75,9 +77,13 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
       {shown.length === 0 ? (
         <p className="text-sm text-steel">No cards match — stats appear after a player&apos;s first ingested game.</p>
       ) : (
-        <div className="grid justify-items-center gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        /* card-cell lets the browser skip painting the cards scrolled offscreen —
+           this grid is the reason the optimisation exists. Its padding only adds
+           to the row height (cells are centred in their tracks), so the row gap
+           drops by that much to keep the rhythm. */
+        <div className="grid justify-items-center gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {shown.map((card) => (
-            <div key={card.slug} className="flex flex-col items-center gap-2">
+            <div key={card.slug} className="card-cell flex flex-col items-center gap-2">
               <PlayerCard3D card={card} />
               <Link
                 href={`/card/${card.slug}`}

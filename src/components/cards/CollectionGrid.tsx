@@ -55,9 +55,11 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
     .sort((a, b) => b.best.overall - a.best.overall);
 
   return (
-    <div className="flex flex-wrap justify-center gap-x-4 gap-y-8">
+    /* card-cell skips the paint for shelves scrolled out of view; it brings its
+       own padding, so the gaps come down by that much to sit where they did. */
+    <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
       {owned.map((entry) => (
-        <div key={entry.best.slug} className="flex flex-col items-center gap-2">
+        <div key={entry.best.slug} className="card-cell flex flex-col items-center gap-2">
           <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} />
           <div className="flex flex-col items-center gap-1.5 text-center">
             <span className="text-sm font-semibold text-white">

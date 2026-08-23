@@ -3,13 +3,16 @@
 // The player card: a trading-card built from live season stats (see
 // src/lib/cards/build.ts). Pointer (or gyroscope) tilt drives a CSS 3D
 // rotation with a glare streak that follows the light; Emerald tier and up
-// add a holographic foil layer whose intensity rides the tilt, and the top
-// tiers carry animated frames (globals.css: card-glow-*, card-frame-*).
+// add a holographic foil layer whose intensity rides the hover, and the top
+// tiers carry animated frames and halos (globals.css: card-glow-*,
+// card-frame-*). The tilt is written to the DOM by hand rather than held in
+// React state — the hub mounts 50+ of these and a re-render per mousemove is
+// what made it crawl on weaker machines.
 // Click flips to the back for the champion pool, season highs, badges, and
 // form. `reveal` plays a face-down flip-up on mount — the share page's
 // pack-opening moment. No WebGL — layered gradients and blend modes do it.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -27,7 +30,7 @@ const SPARKLES = [
 
 /** Frame + accent styling per tier. `foil` turns on the holographic layer;
  *  `frameClass` replaces the static gradient with an animated one, and
- *  `glowClass` adds the breathing box-shadow. */
+ *  `glowClass` picks the breathing halo rendered behind the card. */
 const TIER_STYLES: Record<
   PlayerCardData["tier"]["key"],
   { frame?: string; frameClass?: string; glowClass?: string; banner: string; ring: string; foil: boolean }
@@ -51,10 +54,30 @@ const TIER_STYLES: Record<
     ring: "#c78fff",
     foil: true,
   },
-  challenger: { frameClass: "card-frame-challenger", banner: "#ffd166", ring: "#ffd166", foil: true },
+  challenger: {
+    frameClass: "card-frame-challenger",
+    glowClass: "card-glow-challenger",
+    banner: "#ffd166",
+    ring: "#ffd166",
+    foil: true,
+  },
 };
 
 const MAX_TILT_DEG = 10;
+
+/** Resting values for the two pointer-driven layers. They live in the JSX as
+ *  constant strings so React writes them once at mount and never diffs them
+ *  again — everything after that is written straight to the DOM below. */
+const REST_TRANSFORM = "rotateX(0deg) rotateY(0deg)";
+const REST_GLARE = "radial-gradient(circle at 50% 35%, rgb(255 255 255 / 0.5), transparent 55%)";
+const REST_TRANSITION = "transform 250ms ease-out";
+const TRACKING_TRANSITION = "transform 60ms linear";
+/** The foil's sheen angle used to ride `tilt.y`, which meant rebuilding a
+ *  six-stop gradient — a repaint of the whole card face — on every frame of
+ *  every hover. Pinned: the colour-dodge blend over a moving card already
+ *  reads as movement, so the swing wasn't earning its cost. */
+const FOIL_GRADIENT =
+  "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
 export default function PlayerCard3D({
   card,
@@ -76,19 +99,24 @@ export default function PlayerCard3D({
   forceFoil?: boolean;
   className?: string;
 }) {
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [glare, setGlare] = useState({ x: 50, y: 35 });
+  // `hovering` is the only pointer state React still owns — it flips twice per
+  // hover (enter/leave) and only feeds the glare/foil opacity boost. The tilt
+  // itself deliberately keeps no state at all; see writeTilt.
   const [hovering, setHovering] = useState(false);
   const [flipped, setFlipped] = useState(false);
   const [revealed, setRevealed] = useState(!reveal);
   // Stat bars sweep in from zero once mounted (after the reveal flip).
   const [statsIn, setStatsIn] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const glareRef = useRef<HTMLDivElement | null>(null);
+  // Latest pointer position, parked for the next animation frame.
+  const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const rafRef = useRef(0);
   const style = TIER_STYLES[card.tier.key];
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = card.standout ? "card-frame-standout" : style.frameClass;
   const frameStyle = frameClass ? undefined : style.frame;
-  const glowClass = card.standout ? "" : style.glowClass ?? "";
+  const glowClass = card.standout ? "card-glow-standout" : style.glowClass ?? "";
   const splash = card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
   const baseSplash = card.signature ? championCenteredUrl(card.signature.champion) : null;
 
@@ -103,33 +131,80 @@ export default function PlayerCard3D({
     return () => clearTimeout(timer);
   }, [reveal]);
 
-  // Phones don't hover: the gyroscope drives the same tilt instead.
+  // Tilt and glare are written straight to the DOM rather than held in state.
+  // A setState per pointer move re-rendered the whole card — both faces, the
+  // splash, every stat bar — dozens of times a second, and /cards keeps 50+ of
+  // these mounted at once. Only the two nodes that actually move get touched.
+  const writeTilt = useCallback((tiltX: number, tiltY: number, glareX: number, glareY: number) => {
+    const frame = frameRef.current;
+    if (frame) frame.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    const glare = glareRef.current;
+    if (glare) {
+      glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.5), transparent 55%)`;
+    }
+  }, []);
+
+  // Pointer moves fire faster than the display refreshes, so the handler only
+  // parks the coordinates and one queued frame does the single write — and it
+  // measures the card inside that frame, so a burst of moves costs one layout
+  // read instead of one per event.
+  const scheduleTilt = useCallback(() => {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      const frame = frameRef.current;
+      const pointer = pointerRef.current;
+      if (!frame || !pointer) return;
+      const rect = frame.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const px = (pointer.clientX - rect.left) / rect.width;
+      const py = (pointer.clientY - rect.top) / rect.height;
+      writeTilt((0.5 - py) * MAX_TILT_DEG * 2, (px - 0.5) * MAX_TILT_DEG * 2, px * 100, py * 100);
+    });
+  }, [writeTilt]);
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+  }, []);
+
+  // Phones don't hover: the gyroscope drives the same tilt instead — and it's
+  // every bit as chatty as a mouse, so it takes the same direct-write path.
   useEffect(() => {
     if (!interactive || typeof window === "undefined" || !("DeviceOrientationEvent" in window)) return;
     const onOrientation = (event: DeviceOrientationEvent) => {
       if (event.beta === null || event.gamma === null) return;
       const x = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, event.gamma / 3));
       const y = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, (event.beta - 40) / 3));
-      setTilt({ x: -y, y: x });
-      setGlare({ x: 50 + x * 4, y: 35 + y * 4 });
+      writeTilt(-y, x, 50 + x * 4, 35 + y * 4);
     };
     window.addEventListener("deviceorientation", onOrientation);
     return () => window.removeEventListener("deviceorientation", onOrientation);
-  }, [interactive]);
+  }, [interactive, writeTilt]);
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!interactive || !frameRef.current) return;
-    const rect = frameRef.current.getBoundingClientRect();
-    const px = (event.clientX - rect.left) / rect.width;
-    const py = (event.clientY - rect.top) / rect.height;
-    setTilt({ x: (0.5 - py) * MAX_TILT_DEG * 2, y: (px - 0.5) * MAX_TILT_DEG * 2 });
-    setGlare({ x: px * 100, y: py * 100 });
+    if (!interactive) return;
+    pointerRef.current = { clientX: event.clientX, clientY: event.clientY };
+    scheduleTilt();
+  };
+
+  const onPointerEnter = () => {
+    if (!interactive) return;
+    // The transition swaps imperatively alongside the transform: React owns
+    // nothing on this layer once it's mounted, so a re-render can never stomp
+    // a tilt mid-hover — and the snap-back below is guaranteed the slow ease.
+    if (frameRef.current) frameRef.current.style.transition = TRACKING_TRANSITION;
     setHovering(true);
   };
 
   const reset = () => {
-    setTilt({ x: 0, y: 0 });
-    setGlare({ x: 50, y: 35 });
+    if (!interactive) return;
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    pointerRef.current = null;
+    if (frameRef.current) frameRef.current.style.transition = REST_TRANSITION;
+    writeTilt(0, 0, 50, 35);
     setHovering(false);
   };
 
@@ -149,6 +224,13 @@ export default function PlayerCard3D({
           style={{ background: `radial-gradient(ellipse at center, ${style.ring}, transparent 70%)` }}
         />
       ) : null}
+      {glowClass ? (
+        // Tier halo. A blurred colour field behind the card whose *opacity*
+        // pulses (globals.css: cardGlowPulse) — the compositor animates that on
+        // the GPU. The box-shadow it replaces repainted every glowing card on
+        // every frame, and the hub can have a dozen of them breathing at once.
+        <div aria-hidden className={`pointer-events-none absolute inset-2 -z-10 rounded-2xl blur-lg ${glowClass}`} />
+      ) : null}
       {/* Tilt (fast, follows the pointer) and flip (slow, on click or on
           reveal) live on separate layers so both stay smooth. */}
       <div
@@ -157,19 +239,20 @@ export default function PlayerCard3D({
         tabIndex={interactive ? 0 : undefined}
         aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
+        onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
         onClick={interactive ? () => setFlipped((f) => !f) : undefined}
         onKeyDown={interactive ? (e) => (e.key === "Enter" || e.key === " ") && setFlipped((f) => !f) : undefined}
         className={`relative aspect-[5/7] w-full select-none rounded-2xl [transform-style:preserve-3d] ${
           interactive ? "cursor-pointer" : ""
         }`}
-        style={{
-          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
-          transition: hovering ? "transform 60ms linear" : "transform 250ms ease-out",
-        }}
+        // Constant strings on purpose: React sets them at mount and, since they
+        // never change between renders, never writes them again — leaving the
+        // pointer handlers free to own this node's transform outright.
+        style={{ transform: REST_TRANSFORM, transition: REST_TRANSITION }}
       >
       <div
-        className={`relative h-full w-full rounded-2xl [transform-style:preserve-3d] ${glowClass}`}
+        className="relative h-full w-full rounded-2xl [transform-style:preserve-3d]"
         style={{
           transform: `rotateY(${showBack ? 180 : 0}deg)`,
           transition: reveal && !flipped ? "transform 850ms cubic-bezier(0.2,0.8,0.3,1)" : "transform 450ms ease",
@@ -185,6 +268,9 @@ export default function PlayerCard3D({
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
                 loading="lazy"
+                // Decoding off the main thread: a wall of splash art otherwise
+                // blocks the frame it lands in, which is felt as scroll jank.
+                decoding="async"
                 onError={(event) => {
                   // A skin number with no centered art on the CDN falls back
                   // to the base splash rather than a broken card.
@@ -201,6 +287,7 @@ export default function PlayerCard3D({
                 alt=""
                 className="pointer-events-none absolute bottom-24 right-2 h-24 w-24 object-contain opacity-15 grayscale"
                 loading="lazy"
+                decoding="async"
               />
             ) : null}
             {card.autograph ? (
@@ -212,6 +299,7 @@ export default function PlayerCard3D({
                 src={card.autograph}
                 alt={`${card.name}'s autograph`}
                 data-testid="autograph"
+                decoding="async"
                 className="pointer-events-none absolute bottom-[34%] left-1/2 w-[55%] object-contain"
                 style={{
                   transform: "translateX(-42%) rotate(-6deg)",
@@ -308,13 +396,10 @@ export default function PlayerCard3D({
             {/* Glare follows the pointer; foil on Emerald+, or on request. */}
             {interactive ? (
               <div
+                ref={glareRef}
                 aria-hidden
                 className="pointer-events-none absolute inset-0 transition-opacity duration-200"
-                style={{
-                  opacity: hovering ? 0.55 : 0.18,
-                  background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgb(255 255 255 / 0.5), transparent 55%)`,
-                  mixBlendMode: "overlay",
-                }}
+                style={{ opacity: hovering ? 0.55 : 0.18, background: REST_GLARE, mixBlendMode: "overlay" }}
               />
             ) : null}
             {style.foil || card.standout || forceFoil ? (
@@ -322,11 +407,7 @@ export default function PlayerCard3D({
                 aria-hidden
                 data-testid="foil"
                 className="pointer-events-none absolute inset-0"
-                style={{
-                  opacity: hovering ? 0.5 : 0.22,
-                  background: `linear-gradient(${115 + tilt.y * 4}deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)`,
-                  mixBlendMode: "color-dodge",
-                }}
+                style={{ opacity: hovering ? 0.5 : 0.22, background: FOIL_GRADIENT, mixBlendMode: "color-dodge" }}
               />
             ) : null}
             {card.tier.key === "challenger" || card.standout ? (
@@ -372,7 +453,13 @@ export default function PlayerCard3D({
                     <div key={champ.champion} className="flex items-center gap-2">
                       {icon ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={icon} alt="" className="h-7 w-7 rounded border border-line object-cover" loading="lazy" />
+                        <img
+                          src={icon}
+                          alt=""
+                          className="h-7 w-7 rounded border border-line object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       ) : (
                         <span className="h-7 w-7 rounded border border-dashed border-line" />
                       )}
