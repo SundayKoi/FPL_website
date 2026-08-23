@@ -80,8 +80,12 @@ The dashboard has one local `Draft history` selector:
   normalized team name.
 
 All totals, percentages, rankings, and sample labels recompute from the selected
-scope. The full source rows are loaded once by the Server Component; changing the
-scope is client-local and makes no additional request.
+scope. Team panels use the opponent's selected games. Player pools search draft
+actions across the whole active league so a traded player's former-team games
+remain attributable: current-season and all-history use the matching global time
+window, while recent-five uses each current player's five most recent attributed
+series. The full source rows are loaded once by the Server Component; changing
+the scope is client-local and makes no additional request.
 
 ## Dashboard content
 
