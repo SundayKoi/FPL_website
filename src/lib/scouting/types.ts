@@ -8,7 +8,7 @@ export interface ScoutDraftRow { id: string; fixture_id: string; game_number: nu
 export interface ScoutRosterPlayer { id: string; displayName: string; role: LolRole; }
 export interface ScoutHistory { fixtures: ScoutFixtureRow[]; drafts: ScoutDraftRow[]; }
 export interface ScoutSource extends ScoutHistory { opponentName: string; currentSeason: string; nextFixture: ScoutFixtureRow; roster: ScoutRosterPlayer[]; }
-export interface ChampionCount { champion: string; count: number; rate: number; }
+export interface ChampionCount { champion: string; count: number; rate?: number; }
 export interface DraftSlot { champion: string | null; skipped: boolean; playerName?: string | null; }
 export interface FullDraftSide { teamName: string | null; picks: DraftSlot[]; banPhaseOne: DraftSlot[]; banPhaseTwo: DraftSlot[]; }
 export interface PastDraft { fixture: ScoutFixtureRow; gameNumber: number; side: DraftSide; winnerTeam: string | null; blue: FullDraftSide; red: FullDraftSide; }

@@ -51,4 +51,47 @@ describe("opponent scouting derivation", () => {
     firstPick.champion = "  ahri  ";
     expect(deriveScoutData(variant, "all").firstPicks.find((row) => row.champion === "Ahri")?.count).toBe(3);
   });
+
+  it("builds trade-aware pools from the current roster and scopes attributed fixtures", () => {
+    const traded = structuredClone(source);
+    traded.roster = [
+      { id: "h", displayName: "Hollowpoint", role: "top" },
+      { id: "g", displayName: "GhostRoute", role: "jungle" },
+      { id: "n", displayName: " NorthStar ", role: "mid" },
+      { id: "h2", displayName: "Halflight", role: "adc" },
+      { id: "l", displayName: "LowTide", role: "support" },
+    ];
+    const pick = (name: string, champion: string, stepIndex = 6): MatchDraftAction => ({ stepIndex, side: "blue", kind: "pick", slot: 1, playerName: name, champion });
+    traded.drafts = [
+      ...traded.drafts,
+      ...["7", "8"].map((id) => ({ ...traded.drafts[0], id: `trade-${id}`, fixture_id: id, actions: [pick("northstar", "Ahri")] })),
+      { ...traded.drafts[0], id: "trade-ori", fixture_id: "1", actions: [pick(" NorthStar ", "Orianna")] },
+      { ...traded.drafts[0], id: "former-team", fixture_id: "1", actions: [pick("Former Mid", "LeBlanc")] },
+      ...Array.from({ length: 5 }, (_, index) => ({ ...traded.drafts[0], id: `away-${index}`, fixture_id: "1", actions: [pick("Former Mid", "Ahri")] })),
+    ];
+    traded.fixtures = [...traded.fixtures, fixture("7", "S5", "2026-08-07T00:00:00Z"), fixture("8", "S5", "2026-08-08T00:00:00Z")];
+    const pools = deriveScoutData(traded, "all").playerPools;
+    expect(pools.map((row) => row.playerName)).toEqual(["Hollowpoint", "GhostRoute", "NorthStar", "Halflight", "LowTide"]);
+    expect(pools.find((row) => row.playerName === "NorthStar")?.champions).toEqual([{ champion: "Ahri", count: 2 }, { champion: "Orianna", count: 1 }]);
+    expect(pools.find((row) => row.playerName === "Hollowpoint")?.totalPicks).toBe(0);
+    expect(pools.some((row) => row.playerName === "Former Mid")).toBe(false);
+  });
+
+  it("derives openings, pairings, side facts, adaptation, and confirmed flexes", () => {
+    const patterned = structuredClone(source);
+    patterned.roster = [];
+    const game = (id: string, gameNumber: number, winnerTeam: string | null, first: string, positions: string[] | null = null) => ({
+      ...patterned.drafts[0], id, fixture_id: id, game_number: gameNumber, winner_team: winnerTeam,
+      positions: positions ? { blue: positions } : null,
+      actions: LCS_DRAFT_STEPS.map((step) => ({ stepIndex: step.index, side: step.side, kind: step.kind, slot: step.slot, champion: step.kind === "pick" ? (step.side === "blue" ? [first, "Vi", "Nautilus", "Ahri", "Garen"][step.slot - 1] : `red-${step.slot}`) : `ban-${step.index}` })),
+    });
+    patterned.fixtures = [fixture("p1", "S5", "2026-08-10T00:00:00Z")];
+    patterned.drafts = [game("p1", 1, "Other", "Ahri", ["Ahri", "Vi", "Ahri", "Nautilus", "Garen"]), { ...game("p2", 2, "Night Vale", "Ahri"), fixture_id: "p1" }];
+    const data = deriveScoutData(patterned, "all");
+    expect(data.openings[0]).toMatchObject({ champion: "Ahri / Vi / Nautilus", count: 2 });
+    expect(data.pairings.find((row) => row.champion === "Ahri + Vi")?.count).toBe(2);
+    expect(data.sideFacts).toEqual(expect.arrayContaining([{ side: "blue", games: 2, commonOpening: expect.objectContaining({ champion: "Ahri", count: 2 }) }]));
+    expect(data.adaptation).toEqual({ lossesFollowed: 1, changedFirstPick: 0, repeatedChampions: 5 });
+    expect(data.flexes).toEqual([{ champion: "Ahri", roles: ["Top", "Mid"] }]);
+  });
 });
