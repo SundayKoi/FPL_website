@@ -42,29 +42,39 @@ describe("rollSkinNum", () => {
 
 describe("rollPrint", () => {
   // Riot's catalog lists nums whose centered splash was never uploaded —
-  // the validator is what keeps those prints out of pulled copies.
+  // the validator is what keeps those prints out of pulled copies. The
+  // first scripted value is the ALT_SKIN_CHANCE gate (< 0.3 = alternate).
   const validOnly = (valid: number[]) => async (_champion: string, num: number) => valid.includes(num);
 
-  it("returns a validated alternate print", async () => {
-    await expect(rollPrint("Jhin", [0, 1, 4], scripted([0.5]), validOnly([1, 4]))).resolves.toBe(1);
-  });
-
-  it("re-rolls off catalog nums whose art does not exist", async () => {
-    // First roll hits 13 (invalid, removed), second lands on 4.
-    await expect(rollPrint("Jhin", [0, 4, 13], scripted([0.99, 0.99]), validOnly([4]))).resolves.toBe(4);
-  });
-
-  it("returns base without consulting the validator", async () => {
+  it("prints base when the chance gate misses — no validator call", async () => {
     const neverValid = async () => {
       throw new Error("validator must not run for base");
     };
-    await expect(rollPrint("Jhin", [0, 7], scripted([0.1]), neverValid)).resolves.toBe(0);
+    await expect(rollPrint("Jhin", [0, 7, 9], scripted([0.5]), neverValid)).resolves.toBe(0);
+  });
+
+  it("prints a validated alternate when the gate hits", async () => {
+    // gate 0.1 -> alternate; index 0.5 over [1, 4] -> 4.
+    await expect(rollPrint("Jhin", [0, 1, 4], scripted([0.1, 0.5]), validOnly([1, 4]))).resolves.toBe(4);
+  });
+
+  it("re-rolls off catalog nums whose art does not exist", async () => {
+    // gate hits; first roll lands 13 (invalid, removed), second lands 4.
+    await expect(rollPrint("Jhin", [0, 4, 13], scripted([0.1, 0.99, 0.99]), validOnly([4]))).resolves.toBe(4);
   });
 
   it("floors at base when nothing validates", async () => {
     await expect(
-      rollPrint("Jhin", [3, 5, 9], scripted([0.9, 0.9, 0.9]), validOnly([])),
+      rollPrint("Jhin", [3, 5, 9], scripted([0.1, 0.9, 0.9, 0.9]), validOnly([])),
     ).resolves.toBe(0);
+  });
+
+  it("prints base outright for a champion with no alternates", async () => {
+    const neverValid = async () => {
+      throw new Error("validator must not run");
+    };
+    // no rand consumed at all: scripted([]) would throw on any call
+    await expect(rollPrint("Jhin", [0], scripted([]), neverValid)).resolves.toBe(0);
   });
 
   it("answers base splash for an empty catalog", () => {

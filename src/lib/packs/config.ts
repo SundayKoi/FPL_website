@@ -62,6 +62,14 @@ export const RARITY_WEIGHTS: Record<RarityClass, number> = {
  *  independently of rarity so a foil bronze is a real (if modest) pull. */
 export const FOIL_CHANCE = 0.06;
 
+/** Chance a pulled copy prints in an ALTERNATE skin of the player's
+ *  signature champion instead of the base splash. Base is the expected
+ *  look, so an alternate print reads as a pull in its own right (about
+ *  foil-tier); which alternate is uniform across the champion's validated
+ *  catalog, so specific skins on big-catalog champions are genuinely hard
+ *  to hit. */
+export const ALT_SKIN_CHANCE = 0.3;
+
 /**
  * Chance a pulled card comes out autographed — the pen mark of the player
  * themselves, inked onto that copy forever. Only rolls for players who have

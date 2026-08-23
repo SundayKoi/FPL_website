@@ -7,6 +7,7 @@
 // injected rand, so a print is as unguessable as the pull.
 
 import { DDRAGON_VERSION, championByName, championCenteredUrl } from "@/lib/match-draft/champions";
+import { ALT_SKIN_CHANCE } from "./config";
 
 /** Champion id -> that champion's skin nums. Module-level and unbounded on
  *  purpose: the catalog only moves on a patch, and a pack of five pulls of
@@ -78,15 +79,17 @@ async function centeredArtExists(championName: string, num: number): Promise<boo
 }
 
 /**
- * The print roll the pack actually uses: a uniform pick over the champion's
- * skin nums, VALIDATED against the CDN before it's frozen into the copy.
+ * The print roll the pack actually uses. Two stages, both off the injected
+ * rand: first a chance gate — ALT_SKIN_CHANCE of printing an alternate at
+ * all, base splash otherwise, so base is the expected look and an alternate
+ * reads as a pull in its own right — then a uniform pick among the
+ * champion's alternates, VALIDATED against the CDN before it's frozen.
  *
  * The skin catalog lists nums whose centered splash Riot never uploaded
- * (they 403) — without this check those prints render broken and the card's
- * client-side fallback silently swaps them to base art, which in practice
- * made almost every pull look like a base print. An invalid roll is removed
- * from the candidates and re-rolled, a few attempts at most; base (0) always
- * exists and is the floor.
+ * (they 403) — without the validation those prints render broken and the
+ * card's client-side fallback silently swaps them to base art. An invalid
+ * roll is removed from the candidates and re-rolled, a few attempts at
+ * most; base (0) always exists and is the floor.
  */
 export async function rollPrint(
   championName: string,
@@ -94,13 +97,15 @@ export async function rollPrint(
   rand: () => number,
   artExists: (championName: string, num: number) => Promise<boolean> = centeredArtExists,
 ): Promise<number> {
-  const candidates = [...new Set(skinNums)];
-  for (let attempt = 0; attempt < 6 && candidates.length > 0; attempt++) {
-    const index = Math.min(candidates.length - 1, Math.floor(rand() * candidates.length));
-    const num = candidates[index];
-    if (num === 0) return 0;
+  const alternates = [...new Set(skinNums)].filter((num) => num !== 0);
+  if (alternates.length === 0) return 0;
+  if (rand() >= ALT_SKIN_CHANCE) return 0;
+
+  for (let attempt = 0; attempt < 6 && alternates.length > 0; attempt++) {
+    const index = Math.min(alternates.length - 1, Math.floor(rand() * alternates.length));
+    const num = alternates[index];
     if (await artExists(championName, num)) return num;
-    candidates.splice(index, 1);
+    alternates.splice(index, 1);
   }
   return 0;
 }
