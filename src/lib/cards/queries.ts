@@ -20,10 +20,37 @@ import {
   type PlayerCardData,
 } from "./build";
 
-/** The season the cards page rates — the site's current one. */
-export async function fetchCardSeason(supabase: SupabaseClient): Promise<string | null> {
-  const { data } = await supabase.from("league_settings").select("current_season").eq("id", 1).maybeSingle();
-  return (data as { current_season: string | null } | null)?.current_season ?? null;
+export type CardLeague = "premier" | "academy";
+
+/** The season a league's cards rate — Premier's current season or the
+ *  Academy's own code. The two leagues share every stats table and are
+ *  separated by season code, so the whole card pipeline is league-agnostic
+ *  once the right season is chosen. */
+export async function fetchCardSeason(supabase: SupabaseClient, league: CardLeague = "premier"): Promise<string | null> {
+  const { data } = await supabase
+    .from("league_settings")
+    .select("current_season, academy_season")
+    .eq("id", 1)
+    .maybeSingle();
+  const settings = data as { current_season: string | null; academy_season: string | null } | null;
+  return (league === "academy" ? settings?.academy_season : settings?.current_season) ?? null;
+}
+
+/** Both leagues' seasons (Premier first), deduplicated — for surfaces that
+ *  span leagues, like resolving a share slug or the weekly drop. */
+export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ league: CardLeague; season: string }[]> {
+  const { data } = await supabase
+    .from("league_settings")
+    .select("current_season, academy_season")
+    .eq("id", 1)
+    .maybeSingle();
+  const settings = data as { current_season: string | null; academy_season: string | null } | null;
+  const seasons: { league: CardLeague; season: string }[] = [];
+  if (settings?.current_season) seasons.push({ league: "premier", season: settings.current_season });
+  if (settings?.academy_season && settings.academy_season !== settings.current_season) {
+    seasons.push({ league: "academy", season: settings.academy_season });
+  }
+  return seasons;
 }
 
 export interface FetchSeasonCardsOptions {

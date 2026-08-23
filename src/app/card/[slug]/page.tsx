@@ -3,7 +3,7 @@ import Link from "next/link";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
-import { fetchCardBySlug, fetchCardSeason, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
 import { fetchStandoutKeys } from "@/lib/cards/standout";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -57,17 +57,21 @@ function SeasonJourney({ history, card }: { history: RatingHistoryPoint[]; card:
 // image below makes a pasted link unfurl into the card on Discord. The
 // premium gate lives on the /cards hub, not here; this page is the ad.
 
+/** Share URLs span both leagues: try Premier's season first, then the
+ *  Academy's, so one /card/[slug] namespace serves every player. */
 async function loadCard(slug: string) {
   const supabase = await createServerSupabase();
-  const season = await fetchCardSeason(supabase);
-  if (!season) return null;
-  const standoutKeys = await fetchStandoutKeys(season);
-  return await fetchCardBySlug(supabase, season, slug, { standoutKeys });
+  for (const { league, season } of await fetchAllCardSeasons(supabase)) {
+    const standoutKeys = await fetchStandoutKeys(season);
+    const card = await fetchCardBySlug(supabase, season, slug, { standoutKeys });
+    if (card) return { card, league };
+  }
+  return null;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const card = await loadCard(slug);
+  const card = (await loadCard(slug))?.card ?? null;
   if (!card) return { title: "Player card — FPL" };
   return {
     title: `${card.name} — ${card.overall} OVR ${card.tier.label} | FPL`,
@@ -79,7 +83,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function CardSharePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const card = await loadCard(slug);
+  const loaded = await loadCard(slug);
+  const card = loaded?.card ?? null;
+  const collectionHref = loaded?.league === "academy" ? "/academy/cards" : "/cards";
 
   // May this viewer restyle the card's art? Admins, or a captain whose
   // roster contains the player (can_edit_card_art, security definer). Any
@@ -131,7 +137,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
       ) : null}
       <p className="max-w-md text-center text-xs text-steel">
         Cards rebuild themselves from the season&apos;s stats after every match night.{" "}
-        <Link href="/cards" className="text-coral underline-offset-4 hover:underline">
+        <Link href={collectionHref} className="text-coral underline-offset-4 hover:underline">
           Premium members browse the whole collection →
         </Link>
       </p>

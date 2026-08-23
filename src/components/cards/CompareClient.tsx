@@ -39,10 +39,13 @@ export default function CompareClient({
   cards,
   initialA,
   initialB,
+  basePath = "/cards/compare",
 }: {
   cards: PlayerCardData[];
   initialA: string | null;
   initialB: string | null;
+  /** The page's own path — the academy compare lives elsewhere. */
+  basePath?: string;
 }) {
   const router = useRouter();
   const [slugA, setSlugA] = useState(initialA ?? "");
@@ -56,7 +59,7 @@ export default function CompareClient({
     const params = new URLSearchParams();
     if (a) params.set("a", a);
     if (b) params.set("b", b);
-    router.replace(`/cards/compare${params.size ? `?${params}` : ""}`, { scroll: false });
+    router.replace(`${basePath}${params.size ? `?${params}` : ""}`, { scroll: false });
   };
 
   const rows = cardA && cardB
