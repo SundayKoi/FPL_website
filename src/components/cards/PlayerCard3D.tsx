@@ -76,6 +76,10 @@ const TRACKING_TRANSITION = "transform 60ms linear";
  *  six-stop gradient — a repaint of the whole card face — on every frame of
  *  every hover. Pinned: the colour-dodge blend over a moving card already
  *  reads as movement, so the swing wasn't earning its cost. */
+/** A pulled foil's sheen at rest versus fully turned into the light. The
+ *  span between them is the whole effect: see writeTilt. */
+const FOIL_REST_OPACITY = 0.3;
+const FOIL_PEAK_OPACITY = 0.85;
 const FOIL_GRADIENT =
   "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
@@ -110,7 +114,7 @@ export default function PlayerCard3D({
   const frameRef = useRef<HTMLDivElement | null>(null);
   const glareRef = useRef<HTMLDivElement | null>(null);
   const holoRef = useRef<HTMLDivElement | null>(null);
-  const glitterRef = useRef<HTMLDivElement | null>(null);
+  const foilRef = useRef<HTMLDivElement | null>(null);
   // Latest pointer position, parked for the next animation frame.
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
@@ -157,31 +161,24 @@ export default function PlayerCard3D({
     if (glare) {
       glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.5), transparent 55%)`;
     }
-    // Prismatic foil: the grating and the glitter slide against each other as
-    // the card turns — different rates and opposite directions, which is what
-    // sells two stacked layers instead of one printed sheet. Taking the
-    // ambient drift off first is required, not tidiness: a running animation
-    // outranks an inline background-position.
+    // Pack foil: the wash slides as the card turns, and its strength rides
+    // the pointer's distance from centre — bright when you tilt the card
+    // into the light, near-invisible when you hold it square. Gating on
+    // distance (rather than running the shine flat out whenever hovered) is
+    // what keeps a wall of foils calm and makes the shine feel earned.
     const holo = holoRef.current;
-    if (holo) {
-      holo.style.animation = "none";
-      holo.style.backgroundPosition = `${glareX * 1.8 - 40}% ${glareY * 1.2 - 10}%`;
-    }
-    const glitter = glitterRef.current;
-    if (glitter) {
-      glitter.style.animation = "none";
-      glitter.style.backgroundPosition =
-        `${glareX * 2.6}% ${glareY * 2.6}%, ${140 - glareX * 2}% ${140 - glareY * 2}%`;
+    if (holo) holo.style.backgroundPosition = `${glareX * 1.6 - 30}% ${glareY * 1.6 - 30}%`;
+    const foil = foilRef.current;
+    if (foil) {
+      const fromCentre = Math.min(1, Math.hypot(glareX - 50, glareY - 50) / 50);
+      foil.style.opacity = String(FOIL_REST_OPACITY + fromCentre * (FOIL_PEAK_OPACITY - FOIL_REST_OPACITY));
     }
   }, []);
 
-  /** Hand the foil back to its ambient drift when the pointer leaves. */
+  /** Settle the foil back to its resting sheen when the pointer leaves. */
   const releaseFoil = useCallback(() => {
-    for (const layer of [holoRef.current, glitterRef.current]) {
-      if (!layer) continue;
-      layer.style.animation = "";
-      layer.style.backgroundPosition = "";
-    }
+    if (holoRef.current) holoRef.current.style.backgroundPosition = "";
+    if (foilRef.current) foilRef.current.style.opacity = String(FOIL_REST_OPACITY);
   }, []);
 
   // Pointer moves fire faster than the display refreshes, so the handler only
@@ -457,21 +454,17 @@ export default function PlayerCard3D({
             ) : null}
             {forceFoil ? (
               // A pulled foil is the one surface on the card that answers the
-              // pointer: the rainbow grating and the glitter field are driven
-              // from the same rAF as the tilt (writeTilt), so the colour on
-              // any spot depends on the angle you hold it at. Tier holos stay
-              // a flat sheen — that difference is the whole point. Blends sit
-              // per-layer: color-dodge turns the grating metallic, screen
-              // keeps the flecks and the sweep as clean light on top.
+              // pointer: one rainbow wash, driven from the same rAF as the
+              // tilt, brightening with distance from centre. Tier holos stay
+              // a flat sheen — that difference is the whole point.
               <div
+                ref={foilRef}
                 aria-hidden
                 data-testid="foil"
-                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl transition-opacity duration-200"
-                style={{ opacity: hovering ? 0.85 : 0.45 }}
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl transition-opacity duration-300"
+                style={{ opacity: FOIL_REST_OPACITY }}
               >
                 <div ref={holoRef} className="card-foil-holo" style={{ mixBlendMode: "color-dodge" }} />
-                <div ref={glitterRef} className="card-foil-glitter" style={{ mixBlendMode: "screen" }} />
-                <div className="card-foil-glint" style={{ mixBlendMode: "screen" }} />
               </div>
             ) : style.foil || card.standout ? (
               <div
