@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  BANGER_POSTS,
   getRecentPosts,
   getTopPosts,
   pickRandomPost,
@@ -90,11 +89,11 @@ function TweetCard({ post, currentVote, onVote, featured = false }: { post: Bang
   );
 }
 
-export default function BangerBoard() {
+export default function BangerBoard({ posts }: { posts: BangerPost[] }) {
   const [votes, setVotes] = useState<Record<string, Vote | undefined>>({});
   const [randomPost, setRandomPost] = useState<BangerPost | undefined>(undefined);
-  const recentPosts = useMemo(() => getRecentPosts(BANGER_POSTS, new Date("2026-08-23T12:00:00Z")), []);
-  const rankedPosts = useMemo(() => getTopPosts(BANGER_POSTS).map((post) => withVotes(post, votes)), [votes]);
+  const recentPosts = useMemo(() => getRecentPosts(posts), [posts]);
+  const rankedPosts = useMemo(() => getTopPosts(posts).map((post) => withVotes(post, votes)), [posts, votes]);
 
   function vote(id: string, nextVote: Vote) {
     setVotes((current) => ({ ...current, [id]: current[id] === nextVote ? undefined : nextVote }));
@@ -110,7 +109,7 @@ export default function BangerBoard() {
             <div>
               <h1 className="max-w-3xl font-display text-5xl font-bold uppercase italic leading-[0.9] tracking-[-0.05em] text-white sm:text-7xl">Is it a<br /><span className="text-banana">banger?</span></h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/60">The community court for the takes, theories, and timeline turbulence of <span className="font-semibold text-white">@Stuart69Davis</span>.</p>
-              <div className="mt-8 flex flex-wrap items-center gap-4"><a href="https://x.com/Stuart69Davis" target="_blank" rel="noopener noreferrer" className="rounded-full bg-banana px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-jungle transition hover:bg-white">Open X profile ↗</a><span className="text-xs uppercase tracking-[0.16em] text-white/35">{BANGER_POSTS.length} archived transmissions</span></div>
+              <div className="mt-8 flex flex-wrap items-center gap-4"><a href="https://x.com/Stuart69Davis" target="_blank" rel="noopener noreferrer" className="rounded-full bg-banana px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-jungle transition hover:bg-white">Open X profile ↗</a><span className="text-xs uppercase tracking-[0.16em] text-white/35">{posts.length} archived transmissions</span></div>
             </div>
             <div className="rounded-2xl border border-banana/30 bg-jungle-card/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
               <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-[0.2em] text-white/45">Overall jungle verdict</span><span className="text-2xl">🏆</span></div>
@@ -128,7 +127,7 @@ export default function BangerBoard() {
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-8 px-5 pb-16 sm:px-10 lg:grid-cols-[0.72fr_1.28fr]">
-        <div className="relative overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]"><div className="absolute -right-4 -top-8 text-8xl opacity-30" aria-hidden="true">🍌</div><p className="label-dash">From the archive</p><h2 className="mt-3 font-display text-3xl font-bold uppercase italic text-white">Random<br /><span className="text-coral">pull</span></h2><div className="mt-7 rounded-2xl border border-white/10 bg-jungle/60 p-4">{randomPost ? <><div className="mb-3 flex items-center gap-2 text-xs text-white/45"><span className="text-lg">🐒</span> @Stuart69Davis · {postDate(randomPost.publishedAt)}</div><p className="text-lg leading-snug text-white/85">{randomPost.text}</p><div className="mt-5"><VoteButtons post={withVotes(randomPost, votes)} currentVote={votes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} /></div><div className="mt-3 text-xs font-bold uppercase tracking-[0.15em] text-banana">{percent(withVotes(randomPost, votes))} banger rating</div></> : <p className="text-sm leading-relaxed text-white/45">The all-time verified archive is empty. Random pulls will unlock when real posts are connected.</p>}</div><button type="button" onClick={() => setRandomPost(pickRandomPost(BANGER_POSTS))} disabled={BANGER_POSTS.length === 0} className="mt-5 w-full rounded-full border border-coral/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-coral transition hover:bg-coral hover:text-jungle disabled:cursor-not-allowed disabled:opacity-40">{BANGER_POSTS.length === 0 ? "Awaiting verified posts" : "Pull another banana ↻"}</button></div>
+        <div className="relative overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]"><div className="absolute -right-4 -top-8 text-8xl opacity-30" aria-hidden="true">🍌</div><p className="label-dash">From the archive</p><h2 className="mt-3 font-display text-3xl font-bold uppercase italic text-white">Random<br /><span className="text-coral">pull</span></h2><div className="mt-7 rounded-2xl border border-white/10 bg-jungle/60 p-4">{randomPost ? <><div className="mb-3 flex items-center gap-2 text-xs text-white/45"><span className="text-lg">🐒</span> @Stuart69Davis · {postDate(randomPost.publishedAt)}</div><p className="text-lg leading-snug text-white/85">{randomPost.text}</p><div className="mt-5"><VoteButtons post={withVotes(randomPost, votes)} currentVote={votes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} /></div><div className="mt-3 text-xs font-bold uppercase tracking-[0.15em] text-banana">{percent(withVotes(randomPost, votes))} banger rating</div></> : <p className="text-sm leading-relaxed text-white/45">The all-time verified archive is empty. Random pulls will unlock when real posts are connected.</p>}</div><button type="button" onClick={() => setRandomPost(pickRandomPost(posts))} disabled={posts.length === 0} className="mt-5 w-full rounded-full border border-coral/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-coral transition hover:bg-coral hover:text-jungle disabled:cursor-not-allowed disabled:opacity-40">{posts.length === 0 ? "Awaiting verified posts" : "Pull another banana ↻"}</button></div>
         <div><div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The current canopy</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">Last 45 days</h2></div><span className="text-xs uppercase tracking-[0.15em] text-white/35">{recentPosts.length} transmissions</span></div><div className="space-y-4">{recentPosts.length > 0 ? recentPosts.map((post) => <TweetCard key={post.id} post={withVotes(post, votes)} currentVote={votes[post.id]} onVote={(nextVote) => vote(post.id, nextVote)} featured={post.id === recentPosts[0].id} />) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm leading-relaxed text-white/50">No verified tweets from the last 45 days yet. This feed will stay empty rather than display invented posts.</div>}</div></div>
       </section>
     </main>
