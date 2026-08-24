@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { fetchCaptainContext, fetchMyRoster } from "@/lib/captain/queries";
 import { matchTeamId } from "@/lib/captain/teamNames";
@@ -30,9 +31,10 @@ export async function resolveBroadcasterFixture(
   league: LeagueView,
 ): Promise<BroadcasterFixtureContext> {
   const captain = await fetchCaptainContext(supabase, league);
+  const academyDraft = league === "academy" ? await fetchAcademyDraftData(supabase) : null;
   const [schedule, settings] = await Promise.all([
     league === "academy"
-      ? fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNames(captain.teams)))
+      ? fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, academyTeamNames(academyDraft?.teams ?? [])))
       : fetchHomepageSchedule(),
     fetchHomepageFeaturedSettings(league),
   ]);

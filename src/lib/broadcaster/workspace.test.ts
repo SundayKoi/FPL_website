@@ -7,6 +7,7 @@ const {
   fetchHomepageSchedule,
   fetchHomepageFeaturedSettings,
   selectHomepageFeaturedFixture,
+  fetchAcademyDraftData,
   filterAcademyFixtures,
   academyTeamNames,
   fetchMyRoster,
@@ -17,6 +18,7 @@ const {
   fetchHomepageSchedule: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
   selectHomepageFeaturedFixture: vi.fn(),
+  fetchAcademyDraftData: vi.fn(),
   filterAcademyFixtures: vi.fn(),
   academyTeamNames: vi.fn(),
   fetchMyRoster: vi.fn(),
@@ -27,6 +29,7 @@ const {
 vi.mock("@/lib/captain/queries", () => ({ fetchCaptainContext, fetchMyRoster }));
 vi.mock("@/lib/home/schedule", () => ({ fetchHomepageSchedule, selectHomepageFeaturedFixture }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
+vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
 vi.mock("@/lib/academy/filtering", () => ({ filterAcademyFixtures }));
 vi.mock("@/lib/league/context", () => ({ academyTeamNames }));
 vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchInhousePlayerStats }));
@@ -83,6 +86,7 @@ function arrangeFixtureResolution() {
     fixtures: [fixture()],
   });
   fetchHomepageFeaturedSettings.mockResolvedValue(settings);
+  fetchAcademyDraftData.mockResolvedValue({ draft: null, teams: [], players: [], profiles: [] });
   selectHomepageFeaturedFixture.mockImplementation((fixtures: FixtureRow[]) => fixtures[0] ?? null);
 }
 
@@ -106,6 +110,8 @@ describe("resolveBroadcasterFixture", () => {
 
   it("scopes Academy schedules to Academy fixtures before selecting the featured fixture", async () => {
     arrangeFixtureResolution();
+    const academyTeams = [{ name: "Alpha" }, { name: "Beta" }];
+    fetchAcademyDraftData.mockResolvedValue({ draft: null, teams: academyTeams, players: [], profiles: [] });
     academyTeamNames.mockReturnValue(new Set(["alpha"]));
     filterAcademyFixtures.mockImplementation((fixtures: FixtureRow[], names: Set<string>) =>
       fixtures.filter((row) => names.has(row.team_a?.trim().toLowerCase() ?? "")),
@@ -115,12 +121,41 @@ describe("resolveBroadcasterFixture", () => {
 
     const scope = fetchHomepageSchedule.mock.calls[0]?.[0] as (fixtures: FixtureRow[]) => FixtureRow[];
     expect(scope([fixture(), fixture({ id: "premier-only", team_a: "Gamma", team_b: "Delta" })])).toEqual([fixture()]);
-    expect(academyTeamNames).toHaveBeenCalledWith(teams);
+    expect(academyTeamNames).toHaveBeenCalledWith(academyTeams);
     expect(filterAcademyFixtures).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: "featured-1" })]),
       new Set(["alpha"]),
     );
     expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("academy");
+  });
+
+  it("uses the legacy Academy draft teams to select the homepage fixture when captain context has no teams", async () => {
+    arrangeFixtureResolution();
+    const academyFixture = fixture({ id: "academy-featured", team_a: "Academy Alpha", team_b: "Academy Beta" });
+    const unrelatedFixture = fixture({ id: "premier-only", team_a: "Premier Alpha", team_b: "Premier Beta" });
+    fetchCaptainContext.mockResolvedValue({ ...captainContext(), teams: [], activeTeams: [] });
+    fetchAcademyDraftData.mockResolvedValue({
+      draft: null,
+      teams: [{ name: "Academy Alpha" }, { name: "Academy Beta" }],
+      players: [],
+      profiles: [],
+    });
+    academyTeamNames.mockImplementation((draftTeams: Array<{ name: string }>) =>
+      new Set(draftTeams.map((team) => team.name.trim().toLowerCase())),
+    );
+    filterAcademyFixtures.mockImplementation((fixtures: FixtureRow[], names: Set<string>) =>
+      fixtures.filter((row) => names.has(row.team_a?.trim().toLowerCase() ?? "")),
+    );
+    fetchHomepageSchedule.mockImplementation(async (scope?: (fixtures: FixtureRow[]) => FixtureRow[]) => ({
+      season: "A1",
+      isNewestSeason: true,
+      activeStage: "week_1",
+      fixtures: scope ? scope([academyFixture, unrelatedFixture]) : [academyFixture, unrelatedFixture],
+    }));
+
+    await expect(resolveBroadcasterFixture(supabase, "academy")).resolves.toMatchObject({
+      fixture: { id: "academy-featured" },
+    });
   });
 
   it("falls back to the first active fixture when no fixture is configured", async () => {
