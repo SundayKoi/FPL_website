@@ -408,19 +408,21 @@ body {
   animation: cardGlintSweep 3.4s ease-in-out infinite;
 }
 /* ── Pack foil ──────────────────────────────────────────────────────
-   One layer, not four. The first pass stacked a grating, a glitter field
-   and a sweep all animating at once, which read as noise rather than
-   shine — the lesson from the CSS holo work the Pokemon card community
-   has settled on (simeydotme/pokemon-cards-css) is that a convincing foil
-   is TWO layers at most (a shine and a glare) and that its intensity is
-   gated on how far the pointer sits from the card's centre.
+   Two things a tier holo can never do, both driven from the same rAF as
+   the tilt (PlayerCard3D.writeTilt), both gated on how far the pointer
+   sits from the card's centre so a collection at rest stays calm:
 
-   So: a single broad rainbow wash, no animation of its own. At rest it is
-   a faint sheen. As you tilt the card the wash slides across the face and
-   its opacity climbs with distance from centre (PlayerCard3D writes both
-   from the same rAF as the tilt) — the card catches the light when you
-   turn it into the light, and is quiet when you don't. That restraint is
-   what makes it read as a surface instead of an effect. */
+   1. COSMOS — two sparse star fields at different pitches, sliding in
+      opposite directions. Sparse is the point: the first pass packed the
+      face with flecks and read as noise. This is the Pokemon cosmos-holo
+      trick, where the particulate is what tells you the card is foil.
+   2. PARALLAX — the artwork itself drifts against the pointer, as though
+      it sits a few millimetres behind the foil. That depth is the tell no
+      Emerald/Diamond/Master card can copy, because a tier holo is a film
+      laid ON the art and never moves it.
+
+   Dot pitch below (78px/53px) and the scale in card-art-parallax are the
+   two numbers worth tuning if it wants more or less. */
 @utility card-foil-holo {
   position: absolute;
   inset: 0;
@@ -435,6 +437,22 @@ body {
   );
   background-size: 260% 260%;
   background-position: 50% 50%;
+}
+@utility card-foil-cosmos {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.95) 0 1.1px, transparent 1.9px),
+    radial-gradient(circle at 50% 50%, rgb(186 232 255 / 0.7) 0 0.8px, transparent 1.6px);
+  background-size: 78px 78px, 53px 53px;
+  background-position: 50% 50%, 50% 50%;
+}
+/* The art's resting state under a foil. Scaled a touch so the parallax
+   drift never pulls an edge in off the frame; the drift itself is written
+   inline over this. */
+@utility card-art-parallax {
+  transform: scale(1.12);
+  will-change: transform;
 }
 @keyframes cardSparkle {
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
