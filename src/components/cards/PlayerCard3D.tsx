@@ -282,7 +282,7 @@ export default function PlayerCard3D({
                 key={splash}
                 src={splash}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
+                className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${forceFoil ? "card-art-live" : ""}`}
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -424,7 +424,20 @@ export default function PlayerCard3D({
                 style={{ opacity: hovering ? 0.55 : 0.18, background: REST_GLARE, mixBlendMode: "overlay" }}
               />
             ) : null}
-            {style.foil || card.standout || forceFoil ? (
+            {forceFoil ? (
+              // Pack foils get the living treatment: the same gradient on an
+              // oversized child that travels by transform (see globals.css for
+              // why transform and not background-position). Opacity/blend stay
+              // on the clipping wrapper so the hover boost works unchanged.
+              <div
+                aria-hidden
+                data-testid="foil"
+                className="pointer-events-none absolute inset-0 overflow-hidden"
+                style={{ opacity: hovering ? 0.5 : 0.22, mixBlendMode: "color-dodge" }}
+              >
+                <div className="card-foil-live" style={{ background: FOIL_GRADIENT }} />
+              </div>
+            ) : style.foil || card.standout ? (
               <div
                 aria-hidden
                 data-testid="foil"

@@ -114,6 +114,21 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
   });
 
+  it("animates the sheen and artwork on pack foils, but not on tier holos", () => {
+    // A Master card foils by tier, but only a pack-pulled foil copy earns the
+    // traveling sheen and drifting art — the rarity of motion is the point.
+    const { container, rerender } = render(
+      <PlayerCard3D card={{ ...card, tier: { key: "master", label: "Master" } }} />
+    );
+    expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
+    expect(container.querySelector(".card-foil-live")).toBeNull();
+    expect(container.querySelector(".card-art-live")).toBeNull();
+
+    rerender(<PlayerCard3D card={card} forceFoil />);
+    expect(container.querySelector(".card-foil-live")).toBeTruthy();
+    expect(container.querySelector(".card-art-live")).toBeTruthy();
+  });
+
   it("renders statically without a button when not interactive", () => {
     render(<PlayerCard3D card={card} interactive={false} />);
     expect(screen.queryByRole("button")).toBeNull();

@@ -377,6 +377,27 @@ body {
   background-size: 300% 300%;
   animation: cardFrameShift 4.5s linear infinite;
 }
+/* Pack-foil copies: the sheen travels and the artwork breathes. Unlike the
+   frame gradients above these are transform-only (compositor work, no
+   repaints), so a collection grid full of foils stays cheap; the card face's
+   overflow-hidden rounded-xl does the clipping. Art keyframes never drop
+   below scale(1.03) so the pan can't expose the frame behind the image. */
+@keyframes cardFoilTravel {
+  0% { transform: translate3d(-14%, -14%, 0); }
+  100% { transform: translate3d(14%, 14%, 0); }
+}
+@utility card-foil-live {
+  position: absolute;
+  inset: -60%;
+  animation: cardFoilTravel 7s ease-in-out infinite alternate;
+}
+@keyframes cardArtDrift {
+  0% { transform: scale(1.03) translate3d(0.8%, -0.4%, 0); }
+  100% { transform: scale(1.08) translate3d(-1.2%, 0.8%, 0); }
+}
+@utility card-art-live {
+  animation: cardArtDrift 14s ease-in-out infinite alternate;
+}
 @keyframes cardSparkle {
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
   50% { opacity: 1; transform: scale(1) rotate(90deg); }
@@ -390,7 +411,8 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout,
-  .card-frame-challenger, .card-frame-standout, .card-sparkle { animation: none; }
+  .card-frame-challenger, .card-frame-standout, .card-sparkle,
+  .card-foil-live, .card-art-live { animation: none; }
   /* Halos hold mid-pulse rather than jumping to a full-strength 1. */
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout { opacity: 0.5; }
   .card-sparkle { opacity: 0; }
