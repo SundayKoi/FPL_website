@@ -20,60 +20,7 @@
  * environment. Run with: npx tsx scripts/register-discord-commands.ts
  */
 
-// Discord application-command option types
-// (https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type).
-const OPTION_TYPE = {
-  INTEGER: 4,
-  USER: 6,
-} as const;
-
-interface CommandOption {
-  name: string;
-  description: string;
-  type: number;
-  required: boolean;
-  autocomplete?: boolean;
-}
-
-interface CommandDef {
-  name: string;
-  description: string;
-  options?: CommandOption[];
-}
-
-const COMMANDS: CommandDef[] = [
-  { name: "balance", description: "Your wallet + lifetime record" },
-  { name: "daily", description: "Claim your daily bonus (streak escalates!)" },
-  { name: "weekly", description: "Claim your weekly bonus (streak escalates!)" },
-  {
-    name: "tip",
-    description: "Gift points to another member",
-    options: [
-      { name: "user", description: "who to tip", type: OPTION_TYPE.USER, required: true },
-      { name: "amount", description: "how many points", type: OPTION_TYPE.INTEGER, required: true },
-    ],
-  },
-  { name: "bets", description: "Your open and recent settled bets" },
-  { name: "leaderboard", description: "Top balances + streaks" },
-  { name: "exchange", description: "Link to the betting site + open markets" },
-  { name: "store", description: "Browse the points store" },
-  {
-    name: "buy",
-    description: "Buy a store item with your points",
-    options: [
-      {
-        name: "item",
-        description: "Pick an item (start typing to filter)",
-        type: OPTION_TYPE.INTEGER,
-        required: true,
-        // Registration only — autocomplete requires handling a separate
-        // APPLICATION_COMMAND_AUTOCOMPLETE interaction type, not ported by
-        // this task (see the file header).
-        autocomplete: false,
-      },
-    ],
-  },
-];
+import { DISCORD_COMMANDS } from "../src/lib/betting/discord/commandDefs";
 
 function resolveConfig(): { appId: string; guildId: string; botToken: string } {
   const appId = process.env.DISCORD_APP_ID;
@@ -94,7 +41,7 @@ async function main() {
       Authorization: `Bot ${botToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(COMMANDS),
+    body: JSON.stringify(DISCORD_COMMANDS),
   });
 
   console.log(`PUT guild commands -> ${res.status} ${res.statusText}`);

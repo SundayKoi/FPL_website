@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireBettingOwner, requireBettingStaff } from "./access";
+import { DISCORD_COMMANDS } from "./discord/commandDefs";
 import { createBettingServiceClient } from "./service-client";
 
 // Admin (staff-only) actions for the betting domain (Task 9). Every export
@@ -609,4 +610,50 @@ export async function rejectProp(suggestionId: number, reason?: string): Promise
 
   revalidateBetting();
   return { ok: true };
+}
+
+/** Re-registers the bot's slash commands against the guild this deployment
+ * serves, using its own DISCORD_BOT_TOKEN/DISCORD_GUILD_ID — for when the
+ * command list changes and nobody has (or can reveal) the bot token to run
+ * scripts/register-discord-commands.ts elsewhere. The app id is derived from
+ * the token (GET applications/@me) because the deployment doesn't carry a
+ * DISCORD_APP_ID env var. Purely a Discord API call — no DB writes, so no
+ * audit row. */
+export async function registerDiscordCommands(): Promise<
+  { ok: true; registered: string[] } | { ok: false; error: string }
+> {
+  const ctx = await staffOnly();
+  if (!isStaffCtx(ctx)) return ctx;
+
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  const guildId = process.env.DISCORD_GUILD_ID;
+  if (!botToken || !guildId) {
+    return { ok: false, error: "DISCORD_BOT_TOKEN / DISCORD_GUILD_ID are not configured on this deployment." };
+  }
+
+  try {
+    const meRes = await fetch("https://discord.com/api/v10/applications/@me", {
+      headers: { Authorization: `Bot ${botToken}` },
+    });
+    if (!meRes.ok) {
+      return { ok: false, error: `Discord rejected the bot token (${meRes.status}).` };
+    }
+    const appId = ((await meRes.json()) as { id: string }).id;
+
+    const res = await fetch(`https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(DISCORD_COMMANDS),
+    });
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: `Discord refused the command update (${res.status}) — is the bot in that server with the applications.commands scope?`,
+      };
+    }
+    const registered = ((await res.json()) as Array<{ name: string }>).map((c) => c.name);
+    return { ok: true, registered };
+  } catch {
+    return { ok: false, error: "Could not reach Discord — try again." };
+  }
 }

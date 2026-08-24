@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { requireBettingStaff, requireBettingOwner } = vi.hoisted(() => ({
   requireBettingStaff: vi.fn(),
@@ -33,6 +33,7 @@ import {
   grantPoints,
   approveProp,
   rejectProp,
+  registerDiscordCommands,
 } from "./admin-actions";
 
 const STAFF_CTX = { discordId: "staff-1", profileId: "profile-1" };
@@ -130,6 +131,7 @@ describe("authorization (non-staff rejected before any RPC/table call)", () => {
     ["grantPoints", () => grantPoints("42", 100, "correcting a bug")],
     ["approveProp", () => approveProp(1, 1, "2027-01-01T00:00:00Z")],
     ["rejectProp", () => rejectProp(1, "too vague")],
+    ["registerDiscordCommands", () => registerDiscordCommands()],
   ];
 
   it.each(cases)("%s rejects a non-staff caller without an RPC or table call", async (_name, run) => {
@@ -540,5 +542,64 @@ describe("rejectProp", () => {
       p_suggestion: 4,
       p_reason: "too vague",
     });
+  });
+});
+
+describe("registerDiscordCommands", () => {
+  const ORIGINAL_ENV = { ...process.env };
+  const ORIGINAL_FETCH = global.fetch;
+
+  beforeEach(() => {
+    process.env.DISCORD_BOT_TOKEN = "bot-token";
+    process.env.DISCORD_GUILD_ID = "guild-1";
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    global.fetch = ORIGINAL_FETCH;
+  });
+
+  it("resolves the app id from the token, PUTs the command list, and reports the names", async () => {
+    const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
+      if (String(url).endsWith("/applications/@me")) {
+        return new Response(JSON.stringify({ id: "app-1" }), { status: 200 });
+      }
+      const body = JSON.parse(String(init?.body)) as Array<{ name: string }>;
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await registerDiscordCommands();
+
+    expect(result).toEqual({ ok: true, registered: expect.arrayContaining(["daily", "weekly", "buy"]) });
+    const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT");
+    expect(putCall).toBeDefined();
+    expect(String(putCall![0])).toBe("https://discord.com/api/v10/applications/app-1/guilds/guild-1/commands");
+    expect((putCall![1]!.headers as Record<string, string>).Authorization).toBe("Bot bot-token");
+  });
+
+  it("surfaces a friendly error when Discord refuses the PUT (e.g. bot not in the guild)", async () => {
+    global.fetch = vi.fn(async (url: string | URL) => {
+      if (String(url).endsWith("/applications/@me")) {
+        return new Response(JSON.stringify({ id: "app-1" }), { status: 200 });
+      }
+      return new Response("Missing Access", { status: 403 });
+    }) as typeof fetch;
+
+    const result = await registerDiscordCommands();
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/403/);
+  });
+
+  it("fails without touching Discord when the bot env is missing", async () => {
+    delete process.env.DISCORD_BOT_TOKEN;
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    const result = await registerDiscordCommands();
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

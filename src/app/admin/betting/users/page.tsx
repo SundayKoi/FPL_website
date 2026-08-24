@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireBettingStaff } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
+import BotCommandsAdmin from "@/components/admin/betting/BotCommandsAdmin";
 import UsersAdmin, { type AuditRow, type BalanceRow } from "@/components/admin/betting/UsersAdmin";
 
 /**
@@ -31,6 +32,7 @@ export default async function AdminBettingUsersPage() {
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Betting — Users</h1>
       </header>
       <UsersAdmin balances={balances} audit={audit} />
+      <BotCommandsAdmin />
     </main>
   );
 }
