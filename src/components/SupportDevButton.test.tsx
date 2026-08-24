@@ -15,6 +15,12 @@ describe("SupportDevButton", () => {
     expect(link.className).toContain("fixed");
     expect(link.className).toContain("bottom-4");
     expect(link.className).toContain("left-4");
-    expect(link.querySelector("img")?.getAttribute("alt")).toBe("Support the devs");
+    expect(link.className).toContain("h-10");
+    expect(link.className).toContain("w-10");
+    expect(link.className).toContain("rounded-full");
+
+    const image = link.querySelector("img");
+    expect(image?.getAttribute("alt")).toBe("Support the devs");
+    expect(image?.className).toContain("object-cover");
   });
 });
