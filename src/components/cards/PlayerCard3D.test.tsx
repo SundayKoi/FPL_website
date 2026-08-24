@@ -114,20 +114,42 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
   });
 
-  it("animates the sheen and artwork on pack foils, but not on tier holos", () => {
-    // A Master card foils by tier, but only a pack-pulled foil copy earns the
-    // traveling sheen and drifting art — the rarity of motion is the point.
+  it("gives pack foils the prismatic stack that tier holos never get", () => {
+    // A Master card foils by tier, but its sheen is a flat gradient. Only a
+    // pack-pulled copy earns the grating, the glitter and the sweep — that
+    // difference is what makes a rolled foil read as rarer than the tier.
     const { container, rerender } = render(
       <PlayerCard3D card={{ ...card, tier: { key: "master", label: "Master" } }} />
     );
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
-    expect(container.querySelector(".card-foil-live")).toBeNull();
-    expect(container.querySelector(".card-art-live")).toBeNull();
+    expect(container.querySelector(".card-foil-holo")).toBeNull();
+    expect(container.querySelector(".card-foil-glitter")).toBeNull();
 
     rerender(<PlayerCard3D card={card} forceFoil />);
-    expect(container.querySelector(".card-foil-live")).toBeTruthy();
+    expect(container.querySelector(".card-foil-holo")).toBeTruthy();
+    expect(container.querySelector(".card-foil-glitter")).toBeTruthy();
     expect(container.querySelector(".card-foil-glint")).toBeTruthy();
-    expect(container.querySelector(".card-art-live")).toBeTruthy();
+  });
+
+  it("leaves the artwork still — the foil moves, the splash does not", () => {
+    // The art used to breathe in and out under every foil; the zoom read as
+    // drift rather than shine and fought the frame it sat in.
+    const { container } = render(<PlayerCard3D card={card} forceFoil />);
+    expect(container.querySelector(".card-art-live")).toBeNull();
+  });
+
+  it("drives the foil off the pointer, then hands it back to its idle drift", () => {
+    const { container } = render(<PlayerCard3D card={card} forceFoil />);
+    const frame = screen.getByRole("button");
+    const holo = container.querySelector<HTMLElement>(".card-foil-holo")!;
+
+    fireEvent.pointerEnter(frame);
+    fireEvent.pointerMove(frame, { clientX: 40, clientY: 90 });
+    // jsdom reports a zero-size rect, so the rAF write is skipped there; what
+    // this pins is the release path — the ambient animation must come back.
+    fireEvent.pointerLeave(frame);
+    expect(holo.style.animation).toBe("");
+    expect(holo.style.backgroundPosition).toBe("");
   });
 
   it("renders statically without a button when not interactive", () => {

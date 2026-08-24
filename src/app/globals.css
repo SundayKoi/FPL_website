@@ -407,12 +407,53 @@ body {
   transform: translate3d(-160%, 0, 0) rotate(16deg);
   animation: cardGlintSweep 3.4s ease-in-out infinite;
 }
-@keyframes cardArtDrift {
-  0% { transform: scale(1.04) translate3d(1%, -0.5%, 0); }
-  100% { transform: scale(1.1) translate3d(-1.5%, 1%, 0); }
+/* ── Prismatic pack foil ────────────────────────────────────────────
+   What separates a pulled foil from the passive sheen high tiers wear:
+   this one answers the pointer. The grating below is a fine rainbow
+   diffraction pattern whose bands SLIDE as the card tilts (PlayerCard3D
+   writes background-position from the same rAF that writes the tilt), so
+   the colour that lands on any given spot depends on the angle you hold
+   the card at — the way real foil stock behaves. Tier holos stay ambient;
+   only a pack foil reacts to you.
+
+   The idle drift keeps a grid of foils alive when nothing is hovered, and
+   the pointer write simply takes over on top of it. */
+@keyframes cardHoloDrift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
 }
-@utility card-art-live {
-  animation: cardArtDrift 8s ease-in-out infinite alternate;
+@utility card-foil-holo {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    100deg,
+    rgb(255 70 130 / 0.6) 0%,
+    rgb(255 205 90 / 0.6) 7%,
+    rgb(105 235 150 / 0.6) 14%,
+    rgb(85 180 255 / 0.6) 21%,
+    rgb(205 110 255 / 0.6) 28%,
+    rgb(255 70 130 / 0.6) 35%
+  );
+  background-size: 300% 300%;
+  animation: cardHoloDrift 6s linear infinite alternate;
+}
+/* The glitter: a scatter of hard little specular points, the flecks
+   suspended in real foil laminate. Two offset dot fields at different
+   pitches so the pattern never reads as a regular grid, sliding at a
+   different rate from the grating above — that mismatch is what makes the
+   surface look like it has depth instead of one printed layer. */
+@keyframes cardGlitterDrift {
+  0% { background-position: 0% 0%, 50% 50%; }
+  100% { background-position: 140% 90%, 190% 40%; }
+}
+@utility card-foil-glitter {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.9) 0.6px, transparent 1.4px),
+    radial-gradient(circle at 50% 50%, rgb(190 235 255 / 0.75) 0.5px, transparent 1.2px);
+  background-size: 34px 34px, 23px 23px;
+  animation: cardGlitterDrift 7.5s linear infinite alternate;
 }
 @keyframes cardSparkle {
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
@@ -428,7 +469,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout,
   .card-frame-challenger, .card-frame-standout, .card-sparkle,
-  .card-foil-live, .card-foil-glint, .card-art-live { animation: none; }
+  .card-foil-live, .card-foil-glint, .card-foil-holo, .card-foil-glitter { animation: none; }
   /* Halos hold mid-pulse rather than jumping to a full-strength 1. */
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout { opacity: 0.5; }
   .card-sparkle { opacity: 0; }
