@@ -547,7 +547,11 @@ export default function PackOpening({
                         <div className="pack-flip-face pack-flip-face-rear">
                           {face ? (
                             <div className="pack-line-card">
-                              <PlayerCard3D card={pull.card} interactive={false} forceFoil={pull.foil} />
+                              {/* Interactive: the revealed pulls tilt and catch their foil under
+                                  the pointer like anywhere else. The rear face
+                                  counter-rotates the flip container, so the tilt
+                                  reads the right way round in here. */}
+                              <PlayerCard3D card={pull.card} forceFoil={pull.foil} />
                             </div>
                           ) : null}
                         </div>
