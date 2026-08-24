@@ -72,14 +72,13 @@ const REST_TRANSFORM = "rotateX(0deg) rotateY(0deg)";
 const REST_GLARE = "radial-gradient(circle at 50% 35%, rgb(255 255 255 / 0.5), transparent 55%)";
 const REST_TRANSITION = "transform 250ms ease-out";
 const TRACKING_TRANSITION = "transform 60ms linear";
-/** The foil's sheen angle used to ride `tilt.y`, which meant rebuilding a
- *  six-stop gradient — a repaint of the whole card face — on every frame of
- *  every hover. Pinned: the colour-dodge blend over a moving card already
- *  reads as movement, so the swing wasn't earning its cost. */
 /** A pulled foil's sheen at rest versus fully turned into the light. The
  *  span between them is the whole effect: see writeTilt. */
 const FOIL_REST_OPACITY = 0.3;
 const FOIL_PEAK_OPACITY = 0.85;
+/** The flat sheen a TIER holo wears (Emerald+). Pinned rather than swung
+ *  off the tilt: rebuilding a six-stop gradient per frame repainted the
+ *  whole card face, and a pulled foil is what earns real motion now. */
 const FOIL_GRADIENT =
   "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
@@ -114,7 +113,9 @@ export default function PlayerCard3D({
   const frameRef = useRef<HTMLDivElement | null>(null);
   const glareRef = useRef<HTMLDivElement | null>(null);
   const holoRef = useRef<HTMLDivElement | null>(null);
+  const cosmosRef = useRef<HTMLDivElement | null>(null);
   const foilRef = useRef<HTMLDivElement | null>(null);
+  const artRef = useRef<HTMLImageElement | null>(null);
   // Latest pointer position, parked for the next animation frame.
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
@@ -168,6 +169,20 @@ export default function PlayerCard3D({
     // what keeps a wall of foils calm and makes the shine feel earned.
     const holo = holoRef.current;
     if (holo) holo.style.backgroundPosition = `${glareX * 1.6 - 30}% ${glareY * 1.6 - 30}%`;
+    // The two star fields slide opposite ways at different rates — that
+    // disagreement is what reads as depth rather than a printed pattern.
+    const cosmos = cosmosRef.current;
+    if (cosmos) {
+      cosmos.style.backgroundPosition =
+        `${glareX * 0.5}% ${glareY * 0.5}%, ${100 - glareX * 0.4}% ${100 - glareY * 0.4}%`;
+    }
+    // Parallax: the art drifts AGAINST the pointer, so it sits behind the
+    // foil rather than under it. No tier holo moves the artwork, which is
+    // exactly why this is the thing that sets a pulled foil apart.
+    const art = artRef.current;
+    if (art) {
+      art.style.transform = `scale(1.12) translate(${(50 - glareX) * 0.1}%, ${(50 - glareY) * 0.1}%)`;
+    }
     const foil = foilRef.current;
     if (foil) {
       const fromCentre = Math.min(1, Math.hypot(glareX - 50, glareY - 50) / 50);
@@ -175,9 +190,12 @@ export default function PlayerCard3D({
     }
   }, []);
 
-  /** Settle the foil back to its resting sheen when the pointer leaves. */
+  /** Settle the foil and the artwork back to rest when the pointer leaves. */
   const releaseFoil = useCallback(() => {
     if (holoRef.current) holoRef.current.style.backgroundPosition = "";
+    if (cosmosRef.current) cosmosRef.current.style.backgroundPosition = "";
+    // Cleared, not zeroed: the resting scale lives on card-art-parallax.
+    if (artRef.current) artRef.current.style.transform = "";
     if (foilRef.current) foilRef.current.style.opacity = String(FOIL_REST_OPACITY);
   }, []);
 
@@ -305,9 +323,12 @@ export default function PlayerCard3D({
                 // Remount when the art changes so the stage counter below,
                 // which lives on the DOM node, restarts at the top of the chain.
                 key={splash}
+                ref={artRef}
                 src={splash}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
+                className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${
+                  forceFoil ? "card-art-parallax" : ""
+                }`}
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -453,10 +474,11 @@ export default function PlayerCard3D({
               />
             ) : null}
             {forceFoil ? (
-              // A pulled foil is the one surface on the card that answers the
-              // pointer: one rainbow wash, driven from the same rAF as the
-              // tilt, brightening with distance from centre. Tier holos stay
-              // a flat sheen — that difference is the whole point.
+              // A pulled foil answers the pointer where a tier holo cannot:
+              // a rainbow wash plus a sparse cosmos star field, both sliding
+              // from the same rAF as the tilt and brightening with distance
+              // from centre — and, above, the artwork itself drifting behind
+              // them. Tier holos stay a flat film laid on top.
               <div
                 ref={foilRef}
                 aria-hidden
@@ -465,6 +487,7 @@ export default function PlayerCard3D({
                 style={{ opacity: FOIL_REST_OPACITY }}
               >
                 <div ref={holoRef} className="card-foil-holo" style={{ mixBlendMode: "color-dodge" }} />
+                <div ref={cosmosRef} className="card-foil-cosmos" style={{ mixBlendMode: "screen" }} />
               </div>
             ) : style.foil || card.standout ? (
               <div
