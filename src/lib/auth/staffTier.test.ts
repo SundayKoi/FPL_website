@@ -17,6 +17,14 @@ function supabaseFor(user: { id: string } | null, profileResult: unknown) {
   };
 }
 
+function supabaseForProfileResults(user: { id: string }, profileResults: unknown[]) {
+  let index = 0;
+  return {
+    auth: { getUser: vi.fn(async () => ({ data: { user } })) },
+    from: vi.fn(() => query(profileResults[index++])),
+  };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -53,5 +61,17 @@ describe("fetchStaffTier", () => {
     );
 
     await expect(fetchStaffTier(supabase as never)).resolves.toEqual({ isAdmin: false, isOwner: false, isBroadcaster: false });
+  });
+
+  it("keeps legacy admin access while the broadcaster column migration is pending", async () => {
+    const supabase = supabaseForProfileResults(
+      { id: "owner-1" },
+      [
+        { data: null, error: { code: "PGRST204", message: "Column is_broadcaster not found" } },
+        { data: { is_admin: true, is_owner: true }, error: null },
+      ],
+    );
+
+    await expect(fetchStaffTier(supabase as never)).resolves.toEqual({ isAdmin: true, isOwner: true, isBroadcaster: false });
   });
 });
