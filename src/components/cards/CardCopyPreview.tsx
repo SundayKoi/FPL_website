@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { editionLabel } from "@/lib/packs/week";
+import { tierLabel } from "@/lib/cards/tier";
 import PlayerCard3D from "./PlayerCard3D";
 
 const CHIP =
@@ -43,11 +44,10 @@ export interface CopyCaption {
   altArt?: boolean;
 }
 
-/** "challenger" → "Challenger": the tier labels in src/lib/cards/build.ts are
- *  just the capitalized key. */
-export function tierLabel(tier: string): string {
-  return tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "—";
-}
+// Re-exported so the existing client callers keep their import; the
+// implementation lives in a directive-free module because Server Components
+// need it too.
+export { tierLabel };
 
 export default function CardCopyPreview({
   card = null,
