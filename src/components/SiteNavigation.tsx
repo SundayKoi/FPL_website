@@ -54,6 +54,7 @@ const DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly Dro
       { href: "/signup", label: "Sign Up" },
       { href: "/league-links", label: "League Links" },
       { href: "/rulebook", label: "Rulebook" },
+      { href: "/support-devs", label: "Support the Devs" },
     ],
   },
 ];

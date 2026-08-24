@@ -11,7 +11,7 @@ describe("SupportDevButton", () => {
 
     const link = screen.getByRole("link", { name: /support the devs/i });
 
-    expect(link.getAttribute("href")).toBe("/info#support-devs");
+    expect(link.getAttribute("href")).toBe("/support-devs");
     expect(link.className).toContain("fixed");
     expect(link.className).toContain("bottom-4");
     expect(link.className).toContain("left-4");
