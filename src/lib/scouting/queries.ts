@@ -211,13 +211,11 @@ export async function fetchScoutingHistory(
 /** Load all raw in-house games and correlate them to the selected roster. */
 export async function fetchInhousePlayerStats(
   supabase: SupabaseClient,
-  season: string,
   roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"] }>,
 ): Promise<InhousePlayerStats[]> {
   const { data, error } = await supabase
-    .from("raw_stats")
-    .select("summoner_name, champion, kills, deaths, assists, win")
-    .eq("season", season);
+    .from("inhouse_stats")
+    .select("summoner_name, champion, kills, deaths, assists, win");
   if (error) throw error;
   return buildInhousePlayerStats(roster, (data ?? []) as InhouseGameRow[]);
 }
