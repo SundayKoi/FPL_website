@@ -146,6 +146,20 @@ const ROLE_LABELS: Record<string, string> = {
   UTILITY: "Support",
 };
 
+/**
+ * The key a team badge is looked up by.
+ *
+ * raw_stats.team_name is written by the ingest from `league_teams.name`,
+ * but the logo lives on the DRAFT-side `teams` table — two tables whose
+ * names only have to agree by convention. Punctuation and spacing drift
+ * between them constantly ("Fraudulent 5" vs "Fraudulent5"), so both sides
+ * collapse to letters and digits before they are compared. Genuine
+ * spelling differences are bridged by abbreviation in queries.ts.
+ */
+export function teamBadgeKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function playerKey(row: { summoner_name: string; tag: string }): string {
   return `${row.summoner_name.trim().toLowerCase()}#${row.tag.trim().toLowerCase()}`;
 }
@@ -625,7 +639,7 @@ export function buildCard({
     name: row.summoner_name,
     tag: row.tag,
     teamName,
-    teamImageUrl: teamName ? teamImages?.get(teamName.toLowerCase()) ?? null : null,
+    teamImageUrl: teamName ? teamImages?.get(teamBadgeKey(teamName)) ?? null : null,
     role: ROLE_LABELS[row.role_mode] ?? row.role_mode,
     overall,
     tier: tierFor(overall),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerAggRow } from "@/lib/stats/types";
-import { assignArchetypes, buildCard, buildSeasonCards, cardSlug, FALLBACK_ARCHETYPE, tierFor, type CardGameRow } from "./build";
+import { assignArchetypes, buildCard, buildSeasonCards, cardSlug, FALLBACK_ARCHETYPE, teamBadgeKey, tierFor, type CardGameRow } from "./build";
 
 const agg = (over: Partial<PlayerAggRow> = {}): PlayerAggRow => ({
   summoner_name: "Player",
@@ -346,5 +346,21 @@ describe("archetypes fit the role they land on", () => {
       "The Frontline", "Space Creator", "Unkillable", "First Blood Merchant",
     ];
     expect([...assigned.values()].some((title) => SUPPORT_WORDS.includes(title))).toBe(true);
+  });
+});
+
+describe("team badge keys", () => {
+  it("collapses punctuation and spacing so the two team tables can meet", () => {
+    // raw_stats carries league_teams.name; the logo hangs off the
+    // draft-side teams table. Nothing enforces identical spelling.
+    expect(teamBadgeKey("Fraudulent 5")).toBe(teamBadgeKey("Fraudulent5"));
+    expect(teamBadgeKey("  The Cakesters  ")).toBe(teamBadgeKey("the cakesters"));
+    expect(teamBadgeKey("Honest Elo-Peakers")).toBe(teamBadgeKey("Honest Elo Peakers"));
+    expect(teamBadgeKey("FRD")).toBe("frd");
+  });
+
+  it("keeps genuinely different teams apart", () => {
+    expect(teamBadgeKey("Winter")).not.toBe(teamBadgeKey("Winters"));
+    expect(teamBadgeKey("")).toBe("");
   });
 });
