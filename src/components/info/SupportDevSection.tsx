@@ -73,6 +73,14 @@ export default function SupportDevSection({ className = "" }: Props) {
           <p className="mt-3 max-w-2xl text-sm italic leading-6 text-gold sm:text-base">
             Donations will be used to cover website costs.
           </p>
+          <a
+            href="https://www.paypal.com/paypalme/ZBultman"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+          >
+            Support via PayPal <span aria-hidden="true">↗</span>
+          </a>
         </div>
       </div>
 

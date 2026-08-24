@@ -21,12 +21,13 @@ describe("InfoPage", () => {
     );
   });
 
-  it("shows the support-the-devs destination with the PayPal QR code and developer links", async () => {
+  it("shows the support-the-devs destination with the PayPal link and developer links", async () => {
     render(await InfoPage());
 
     expect(screen.getByRole("heading", { name: "Support the Devs", level: 2 })).toBeTruthy();
     expect(screen.getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /support via paypal/i })).toBeNull();
+    const paypalLink = screen.getByRole("link", { name: /support via paypal/i });
+    expect(paypalLink.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
     expect(screen.getByRole("link", { name: "Venmo Zachari Bultman" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Venmo Matthew Wolanski" })).toBeTruthy();
   });
