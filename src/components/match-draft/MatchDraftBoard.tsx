@@ -120,6 +120,7 @@ function DraftSlot({
   intent = null,
   onRequestChange = null,
   label,
+  slotClassName = "",
 }: {
   side: DraftSide;
   kind: DraftActionKind;
@@ -134,6 +135,7 @@ function DraftSlot({
   onRequestChange?: (() => void) | null;
   /** Overrides the "pick N" header — role names once roles are confirmed. */
   label?: string;
+  slotClassName?: string;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
   const ghost = !action && intent ? resolve(intent) : null;
@@ -145,7 +147,7 @@ function DraftSlot({
   const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/centered/") : null;
   return (
     <div
-      className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${
+      className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
       }`}
     >
@@ -204,6 +206,7 @@ function SlotColumn({
   intentFor,
   requestChangeFor,
   positions = null,
+  slotClassName = "",
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
@@ -216,6 +219,7 @@ function SlotColumn({
   /** Confirmed role order (top→support). When set, the column re-orders to
    *  roles instead of draft order. */
   positions?: (string | null)[] | null;
+  slotClassName?: string;
 }) {
   if (positions && positions.length === ROLE_LABELS.length) {
     return (
@@ -240,6 +244,7 @@ function SlotColumn({
               playerName={players[index] ?? ""}
               imageSize={imageSize}
               resolve={resolve}
+              slotClassName={slotClassName}
               onRequestChange={action?.stepIndex !== undefined ? requestChangeFor?.(action.stepIndex) ?? null : null}
             />
           );
@@ -260,6 +265,7 @@ function SlotColumn({
           playerName={players[step.slot - 1] ?? ""}
           imageSize={imageSize}
           resolve={resolve}
+          slotClassName={slotClassName}
           intent={intentFor?.(step.index) ?? null}
           onRequestChange={requestChangeFor?.(step.index) ?? null}
         />
@@ -329,6 +335,7 @@ function BanRow({
   resolve,
   imageSize,
   requestChangeFor,
+  reverse = false,
 }: {
   side: DraftSide;
   actions: MatchDraftAction[];
@@ -336,11 +343,13 @@ function BanRow({
   resolve: (name: string) => MatchDraftChampion | null;
   imageSize: MatchDraftImageSize;
   requestChangeFor?: (stepIndex: number) => (() => void) | null;
+  reverse?: boolean;
 }) {
+  const banSteps = LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban");
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${side === "red" ? "justify-end" : ""}`}>
       <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
-      {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban").map((step) => (
+      {(reverse ? [...banSteps].reverse() : banSteps).map((step) => (
         <BanTile
           key={`${step.side}-ban-${step.slot}`}
           step={step}
@@ -1611,7 +1620,7 @@ export default function MatchDraftBoard({
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
           <div className="flex flex-col gap-3">
             <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.blue ?? null} />
+            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.blue ?? null} slotClassName="w-[350px]" />
             <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" />
           </div>
           <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
@@ -1629,8 +1638,8 @@ export default function MatchDraftBoard({
           </div>
           <div className="flex flex-col gap-3">
             <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} />
-            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" />
+            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} slotClassName="w-[350px]" />
+            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" reverse />
           </div>
         </div>
       </main>
