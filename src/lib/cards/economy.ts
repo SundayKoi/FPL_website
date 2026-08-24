@@ -23,11 +23,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 export const DEFAULT_EXCLUDED_COLLECTORS = ["dribb", "spiesss"];
 
+/** Both sides of the comparison go through this, so "@Dribb" in the table
+ *  still matches "dribb" in the list. A silent miss here doesn't error —
+ *  it just quietly counts a dev's test packs as league activity, which is
+ *  the one thing this whole list exists to prevent. */
+export function normalizeCollectorName(name: string): string {
+  return name.trim().toLowerCase().replace(/^@+/, "");
+}
+
 export function excludedCollectorNames(configured: string | undefined = process.env.CARD_STATS_EXCLUDED): string[] {
-  const parsed = (configured ?? "")
-    .split(",")
-    .map((name) => name.trim().toLowerCase())
-    .filter(Boolean);
+  const parsed = (configured ?? "").split(",").map(normalizeCollectorName).filter(Boolean);
   return parsed.length > 0 ? parsed : DEFAULT_EXCLUDED_COLLECTORS;
 }
 
@@ -68,7 +73,7 @@ async function excludedIds(supabase: SupabaseClient, names: string[]): Promise<S
   const wanted = new Set(names);
   return new Set(
     ((data as { discord_id: string; username: string | null }[]) ?? [])
-      .filter((row) => wanted.has((row.username ?? "").trim().toLowerCase()))
+      .filter((row) => wanted.has(normalizeCollectorName(row.username ?? "")))
       .map((row) => row.discord_id),
   );
 }
