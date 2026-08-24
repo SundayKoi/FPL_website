@@ -126,9 +126,22 @@ describe("PlayerCard3D", () => {
 
     rerender(<PlayerCard3D card={card} forceFoil />);
     expect(container.querySelector(".card-foil-holo")).toBeTruthy();
-    // Exactly one moving layer: the earlier stack of grating + glitter +
-    // sweep all animating at once read as noise rather than shine.
-    expect(container.querySelectorAll('[data-testid="foil"] > *')).toHaveLength(1);
+    expect(container.querySelector(".card-foil-cosmos")).toBeTruthy();
+    // Two layers, not the four-way stack that read as noise: a wash and a
+    // sparse star field, both gated on how far the pointer is from centre.
+    expect(container.querySelectorAll('[data-testid="foil"] > *')).toHaveLength(2);
+  });
+
+  it("parallaxes the artwork on a pack foil, and leaves a tier holo's art alone", () => {
+    // The art moving is the tell a tier holo structurally cannot copy: its
+    // sheen is a film laid ON the splash and never shifts it.
+    const { container, rerender } = render(
+      <PlayerCard3D card={{ ...card, tier: { key: "master", label: "Master" } }} />
+    );
+    expect(container.querySelector("img.card-art-parallax")).toBeNull();
+
+    rerender(<PlayerCard3D card={card} forceFoil />);
+    expect(container.querySelector("img.card-art-parallax")).toBeTruthy();
   });
 
   it("leaves the artwork still — the foil moves, the splash does not", () => {
@@ -149,6 +162,9 @@ describe("PlayerCard3D", () => {
     // this pins is the release path — the ambient animation must come back.
     fireEvent.pointerLeave(frame);
     expect(holo.style.backgroundPosition).toBe("");
+    // The artwork drops back to the resting scale its class carries rather
+    // than being pinned at whatever offset the pointer left it on.
+    expect(container.querySelector<HTMLElement>("img.card-art-parallax")!.style.transform).toBe("");
     // …and the sheen settles back to its resting strength rather than
     // staying lit at whatever the pointer left it on.
     const foil = container.querySelector<HTMLElement>('[data-testid="foil"]')!;
