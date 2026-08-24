@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { voteBangerPost, voteDailyBanger, type BangerVote } from "@/lib/bangers/actions";
 import type { BangerBoardSettings } from "@/lib/bangers/settings";
 import TweetIdentity from "./TweetIdentity";
@@ -108,6 +108,10 @@ export default function BangerBoard({ posts, dailyBanger, settings }: { posts: B
   const recentPosts = useMemo(() => getRecentPosts(posts), [posts]);
   const rankedPosts = useMemo(() => getTopPosts(posts).map((post) => withVotes(post, votes)), [posts, votes]);
   const stinkerPosts = useMemo(() => getStinkerPosts(posts).map((post) => withVotes(post, votes)), [posts, votes]);
+
+  useEffect(() => {
+    if (!randomPost && posts.length > 0) setRandomPost(pickRandomPost(posts));
+  }, [posts, randomPost]);
 
   async function vote(id: string, nextVote: Vote) {
     setVotes((current) => ({ ...current, [id]: current[id] === nextVote ? undefined : nextVote }));

@@ -23,6 +23,12 @@ describe("banger feed rules", () => {
     ]);
   });
 
+  it("keeps Supabase ISO timestamps in the last 45 days", () => {
+    const importedPost = { ...posts[1], publishedAt: "2026-08-20T12:34:56.000Z" };
+
+    expect(getRecentPosts([importedPost], new Date("2026-08-23T12:00:00Z")).map((post) => post.id)).toEqual(["one"]);
+  });
+
   it("returns the three highest-rated posts by banger share", () => {
     expect(getTopPosts(posts).map((post) => post.id)).toEqual(["one", "two", "old"]);
   });

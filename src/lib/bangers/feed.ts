@@ -29,7 +29,12 @@ export function getRecentPosts(posts: BangerPost[], now = new Date()) {
   const cutoff = new Date(now);
   cutoff.setUTCDate(cutoff.getUTCDate() - 45);
   return posts
-    .filter((post) => new Date(`${post.publishedAt}T23:59:59Z`) >= cutoff)
+    .filter((post) => {
+      const publishedAt = /^\d{4}-\d{2}-\d{2}$/.test(post.publishedAt)
+        ? `${post.publishedAt}T23:59:59Z`
+        : post.publishedAt;
+      return new Date(publishedAt) >= cutoff;
+    })
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
