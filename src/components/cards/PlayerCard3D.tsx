@@ -109,6 +109,8 @@ export default function PlayerCard3D({
   const [statsIn, setStatsIn] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const glareRef = useRef<HTMLDivElement | null>(null);
+  const holoRef = useRef<HTMLDivElement | null>(null);
+  const glitterRef = useRef<HTMLDivElement | null>(null);
   // Latest pointer position, parked for the next animation frame.
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
@@ -154,6 +156,31 @@ export default function PlayerCard3D({
     const glare = glareRef.current;
     if (glare) {
       glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.5), transparent 55%)`;
+    }
+    // Prismatic foil: the grating and the glitter slide against each other as
+    // the card turns — different rates and opposite directions, which is what
+    // sells two stacked layers instead of one printed sheet. Taking the
+    // ambient drift off first is required, not tidiness: a running animation
+    // outranks an inline background-position.
+    const holo = holoRef.current;
+    if (holo) {
+      holo.style.animation = "none";
+      holo.style.backgroundPosition = `${glareX * 1.8 - 40}% ${glareY * 1.2 - 10}%`;
+    }
+    const glitter = glitterRef.current;
+    if (glitter) {
+      glitter.style.animation = "none";
+      glitter.style.backgroundPosition =
+        `${glareX * 2.6}% ${glareY * 2.6}%, ${140 - glareX * 2}% ${140 - glareY * 2}%`;
+    }
+  }, []);
+
+  /** Hand the foil back to its ambient drift when the pointer leaves. */
+  const releaseFoil = useCallback(() => {
+    for (const layer of [holoRef.current, glitterRef.current]) {
+      if (!layer) continue;
+      layer.style.animation = "";
+      layer.style.backgroundPosition = "";
     }
   }, []);
 
@@ -218,6 +245,7 @@ export default function PlayerCard3D({
     pointerRef.current = null;
     if (frameRef.current) frameRef.current.style.transition = REST_TRANSITION;
     writeTilt(0, 0, 50, 35);
+    releaseFoil();
     setHovering(false);
   };
 
@@ -282,7 +310,7 @@ export default function PlayerCard3D({
                 key={splash}
                 src={splash}
                 alt=""
-                className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${forceFoil ? "card-art-live" : ""}`}
+                className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -428,18 +456,22 @@ export default function PlayerCard3D({
               />
             ) : null}
             {forceFoil ? (
-              // Pack foils get the living treatment: the same gradient on an
-              // oversized child that travels by transform (see globals.css for
-              // why transform and not background-position). Opacity/blend stay
-              // on the clipping wrapper so the hover boost works unchanged.
+              // A pulled foil is the one surface on the card that answers the
+              // pointer: the rainbow grating and the glitter field are driven
+              // from the same rAF as the tilt (writeTilt), so the colour on
+              // any spot depends on the angle you hold it at. Tier holos stay
+              // a flat sheen — that difference is the whole point. Blends sit
+              // per-layer: color-dodge turns the grating metallic, screen
+              // keeps the flecks and the sweep as clean light on top.
               <div
                 aria-hidden
                 data-testid="foil"
-                className="pointer-events-none absolute inset-0 overflow-hidden"
-                style={{ opacity: hovering ? 0.65 : 0.35, mixBlendMode: "color-dodge" }}
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl transition-opacity duration-200"
+                style={{ opacity: hovering ? 0.85 : 0.45 }}
               >
-                <div className="card-foil-live" style={{ background: FOIL_GRADIENT }} />
-                <div className="card-foil-glint" />
+                <div ref={holoRef} className="card-foil-holo" style={{ mixBlendMode: "color-dodge" }} />
+                <div ref={glitterRef} className="card-foil-glitter" style={{ mixBlendMode: "screen" }} />
+                <div className="card-foil-glint" style={{ mixBlendMode: "screen" }} />
               </div>
             ) : style.foil || card.standout ? (
               <div
