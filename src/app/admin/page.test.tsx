@@ -80,8 +80,8 @@ beforeEach(() => {
   fetchHomepageSchedule.mockResolvedValue({ fixtures: [fixture("premier-fixture", "Premier A", "Premier B")] });
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
-      ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy" }
-      : { fixtureId: "academy-fixture", title: "Academy spotlight", description: "Academy copy" },
+      ? { fixtureId: "premier-fixture", title: "Premier spotlight", description: "Premier copy", twitchUrl: null }
+      : { fixtureId: "academy-fixture", title: "Academy spotlight", description: "Academy copy", twitchUrl: null },
   );
   fetchAcademyDraftData.mockResolvedValue({ teams: [{ name: "Academy A" }, { name: "Academy B" }] });
   fetchLeagueSeasons.mockResolvedValue({ premier: "S5", academy: "A1" });

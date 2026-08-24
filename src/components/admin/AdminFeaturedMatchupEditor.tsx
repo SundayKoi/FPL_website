@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
+import { KNOWN_TWITCH_CHANNELS } from "@/lib/home/twitchChannels";
 
 type Homepage = "premier" | "academy";
 
@@ -34,6 +35,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
   const [fixtureId, setFixtureId] = useState(settings.fixtureId ?? "");
   const [title, setTitle] = useState(settings.title ?? "");
   const [description, setDescription] = useState(settings.description ?? "");
+  const [twitchUrl, setTwitchUrl] = useState(settings.twitchUrl ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -51,6 +53,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           fixture_id: nullableTrimmed(fixtureId),
           title: nullableTrimmed(title),
           description: nullableTrimmed(description),
+          twitch_url: nullableTrimmed(twitchUrl),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "homepage" },
@@ -94,6 +97,35 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
             <option key={fixture.id} value={fixture.id}>{fixture.label}</option>
           ))}
         </select>
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        {label} known Twitch channel
+        <select
+          aria-label={`${label} known Twitch channel`}
+          value={KNOWN_TWITCH_CHANNELS.some((channel) => channel.url === twitchUrl) ? twitchUrl : ""}
+          onChange={(event) => setTwitchUrl(event.target.value)}
+          disabled={busy}
+          className="input-brand px-2 py-2 text-sm disabled:opacity-50"
+        >
+          <option value="">Custom Twitch URL</option>
+          {KNOWN_TWITCH_CHANNELS.map((channel) => (
+            <option key={channel.url} value={channel.url}>{channel.label}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        {label} Twitch URL
+        <input
+          type="url"
+          aria-label={`${label} Twitch URL`}
+          value={twitchUrl}
+          onChange={(event) => setTwitchUrl(event.target.value)}
+          disabled={busy}
+          placeholder="https://www.twitch.tv/channel"
+          className="input-brand px-2 py-2 text-sm disabled:opacity-50"
+        />
       </label>
 
       <label className="flex flex-col gap-1 text-xs text-steel">

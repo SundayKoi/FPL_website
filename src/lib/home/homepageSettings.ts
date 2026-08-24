@@ -5,6 +5,7 @@ export type HomepageFeaturedSettings = {
   fixtureId: string | null;
   title: string | null;
   description: string | null;
+  twitchUrl: string | null;
 };
 
 type Homepage = "premier" | "academy";
@@ -13,6 +14,7 @@ const emptyHomepageFeaturedSettings: HomepageFeaturedSettings = {
   fixtureId: null,
   title: null,
   description: null,
+  twitchUrl: null,
 };
 
 function isHomepageMode(value: unknown): value is HomepageMode {
@@ -46,17 +48,23 @@ export async function fetchHomepageFeaturedSettings(homepage: Homepage): Promise
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from("homepage_featured_settings")
-      .select("fixture_id, title, description")
+      .select("fixture_id, title, description, twitch_url")
       .eq("homepage", homepage)
       .single();
 
     if (error) return emptyHomepageFeaturedSettings;
 
-    const row = data as { fixture_id?: unknown; title?: unknown; description?: unknown } | null;
+    const row = data as {
+      fixture_id?: unknown;
+      title?: unknown;
+      description?: unknown;
+      twitch_url?: unknown;
+    } | null;
     return {
       fixtureId: optionalString(row?.fixture_id),
       title: optionalString(row?.title),
       description: optionalString(row?.description),
+      twitchUrl: optionalString(row?.twitch_url),
     };
   } catch {
     return emptyHomepageFeaturedSettings;

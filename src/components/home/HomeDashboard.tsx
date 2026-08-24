@@ -6,7 +6,8 @@ import StandingsRace from "./StandingsRace";
 import UpcomingSchedule from "./UpcomingSchedule";
 import WeeklyStandouts from "./WeeklyStandouts";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
-import { TWITCH_CHANNEL_LOGIN, TWITCH_URL, type HomepageTwitchData } from "@/lib/home/twitch";
+import { twitchChannelLoginFromUrl, twitchUrlFromUrl } from "@/lib/home/twitchChannels";
+import type { HomepageTwitchData } from "@/lib/home/twitch";
 import { buildTickerItems } from "@/lib/home/ticker";
 import type { HomepageAwardsData } from "@/lib/home/awards";
 import type { HomeStandingsData } from "@/lib/home/standings";
@@ -78,11 +79,11 @@ export default function HomeDashboard({
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
               fixture={featuredFixture}
-              channelLogin={TWITCH_CHANNEL_LOGIN}
+              channelLogin={twitchChannelLoginFromUrl(featuredSettings.twitchUrl)}
               clips={twitch.clips}
               streamState={twitch.status.state}
               viewerCount={twitch.status.state === "live" ? twitch.status.viewerCount : null}
-              twitchUrl={TWITCH_URL}
+              twitchUrl={twitchUrlFromUrl(featuredSettings.twitchUrl)}
               title={featuredSettings.title ?? undefined}
               description={featuredSettings.description ?? undefined}
             />

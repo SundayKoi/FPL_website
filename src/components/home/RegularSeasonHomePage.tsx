@@ -1,5 +1,5 @@
 import HomeDashboard from "./HomeDashboard";
-import { fetchHomepageTwitch, type HomepageTwitchData } from "@/lib/home/twitch";
+import { fetchHomepageTwitch, twitchChannelLoginFromUrl, type HomepageTwitchData } from "@/lib/home/twitch";
 import { fetchHomepageStandings, type HomeStandingsData } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture, type HomepageScheduleData } from "@/lib/home/schedule";
 import { fetchHomepageAwards, PREMIER_SEASON, type HomepageAwardsData } from "@/lib/home/awards";
@@ -47,6 +47,7 @@ const fallbackFeaturedSettings: HomepageFeaturedSettings = {
   fixtureId: null,
   title: null,
   description: null,
+  twitchUrl: null,
 };
 
 async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
@@ -59,8 +60,7 @@ async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [twitch, awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
-    fallbackTo(fetchHomepageTwitch(), fallbackTwitch),
+  const [awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
     fallbackTo(fetchHomepageAwards(), fallbackAwards),
     fallbackTo<HomeStandingsData>(fetchHomepageStandings(), { teams: [], race: [] }),
     fallbackTo(fetchHomepageSchedule(), fallbackSchedule),
@@ -68,6 +68,10 @@ export default async function RegularSeasonHomePage() {
     fallbackTo<WeeklyStandout[]>(fetchLatestWeeklyStandouts(), []),
     fallbackTo(fetchHomepageFeaturedSettings("premier"), fallbackFeaturedSettings),
   ]);
+  const twitch = await fallbackTo(
+    fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl)),
+    fallbackTwitch,
+  );
   const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
 
   return (
