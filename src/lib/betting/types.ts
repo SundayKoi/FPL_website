@@ -27,6 +27,17 @@ export interface BettingUser {
   staff: boolean;
 }
 
+/** A reusable betting event can optionally be bound to one fixture schedule. */
+export type BettingEventLeague = "premier" | "academy";
+
+export interface BettingEvent {
+  id: number;
+  name: string;
+  description: string | null;
+  league: BettingEventLeague | null;
+  schedule_season: string | null;
+}
+
 /** Return of requireBettingStaff() — the caller's identity, once authorized. */
 export interface BettingStaffContext {
   discordId: string;

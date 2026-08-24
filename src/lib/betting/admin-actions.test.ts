@@ -310,6 +310,49 @@ describe("createMarket", () => {
   });
 });
 
+describe("upsertEvent schedule bindings", () => {
+  it("rejects a partial schedule binding before touching the database", async () => {
+    const result = await upsertEvent({ name: "Premier S5", league: "premier" });
+
+    expect(result).toEqual({ ok: false, error: "Schedule league and season must be provided together." });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("normalizes and persists a schedule binding", async () => {
+    const builder = chainable({ data: { id: 9 }, error: null });
+    from.mockReturnValue(builder);
+
+    const result = await upsertEvent({ name: " Premier S5 ", league: "premier", scheduleSeason: "s5" });
+
+    expect(result).toEqual({ ok: true, id: 9 });
+    expect((builder.insert as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith({
+      name: "Premier S5",
+      description: null,
+      league: "premier",
+      schedule_season: "S5",
+    });
+    expect(rpc).toHaveBeenCalledWith("_audit", expect.objectContaining({
+      p_action: "event_upsert",
+      p_after: { name: "Premier S5", league: "premier", schedule_season: "S5" },
+    }));
+  });
+
+  it("allows an existing event's binding to be cleared explicitly", async () => {
+    const builder = chainable({ data: { id: 9 }, error: null });
+    from.mockReturnValue(builder);
+
+    const result = await upsertEvent({ id: 9, name: "Premier S5", league: null, scheduleSeason: null });
+
+    expect(result).toEqual({ ok: true, id: 9 });
+    expect((builder.update as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith({
+      name: "Premier S5",
+      description: null,
+      league: null,
+      schedule_season: null,
+    });
+  });
+});
+
 describe("upsertTeam", () => {
   it("inserts a new team and writes an audit row when no id is given", async () => {
     from.mockImplementation((table: string) => {
