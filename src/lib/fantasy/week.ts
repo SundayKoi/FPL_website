@@ -1,9 +1,9 @@
 // Which fantasy week a moment in time belongs to.
 //
-// Fantasy weeks ride the same Monday-start UTC grid as pack editions and the
-// homepage awards (see src/lib/packs/week.ts's header) — but unlike an
-// edition, a fantasy week has a deadline inside it: lineups for week W lock
-// at Monday LOCK_HOUR_UTC and the games that score them are played after
+// Fantasy weeks ride the same Monday-start EASTERN grid as pack editions
+// (see src/lib/packs/week.ts's header) — but unlike an edition, a fantasy
+// week has a deadline inside it: lineups for week W lock at Monday
+// LOCK_HOUR_ET Eastern and the games that score them are played after
 // that. So there are two different "current weeks" and they must not be
 // confused:
 //
@@ -15,15 +15,31 @@
 // scoring job running at an odd hour) never depend on ambient time.
 
 import { mondayOf } from "@/lib/packs/week";
-import { LOCK_HOUR_UTC } from "./config";
+import { LOCK_HOUR_ET } from "./config";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The instant `weekStart`'s lineups freeze — Monday LOCK_HOUR_UTC, UTC. */
+/** The Eastern UTC-offset in hours (-4 under EDT, -5 under EST) at a given
+ *  instant, read from Intl so the DST calendar is never hand-rolled. */
+function etOffsetHours(instant: Date): number {
+  const name =
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "shortOffset" })
+      .formatToParts(instant)
+      .find((part) => part.type === "timeZoneName")?.value ?? "GMT-5";
+  const match = /GMT([+-]\d+)/.exec(name);
+  return match ? Number(match[1]) : -5;
+}
+
+/**
+ * The instant `weekStart`'s lineups freeze — Monday LOCK_HOUR_ET, EASTERN.
+ * The ET offset is probed at that Monday's noon, so the lock lands at the
+ * same wall-clock hour in New York whether the week runs on EDT or EST
+ * (22:00 or 23:00 UTC respectively).
+ */
 export function lockTimeOf(weekStart: string): Date {
-  const lock = new Date(`${weekStart}T00:00:00.000Z`);
-  lock.setUTCHours(LOCK_HOUR_UTC, 0, 0, 0);
-  return lock;
+  const [year, month, day] = weekStart.split("-").map(Number);
+  const offset = etOffsetHours(new Date(Date.UTC(year, month - 1, day, 12)));
+  return new Date(Date.UTC(year, month - 1, day, LOCK_HOUR_ET - offset, 0, 0));
 }
 
 /** Has `weekStart`'s deadline passed? Exactly at the lock counts as locked —
@@ -43,7 +59,7 @@ export function isLocked(weekStart: string, now: Date): boolean {
 export function currentFantasyWeek(now: Date): string {
   const thisWeek = mondayOf(now);
   if (!isLocked(thisWeek, now)) return thisWeek;
-  return mondayOf(new Date(new Date(`${thisWeek}T00:00:00.000Z`).getTime() + 7 * DAY_MS));
+  return mondayOf(new Date(new Date(`${thisWeek}T12:00:00.000Z`).getTime() + 7 * DAY_MS));
 }
 
 /**
@@ -54,5 +70,5 @@ export function currentFantasyWeek(now: Date): string {
 export function lastCompletedWeek(now: Date): string {
   const thisWeek = mondayOf(now);
   if (isLocked(thisWeek, now)) return thisWeek;
-  return mondayOf(new Date(new Date(`${thisWeek}T00:00:00.000Z`).getTime() - 7 * DAY_MS));
+  return mondayOf(new Date(new Date(`${thisWeek}T12:00:00.000Z`).getTime() - 7 * DAY_MS));
 }

@@ -36,7 +36,7 @@ function monthDay(weekStart: string): string {
 }
 
 /** The weekly deadline as the league reads it — "6:00 PM EDT" — derived from
- *  LOCK_HOUR_UTC rather than written out, so a tuning change moves the copy. */
+ *  LOCK_HOUR_ET rather than written out, so a tuning change moves the copy. */
 function lockLabelEastern(weekStart: string): string {
   return lockTimeOf(weekStart).toLocaleTimeString("en-US", {
     timeZone: "America/New_York",

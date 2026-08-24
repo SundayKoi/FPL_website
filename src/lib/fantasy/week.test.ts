@@ -3,8 +3,14 @@ import { currentFantasyWeek, isLocked, lastCompletedWeek, lockTimeOf } from "./w
 
 // 2026-08-17 and 2026-08-24 are Mondays.
 describe("lockTimeOf", () => {
-  it("is Monday 22:00 UTC of that week", () => {
+  it("is Monday 6:00 PM Eastern — 22:00 UTC under EDT", () => {
     expect(lockTimeOf("2026-08-17").toISOString()).toBe("2026-08-17T22:00:00.000Z");
+  });
+
+  it("stays 6:00 PM Eastern in winter — 23:00 UTC under EST", () => {
+    // 2026-12-14 is a Monday. The lock is a wall-clock hour in New York,
+    // not a UTC constant, so it must NOT drift when DST ends.
+    expect(lockTimeOf("2026-12-14").toISOString()).toBe("2026-12-14T23:00:00.000Z");
   });
 });
 

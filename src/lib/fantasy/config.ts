@@ -33,8 +33,12 @@ export const SALARY_CAP = 360;
 export const WEEKLY_PAYOUTS = [300, 150, 75];
 
 /**
- * Hour (UTC) on the week's Monday after which that week's lineup is frozen.
- * 22:00 UTC is ~6:00 PM ET, just before the league's Monday-evening match
- * night — the last moment a lineup can be set without seeing a result.
+ * Hour (EASTERN, America/New_York) on the week's Monday after which that
+ * week's lineup is frozen. 6:00 PM ET sits just before the league's
+ * Monday-evening match night — the last moment a lineup can be set without
+ * seeing a result. Eastern rather than UTC on purpose: the league runs on
+ * ET, and a UTC constant drifted an hour every DST change (and pushed
+ * Sunday-evening activity into the wrong week). lockTimeOf converts this
+ * to the right UTC instant per week.
  */
-export const LOCK_HOUR_UTC = 22;
+export const LOCK_HOUR_ET = 18;
