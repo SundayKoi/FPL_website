@@ -433,9 +433,10 @@ export default function PlayerCard3D({
                 aria-hidden
                 data-testid="foil"
                 className="pointer-events-none absolute inset-0 overflow-hidden"
-                style={{ opacity: hovering ? 0.5 : 0.22, mixBlendMode: "color-dodge" }}
+                style={{ opacity: hovering ? 0.65 : 0.35, mixBlendMode: "color-dodge" }}
               >
                 <div className="card-foil-live" style={{ background: FOIL_GRADIENT }} />
+                <div className="card-foil-glint" />
               </div>
             ) : style.foil || card.standout ? (
               <div

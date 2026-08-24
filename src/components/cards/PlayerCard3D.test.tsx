@@ -126,6 +126,7 @@ describe("PlayerCard3D", () => {
 
     rerender(<PlayerCard3D card={card} forceFoil />);
     expect(container.querySelector(".card-foil-live")).toBeTruthy();
+    expect(container.querySelector(".card-foil-glint")).toBeTruthy();
     expect(container.querySelector(".card-art-live")).toBeTruthy();
   });
 
