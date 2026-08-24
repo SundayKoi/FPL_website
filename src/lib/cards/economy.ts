@@ -40,6 +40,15 @@ export interface EconomyStats {
   packsOpened: number;
   spent: number;
   collectors: number;
+  /**
+   * Copies HELD, not copies ever pulled.
+   *
+   * dust_card deletes the inventory row (20260826000018_card_trading.sql),
+   * so a melted copy leaves no trace here — and signed copies are the most
+   * attractive thing to melt at SIGNED_DUST_BASE. Counting pulls instead
+   * would need the pull recorded somewhere a delete can't reach; until it
+   * is, the page has to say "in circulation" and mean it.
+   */
   cardsPulled: number;
   foils: number;
   signed: number;
