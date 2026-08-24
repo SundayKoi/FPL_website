@@ -128,7 +128,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
     if (!dailyBanger || dailyVote) return;
     setDailyVote(nextVote);
     const result = await voteDailyBanger(dailyBanger.id, nextVote);
-    setDailyMessage(result.ok ? (result.alreadyVoted ? "You already voted today." : "Vote locked in — $100 added to your wallet.") : result.error);
+    setDailyMessage(result.ok ? (result.alreadyVoted ? "You already voted today." : "Vote locked in — $200 added to your wallet.") : result.error);
     if (!result.ok) setDailyVote(undefined);
   }
 
@@ -157,7 +157,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
       <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
         <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · rotates every 24h UTC</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
-          {dailyBanger ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyBanger.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyBanger.text}</p></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">✓ Bonus claimed</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $100</p>}<VoteButtons post={dailyBanger} currentVote={dailyVote} onVote={voteDaily} /><p className="mt-3 text-xs text-white/45">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+          {dailyBanger ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyBanger.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyBanger.text}</p></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">✓ Bonus claimed</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $200</p>}<VoteButtons post={dailyBanger} currentVote={dailyVote} onVote={voteDaily} /><p className="mt-3 text-xs text-white/45">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
         </div>
       </section>
 

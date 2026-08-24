@@ -37,4 +37,17 @@ describe("BangerBoard saved votes", () => {
     const bangerButtons = screen.getAllByRole("button", { name: /Banger/ });
     expect(bangerButtons.filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(2);
   });
+
+  it("renders the saved daily vote checkmark after a refresh", () => {
+    render(
+      <BangerBoard
+        posts={[post]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+        initialDailyVote="mid"
+      />,
+    );
+
+    expect(screen.getByText("✓ Bonus claimed")).toBeTruthy();
+  });
 });

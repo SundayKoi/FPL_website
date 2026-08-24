@@ -19,7 +19,7 @@ export async function voteBangerPost(postId: string, vote: BangerVote): Promise<
 export async function voteDailyBanger(postId: string, vote: BangerVote): Promise<VoteResult> {
   if (!postId || !["banger", "mid", "stinker"].includes(vote)) return { ok: false, error: "Invalid vote." };
   const user = await getBettingUser();
-  if (!user) return { ok: false, error: "Sign in to claim today's $100 reward." };
+  if (!user) return { ok: false, error: "Sign in to claim today's $200 reward." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
   const supabase = createBettingServiceClient();
   const { data, error } = await supabase.rpc("vote_daily_banger", { p_post_id: postId, p_voter_id: user.profileId, p_discord_id: user.discordId, p_vote: vote });
