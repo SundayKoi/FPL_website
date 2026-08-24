@@ -55,20 +55,18 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
 }
 
 /**
- * Every player's card for `season`, best overall first. One fetch pass for
- * the whole league: the rating engine needs the full cohort anyway (all
- * ratings are league-relative), so per-player fetching would save nothing.
+ * team name (and abbreviation) -> that team's badge URL, normalized so the
+ * lookup survives casing, punctuation and spacing differences between the
+ * tables that hold each half.
+ *
+ * Exported because frozen cards need it too: a pulled copy or an archived
+ * edition stores the badge it resolved at mint time, so any card minted
+ * before a team's logo was uploaded (or before its name was bridged here)
+ * would carry a null badge forever. Callers re-run the lookup over frozen
+ * cards with backfillTeamBadges below.
  */
-export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, leagueTeamsResult, artResult, settingsResult] =
-    await Promise.all([
-    supabase.from("stats_player_agg").select("*").eq("season", season),
-    supabase
-      .from("raw_stats")
-      .select("summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, total_damage_to_champions")
-      .eq("season", season),
-    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
-    supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
+export async function fetchTeamBadges(supabase: SupabaseClient, season: string): Promise<Map<string, string>> {
+  const [teamsResult, leagueTeamsResult, settingsResult] = await Promise.all([
     // draft_id comes along so the badge can be scoped to THIS season's
     // teams below — team names get reused season to season, and an
     // unscoped lookup would hand a card whichever era's logo Postgres
@@ -78,21 +76,14 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     // league_teams.name, the badge lives on teams.image_url, and nothing
     // enforces that the two spell a team identically.
     supabase.from("league_teams").select("name, abbreviation"),
-    // select * on purpose: the motto column arrived in a later migration
-    // than skin, and naming a missing column would fail the whole select.
-    supabase.from("card_art_prefs").select("*").eq("season", season),
     supabase
       .from("league_settings")
       .select("current_season, academy_season, featured_draft_id, academy_draft_id")
       .eq("id", 1)
       .maybeSingle(),
   ]);
-  if (aggResult.error) throw aggResult.error;
-  if (gamesResult.error) throw gamesResult.error;
-  if (logResult.error) throw logResult.error;
-  // Records / team art / skin prefs are garnish — a failure (e.g. the
-  // card_art_prefs migration not applied yet) must not take cards down.
-  const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
+
+  // Badges are garnish — a failure here must not take cards down.
   const teamRows = teamsResult.error
     ? []
     : ((teamsResult.data as {
@@ -104,6 +95,95 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   const leagueTeamRows = leagueTeamsResult.error
     ? []
     : ((leagueTeamsResult.data as { name: string; abbreviation: string | null }[]) ?? []);
+  const settings = settingsResult.error
+    ? null
+    : (settingsResult.data as {
+        current_season: string | null;
+        academy_season: string | null;
+        featured_draft_id: string | null;
+        academy_draft_id: string | null;
+      } | null);
+
+  // Which draft this season's teams live under. A season we can't map (an
+  // archived one, or settings that failed to load) falls back to every
+  // team, which is the old behaviour — a possibly-stale badge still beats
+  // no badge.
+  const seasonDraftId =
+    settings?.academy_season === season
+      ? settings?.academy_draft_id ?? null
+      : settings?.current_season === season
+        ? settings?.featured_draft_id ?? null
+        : null;
+  const scopedTeams = seasonDraftId ? teamRows.filter((team) => team.draft_id === seasonDraftId) : teamRows;
+
+  // Every badge is filed under its name AND its abbreviation, both
+  // normalized. The abbreviation is what rescues a team the two tables
+  // spell differently — a real typo on one side ("Fradulent 5" against
+  // "Fraudulent 5") defeats any amount of name normalizing, but the
+  // three-letter code still matches.
+  const teamImages = new Map<string, string>();
+  const addBadge = (key: string, url: string) => {
+    const normalized = teamBadgeKey(key);
+    if (normalized && !teamImages.has(normalized)) teamImages.set(normalized, url);
+  };
+  for (const team of scopedTeams) {
+    if (!team.image_url) continue;
+    addBadge(team.name, team.image_url);
+    if (team.abbreviation) addBadge(team.abbreviation, team.image_url);
+  }
+  // raw_stats speaks league_teams' names, so alias each of those onto the
+  // badge its abbreviation points at when the names themselves don't meet.
+  for (const leagueTeam of leagueTeamRows) {
+    const nameKey = teamBadgeKey(leagueTeam.name);
+    if (!nameKey || teamImages.has(nameKey) || !leagueTeam.abbreviation) continue;
+    const viaAbbreviation = teamImages.get(teamBadgeKey(leagueTeam.abbreviation));
+    if (viaAbbreviation) teamImages.set(nameKey, viaAbbreviation);
+  }
+  return teamImages;
+}
+
+/**
+ * Re-resolves the team badge on frozen cards.
+ *
+ * Ratings on a frozen copy are the whole point and stay untouched, but the
+ * badge is pure branding for a team that (per league rules) can't change
+ * within a season, so filling a null one in is a repair rather than a
+ * rewrite. Cards that already carry a badge are left exactly as they were.
+ */
+export function backfillTeamBadges(cards: PlayerCardData[], badges: Map<string, string>): PlayerCardData[] {
+  if (badges.size === 0) return cards;
+  return cards.map((card) => {
+    if (card.teamImageUrl || !card.teamName) return card;
+    const url = badges.get(teamBadgeKey(card.teamName));
+    return url ? { ...card, teamImageUrl: url } : card;
+  });
+}
+
+/**
+ * Every player's card for `season`, best overall first. One fetch pass for
+ * the whole league: the rating engine needs the full cohort anyway (all
+ * ratings are league-relative), so per-player fetching would save nothing.
+ */
+export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
+  const [aggResult, gamesResult, logResult, recordsResult, teamImages, artResult] = await Promise.all([
+    supabase.from("stats_player_agg").select("*").eq("season", season),
+    supabase
+      .from("raw_stats")
+      .select("summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, total_damage_to_champions")
+      .eq("season", season),
+    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
+    supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
+    fetchTeamBadges(supabase, season),
+    // select * on purpose: the motto column arrived in a later migration
+    // than skin, and naming a missing column would fail the whole select.
+    supabase.from("card_art_prefs").select("*").eq("season", season),
+  ]);
+  if (aggResult.error) throw aggResult.error;
+  if (gamesResult.error) throw gamesResult.error;
+  if (logResult.error) throw logResult.error;
+  // Records / team art / skin prefs are garnish — a failure (e.g. the
+  // card_art_prefs migration not applied yet) must not take cards down.
+  const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
   const artRows = artResult.error
     ? []
     : ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? []);
@@ -135,50 +215,6 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     const list = recordsByPlayer.get(key) ?? [];
     if (!list.includes(record.category)) list.push(record.category);
     recordsByPlayer.set(key, list);
-  }
-
-  // Which draft this season's teams live under. A season we can't map (an
-  // archived one, or settings that failed to load) falls back to every
-  // team, which is the old behaviour — a possibly-stale badge still beats
-  // no badge.
-  const settings = settingsResult.error
-    ? null
-    : (settingsResult.data as {
-        current_season: string | null;
-        academy_season: string | null;
-        featured_draft_id: string | null;
-        academy_draft_id: string | null;
-      } | null);
-  const seasonDraftId =
-    settings?.academy_season === season
-      ? settings?.academy_draft_id ?? null
-      : settings?.current_season === season
-        ? settings?.featured_draft_id ?? null
-        : null;
-  const scopedTeams = seasonDraftId ? teamRows.filter((team) => team.draft_id === seasonDraftId) : teamRows;
-
-  // Every badge is filed under its name AND its abbreviation, both
-  // normalized. The abbreviation is what rescues a team the two tables
-  // spell differently — a real typo on one side ("Fradulent 5" against
-  // "Fraudulent 5") defeats any amount of name normalizing, but the
-  // three-letter code still matches.
-  const teamImages = new Map<string, string>();
-  const addBadge = (key: string, url: string) => {
-    const normalized = teamBadgeKey(key);
-    if (normalized && !teamImages.has(normalized)) teamImages.set(normalized, url);
-  };
-  for (const team of scopedTeams) {
-    if (!team.image_url) continue;
-    addBadge(team.name, team.image_url);
-    if (team.abbreviation) addBadge(team.abbreviation, team.image_url);
-  }
-  // raw_stats speaks league_teams' names, so alias each of those onto the
-  // badge its abbreviation points at when the names themselves don't meet.
-  for (const leagueTeam of leagueTeamRows) {
-    const nameKey = teamBadgeKey(leagueTeam.name);
-    if (!nameKey || teamImages.has(nameKey) || !leagueTeam.abbreviation) continue;
-    const viaAbbreviation = teamImages.get(teamBadgeKey(leagueTeam.abbreviation));
-    if (viaAbbreviation) teamImages.set(nameKey, viaAbbreviation);
   }
 
   const artPrefs = new Map<string, { skin: number; motto: string | null }>();
@@ -240,7 +276,8 @@ export async function fetchEditionCards(
     .eq("season", season)
     .eq("edition_week", editionWeek);
   if (error) return [];
-  return ((data as { card: PlayerCardData }[]) ?? []).map((row) => row.card);
+  const cards = ((data as { card: PlayerCardData }[]) ?? []).map((row) => row.card);
+  return backfillTeamBadges(cards, await fetchTeamBadges(supabase, season));
 }
 
 export async function fetchRatingHistory(
