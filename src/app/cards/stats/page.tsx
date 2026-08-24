@@ -50,7 +50,9 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Ledger</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Everything the league has opened, spent and pulled this season.
+            Everything the league has opened, spent and is holding this season. Card counts are what
+            exists right now — dusting destroys a copy, so a card someone melted down is gone from
+            these figures as well as from their collection.
             {stats && stats.excludedCount > 0 ? (
               <>
                 {" "}
@@ -76,11 +78,15 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           <section aria-label="Totals" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Figure value={stats.packsOpened.toLocaleString()} label="Packs opened" />
             <Figure value={fmtPoints(stats.spent)} label="Spent on packs" />
-            <Figure value={stats.cardsPulled.toLocaleString()} label="Cards pulled" />
+            <Figure
+              value={stats.cardsPulled.toLocaleString()}
+              label="Cards in circulation"
+              note="Dusted copies leave the count"
+            />
             <Figure value={stats.collectors.toLocaleString()} label="Collectors" />
           </section>
 
-          <section aria-label="Rare pulls" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section aria-label="Rare cards in circulation" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Figure value={stats.signed.toLocaleString()} label="Signed" note={rate(stats.signed, stats.cardsPulled)} />
             <Figure value={stats.foils.toLocaleString()} label="Foils" note={rate(stats.foils, stats.cardsPulled)} />
             <Figure value={stats.altArts.toLocaleString()} label="Alternate prints" note={rate(stats.altArts, stats.cardsPulled)} />
