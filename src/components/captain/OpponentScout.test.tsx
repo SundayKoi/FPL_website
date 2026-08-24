@@ -100,4 +100,16 @@ describe("OpponentScout", () => {
     const tokens = screen.getAllByText("Ahri").map((el) => el.parentElement).filter(Boolean);
     expect(tokens.some((token) => token?.className.match(/blue|purple|green/))).toBe(false);
   });
+  it("switches to in-house champion stats and hides regular scouting sections", () => {
+    renderScout({ inhousePlayerStats: [{
+      playerId: "1", playerName: "Northstar", role: "mid", games: 2,
+      champions: [{ champion: "Ahri", games: 2, wins: 1, winrate_pct: 50, avg_kda: 3.17 }],
+    }] });
+    fireEvent.click(screen.getByRole("switch"));
+    expect(screen.getByRole("heading", { name: "Champion stats by player" })).toBeTruthy();
+    expect(screen.getByText("Northstar")).toBeTruthy();
+    expect(screen.getByText("Ahri")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();
+    expect(screen.queryByLabelText("Draft history")).toBeNull();
+  });
 });

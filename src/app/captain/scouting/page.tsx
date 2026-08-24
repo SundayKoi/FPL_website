@@ -3,7 +3,7 @@ import {
   fetchCaptainContext,
   fetchMyRoster,
 } from "@/lib/captain/queries";
-import { fetchScoutingHistory } from "@/lib/scouting/queries";
+import { fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
 import { pickNextFixture } from "@/lib/captain/nextMatch";
 import { matchTeamId, normalizeName } from "@/lib/captain/teamNames";
 import type { FixtureRow } from "@/lib/schedule/types";
@@ -75,13 +75,15 @@ export async function CaptainScoutingPageView({
         fetchScoutingHistory(supabase, { league, leagueTeamNames: context.teams.map((team) => team.name) }),
         opponentTeamId ? fetchMyRoster(supabase, opponentTeamId, context.season, league) : Promise.resolve(null),
       ]);
+      const roster = (opponentRoster?.draftPlayers ?? []).map((player) => ({ id: player.id, displayName: player.display_name, role: player.role }));
       scoutingSource = {
         ...history,
         opponentName,
         teamName: opponentName,
         currentSeason: context.season,
         nextFixture,
-        roster: (opponentRoster?.draftPlayers ?? []).map((player) => ({ id: player.id, displayName: player.display_name, role: player.role })),
+        roster,
+        inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
       };
     } catch (error) {
       console.error("Unable to load scouting", error);

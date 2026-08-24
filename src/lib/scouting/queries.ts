@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeTeamName } from "@/lib/league/context";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
-import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory } from "./types";
+import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory, ScoutRosterPlayer } from "./types";
 import { parseDrafterPage } from "./drafter";
+import { buildInhousePlayerStats, type InhouseGameRow, type InhousePlayerStats } from "./inhouse";
 
 export const FIXTURE_COLUMNS =
   "id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b";
@@ -205,4 +206,16 @@ export async function fetchScoutingHistory(
     if (!current || current.actions.length === 0) drafts.push(reportedDraft);
   }
   return { fixtures, drafts };
+}
+
+/** Load all raw in-house games and correlate them to the selected roster. */
+export async function fetchInhousePlayerStats(
+  supabase: SupabaseClient,
+  roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"] }>,
+): Promise<InhousePlayerStats[]> {
+  const { data, error } = await supabase
+    .from("raw_stats")
+    .select("summoner_name, champion, kills, deaths, assists, win");
+  if (error) throw error;
+  return buildInhousePlayerStats(roster, (data ?? []) as InhouseGameRow[]);
 }

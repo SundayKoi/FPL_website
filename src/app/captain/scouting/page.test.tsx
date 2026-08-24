@@ -1,16 +1,17 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { from, fetchCaptainContext, fetchMyRoster, fetchScoutingHistory } = vi.hoisted(() => ({
+const { from, fetchCaptainContext, fetchMyRoster, fetchScoutingHistory, fetchInhousePlayerStats } = vi.hoisted(() => ({
   from: vi.fn(),
   fetchCaptainContext: vi.fn(),
   fetchMyRoster: vi.fn(),
   fetchScoutingHistory: vi.fn(),
+  fetchInhousePlayerStats: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({ from })) }));
 vi.mock("@/lib/captain/queries", () => ({ fetchCaptainContext, fetchMyRoster }));
-vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory }));
+vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchInhousePlayerStats }));
 vi.mock("@/components/captain/CaptainGate", () => ({ default: () => <main>Captains only</main> }));
 vi.mock("@/components/captain/OpponentScout", () => ({ default: (props: { source: { opponentName: string } }) => <section>Scouting dashboard: {props.source.opponentName}</section> }));
 vi.mock("@/components/LeaguePageToggle", () => ({ default: () => null }));
@@ -52,6 +53,7 @@ describe("Captain scouting page", () => {
     fetchCaptainContext.mockResolvedValue({ profileId: "p", isAdmin: false, teams, activeTeams: teams, myTeamId: "one", season: "S5" });
     fetchMyRoster.mockImplementation(async (_supabase: unknown, id: string) => id === "two" ? { draftPlayers: [{ id: "opp", display_name: "Mid", role: "mid" }], riotAccounts: [] } : { draftPlayers: [], riotAccounts: [] });
     fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
+    fetchInhousePlayerStats.mockResolvedValue([]);
     from.mockImplementation((table: string) => table === "fixtures" ? query({ data: [fixture] }) : query({ data: { current_phase: "Regular" } }));
 
     render(await ScoutingPage({ searchParams: Promise.resolve({}) }));

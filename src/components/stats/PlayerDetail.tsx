@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { combineSeasonRows, mergeRows, scoutingProfile } from "@/lib/stats/formulas";
 import { formatDate, formatValue } from "@/lib/stats/format";
-import { aggregateInhouseChampionStats, type InhouseChampionGame, type InhouseChampionStat } from "@/lib/stats/inhouse";
 import { fetchPlayerAgg, fetchRecords } from "@/lib/stats/queries";
 import { playerKey } from "@/lib/stats/scope";
 import { createClient } from "@/lib/supabase/client";
@@ -76,7 +75,7 @@ export default function PlayerDetail({
     const phaseParam = phase === "All" ? undefined : phase;
     const supabase = createClient();
 
-    const [agg, recordRows, teamRows, gameRows, inhouseRows] = await Promise.all([
+    const [agg, recordRows, teamRows, gameRows] = await Promise.all([
       // Cohort math (laning deltas) needs every player's rows for this
       // season/phase scope, not just this player's — fetch unfiltered
       // by player and derive both "my row(s)" and "the cohort" from it.
@@ -94,23 +93,16 @@ export default function PlayerDetail({
         .eq("tag", tag)
         .order("game_date", { ascending: false })
         .limit(10),
-      supabase
-        .from("raw_stats")
-        .select("champion, kills, deaths, assists, win")
-        .eq("summoner_name", summonerName)
-        .eq("tag", tag),
     ]);
 
     if (teamRows.error) throw teamRows.error;
     if (gameRows.error) throw gameRows.error;
-    if (inhouseRows.error) throw inhouseRows.error;
 
     return {
       aggRows: agg,
       records: recordRows,
       teams: Array.from(new Set((teamRows.data ?? []).map((r) => r.team_name as string))).sort(),
       recentGames: (gameRows.data ?? []) as RecentGame[],
-      inhouseChampionStats: aggregateInhouseChampionStats((inhouseRows.data ?? []) as InhouseChampionGame[]),
     };
   }, [summonerName, tag, season, phase]);
   const { data, status } = useStatsFetch(loadDetail, `${summonerName}#${tag}::${season}::${phase}`);
@@ -118,8 +110,6 @@ export default function PlayerDetail({
   const records = useMemo(() => data?.records ?? [], [data]);
   const teams = data?.teams ?? [];
   const recentGames = data?.recentGames ?? [];
-  const inhouseChampionStats = data?.inhouseChampionStats ?? [];
-  const [inhouseMode, setInhouseMode] = useState(false);
 
   // This player's row(s) in the current season/phase scope. With "All
   // seasons" selected, fetchPlayerAgg returns one row per season for this
@@ -221,25 +211,6 @@ export default function PlayerDetail({
         <span aria-hidden="true">←</span> Back
       </button>
 
-      <div className="card-brand flex flex-wrap items-center justify-between gap-3 p-3">
-        <div>
-          <p className="text-sm font-semibold text-white">Scouting data source</p>
-          <p className="text-xs text-steel">
-            {inhouseMode ? "Champion performance across all in-house games." : "Regular season scouting report."}
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={inhouseMode}
-          onClick={() => setInhouseMode((current) => !current)}
-          className="flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-cyan/60 hover:text-white"
-        >
-          <span className={`h-2.5 w-2.5 rounded-full ${inhouseMode ? "bg-cyan shadow-[0_0_8px_rgb(53_230_255/0.8)]" : "bg-steel/50"}`} />
-          {inhouseMode ? "In-house" : "Regular season"}
-        </button>
-      </div>
-
       {status === "loading" ? (
         <div className="card-neon p-8 text-center text-steel" role="status">
           Loading player…
@@ -248,8 +219,6 @@ export default function PlayerDetail({
         <div className="card-neon p-8 text-center text-steel">
           Couldn&apos;t load this player&apos;s data. Try again shortly.
         </div>
-      ) : inhouseMode ? (
-        <InhouseChampionStats stats={inhouseChampionStats} playerName={`${summonerName}#${tag}`} />
       ) : !myRow || !profile ? (
         <div className="card-neon p-8 text-center">
           <p className="type-display text-2xl">No stats yet</p>
@@ -436,47 +405,5 @@ export default function PlayerDetail({
         </>
       )}
     </div>
-  );
-}
-
-function InhouseChampionStats({ stats, playerName }: { stats: InhouseChampionStat[]; playerName: string }) {
-  return (
-    <section className="card-neon p-4 sm:p-6" aria-label="In-house champion stats">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <span className="mono-label">In-house champion stats</span>
-          <p className="mt-2 text-sm text-steel">All available in-house games for {playerName}.</p>
-        </div>
-        <span className="font-mono text-xs text-steel">{stats.reduce((total, row) => total + row.games, 0)} games</span>
-      </div>
-      {stats.length === 0 ? (
-        <p className="mt-6 text-sm text-steel">No in-house champion data found for this player.</p>
-      ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">Champion</th>
-                <th className="px-2 py-2 text-right text-xs uppercase tracking-wide text-steel">Games</th>
-                <th className="px-2 py-2 text-right text-xs uppercase tracking-wide text-steel">W-L</th>
-                <th className="px-2 py-2 text-right text-xs uppercase tracking-wide text-steel">Win rate</th>
-                <th className="px-2 py-2 text-right text-xs uppercase tracking-wide text-steel">KDA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.map((row) => (
-                <tr key={row.champion} className="border-t border-line/60">
-                  <td className="px-2 py-2 font-semibold text-white">{row.champion}</td>
-                  <td className="px-2 py-2 text-right font-mono text-steel">{row.games}</td>
-                  <td className="px-2 py-2 text-right font-mono text-steel">{row.wins}-{row.games - row.wins}</td>
-                  <td className="px-2 py-2 text-right font-mono text-cyan">{row.winrate_pct.toFixed(1)}%</td>
-                  <td className="px-2 py-2 text-right font-mono text-steel">{row.avg_kda.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
   );
 }
