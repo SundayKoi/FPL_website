@@ -1,7 +1,14 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { sanitizeTweetText } from "./contentFilter";
+import type { BangerVote } from "./actions";
 import type { BangerPost } from "./feed";
+
+const VALID_BANGER_VOTES = new Set<BangerVote>(["banger", "mid", "stinker"]);
+
+function parseBangerVote(value: string | null | undefined): BangerVote | null {
+  return value && VALID_BANGER_VOTES.has(value as BangerVote) ? (value as BangerVote) : null;
+}
 
 export async function fetchBangerPosts(): Promise<BangerPost[]> {
   const supabase = await createServerSupabase();
@@ -27,6 +34,42 @@ export async function fetchBangerPosts(): Promise<BangerPost[]> {
     stinkerVotes: countByPost.get(post.id)?.stinker_votes ?? 0,
     url: post.x_url,
   }));
+}
+
+export type BangerViewerVotes = {
+  postVotes: Partial<Record<string, BangerVote>>;
+  dailyVote?: BangerVote;
+};
+
+export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<BangerViewerVotes> {
+  const empty: BangerViewerVotes = { postVotes: {} };
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return empty;
+
+  const postVotesPromise = supabase
+    .from("banger_votes")
+    .select("post_id, vote")
+    .eq("voter_id", user.id);
+  const dailyVotePromise = dailyCheckDate
+    ? supabase
+        .from("daily_banger_votes")
+        .select("vote")
+        .eq("check_date", dailyCheckDate)
+        .eq("voter_id", user.id)
+        .maybeSingle()
+    : Promise.resolve({ data: null });
+
+  const [{ data: postRows }, { data: dailyRow }] = await Promise.all([postVotesPromise, dailyVotePromise]);
+  const postVotes = Object.fromEntries(
+    ((postRows as { post_id: string; vote: string }[] | null) ?? []).flatMap((row) => {
+      const vote = parseBangerVote(row.vote);
+      return vote ? [[row.post_id, vote] as const] : [];
+    }),
+  );
+  const dailyVote = parseBangerVote((dailyRow as { vote?: string } | null)?.vote);
+
+  return { postVotes, dailyVote: dailyVote ?? undefined };
 }
 
 export type DailyBanger = BangerPost & { checkDate: string; startsAt: string; endsAt: string };

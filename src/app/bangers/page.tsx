@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import BangerBoard from "@/components/bangers/BangerBoard";
-import { fetchBangerPosts, fetchDailyBanger } from "@/lib/bangers/queries";
+import { fetchBangerPosts, fetchBangerViewerVotes, fetchDailyBanger } from "@/lib/bangers/queries";
 import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
 
 export const metadata: Metadata = {
@@ -10,5 +10,6 @@ export const metadata: Metadata = {
 
 export default async function BangersPage() {
   const [posts, dailyBanger, settings] = await Promise.all([fetchBangerPosts(), fetchDailyBanger(), fetchBangerBoardSettings()]);
-  return <BangerBoard posts={posts} dailyBanger={dailyBanger} settings={settings} />;
+  const viewerVotes = await fetchBangerViewerVotes(dailyBanger?.checkDate);
+  return <BangerBoard posts={posts} dailyBanger={dailyBanger} settings={settings} initialVotes={viewerVotes.postVotes} initialDailyVote={viewerVotes.dailyVote} />;
 }

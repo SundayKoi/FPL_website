@@ -18,13 +18,15 @@ import {
 
 type Vote = BangerVote;
 
-function withVotes(post: BangerPost, votes: Partial<Record<string, Vote>>) {
+function withVotes(post: BangerPost, votes: Partial<Record<string, Vote>>, savedVotes: Partial<Record<string, Vote>>) {
   const vote = votes[post.id];
+  const savedVote = savedVotes[post.id];
+  if (!vote || vote === savedVote) return post;
   return {
     ...post,
-    bangerVotes: post.bangerVotes + (vote === "banger" ? 1 : 0),
-    midVotes: post.midVotes + (vote === "mid" ? 1 : 0),
-    stinkerVotes: post.stinkerVotes + (vote === "stinker" ? 1 : 0),
+    bangerVotes: post.bangerVotes - (savedVote === "banger" ? 1 : 0) + (vote === "banger" ? 1 : 0),
+    midVotes: post.midVotes - (savedVote === "mid" ? 1 : 0) + (vote === "mid" ? 1 : 0),
+    stinkerVotes: post.stinkerVotes - (savedVote === "stinker" ? 1 : 0) + (vote === "stinker" ? 1 : 0),
   };
 }
 
@@ -98,12 +100,12 @@ function TweetCard({ post, currentVote, onVote, featured = false }: { post: Bang
   );
 }
 
-export default function BangerBoard({ posts, dailyBanger, settings }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings }) {
-  const [votes, setVotes] = useState<Record<string, Vote | undefined>>({});
+export default function BangerBoard({ posts, dailyBanger, settings, initialVotes = {}, initialDailyVote }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote }) {
+  const [votes, setVotes] = useState<Record<string, Vote | undefined>>(initialVotes);
   const [randomPostId, setRandomPostId] = useState<string | undefined>(undefined);
-  const [dailyVote, setDailyVote] = useState<Vote | undefined>(undefined);
+  const [dailyVote, setDailyVote] = useState<Vote | undefined>(initialDailyVote);
   const [dailyMessage, setDailyMessage] = useState("");
-  const votedPosts = useMemo(() => posts.map((post) => withVotes(post, votes)), [posts, votes]);
+  const votedPosts = useMemo(() => posts.map((post) => withVotes(post, votes, initialVotes)), [posts, votes, initialVotes]);
   const recentPosts = useMemo(() => getRecentPosts(votedPosts), [votedPosts]);
   const rankedPosts = useMemo(() => getTopPosts(votedPosts), [votedPosts]);
   const stinkerPosts = useMemo(() => getStinkerPosts(votedPosts), [votedPosts]);
@@ -116,9 +118,10 @@ export default function BangerBoard({ posts, dailyBanger, settings }: { posts: B
   }, [posts, randomPostId]);
 
   async function vote(id: string, nextVote: Vote) {
+    const previousVote = votes[id];
     setVotes((current) => ({ ...current, [id]: nextVote }));
     const result = await voteBangerPost(id, nextVote);
-    if (!result.ok) setVotes((current) => ({ ...current, [id]: undefined }));
+    if (!result.ok) setVotes((current) => ({ ...current, [id]: previousVote }));
   }
 
   async function voteDaily(nextVote: Vote) {
