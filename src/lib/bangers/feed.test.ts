@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRecentPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
+import { BANGER_POSTS, getRecentPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
 
 const posts: BangerPost[] = [
   { id: "old", text: "Old wisdom", publishedAt: "2025-01-01", bangerVotes: 20, midVotes: 10, url: "https://x.com" },
@@ -10,6 +10,10 @@ const posts: BangerPost[] = [
 ];
 
 describe("banger feed rules", () => {
+  it("does not ship unverified tweets or seeded banger data", () => {
+    expect(BANGER_POSTS).toEqual([]);
+  });
+
   it("keeps only posts published in the last 45 days", () => {
     expect(getRecentPosts(posts, new Date("2026-08-23T12:00:00Z")).map((post) => post.id)).toEqual([
       "one",
@@ -24,7 +28,11 @@ describe("banger feed rules", () => {
   });
 
   it("can pick any post from the all-time archive", () => {
-    expect(pickRandomPost(posts, () => 0).id).toBe("old");
-    expect(pickRandomPost(posts, () => 0.99).id).toBe("four");
+    expect(pickRandomPost(posts, () => 0)!.id).toBe("old");
+    expect(pickRandomPost(posts, () => 0.99)!.id).toBe("four");
+  });
+
+  it("returns no random post when the verified archive is empty", () => {
+    expect(pickRandomPost([])).toBeUndefined();
   });
 });
