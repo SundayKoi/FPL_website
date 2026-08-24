@@ -567,6 +567,13 @@ describe("MatchDraftBoard", () => {
     expect(container.querySelectorAll('[class~="w-[350px]"]')).toHaveLength(10);
   });
 
+  it("pushes the red-side overlay champions to the right edge", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+    const overlayColumns = container.querySelector("main > div");
+
+    expect(overlayColumns?.children[2]?.className).toContain("items-end");
+  });
+
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
     rpcMock.mockClear();
     render(

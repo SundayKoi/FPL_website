@@ -1636,7 +1636,7 @@ export default function MatchDraftBoard({
                   : "waiting for ready check"}
             </span>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col items-end gap-3">
             <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
             <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} slotClassName="w-[350px]" />
             <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" reverse />
