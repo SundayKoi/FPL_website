@@ -28,6 +28,9 @@ vi.mock("@/components/admin/DraftListClient", () => ({ default: () => <div /> })
 vi.mock("@/components/admin/AdminHomepageMode", () => ({ default: () => <div /> }));
 vi.mock("@/components/admin/AdminStaff", () => ({ default: () => <div /> }));
 vi.mock("@/components/admin/AdminBriefEditor", () => ({ default: () => <div /> }));
+// Renders a browser Supabase client at mount — mocked like every other
+// admin child so the page test needs no NEXT_PUBLIC_SUPABASE_* env.
+vi.mock("@/components/admin/AdminBangerTitles", () => ({ default: () => <div /> }));
 
 const fixture = (id: string, teamA: string, teamB: string): FixtureRow => ({
   id,
