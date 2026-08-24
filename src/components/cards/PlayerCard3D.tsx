@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import CountUp from "@/components/home/CountUp";
-import { championCenteredUrl, championIconUrl } from "@/lib/match-draft/champions";
+import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -117,8 +117,21 @@ export default function PlayerCard3D({
   const frameClass = card.standout ? "card-frame-standout" : style.frameClass;
   const frameStyle = frameClass ? undefined : style.frame;
   const glowClass = card.standout ? "card-glow-standout" : style.glowClass ?? "";
-  const splash = card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
-  const baseSplash = card.signature ? championCenteredUrl(card.signature.champion) : null;
+  // The art the front tries, best first. Riot's centered crop is the one the
+  // frame is designed around, but it's missing for a lot of otherwise valid
+  // skins — the uncropped splash of the same skin beats falling all the way
+  // back to base art, so it sits in the middle. Deduped, so an artSkin of 0
+  // doesn't retry the same url twice.
+  const artChain = card.signature
+    ? [...new Set(
+        [
+          championCenteredUrl(card.signature.champion, card.artSkin),
+          championSplashUrl(card.signature.champion, card.artSkin),
+          championCenteredUrl(card.signature.champion),
+        ].filter((url): url is string => Boolean(url)),
+      )]
+    : [];
+  const splash = artChain[0] ?? null;
 
   useEffect(() => {
     if (!reveal) return;
@@ -264,6 +277,9 @@ export default function PlayerCard3D({
             {splash ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
+                // Remount when the art changes so the stage counter below,
+                // which lives on the DOM node, restarts at the top of the chain.
+                key={splash}
                 src={splash}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
@@ -272,9 +288,15 @@ export default function PlayerCard3D({
                 // blocks the frame it lands in, which is felt as scroll jank.
                 decoding="async"
                 onError={(event) => {
-                  // A skin number with no centered art on the CDN falls back
-                  // to the base splash rather than a broken card.
-                  if (baseSplash && event.currentTarget.src !== baseSplash) event.currentTarget.src = baseSplash;
+                  // Walk the chain one step per failure — centered(skin) →
+                  // splash(skin) → base art — and stop at its end rather than
+                  // looping a broken url forever. The index rides the element,
+                  // not React state: this handler must not re-render the card.
+                  const img = event.currentTarget;
+                  const next = Number(img.dataset.artStage ?? "0") + 1;
+                  if (next >= artChain.length) return;
+                  img.dataset.artStage = String(next);
+                  img.src = artChain[next];
                 }}
               />
             ) : null}

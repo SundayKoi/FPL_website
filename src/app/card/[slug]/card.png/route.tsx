@@ -7,6 +7,7 @@ import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
 import { fetchAllCardSeasons, fetchCardBySlug } from "@/lib/cards/queries";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
+import { resolvePrintArtUrl } from "@/lib/packs/skins";
 import type { PlayerCardData } from "@/lib/cards/build";
 
 export const runtime = "nodejs";
@@ -59,7 +60,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   }
 
   const tint = TIER_COLORS[card.tier.key];
-  const splash = card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
+  // satori fetches the art itself and has no onError to fall back through,
+  // so the whole chain the live card walks in the browser has to be resolved
+  // here first: centered art for the skin, else its regular splash, else base
+  // centered art. A url that 404s at render time breaks the whole unfurl.
+  const splash = card.signature
+    ? (await resolvePrintArtUrl(card.signature.champion, card.artSkin)) ??
+      championCenteredUrl(card.signature.champion)
+    : null;
 
   return new ImageResponse(
     (

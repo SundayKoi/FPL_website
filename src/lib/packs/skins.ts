@@ -6,7 +6,12 @@
 // live inside the pure roll. The roll itself is pure and takes the same
 // injected rand, so a print is as unguessable as the pull.
 
-import { DDRAGON_VERSION, championByName, championCenteredUrl } from "@/lib/match-draft/champions";
+import {
+  DDRAGON_VERSION,
+  championByName,
+  championCenteredUrl,
+  championSplashUrl,
+} from "@/lib/match-draft/champions";
 import { ALT_SKIN_CHANCE } from "./config";
 
 /** Champion id -> that champion's skin nums. Module-level and unbounded on
@@ -59,14 +64,12 @@ export function rollSkinNum(skinNums: number[], rand: () => number): number {
   return skinNums[index];
 }
 
-/** url -> whether the CDN actually serves that centered splash. Successes
- *  and 403s are both facts about the catalog and cache forever; transient
+/** url -> whether the CDN actually serves that piece of art. Successes and
+ *  403s are both facts about the catalog and cache forever; transient
  *  network failures are not cached, mirroring fetchChampionSkinNums. */
 const printValidity = new Map<string, boolean>();
 
-async function centeredArtExists(championName: string, num: number): Promise<boolean> {
-  const url = championCenteredUrl(championName, num);
-  if (!url) return false;
+async function artUrlServed(url: string): Promise<boolean> {
   const cached = printValidity.get(url);
   if (cached !== undefined) return cached;
   try {
@@ -79,23 +82,52 @@ async function centeredArtExists(championName: string, num: number): Promise<boo
 }
 
 /**
+ * The art a print of `num` actually renders at, or null when Riot serves
+ * neither variant for that skin.
+ *
+ * Riot publishes two splash directories and they do NOT hold the same set:
+ * `centered` (the crop the cards want) is missing for a great many valid
+ * skins, while `splash` covers nearly all of them. So the resolution is
+ * centered-first, regular splash second — a skin whose only art is the
+ * uncropped splash is still a usable print, it just sits differently in the
+ * frame. Both verdicts cache per-URL above, so a pack of five pulls of the
+ * same champion probes each url once.
+ */
+export async function resolvePrintArtUrl(championName: string, num: number): Promise<string | null> {
+  const centered = championCenteredUrl(championName, num);
+  if (centered && (await artUrlServed(centered))) return centered;
+  const splash = championSplashUrl(championName, num);
+  if (splash && (await artUrlServed(splash))) return splash;
+  return null;
+}
+
+/** Whether a print of `num` has art at all, in either directory — the
+ *  default validator behind rollPrint. */
+export async function printArtExists(championName: string, num: number): Promise<boolean> {
+  return (await resolvePrintArtUrl(championName, num)) !== null;
+}
+
+/**
  * The print roll the pack actually uses. Two stages, both off the injected
  * rand: first a chance gate — ALT_SKIN_CHANCE of printing an alternate at
  * all, base splash otherwise, so base is the expected look and an alternate
  * reads as a pull in its own right — then a uniform pick among the
  * champion's alternates, VALIDATED against the CDN before it's frozen.
  *
- * The skin catalog lists nums whose centered splash Riot never uploaded
- * (they 403) — without the validation those prints render broken and the
- * card's client-side fallback silently swaps them to base art. An invalid
- * roll is removed from the candidates and re-rolled, a few attempts at
- * most; base (0) always exists and is the floor.
+ * The skin catalog lists nums Riot never uploaded art for (they 403) —
+ * without the validation those prints render broken and the card's
+ * client-side fallback silently swaps them to base art. "Art" here means
+ * either splash directory (see resolvePrintArtUrl): a skin that only has
+ * the regular splash is rollable, which is most of the ones the old
+ * centered-only check threw away. An invalid roll is removed from the
+ * candidates and re-rolled, a few attempts at most; base (0) always exists
+ * and is the floor.
  */
 export async function rollPrint(
   championName: string,
   skinNums: number[],
   rand: () => number,
-  artExists: (championName: string, num: number) => Promise<boolean> = centeredArtExists,
+  artExists: (championName: string, num: number) => Promise<boolean> = printArtExists,
 ): Promise<number> {
   const alternates = [...new Set(skinNums)].filter((num) => num !== 0);
   if (alternates.length === 0) return 0;

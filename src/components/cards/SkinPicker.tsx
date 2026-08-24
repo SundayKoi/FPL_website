@@ -4,17 +4,22 @@
 // wears, the motto line on the back, and the player's autograph. Rendered
 // only for viewers the
 // server says may edit (the card's captain or an admin — see
-// can_edit_card_art in 20260826000013); RLS re-checks on write. Skin
-// numbers are probed optimistically 1..MAX and thumbnails that 404 remove
-// themselves — Riot's skin nums are sparse and undocumented.
+// can_edit_card_art in 20260826000013); RLS re-checks on write.
+//
+// The skin numbers come from Riot's own catalog, fetched server-side on the
+// share page (fetchChampionSkinNums). They used to be probed blind 0..20,
+// which both wasted requests on nums that don't exist and hid every skin
+// above 20 — Riot's nums are sparse ids, not a count, so Jhin's 64 was
+// unreachable. Thumbnails still self-heal: centered art is missing for many
+// valid skins, so each falls back to the regular splash and only drops out
+// if neither directory serves it.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { championCenteredUrl } from "@/lib/match-draft/champions";
+import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import SignaturePad from "./SignaturePad";
 
-const MAX_SKIN_PROBE = 20;
 const MOTTO_MAX = 60;
 
 export default function SkinPicker({
@@ -23,6 +28,7 @@ export default function SkinPicker({
   tag,
   champion,
   currentSkin,
+  skinNums = [0],
   currentMotto = null,
   currentSignature = null,
 }: {
@@ -31,6 +37,9 @@ export default function SkinPicker({
   tag: string;
   champion: string;
   currentSkin: number;
+  /** Riot's skin nums for this champion, base included. Defaults to base
+   *  only, which is what the catalog fetch floors at. */
+  skinNums?: number[];
   currentMotto?: string | null;
   currentSignature?: string | null;
 }) {
@@ -41,6 +50,10 @@ export default function SkinPicker({
   const [error, setError] = useState<string | null>(null);
   const [broken, setBroken] = useState<Set<number>>(new Set());
   const [motto, setMotto] = useState(currentMotto ?? "");
+  // Base art and whatever the card already wears are always offered, even if
+  // the catalog fetch fell back to `[0]` — otherwise the "In use" thumbnail
+  // could vanish from its own picker.
+  const skins = [...new Set([0, currentSkin, ...skinNums])].sort((a, b) => a - b);
 
   const save = async (patch: { skin?: number; motto?: string | null }) => {
     setSaving(true);
@@ -112,39 +125,57 @@ export default function SkinPicker({
 
           <div className="flex flex-col items-center gap-2">
             <p className="text-xs text-steel">Pick which {champion} art this card wears.</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {Array.from({ length: MAX_SKIN_PROBE + 1 }, (_, skin) => skin)
-                .filter((skin) => !broken.has(skin))
-                .map((skin) => {
-                  const url = championCenteredUrl(champion, skin);
-                  if (!url) return null;
-                  const active = skin === currentSkin;
-                  return (
-                    <button
-                      key={skin}
-                      type="button"
-                      disabled={saving || active}
-                      onClick={() => void save({ skin })}
-                      aria-pressed={active}
-                      className={`relative h-16 w-28 overflow-hidden rounded border transition ${
-                        active ? "border-coral ring-2 ring-coral/60" : "border-line hover:border-coral"
-                      } disabled:cursor-default`}
-                      title={skin === 0 ? "Base splash" : `Skin ${skin}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={url}
-                        alt=""
-                        className="h-full w-full object-cover object-[center_20%]"
-                        loading="lazy"
-                        onError={() => setBroken((current) => new Set(current).add(skin))}
-                      />
-                      {active ? (
-                        <span className="absolute inset-x-0 bottom-0 bg-coral/90 text-[9px] font-bold uppercase text-navy">In use</span>
-                      ) : null}
-                    </button>
-                  );
-                })}
+            {/* Champions with 60+ skins would otherwise push the save
+                controls off the page — the grid scrolls instead of dropping
+                entries, so every skin stays reachable. */}
+            <div className="max-h-80 w-full overflow-y-auto">
+              <div className="flex flex-wrap justify-center gap-2">
+                {skins
+                  .filter((skin) => !broken.has(skin))
+                  .map((skin) => {
+                    const url = championCenteredUrl(champion, skin);
+                    if (!url) return null;
+                    const active = skin === currentSkin;
+                    return (
+                      <button
+                        key={skin}
+                        type="button"
+                        disabled={saving || active}
+                        onClick={() => void save({ skin })}
+                        aria-pressed={active}
+                        className={`relative h-16 w-28 shrink-0 overflow-hidden rounded border transition ${
+                          active ? "border-coral ring-2 ring-coral/60" : "border-line hover:border-coral"
+                        } disabled:cursor-default`}
+                        title={skin === 0 ? "Base splash" : `Skin ${skin}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt=""
+                          className="h-full w-full object-cover object-[center_20%]"
+                          loading="lazy"
+                          onError={(event) => {
+                            // Centered art missing → try the same skin's
+                            // regular splash before giving up on it. The
+                            // stage rides the element so the retry can't
+                            // loop on a second error.
+                            const img = event.currentTarget;
+                            const fallback = championSplashUrl(champion, skin);
+                            if (fallback && img.dataset.artStage !== "1") {
+                              img.dataset.artStage = "1";
+                              img.src = fallback;
+                              return;
+                            }
+                            setBroken((current) => new Set(current).add(skin));
+                          }}
+                        />
+                        {active ? (
+                          <span className="absolute inset-x-0 bottom-0 bg-coral/90 text-[9px] font-bold uppercase text-navy">In use</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
           </div>
           {error ? <p className="text-xs text-red-400">{error}</p> : null}

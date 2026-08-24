@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchChampionSkinNums, rollPrint, rollSkinNum } from "./skins";
+import { fetchChampionSkinNums, printArtExists, resolvePrintArtUrl, rollPrint, rollSkinNum } from "./skins";
 
 /** Same scripted rand as rng.test.ts: throws when overrun, so a test that
  *  says "consumes one value" fails loudly if the roll consumes two. */
@@ -40,10 +40,80 @@ describe("rollSkinNum", () => {
   });
 });
 
+describe("printArtExists", () => {
+  /** A CDN that serves whichever urls `served` approves and 403s the rest.
+   *  Every test below uses a champion + num pair of its own: the validity
+   *  cache is module-level and deliberately never cleared. */
+  const cdn = (served: (url: string) => boolean) =>
+    vi.fn(async (url: string) => ({ ok: served(url) }));
+
+  it("accepts a skin Riot never centered but did splash", async () => {
+    // The gap this whole fallback exists for: /centered/ is missing for a
+    // great many nums that /splash/ serves fine.
+    const fetchMock = cdn((url) => url.includes("/splash/"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(printArtExists("Jhin", 64)).resolves.toBe(true);
+    await expect(resolvePrintArtUrl("Jhin", 64)).resolves.toBe(
+      "https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Jhin_64.jpg",
+    );
+    expect(fetchMock.mock.calls[0][0]).toContain("/centered/Jhin_64.jpg");
+  });
+
+  it("prefers the centered crop when the CDN has it", async () => {
+    vi.stubGlobal("fetch", cdn(() => true));
+
+    await expect(resolvePrintArtUrl("Jhin", 55)).resolves.toBe(
+      "https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Jhin_55.jpg",
+    );
+  });
+
+  it("rejects a skin neither directory serves", async () => {
+    vi.stubGlobal("fetch", cdn(() => false));
+
+    await expect(printArtExists("Jhin", 47)).resolves.toBe(false);
+    await expect(resolvePrintArtUrl("Jhin", 47)).resolves.toBeNull();
+  });
+
+  it("probes each url once, however many prints ask", async () => {
+    const fetchMock = cdn((url) => url.includes("/splash/"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(printArtExists("Jhin", 37)).resolves.toBe(true);
+    await expect(printArtExists("Jhin", 37)).resolves.toBe(true);
+    await expect(printArtExists("Jhin", 37)).resolves.toBe(true);
+
+    // One HEAD for the missing centered url, one for the splash that
+    // answered — and nothing after that.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a transient network failure", async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error("ECONNRESET")).mockResolvedValue({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // First look: centered throws, splash is asked and throws nothing... the
+    // rejection only kills the centered probe, so re-asking must re-probe it.
+    await expect(printArtExists("Jhin", 23)).resolves.toBe(true);
+    await expect(resolvePrintArtUrl("Jhin", 23)).resolves.toBe(
+      "https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Jhin_23.jpg",
+    );
+  });
+
+  it("answers no art for a champion it can't resolve", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(printArtExists("Not A Champion", 1)).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("rollPrint", () => {
-  // Riot's catalog lists nums whose centered splash was never uploaded —
-  // the validator is what keeps those prints out of pulled copies. The
-  // first scripted value is the ALT_SKIN_CHANCE gate (< 0.3 = alternate).
+  // Riot's catalog lists nums whose splash was never uploaded to either
+  // directory — the validator is what keeps those prints out of pulled
+  // copies. The first scripted value is the ALT_SKIN_CHANCE gate
+  // (< 0.3 = alternate).
   const validOnly = (valid: number[]) => async (_champion: string, num: number) => valid.includes(num);
 
   it("prints base when the chance gate misses — no validator call", async () => {

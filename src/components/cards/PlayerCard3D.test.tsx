@@ -196,6 +196,34 @@ describe("PlayerCard3D", () => {
     expect(screen.queryByText("✍ Signed")).toBeNull();
   });
 
+  it("walks the art fallback chain: centered skin → splash skin → base art", () => {
+    // Riot's centered directory is missing for plenty of valid skins, and
+    // the regular splash of the same skin is a far better answer than
+    // dropping the player back to base art.
+    const { container } = render(<PlayerCard3D card={{ ...card, artSkin: 64 }} />);
+    const art = container.querySelector('img[src*="/champion/"]') as HTMLImageElement;
+
+    expect(art.getAttribute("src")).toContain("/centered/Jhin_64.jpg");
+    fireEvent.error(art);
+    expect(art.getAttribute("src")).toContain("/splash/Jhin_64.jpg");
+    fireEvent.error(art);
+    expect(art.getAttribute("src")).toContain("/centered/Jhin_0.jpg");
+    // End of the chain — a further error must not restart it.
+    fireEvent.error(art);
+    expect(art.getAttribute("src")).toContain("/centered/Jhin_0.jpg");
+  });
+
+  it("does not retry the same url twice for a base-art card", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+    const art = container.querySelector('img[src*="/champion/"]') as HTMLImageElement;
+
+    expect(art.getAttribute("src")).toContain("/centered/Jhin_0.jpg");
+    fireEvent.error(art);
+    expect(art.getAttribute("src")).toContain("/splash/Jhin_0.jpg");
+    fireEvent.error(art);
+    expect(art.getAttribute("src")).toContain("/splash/Jhin_0.jpg");
+  });
+
   it("renders the pedestal bloom only when asked", () => {
     const { container, rerender } = render(<PlayerCard3D card={card} />);
     expect(container.querySelector(".blur-3xl")).toBeNull();

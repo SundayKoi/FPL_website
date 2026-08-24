@@ -450,17 +450,22 @@ export function championIconUrl(name: string): string | null {
   return championByName(name)?.iconUrl ?? null;
 }
 
-export function championSplashUrl(name: string): string | null {
-  return championByName(name)?.splashUrl ?? null;
+/** Riot's full splash art. `skin` picks an alternate skin's art (0 = base).
+ *  This directory is the *wider* of Riot's two: nearly every num the skin
+ *  catalog lists has a splash, while plenty are missing from `centered`
+ *  below — so it's the fallback art the card system falls to. */
+export function championSplashUrl(name: string, skin = 0): string | null {
+  const base = championByName(name)?.splashUrl ?? null;
+  return base && skin > 0 ? base.replace(/_0\.jpg$/, `_${skin}.jpg`) : base;
 }
 
 /** Riot's "centered" splash — the horizontal crop with the champion in the
  *  middle, made for wide/tall UI windows (same variant the drafter's pick
  *  slots use). `skin` picks an alternate skin's art (0 = base; numbers are
- *  Riot's skin nums, which can be sparse — callers should tolerate 404s). */
+ *  Riot's skin nums, which can be sparse — callers should tolerate 404s and
+ *  fall back to championSplashUrl for the same num). */
 export function championCenteredUrl(name: string, skin = 0): string | null {
-  const base = championSplashUrl(name)?.replace("/champion/splash/", "/champion/centered/") ?? null;
-  return base && skin > 0 ? base.replace(/_0\.jpg$/, `_${skin}.jpg`) : base;
+  return championSplashUrl(name, skin)?.replace("/champion/splash/", "/champion/centered/") ?? null;
 }
 
 /** Name → champion resolver over an arbitrary roster (the live Data Dragon

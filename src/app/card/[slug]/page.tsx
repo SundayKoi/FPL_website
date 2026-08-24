@@ -5,6 +5,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
+import { fetchChampionSkinNums } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { PlayerCardData } from "@/lib/cards/build";
 
@@ -105,6 +106,10 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
   // that rolled signed (src/lib/packs/signatures.ts), never on the card
   // everyone can see here.
   let signature: string | null = null;
+  // Riot's skin nums for the signature champion, read once here so the
+  // picker can render the real catalog instead of probing numbers blind.
+  // Floors at `[0]` on any failure, same as everything else on this page.
+  let skinNums: number[] = [0];
   if (card) {
     const supabase = await createServerSupabase();
     const { data } = await supabase
@@ -124,6 +129,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
         .maybeSingle()
         .then((result) => result, () => ({ data: null }));
       signature = (prefs as { signature: string | null } | null)?.signature ?? null;
+      if (card.signature) skinNums = await fetchChampionSkinNums(card.signature.champion);
     }
 
     const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
@@ -202,6 +208,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
           tag={card.tag}
           champion={card.signature.champion}
           currentSkin={card.artSkin}
+          skinNums={skinNums}
           currentMotto={card.motto}
           currentSignature={signature}
         />
