@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CollectionGrid from "@/components/cards/CollectionGrid";
+import TeamSetsSection from "@/components/cards/TeamSetsSection";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
+import type { PlayerCardData } from "@/lib/cards/build";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import { fetchInventory, fetchPackOpenCount, type InventoryRow } from "@/lib/packs/queries";
 
@@ -61,13 +63,17 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount, editionWeeks]: [InventoryRow[], number, string[]] = season
+  const [inventory, openCount, editionWeeks, seasonCards]: [InventoryRow[], number, string[], PlayerCardData[]] = season
     ? await Promise.all([
         fetchInventory(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
         fetchCardEditionWeeks(service, season),
+        // The live roster, which is what a set is measured against — the
+        // frozen copies in `inventory` know who you own, not who exists.
+        fetchSeasonCards(service, season),
       ])
-    : [[], 0, []];
+    : [[], 0, [], []];
+  const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -98,7 +104,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // What's already on the shelf, so the opening can mark a pull NEW.
         // Slugs only: the overlay asks "do I own this player at all", which
         // an inventory row's own slug answers without shipping the cards.
-        ownedSlugs={[...new Set(inventory.map((row) => row.slug))]}
+        ownedSlugs={ownedSlugs}
         // Every archived week stays on sale, so a card from an earlier week
         // is always still obtainable.
         editionWeeks={editionWeeks}
@@ -113,6 +119,8 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         </div>
         <CollectionGrid inventory={inventory} />
       </section>
+
+      <TeamSetsSection cards={seasonCards} ownedSlugs={ownedSlugs} />
     </main>
   );
 }
