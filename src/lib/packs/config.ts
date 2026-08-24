@@ -71,6 +71,16 @@ export const FOIL_CHANCE = 0.06;
 export const ALT_SKIN_CHANCE = 0.3;
 
 /**
+ * The alternate-art chance on a SIGNED copy. Deliberately below
+ * ALT_SKIN_CHANCE: a signed card is already the pull of the month and
+ * always prints foil, so "signed + foil + alt art" is the one print that
+ * should be genuinely hard to hit — roughly one in seven signed copies
+ * rather than one in three. Raise it to ALT_SKIN_CHANCE to make signed
+ * copies roll art exactly like every other pull.
+ */
+export const SIGNED_ALT_SKIN_CHANCE = 0.15;
+
+/**
  * Chance a pulled card comes out autographed — the pen mark of the player
  * themselves, inked onto that copy forever. Only rolls for players who have
  * actually drawn a signature (card_art_prefs.signature), so the real odds
