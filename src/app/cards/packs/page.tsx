@@ -128,11 +128,14 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
           <Link href={`${base}/trades`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
             Trading post →
           </Link>
+          <a href="#binder" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+            Your binder →
+          </a>
         </div>
         <CollectionGrid inventory={inventory} />
       </section>
 
-      {binder && inventory.length > 0 ? (
+      {binder ? (
         <BinderEditor slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
       ) : null}
     </main>

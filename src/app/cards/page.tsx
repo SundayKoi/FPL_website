@@ -144,6 +144,12 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           >
             Moments →
           </Link>
+          <Link
+            href={`${base}/packs#binder`}
+            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          >
+            Your binder →
+          </Link>
           {showClaims ? (
             <Link
               href="/cards/claims"
