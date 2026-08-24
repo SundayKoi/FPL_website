@@ -132,7 +132,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
             Your binder →
           </a>
         </div>
-        <CollectionGrid inventory={inventory} />
+        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} />
       </section>
 
       {binder ? (

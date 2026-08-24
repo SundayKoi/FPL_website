@@ -81,6 +81,76 @@ export async function setBinderSlotAction(
   return { ok: true };
 }
 
+
+/**
+ * Pin or unpin one copy without naming a slot — the gesture from the
+ * collection shelf, where "put this in my binder" is the whole intent and
+ * which of six slots it lands in is not a decision anyone wants to make.
+ *
+ * Pins into the lowest free slot, so the binder fills left to right. The
+ * slot editor is still there for arranging them afterwards.
+ */
+export async function toggleBinderCardAction(
+  inventoryId: number,
+): Promise<{ ok: true; pinned: boolean } | { ok: false; error: string }> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  const service = createBettingServiceClient();
+
+  const { error: binderError } = await service
+    .from("card_binders")
+    .upsert({ discord_id: user.discordId }, { onConflict: "discord_id", ignoreDuplicates: true });
+  if (binderError) return { ok: false, error: "Couldn't open your binder." };
+
+  const { data: slotRows, error: slotsError } = await service
+    .from("card_binder_slots")
+    .select("slot, inventory_id")
+    .eq("discord_id", user.discordId);
+  if (slotsError) return { ok: false, error: "Couldn't read your binder." };
+  const slots = (slotRows as { slot: number; inventory_id: number }[]) ?? [];
+
+  // Already on display -> the gesture means "take it out".
+  const held = slots.find((row) => row.inventory_id === inventoryId);
+  if (held) {
+    const { error } = await service
+      .from("card_binder_slots")
+      .delete()
+      .eq("discord_id", user.discordId)
+      .eq("slot", held.slot);
+    if (error) return { ok: false, error: "Couldn't take that out of your binder." };
+    revalidatePath("/cards/packs");
+    revalidatePath("/academy/cards/packs");
+    return { ok: true, pinned: false };
+  }
+
+  // Ownership against the session id, same as setBinderSlotAction: a copy
+  // id alone must never be enough to display someone else's card.
+  const { data: owned, error: ownedError } = await service
+    .from("card_inventory")
+    .select("id")
+    .eq("id", inventoryId)
+    .eq("discord_id", user.discordId)
+    .maybeSingle();
+  if (ownedError) return { ok: false, error: "Couldn't check that card." };
+  if (!owned) return { ok: false, error: "That card isn't in your collection." };
+
+  const taken = new Set(slots.map((row) => row.slot));
+  const free = Array.from({ length: BINDER_SLOTS }, (_, index) => index + 1).find((slot) => !taken.has(slot));
+  // Full is a normal state, not a failure — say what to do about it.
+  if (!free) return { ok: false, error: `Your binder is full (${BINDER_SLOTS} cards). Take one out first.` };
+
+  const { error } = await service
+    .from("card_binder_slots")
+    .insert({ discord_id: user.discordId, slot: free, inventory_id: inventoryId });
+  if (error) return { ok: false, error: "Couldn't add that to your binder." };
+
+  revalidatePath("/cards/packs");
+  revalidatePath("/academy/cards/packs");
+  return { ok: true, pinned: true };
+}
+
 /** Renames the binder. Empty clears it back to the default heading. */
 export async function setBinderTitleAction(
   title: string,

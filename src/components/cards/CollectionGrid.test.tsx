@@ -7,6 +7,9 @@ import CollectionGrid from "./CollectionGrid";
 // DustControls (rendered under every player group) reaches for the router and
 // the dust action; neither is exercised here.
 vi.mock("@/lib/trades/actions", () => ({ dustCardAction: vi.fn() }));
+// Same for the binder pin: the actions module is server-only, and the
+// button's own behaviour is covered in BinderPinButton.test.tsx.
+vi.mock("@/lib/binder/actions", () => ({ toggleBinderCardAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 function makeCard(name: string, overall: number, artSkin: number, autograph: string | null): PlayerCardData {
@@ -85,6 +88,24 @@ function cardsFor(name: string) {
 }
 
 afterEach(cleanup);
+
+describe("CollectionGrid binder pins", () => {
+  afterEach(cleanup);
+
+  it("pins the shelf's best copy and marks the ones already on display", () => {
+    // Chaseworthy's best copy is #1; Commonly's is #4.
+    render(<CollectionGrid inventory={inventory} pinnedIds={[1]} />);
+
+    expect(screen.getByRole("button", { name: /take chaseworthy out of your binder/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /put commonly in your binder/i })).toBeTruthy();
+  });
+
+  it("treats an unpinned shelf as unpinned when the caller passes nothing", () => {
+    render(<CollectionGrid inventory={inventory} />);
+    const pin = screen.getByRole("button", { name: /put chaseworthy in your binder/i });
+    expect(pin.getAttribute("aria-pressed")).toBe("false");
+  });
+});
 
 describe("CollectionGrid", () => {
   it("says the shelf is empty rather than rendering chips", () => {

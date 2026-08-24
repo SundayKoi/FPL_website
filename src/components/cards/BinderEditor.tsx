@@ -79,8 +79,9 @@ export default function BinderEditor({
         <span className="text-xs uppercase tracking-[0.16em] text-steel">Public by link</span>
       </div>
       <p className="max-w-2xl text-sm text-steel">
-        Pick up to six copies to put on display. Anyone with the link can see them — the rest of your
-        collection stays private.
+        Up to six copies on display. Anyone with the link can see them — the rest of your collection
+        stays private. Add cards with the ☆ Binder button on your shelf above; the slots here are for
+        arranging what&apos;s already in.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">

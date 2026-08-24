@@ -31,6 +31,7 @@
 import { useState } from "react";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
+import BinderPinButton from "./BinderPinButton";
 import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
 
@@ -92,7 +93,18 @@ const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 tex
 
 /** The line under a single copy: whose it is, which print run it came from,
  *  what tier it printed at, and every marker that makes it a variant. */
-function CopyCaption({ row, count = 1 }: { row: InventoryRow; count?: number }) {
+function CopyCaption({
+  row,
+  count = 1,
+  pinned,
+}: {
+  row: InventoryRow;
+  count?: number;
+  /** Omitted where the caller can't say — the strip inside a print group
+   *  shows a representative copy, and pinning "a representative" would be
+   *  a lie about which copy went on display. */
+  pinned?: ReadonlySet<number>;
+}) {
   const skin = skinOf(row);
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
@@ -119,21 +131,31 @@ function CopyCaption({ row, count = 1 }: { row: InventoryRow; count?: number }) 
           </span>
         ) : null}
       </div>
+      {pinned ? <BinderPinButton inventoryId={row.id} pinned={pinned.has(row.id)} playerName={row.playerName} /> : null}
     </div>
   );
 }
 
 /** One copy on display, sized and spaced like every other card grid. */
-function CopyCell({ row, count }: { row: InventoryRow; count?: number }) {
+function CopyCell({ row, count, pinned }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number> }) {
   return (
     <div className="card-cell flex flex-col items-center gap-2">
       <PlayerCard3D card={row.card} interactive forceFoil={row.foil} />
-      <CopyCaption row={row} count={count} />
+      <CopyCaption row={row} count={count} pinned={pinned} />
     </div>
   );
 }
 
-export default function CollectionGrid({ inventory }: { inventory: InventoryRow[] }) {
+export default function CollectionGrid({
+  inventory,
+  pinnedIds = [],
+}: {
+  inventory: InventoryRow[];
+  /** Copies already on display, so the shelf can show which ones are in
+   *  the binder without a second round trip per card. */
+  pinnedIds?: number[];
+}) {
+  const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
   // Which players have their print strip open. A Set rather than a single
   // slug: comparing two players' prints side by side is the point.
@@ -183,7 +205,7 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
              much to sit where the shelf's do. */
           <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
             {shown.map((row) => (
-              <CopyCell key={row.id} row={row} />
+              <CopyCell key={row.id} row={row} pinned={pinned} />
             ))}
           </div>
         )}
@@ -286,6 +308,11 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
                   {expanded.has(entry.best.slug) ? "Hide prints" : `View prints (${entry.prints.length})`}
                 </button>
               ) : null}
+              <BinderPinButton
+                inventoryId={entry.best.id}
+                pinned={pinned.has(entry.best.id)}
+                playerName={entry.best.playerName}
+              />
               <DustControls playerName={entry.best.playerName} copies={entry.copies} />
             </div>
             {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (
@@ -295,7 +322,7 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
                 {entry.prints.map((print) => (
                   <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
                     <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} />
-                    <CopyCaption row={print.copy} count={print.count} />
+                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} />
                   </div>
                 ))}
               </div>
