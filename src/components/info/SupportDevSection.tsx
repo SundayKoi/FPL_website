@@ -4,15 +4,6 @@ type Props = {
   className?: string;
 };
 
-/** Where donations can go, beyond the per-dev Venmo buttons above. Venmo
- *  used to be listed here too, which meant every handle appeared twice on
- *  the page once the dev cards grew their own buttons — a link that sits
- *  with the person it pays is the better of the two, so this row keeps
- *  only what the dev cards don't carry. */
-const DESTINATIONS = [
-  { label: "Support via PayPal", href: "https://www.paypal.com/paypalme/ZBultman" },
-] as const;
-
 const devs = [
   {
     name: "Dribb",
@@ -82,19 +73,14 @@ export default function SupportDevSection({ className = "" }: Props) {
           <p className="mt-3 max-w-2xl text-sm italic leading-6 text-gold sm:text-base">
             Donations will be used to cover website costs.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            {DESTINATIONS.map((destination) => (
-              <a
-                key={destination.href}
-                href={destination.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-pill inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
-              >
-                {destination.label} <span aria-hidden="true">↗</span>
-              </a>
-            ))}
-          </div>
+          <a
+            href="https://www.paypal.com/paypalme/ZBultman"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+          >
+            Support via PayPal <span aria-hidden="true">↗</span>
+          </a>
         </div>
       </div>
 

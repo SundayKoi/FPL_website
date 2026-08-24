@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import SupportDevsPage from "./page";
@@ -11,26 +11,29 @@ describe("SupportDevsPage", () => {
 
     expect(screen.getByRole("heading", { name: "Support the Devs", level: 1 })).toBeTruthy();
     expect(screen.getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
-
     const paypalLink = screen.getByRole("link", { name: /support via paypal/i });
     expect(paypalLink.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
     expect(paypalLink.getAttribute("target")).toBe("_blank");
   });
 
-  it("offers both people's Venmo alongside PayPal, once each", () => {
+  it("keeps each Venmo link under its developer card", () => {
     render(<SupportDevsPage />);
 
-    // Exactly one link per person: the handles live on the dev cards, and
-    // duplicating them in the destinations row is what this guards against.
-    const zachari = screen.getByRole("link", { name: /venmo zachari/i });
+    const zachari = within(screen.getByAltText("Dribb avatar").closest("article")!).getByRole("link", {
+      name: "Venmo Zachari Bultman",
+    });
     expect(zachari.getAttribute("href")).toBe("https://venmo.com/u/Zachari-Bultman");
-    const matthew = screen.getByRole("link", { name: /venmo matthew/i });
+    const matthew = within(screen.getByAltText("Spies avatar").closest("article")!).getByRole("link", {
+      name: "Venmo Matthew Wolanski",
+    });
     expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Matthew-Wolanski");
     // target=_blank without noopener hands the new tab a window.opener
     // handle back to us.
     for (const link of [zachari, matthew]) {
       expect(link.getAttribute("rel")).toContain("noopener");
     }
+    expect(screen.queryByRole("link", { name: "Venmo Zachari" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Venmo Matthew" })).toBeNull();
   });
 
   it("italicises what the donations pay for", () => {
