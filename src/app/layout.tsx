@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Saira } from "next/font/google";
 import AuthButton from "@/components/AuthButton";
 import SiteNavigation from "@/components/SiteNavigation";
+import SupportDevButton from "@/components/SupportDevButton";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import "./globals.css";
@@ -37,6 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
         <SiteNavigation authSlot={<AuthButton />} showAdmin={isAdmin || isOwner} />
         {children}
+        <SupportDevButton />
       </body>
     </html>
   );
