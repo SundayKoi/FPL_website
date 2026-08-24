@@ -14,27 +14,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { PlayerCardData } from "@/lib/cards/build";
-
-/** All this needs of a card: enough to match a name and to tell two players
- *  of the same name apart on screen. */
-export interface ClaimFinderCard {
-  slug: string;
-  name: string;
-  role: string;
-  teamName: string | null;
-}
-
-/** The projection the hub hands down — keeps the serialized banner payload
- *  to four fields per card instead of a second copy of the collection. */
-export function toClaimFinderCards(cards: PlayerCardData[]): ClaimFinderCard[] {
-  return cards.map((card) => ({
-    slug: card.slug,
-    name: card.name,
-    role: card.role,
-    teamName: card.teamName,
-  }));
-}
+import type { ClaimFinderCard } from "@/lib/cards/claimFinder";
 
 const MAX_RESULTS = 6;
 

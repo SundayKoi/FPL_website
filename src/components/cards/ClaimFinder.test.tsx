@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import ClaimFinder, { toClaimFinderCards, type ClaimFinderCard } from "./ClaimFinder";
+import { toClaimFinderCards, type ClaimFinderCard } from "@/lib/cards/claimFinder";
+import ClaimFinder from "./ClaimFinder";
 
 const cards: ClaimFinderCard[] = [
   { slug: "chaseworthy-na1", name: "Chaseworthy", role: "Mid", teamName: "Storm" },
