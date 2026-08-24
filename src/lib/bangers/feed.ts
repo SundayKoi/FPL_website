@@ -15,6 +15,11 @@ export type BangerPost = {
 // account. Do not populate this with illustrative copy or seeded votes.
 export const BANGER_POSTS: BangerPost[] = [];
 
+export function formatPostDate(date: string) {
+  const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00Z`) : new Date(date);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(parsedDate);
+}
+
 export function rating(post: BangerPost) {
   const total = post.bangerVotes + post.midVotes + post.stinkerVotes;
   return total === 0 ? 0 : Math.round((post.bangerVotes / total) * 100);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANGER_POSTS, getRecentPosts, getStinkerPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
+import { BANGER_POSTS, formatPostDate, getRecentPosts, getStinkerPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
 
 const posts: BangerPost[] = [
   { id: "old", text: "Old wisdom", publishedAt: "2025-01-01", bangerVotes: 20, midVotes: 10, stinkerVotes: 0, url: "https://x.com" },
@@ -27,6 +27,10 @@ describe("banger feed rules", () => {
     const importedPost = { ...posts[1], publishedAt: "2026-08-20T12:34:56.000Z" };
 
     expect(getRecentPosts([importedPost], new Date("2026-08-23T12:00:00Z")).map((post) => post.id)).toEqual(["one"]);
+  });
+
+  it("formats Supabase ISO timestamps for tweet metadata", () => {
+    expect(formatPostDate("2026-08-22T22:34:07.466+00:00")).toBe("Aug 22");
   });
 
   it("returns the three highest-rated posts by banger share", () => {
