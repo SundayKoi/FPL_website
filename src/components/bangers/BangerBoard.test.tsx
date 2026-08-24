@@ -72,9 +72,62 @@ describe("BangerBoard saved votes", () => {
 
     expect(screen.getByRole("meter", { name: /70% Banger/i })).toBeTruthy();
   });
+
+  it("hydrates the recent card from a saved daily vote when the tweet overlaps", () => {
+    render(
+      <BangerBoard
+        posts={[post]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+        initialDailyVote="stinker"
+      />,
+    );
+
+    const voteGroups = screen.getAllByRole("group", { name: "Vote on A saved vote" });
+    expect(voteGroups.length).toBeGreaterThanOrEqual(2);
+    for (const group of voteGroups.slice(0, 2)) {
+      expect(group.querySelector("button[aria-pressed='true']")?.textContent).toContain("Stinker");
+    }
+    expect(Array.from(voteGroups[1].querySelectorAll("button")).every((button) => button.disabled)).toBe(true);
+    expect(screen.getAllByRole("meter", { name: "50% Mid" }).length).toBeGreaterThanOrEqual(2);
+  });
 });
 
 describe("BangerBoard vote feedback", () => {
+  it("shares a daily vote with the overlapping recent card", async () => {
+    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    render(
+      <BangerBoard
+        posts={[post]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    const voteGroups = screen.getAllByRole("group", { name: "Vote on A saved vote" });
+    fireEvent.click(voteGroups[0].querySelectorAll("button")[2]);
+    await waitFor(() => expect(screen.getByText("Vote locked in — $200 added to your wallet.")).toBeTruthy());
+
+    expect(voteGroups[1].querySelector("button[aria-pressed='true']")?.textContent ?? "").toContain("Banger");
+  });
+
+  it("shares a recent vote with the overlapping daily card", async () => {
+    voteBangerPost.mockResolvedValue({ ok: true });
+    render(
+      <BangerBoard
+        posts={[post]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    const voteGroups = screen.getAllByRole("group", { name: "Vote on A saved vote" });
+    fireEvent.click(voteGroups[1].querySelectorAll("button")[2]);
+    await waitFor(() => expect(screen.getAllByText("Vote saved.").length).toBeGreaterThan(0));
+
+    expect(voteGroups[0].querySelector("button[aria-pressed='true']")?.textContent ?? "").toContain("Banger");
+  });
+
   it("shows the aggregate community verdict", () => {
     render(
       <BangerBoard

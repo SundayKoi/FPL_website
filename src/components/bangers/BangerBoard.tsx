@@ -113,11 +113,24 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
   const [dailyPending, setDailyPending] = useState(false);
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(() => new Set());
   const [voteMessages, setVoteMessages] = useState<Record<string, string | undefined>>({});
-  const votedPosts = useMemo(() => posts.map((post) => withVotes(post, votes, initialVotes)), [posts, votes, initialVotes]);
+  const dailyPostId = dailyBanger?.id;
+  const dailyOverlapsRecent = Boolean(dailyPostId && posts.some((post) => post.id === dailyPostId));
+  const displayVotes = useMemo(() => {
+    if (!dailyOverlapsRecent || !dailyPostId || !dailyVote) return votes;
+    return { ...votes, [dailyPostId]: dailyVote };
+  }, [dailyOverlapsRecent, dailyPostId, dailyVote, votes]);
+  const votedPosts = useMemo(() => posts.map((post) => withVotes(post, displayVotes, initialVotes)), [posts, displayVotes, initialVotes]);
   const recentPosts = useMemo(() => getRecentPosts(votedPosts), [votedPosts]);
   const rankedPosts = useMemo(() => getTopPosts(votedPosts), [votedPosts]);
   const stinkerPosts = useMemo(() => getStinkerPosts(votedPosts), [votedPosts]);
   const randomPost = useMemo(() => votedPosts.find((post) => post.id === randomPostId), [randomPostId, votedPosts]);
+  const dailyDisplayPost = useMemo(() => {
+    if (!dailyBanger) return undefined;
+    return votedPosts.find((post) => post.id === dailyBanger.id) ?? dailyBanger;
+  }, [dailyBanger, votedPosts]);
+  const dailyDisplayVote = dailyBanger
+    ? (dailyOverlapsRecent ? dailyVote ?? votes[dailyBanger.id] : dailyVote)
+    : undefined;
   const overallVoteCount = useMemo(() => votedPosts.reduce((total, post) => total + post.bangerVotes + post.midVotes + post.stinkerVotes, 0), [votedPosts]);
   const overallBangerVotes = useMemo(() => votedPosts.reduce((total, post) => total + post.bangerVotes, 0), [votedPosts]);
   const overallRating = overallVoteCount === 0 ? 0 : Math.round((overallBangerVotes / overallVoteCount) * 100);
@@ -133,8 +146,12 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
     }
   }, [posts, randomPostId]);
 
+  function isVoteLocked(id: string) {
+    return pendingPostIds.has(id) || (dailyOverlapsRecent && id === dailyPostId && Boolean(dailyVote));
+  }
+
   async function vote(id: string, nextVote: Vote) {
-    if (pendingPostIds.has(id)) return;
+    if (isVoteLocked(id)) return;
     const previousVote = votes[id];
     setVotes((current) => ({ ...current, [id]: nextVote }));
     setVoteMessages((current) => ({ ...current, [id]: undefined }));
@@ -200,7 +217,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
       <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
         <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · rotates every 24h UTC</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
-          {dailyBanger ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyBanger.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyBanger.text}</p><BangerMeter score={rating(dailyBanger)} voteCount={totalVotes(dailyBanger)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $200</p>}<VoteButtons post={dailyBanger} currentVote={dailyVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} /><p className="mt-3 text-xs text-white/45" role={dailyMessage ? "status" : undefined} aria-live="polite">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $200</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} /><p className="mt-3 text-xs text-white/45" role={dailyMessage ? "status" : undefined} aria-live="polite">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
         </div>
       </section>
 
@@ -215,8 +232,8 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
       </section>
 
       <section className="mx-auto flex max-w-6xl flex-col gap-12 px-5 pb-16 sm:px-10">
-        <div className="order-1"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The current canopy</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.recentTitle}</h2></div><span className="text-xs uppercase tracking-[0.15em] text-white/35">{recentPosts.length} transmissions</span></div><div className="space-y-4">{recentPosts.length > 0 ? recentPosts.map((post) => <TweetCard key={post.id} post={post} currentVote={votes[post.id]} onVote={(nextVote) => vote(post.id, nextVote)} votePending={pendingPostIds.has(post.id)} voteMessage={voteMessages[post.id]} featured={post.id === recentPosts[0].id} />) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm leading-relaxed text-white/50">No verified tweets from the last 45 days yet. This feed will stay empty rather than display invented posts.</div>}</div></div>
-        <div className="order-2 relative overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]"><div className="absolute -right-4 -top-8 text-8xl opacity-30" aria-hidden="true">🍌</div><p className="label-dash">From the archive</p><h2 className="mt-3 font-display text-3xl font-bold uppercase italic text-white">{settings.randomTitle}</h2><div className="mt-7 rounded-2xl border border-white/10 bg-jungle/60 p-4">{randomPost ? <><TweetIdentity date={formatPostDate(randomPost.publishedAt)} /><p className="mt-4 text-lg leading-snug text-white/85">{randomPost.text}</p><div className="mt-5"><VoteButtons post={randomPost} currentVote={votes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} disabled={pendingPostIds.has(randomPost.id)} /></div>{voteMessages[randomPost.id] ? <p className="mt-3 text-xs text-white/60" role="status" aria-live="polite">{voteMessages[randomPost.id]}</p> : null}<BangerMeter score={rating(randomPost)} voteCount={totalVotes(randomPost)} compact className="mt-3" /></> : <p className="text-sm leading-relaxed text-white/45">The all-time verified archive is empty. Random pulls will unlock when real posts are connected.</p>}</div><button type="button" onClick={() => setRandomPostId(pickRandomPost(posts)?.id)} disabled={posts.length === 0} className="mt-5 w-full rounded-full border border-coral/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-coral transition hover:bg-coral hover:text-jungle disabled:cursor-not-allowed disabled:opacity-40">{posts.length === 0 ? "Awaiting verified posts" : "Pull another banana ↻"}</button></div>
+        <div className="order-1"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The current canopy</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.recentTitle}</h2></div><span className="text-xs uppercase tracking-[0.15em] text-white/35">{recentPosts.length} transmissions</span></div><div className="space-y-4">{recentPosts.length > 0 ? recentPosts.map((post) => <TweetCard key={post.id} post={post} currentVote={displayVotes[post.id]} onVote={(nextVote) => vote(post.id, nextVote)} votePending={isVoteLocked(post.id)} voteMessage={voteMessages[post.id]} featured={post.id === recentPosts[0].id} />) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm leading-relaxed text-white/50">No verified tweets from the last 45 days yet. This feed will stay empty rather than display invented posts.</div>}</div></div>
+        <div className="order-2 relative overflow-hidden rounded-3xl border border-coral/40 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)]"><div className="absolute -right-4 -top-8 text-8xl opacity-30" aria-hidden="true">🍌</div><p className="label-dash">From the archive</p><h2 className="mt-3 font-display text-3xl font-bold uppercase italic text-white">{settings.randomTitle}</h2><div className="mt-7 rounded-2xl border border-white/10 bg-jungle/60 p-4">{randomPost ? <><TweetIdentity date={formatPostDate(randomPost.publishedAt)} /><p className="mt-4 text-lg leading-snug text-white/85">{randomPost.text}</p><div className="mt-5"><VoteButtons post={randomPost} currentVote={displayVotes[randomPost.id]} onVote={(nextVote) => vote(randomPost.id, nextVote)} disabled={isVoteLocked(randomPost.id)} /></div>{voteMessages[randomPost.id] ? <p className="mt-3 text-xs text-white/60" role="status" aria-live="polite">{voteMessages[randomPost.id]}</p> : null}<BangerMeter score={rating(randomPost)} voteCount={totalVotes(randomPost)} compact className="mt-3" /></> : <p className="text-sm leading-relaxed text-white/45">The all-time verified archive is empty. Random pulls will unlock when real posts are connected.</p>}</div><button type="button" onClick={() => setRandomPostId(pickRandomPost(posts)?.id)} disabled={posts.length === 0} className="mt-5 w-full rounded-full border border-coral/70 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-coral transition hover:bg-coral hover:text-jungle disabled:cursor-not-allowed disabled:opacity-40">{posts.length === 0 ? "Awaiting verified posts" : "Pull another banana ↻"}</button></div>
       </section>
     </main>
   );
