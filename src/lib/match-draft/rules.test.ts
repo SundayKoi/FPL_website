@@ -6,6 +6,7 @@ import {
   matchDraftBestOf,
   matchDraftGameLinks,
   matchDraftHref,
+  matchDraftOverlayHref,
 } from "./rules";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -55,6 +56,9 @@ describe("LCS_DRAFT_STEPS", () => {
 describe("match draft links", () => {
   it("shares one link per fixture, with per-game tab links inside", () => {
     expect(matchDraftHref(fixture)).toBe("/match-draft/fixture-1");
+    expect(matchDraftOverlayHref(fixture)).toBe(
+      "/match-draft/fixture-1?overlay=1&bg=transparent",
+    );
     expect(matchDraftGameLinks(fixture)).toEqual([
       { gameNumber: 1, href: "/match-draft/fixture-1?game=1", label: "Game 1" },
       { gameNumber: 2, href: "/match-draft/fixture-1?game=2", label: "Game 2" },

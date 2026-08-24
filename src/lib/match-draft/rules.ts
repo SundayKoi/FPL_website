@@ -46,6 +46,11 @@ export function matchDraftHref(fixture: FixtureRow): string {
   return `/match-draft/${fixture.id}`;
 }
 
+/** A transparent, chrome-free drafter view intended for OBS browser sources. */
+export function matchDraftOverlayHref(fixture: Pick<FixtureRow, "id">): string {
+  return `/match-draft/${fixture.id}?overlay=1&bg=transparent`;
+}
+
 /** Per-game tab links within one fixture's drafter. `bestOf` overrides the
  *  stage default when the series has a stored match_draft_settings row. */
 export function matchDraftGameLinks(fixture: FixtureRow, bestOf: number = matchDraftBestOf(fixture)): MatchDraftLink[] {
