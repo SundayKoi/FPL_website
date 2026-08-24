@@ -2,12 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CollectionGrid from "@/components/cards/CollectionGrid";
-import TeamSetsSection from "@/components/cards/TeamSetsSection";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
-import type { PlayerCardData } from "@/lib/cards/build";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import { fetchInventory, fetchPackOpenCount, type InventoryRow } from "@/lib/packs/queries";
 
@@ -63,16 +61,13 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount, editionWeeks, seasonCards]: [InventoryRow[], number, string[], PlayerCardData[]] = season
+  const [inventory, openCount, editionWeeks]: [InventoryRow[], number, string[]] = season
     ? await Promise.all([
         fetchInventory(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
         fetchCardEditionWeeks(service, season),
-        // The live roster, which is what a set is measured against — the
-        // frozen copies in `inventory` know who you own, not who exists.
-        fetchSeasonCards(service, season),
       ])
-    : [[], 0, [], []];
+    : [[], 0, []];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
 
   return (
@@ -119,8 +114,6 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         </div>
         <CollectionGrid inventory={inventory} />
       </section>
-
-      <TeamSetsSection cards={seasonCards} ownedSlugs={ownedSlugs} />
     </main>
   );
 }
