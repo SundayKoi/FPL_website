@@ -208,14 +208,22 @@ export async function fetchScoutingHistory(
   return { fixtures, drafts };
 }
 
-/** Load all raw in-house games and correlate them to the selected roster. */
+/** Load all in-house games and correlate them to the selected roster. */
 export async function fetchInhousePlayerStats(
   supabase: SupabaseClient,
   roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"] }>,
 ): Promise<InhousePlayerStats[]> {
-  const { data, error } = await supabase
-    .from("inhouse_stats")
-    .select("summoner_name, champion, kills, deaths, assists, win");
-  if (error) throw error;
-  return buildInhousePlayerStats(roster, (data ?? []) as InhouseGameRow[]);
+  const pageSize = 1000;
+  const rows: InhouseGameRow[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("inhouse_stats")
+      .select("summoner_name, champion, kills, deaths, assists, win")
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = (data ?? []) as InhouseGameRow[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return buildInhousePlayerStats(roster, rows);
 }

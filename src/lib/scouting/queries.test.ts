@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchScoutingHistory } from "./queries";
+import { fetchInhousePlayerStats, fetchScoutingHistory } from "./queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const fixture = (id: string, teamA: string | null, teamB: string | null) => ({
@@ -116,5 +116,27 @@ describe("fetchScoutingHistory", () => {
     expect(history.drafts[0].red_team_name).toBe("Other");
     expect(history.drafts[0].actions.some((action) => action.champion === "Morgana")).toBe(true);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("fetchInhousePlayerStats", () => {
+  it("loads every page from the in-house table", async () => {
+    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
+      summoner_name: "Lizzo Mukkbang", champion: "Ahri", kills: index, deaths: 1, assists: 1, win: true,
+    }));
+    const secondPage = [{ summoner_name: "Lizzo Mukkbang", champion: "Ahri", kills: 1, deaths: 1, assists: 1, win: false }];
+    let pageIndex = 0;
+    const query = {
+      select: vi.fn(() => query),
+      range: vi.fn((offset: number) => { pageIndex = offset === 0 ? 0 : 1; return query; }),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: [firstPage, secondPage][pageIndex], error: null })),
+    };
+    const from = vi.fn(() => query);
+
+    const result = await fetchInhousePlayerStats({ from } as unknown as SupabaseClient, [{ id: "lizzo", displayName: "Lizzo Mukkbang", role: "jungle" }]);
+
+    expect(result[0].games).toBe(1001);
+    expect(query.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(query.range).toHaveBeenNthCalledWith(2, 1000, 1999);
   });
 });
