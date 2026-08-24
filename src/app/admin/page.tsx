@@ -8,9 +8,11 @@ import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
 import AdminBriefEditor from "@/components/admin/AdminBriefEditor";
 import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
+import AdminBangerTitles from "@/components/admin/AdminBangerTitles";
 import type { HomepageBrief } from "@/lib/home/brief";
 import type { HomepageMode } from "@/lib/home/seasonState";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
+import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
 import { fetchHomepageSchedule } from "@/lib/home/schedule";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
@@ -79,10 +81,11 @@ export default async function AdminPage() {
     .limit(1);
   const latestBrief = ((briefRows as HomepageBrief[]) ?? [])[0] ?? null;
 
-  const [academyDraftData, premierSettings, academySettings] = await Promise.all([
+  const [academyDraftData, premierSettings, academySettings, bangerTitles] = await Promise.all([
     fetchAcademyDraftData(supabase),
     fetchHomepageFeaturedSettings("premier"),
     fetchHomepageFeaturedSettings("academy"),
+    fetchBangerBoardSettings(),
   ]);
   const academyTeamNameSet = academyTeamNames(academyDraftData.teams);
   const [premierSchedule, academySchedule] = await Promise.all([
@@ -176,6 +179,11 @@ export default async function AdminPage() {
         ) : (
           <p className="text-sm text-steel">Some league configuration is owner-only.</p>
         )}
+      </section>
+
+      <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
+        <h2 id="banger-control-title" className="type-display text-2xl">Banger Board</h2>
+        <AdminBangerTitles initial={bangerTitles} />
       </section>
 
       <section aria-label="Drafts" className="flex flex-col gap-4">
