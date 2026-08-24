@@ -38,24 +38,12 @@ function VoteButtons({ post, currentVote, onVote }: { post: BangerPost; currentV
     <div className="flex gap-2" aria-label={`Vote on ${post.text}`}>
       <button
         type="button"
-        aria-pressed={currentVote === "banger"}
-        onClick={() => onVote("banger")}
-        className={`rounded-full border px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] transition ${
-          currentVote === "banger"
-            ? "border-banana bg-banana text-jungle shadow-[0_0_18px_rgba(245,182,46,0.3)]"
-            : "border-white/15 text-white/60 hover:border-banana/70 hover:text-banana"
-        }`}
-      >
-        🍌 Banger
-      </button>
-      <button
-        type="button"
         aria-pressed={currentVote === "stinker"}
         onClick={() => onVote("stinker")}
-        className={`rounded-full border px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] transition ${
+        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition ${
           currentVote === "stinker"
-            ? "border-purple-300 bg-purple-300 text-jungle"
-            : "border-white/15 text-white/60 hover:border-purple-300/70 hover:text-purple-200"
+            ? "border-red-400 bg-red-500 text-white shadow-[0_0_18px_rgba(239,68,68,0.35)]"
+            : "border-red-400/40 text-red-200 hover:bg-red-500/20 hover:text-red-100"
         }`}
       >
         💩 Stinker
@@ -64,13 +52,25 @@ function VoteButtons({ post, currentVote, onVote }: { post: BangerPost; currentV
         type="button"
         aria-pressed={currentVote === "mid"}
         onClick={() => onVote("mid")}
-        className={`rounded-full border px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] transition ${
+        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition ${
           currentVote === "mid"
-            ? "border-coral bg-coral text-jungle"
-            : "border-white/15 text-white/60 hover:border-coral/70 hover:text-coral"
+            ? "border-blue-400 bg-blue-500 text-white shadow-[0_0_18px_rgba(59,130,246,0.35)]"
+            : "border-blue-400/40 text-blue-200 hover:bg-blue-500/20 hover:text-blue-100"
         }`}
       >
-        🥥 Mid
+        😐 Mid
+      </button>
+      <button
+        type="button"
+        aria-pressed={currentVote === "banger"}
+        onClick={() => onVote("banger")}
+        className={`rounded-full border px-4 py-2 text-sm font-bold uppercase tracking-[0.12em] transition ${
+          currentVote === "banger"
+            ? "border-yellow-300 bg-yellow-400 text-jungle shadow-[0_0_18px_rgba(250,204,21,0.35)]"
+            : "border-yellow-300/40 text-yellow-200 hover:bg-yellow-400/20 hover:text-yellow-100"
+        }`}
+      >
+        🍌 Banger
       </button>
     </div>
   );
