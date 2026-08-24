@@ -117,6 +117,12 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               </div>
             ) : null}
           </section>
+
+          {stats.truncated ? (
+            <p className="text-xs text-steel">
+              These figures are a floor — the season has more rows than this page reads in one pass.
+            </p>
+          ) : null}
         </>
       )}
     </main>

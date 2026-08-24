@@ -2,13 +2,28 @@ import { describe, expect, it } from "vitest";
 import { excludedCollectorNames, fetchEconomyStats, DEFAULT_EXCLUDED_COLLECTORS } from "./economy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Enough of PostgREST's builder for the three reads this module makes. */
-function client(tables: Record<string, { data?: unknown; error?: unknown; count?: number }>): SupabaseClient {
+/** Enough of PostgREST's builder for the reads this module makes —
+ *  including its page cap, which is the whole reason the module pages. */
+const PAGE = 1000;
+
+function client(
+  tables: Record<string, { data?: unknown; error?: unknown; count?: number }>,
+  pageSize = PAGE,
+): SupabaseClient {
   return {
     from(table: string) {
       const result = tables[table] ?? { data: [], error: null };
       const chain: Record<string, unknown> = {};
-      for (const method of ["select", "eq"]) chain[method] = () => chain;
+      for (const method of ["select", "eq", "order"]) chain[method] = () => chain;
+      // range() serves the slice a real PostgREST would, so a caller that
+      // fails to page sees exactly the silent truncation production had.
+      chain.range = (from: number, to: number) => {
+        const all = (result.data as unknown[]) ?? [];
+        return Promise.resolve({
+          data: all.slice(from, Math.min(to + 1, from + pageSize)),
+          error: result.error ?? null,
+        });
+      };
       chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);
       return chain;
     },
@@ -123,6 +138,44 @@ describe("fetchEconomyStats", () => {
     const stats = await fetchEconomyStats(supabase, "S5");
     expect(stats.bestPull).toEqual({ playerName: "Ari", overall: 91, tier: "master" });
     expect(stats.mostPulled).toEqual({ playerName: "Bo", copies: 2 });
+  });
+
+  it("pages past PostgREST's row cap instead of aggregating the first page", async () => {
+    // The bug this guards: a single select returns max_rows and no error,
+    // so the devs' early pulls filled the whole response and every real
+    // collector's cards — signed ones included — never arrived.
+    const devCards = Array.from({ length: PAGE }, () => card("dev1"));
+    const realCards = [card("u1", { signed: true }), card("u2", { foil: true })];
+    const supabase = client({
+      betting_profiles: PROFILES,
+      card_pack_opens: { data: [], error: null },
+      card_inventory: { data: [...devCards, ...realCards], error: null },
+      card_moments: { count: 0, error: null },
+    });
+
+    const stats = await fetchEconomyStats(supabase, "S5");
+    expect(stats.cardsPulled).toBe(2);
+    expect(stats.signed).toBe(1);
+    expect(stats.foils).toBe(1);
+    expect(stats.truncated).toBe(false);
+  });
+
+  it("says so when even paging hits its own cap", async () => {
+    const supabase = client(
+      {
+        betting_profiles: PROFILES,
+        // More rows than maxPages * pageSize can reach at this page size.
+        card_pack_opens: { data: [], error: null },
+        card_inventory: { data: Array.from({ length: 250 }, () => card("u1")), error: null },
+        card_moments: { count: 0, error: null },
+      },
+      // Two rows a page against a 100-page ceiling stops at 200.
+      2,
+    );
+
+    const stats = await fetchEconomyStats(supabase, "S5", undefined, { pageSize: 2, maxPages: 100 });
+    expect(stats.truncated).toBe(true);
+    expect(stats.cardsPulled).toBe(200);
   });
 
   it("reports zero moments rather than throwing before the migration lands", async () => {

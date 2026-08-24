@@ -61,6 +61,8 @@ export interface EconomyStats {
   mostPulled: { playerName: string; copies: number } | null;
   /** How many wallets were left out, so the number is honest about it. */
   excludedCount: number;
+  /** The paging cap was hit and these figures are a floor, not a total. */
+  truncated: boolean;
 }
 
 interface InventoryStatRow {
@@ -88,12 +90,54 @@ async function excludedIds(supabase: SupabaseClient, names: string[]): Promise<S
 }
 
 /**
+ * Every row of `table` for `season`, in pages.
+ *
+ * PostgREST caps a response at max_rows (1000 in this project's
+ * config.toml, and the same by default on the hosted project). A single
+ * unpaged select therefore does not return "all the rows" — it returns the
+ * first thousand, silently, with no error and no marker. Aggregating that
+ * gives a wrong answer that looks like a right one.
+ *
+ * Ordered by id because pagination without a total order is not
+ * pagination: ranges can overlap or skip rows between requests.
+ *
+ * `truncated` is surfaced rather than swallowed. A cap that nobody is told
+ * about reads as the truth.
+ */
+async function fetchAllRows<T>(
+  supabase: SupabaseClient,
+  table: string,
+  columns: string,
+  season: string,
+  pageSize = 1000,
+  maxPages = 100,
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const rows: T[] = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .eq("season", season)
+      .order("id")
+      .range(from, from + pageSize - 1);
+    // An error on the first page means no data at all (a missing table, say);
+    // on a later page it means we stop with what we have. Either way the
+    // caller gets rows it can aggregate rather than an exception.
+    if (error) return { rows, truncated: false };
+    const batch = (data as T[]) ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) return { rows, truncated: false };
+  }
+  return { rows, truncated: true };
+}
+
+/**
  * One season's economy, with `excluded` wallets removed from every figure.
  *
  * Aggregated in JS rather than by the database: PostgREST has no SUM
- * without an RPC, and the row counts here are packs-times-five for one
- * season — small enough that a migration to add an aggregate view would be
- * work spent ahead of a problem.
+ * without an RPC. Every read is paged — see fetchAllRows for why a plain
+ * select is not enough.
  *
  * A missing table (card_moments before its migration lands) contributes
  * zero rather than throwing, so the page renders whatever it can.
@@ -102,26 +146,37 @@ export async function fetchEconomyStats(
   supabase: SupabaseClient,
   season: string,
   excludeNames: string[] = excludedCollectorNames(),
+  /** Page size must not exceed the API's max_rows, or every page comes back
+   *  short and paging stops after the first. Exposed for tests. */
+  paging: { pageSize?: number; maxPages?: number } = {},
 ): Promise<EconomyStats> {
+  const { pageSize = 1000, maxPages = 100 } = paging;
   const excluded = await excludedIds(supabase, excludeNames);
 
-  const [opensResult, inventoryResult, momentsResult] = await Promise.all([
-    supabase.from("card_pack_opens").select("discord_id, cost").eq("season", season),
-    supabase
-      .from("card_inventory")
-      // artSkin comes out of the frozen card json — the alternate-print roll
-      // is only recorded there, never as a column.
-      .select("discord_id, player_name, overall, tier, foil, signed, artSkin:card->artSkin")
-      .eq("season", season),
+  const [opensPage, inventoryPage, momentsResult] = await Promise.all([
+    fetchAllRows<{ discord_id: string; cost: number }>(
+      supabase,
+      "card_pack_opens",
+      "id, discord_id, cost",
+      season,
+      pageSize,
+      maxPages,
+    ),
+    // artSkin comes out of the frozen card json — the alternate-print roll
+    // is only recorded there, never as a column.
+    fetchAllRows<InventoryStatRow>(
+      supabase,
+      "card_inventory",
+      "id, discord_id, player_name, overall, tier, foil, signed, artSkin:card->artSkin",
+      season,
+      pageSize,
+      maxPages,
+    ),
     supabase.from("card_moments").select("id", { count: "exact", head: true }).eq("season", season),
   ]);
 
-  const opens = (opensResult.error ? [] : ((opensResult.data as { discord_id: string; cost: number }[]) ?? [])).filter(
-    (row) => !excluded.has(row.discord_id),
-  );
-  const cards = (
-    inventoryResult.error ? [] : ((inventoryResult.data as unknown as InventoryStatRow[]) ?? [])
-  ).filter((row) => !excluded.has(row.discord_id));
+  const opens = opensPage.rows.filter((row) => !excluded.has(row.discord_id));
+  const cards = inventoryPage.rows.filter((row) => !excluded.has(row.discord_id));
 
   const copiesByPlayer = new Map<string, number>();
   let best: EconomyStats["bestPull"] = null;
@@ -155,5 +210,6 @@ export async function fetchEconomyStats(
     bestPull: best,
     mostPulled: mostPulled ? { playerName: mostPulled[0], copies: mostPulled[1] } : null,
     excludedCount: excluded.size,
+    truncated: opensPage.truncated || inventoryPage.truncated,
   };
 }
