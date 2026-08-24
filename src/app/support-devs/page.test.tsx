@@ -48,8 +48,14 @@ describe("SupportDevsPage", () => {
     expect(screen.getByText("Dribb")).toBeTruthy();
     expect(screen.getByText("@dribb")).toBeTruthy();
     expect(screen.getByAltText("Dribb avatar")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Venmo Zachari Bultman" }).getAttribute("href")).toBe(
+      "https://venmo.com/u/Zachari-Bultman",
+    );
     expect(screen.getByText("Spies")).toBeTruthy();
     expect(screen.getByText("@spiesss")).toBeTruthy();
     expect(screen.getByAltText("Spies avatar")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Venmo Matthew Wolanski" }).getAttribute("href")).toBe(
+      "https://venmo.com/u/Matthew-Wolanski",
+    );
   });
 });
