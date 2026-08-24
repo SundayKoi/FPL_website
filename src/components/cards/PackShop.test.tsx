@@ -196,4 +196,44 @@ describe("PackShop", () => {
     await openPack();
     expect(screen.getByTestId("opening-muted").textContent).toBe("true");
   });
+
+  it("sells a pack for any archived week, newest selected by default", async () => {
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+    render(
+      <PackShop
+        league="premier"
+        balance={1000}
+        packCost={200}
+        openCount={3}
+        editionWeeks={["2026-09-07", "2026-08-31", "2026-08-24"]}
+      />,
+    );
+
+    // Newest first, numbered up from the season's first archived week — so
+    // the oldest of three reads "Week 1".
+    const picker = screen.getByLabelText(/edition/i) as HTMLSelectElement;
+    expect(picker.value).toBe("2026-09-07");
+    expect(screen.getByRole("option", { name: /Week 3/ }).getAttribute("value")).toBe("2026-09-07");
+    expect(screen.getByRole("option", { name: /Week 1/ }).getAttribute("value")).toBe("2026-08-24");
+
+    await openPack();
+    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-09-07");
+
+    // An older week re-mints that edition rather than the current cards.
+    openPackAction.mockClear();
+    await act(async () => {
+      fireEvent.change(picker, { target: { value: "2026-08-24" } });
+    });
+    await openPack();
+    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-08-24");
+  });
+
+  it("hides the picker and asks for no week before the first archive exists", async () => {
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+    renderShop();
+
+    expect(screen.queryByLabelText(/edition/i)).toBeNull();
+    await openPack();
+    expect(openPackAction).toHaveBeenCalledWith("premier", undefined);
+  });
 });

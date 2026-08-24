@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { ALT_SKIN_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { rollPack } from "./rng";
@@ -60,6 +60,10 @@ function friendlyOpenPackError(message: string): string {
  */
 export async function openPackAction(
   league: CardLeague,
+  /** Which week's cards to mint. Omitted (or unarchived) means the current
+   *  live ratings. Every archived week stays purchasable forever — no
+   *  edition is ever closed off. */
+  requestedWeek?: string,
 ): Promise<
   | { ok: true; cards: { card: PlayerCardData; foil: boolean; signed: boolean; inventoryId: number }[]; balance: number }
   | { ok: false; error: string }
@@ -76,7 +80,21 @@ export async function openPackAction(
   const season = await fetchCardSeason(service, league);
   if (!season) return { ok: false, error: "No season is set up for packs yet." };
 
-  const cards = await fetchSeasonCards(service, season);
+  // Which edition this pack mints. An archived week is drawn from the
+  // archive and stamped with that exact week; with no archive at all the
+  // pack falls back to the live cards. That pairing is what closes the old
+  // vintage gap — the stamp used to be "whatever Monday it is today", so
+  // two packs opened either side of an ingest could carry the same edition
+  // label with different ratings.
+  const weeks = await fetchCardEditionWeeks(service, season);
+  const editionWeek = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
+  if (requestedWeek && !weeks.includes(requestedWeek)) {
+    return { ok: false, error: "That week isn't available yet." };
+  }
+
+  const cards = editionWeek
+    ? await fetchEditionCards(service, season, editionWeek)
+    : await fetchSeasonCards(service, season);
   if (cards.length === 0) return { ok: false, error: "No cards to open yet — check back once games are played." };
 
   const { data: openId, error: openError } = await service.rpc("open_card_pack", {
@@ -139,7 +157,7 @@ export async function openPackAction(
     prints.push({ ...pull, card: { ...card, artSkin } });
   }
 
-  const editionWeek = mondayOf(new Date());
+  const stampedWeek = editionWeek ?? mondayOf(new Date());
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(
@@ -149,7 +167,7 @@ export async function openPackAction(
         slug: print.card.slug,
         player_name: print.card.name,
         role: print.card.role,
-        edition_week: editionWeek,
+        edition_week: stampedWeek,
         overall: print.card.overall,
         tier: print.card.tier.key,
         foil: print.foil,

@@ -5,7 +5,7 @@ import CollectionGrid from "@/components/cards/CollectionGrid";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import { fetchInventory, fetchPackOpenCount, type InventoryRow } from "@/lib/packs/queries";
 
@@ -61,9 +61,13 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount]: [InventoryRow[], number] = season
-    ? await Promise.all([fetchInventory(service, user.discordId, season), fetchPackOpenCount(service, user.discordId, season)])
-    : [[], 0];
+  const [inventory, openCount, editionWeeks]: [InventoryRow[], number, string[]] = season
+    ? await Promise.all([
+        fetchInventory(service, user.discordId, season),
+        fetchPackOpenCount(service, user.discordId, season),
+        fetchCardEditionWeeks(service, season),
+      ])
+    : [[], 0, []];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -95,6 +99,9 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // Slugs only: the overlay asks "do I own this player at all", which
         // an inventory row's own slug answers without shipping the cards.
         ownedSlugs={[...new Set(inventory.map((row) => row.slug))]}
+        // Every archived week stays on sale, so a card from an earlier week
+        // is always still obtainable.
+        editionWeeks={editionWeeks}
       />
 
       <section id="collection" className="flex flex-col gap-4">

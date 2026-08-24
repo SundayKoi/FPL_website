@@ -138,6 +138,33 @@ async function processSeason(
   }
 
   const takenAt = new Date().toISOString();
+
+  // Archive this week's cards in full, so a pack bought for this week can
+  // mint them again forever. Keyed on the edition week rather than the run
+  // time, so a re-run of the drop overwrites the week rather than creating
+  // a second copy of it. Tolerated failure: an environment without the
+  // card_editions migration still gets its snapshot and its movers post.
+  const editionWeek = mondayOf(new Date());
+  const { error: editionError } = await supabase.from("card_editions").upsert(
+    cards.map((card) => ({
+      season,
+      edition_week: editionWeek,
+      slug: card.slug,
+      player_name: card.name,
+      role: card.role,
+      overall: card.overall,
+      tier: card.tier.label,
+      card,
+      taken_at: takenAt,
+    })),
+    { onConflict: "season,edition_week,slug" },
+  );
+  if (editionError) {
+    console.warn(`[${label}] Could not archive the ${editionWeek} edition (migration applied?): ${editionError.message}`);
+  } else {
+    console.log(`[${label}] Archived ${cards.length} cards as the ${editionWeek} edition.`);
+  }
+
   const { error: upsertError } = await supabase.from("card_snapshots").upsert(
     cards.map((card) => ({
       season,
