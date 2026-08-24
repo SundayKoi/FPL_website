@@ -44,6 +44,7 @@ interface CommandDef {
 const COMMANDS: CommandDef[] = [
   { name: "balance", description: "Your wallet + lifetime record" },
   { name: "daily", description: "Claim your daily bonus (streak escalates!)" },
+  { name: "weekly", description: "Claim your weekly bonus (streak escalates!)" },
   {
     name: "tip",
     description: "Gift points to another member",

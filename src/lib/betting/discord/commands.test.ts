@@ -99,6 +99,54 @@ describe("/daily", () => {
   });
 });
 
+describe("/weekly", () => {
+  it("claims with the weekly tuning and reports amount, balance, and week streak", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "claim_weekly_streak") {
+        return Promise.resolve({ data: [{ amount: 1500, balance: 5000, streak: 3 }], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const res = (await commandHandlers.weekly(baseInteraction())) as {
+      data: { flags?: number; embeds: Array<{ description: string }> };
+    };
+
+    expect(res.data.flags).toBe(64);
+    expect(res.data.embeds[0].description).toBe(
+      "💰 **+$1,500** claimed — balance **$5,000** · 🔥 **3-week streak**"
+    );
+    expect(rpcImpl.current).toHaveBeenCalledWith("claim_weekly_streak", {
+      p_user: "caller-1",
+      p_amount: 1000,
+      p_step: 250,
+      p_max: 4,
+    });
+  });
+
+  it("returns the already-claimed error embed with Discord relative + absolute timestamps", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "claim_weekly_streak") {
+        return Promise.resolve({ data: null, error: { message: "weekly already claimed" } });
+      }
+      if (fn === "weekly_next_at") {
+        return Promise.resolve({ data: "2030-01-08T00:00:00.000Z", error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const res = (await commandHandlers.weekly(baseInteraction())) as {
+      data: { flags?: number; embeds: Array<{ description: string }> };
+    };
+
+    expect(res.data.flags).toBe(64);
+    const unix = Math.floor(new Date("2030-01-08T00:00:00.000Z").getTime() / 1000);
+    expect(res.data.embeds[0].description).toBe(
+      `❌ You've already claimed your weekly. Come back <t:${unix}:R> (at <t:${unix}:t>).`
+    );
+  });
+});
+
 describe("/tip", () => {
   it("rejects tipping yourself before calling any RPC", async () => {
     const interaction = baseInteraction({
@@ -230,8 +278,8 @@ describe("/buy", () => {
 });
 
 describe("registration", () => {
-  it("wires all eight commands into the shared registry", () => {
-    for (const name of ["balance", "daily", "tip", "bets", "leaderboard", "exchange", "store", "buy"]) {
+  it("wires all nine commands into the shared registry", () => {
+    for (const name of ["balance", "daily", "weekly", "tip", "bets", "leaderboard", "exchange", "store", "buy"]) {
       expect(commandHandlers[name]).toBeTypeOf("function");
     }
   });

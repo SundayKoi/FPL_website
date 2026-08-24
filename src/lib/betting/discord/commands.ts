@@ -27,6 +27,13 @@ const DAILY_AMOUNT = 250;
 const DAILY_STREAK_STEP = 50;
 const DAILY_STREAK_MAX = 7;
 
+// Weekly twin — bigger, slower, same escalation shape. No source-bot
+// counterpart to port; tuned so a maxed week (1750) roughly matches a maxed
+// week of dailies staying interesting without dwarfing them.
+const WEEKLY_AMOUNT = 1000;
+const WEEKLY_STREAK_STEP = 250;
+const WEEKLY_STREAK_MAX = 4;
+
 const GUILD_ONLY_MSG = "Use this in the server.";
 
 interface CommandOption {
@@ -121,7 +128,8 @@ async function handleBalance(interaction: DiscordInteraction): Promise<object> {
 
 // ---- /daily -------------------------------------------------------------------
 
-interface DailyClaimRow {
+/** Row shape shared by claim_daily_streak and claim_weekly_streak. */
+interface StreakClaimRow {
   amount: number;
   balance: number;
   streak: number;
@@ -151,8 +159,43 @@ async function handleDaily(interaction: DiscordInteraction): Promise<object> {
     return errMsg(friendlyBettingError(error.message));
   }
 
-  const row = (Array.isArray(data) ? data[0] : data) as DailyClaimRow;
+  const row = (Array.isArray(data) ? data[0] : data) as StreakClaimRow;
   const streakNote = row.streak > 1 ? ` · 🔥 **${row.streak}-day streak**` : "";
+  const e: DiscordEmbed = {
+    description: `💰 **+${fmtPoints(row.amount)}** claimed — balance **${fmtPoints(row.balance)}**${streakNote}`,
+    color: GREEN,
+  };
+  return embed(e, true);
+}
+
+// ---- /weekly ------------------------------------------------------------------
+
+async function handleWeekly(interaction: DiscordInteraction): Promise<object> {
+  const member = requireMember(interaction);
+  if (!member) return errMsg(GUILD_ONLY_MSG);
+
+  const service = createBettingServiceClient();
+  await ensureUser(service, member);
+
+  const { data, error } = await service.rpc("claim_weekly_streak", {
+    p_user: member.id,
+    p_amount: WEEKLY_AMOUNT,
+    p_step: WEEKLY_STREAK_STEP,
+    p_max: WEEKLY_STREAK_MAX,
+  });
+
+  if (error) {
+    if (/already claimed/i.test(error.message)) {
+      const { data: nextData } = await service.rpc("weekly_next_at", { p_user: member.id });
+      const nextIso = nextData as string | null;
+      const when = nextIso ? ` Come back ${discordTimestamp(nextIso, "R")} (at ${discordTimestamp(nextIso, "t")}).` : "";
+      return errMsg(`You've already claimed your weekly.${when}`);
+    }
+    return errMsg(friendlyBettingError(error.message));
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as StreakClaimRow;
+  const streakNote = row.streak > 1 ? ` · 🔥 **${row.streak}-week streak**` : "";
   const e: DiscordEmbed = {
     description: `💰 **+${fmtPoints(row.amount)}** claimed — balance **${fmtPoints(row.balance)}**${streakNote}`,
     color: GREEN,
@@ -487,6 +530,7 @@ async function handleBuy(interaction: DiscordInteraction): Promise<object> {
 // same map directly in its own tests.
 commandHandlers.balance = handleBalance;
 commandHandlers.daily = handleDaily;
+commandHandlers.weekly = handleWeekly;
 commandHandlers.tip = handleTip;
 commandHandlers.bets = handleBets;
 commandHandlers.leaderboard = handleLeaderboard;
