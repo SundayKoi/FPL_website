@@ -1,4 +1,5 @@
 import { normalizeCanonicalName } from "@/lib/players/canonicalMatch";
+import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import type { LolRole } from "@/lib/draft/types";
 
 export interface InhouseGameRow {
@@ -32,10 +33,29 @@ interface RosterPlayer {
   role: LolRole;
 }
 
+function linkedAccountNames(url: string): string[] {
+  try {
+    const parsed = new URL(url);
+    const multisearch = parsed.searchParams.get("summoners");
+    if (multisearch) return multisearch.split(",").map((account) => account.split("#")[0].trim()).filter(Boolean);
+    const slug = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
+    const separator = slug.lastIndexOf("-");
+    return separator > 0 ? [slug.slice(0, separator)] : [];
+  } catch {
+    return [];
+  }
+}
+
+function playerMatchKeys(displayName: string): Set<string> {
+  const names = [displayName, ...linkedAccountUrls(displayName).flatMap(linkedAccountNames)];
+  return new Set(names.map(normalizeCanonicalName));
+}
+
 /** Match all available in-house rows to the current roster and group picks by champion. */
 export function buildInhousePlayerStats(roster: RosterPlayer[], rows: InhouseGameRow[]): InhousePlayerStats[] {
   const rowsByPlayer = new Map<string, InhouseGameRow[]>();
-  const rosterByName = new Map(roster.map((player) => [normalizeCanonicalName(player.displayName), player]));
+  const rosterByName = new Map<string, RosterPlayer>();
+  for (const player of roster) for (const key of playerMatchKeys(player.displayName)) rosterByName.set(key, player);
 
   for (const row of rows) {
     if (!row.summoner_name) continue;

@@ -106,7 +106,7 @@ describe("OpponentScout", () => {
       champions: [{ champion: "Ahri", games: 2, wins: 1, winrate_pct: 50, avg_kda: 3.17 }],
     }] });
     fireEvent.click(screen.getByRole("switch"));
-    expect(screen.getByRole("heading", { name: "Champion stats by player" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "In-house champion stats" })).toBeTruthy();
     expect(screen.getByText("Northstar")).toBeTruthy();
     expect(screen.getByText("Ahri")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();

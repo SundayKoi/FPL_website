@@ -26,6 +26,15 @@ describe("buildInhousePlayerStats", () => {
     ]);
   });
 
+  it("also matches Riot account names listed in the player's linked accounts", () => {
+    const result = buildInhousePlayerStats(
+      [{ id: "p1", displayName: "MetaShift", role: "jungle" }],
+      [{ summoner_name: "MeatShaft", champion: "Vi", kills: 4, deaths: 2, assists: 8, win: true }],
+    );
+
+    expect(result[0]).toMatchObject({ games: 1, champions: [{ champion: "Vi", games: 1 }] });
+  });
+
   it("keeps roster players with no matching in-house games", () => {
     const result = buildInhousePlayerStats(
       [{ id: "p1", displayName: "No Games", role: "top" }],
