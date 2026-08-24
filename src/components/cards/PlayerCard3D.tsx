@@ -76,6 +76,10 @@ const TRACKING_TRANSITION = "transform 60ms linear";
  *  six-stop gradient — a repaint of the whole card face — on every frame of
  *  every hover. Pinned: the colour-dodge blend over a moving card already
  *  reads as movement, so the swing wasn't earning its cost. */
+/** A pulled foil's sheen at rest versus fully turned into the light. The
+ *  span between them is the whole effect: see writeTilt. */
+const FOIL_REST_OPACITY = 0.3;
+const FOIL_PEAK_OPACITY = 0.85;
 const FOIL_GRADIENT =
   "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
@@ -109,6 +113,8 @@ export default function PlayerCard3D({
   const [statsIn, setStatsIn] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const glareRef = useRef<HTMLDivElement | null>(null);
+  const holoRef = useRef<HTMLDivElement | null>(null);
+  const foilRef = useRef<HTMLDivElement | null>(null);
   // Latest pointer position, parked for the next animation frame.
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
@@ -155,6 +161,24 @@ export default function PlayerCard3D({
     if (glare) {
       glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.5), transparent 55%)`;
     }
+    // Pack foil: the wash slides as the card turns, and its strength rides
+    // the pointer's distance from centre — bright when you tilt the card
+    // into the light, near-invisible when you hold it square. Gating on
+    // distance (rather than running the shine flat out whenever hovered) is
+    // what keeps a wall of foils calm and makes the shine feel earned.
+    const holo = holoRef.current;
+    if (holo) holo.style.backgroundPosition = `${glareX * 1.6 - 30}% ${glareY * 1.6 - 30}%`;
+    const foil = foilRef.current;
+    if (foil) {
+      const fromCentre = Math.min(1, Math.hypot(glareX - 50, glareY - 50) / 50);
+      foil.style.opacity = String(FOIL_REST_OPACITY + fromCentre * (FOIL_PEAK_OPACITY - FOIL_REST_OPACITY));
+    }
+  }, []);
+
+  /** Settle the foil back to its resting sheen when the pointer leaves. */
+  const releaseFoil = useCallback(() => {
+    if (holoRef.current) holoRef.current.style.backgroundPosition = "";
+    if (foilRef.current) foilRef.current.style.opacity = String(FOIL_REST_OPACITY);
   }, []);
 
   // Pointer moves fire faster than the display refreshes, so the handler only
@@ -218,6 +242,7 @@ export default function PlayerCard3D({
     pointerRef.current = null;
     if (frameRef.current) frameRef.current.style.transition = REST_TRANSITION;
     writeTilt(0, 0, 50, 35);
+    releaseFoil();
     setHovering(false);
   };
 
@@ -282,7 +307,7 @@ export default function PlayerCard3D({
                 key={splash}
                 src={splash}
                 alt=""
-                className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${forceFoil ? "card-art-live" : ""}`}
+                className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -366,15 +391,18 @@ export default function PlayerCard3D({
                 // hovers right above the archetype label, at the angle a
                 // hand signs at. White ink, so it needs a dark halo of its
                 // own to read over a bright splash.
+                // Right-anchored rather than centered: the name/team lines
+                // above are left-aligned, and a centered signature ran
+                // straight through the team name.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={card.autograph}
                   alt={`${card.name}'s autograph`}
                   data-testid="autograph"
                   decoding="async"
-                  className="pointer-events-none absolute -top-[4.5rem] left-1/2 w-[58%] object-contain"
+                  className="pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain"
                   style={{
-                    transform: "translateX(-50%) rotate(-6deg)",
+                    transform: "rotate(-6deg)",
                     filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
                   }}
                 />
@@ -425,18 +453,18 @@ export default function PlayerCard3D({
               />
             ) : null}
             {forceFoil ? (
-              // Pack foils get the living treatment: the same gradient on an
-              // oversized child that travels by transform (see globals.css for
-              // why transform and not background-position). Opacity/blend stay
-              // on the clipping wrapper so the hover boost works unchanged.
+              // A pulled foil is the one surface on the card that answers the
+              // pointer: one rainbow wash, driven from the same rAF as the
+              // tilt, brightening with distance from centre. Tier holos stay
+              // a flat sheen — that difference is the whole point.
               <div
+                ref={foilRef}
                 aria-hidden
                 data-testid="foil"
-                className="pointer-events-none absolute inset-0 overflow-hidden"
-                style={{ opacity: hovering ? 0.65 : 0.35, mixBlendMode: "color-dodge" }}
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl transition-opacity duration-300"
+                style={{ opacity: FOIL_REST_OPACITY }}
               >
-                <div className="card-foil-live" style={{ background: FOIL_GRADIENT }} />
-                <div className="card-foil-glint" />
+                <div ref={holoRef} className="card-foil-holo" style={{ mixBlendMode: "color-dodge" }} />
               </div>
             ) : style.foil || card.standout ? (
               <div

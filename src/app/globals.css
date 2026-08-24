@@ -407,12 +407,34 @@ body {
   transform: translate3d(-160%, 0, 0) rotate(16deg);
   animation: cardGlintSweep 3.4s ease-in-out infinite;
 }
-@keyframes cardArtDrift {
-  0% { transform: scale(1.04) translate3d(1%, -0.5%, 0); }
-  100% { transform: scale(1.1) translate3d(-1.5%, 1%, 0); }
-}
-@utility card-art-live {
-  animation: cardArtDrift 8s ease-in-out infinite alternate;
+/* ── Pack foil ──────────────────────────────────────────────────────
+   One layer, not four. The first pass stacked a grating, a glitter field
+   and a sweep all animating at once, which read as noise rather than
+   shine — the lesson from the CSS holo work the Pokemon card community
+   has settled on (simeydotme/pokemon-cards-css) is that a convincing foil
+   is TWO layers at most (a shine and a glare) and that its intensity is
+   gated on how far the pointer sits from the card's centre.
+
+   So: a single broad rainbow wash, no animation of its own. At rest it is
+   a faint sheen. As you tilt the card the wash slides across the face and
+   its opacity climbs with distance from centre (PlayerCard3D writes both
+   from the same rAF as the tilt) — the card catches the light when you
+   turn it into the light, and is quiet when you don't. That restraint is
+   what makes it read as a surface instead of an effect. */
+@utility card-foil-holo {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    100deg,
+    rgb(255 90 140 / 0.55) 8%,
+    rgb(255 210 110 / 0.55) 24%,
+    rgb(120 240 165 / 0.55) 40%,
+    rgb(95 185 255 / 0.55) 56%,
+    rgb(210 125 255 / 0.55) 72%,
+    rgb(255 90 140 / 0.55) 88%
+  );
+  background-size: 260% 260%;
+  background-position: 50% 50%;
 }
 @keyframes cardSparkle {
   0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
@@ -428,7 +450,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout,
   .card-frame-challenger, .card-frame-standout, .card-sparkle,
-  .card-foil-live, .card-foil-glint, .card-art-live { animation: none; }
+  .card-foil-live, .card-foil-glint { animation: none; }
   /* Halos hold mid-pulse rather than jumping to a full-strength 1. */
   .card-glow-diamond, .card-glow-master, .card-glow-challenger, .card-glow-standout { opacity: 0.5; }
   .card-sparkle { opacity: 0; }

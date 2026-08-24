@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { fetchChampionSkinNums, printArtExists, resolvePrintArtUrl, rollPrint, rollSkinNum } from "./skins";
 
 /** Same scripted rand as rng.test.ts: throws when overrun, so a test that
@@ -145,6 +146,22 @@ describe("rollPrint", () => {
     };
     // no rand consumed at all: scripted([]) would throw on any call
     await expect(rollPrint("Jhin", [0], scripted([]), neverValid)).resolves.toBe(0);
+  });
+
+  it("gates alternates on the caller's chance — signed copies roll rarer", async () => {
+    const validOnlyAll = async () => true;
+    // A roll that clears the signed gate would still clear the base gate…
+    await expect(
+      rollPrint("Jhin", [0, 4], scripted([SIGNED_ALT_SKIN_CHANCE - 0.001, 0]), validOnlyAll, SIGNED_ALT_SKIN_CHANCE),
+    ).resolves.toBe(4);
+    // …but one between the two chances prints base for a signed copy and an
+    // alternate for an ordinary one.
+    await expect(
+      rollPrint("Jhin", [0, 4], scripted([SIGNED_ALT_SKIN_CHANCE + 0.01]), validOnlyAll, SIGNED_ALT_SKIN_CHANCE),
+    ).resolves.toBe(0);
+    await expect(
+      rollPrint("Jhin", [0, 4], scripted([SIGNED_ALT_SKIN_CHANCE + 0.01, 0]), validOnlyAll),
+    ).resolves.toBe(4);
   });
 
   it("answers base splash for an empty catalog", () => {

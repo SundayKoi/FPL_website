@@ -71,6 +71,16 @@ export const FOIL_CHANCE = 0.06;
 export const ALT_SKIN_CHANCE = 0.3;
 
 /**
+ * The alternate-art chance on a SIGNED copy. Deliberately below
+ * ALT_SKIN_CHANCE: a signed card is already the pull of the month and
+ * always prints foil, so "signed + foil + alt art" is the one print that
+ * should be genuinely hard to hit — roughly one in seven signed copies
+ * rather than one in three. Raise it to ALT_SKIN_CHANCE to make signed
+ * copies roll art exactly like every other pull.
+ */
+export const SIGNED_ALT_SKIN_CHANCE = 0.15;
+
+/**
  * Chance a pulled card comes out autographed — the pen mark of the player
  * themselves, inked onto that copy forever. Only rolls for players who have
  * actually drawn a signature (card_art_prefs.signature), so the real odds
@@ -96,7 +106,8 @@ export const GUARANTEED_CLASS: RarityClass = "rare";
  * single slot dusts for 0.75×10 + 0.20×25 + 0.04×60 + 0.01×150 ≈ $16.4, so
  * a PACK_SIZE of five expects roughly $82 against a PACK_COST of 200 — about
  * 41 cents back on the dollar (a little more once the guaranteed
- * rare-or-better slot and the foil/signed multipliers are counted, still
+ * rare-or-better slot and the foil multiplier and autograph bonus are
+ * counted, still
  * nowhere near even). Grinding packs to dust therefore burns money; the only
  * thing dusting is good for is turning a fourth copy of the same bronze into
  * something.
@@ -114,9 +125,24 @@ export const DUST_VALUES: Record<RarityClass, number> = {
 /** Foils dust for double — the same premium the pull itself carries. */
 export const FOIL_DUST_MULT = 2;
 
-/** Autographs dust for 5×. Deliberately steep: nobody should ever *want* to
- *  dust a signed copy, and the price tag is how that gets said out loud. */
-export const SIGNED_DUST_MULT = 5;
+/**
+ * A flat bonus every autographed copy dusts for, ON TOP of the card's own
+ * (foil-doubled) value — deliberately a flat add rather than a multiplier.
+ *
+ * The signature is exactly as rare on a bronze as on a challenger card, so
+ * it should dominate the price: at this number the autograph is 80-98% of
+ * what a signed copy dusts for, and the tier underneath is a visible but
+ * minor bonus. A multiplier said the opposite — that a signed legendary was
+ * worth 15× a signed common — which undersold every signed copy of an
+ * ordinary player.
+ *
+ * Sized against the money-printer guardrail, not vibes. A pack costs
+ * PACK_COST and returns ~$82 in expected dust; signed copies add roughly
+ * 0.05 × (this) per pack when the whole league has drawn a signature, so
+ * 1200 lands total expected return near 72% of pack cost at worst. Past
+ * ~1500 packs start paying for themselves and dusting becomes an income.
+ */
+export const SIGNED_DUST_BASE = 1200;
 
 /** The rarity bucket a card tier belongs to. */
 export function rarityOf(tier: CardTierKey): RarityClass {
@@ -124,9 +150,11 @@ export function rarityOf(tier: CardTierKey): RarityClass {
 }
 
 /**
- * The dust value of one owned copy. Multipliers stack multiplicatively, so a
- * signed foil legendary is 150 × 2 × 5 = $1,500 — the top of the table by a
- * distance, as the rarest thing in the game should be.
+ * The dust value of one owned copy: the tier's value, doubled when foil,
+ * plus the flat autograph bonus. So a signed foil legendary is
+ * 150 × 2 + 1200 = $1,500 and a signed foil bronze is 10 × 2 + 1200 =
+ * $1,220 — close together on purpose, because the signature is the rare
+ * part and it is equally rare on both.
  *
  * `tier` is typed loosely because it arrives from card_inventory's flat
  * `tier` column (a plain text column, see queries.ts's InventoryRow): an
@@ -136,7 +164,7 @@ export function dustValueOf(row: { tier: CardTierKey | string; foil: boolean; si
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];
   if (row.foil) value *= FOIL_DUST_MULT;
-  if (row.signed) value *= SIGNED_DUST_MULT;
+  if (row.signed) value += SIGNED_DUST_BASE;
   return value;
 }
 

@@ -14,7 +14,8 @@ import { SIGNED_CHANCE } from "./config";
 import type { PackPull } from "./rng";
 
 /** A pull with its autograph resolved. `autograph` is the signature PNG
- *  data URI to ink onto this copy, null on every unsigned pull. */
+ *  data URI to ink onto this copy, null on every unsigned pull. A signed
+ *  pull is always foil (see applyAutographs). */
 export type SignedPull = PackPull & { signed: boolean; autograph: string | null };
 
 /**
@@ -35,6 +36,10 @@ export function applyAutographs(
     const signature = signaturesBySlug.get(pull.card.slug);
     if (!signature) return { ...pull, signed: false, autograph: null };
     const signed = rand() < SIGNED_CHANCE;
-    return { ...pull, signed, autograph: signed ? signature : null };
+    // Signed copies always print foil. The autograph is the rarest thing in
+    // the game, and a matte signed card read as a downgrade next to a foil
+    // common — so the foil roll below is overridden rather than re-rolled
+    // (no extra rand, the sequence stays pinned).
+    return { ...pull, foil: pull.foil || signed, signed, autograph: signed ? signature : null };
   });
 }
