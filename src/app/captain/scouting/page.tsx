@@ -83,7 +83,7 @@ export async function CaptainScoutingPageView({
         currentSeason: context.season,
         nextFixture,
         roster,
-        inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
+        inhousePlayerStats: await fetchInhousePlayerStats(supabase, context.season, roster),
       };
     } catch (error) {
       console.error("Unable to load scouting", error);

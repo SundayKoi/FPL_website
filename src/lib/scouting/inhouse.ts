@@ -33,6 +33,11 @@ interface RosterPlayer {
   role: LolRole;
 }
 
+const INHOUSE_NAME_ALIASES: Record<string, string> = {
+  feraleevee: "feral eevee",
+  slimpimpin: "slimpimpin77",
+};
+
 function linkedAccountNames(url: string): string[] {
   try {
     const parsed = new URL(url);
@@ -47,7 +52,7 @@ function linkedAccountNames(url: string): string[] {
 }
 
 function playerMatchKeys(displayName: string): Set<string> {
-  const names = [displayName, ...linkedAccountUrls(displayName).flatMap(linkedAccountNames)];
+  const names = [displayName, INHOUSE_NAME_ALIASES[normalizeCanonicalName(displayName)] ?? "", ...linkedAccountUrls(displayName).flatMap(linkedAccountNames)];
   return new Set(names.map(normalizeCanonicalName));
 }
 

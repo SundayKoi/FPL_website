@@ -35,6 +35,21 @@ describe("buildInhousePlayerStats", () => {
     expect(result[0]).toMatchObject({ games: 1, champions: [{ champion: "Vi", games: 1 }] });
   });
 
+  it("matches current roster labels to the ingested Riot names", () => {
+    const result = buildInhousePlayerStats(
+      [
+        { id: "p1", displayName: "FeralEevee", role: "mid" },
+        { id: "p2", displayName: "SlimPimpin", role: "adc" },
+      ],
+      [
+        { summoner_name: "Feral Eevee", champion: "Ahri", kills: 5, deaths: 1, assists: 4, win: true },
+        { summoner_name: "SlimPimpin77", champion: "Jinx", kills: 7, deaths: 2, assists: 6, win: true },
+      ],
+    );
+
+    expect(result.map((player) => player.games)).toEqual([1, 1]);
+  });
+
   it("keeps roster players with no matching in-house games", () => {
     const result = buildInhousePlayerStats(
       [{ id: "p1", displayName: "No Games", role: "top" }],
