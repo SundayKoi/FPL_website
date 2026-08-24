@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export const STUART_PROFILE_IMAGE_URL = "https://pbs.twimg.com/profile_images/1372026198251896832/gYu9qCiU_400x400.jpg";
+export const STUART_PROFILE_IMAGE_URL = "/stuart-monkey.png";
 
 export default function TweetIdentity({ date, compact = false }: { date: string; compact?: boolean }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -18,7 +18,7 @@ export default function TweetIdentity({ date, compact = false }: { date: string;
           🐒
         </div>
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- X-hosted profile image
+        // eslint-disable-next-line @next/next/no-img-element -- local profile image asset
         <img
           src={STUART_PROFILE_IMAGE_URL}
           alt="Stuart69Davis profile picture"
