@@ -59,7 +59,7 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
  * ratings are league-relative), so per-player fetching would save nothing.
  */
 export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, artResult] = await Promise.all([
+  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, artResult, settingsResult] = await Promise.all([
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
       .from("raw_stats")
@@ -67,10 +67,19 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
       .eq("season", season),
     supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
     supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
-    supabase.from("teams").select("name, image_url"),
+    // draft_id comes along so the badge can be scoped to THIS season's
+    // teams below — team names get reused season to season, and an
+    // unscoped lookup would hand a card whichever era's logo Postgres
+    // happened to return first.
+    supabase.from("teams").select("name, image_url, draft_id"),
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
     supabase.from("card_art_prefs").select("*").eq("season", season),
+    supabase
+      .from("league_settings")
+      .select("current_season, academy_season, featured_draft_id, academy_draft_id")
+      .eq("id", 1)
+      .maybeSingle(),
   ]);
   if (aggResult.error) throw aggResult.error;
   if (gamesResult.error) throw gamesResult.error;
@@ -78,7 +87,9 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   // Records / team art / skin prefs are garnish — a failure (e.g. the
   // card_art_prefs migration not applied yet) must not take cards down.
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
-  const teamRows = teamsResult.error ? [] : ((teamsResult.data as { name: string; image_url: string | null }[]) ?? []);
+  const teamRows = teamsResult.error
+    ? []
+    : ((teamsResult.data as { name: string; image_url: string | null; draft_id: string | null }[]) ?? []);
   const artRows = artResult.error
     ? []
     : ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? []);
@@ -112,8 +123,28 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     recordsByPlayer.set(key, list);
   }
 
+  // Which draft this season's teams live under. A season we can't map (an
+  // archived one, or settings that failed to load) falls back to every
+  // team, which is the old behaviour — a possibly-stale badge still beats
+  // no badge.
+  const settings = settingsResult.error
+    ? null
+    : (settingsResult.data as {
+        current_season: string | null;
+        academy_season: string | null;
+        featured_draft_id: string | null;
+        academy_draft_id: string | null;
+      } | null);
+  const seasonDraftId =
+    settings?.academy_season === season
+      ? settings?.academy_draft_id ?? null
+      : settings?.current_season === season
+        ? settings?.featured_draft_id ?? null
+        : null;
+  const scopedTeams = seasonDraftId ? teamRows.filter((team) => team.draft_id === seasonDraftId) : teamRows;
+
   const teamImages = new Map<string, string>();
-  for (const team of teamRows) {
+  for (const team of scopedTeams) {
     if (team.image_url && !teamImages.has(team.name.trim().toLowerCase())) {
       teamImages.set(team.name.trim().toLowerCase(), team.image_url);
     }
