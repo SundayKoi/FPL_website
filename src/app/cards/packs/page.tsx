@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
+import BinderEditor, { type BinderOption } from "@/components/cards/BinderEditor";
 import CollectionGrid from "@/components/cards/CollectionGrid";
-import TeamSetsSection from "@/components/cards/TeamSetsSection";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
-import type { PlayerCardData } from "@/lib/cards/build";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import { fetchInventory, fetchPackOpenCount, type InventoryRow } from "@/lib/packs/queries";
+import { BINDER_SLOTS, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
   title: "Card Packs — FPL",
@@ -63,17 +63,29 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount, editionWeeks, seasonCards]: [InventoryRow[], number, string[], PlayerCardData[]] = season
+  const [inventory, openCount, editionWeeks, binder]: [InventoryRow[], number, string[], Binder | null] = season
     ? await Promise.all([
         fetchInventory(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
         fetchCardEditionWeeks(service, season),
-        // The live roster, which is what a set is measured against — the
-        // frozen copies in `inventory` know who you own, not who exists.
-        fetchSeasonCards(service, season),
+        // null when the card_binders migration hasn't been applied here —
+        // the section is skipped rather than 500ing the whole page.
+        fetchOrCreateOwnBinder(service, user.discordId),
       ])
-    : [[], 0, [], []];
+    : [[], 0, [], null];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
+  // Slots are 1-indexed in the table and positional in the editor.
+  const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
+    return binder?.cards.find((entry) => entry.slot === index + 1)?.inventoryId ?? null;
+  });
+  const binderOptions: BinderOption[] = inventory.map((row) => ({
+    inventoryId: row.id,
+    playerName: row.playerName,
+    editionWeek: row.editionWeek,
+    tier: row.tier,
+    foil: row.foil,
+    signed: row.signed,
+  }));
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -120,7 +132,9 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         <CollectionGrid inventory={inventory} />
       </section>
 
-      <TeamSetsSection cards={seasonCards} ownedSlugs={ownedSlugs} />
+      {binder && inventory.length > 0 ? (
+        <BinderEditor slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
+      ) : null}
     </main>
   );
 }
