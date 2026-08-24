@@ -143,6 +143,44 @@ export interface RatingHistoryPoint {
 /** One card's weekly rating readings, oldest first — the season journey.
  *  Errors (e.g. the history migration not applied yet) return empty: the
  *  journey strip is garnish. */
+/**
+ * Every edition week on offer for `season`, newest first.
+ *
+ * Empty until the weekly drop has archived at least one week — the pack
+ * shop treats that as "current cards only" rather than an error, so packs
+ * keep working on a league that has never run a drop.
+ */
+export async function fetchCardEditionWeeks(supabase: SupabaseClient, season: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("card_editions")
+    .select("edition_week")
+    .eq("season", season)
+    .order("edition_week", { ascending: false });
+  // Garnish, not load-bearing: an environment without the card_editions
+  // migration still sells current-week packs.
+  if (error) return [];
+  return [...new Set(((data as { edition_week: string }[]) ?? []).map((row) => row.edition_week))];
+}
+
+/**
+ * The cards exactly as they stood in one archived week — the pool a pack
+ * bought for that week mints from. Returns [] when the week was never
+ * archived, which callers read as "fall back to the live cards".
+ */
+export async function fetchEditionCards(
+  supabase: SupabaseClient,
+  season: string,
+  editionWeek: string,
+): Promise<PlayerCardData[]> {
+  const { data, error } = await supabase
+    .from("card_editions")
+    .select("card")
+    .eq("season", season)
+    .eq("edition_week", editionWeek);
+  if (error) return [];
+  return ((data as { card: PlayerCardData }[]) ?? []).map((row) => row.card);
+}
+
 export async function fetchRatingHistory(
   supabase: SupabaseClient,
   season: string,

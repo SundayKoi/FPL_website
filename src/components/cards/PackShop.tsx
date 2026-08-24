@@ -24,17 +24,31 @@ import { openPackAction } from "@/lib/packs/actions";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
+/** "Week 3 · Sep 8" — the week number counts up from the season's first
+ *  archived edition, which is how players talk about them. */
+function editionLabel(week: string, number: number): string {
+  const date = new Date(`${week}T12:00:00.000Z`);
+  const when = date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return `Week ${number} · ${when}`;
+}
+
 export default function PackShop({
   league,
   balance: initialBalance,
   packCost,
   openCount: initialOpenCount,
   ownedSlugs = [],
+  editionWeeks = [],
 }: {
   league: CardLeague;
   balance: number;
   packCost: number;
   openCount: number;
+  /** Every archived edition week, newest first. A pack can be bought for
+   *  any of them, so no week's cards ever stop being obtainable. Empty on a
+   *  league whose first weekly drop hasn't run — the shop then just sells
+   *  the current cards. */
+  editionWeeks?: string[];
   /** Every slug already in the collection — the overlay's NEW badges are the
    *  difference between this and what comes out of the pack. */
   ownedSlugs?: string[];
@@ -45,6 +59,9 @@ export default function PackShop({
   const [pulls, setPulls] = useState<Pull[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Defaults to the newest week; picking an older one re-mints that week
+  // exactly, ratings and all.
+  const [week, setWeek] = useState(editionWeeks[0] ?? "");
 
   // Mute belongs to the audio module, not to this component: the rip, the
   // flips and the walkout stings are all the same setting, and it's persisted
@@ -71,7 +88,7 @@ export default function PackShop({
   function handleOpen() {
     setError(null);
     startTransition(async () => {
-      const result = await openPackAction(league);
+      const result = await openPackAction(league, week || undefined);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -84,11 +101,13 @@ export default function PackShop({
   // Handed to the overlay rather than letting it call the action itself: the
   // shop owns the wallet, so it has to see every purchase. A failed open is
   // returned intact for the summary bar to show — the stage stays up.
+  // `week` is a dependency for real: without it, "Open another" would keep
+  // minting whichever edition was selected when the overlay first mounted.
   const openAnother = useCallback(async (): Promise<OpenResult> => {
-    const result = await openPackAction(league);
+    const result = await openPackAction(league, week || undefined);
     if (result.ok) banked(result.balance);
     return result;
-  }, [league, banked]);
+  }, [league, week, banked]);
 
   const handleExit = useCallback(() => {
     setPulls(null);
@@ -105,6 +124,23 @@ export default function PackShop({
           <span className="label-dash">Pack price</span>
           <span className="text-sm font-semibold text-white">{fmtPoints(packCost)}</span>
         </div>
+        {editionWeeks.length > 0 ? (
+          <label className="flex flex-col gap-1 text-xs text-steel">
+            Edition
+            <select
+              value={week}
+              onChange={(event) => setWeek(event.target.value)}
+              disabled={pending}
+              className="input-brand px-3 py-2 text-sm disabled:opacity-60"
+            >
+              {editionWeeks.map((value, index) => (
+                <option key={value} value={value}>
+                  {editionLabel(value, editionWeeks.length - index)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <button
           type="button"
           onClick={handleOpen}
