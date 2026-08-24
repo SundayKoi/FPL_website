@@ -53,6 +53,16 @@ describe("BinderEditor", () => {
     await waitFor(() => expect(setSlot).toHaveBeenCalledWith(1, null));
   });
 
+  it("still shows the binder and its share link with an empty collection", () => {
+    render(<BinderEditor slots={[null, null, null, null, null, null]} options={[]} token="tok" title={null} />);
+
+    // Discoverable before you own anything — otherwise the only way to
+    // learn the binder exists is to already have cards in it.
+    expect(screen.getByText(/open a pack/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /view binder/i }).getAttribute("href")).toBe("/binder/tok");
+    expect(screen.queryByLabelText("Slot 1")).toBeNull();
+  });
+
   it("rolls the slot back and explains when the server refuses", async () => {
     setSlot.mockResolvedValueOnce({ ok: false, error: "That card isn't in your collection." } as never);
     renderEditor();

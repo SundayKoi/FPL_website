@@ -71,7 +71,7 @@ export default function BinderEditor({
   }
 
   return (
-    <section aria-labelledby="binder-heading" className="flex flex-col gap-4">
+    <section id="binder" aria-labelledby="binder-heading" className="scroll-mt-24 flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="binder-heading" className="type-display text-2xl sm:text-3xl">
           Your binder
@@ -122,8 +122,14 @@ export default function BinderEditor({
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
+      {options.length === 0 ? (
+        <p className="text-sm text-steel">
+          Nothing to display yet — open a pack and the copies you pull become choosable here.
+        </p>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {picked.map((inventoryId, index) => (
+        {options.length === 0 ? null : picked.map((inventoryId, index) => (
           <label key={index} className="flex flex-col gap-1 text-xs text-steel">
             Slot {index + 1}
             <select
