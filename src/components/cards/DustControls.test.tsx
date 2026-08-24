@@ -89,10 +89,10 @@ describe("DustControls", () => {
     open();
 
     // silver = common $10; diamond = epic $60 doubled for foil; challenger =
-    // legendary $150 × 5 for the autograph.
+    // legendary $150 plus the flat $1,200 autograph bonus.
     expect(screen.getByText("Dust · $10")).toBeTruthy();
     expect(screen.getByText("Dust · $120")).toBeTruthy();
-    expect(screen.getByText("Dust · $750")).toBeTruthy();
+    expect(screen.getByText("Dust · $1,350")).toBeTruthy();
 
     expect(screen.getByText("WK Aug 17")).toBeTruthy();
     expect(screen.getByText("Silver")).toBeTruthy();
@@ -118,11 +118,11 @@ describe("DustControls", () => {
   it("disarms a primed copy when a different one is clicked", async () => {
     open();
 
-    await click(screen.getByText("Dust · $750"));
-    expect(screen.getByText("Confirm $750?")).toBeTruthy();
+    await click(screen.getByText("Dust · $1,350"));
+    expect(screen.getByText("Confirm $1,350?")).toBeTruthy();
 
     await click(screen.getByText("Dust · $10"));
-    expect(screen.queryByText("Confirm $750?")).toBeNull();
+    expect(screen.queryByText("Confirm $1,350?")).toBeNull();
     expect(screen.getByText("Confirm $10?")).toBeTruthy();
     expect(dustCardAction).not.toHaveBeenCalled();
   });

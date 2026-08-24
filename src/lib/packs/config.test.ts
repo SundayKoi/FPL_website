@@ -5,7 +5,7 @@ import {
   PACK_COST,
   PACK_SIZE,
   RARITY_WEIGHTS,
-  SIGNED_DUST_MULT,
+  SIGNED_DUST_BASE,
   dustValueOf,
 } from "./config";
 
@@ -18,12 +18,21 @@ describe("dustValueOf", () => {
     expect(dustValueOf({ tier: "challenger", foil: false, signed: false })).toBe(DUST_VALUES.legendary);
   });
 
-  it("stacks the foil and signed multipliers multiplicatively", () => {
+  it("doubles a foil and adds the flat autograph bonus on top", () => {
     expect(dustValueOf({ tier: "diamond", foil: true, signed: false })).toBe(DUST_VALUES.epic * FOIL_DUST_MULT);
-    expect(dustValueOf({ tier: "diamond", foil: false, signed: true })).toBe(DUST_VALUES.epic * SIGNED_DUST_MULT);
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: true })).toBe(DUST_VALUES.epic + SIGNED_DUST_BASE);
     expect(dustValueOf({ tier: "challenger", foil: true, signed: true })).toBe(
-      DUST_VALUES.legendary * FOIL_DUST_MULT * SIGNED_DUST_MULT,
+      DUST_VALUES.legendary * FOIL_DUST_MULT + SIGNED_DUST_BASE,
     );
+  });
+
+  it("lets the signature dominate: signed copies price within a hair of each other", () => {
+    // The autograph is exactly as rare on a bronze as on a challenger, so a
+    // signed bronze must not read as junk next to a signed challenger.
+    const bronze = dustValueOf({ tier: "bronze", foil: true, signed: true });
+    const challenger = dustValueOf({ tier: "challenger", foil: true, signed: true });
+    expect(bronze).toBeGreaterThan(DUST_VALUES.legendary * FOIL_DUST_MULT);
+    expect(challenger / bronze).toBeLessThan(1.5);
   });
 
   it("dusts an unrecognized tier as common rather than throwing", () => {
