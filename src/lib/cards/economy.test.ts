@@ -18,7 +18,7 @@ function client(tables: Record<string, { data?: unknown; error?: unknown; count?
 const PROFILES = {
   data: [
     { discord_id: "dev1", username: "Dribb" },
-    { discord_id: "dev2", username: "spiesss" },
+    { discord_id: "dev2", username: "@spiesss" },
     { discord_id: "u1", username: "Ari" },
     { discord_id: "u2", username: "Bo" },
   ],
@@ -46,6 +46,10 @@ describe("excludedCollectorNames", () => {
 
   it("takes a configured list, trimmed and lowercased", () => {
     expect(excludedCollectorNames(" Foo , BAR ")).toEqual(["foo", "bar"]);
+  });
+
+  it("ignores a leading @ on either side", () => {
+    expect(excludedCollectorNames("@Dribb, @spiesss")).toEqual(["dribb", "spiesss"]);
   });
 });
 
