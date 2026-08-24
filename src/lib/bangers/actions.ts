@@ -13,7 +13,18 @@ export async function voteBangerPost(postId: string, vote: BangerVote): Promise<
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
   const supabase = createBettingServiceClient();
   const { error } = await supabase.rpc("vote_banger_post", { p_post_id: postId, p_voter_id: user.profileId, p_vote: vote });
-  return error ? { ok: false, error: "That vote could not be saved." } : { ok: true };
+  if (!error) return { ok: true };
+
+  console.error("banger: vote RPC failed; attempting direct service-role upsert", {
+    postId,
+    voterId: user.profileId,
+    vote,
+    error: error.message,
+  });
+  const { error: upsertError } = await supabase
+    .from("banger_votes")
+    .upsert({ post_id: postId, voter_id: user.profileId, vote }, { onConflict: "post_id,voter_id" });
+  return upsertError ? { ok: false, error: "That vote could not be saved." } : { ok: true };
 }
 
 export async function voteDailyBanger(postId: string, vote: BangerVote): Promise<VoteResult> {
