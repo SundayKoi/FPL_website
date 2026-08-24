@@ -30,6 +30,21 @@ describe("applyAutographs", () => {
     expect(signed[0].autograph).toBe(INK);
   });
 
+  it("prints every signed copy foil, and leaves an unsigned pull's foil alone", () => {
+    const signed = applyAutographs([pull("7gen-na1")], new Map([["7gen-na1", INK]]), scripted([SIGNED_CHANCE - 0.001]));
+    expect(signed[0].foil).toBe(true);
+
+    const missed = applyAutographs([pull("7gen-na1")], new Map([["7gen-na1", INK]]), scripted([0.9]));
+    expect(missed[0].foil).toBe(false);
+
+    const alreadyFoil = applyAutographs(
+      [{ ...pull("7gen-na1"), foil: true }],
+      new Map([["7gen-na1", INK]]),
+      scripted([0.9]),
+    );
+    expect(alreadyFoil[0].foil).toBe(true);
+  });
+
   it("leaves a pull unsigned at or above the chance", () => {
     const signed = applyAutographs(
       [pull("7gen-na1"), pull("7gen-na1")],

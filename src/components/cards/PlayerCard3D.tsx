@@ -366,15 +366,18 @@ export default function PlayerCard3D({
                 // hovers right above the archetype label, at the angle a
                 // hand signs at. White ink, so it needs a dark halo of its
                 // own to read over a bright splash.
+                // Right-anchored rather than centered: the name/team lines
+                // above are left-aligned, and a centered signature ran
+                // straight through the team name.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={card.autograph}
                   alt={`${card.name}'s autograph`}
                   data-testid="autograph"
                   decoding="async"
-                  className="pointer-events-none absolute -top-[4.5rem] left-1/2 w-[58%] object-contain"
+                  className="pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain"
                   style={{
-                    transform: "translateX(-50%) rotate(-6deg)",
+                    transform: "rotate(-6deg)",
                     filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
                   }}
                 />

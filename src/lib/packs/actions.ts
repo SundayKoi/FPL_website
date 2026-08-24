@@ -6,10 +6,10 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { PACK_COST } from "./config";
+import { ALT_SKIN_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
-import { fetchChampionSkinNums, rollPrint } from "./skins";
+import { fetchChampionSkinNums, printArtExists, rollPrint } from "./skins";
 import { mondayOf } from "./week";
 
 /** slug -> that player's inked signature, for everyone in `season` who has
@@ -127,7 +127,16 @@ export async function openPackAction(
       prints.push({ ...pull, card });
       continue;
     }
-    prints.push({ ...pull, card: { ...card, artSkin: await rollPrint(champion, skinNums.get(champion) ?? [0], rand) } });
+    // Signed copies roll alternate art on their own, rarer gate — the
+    // signed + foil + alt print is the chase.
+    const artSkin = await rollPrint(
+      champion,
+      skinNums.get(champion) ?? [0],
+      rand,
+      printArtExists,
+      pull.signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
+    );
+    prints.push({ ...pull, card: { ...card, artSkin } });
   }
 
   const editionWeek = mondayOf(new Date());

@@ -109,10 +109,11 @@ export async function printArtExists(championName: string, num: number): Promise
 
 /**
  * The print roll the pack actually uses. Two stages, both off the injected
- * rand: first a chance gate — ALT_SKIN_CHANCE of printing an alternate at
- * all, base splash otherwise, so base is the expected look and an alternate
- * reads as a pull in its own right — then a uniform pick among the
- * champion's alternates, VALIDATED against the CDN before it's frozen.
+ * rand: first a chance gate — `altChance` (ALT_SKIN_CHANCE by default,
+ * SIGNED_ALT_SKIN_CHANCE for autographed copies) of printing an alternate
+ * at all, base splash otherwise, so base is the expected look and an
+ * alternate reads as a pull in its own right — then a uniform pick among
+ * the champion's alternates, VALIDATED against the CDN before it's frozen.
  *
  * The skin catalog lists nums Riot never uploaded art for (they 403) —
  * without the validation those prints render broken and the card's
@@ -128,10 +129,11 @@ export async function rollPrint(
   skinNums: number[],
   rand: () => number,
   artExists: (championName: string, num: number) => Promise<boolean> = printArtExists,
+  altChance: number = ALT_SKIN_CHANCE,
 ): Promise<number> {
   const alternates = [...new Set(skinNums)].filter((num) => num !== 0);
   if (alternates.length === 0) return 0;
-  if (rand() >= ALT_SKIN_CHANCE) return 0;
+  if (rand() >= altChance) return 0;
 
   for (let attempt = 0; attempt < 6 && alternates.length > 0; attempt++) {
     const index = Math.min(alternates.length - 1, Math.floor(rand() * alternates.length));
