@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
-import { tierLabel } from "@/components/cards/CardCopyPreview";
+import { tierLabel } from "@/lib/cards/tier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchBinderByToken } from "@/lib/binder/queries";
 import { editionLabel } from "@/lib/packs/week";
