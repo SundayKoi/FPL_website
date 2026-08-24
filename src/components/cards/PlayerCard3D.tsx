@@ -349,11 +349,19 @@ export default function PlayerCard3D({
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/85" />
             {card.teamImageUrl ? (
               // Team watermark, ghosted behind the stat block.
+              // Not greyscaled, and lifted off 15% opacity: a dark crest
+              // (a black-background badge, say) desaturated to 15% over
+              // dark splash art has almost no luminance left and reads as
+              // no logo at all, while pale ones still showed — which looks
+              // exactly like a broken lookup for that one team. Keeping the
+              // brand colour plus a soft light halo gives dark marks an
+              // edge to separate on, without the watermark competing with
+              // the art.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={card.teamImageUrl}
                 alt=""
-                className="pointer-events-none absolute bottom-24 right-2 h-24 w-24 object-contain opacity-15 grayscale"
+                className="pointer-events-none absolute bottom-24 right-2 h-24 w-24 object-contain opacity-30 saturate-50 drop-shadow-[0_0_3px_rgba(255,255,255,0.45)]"
                 loading="lazy"
                 decoding="async"
               />

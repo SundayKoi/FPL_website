@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
+import { backfillTeamBadges, fetchTeamBadges } from "@/lib/cards/queries";
 
 /** One owned copy of a card. The flat columns mirror `card`'s contents at
  *  pull time — read them for filtering/sorting, read `card` to render. */
@@ -63,7 +64,19 @@ export async function fetchInventory(
     .eq("season", season)
     .order("acquired_at", { ascending: false });
   if (error) return [];
-  return ((data as InventoryDbRow[]) ?? []).map((row) => ({
+  const rows = (data as InventoryDbRow[]) ?? [];
+  // A copy freezes the card as it was pulled — ratings included, which is
+  // the point. The team badge is the one exception: it is branding for a
+  // team that can't change mid-season, and a copy pulled before that
+  // team's logo resolved would otherwise wear a blank crest forever.
+  // One lookup for the whole collection, applied only where it's missing.
+  const repaired = backfillTeamBadges(
+    rows.map((row) => row.card),
+    rows.some((row) => row.card && !row.card.teamImageUrl && row.card.teamName)
+      ? await fetchTeamBadges(supabase, season)
+      : new Map<string, string>(),
+  );
+  return rows.map((row, index) => ({
     id: row.id,
     season: row.season,
     slug: row.slug,
@@ -74,7 +87,7 @@ export async function fetchInventory(
     tier: row.tier,
     foil: row.foil,
     signed: row.signed === true,
-    card: row.card,
+    card: repaired[index],
     packOpenId: row.pack_open_id,
     acquiredAt: row.acquired_at,
   }));
