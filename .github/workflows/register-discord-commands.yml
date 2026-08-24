@@ -1,0 +1,28 @@
+name: Register Discord commands
+# Manual-only: run after changing the command array in
+# scripts/register-discord-commands.ts. The PUT is declarative (commands
+# missing from the array are deleted from the guild), so this is the one
+# source of truth for what appears in the slash-command picker.
+on:
+  workflow_dispatch:
+concurrency:
+  group: register-discord-commands
+  cancel-in-progress: false
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    # secrets live in the repo's "Production" environment — a job only sees
+    # environment secrets when it declares the environment
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/register-discord-commands.ts
+        env:
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+          DISCORD_GUILD_ID: ${{ secrets.DISCORD_GUILD_ID }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
