@@ -18,6 +18,9 @@
   --color-cyan: #35e6ff;
   --color-pink: #ff3d84;
   --color-purple: #b06bff;
+  --color-jungle: #071b16;
+  --color-jungle-card: #102c24;
+  --color-banana: #f5d04e;
   --font-display: var(--font-chakra), "Segoe UI", sans-serif;
   --font-body: var(--font-saira), "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
