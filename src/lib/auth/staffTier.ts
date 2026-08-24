@@ -6,7 +6,7 @@ export interface StaffTier {
   isBroadcaster: boolean;
 }
 
-function isMissingBroadcasterColumn(error: { code?: string; message?: string } | null) {
+export function isMissingBroadcasterColumn(error: { code?: string; message?: string } | null) {
   return (
     (error?.code === "PGRST204" || error?.code === "42703") &&
     error.message?.includes("is_broadcaster")

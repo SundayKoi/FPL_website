@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { fetchStaffTier, isMissingBroadcasterColumn } from "@/lib/auth/staffTier";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
@@ -24,6 +24,25 @@ function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[]
   }));
 }
 
+async function fetchStaffProfiles(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  const current = await supabase
+    .from("profiles")
+    .select("id, display_name, is_admin, is_owner, is_broadcaster")
+    .order("display_name");
+  if (!current.error) return (current.data as StaffProfile[]) ?? [];
+  if (!isMissingBroadcasterColumn(current.error)) return [];
+
+  const legacy = await supabase
+    .from("profiles")
+    .select("id, display_name, is_admin, is_owner")
+    .order("display_name");
+  if (legacy.error) return [];
+  return ((legacy.data as Omit<StaffProfile, "is_broadcaster">[]) ?? []).map((profile) => ({
+    ...profile,
+    is_broadcaster: false,
+  }));
+}
+
 /**
  * Admin hub: the league's controls are spread across their feature pages
  * (fixtures + season/phase on Schedule, signups on Sign Up, avg bids on
@@ -40,14 +59,7 @@ export default async function AdminPage() {
   // re-checks ownership server-side, so an admin who forges their way here can
   // still change nothing.
   const staffProfiles = isOwner
-    ? (
-        (
-          await supabase
-            .from("profiles")
-            .select("id, display_name, is_admin, is_owner, is_broadcaster")
-            .order("display_name")
-        ).data as StaffProfile[]
-      ) ?? []
+    ? await fetchStaffProfiles(supabase)
     : [];
 
   const [draftsResult, settingsResult, signupCountResult, fixtureCountResult] = await Promise.all([
