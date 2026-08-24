@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlayerCardData } from "@/lib/cards/build";
 import DustControls, { type DustCopy } from "./DustControls";
 
 const { dustCardAction } = vi.hoisted(() => ({ dustCardAction: vi.fn() }));
@@ -8,17 +9,58 @@ vi.mock("@/lib/trades/actions", () => ({ dustCardAction }));
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
+/** The frozen print each row now shows. artSkin is what makes two copies of
+ *  one player look different, so it's the interesting knob here. */
+function makeCard(tier: string, artSkin: number, signature: string | null = "Jhin"): PlayerCardData {
+  return {
+    slug: "chaseworthy-na1",
+    name: "Chaseworthy",
+    tag: "NA1",
+    teamName: null,
+    teamImageUrl: null,
+    role: "Mid",
+    overall: 88,
+    tier: { key: tier as PlayerCardData["tier"]["key"], label: tier.charAt(0).toUpperCase() + tier.slice(1) },
+    archetype: "Playmaker",
+    signature: signature ? { champion: signature, games: 12 } : null,
+    artSkin,
+    autograph: null,
+    motto: null,
+    serial: 0,
+    collectionSize: 48,
+    topChampions: [],
+    form: [],
+    subStats: [{ key: "combat", label: "Combat", value: 50 }],
+    highlights: [],
+    badges: [],
+    standout: false,
+    wins: 1,
+    losses: 1,
+    winratePct: 50,
+    level: 10,
+    pentas: 0,
+    season: "S5",
+  };
+}
+
 // One of each thing the value table cares about: a plain common, a foil
-// epic, and the signed legendary nobody should ever dust.
+// epic, and the signed legendary nobody should ever dust. The foil is also
+// the one in an alternate skin — the case where a thumbnail earns its place.
 const copies: DustCopy[] = [
-  { id: 1, tier: "silver", foil: false, signed: false, editionWeek: "2026-08-17" },
-  { id: 2, tier: "diamond", foil: true, signed: false, editionWeek: "2026-08-24" },
-  { id: 3, tier: "challenger", foil: false, signed: true, editionWeek: "2026-08-31" },
+  { id: 1, tier: "silver", foil: false, signed: false, editionWeek: "2026-08-17", card: makeCard("silver", 0) },
+  { id: 2, tier: "diamond", foil: true, signed: false, editionWeek: "2026-08-24", card: makeCard("diamond", 64) },
+  { id: 3, tier: "challenger", foil: false, signed: true, editionWeek: "2026-08-31", card: makeCard("challenger", 0) },
 ];
 
 function open() {
-  render(<DustControls playerName="Chaseworthy" copies={copies} />);
+  const result = render(<DustControls playerName="Chaseworthy" copies={copies} />);
   fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
+  return result;
+}
+
+/** The inline print thumbnails, in row order. */
+function thumbs(container: HTMLElement) {
+  return [...container.querySelectorAll('img[src*="/champion/"]')] as HTMLImageElement[];
 }
 
 /** Click and let the (mocked, already-resolved) server action settle. */
@@ -82,6 +124,45 @@ describe("DustControls", () => {
     await click(screen.getByText("Dust · $10"));
     expect(screen.queryByText("Confirm $750?")).toBeNull();
     expect(screen.getByText("Confirm $10?")).toBeTruthy();
+    expect(dustCardAction).not.toHaveBeenCalled();
+  });
+
+  it("shows each row the art its own copy printed in", () => {
+    const { container } = open();
+
+    const srcs = thumbs(container).map((img) => img.getAttribute("src"));
+    expect(srcs).toHaveLength(3);
+    // The alternate-skin copy is the whole point: its row can't look like
+    // the two base-art rows around it.
+    expect(srcs[1]).toContain("/centered/Jhin_64.jpg");
+    expect(srcs[0]).toContain("/centered/Jhin_0.jpg");
+  });
+
+  it("falls a thumbnail back to the regular splash before dropping it", () => {
+    const { container } = open();
+
+    const thumb = thumbs(container).find((img) => img.getAttribute("src")?.includes("_64")) as HTMLImageElement;
+    fireEvent.error(thumb);
+    expect(thumb.getAttribute("src")).toContain("/splash/Jhin_64.jpg");
+
+    // Neither directory has it: the row loses its thumb rather than showing
+    // a broken image next to a destroy button.
+    fireEvent.error(thumb);
+    expect(thumbs(container)).toHaveLength(2);
+  });
+
+  it("opens the exact copy full-size from its row", async () => {
+    open();
+
+    expect(screen.getAllByRole("button", { name: /^Look at the / })).toHaveLength(3);
+    await click(screen.getByRole("button", { name: "Look at the WK Aug 24 Diamond copy of Chaseworthy" }));
+
+    expect(screen.getByRole("dialog", { name: "Chaseworthy — card preview" })).toBeTruthy();
+    // Its own foil roll and alternate print, not the player's best copy.
+    expect(screen.getByTestId("foil")).toBeTruthy();
+    expect(screen.getByText("Alt art")).toBeTruthy();
+    // Looking is not arming: the dust button is untouched by the preview.
+    expect(screen.getByText("Dust · $120")).toBeTruthy();
     expect(dustCardAction).not.toHaveBeenCalled();
   });
 

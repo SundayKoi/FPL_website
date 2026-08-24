@@ -32,6 +32,7 @@ export default function CardClaim({
   viewerProfileId,
   canModerate,
   claim,
+  highlight = false,
 }: {
   season: string;
   summonerName: string;
@@ -39,6 +40,9 @@ export default function CardClaim({
   viewerProfileId: string | null;
   canModerate: boolean;
   claim: CardClaimState | null;
+  /** Arrived here from a "claim your card" link (?claim=1) — ring the row so
+   *  the eye lands on it instead of on the card it sits under. */
+  highlight?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -76,7 +80,11 @@ export default function CardClaim({
   const drop = () => run(async () => await supabase.from("card_claims").delete().match(key));
 
   const wrap = (children: React.ReactNode) => (
-    <div className="flex flex-col items-center gap-1">
+    <div
+      className={`flex flex-col items-center gap-1 ${
+        highlight ? "claim-highlight rounded-xl p-3 ring-2 ring-coral" : ""
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>

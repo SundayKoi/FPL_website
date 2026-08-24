@@ -23,9 +23,10 @@
 // The filters need state, so this is a client component. That means the
 // frozen `card` json of every copy crosses the boundary rather than one per
 // player — unavoidable, since a showcase renders the copies themselves, and
-// each one's art and ink live in its own frozen json. DustControls is still
-// handed flat copy fields (it never needs the json) and still only appears
-// in the All view: the variant views are a display case, not a workbench.
+// each one's art and ink live in its own frozen json. DustControls rides
+// along on that same json (it shows each copy before you destroy it) and
+// still only appears in the All view: the variant views are a display case,
+// not a workbench.
 
 import { useState } from "react";
 import type { InventoryRow } from "@/lib/packs/queries";
@@ -216,8 +217,9 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
         prints: [...byPrint.values()]
           .map((prints) => ({ copy: prints.reduce(betterCopy), count: prints.length }))
           .sort((a, b) => showcaseOrder(a.copy, b.copy)),
-        // Only what the dust drawer needs, flattened: DustControls never
-        // reads the frozen `card` json, so it doesn't get handed one.
+        // What the dust drawer needs: the flat fields it labels and prices a
+        // copy by, plus the frozen print it shows you before you destroy it.
+        // No extra payload — this json is already on the client.
         copies: copies
           .map((copy) => ({
             id: copy.id,
@@ -225,6 +227,7 @@ export default function CollectionGrid({ inventory }: { inventory: InventoryRow[
             foil: copy.foil,
             signed: copy.signed,
             editionWeek: copy.editionWeek,
+            card: copy.card,
           }))
           .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
       };

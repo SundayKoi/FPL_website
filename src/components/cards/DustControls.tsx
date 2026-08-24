@@ -18,28 +18,42 @@
 // precomputed here: the lineup can change between render and click, so the
 // server action is the only thing that can answer honestly and its error is
 // surfaced inline instead.
+//
+// And because the decision is about a specific copy, the row SHOWS it: a
+// thumbnail of the art this copy actually printed in, plus a ⤢ that opens
+// the copy full-size. "Dust · $120" next to a line of text is a number
+// attached to nothing — the whole reason to keep a duplicate is usually the
+// skin it wears, and you can't weigh that against $120 by reading it.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
+import type { PlayerCardData } from "@/lib/cards/build";
+import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { dustValueOf } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
+import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 
-/** One owned copy, flattened to the serializable fields a client component
- *  can be handed across the server/client boundary. */
+/** One owned copy: the flat fields the value table and the labels read, plus
+ *  the frozen print itself — the only place a copy's art, ink and holograph
+ *  are recorded, and so the only way to show the reader what they're about
+ *  to destroy. All serializable; CollectionGrid already holds it client-side. */
 export interface DustCopy {
   id: number;
   tier: string;
   foil: boolean;
   signed: boolean;
   editionWeek: string;
+  card: PlayerCardData;
 }
 
-/** "challenger" → "Challenger". The tier labels in src/lib/cards/build.ts are
- *  the capitalized key, so there is nothing to look up. */
-function tierLabel(tier: string): string {
-  return tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "—";
+/** The art this copy printed in — the signature champion in whichever skin
+ *  the pull rolled. Same chain PlayerCard3D's front uses, minus the base-art
+ *  last resort: a thumbnail that quietly shows the wrong skin would be worse
+ *  than no thumbnail, so this one just leaves. */
+function copyArtUrl(card: PlayerCardData): string | null {
+  return card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
 }
 
 export default function DustControls({ playerName, copies }: { playerName: string; copies: DustCopy[] }) {
@@ -48,6 +62,9 @@ export default function DustControls({ playerName, copies }: { playerName: strin
   const [armed, setArmed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Copies whose art Riot serves from neither directory — the thumb drops
+  // out rather than leaving a broken-image box in a destructive row.
+  const [artless, setArtless] = useState<ReadonlySet<number>>(new Set());
 
   if (copies.length === 0) return null;
 
@@ -92,12 +109,39 @@ export default function DustControls({ playerName, copies }: { playerName: strin
           {copies.map((copy) => {
             const value = dustValueOf(copy);
             const isArmed = armed === copy.id;
+            const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
+            const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;
             return (
               <li
                 key={copy.id}
                 className="flex items-center justify-between gap-2 rounded-md border border-line bg-panel px-2 py-1"
               >
-                <span className="flex min-w-0 flex-wrap items-center gap-1 text-[10px] text-steel">
+                {art ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={art}
+                    alt=""
+                    aria-hidden
+                    loading="lazy"
+                    className="h-7 w-10 shrink-0 rounded-sm border border-line object-cover object-[center_20%]"
+                    onError={(event) => {
+                      // Centered art missing → the same skin's regular splash
+                      // before giving up. The stage rides the element so a
+                      // second failure can't loop (same as SkinPicker's).
+                      const img = event.currentTarget;
+                      const fallback = copy.card.signature
+                        ? championSplashUrl(copy.card.signature.champion, copy.card.artSkin)
+                        : null;
+                      if (fallback && img.dataset.artStage !== "1") {
+                        img.dataset.artStage = "1";
+                        img.src = fallback;
+                        return;
+                      }
+                      setArtless((current) => new Set(current).add(copy.id));
+                    }}
+                  />
+                ) : null}
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-[10px] text-steel">
                   <span className="font-semibold uppercase tracking-wide">{editionLabel(copy.editionWeek)}</span>
                   <span>{tierLabel(copy.tier)}</span>
                   {copy.signed ? (
@@ -111,11 +155,27 @@ export default function DustControls({ playerName, copies }: { playerName: strin
                     </span>
                   ) : null}
                 </span>
+                <CardCopyPreview
+                  card={copy.card}
+                  foil={copy.foil}
+                  caption={{
+                    playerName,
+                    editionWeek: copy.editionWeek,
+                    tier: copy.tier,
+                    foil: copy.foil,
+                    signed: copy.signed,
+                    altArt: copy.card.artSkin > 0,
+                  }}
+                  label={`Look at the ${describe}`}
+                  className="shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] font-bold text-steel transition hover:border-coral hover:text-coral"
+                >
+                  ⤢
+                </CardCopyPreview>
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}
                   disabled={pending}
-                  aria-label={`Dust the ${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`}
+                  aria-label={`Dust the ${describe}`}
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60 ${
                     isArmed
                       ? "border-coral bg-coral/20 text-coral"

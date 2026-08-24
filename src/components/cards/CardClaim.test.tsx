@@ -108,6 +108,20 @@ describe("CardClaim", () => {
     expect(screen.getByRole("button", { name: "Revoke" })).toBeTruthy();
   });
 
+  it("rings the row when the visitor followed a claim link", () => {
+    const { container, rerender } = render(
+      <CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} highlight />,
+    );
+
+    const ringed = container.querySelector(".claim-highlight");
+    expect(ringed).toBeTruthy();
+    expect(ringed?.className).toContain("ring-coral");
+
+    // Off by default: the ring is for the one visit the link sent.
+    rerender(<CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} />);
+    expect(container.querySelector(".claim-highlight")).toBeNull();
+  });
+
   it("surfaces a rejected write inline and does not refresh", async () => {
     insert.mockResolvedValueOnce({ error: { message: "new row violates row-level security policy" } });
     render(<CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} />);

@@ -74,6 +74,15 @@ describe("SkinPicker", () => {
     expect(thumbs(container).some((img) => img.getAttribute("src")?.includes("_64"))).toBe(false);
   });
 
+  it("starts expanded when the visitor came here to customize", () => {
+    // /card/[slug]?customize=1 — the hub's "Customize your card →" already
+    // said what this visit is for; a second toggle is a dead end.
+    const { container } = render(<SkinPicker {...card} currentSkin={0} skinNums={[0, 64]} initialOpen />);
+
+    expect(thumbs(container)).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Close customizer" })).toBeTruthy();
+  });
+
   it("saves the picked skin against the card's Riot identity", async () => {
     const { container } = render(<SkinPicker {...card} currentSkin={0} skinNums={[0, 64]} />);
     open();

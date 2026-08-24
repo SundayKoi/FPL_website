@@ -31,6 +31,7 @@ export default function SkinPicker({
   skinNums = [0],
   currentMotto = null,
   currentSignature = null,
+  initialOpen = false,
 }: {
   season: string;
   summonerName: string;
@@ -42,10 +43,15 @@ export default function SkinPicker({
   skinNums?: number[];
   currentMotto?: string | null;
   currentSignature?: string | null;
+  /** Start expanded. The panel is collapsed by default because most visits
+   *  to a card page aren't editing sessions — but a viewer who followed
+   *  "Customize your card →" (?customize=1) came here to do exactly that,
+   *  and shouldn't have to find a second toggle. */
+  initialOpen?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [broken, setBroken] = useState<Set<number>>(new Set());

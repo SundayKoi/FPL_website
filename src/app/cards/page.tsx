@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
+import ClaimFinder, { toClaimFinderCards } from "@/components/cards/ClaimFinder";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { cardSlug } from "@/lib/cards/build";
 import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -69,6 +71,26 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
     : { count: null };
   const showClaims = staffTier.isAdmin || (pendingClaims ?? 0) > 0;
 
+  // The thing a player is most likely here to do, and until now the hardest
+  // to find: their own card. One read for the whole page — never one per
+  // card — and every failure (signed-out edge, migration not applied, two
+  // claims in a season) reads as "no claim", whose strip is the harmless one.
+  const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
+  const viewerProfileId = viewer.user?.id ?? null;
+  const { data: claimRow } =
+    viewerProfileId && season
+      ? await supabase
+          .from("card_claims")
+          .select("summoner_name, tag, status")
+          .eq("profile_id", viewerProfileId)
+          .eq("season", season)
+          .limit(1)
+          .maybeSingle()
+          .then((result) => result, () => ({ data: null }))
+      : { data: null };
+  const myClaim = claimRow as { summoner_name: string; tag: string; status: "pending" | "approved" } | null;
+  const mySlug = myClaim ? cardSlug(myClaim.summoner_name, myClaim.tag) : null;
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -125,6 +147,52 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           ) : null}
         </div>
       </header>
+      {/* Your card, before the wall of everyone else's. */}
+      {myClaim && myClaim.status === "approved" && mySlug ? (
+        <section className="card-brand flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <span className="label-dash">Yours to customize</span>
+            <p className="type-display mt-1 text-xl sm:text-2xl">Your card — {myClaim.summoner_name}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href={`/card/${mySlug}?customize=1`} className="btn-coral px-5 py-2.5 text-sm">
+              Customize your card →
+            </Link>
+            <Link
+              href={`/card/${mySlug}`}
+              className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+            >
+              View →
+            </Link>
+          </div>
+        </section>
+      ) : null}
+      {myClaim && myClaim.status === "pending" && mySlug ? (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-5 py-3">
+          <p className="text-sm text-steel">
+            Your claim on <span className="font-semibold text-white">{myClaim.summoner_name}</span> is waiting for a
+            captain or admin.
+          </p>
+          <Link
+            href={`/card/${mySlug}`}
+            className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+          >
+            View card →
+          </Link>
+        </section>
+      ) : null}
+      {!myClaim && viewerProfileId && cards.length > 0 ? (
+        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-line bg-panel px-5 py-4">
+          <div>
+            <span className="label-dash">Claim your card</span>
+            <p className="mt-1 max-w-md text-sm text-steel">
+              Players own their cards here — find yours and claim it. Once a captain or admin confirms it&apos;s you,
+              you pick the art, write the motto, and sign it.
+            </p>
+          </div>
+          <ClaimFinder cards={toClaimFinderCards(cards)} />
+        </section>
+      ) : null}
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
       ) : (

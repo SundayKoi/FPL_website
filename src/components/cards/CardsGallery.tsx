@@ -1,8 +1,9 @@
 "use client";
 
 // Premium hub grid: every rated player's card, searchable, best first.
-// Cards are fully interactive in the grid; the share chip under each one
-// deep-links to its public page.
+// Cards are fully interactive in the grid; the chip under each one links to
+// its own page — which is where the card is shared from AND where its owner
+// restyles it, so the chip says both jobs out loud.
 
 import Link from "next/link";
 import { useState } from "react";
@@ -42,7 +43,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
                   href={`/card/${card.slug}`}
                   className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
                 >
-                  Share page →
+                  View &amp; customize →
                 </Link>
               </div>
             ))}
@@ -89,7 +90,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
                 href={`/card/${card.slug}`}
                 className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
               >
-                Share page →
+                View &amp; customize →
               </Link>
             </div>
           ))}

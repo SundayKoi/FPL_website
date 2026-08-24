@@ -81,8 +81,26 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function CardSharePage({ params }: { params: Promise<{ slug: string }> }) {
+/** A query flag is "on" when it reads `1`; repeated params arrive as an
+ *  array, so take the first. */
+function flag(value: string | string[] | undefined): boolean {
+  return (Array.isArray(value) ? value[0] : value) === "1";
+}
+
+export default async function CardSharePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { slug } = await params;
+  // Deep links from the /cards hub's "your card" banner: ?customize=1 opens
+  // the customizer straight away, ?claim=1 rings the claim row. Both are
+  // hints, not permissions — the server still decides what to render at all.
+  const query = await searchParams;
+  const openCustomizer = flag(query.customize);
+  const highlightClaim = flag(query.claim);
   const loaded = await loadCard(slug);
   const card = loaded?.card ?? null;
   const collectionHref = loaded?.league === "academy" ? "/academy/cards" : "/cards";
@@ -200,6 +218,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
         viewerProfileId={viewerProfileId}
         canModerate={canModerate}
         claim={claim}
+        highlight={highlightClaim}
       />
       {canEditArt && card.signature ? (
         <SkinPicker
@@ -211,6 +230,7 @@ export default async function CardSharePage({ params }: { params: Promise<{ slug
           skinNums={skinNums}
           currentMotto={card.motto}
           currentSignature={signature}
+          initialOpen={openCustomizer}
         />
       ) : null}
       <p className="max-w-md text-center text-xs text-steel">

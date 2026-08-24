@@ -290,8 +290,22 @@ body {
   animation: floatSoft 3s ease-in-out infinite;
 }
 
+/* Deep-linked attention: /card/[slug]?claim=1 sends a player to one control
+   on a page full of them, so that control breathes a coral halo three times
+   and then settles. Finite on purpose — it's a signpost, not a decoration.
+   The ring itself is a static class on the element, so the reduced-motion
+   fallback below still leaves the eye somewhere to land. */
+@keyframes claimPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(255 107 53 / 0); }
+  50% { box-shadow: 0 0 0 7px rgb(255 107 53 / 0.28); }
+}
+@utility claim-highlight {
+  animation: claimPulse 1.3s ease-in-out 3;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .row-rank-1, .row-rank-2, .row-rank-3, .glow-pulse, .float-soft, .ticker-track { animation: none; }
+  .claim-highlight { animation: none; }
   .bar-fill { transition: none; }
 }
 
