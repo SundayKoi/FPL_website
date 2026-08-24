@@ -113,6 +113,11 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
 
   useEffect(() => {
     if ((!randomPostId || !posts.some((post) => post.id === randomPostId)) && posts.length > 0) {
+      // Client-only on purpose: rolling the random pull during render would
+      // make the server's pick disagree with the client's and fail hydration,
+      // so the initial pick (and a re-pick when the current one leaves the
+      // feed) has to happen in an effect. Rerolls stay event-driven below.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRandomPostId(pickRandomPost(posts)?.id);
     }
   }, [posts, randomPostId]);
