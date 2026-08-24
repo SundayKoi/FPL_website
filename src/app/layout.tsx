@@ -5,6 +5,7 @@ import SiteNavigation from "@/components/SiteNavigation";
 import SupportDevButton from "@/components/SupportDevButton";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { resolveMetadataBase } from "@/lib/metadataBase";
 import "./globals.css";
 
 const chakra = Chakra_Petch({
@@ -20,6 +21,9 @@ const saira = Saira({
 });
 
 export const metadata: Metadata = {
+  // Without this, the share page's relative openGraph.images resolves
+  // against VERCEL_URL or localhost rather than the real domain.
+  metadataBase: resolveMetadataBase(process.env.NEXT_PUBLIC_SITE_URL),
   title: "FPL Draft League",
   description:
     "Franchise Premier League draft hub for live broadcasts, league updates, and active drafts.",
