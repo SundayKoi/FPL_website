@@ -567,11 +567,17 @@ describe("MatchDraftBoard", () => {
     expect(container.querySelectorAll('[class~="w-[350px]"]')).toHaveLength(10);
   });
 
-  it("pushes the red-side overlay champions to the right edge", () => {
+  it("keeps the red-side overlay team header stretched like blue", () => {
     const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
     const overlayColumns = container.querySelector("main > div");
 
-    expect(overlayColumns?.children[2]?.className).toContain("items-end");
+    expect(overlayColumns?.children[2]?.className).not.toContain("items-end");
+  });
+
+  it("pushes red-side overlay champions to the right edge within their column", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+
+    expect(container.querySelectorAll('[class~="justify-self-end"]')).toHaveLength(5);
   });
 
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
