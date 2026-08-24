@@ -37,8 +37,20 @@ describe("banger feed rules", () => {
     expect(getTopPosts(posts).map((post) => post.id)).toEqual(["one", "two", "old"]);
   });
 
+  it("excludes posts with a zero banger rating from the banger leaderboard", () => {
+    const midOnly = { ...posts[0], id: "mid-only", bangerVotes: 0, midVotes: 10, stinkerVotes: 0 };
+
+    expect(getTopPosts([midOnly])).toEqual([]);
+  });
+
   it("returns the most stinker-rated posts separately", () => {
     expect(getStinkerPosts(posts).map((post) => post.id)).toEqual(["four", "three", "two"]);
+  });
+
+  it("excludes posts with a zero stinker rating from the stinker leaderboard", () => {
+    const bangerOnly = { ...posts[0], id: "banger-only", bangerVotes: 10, midVotes: 0, stinkerVotes: 0 };
+
+    expect(getStinkerPosts([bangerOnly])).toEqual([]);
   });
 
   it("can pick any post from the all-time archive", () => {

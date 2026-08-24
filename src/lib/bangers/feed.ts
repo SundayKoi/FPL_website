@@ -45,14 +45,14 @@ export function getRecentPosts(posts: BangerPost[], now = new Date()) {
 
 export function getTopPosts(posts: BangerPost[]) {
   return [...posts]
-    .filter((post) => post.bangerVotes + post.midVotes + post.stinkerVotes > 0)
+    .filter((post) => post.bangerVotes > 0)
     .sort((a, b) => rating(b) - rating(a) || b.bangerVotes - a.bangerVotes)
     .slice(0, 3);
 }
 
 export function getStinkerPosts(posts: BangerPost[]) {
   return [...posts]
-    .filter((post) => post.bangerVotes + post.midVotes + post.stinkerVotes > 0)
+    .filter((post) => post.stinkerVotes > 0)
     .sort((a, b) => stinkerRating(b) - stinkerRating(a) || b.stinkerVotes - a.stinkerVotes)
     .slice(0, 3);
 }
