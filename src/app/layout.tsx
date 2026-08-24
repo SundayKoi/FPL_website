@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Chakra_Petch, Saira } from "next/font/google";
+import { Chakra_Petch, Cinzel, Saira } from "next/font/google";
 import AuthButton from "@/components/AuthButton";
 import SiteNavigation from "@/components/SiteNavigation";
 import SupportDevButton from "@/components/SupportDevButton";
@@ -19,6 +19,14 @@ const saira = Saira({
   weight: ["400", "500", "600"],
   variable: "--font-saira",
 });
+// Moment cards only. An engraved plate wants a face with real serifs and
+// carved proportions — the display face is a squared-off techy sans, which
+// is the whole reason a moment reads as a different class of object.
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  weight: ["600", "700", "900"],
+  variable: "--font-cinzel",
+});
 
 export const metadata: Metadata = {
   // Without this, the share page's relative openGraph.images resolves
@@ -37,7 +45,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${chakra.variable} ${saira.variable} h-full antialiased`}
+      className={`${chakra.variable} ${saira.variable} ${cinzel.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
         <SiteNavigation authSlot={<AuthButton />} showAdmin={isAdmin || isOwner || isBroadcaster} />

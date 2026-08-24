@@ -40,7 +40,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
         <CardsLeagueToggle league={league} suffix="/moments" />
       </header>
 
-      <MomentWall moments={moments} />
+      <MomentWall moments={moments} season={season} />
     </main>
   );
 }

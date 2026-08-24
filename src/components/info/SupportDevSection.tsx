@@ -4,13 +4,13 @@ type Props = {
   className?: string;
 };
 
-/** Where donations can go. PayPal stays first — it is the one with the QR
- *  code beside it, and the label has to keep saying "Support via PayPal"
- *  because that is what the page has always called it. */
+/** Where donations can go, beyond the per-dev Venmo buttons above. Venmo
+ *  used to be listed here too, which meant every handle appeared twice on
+ *  the page once the dev cards grew their own buttons — a link that sits
+ *  with the person it pays is the better of the two, so this row keeps
+ *  only what the dev cards don't carry. */
 const DESTINATIONS = [
   { label: "Support via PayPal", href: "https://www.paypal.com/paypalme/ZBultman" },
-  { label: "Venmo Zachari", href: "https://venmo.com/u/Zachari-Bultman" },
-  { label: "Venmo Matthew", href: "https://venmo.com/u/Mwolanski1" },
 ] as const;
 
 const devs = [
@@ -82,8 +82,6 @@ export default function SupportDevSection({ className = "" }: Props) {
           <p className="mt-3 max-w-2xl text-sm italic leading-6 text-gold sm:text-base">
             Donations will be used to cover website costs.
           </p>
-          {/* Wraps rather than sitting on one line: three destinations
-              don't fit the narrow column this block shares with the QR. */}
           <div className="mt-6 flex flex-wrap gap-3">
             {DESTINATIONS.map((destination) => (
               <a

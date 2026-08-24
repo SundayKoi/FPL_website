@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/font/google", () => ({
   Chakra_Petch: () => ({ variable: "--font-chakra" }),
   Saira: () => ({ variable: "--font-saira" }),
+  Cinzel: () => ({ variable: "--font-cinzel" }),
 }));
 
 vi.mock("@/components/AuthButton", () => ({

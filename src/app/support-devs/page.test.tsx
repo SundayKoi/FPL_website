@@ -17,13 +17,15 @@ describe("SupportDevsPage", () => {
     expect(paypalLink.getAttribute("target")).toBe("_blank");
   });
 
-  it("offers both people's Venmo alongside PayPal", () => {
+  it("offers both people's Venmo alongside PayPal, once each", () => {
     render(<SupportDevsPage />);
 
+    // Exactly one link per person: the handles live on the dev cards, and
+    // duplicating them in the destinations row is what this guards against.
     const zachari = screen.getByRole("link", { name: /venmo zachari/i });
     expect(zachari.getAttribute("href")).toBe("https://venmo.com/u/Zachari-Bultman");
     const matthew = screen.getByRole("link", { name: /venmo matthew/i });
-    expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Mwolanski1");
+    expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Matthew-Wolanski");
     // target=_blank without noopener hands the new tab a window.opener
     // handle back to us.
     for (const link of [zachari, matthew]) {
