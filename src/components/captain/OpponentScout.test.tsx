@@ -44,6 +44,15 @@ describe("OpponentScout", () => {
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("3");
     expect(screen.queryByText(/recommend|must ban|priority|threat score/i)).toBeNull();
   });
+  it("uses neutral team wording when requested", () => {
+    render(<OpponentScout source={source} perspective="team" />);
+    expect(screen.getByText("Team")).toBeTruthy();
+    expect(screen.queryByText("Opponent")).toBeNull();
+  });
+  it("uses neutral empty-history wording for a team", () => {
+    render(<OpponentScout source={{ ...source, drafts: [] }} perspective="team" />);
+    expect(screen.getByText("No recorded drafts for this team yet")).toBeTruthy();
+  });
   it("handles no drafts and unavailable current roster independently", () => {
     renderScout({ drafts: [], roster: [] });
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();
