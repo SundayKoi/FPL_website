@@ -7,7 +7,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchInventory } from "@/lib/packs/queries";
-import { fetchCollectors, fetchTradesFor, type TradeCard, type TradeRow } from "@/lib/trades/queries";
+import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
 
 export const metadata: Metadata = {
   title: "Trading Post — FPL",
@@ -16,16 +16,26 @@ export const metadata: Metadata = {
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
-/** A hydrated trade card, minus the frozen `card` json — the inbox renders
- *  chips, not cards, and that json is the heavy half of every row. */
+/**
+ * A hydrated trade card as the inbox takes it — frozen `card` json and all.
+ *
+ * That json used to be dropped here, back when a chip was the end of the
+ * story. It isn't: the inbox now opens the actual copy on click, and only the
+ * frozen card knows which skin it printed in and what the ink looks like.
+ * The size is bounded by the trades themselves — 30 trades × 20 cards a side
+ * is the ceiling, and a real inbox is a fraction of that.
+ */
 function toInboxCard(card: TradeCard) {
   return {
     id: card.id,
     playerName: card.playerName,
     overall: card.overall,
+    tier: card.tier,
     editionWeek: card.editionWeek,
     foil: card.foil,
     signed: card.signed,
+    altArt: card.altArt,
+    card: card.card,
     stale: card.stale,
   };
 }
@@ -101,6 +111,10 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
       ])
     : [{ incoming: [], outgoing: [] }, [], []];
 
+  // Your own shelf ships its frozen cards with it, so the builder can preview
+  // anything you might offer without a round trip. A collection is under ~100
+  // copies; the partner's side, which has no such ceiling, is fetched one card
+  // at a time instead (fetchInventoryCardAction).
   const myInventory: TradeCardOption[] = inventory.map((row) => ({
     id: row.id,
     slug: row.slug,
@@ -110,7 +124,9 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
     tier: row.tier,
     foil: row.foil,
     signed: row.signed,
+    altArt: isAltArt(row.card),
     editionWeek: row.editionWeek,
+    card: row.card,
   }));
 
   return (

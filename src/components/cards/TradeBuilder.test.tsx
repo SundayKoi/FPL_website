@@ -1,18 +1,57 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlayerCardData } from "@/lib/cards/build";
 import TradeBuilder, { type TradeCardOption } from "./TradeBuilder";
 
-const { createTradeAction, fetchPartnerInventoryAction } = vi.hoisted(() => ({
+const { createTradeAction, fetchInventoryCardAction, fetchPartnerInventoryAction } = vi.hoisted(() => ({
   createTradeAction: vi.fn(),
+  fetchInventoryCardAction: vi.fn(),
   fetchPartnerInventoryAction: vi.fn(),
 }));
-vi.mock("@/lib/trades/actions", () => ({ createTradeAction, fetchPartnerInventoryAction }));
+vi.mock("@/lib/trades/actions", () => ({
+  createTradeAction,
+  fetchInventoryCardAction,
+  fetchPartnerInventoryAction,
+}));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const ME = "me-1";
 const THEM = "them-1";
+
+/** A frozen copy, as your own shelf ships them (a partner's rows don't). */
+function frozen(name: string, overall: number): PlayerCardData {
+  return {
+    slug: name.toLowerCase(),
+    name,
+    tag: "NA1",
+    teamName: null,
+    teamImageUrl: null,
+    role: "Mid",
+    overall,
+    tier: { key: "gold", label: "Gold" },
+    archetype: "Playmaker",
+    signature: null,
+    artSkin: 0,
+    autograph: null,
+    motto: null,
+    serial: 0,
+    collectionSize: 48,
+    topChampions: [],
+    form: [],
+    subStats: [{ key: "combat", label: "Combat", value: 50 }],
+    highlights: [],
+    badges: [],
+    standout: false,
+    wins: 1,
+    losses: 1,
+    winratePct: 50,
+    level: 10,
+    pentas: 0,
+    season: "S5",
+  };
+}
 
 function option(id: number, playerName: string, overall: number, extra: Partial<TradeCardOption> = {}): TradeCardOption {
   return {
@@ -24,12 +63,18 @@ function option(id: number, playerName: string, overall: number, extra: Partial<
     tier: "gold",
     foil: false,
     signed: false,
+    altArt: false,
     editionWeek: "2026-08-17",
     ...extra,
   };
 }
 
-const mine = [option(1, "Canny", 77), option(2, "Bronzey", 51, { foil: true })];
+// Your own shelf carries its frozen cards; the partner's rows are flat, and
+// their previews go and fetch one.
+const mine = [
+  option(1, "Canny", 77, { card: frozen("Canny", 77) }),
+  option(2, "Bronzey", 51, { foil: true, altArt: true, card: frozen("Bronzey", 51) }),
+];
 const theirs = [option(9, "Chaseworthy", 92, { signed: true })];
 
 const collectors = [
@@ -58,6 +103,7 @@ async function click(el: HTMLElement) {
 
 beforeEach(() => {
   fetchPartnerInventoryAction.mockReset().mockResolvedValue({ ok: true, cards: theirs });
+  fetchInventoryCardAction.mockReset().mockResolvedValue({ ok: true, card: frozen("Chaseworthy", 92) });
   createTradeAction.mockReset().mockResolvedValue({ ok: true, id: 42 });
   refresh.mockReset();
 });
@@ -83,7 +129,7 @@ describe("TradeBuilder", () => {
     expect(screen.getByLabelText(/^Chaseworthy 92/)).toBeTruthy();
   });
 
-  it("keeps the summary line in step with the picks", async () => {
+  it("keeps the summary line in step with the picks, variants counted", async () => {
     renderBuilder();
     await pickPartner();
 
@@ -94,7 +140,50 @@ describe("TradeBuilder", () => {
     fireEvent.change(screen.getByLabelText("Dollars you give"), { target: { value: "100" } });
     await click(screen.getByLabelText(/^Chaseworthy 92/));
 
-    expect(screen.getByTestId("trade-summary").textContent).toBe("2 cards + $100 ⇄ 1 card");
+    // Bronzey is the foil and the alternate print; Chaseworthy is signed.
+    expect(screen.getByTestId("trade-summary").textContent).toBe(
+      "2 cards (1 ✦, 1 ALT) + $100 ⇄ 1 card (1 ✍)",
+    );
+  });
+
+  it("marks alternate prints on both shelves", async () => {
+    fetchPartnerInventoryAction.mockResolvedValue({
+      ok: true,
+      cards: [option(9, "Chaseworthy", 92, { altArt: true })],
+    });
+    renderBuilder();
+    await pickPartner();
+
+    // One on your shelf (Bronzey), one on theirs.
+    expect(screen.getAllByTitle("Alternate art print")).toHaveLength(2);
+  });
+
+  it("previews one of your own copies without asking the server", async () => {
+    renderBuilder();
+    await pickPartner();
+
+    await click(screen.getByRole("button", { name: "View Canny 77 WK Aug 17 card" }));
+
+    expect(fetchInventoryCardAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Canny — card preview" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Canny player card/ })).toBeTruthy();
+    // Looking is not picking: the checkbox stays where it was.
+    expect((screen.getByLabelText(/^Canny 77/) as HTMLInputElement).checked).toBe(false);
+
+    await click(screen.getByRole("button", { name: "Close card preview" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("fetches a partner's frozen card only when its preview opens", async () => {
+    renderBuilder();
+    await pickPartner();
+
+    expect(fetchInventoryCardAction).not.toHaveBeenCalled();
+
+    await click(screen.getByRole("button", { name: "View Chaseworthy 92 WK Aug 17 card" }));
+
+    expect(fetchInventoryCardAction).toHaveBeenCalledWith(9);
+    expect(screen.getByRole("button", { name: /^Chaseworthy player card/ })).toBeTruthy();
   });
 
   it("sends the chosen ids and dollars, then clears the form", async () => {

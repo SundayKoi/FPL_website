@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PlayerCardData } from "@/lib/cards/build";
 import TradeInbox, { type InboxCard, type InboxTrade } from "./TradeInbox";
 
 const { respondTradeAction } = vi.hoisted(() => ({ respondTradeAction: vi.fn() }));
@@ -10,14 +11,50 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const ME = "me-1";
 
+/** The frozen copy behind a chip — enough of one for the preview to render. */
+function frozen(name: string, artSkin = 0): PlayerCardData {
+  return {
+    slug: name.toLowerCase(),
+    name,
+    tag: "NA1",
+    teamName: null,
+    teamImageUrl: null,
+    role: "Mid",
+    overall: 77,
+    tier: { key: "gold", label: "Gold" },
+    archetype: "Playmaker",
+    signature: null,
+    artSkin,
+    autograph: null,
+    motto: null,
+    serial: 0,
+    collectionSize: 48,
+    topChampions: [],
+    form: [],
+    subStats: [{ key: "combat", label: "Combat", value: 50 }],
+    highlights: [],
+    badges: [],
+    standout: false,
+    wins: 1,
+    losses: 1,
+    winratePct: 50,
+    level: 10,
+    pentas: 0,
+    season: "S5",
+  };
+}
+
 function card(id: number, playerName: string, extra: Partial<InboxCard> = {}): InboxCard {
   return {
     id,
     playerName,
     overall: 77,
+    tier: "gold",
     editionWeek: "2026-08-17",
     foil: false,
     signed: false,
+    altArt: false,
+    card: frozen(playerName, extra.altArt ? 12 : 0),
     stale: false,
     ...extra,
   };
@@ -164,6 +201,40 @@ describe("TradeInbox", () => {
 
   it("hides the buttons once a trade has been answered", () => {
     renderInbox([trade({ id: 14, status: "declined" })]);
-    expect(screen.queryByRole("button")).toBeNull();
+    // The chips are still buttons — they open the card — but nothing on the
+    // row can act on the trade any more.
+    expect(screen.queryByRole("button", { name: /Accept|Decline|Cancel/ })).toBeNull();
+  });
+
+  it("marks an alternate print on the chip", () => {
+    renderInbox([trade({ id: 15, offered: [card(10, "Canny", { altArt: true, foil: true })] })]);
+
+    expect(screen.getByTitle("Alternate art print").textContent).toBe("ALT");
+    expect(screen.getByTitle("Foil copy").textContent).toBe(" ✦");
+  });
+
+  it("opens the exact copy behind a chip, and closes again", async () => {
+    renderInbox([trade({ id: 16, offered: [card(10, "Canny", { altArt: true })], requested: [] })]);
+
+    const chip = screen.getByRole("button", { name: "View Canny 77 WK Aug 17 card" });
+    expect(chip.getAttribute("aria-haspopup")).toBe("dialog");
+
+    await click(chip);
+    expect(screen.getByRole("dialog", { name: "Canny — card preview" })).toBeTruthy();
+    // The card itself, not another chip: PlayerCard3D labels its own frame.
+    expect(screen.getByRole("button", { name: /^Canny player card/ })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("leaves a moved card as a dead chip with nothing to open", () => {
+    renderInbox([
+      trade({ id: 17, stale: true, requested: [card(20, "Card no longer available", { stale: true })] }),
+    ]);
+
+    expect(screen.queryByRole("button", { name: /^View Card no longer available/ })).toBeNull();
   });
 });

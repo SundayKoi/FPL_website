@@ -22,6 +22,8 @@ export interface TradeCard {
   tier: string;
   foil: boolean;
   signed: boolean;
+  /** This copy printed in an alternate skin — see isAltArt. */
+  altArt: boolean;
   editionWeek: string;
   /** The frozen card, for rendering. Null when the copy is gone. */
   card: PlayerCardData | null;
@@ -96,6 +98,19 @@ const CARD_COLUMNS =
  *  first. */
 const TRADE_LIMIT = 30;
 
+/**
+ * Whether a copy came out in an alternate skin rather than the champion's
+ * base splash.
+ *
+ * The skin roll is only ever recorded on the frozen json (src/lib/packs/
+ * skins.ts) — there is no flat column for it — so every surface that wants to
+ * *mark* an alt-art copy without shipping its whole card reduces it here
+ * first, server-side. Same reading CollectionGrid's skinOf does.
+ */
+export function isAltArt(card: PlayerCardData | null | undefined): boolean {
+  return (card?.artSkin ?? 0) > 0;
+}
+
 /** A copy the offer names that isn't in card_inventory any more — dusted, or
  *  never existed. Rendered as a gap rather than dropped, so "2 cards for 1"
  *  doesn't silently become "1 card for 1". */
@@ -109,6 +124,7 @@ function missingCard(id: number): TradeCard {
     tier: "bronze",
     foil: false,
     signed: false,
+    altArt: false,
     editionWeek: "",
     card: null,
     stale: true,
@@ -128,6 +144,7 @@ function hydrate(ids: number[], owner: string, pending: boolean, cards: Map<numb
       tier: row.tier,
       foil: row.foil,
       signed: row.signed === true,
+      altArt: isAltArt(row.card),
       editionWeek: row.edition_week,
       card: row.card,
       stale: pending && row.discord_id !== owner,

@@ -7,9 +7,13 @@
 // you cancel yours). Everything else, down to the arrow between the two card
 // lists, reads the same way whichever end you're standing at.
 //
-// Cards arrive already flattened by the page: the frozen `card` json that
-// TradeRow carries is worth megabytes across a busy inbox and buys nothing
-// here, since a trade lists cards as chips rather than rendering them.
+// Cards arrive flattened by the page, frozen `card` json included: a chip
+// can say "foil" but it cannot show you the holograph, the skin it printed
+// in, or the ink across the front — and those are exactly what a copy is
+// worth trading for. So every chip is a trigger that opens the real card
+// (CardCopyPreview). The json is affordable here because a trade names at
+// most ~40 copies; a whole collection is a different bet, which is why
+// TradeBuilder fetches its partner's cards one at a time instead.
 //
 // Staleness is server-computed (src/lib/trades/queries.ts) and only ever set
 // on pending trades — a card in the offer has been dusted or traded on since
@@ -20,18 +24,26 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
+import type { PlayerCardData } from "@/lib/cards/build";
 import { editionLabel } from "@/lib/packs/week";
 import { respondTradeAction } from "@/lib/trades/actions";
 import type { TradeStatus } from "@/lib/trades/queries";
+import CardCopyPreview from "./CardCopyPreview";
 
 /** One card named by a trade, flattened for the client boundary. */
 export interface InboxCard {
   id: number;
   playerName: string;
   overall: number;
+  tier: string;
   editionWeek: string;
   foil: boolean;
   signed: boolean;
+  /** This copy printed in an alternate skin. */
+  altArt: boolean;
+  /** The copy exactly as it was pulled — what the preview renders. Null once
+   *  the row is gone, which is also when the chip stops being clickable. */
+  card: PlayerCardData | null;
   /** This copy isn't where the offer says it is any more. */
   stale: boolean;
 }
@@ -59,22 +71,46 @@ const STATUS_CHIP: Record<TradeStatus, string> = {
   cancelled: "border-line bg-panel text-steel",
 };
 
-/** "Canny 77 · WK Aug 17 ✦" — a card as one line of a trade. */
+/** "Canny 77 · WK Aug 17 ✦ ALT" — a card as one line of a trade, and the way
+ *  in to the card itself. A copy with no frozen json behind it can't be
+ *  rendered and has nothing to show anyway, so it stays a dead chip. */
 function CardChip({ card }: { card: InboxCard }) {
-  if (card.stale) {
+  if (card.stale || !card.card) {
     return (
       <span className="rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-steel">
         <s>{card.playerName}</s> <span className="text-red-400">no longer available</span>
       </span>
     );
   }
+  const edition = card.editionWeek ? ` ${editionLabel(card.editionWeek)}` : "";
   return (
-    <span className="rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-white">
+    <CardCopyPreview
+      card={card.card}
+      foil={card.foil}
+      caption={{
+        playerName: card.playerName,
+        editionWeek: card.editionWeek,
+        tier: card.tier,
+        foil: card.foil,
+        signed: card.signed,
+        altArt: card.altArt,
+      }}
+      label={`View ${card.playerName} ${card.overall}${edition} card`}
+      className="rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-white transition hover:border-coral/70 hover:text-coral focus-visible:border-coral focus-visible:outline-none"
+    >
       {card.playerName} <b className="font-mono text-steel">{card.overall}</b>
       {card.editionWeek ? <span className="text-steel"> · {editionLabel(card.editionWeek)}</span> : null}
       {card.signed ? <span className="font-black text-gold" title="Autographed copy"> ✍</span> : null}
       {card.foil ? <span className="font-black text-gold" title="Foil copy"> ✦</span> : null}
-    </span>
+      {card.altArt ? (
+        <span className="ml-1 font-black tracking-[0.12em] text-gold" title="Alternate art print">
+          ALT
+        </span>
+      ) : null}
+      <span aria-hidden className="ml-1 text-steel">
+        ⤢
+      </span>
+    </CardCopyPreview>
   );
 }
 

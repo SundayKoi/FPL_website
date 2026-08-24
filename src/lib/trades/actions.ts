@@ -17,9 +17,11 @@
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
+import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { dustValueOf } from "@/lib/packs/config";
 import { fetchInventory, type InventoryRow } from "@/lib/packs/queries";
+import { isAltArt } from "./queries";
 import { lockedInventoryIds } from "./guards";
 
 /** Most dollars either side of one trade may carry. A ceiling, not a
@@ -34,16 +36,20 @@ type DustResult = { ok: true; value: number; balance: number } | { ok: false; er
 type CreateResult = { ok: true; id: number } | { ok: false; error: string };
 type RespondResult = { ok: true } | { ok: false; error: string };
 
-/** A copy as the trade builder lists it — the flat columns only. The frozen
- *  `card` json is deliberately dropped: the builder renders checkbox rows,
- *  not cards, and a big collection would otherwise ship megabytes of art
- *  metadata to the client for nothing. */
+/** A copy as the trade builder lists it — the flat columns, plus the one bit
+ *  of the frozen json a summary needs (`altArt`, reduced server-side). The
+ *  json itself is still dropped: the builder renders checkbox rows, and a big
+ *  collection would ship megabytes of art metadata to the client for the
+ *  handful of copies anyone actually opens. The looking is served by
+ *  fetchInventoryCardAction, one card at a time. */
 type PartnerCard = Pick<
   InventoryRow,
   "id" | "slug" | "playerName" | "role" | "overall" | "tier" | "foil" | "signed" | "editionWeek"
->;
+> & { altArt: boolean };
 
 type PartnerInventoryResult = { ok: true; cards: PartnerCard[] } | { ok: false; error: string };
+
+type InventoryCardResult = { ok: true; card: PlayerCardData } | { ok: false; error: string };
 
 interface OwnedCardRow {
   id: number;
@@ -280,9 +286,40 @@ export async function fetchPartnerInventoryAction(
       tier: row.tier,
       foil: row.foil,
       signed: row.signed,
+      altArt: isAltArt(row.card),
       editionWeek: row.editionWeek,
     })),
   };
+}
+
+/**
+ * One frozen copy, for the builder's card preview.
+ *
+ * The counterpart to the json fetchPartnerInventoryAction drops: a shelf of
+ * several hundred copies stays a list of flat rows, and the moment someone
+ * actually wants to SEE one, that one card comes over on its own.
+ *
+ * Gated exactly like the shelf listing and no tighter — you can already read
+ * every flat column of this row from that action, and a card you can be
+ * offered is a card you are entitled to look at before you say yes. The id
+ * isn't checked against a particular owner for the same reason: a trade you
+ * were sent names copies that aren't yours and never will be unless you
+ * accept.
+ */
+export async function fetchInventoryCardAction(inventoryId: number): Promise<InventoryCardResult> {
+  if (!Number.isInteger(inventoryId)) return { ok: false, error: "That card doesn't exist." };
+
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  const service = createBettingServiceClient();
+  const { data, error } = await service.from("card_inventory").select("id, card").eq("id", inventoryId).maybeSingle();
+  if (error) return { ok: false, error: "Couldn't load that card — try again." };
+
+  const row = data as { id: number; card: PlayerCardData | null } | null;
+  if (!row?.card) return { ok: false, error: "That card is no longer available." };
+  return { ok: true, card: row.card };
 }
 
 /**

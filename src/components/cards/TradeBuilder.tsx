@@ -13,16 +13,26 @@
 // card_inventory has no public RLS policy, so there is no endpoint to fetch
 // from — and a collection is meant to be seen anyway, which is the whole
 // premise of asking someone for a card.
+//
+// Both shelves stay flat rows, but every row can be opened as the real card
+// (CardCopyPreview) — you should never tick a box on a copy you haven't seen.
+// Your own frozen cards arrive with the page (a collection is small); theirs
+// are fetched one at a time on open, because a shelf can run to hundreds of
+// copies and almost none of them get looked at.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
+import type { PlayerCardData } from "@/lib/cards/build";
 import type { CardLeague } from "@/lib/cards/queries";
 import { editionLabel } from "@/lib/packs/week";
-import { createTradeAction, fetchPartnerInventoryAction } from "@/lib/trades/actions";
+import { createTradeAction, fetchInventoryCardAction, fetchPartnerInventoryAction } from "@/lib/trades/actions";
 import type { Collector } from "@/lib/trades/queries";
+import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 
-/** An owned copy as the builder lists it — flat columns only, no card json. */
+/** An owned copy as the builder lists it — flat columns, plus the frozen card
+ *  when the caller happens to hold it (your own shelf does; a partner's
+ *  doesn't, and its rows are previewed on demand instead). */
 export interface TradeCardOption {
   id: number;
   slug: string;
@@ -32,19 +42,16 @@ export interface TradeCardOption {
   tier: string;
   foil: boolean;
   signed: boolean;
+  /** This copy printed in an alternate skin. */
+  altArt: boolean;
   editionWeek: string;
+  card?: PlayerCardData | null;
 }
 
 /** Cards per side, mirroring MAX_TRADE_CARDS in src/lib/trades/actions.ts.
  *  Duplicated rather than imported because that module is "use server" —
  *  importing a constant out of it would drag the actions into the bundle. */
 const MAX_CARDS = 20;
-
-/** "challenger" → "Challenger", same as DustControls: the tier labels in
- *  src/lib/cards/build.ts are just the capitalized key. */
-function tierLabel(tier: string): string {
-  return tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : "—";
-}
 
 /** Best card first — the thing a trader scans for. */
 function byValue(a: TradeCardOption, b: TradeCardOption): number {
@@ -59,17 +66,37 @@ function parseDollars(raw: string): number | null {
   return Number(trimmed);
 }
 
-/** "2 cards + $100" / "nothing" — one side of the summary line. */
-function sideLabel(cards: number, dollars: number): string {
+/** "(1 ✦, 1 ALT)" — which of the chosen copies are variants, or "" when none
+ *  are. Counted rather than listed: the summary is a last glance before
+ *  sending, and "2 cards" hides the difference between two commons and two
+ *  foils. */
+function variantNote(cards: TradeCardOption[]): string {
   const parts: string[] = [];
-  if (cards > 0) parts.push(`${cards} card${cards === 1 ? "" : "s"}`);
+  const foils = cards.filter((card) => card.foil).length;
+  const signed = cards.filter((card) => card.signed).length;
+  const alts = cards.filter((card) => card.altArt).length;
+  if (foils > 0) parts.push(`${foils} ✦`);
+  if (signed > 0) parts.push(`${signed} ✍`);
+  if (alts > 0) parts.push(`${alts} ALT`);
+  return parts.length === 0 ? "" : ` (${parts.join(", ")})`;
+}
+
+/** "2 cards (1 ✦, 1 ALT) + $100" / "nothing" — one side of the summary. */
+function sideLabel(cards: TradeCardOption[], dollars: number): string {
+  const parts: string[] = [];
+  if (cards.length > 0) parts.push(`${cards.length} card${cards.length === 1 ? "" : "s"}${variantNote(cards)}`);
   if (dollars > 0) parts.push(fmtPoints(dollars));
   return parts.length === 0 ? "nothing" : parts.join(" + ");
 }
 
 /** One shelf as a checkbox list. Compact rows on purpose — a collection runs
  *  to hundreds of copies, and the decision being made is "this one or that
- *  one", not "look at this card". */
+ *  one" — with a view button on each row for when the answer to that is
+ *  "let me see them".
+ *
+ *  The view button sits OUTSIDE the label: a button inside a <label> gets
+ *  clicked and toggles the checkbox too, which would tick a card every time
+ *  someone went to look at it. */
 function CardPicker({
   cards,
   chosen,
@@ -89,8 +116,8 @@ function CardPicker({
   return (
     <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1" data-testid={testId}>
       {cards.map((card) => (
-        <li key={card.id}>
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-line bg-panel px-2 py-1 text-[11px] hover:border-coral/60">
+        <li key={card.id} className="flex items-stretch gap-1">
+          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md border border-line bg-panel px-2 py-1 text-[11px] hover:border-coral/60">
             <input
               type="checkbox"
               checked={chosen.has(card.id)}
@@ -113,7 +140,34 @@ function CardPicker({
                 ✦
               </span>
             ) : null}
+            {card.altArt ? (
+              <span className="font-black tracking-[0.12em] text-gold" title="Alternate art print">
+                ALT
+              </span>
+            ) : null}
           </label>
+          <CardCopyPreview
+            card={card.card ?? null}
+            // Only reached for a partner's rows — your own arrive with their
+            // frozen card already attached, so this never fires for them.
+            loadCard={async () => {
+              const result = await fetchInventoryCardAction(card.id);
+              return result.ok ? result.card : null;
+            }}
+            foil={card.foil}
+            caption={{
+              playerName: card.playerName,
+              editionWeek: card.editionWeek,
+              tier: card.tier,
+              foil: card.foil,
+              signed: card.signed,
+              altArt: card.altArt,
+            }}
+            label={`View ${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)} card`}
+            className="shrink-0 rounded-md border border-line bg-panel px-2 text-[11px] text-steel transition hover:border-coral hover:text-coral focus-visible:border-coral focus-visible:outline-none"
+          >
+            <span aria-hidden>⤢</span>
+          </CardCopyPreview>
         </li>
       ))}
     </ul>
@@ -149,6 +203,10 @@ export default function TradeBuilder({
   );
   const mine = useMemo(() => [...myInventory].sort(byValue), [myInventory]);
   const theirs = useMemo(() => (partnerCards ? [...partnerCards].sort(byValue) : []), [partnerCards]);
+  // The chosen copies themselves, not just how many — the summary counts
+  // foils, signatures and alternate prints out of them.
+  const giving = useMemo(() => mine.filter((card) => give.has(card.id)), [mine, give]);
+  const getting = useMemo(() => theirs.filter((card) => get.has(card.id)), [theirs, get]);
 
   const offeredDollars = parseDollars(giveDollars);
   const requestedDollars = parseDollars(getDollars);
@@ -301,7 +359,7 @@ export default function TradeBuilder({
 
           <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
             <span className="text-sm text-white" data-testid="trade-summary">
-              {sideLabel(give.size, offeredDollars ?? 0)} ⇄ {sideLabel(get.size, requestedDollars ?? 0)}
+              {sideLabel(giving, offeredDollars ?? 0)} ⇄ {sideLabel(getting, requestedDollars ?? 0)}
             </span>
             <button
               type="button"
