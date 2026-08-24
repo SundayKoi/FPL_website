@@ -11,10 +11,11 @@ vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ rpc }) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 const profiles: StaffProfile[] = [
-  { id: "own-1", display_name: "dribb", is_admin: true, is_owner: true },
-  { id: "own-2", display_name: "spiesss", is_admin: true, is_owner: true },
-  { id: "adm-1", display_name: "Granted Admin", is_admin: true, is_owner: false },
-  { id: "usr-1", display_name: "Winter", is_admin: false, is_owner: false },
+  { id: "own-1", display_name: "dribb", is_admin: true, is_owner: true, is_broadcaster: false },
+  { id: "own-2", display_name: "spiesss", is_admin: true, is_owner: true, is_broadcaster: false },
+  { id: "adm-1", display_name: "Granted Admin", is_admin: true, is_owner: false, is_broadcaster: false },
+  { id: "broad-1", display_name: "Granted Broadcaster", is_admin: false, is_owner: false, is_broadcaster: true },
+  { id: "usr-1", display_name: "Winter", is_admin: false, is_owner: false, is_broadcaster: false },
 ];
 
 afterEach(() => {
@@ -32,6 +33,7 @@ describe("AdminStaff", () => {
     expect(screen.getByText("dribb")).toBeTruthy();
     expect(screen.getByText("spiesss")).toBeTruthy();
     expect(screen.getByText("Granted Admin")).toBeTruthy();
+    expect(screen.getByText("Granted Broadcaster")).toBeTruthy();
     // Ordinary members would swamp the list, so they stay hidden until searched.
     expect(screen.queryByText("Winter")).toBeNull();
   });
@@ -53,6 +55,21 @@ describe("AdminStaff", () => {
       expect(rpc).toHaveBeenCalledWith("set_profile_admin", {
         p_profile_id: "usr-1",
         p_is_admin: true,
+      })
+    );
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("grants broadcaster access to someone found by search", async () => {
+    render(<AdminStaff profiles={profiles} />);
+
+    fireEvent.change(screen.getByLabelText("Search people"), { target: { value: "win" } });
+    fireEvent.click(screen.getByRole("button", { name: "Make broadcaster Winter" }));
+
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("set_profile_broadcaster", {
+        p_profile_id: "usr-1",
+        p_is_broadcaster: true,
       })
     );
     expect(refresh).toHaveBeenCalled();

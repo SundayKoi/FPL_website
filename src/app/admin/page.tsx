@@ -32,8 +32,9 @@ function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[]
  */
 export default async function AdminPage() {
   const supabase = await createServerSupabase();
-  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
-  if (!isAdmin && !isOwner) redirect("/");
+  const { isAdmin, isOwner, isBroadcaster } = await fetchStaffTier(supabase);
+  const canUseFullAdmin = isAdmin || isOwner;
+  if (!canUseFullAdmin && !isBroadcaster) redirect("/");
 
   // Owners see the staff panel. This gate is presentation only — set_profile_admin
   // re-checks ownership server-side, so an admin who forges their way here can
@@ -43,7 +44,7 @@ export default async function AdminPage() {
         (
           await supabase
             .from("profiles")
-            .select("id, display_name, is_admin, is_owner")
+            .select("id, display_name, is_admin, is_owner, is_broadcaster")
             .order("display_name")
         ).data as StaffProfile[]
       ) ?? []
@@ -127,7 +128,7 @@ export default async function AdminPage() {
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Admin</h1>
       </header>
 
-      <section aria-label="League controls" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {canUseFullAdmin && <section aria-label="League controls" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {cards.map((card) => (
           <Link
             key={card.label}
@@ -143,7 +144,7 @@ export default async function AdminPage() {
             <p className="text-sm text-steel">{card.description}</p>
           </Link>
         ))}
-      </section>
+      </section>}
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
         <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
@@ -166,19 +167,19 @@ export default async function AdminPage() {
         )}
       </section>
 
-      <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
+      {canUseFullAdmin && <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
         <h2 id="banger-control-title" className="type-display text-2xl">Banger Board</h2>
         <AdminBangerTitles initial={bangerTitles} />
-      </section>
+      </section>}
 
-      <section aria-label="Drafts" className="flex flex-col gap-4">
+      {canUseFullAdmin && <section aria-label="Drafts" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Drafts</h2>
         {isOwner ? (
           <DraftListClient initialDrafts={drafts} />
         ) : (
           <p className="text-sm text-steel">Some league configuration is owner-only.</p>
         )}
-      </section>
+      </section>}
 
       {isOwner && <AdminStaff profiles={staffProfiles} />}
     </main>

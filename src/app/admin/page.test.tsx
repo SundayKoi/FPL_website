@@ -76,7 +76,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false });
+  fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
   fetchHomepageSchedule.mockResolvedValue({ fixtures: [fixture("premier-fixture", "Premier A", "Premier B")] });
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
@@ -116,7 +116,7 @@ describe("AdminPage", () => {
   });
 
   it("allows an owner who is not an admin to access the admin page", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true });
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
 
     render(await AdminPage());
 
@@ -125,8 +125,23 @@ describe("AdminPage", () => {
     expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
   });
 
+  it("shows broadcasters the admin header and homepage controls only", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
+
+    render(await AdminPage());
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Admin" })).not.toBeNull();
+    expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
+    expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
+    expect(screen.queryByRole("region", { name: "League controls" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Banger Board" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Drafts" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Staff" })).toBeNull();
+  });
+
   it("keeps the existing redirect for a non-staff visitor", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
     redirect.mockImplementation(() => {
       throw new Error("redirected");
     });

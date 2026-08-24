@@ -9,9 +9,10 @@ export interface StaffProfile {
   display_name: string;
   is_admin: boolean;
   is_owner: boolean;
+  is_broadcaster: boolean;
 }
 
-/** Owner-only staff management. Owners grant and revoke admin; admins have
+/** Owner-only staff management. Owners grant and revoke admin or broadcaster; admins have
  *  every other admin power but never reach this panel, and the RPC refuses
  *  them anyway. Owners are seeded in the database and cannot be changed here,
  *  which is what makes escalation unreachable from the site. */
@@ -42,13 +43,34 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
     router.refresh();
   };
 
+  const setBroadcaster = async (profile: StaffProfile, next: boolean) => {
+    if (busy) return;
+    if (!next && !confirm(`Remove broadcaster access from ${profile.display_name}?`)) return;
+    setBusy(profile.id);
+    setErr(null);
+    const { error } = await supabase.rpc("set_profile_broadcaster", {
+      p_profile_id: profile.id,
+      p_is_broadcaster: next,
+    });
+    setBusy(null);
+    if (error) {
+      setErr(errDetail(error));
+      return;
+    }
+    router.refresh();
+  };
+
   const needle = query.trim().toLowerCase();
   // Every Discord sign-in creates a profile, so the list gets long fast:
   // show staff always, and everyone else only once searched for.
-  const staff = profiles.filter((p) => p.is_owner || p.is_admin);
+  const staff = profiles.filter((p) => p.is_owner || p.is_admin || p.is_broadcaster);
   const matches = needle
     ? profiles.filter(
-        (p) => !p.is_owner && !p.is_admin && p.display_name.toLowerCase().includes(needle)
+        (p) =>
+          !p.is_owner &&
+          !p.is_admin &&
+          !p.is_broadcaster &&
+          p.display_name.toLowerCase().includes(needle)
       )
     : [];
 
@@ -68,19 +90,34 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
       {p.is_owner ? (
         <span className="shrink-0 text-xs text-steel">Managed in the database</span>
       ) : (
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => setAdmin(p, !p.is_admin)}
-          aria-label={`${p.is_admin ? "Remove admin from" : "Make admin"} ${p.display_name}`}
-          className={`shrink-0 rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
-            p.is_admin
-              ? "border border-red-500/60 text-red-400"
-              : "bg-coral text-navy hover:brightness-110"
-          }`}
-        >
-          {p.is_admin ? "Remove admin" : "Make admin"}
-        </button>
+        <span className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => setAdmin(p, !p.is_admin)}
+            aria-label={`${p.is_admin ? "Remove admin from" : "Make admin"} ${p.display_name}`}
+            className={`rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
+              p.is_admin
+                ? "border border-red-500/60 text-red-400"
+                : "bg-coral text-navy hover:brightness-110"
+            }`}
+          >
+            {p.is_admin ? "Remove admin" : "Make admin"}
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => setBroadcaster(p, !p.is_broadcaster)}
+            aria-label={`${p.is_broadcaster ? "Remove broadcaster from" : "Make broadcaster"} ${p.display_name}`}
+            className={`rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
+              p.is_broadcaster
+                ? "border border-red-500/60 text-red-400"
+                : "border border-mint/60 text-mint"
+            }`}
+          >
+            {p.is_broadcaster ? "Remove broadcaster" : "Make broadcaster"}
+          </button>
+        </span>
       )}
     </li>
   );
@@ -90,7 +127,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
       <div>
         <h2 className="label-dash">Staff</h2>
         <p className="mt-1 text-xs text-steel">
-          Owners can grant and revoke admin. Admins cannot change anyone&apos;s access.
+          Owners can grant and revoke admin or broadcaster access. Admins cannot change anyone&apos;s access.
         </p>
       </div>
       {err && <p className="text-sm text-red-400">{err}</p>}

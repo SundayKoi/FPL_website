@@ -29,14 +29,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Nav-level staff check — presentation only (the /admin page re-checks and
   // redirects; database policies are the real gate). fetchStaffTier fails
   // closed, so signed-out visitors and query errors just hide the link.
-  const { isAdmin, isOwner } = await fetchStaffTier(await createServerSupabase());
+  const { isAdmin, isOwner, isBroadcaster } = await fetchStaffTier(await createServerSupabase());
   return (
     <html
       lang="en"
       className={`${chakra.variable} ${saira.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
-        <SiteNavigation authSlot={<AuthButton />} showAdmin={isAdmin || isOwner} />
+        <SiteNavigation authSlot={<AuthButton />} showAdmin={isAdmin || isOwner || isBroadcaster} />
         {children}
         <SupportDevButton />
       </body>
