@@ -1,0 +1,37 @@
+name: Archive card edition
+
+# Manual only, on purpose. The Tuesday drop archives the current week as
+# part of its run; this is for capturing a week the drop never covered —
+# and that window closes the moment the next ingest lands, since cards are
+# recomputed from season-to-date stats and there is no history to rebuild
+# an old version from.
+on:
+  workflow_dispatch:
+    inputs:
+      edition_week:
+        description: "Monday of the week to stamp these cards as (YYYY-MM-DD). Blank = the current week."
+        type: string
+        default: ""
+
+concurrency:
+  # Shares the drop's group: both write card_editions, and the drop would
+  # overwrite this run's week if the two overlapped.
+  group: card-drop
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/archive-card-edition.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          EDITION_WEEK: ${{ inputs.edition_week }}
