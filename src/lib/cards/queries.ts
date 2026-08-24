@@ -15,6 +15,7 @@ import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
 import {
   buildSeasonCards,
   cardPlayerKey,
+  teamBadgeKey,
   type CardGameMeta,
   type CardGameRow,
   type PlayerCardData,
@@ -59,7 +60,8 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
  * ratings are league-relative), so per-player fetching would save nothing.
  */
 export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, artResult, settingsResult] = await Promise.all([
+  const [aggResult, gamesResult, logResult, recordsResult, teamsResult, leagueTeamsResult, artResult, settingsResult] =
+    await Promise.all([
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
       .from("raw_stats")
@@ -71,7 +73,11 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     // teams below — team names get reused season to season, and an
     // unscoped lookup would hand a card whichever era's logo Postgres
     // happened to return first.
-    supabase.from("teams").select("name, image_url, draft_id"),
+    supabase.from("teams").select("name, abbreviation, image_url, draft_id"),
+    // The bridge between the two team tables: raw_stats carries
+    // league_teams.name, the badge lives on teams.image_url, and nothing
+    // enforces that the two spell a team identically.
+    supabase.from("league_teams").select("name, abbreviation"),
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
     supabase.from("card_art_prefs").select("*").eq("season", season),
@@ -89,7 +95,15 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
   const teamRows = teamsResult.error
     ? []
-    : ((teamsResult.data as { name: string; image_url: string | null; draft_id: string | null }[]) ?? []);
+    : ((teamsResult.data as {
+        name: string;
+        abbreviation: string | null;
+        image_url: string | null;
+        draft_id: string | null;
+      }[]) ?? []);
+  const leagueTeamRows = leagueTeamsResult.error
+    ? []
+    : ((leagueTeamsResult.data as { name: string; abbreviation: string | null }[]) ?? []);
   const artRows = artResult.error
     ? []
     : ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? []);
@@ -143,11 +157,28 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
         : null;
   const scopedTeams = seasonDraftId ? teamRows.filter((team) => team.draft_id === seasonDraftId) : teamRows;
 
+  // Every badge is filed under its name AND its abbreviation, both
+  // normalized. The abbreviation is what rescues a team the two tables
+  // spell differently — a real typo on one side ("Fradulent 5" against
+  // "Fraudulent 5") defeats any amount of name normalizing, but the
+  // three-letter code still matches.
   const teamImages = new Map<string, string>();
+  const addBadge = (key: string, url: string) => {
+    const normalized = teamBadgeKey(key);
+    if (normalized && !teamImages.has(normalized)) teamImages.set(normalized, url);
+  };
   for (const team of scopedTeams) {
-    if (team.image_url && !teamImages.has(team.name.trim().toLowerCase())) {
-      teamImages.set(team.name.trim().toLowerCase(), team.image_url);
-    }
+    if (!team.image_url) continue;
+    addBadge(team.name, team.image_url);
+    if (team.abbreviation) addBadge(team.abbreviation, team.image_url);
+  }
+  // raw_stats speaks league_teams' names, so alias each of those onto the
+  // badge its abbreviation points at when the names themselves don't meet.
+  for (const leagueTeam of leagueTeamRows) {
+    const nameKey = teamBadgeKey(leagueTeam.name);
+    if (!nameKey || teamImages.has(nameKey) || !leagueTeam.abbreviation) continue;
+    const viaAbbreviation = teamImages.get(teamBadgeKey(leagueTeam.abbreviation));
+    if (viaAbbreviation) teamImages.set(nameKey, viaAbbreviation);
   }
 
   const artPrefs = new Map<string, { skin: number; motto: string | null }>();
