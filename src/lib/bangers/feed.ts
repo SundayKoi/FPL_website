@@ -25,6 +25,14 @@ export function rating(post: BangerPost) {
   return total === 0 ? 0 : Math.round((post.bangerVotes / total) * 100);
 }
 
+export type BangerClassification = { key: "banger" | "mid" | "stinker"; label: "Banger" | "Mid" | "Stinker" };
+
+export function getBangerClassification(score: number): BangerClassification {
+  if (score >= 70) return { key: "banger", label: "Banger" };
+  if (score >= 40) return { key: "mid", label: "Mid" };
+  return { key: "stinker", label: "Stinker" };
+}
+
 export function stinkerRating(post: BangerPost) {
   const total = post.bangerVotes + post.midVotes + post.stinkerVotes;
   return total === 0 ? 0 : Math.round((post.stinkerVotes / total) * 100);

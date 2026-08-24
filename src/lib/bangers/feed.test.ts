@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BANGER_POSTS, formatPostDate, getRecentPosts, getStinkerPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
+import { BANGER_POSTS, formatPostDate, getBangerClassification, getRecentPosts, getStinkerPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
 
 const posts: BangerPost[] = [
   { id: "old", text: "Old wisdom", publishedAt: "2025-01-01", bangerVotes: 20, midVotes: 10, stinkerVotes: 0, url: "https://x.com" },
@@ -10,6 +10,17 @@ const posts: BangerPost[] = [
 ];
 
 describe("banger feed rules", () => {
+  it.each([
+    [0, "stinker", "Stinker"],
+    [39, "stinker", "Stinker"],
+    [40, "mid", "Mid"],
+    [69, "mid", "Mid"],
+    [70, "banger", "Banger"],
+    [100, "banger", "Banger"],
+  ] as const)("classifies %d%% as %s", (score, key, label) => {
+    expect(getBangerClassification(score)).toEqual({ key, label });
+  });
+
   it("does not ship unverified tweets or seeded banger data", () => {
     expect(BANGER_POSTS).toEqual([]);
   });
