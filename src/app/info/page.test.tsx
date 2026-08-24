@@ -20,4 +20,15 @@ describe("InfoPage", () => {
       "/signup",
     );
   });
+
+  it("shows the support-the-devs destination with the PayPal QR code", async () => {
+    render(await InfoPage());
+
+    expect(screen.getByRole("heading", { name: "Support the Devs", level: 2 })).toBeTruthy();
+    expect(screen.getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
+
+    const paypalLink = screen.getByRole("link", { name: /support via paypal/i });
+    expect(paypalLink.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
+    expect(paypalLink.getAttribute("target")).toBe("_blank");
+  });
 });

@@ -54,8 +54,8 @@ vi.mock("@/components/LeaguePageToggle", () => ({ default: () => <div /> }));
 beforeEach(() => {
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>
     homepage === "premier"
-      ? { fixtureId: "fixture-1", title: "Premier spotlight", description: "Premier supporting copy" }
-      : { fixtureId: "fixture-1", title: "Academy spotlight", description: "Academy supporting copy" },
+      ? { fixtureId: "fixture-1", title: "Premier spotlight", description: "Premier supporting copy", twitchUrl: null }
+      : { fixtureId: "fixture-1", title: "Academy spotlight", description: "Academy supporting copy", twitchUrl: null },
   );
 });
 

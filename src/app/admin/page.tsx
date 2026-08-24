@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { fetchStaffTier, isMissingBroadcasterColumn } from "@/lib/auth/staffTier";
 import type { Draft } from "@/lib/draft/types";
 import DraftListClient from "@/components/admin/DraftListClient";
 import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
-import AdminBriefEditor from "@/components/admin/AdminBriefEditor";
 import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
 import AdminBangerTitles from "@/components/admin/AdminBangerTitles";
-import type { HomepageBrief } from "@/lib/home/brief";
 import type { HomepageMode } from "@/lib/home/seasonState";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
@@ -26,6 +24,25 @@ function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[]
   }));
 }
 
+async function fetchStaffProfiles(supabase: Awaited<ReturnType<typeof createServerSupabase>>) {
+  const current = await supabase
+    .from("profiles")
+    .select("id, display_name, is_admin, is_owner, is_broadcaster")
+    .order("display_name");
+  if (!current.error) return (current.data as StaffProfile[]) ?? [];
+  if (!isMissingBroadcasterColumn(current.error)) return [];
+
+  const legacy = await supabase
+    .from("profiles")
+    .select("id, display_name, is_admin, is_owner")
+    .order("display_name");
+  if (legacy.error) return [];
+  return ((legacy.data as Omit<StaffProfile, "is_broadcaster">[]) ?? []).map((profile) => ({
+    ...profile,
+    is_broadcaster: false,
+  }));
+}
+
 /**
  * Admin hub: the league's controls are spread across their feature pages
  * (fixtures + season/phase on Schedule, signups on Sign Up, avg bids on
@@ -34,21 +51,15 @@ function featuredFixtureChoices(fixtures: FixtureRow[]): FeaturedFixtureChoice[]
  */
 export default async function AdminPage() {
   const supabase = await createServerSupabase();
-  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
-  if (!isAdmin && !isOwner) redirect("/");
+  const { isAdmin, isOwner, isBroadcaster } = await fetchStaffTier(supabase);
+  const canUseFullAdmin = isAdmin || isOwner;
+  if (!canUseFullAdmin && !isBroadcaster) redirect("/");
 
   // Owners see the staff panel. This gate is presentation only — set_profile_admin
   // re-checks ownership server-side, so an admin who forges their way here can
   // still change nothing.
   const staffProfiles = isOwner
-    ? (
-        (
-          await supabase
-            .from("profiles")
-            .select("id, display_name, is_admin, is_owner")
-            .order("display_name")
-        ).data as StaffProfile[]
-      ) ?? []
+    ? await fetchStaffProfiles(supabase)
     : [];
 
   const [draftsResult, settingsResult, signupCountResult, fixtureCountResult] = await Promise.all([
@@ -71,15 +82,6 @@ export default async function AdminPage() {
   } | null;
   const signupCount = signupCountResult.count ?? 0;
   const fixtureCount = fixtureCountResult.count ?? 0;
-
-  // Newest brief regardless of published state, so a pulled one can be edited
-  // and put back up from here.
-  const { data: briefRows } = await supabase
-    .from("homepage_briefs")
-    .select("*")
-    .order("generated_at", { ascending: false })
-    .limit(1);
-  const latestBrief = ((briefRows as HomepageBrief[]) ?? [])[0] ?? null;
 
   const [academyDraftData, premierSettings, academySettings, bangerTitles] = await Promise.all([
     fetchAcademyDraftData(supabase),
@@ -138,7 +140,7 @@ export default async function AdminPage() {
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Admin</h1>
       </header>
 
-      <section aria-label="League controls" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {canUseFullAdmin && <section aria-label="League controls" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {cards.map((card) => (
           <Link
             key={card.label}
@@ -154,11 +156,7 @@ export default async function AdminPage() {
             <p className="text-sm text-steel">{card.description}</p>
           </Link>
         ))}
-      </section>
-
-      <section aria-label="Homepage write-up" className="flex flex-col gap-3">
-        <AdminBriefEditor brief={latestBrief} />
-      </section>
+      </section>}
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
         <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>
@@ -181,19 +179,19 @@ export default async function AdminPage() {
         )}
       </section>
 
-      <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
+      {canUseFullAdmin && <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
         <h2 id="banger-control-title" className="type-display text-2xl">Banger Board</h2>
         <AdminBangerTitles initial={bangerTitles} />
-      </section>
+      </section>}
 
-      <section aria-label="Drafts" className="flex flex-col gap-4">
+      {canUseFullAdmin && <section aria-label="Drafts" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Drafts</h2>
         {isOwner ? (
           <DraftListClient initialDrafts={drafts} />
         ) : (
           <p className="text-sm text-steel">Some league configuration is owner-only.</p>
         )}
-      </section>
+      </section>}
 
       {isOwner && <AdminStaff profiles={staffProfiles} />}
     </main>

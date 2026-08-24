@@ -1,5 +1,5 @@
 import HomeDashboard from "./HomeDashboard";
-import { fetchHomepageTwitch } from "@/lib/home/twitch";
+import { fetchHomepageTwitch, twitchChannelLoginFromUrl } from "@/lib/home/twitch";
 import { fetchHomepageStandings } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { fetchHomepageAwards } from "@/lib/home/awards";
@@ -26,8 +26,7 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [twitch, awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
-    fetchHomepageTwitch(),
+  const [awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet)),
@@ -35,6 +34,7 @@ export default async function AcademyHomePage() {
     fetchLatestWeeklyStandouts(5, seasons.academy, teamNames),
     fetchHomepageFeaturedSettings("academy"),
   ]);
+  const twitch = await fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl));
   const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
 
   return (

@@ -538,6 +538,48 @@ describe("MatchDraftBoard", () => {
     expect(main?.className).not.toContain("bg-navy");
   });
 
+  it("renders red-side overlay bans from right to left", () => {
+    const redBanState = {
+      ...state,
+      actions: [
+        ...state.actions,
+        { stepIndex: 1, side: "red" as const, kind: "ban" as const, slot: 1, champion: "Ahri", playerName: null },
+        { stepIndex: 3, side: "red" as const, kind: "ban" as const, slot: 2, champion: "Amumu", playerName: null },
+        { stepIndex: 5, side: "red" as const, kind: "ban" as const, slot: 3, champion: "Zed", playerName: null },
+        { stepIndex: 12, side: "red" as const, kind: "ban" as const, slot: 4, champion: "Zyra", playerName: null },
+        { stepIndex: 14, side: "red" as const, kind: "ban" as const, slot: 5, champion: "Thresh", playerName: null },
+      ],
+    };
+    render(<MatchDraftBoard initialState={redBanState} overlay onSave={vi.fn()} />);
+
+    expect(screen.getAllByTestId(/^ban-red-/).map((tile) => tile.getAttribute("data-testid"))).toEqual([
+      "ban-red-5",
+      "ban-red-4",
+      "ban-red-3",
+      "ban-red-2",
+      "ban-red-1",
+    ]);
+  });
+
+  it("uses 350px-wide champion boxes in the overlay", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+
+    expect(container.querySelectorAll('[class~="w-[350px]"]')).toHaveLength(10);
+  });
+
+  it("keeps the red-side overlay team header stretched like blue", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+    const overlayColumns = container.querySelector("main > div");
+
+    expect(overlayColumns?.children[2]?.className).not.toContain("items-end");
+  });
+
+  it("pushes red-side overlay champions to the right edge within their column", () => {
+    const { container } = render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+
+    expect(container.querySelectorAll('[class~="justify-self-end"]')).toHaveLength(5);
+  });
+
   it("routes lobby drafting through the token-checked open_draft RPCs", async () => {
     rpcMock.mockClear();
     render(

@@ -62,6 +62,9 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("menuitem", { name: /^Rulebook$/ }).getAttribute("href")).toBe(
       "/rulebook",
     );
+    expect(screen.getByRole("menuitem", { name: /^Support the Devs$/ }).getAttribute("href")).toBe(
+      "/support-devs",
+    );
 
     fireEvent.click(infoMenu);
     expect(infoMenu.getAttribute("aria-expanded")).toBe("false");

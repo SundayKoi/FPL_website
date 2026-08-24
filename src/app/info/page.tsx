@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SupportDevSection from "@/components/info/SupportDevSection";
 
 const infoDestinations = [
   {
@@ -47,6 +48,8 @@ export default async function InfoPage() {
             </Link>
           ))}
         </section>
+
+        <SupportDevSection className="mt-8" />
       </div>
     </main>
   );

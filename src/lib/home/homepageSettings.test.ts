@@ -50,11 +50,13 @@ describe("fetchHomepageFeaturedSettings", () => {
         fixture_id: "5b2e9d9f-d24f-4649-8809-9d057b6c9a39",
         title: "Premier Match of the Week",
         description: "Two contenders meet under the lights.",
+        twitch_url: "https://www.twitch.tv/franchisepremierleague",
       },
       {
         fixtureId: "5b2e9d9f-d24f-4649-8809-9d057b6c9a39",
         title: "Premier Match of the Week",
         description: "Two contenders meet under the lights.",
+        twitchUrl: "https://www.twitch.tv/franchisepremierleague",
       },
     ],
     [
@@ -63,11 +65,13 @@ describe("fetchHomepageFeaturedSettings", () => {
         fixture_id: "1a370346-ba2a-4c02-b05d-a820c01820e8",
         title: "Academy Spotlight",
         description: "Tomorrow's stars take the stage.",
+        twitch_url: "https://www.twitch.tv/jakeok1",
       },
       {
         fixtureId: "1a370346-ba2a-4c02-b05d-a820c01820e8",
         title: "Academy Spotlight",
         description: "Tomorrow's stars take the stage.",
+        twitchUrl: "https://www.twitch.tv/jakeok1",
       },
     ],
   ] as const)("returns the persisted %s settings", async (homepage, row, expected) => {
@@ -79,6 +83,7 @@ describe("fetchHomepageFeaturedSettings", () => {
 
     await expect(fetchHomepageFeaturedSettings(homepage)).resolves.toEqual(expected);
     expect(from).toHaveBeenCalledWith("homepage_featured_settings");
+    expect(settingsQuery.select).toHaveBeenCalledWith("fixture_id, title, description, twitch_url");
     expect(settingsQuery.eq).toHaveBeenCalledWith("homepage", homepage);
   });
 
@@ -91,14 +96,16 @@ describe("fetchHomepageFeaturedSettings", () => {
       fixtureId: null,
       title: null,
       description: null,
+      twitchUrl: null,
     });
 
     createServerSupabase.mockResolvedValue({
       from: vi.fn(() => query({
         data: {
-          fixture_id: 42,
-          title: "   ",
-          description: {},
+        fixture_id: 42,
+        title: "   ",
+        description: {},
+        twitch_url: [],
         },
         error: null,
       })),
@@ -108,6 +115,7 @@ describe("fetchHomepageFeaturedSettings", () => {
       fixtureId: null,
       title: null,
       description: null,
+      twitchUrl: null,
     });
   });
 });

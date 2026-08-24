@@ -7,6 +7,7 @@ const {
   fetchHomepageSchedule,
   fetchHomepageStandings,
   fetchHomepageTwitch,
+  fetchHomepageFeaturedSettings,
   fetchLatestWeeklyStandouts,
   fetchTeamIdentities,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   fetchHomepageSchedule: vi.fn(),
   fetchHomepageStandings: vi.fn(),
   fetchHomepageTwitch: vi.fn(),
+  fetchHomepageFeaturedSettings: vi.fn(),
   fetchLatestWeeklyStandouts: vi.fn(),
   fetchTeamIdentities: vi.fn(),
 }));
@@ -66,6 +68,12 @@ function resetMocks() {
     teamAwards: [],
   });
   fetchLatestWeeklyStandouts.mockResolvedValue([]);
+  fetchHomepageFeaturedSettings.mockResolvedValue({
+    fixtureId: null,
+    title: null,
+    description: null,
+    twitchUrl: null,
+  });
 }
 
 vi.mock("@/lib/home/twitch", async (importOriginal) => ({
@@ -75,6 +83,10 @@ vi.mock("@/lib/home/twitch", async (importOriginal) => ({
 
 vi.mock("@/lib/home/standings", () => ({
   fetchHomepageStandings,
+}));
+
+vi.mock("@/lib/home/homepageSettings", () => ({
+  fetchHomepageFeaturedSettings,
 }));
 
 vi.mock("@/lib/home/schedule", async (importOriginal) => ({
@@ -147,6 +159,22 @@ describe("RegularSeasonHomePage", () => {
     expect(screen.queryByRole("heading", { name: /explore the league/i })).toBeNull();
     expect(screen.queryByRole("heading", { name: /draft central/i })).toBeNull();
     expect(screen.queryByRole("link", { name: /explore drafts/i })).toBeNull();
+  });
+
+  it("uses the saved Twitch channel for status loading and homepage links", async () => {
+    fetchHomepageFeaturedSettings.mockResolvedValue({
+      fixtureId: null,
+      title: null,
+      description: null,
+      twitchUrl: "https://www.twitch.tv/jakeok1",
+    });
+
+    render(await RegularSeasonHomePage());
+
+    expect(fetchHomepageTwitch).toHaveBeenCalledWith("jakeok1");
+    for (const twitchLink of screen.getAllByRole("link", { name: /twitch/i })) {
+      expect(twitchLink.getAttribute("href")).toBe("https://www.twitch.tv/jakeok1");
+    }
   });
 
   it("adds the Twitch broadcast showcase to the landing page", async () => {

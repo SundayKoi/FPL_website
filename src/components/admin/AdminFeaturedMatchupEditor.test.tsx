@@ -33,21 +33,79 @@ afterEach(() => {
 });
 
 describe("AdminFeaturedMatchupEditor", () => {
+  it("starts collapsed and reveals its editable fields when opened", () => {
+    render(
+      <AdminFeaturedMatchupEditor
+        homepage="premier"
+        fixtures={fixtures}
+        settings={{ fixtureId: "fixture-1", title: "Premier feature", description: "Premier copy", twitchUrl: null }}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Premier featured matchup" });
+    const disclosure = heading.closest("details");
+    expect(disclosure).not.toBeNull();
+    expect(disclosure?.open).toBe(false);
+
+    fireEvent.click(heading);
+
+    expect(disclosure?.open).toBe(true);
+    expect(screen.getByLabelText("Premier title")).not.toBeNull();
+  });
+
+  it("preselects a known Twitch channel and saves the selected URL", async () => {
+    render(
+      <AdminFeaturedMatchupEditor
+        homepage="premier"
+        fixtures={fixtures}
+        settings={{ fixtureId: null, title: null, description: null, twitchUrl: null }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
+
+    const knownChannel = screen.getByLabelText("Premier known Twitch channel") as HTMLSelectElement;
+    fireEvent.change(knownChannel, { target: { value: "https://www.twitch.tv/jakeok1" } });
+
+    expect((screen.getByLabelText("Premier Twitch URL") as HTMLInputElement).value).toBe(
+      "https://www.twitch.tv/jakeok1",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Premier featured matchup" }));
+
+    await waitFor(() => {
+      expect(upsert).toHaveBeenCalledWith(
+        {
+          homepage: "premier",
+          fixture_id: null,
+          title: null,
+          description: null,
+          twitch_url: "https://www.twitch.tv/jakeok1",
+          updated_at: expect.any(String),
+        },
+        { onConflict: "homepage" },
+      );
+    });
+  });
+
   it("renders independent Premier and Academy fixture and copy controls", () => {
     render(
       <>
         <AdminFeaturedMatchupEditor
           homepage="premier"
           fixtures={fixtures}
-          settings={{ fixtureId: "fixture-1", title: "Premier feature", description: "Premier copy" }}
+          settings={{ fixtureId: "fixture-1", title: "Premier feature", description: "Premier copy", twitchUrl: null }}
         />
         <AdminFeaturedMatchupEditor
           homepage="academy"
           fixtures={fixtures}
-          settings={{ fixtureId: "fixture-2", title: "Academy feature", description: "Academy copy" }}
+          settings={{ fixtureId: "fixture-2", title: "Academy feature", description: "Academy copy", twitchUrl: null }}
         />
       </>,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     expect(screen.getByRole("heading", { name: "Premier featured matchup" })).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Academy featured matchup" })).not.toBeNull();
@@ -64,9 +122,11 @@ describe("AdminFeaturedMatchupEditor", () => {
       <AdminFeaturedMatchupEditor
         homepage="premier"
         fixtures={fixtures}
-        settings={{ fixtureId: null, title: null, description: null }}
+        settings={{ fixtureId: null, title: null, description: null, twitchUrl: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
 
     fireEvent.change(screen.getByLabelText("Premier fixture"), { target: { value: "fixture-2" } });
     fireEvent.change(screen.getByLabelText("Premier title"), { target: { value: "  Week 4 showdown  " } });
@@ -81,6 +141,7 @@ describe("AdminFeaturedMatchupEditor", () => {
           fixture_id: "fixture-2",
           title: "Week 4 showdown",
           description: "A key series.",
+          twitch_url: null,
           updated_at: expect.any(String),
         },
         { onConflict: "homepage" },
@@ -95,9 +156,11 @@ describe("AdminFeaturedMatchupEditor", () => {
       <AdminFeaturedMatchupEditor
         homepage="academy"
         fixtures={fixtures}
-        settings={{ fixtureId: null, title: null, description: null }}
+        settings={{ fixtureId: null, title: null, description: null, twitchUrl: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     fireEvent.change(screen.getByLabelText("Academy fixture"), { target: { value: "fixture-1" } });
     fireEvent.change(screen.getByLabelText("Academy title"), { target: { value: "Academy showcase" } });
@@ -110,6 +173,7 @@ describe("AdminFeaturedMatchupEditor", () => {
           fixture_id: "fixture-1",
           title: "Academy showcase",
           description: null,
+          twitch_url: null,
           updated_at: expect.any(String),
         },
         { onConflict: "homepage" },
@@ -126,9 +190,11 @@ describe("AdminFeaturedMatchupEditor", () => {
       <AdminFeaturedMatchupEditor
         homepage="academy"
         fixtures={fixtures}
-        settings={{ fixtureId: null, title: null, description: null }}
+        settings={{ fixtureId: null, title: null, description: null, twitchUrl: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save Academy featured matchup" }));
 
@@ -143,9 +209,11 @@ describe("AdminFeaturedMatchupEditor", () => {
       <AdminFeaturedMatchupEditor
         homepage="academy"
         fixtures={fixtures}
-        settings={{ fixtureId: null, title: null, description: null }}
+        settings={{ fixtureId: null, title: null, description: null, twitchUrl: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     const saveButton = screen.getByRole("button", { name: "Save Academy featured matchup" });
     fireEvent.click(saveButton);

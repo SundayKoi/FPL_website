@@ -4,20 +4,28 @@ import {
   type TwitchChannelStatus,
   type TwitchClip,
 } from "@/lib/twitch/status";
+import {
+  TWITCH_CHANNEL_LOGIN,
+} from "./twitchChannels";
 
-// Academy plays on the league's channel, same broadcast as Premier.
-export const TWITCH_URL = "https://www.twitch.tv/franchisepremierleague";
-export const TWITCH_CHANNEL_LOGIN = "franchisepremierleague";
+export {
+  KNOWN_TWITCH_CHANNELS,
+  TWITCH_CHANNEL_LOGIN,
+  TWITCH_URL,
+  twitchChannelLoginFromUrl,
+  twitchUrlFromUrl,
+} from "./twitchChannels";
 
 export type HomepageTwitchData = {
   status: TwitchChannelStatus;
   clips: TwitchClip[];
 };
 
+
 /** Channel status plus clips — clips only show while offline, so a live stream skips the fetch. */
-export async function fetchHomepageTwitch(): Promise<HomepageTwitchData> {
-  const status = await getTwitchChannelStatus({ channelLogin: TWITCH_CHANNEL_LOGIN });
+export async function fetchHomepageTwitch(channelLogin = TWITCH_CHANNEL_LOGIN): Promise<HomepageTwitchData> {
+  const status = await getTwitchChannelStatus({ channelLogin });
   const clips =
-    status.state === "live" ? [] : await getTwitchChannelClips({ channelLogin: TWITCH_CHANNEL_LOGIN });
+    status.state === "live" ? [] : await getTwitchChannelClips({ channelLogin });
   return { status, clips };
 }
