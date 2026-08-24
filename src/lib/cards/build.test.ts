@@ -276,3 +276,75 @@ describe("archetype scarcity", () => {
     expect(mine.motto).toBe("Lock in.");
   });
 });
+
+describe("archetypes fit the role they land on", () => {
+  /** A full role cohort, so percentiles are computed within the role. */
+  const roleCohort = (role: string): PlayerAggRow[] =>
+    [1.6, 1.3, 1.0, 0.8, 0.6].map((mult, index) =>
+      agg({
+        summoner_name: `${role}${index}`,
+        role_mode: role,
+        kda: 3 * mult,
+        avg_dmg_per_min: 500 * mult,
+        avg_dmg_share_pct: 25 * mult,
+        avg_dmg_taken_per_min: 700 * mult,
+        avg_kills: 5 * mult,
+        avg_assists: 8 * mult,
+        avg_kp_pct: 55 * mult,
+        avg_deaths: 4 / mult,
+        avg_cs_per_min: 7 * mult,
+        avg_gold_per_min: 380 * mult,
+        avg_cs_at_10: 60 * mult,
+        avg_gold_at_10: 3200 * mult,
+        avg_xp_at_10: 4200 * mult,
+        avg_vision_per_min: 1 * mult,
+        avg_solo_kills: 1 * mult,
+        first_blood_involvements: 3 * mult,
+        total_plates: 4 * mult,
+        winrate_pct: Math.min(95, 50 * mult),
+      }),
+    );
+
+  /** Titles that describe farming a lane or winning one — meaningless for a
+   *  jungler (no lane) and a support (no farm). This is the reported bug:
+   *  supports were being crowned Farm Demon and junglers Lane Bully purely
+   *  for topping their own role's percentile. */
+  const LANE_ONLY = ["Farm Demon", "Lane Bully", "Gold Hoarder", "Plate Collector", "Wave Manager", "Free Win Lane"];
+
+  it("never hands a support a farming or laning title", () => {
+    const assigned = assignArchetypes(roleCohort("UTILITY"), new Map());
+    for (const title of assigned.values()) {
+      expect(LANE_ONLY, `support got "${title}"`).not.toContain(title);
+      expect(title).not.toBe("The Hypercarry");
+      expect(title).not.toBe("Island King");
+    }
+  });
+
+  it("never hands a jungler a laning title, but does let them power farm", () => {
+    const assigned = assignArchetypes(roleCohort("JUNGLE"), new Map());
+    for (const title of assigned.values()) {
+      expect(LANE_ONLY, `jungler got "${title}"`).not.toContain(title);
+    }
+    // Camps are still farm — the jungle keeps its own word for it.
+    const titles = [...assigned.values()];
+    expect(titles.some((title) => title === "Power Farmer" || title === "Camp Thief" || title === "Jungle Diff")).toBe(true);
+  });
+
+  it("keeps every role out of the fallback — each has a deep pool of its own", () => {
+    for (const role of ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]) {
+      const assigned = assignArchetypes(roleCohort(role), new Map());
+      const fallbacks = [...assigned.values()].filter((title) => title === FALLBACK_ARCHETYPE);
+      expect(fallbacks.length, `${role} fell back too often`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("gives supports support words", () => {
+    const assigned = assignArchetypes(roleCohort("UTILITY"), new Map());
+    const SUPPORT_WORDS = [
+      "The Warden", "The Bodyguard", "The Engage", "The Lifeline", "Roam Enjoyer",
+      "Poke Support", "Vision Denier", "Sacrificial Play", "Playmaker", "The Enabler",
+      "The Frontline", "Space Creator", "Unkillable", "First Blood Merchant",
+    ];
+    expect([...assigned.values()].some((title) => SUPPORT_WORDS.includes(title))).toBe(true);
+  });
+});
