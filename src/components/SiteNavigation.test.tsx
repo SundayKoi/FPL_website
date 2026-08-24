@@ -40,6 +40,19 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("link", { name: /^Admin$/ }).getAttribute("href")).toBe("/admin");
   });
 
+  it("shows Broadcaster independently from Admin", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} showBroadcaster />);
+    expect(screen.getByRole("link", { name: /^Broadcaster$/ }).getAttribute("href")).toBe(
+      "/broadcaster",
+    );
+    expect(screen.queryByRole("link", { name: /^Admin$/ })).toBeNull();
+    cleanup();
+
+    render(<SiteNavigation authSlot={<span>Account</span>} showAdmin />);
+    expect(screen.getByRole("link", { name: /^Admin$/ })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /^Broadcaster$/ })).toBeNull();
+  });
+
   it("marks the active route with aria-current", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 

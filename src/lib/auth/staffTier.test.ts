@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchStaffTier } from "./staffTier";
+import { canAccessBroadcaster, fetchStaffTier } from "./staffTier";
 
 function query(result: unknown) {
   const builder = {
@@ -73,5 +73,13 @@ describe("fetchStaffTier", () => {
     );
 
     await expect(fetchStaffTier(supabase as never)).resolves.toEqual({ isAdmin: true, isOwner: true, isBroadcaster: false });
+  });
+});
+
+describe("canAccessBroadcaster", () => {
+  it("allows owners and broadcasters but not other staff", () => {
+    expect(canAccessBroadcaster({ isOwner: true, isBroadcaster: false })).toBe(true);
+    expect(canAccessBroadcaster({ isOwner: false, isBroadcaster: true })).toBe(true);
+    expect(canAccessBroadcaster({ isOwner: false, isBroadcaster: false })).toBe(false);
   });
 });

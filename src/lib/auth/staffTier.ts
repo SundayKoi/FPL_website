@@ -6,6 +6,12 @@ export interface StaffTier {
   isBroadcaster: boolean;
 }
 
+export function canAccessBroadcaster(
+  tier: Pick<StaffTier, "isOwner" | "isBroadcaster">,
+): boolean {
+  return tier.isOwner || tier.isBroadcaster;
+}
+
 export function isMissingBroadcasterColumn(error: { code?: string; message?: string } | null) {
   return (
     (error?.code === "PGRST204" || error?.code === "42703") &&

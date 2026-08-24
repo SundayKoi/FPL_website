@@ -76,11 +76,15 @@ function isActive(pathname: string | null, href: string) {
 export default function SiteNavigation({
   authSlot,
   showAdmin = false,
+  showBroadcaster = false,
 }: {
   authSlot: ReactNode;
   /** Renders the Admin hub link — set server-side for signed-in admins/owners
    * only. Presentation only; /admin re-checks the staff tier and redirects. */
   showAdmin?: boolean;
+  /** Renders the Broadcaster workspace link — set server-side for owners and
+   * broadcasters only. Presentation only; /broadcaster re-checks access. */
+  showBroadcaster?: boolean;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -223,6 +227,16 @@ export default function SiteNavigation({
               className={topLinkClass(isActive(pathname, "/admin"))}
             >
               Admin
+            </Link>
+          )}
+          {showBroadcaster && (
+            <Link
+              href="/broadcaster"
+              aria-current={isActive(pathname, "/broadcaster") ? "page" : undefined}
+              onClick={closeMenus}
+              className={topLinkClass(isActive(pathname, "/broadcaster"))}
+            >
+              Broadcaster
             </Link>
           )}
         </nav>
