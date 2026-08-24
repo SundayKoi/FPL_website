@@ -3,16 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PackShop from "./PackShop";
 
-const { openPackAction, revealTone, sounds } = vi.hoisted(() => {
-  // The real module needs WebAudio, which jsdom doesn't have — and the shop's
-  // job isn't to prove the synth works. The mute store is kept real (a flag
-  // and a listener set) because the shop reads it through
+const { openPackAction, sounds } = vi.hoisted(() => {
+  // The real sounds module needs WebAudio, which jsdom doesn't have — and the
+  // shop's job isn't to prove the synth works. The mute store is kept real (a
+  // flag and a listener set) because the shop reads it through
   // useSyncExternalStore, so a stub returning a constant would never update.
   let muted = false;
   const listeners = new Set<() => void>();
   return {
     openPackAction: vi.fn(),
-    revealTone: vi.fn(),
     sounds: {
       reset: () => {
         muted = false;
@@ -33,10 +32,38 @@ const { openPackAction, revealTone, sounds } = vi.hoisted(() => {
 
 vi.mock("@/lib/packs/actions", () => ({ openPackAction }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock("@/lib/packs/sounds", () => ({ ...sounds, revealTone, ripTick: vi.fn(), ripOpen: vi.fn() }));
+vi.mock("@/lib/packs/sounds", () => ({ ...sounds, revealTone: vi.fn(), ripTick: vi.fn(), ripOpen: vi.fn() }));
 
-/** A card that only differs from its siblings where the shop cares: name,
- *  tier (which drives the reveal order) and rating. */
+// The whole ritual is PackOpening's, and it has its own suite. Here it stands
+// in for itself, reporting the props the shop handed it and offering the two
+// callbacks the shop is on the hook for.
+interface OpeningProps {
+  pulls: { card: PlayerCardData }[];
+  balance: number;
+  packCost: number;
+  ownedSlugs: string[];
+  muted: boolean;
+  onOpenAnother: () => Promise<unknown>;
+  onExit: () => void;
+}
+vi.mock("./PackOpening", () => ({
+  default: (props: OpeningProps) => (
+    <div data-testid="opening">
+      <span data-testid="opening-pulls">{props.pulls.map((pull) => pull.card.name).join(",")}</span>
+      <span data-testid="opening-balance">{props.balance}</span>
+      <span data-testid="opening-owned">{props.ownedSlugs.join(",")}</span>
+      <span data-testid="opening-muted">{String(props.muted)}</span>
+      <button type="button" onClick={() => void props.onOpenAnother()}>
+        overlay open another
+      </button>
+      <button type="button" onClick={props.onExit}>
+        overlay done
+      </button>
+    </div>
+  ),
+}));
+
+/** A card that only differs from its siblings where the shop cares. */
 function makeCard(name: string, tier: PlayerCardData["tier"], overall: number): PlayerCardData {
   return {
     slug: name.toLowerCase(),
@@ -68,59 +95,34 @@ function makeCard(name: string, tier: PlayerCardData["tier"], overall: number): 
   };
 }
 
-// Deliberately handed to the shop best-first, so a passing reveal-order
-// assertion can only come from the component's own sort.
 const pulls = [
   { card: makeCard("Chaseworthy", { key: "challenger", label: "Challenger" }, 92), foil: true, signed: false, inventoryId: 5 },
-  { card: makeCard("Epicsson", { key: "diamond", label: "Diamond" }, 84), foil: false, signed: true, inventoryId: 4 },
-  { card: makeCard("Rarity", { key: "platinum", label: "Platinum" }, 76), foil: false, signed: false, inventoryId: 3 },
-  { card: makeCard("Commonly", { key: "silver", label: "Silver" }, 62), foil: false, signed: false, inventoryId: 2 },
   { card: makeCard("Bronzey", { key: "bronze", label: "Bronze" }, 51), foil: false, signed: false, inventoryId: 1 },
 ];
 
 function renderShop() {
-  return render(<PackShop league="premier" balance={1000} packCost={200} openCount={3} />);
+  return render(
+    <PackShop league="premier" balance={1000} packCost={200} openCount={3} ownedSlugs={["bronzey"]} />,
+  );
 }
 
-/** Click and let the (mocked, already-resolved) server action settle. This
- *  leaves a sealed pack on screen, not cards — see ripPack. */
+/** Click and let the (mocked, already-resolved) server action settle. */
 async function openPack() {
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: /open pack/i }));
   });
 }
 
-/** Tear the wrapper off via PackRip's three-click path (jsdom can't drag),
- *  then let the burst finish so the reveal run starts. */
-async function ripPack() {
-  const pack = screen.getByRole("button", { name: /rip it open/i });
-  for (let click = 0; click < 3; click += 1) fireEvent.click(pack);
-  await act(async () => {
-    vi.advanceTimersByTime(900);
-  });
-}
-
 beforeEach(() => {
-  vi.useFakeTimers();
-  // PackRip reads this on mount; jsdom doesn't ship it. `false` keeps the rip
-  // in play — the reduced-motion shortcut is PackRip's own test.
-  vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: false,
-    media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  }));
+  openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
 });
 
 afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
   cleanup();
   // The mute store is module state, so it would leak between tests.
   sounds.reset();
   sounds.setMuted.mockClear();
   openPackAction.mockReset();
-  revealTone.mockReset();
 });
 
 describe("PackShop", () => {
@@ -129,6 +131,8 @@ describe("PackShop", () => {
     expect(screen.getByText("$1,000")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open pack — $200" })).toBeTruthy();
     expect(screen.getByText("3 packs opened")).toBeTruthy();
+    // Nothing is opening until someone buys one.
+    expect(screen.queryByTestId("opening")).toBeNull();
   });
 
   it("surfaces the action's error and opens nothing", async () => {
@@ -137,71 +141,59 @@ describe("PackShop", () => {
     await openPack();
 
     expect(screen.getByText("Insufficient balance.")).toBeTruthy();
-    // Wallet untouched, no cards on the table.
+    // Wallet untouched, no stage raised.
     expect(screen.getByText("$1,000")).toBeTruthy();
-    expect(screen.queryByText("Bronzey")).toBeNull();
+    expect(screen.queryByTestId("opening")).toBeNull();
   });
 
-  it("seals the pack behind a rip before showing anything", async () => {
-    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+  it("hands the pack to the full-screen opening and banks the charge", async () => {
     renderShop();
     await openPack();
 
-    // Paid for and rolled, but nothing on the table until the foil comes off.
-    expect(screen.getByRole("button", { name: /rip it open/i })).toBeTruthy();
-    expect(screen.queryByText("Bronzey")).toBeNull();
-    // The aura is colored by the best card in there — a Challenger.
-    expect(document.querySelector(".pack-rarity-legendary")).toBeTruthy();
-
-    await ripPack();
-    expect(screen.queryByRole("button", { name: /rip it open/i })).toBeNull();
-    expect(screen.getAllByText("Bronzey").length).toBeGreaterThan(0);
-  });
-
-  it("reveals the five pulls worst-first, then offers another pack", async () => {
-    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
-    renderShop();
-    await openPack();
-    await ripPack();
-
-    // The chase card can't be first — the worst pull opens the run.
-    expect(screen.getAllByText("Bronzey").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Chaseworthy")).toBeNull();
+    expect(screen.getByTestId("opening-pulls").textContent).toBe("Chaseworthy,Bronzey");
+    expect(screen.getByTestId("opening-balance").textContent).toBe("800");
+    // What's already on the shelf travels with it, for the NEW badges.
+    expect(screen.getByTestId("opening-owned").textContent).toBe("bronzey");
     expect(screen.getByText("$800")).toBeTruthy();
     expect(screen.getByText("4 packs opened")).toBeTruthy();
-
-    // One beat per remaining card — each tick has to be flushed on its own,
-    // since the next timer is only scheduled once React has re-rendered.
-    for (let beat = 1; beat < pulls.length; beat += 1) {
-      await act(async () => {
-        vi.advanceTimersByTime(700);
-      });
-    }
-
-    for (const pull of pulls) {
-      expect(screen.getAllByText(pull.card.name).length).toBeGreaterThan(0);
-    }
-    // Foil pulls are chipped; the other four aren't. The autographed pull
-    // gets its own, louder chip.
-    expect(screen.getAllByText("✦ Foil")).toHaveLength(1);
-    expect(screen.getAllByText("✍ Signed")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Open another" })).toBeTruthy();
-    // One blip per card as it lands, pitched by that card's rarity rank.
-    expect(revealTone).toHaveBeenCalledTimes(pulls.length);
-    expect(revealTone.mock.calls.map(([rank]) => rank)).toEqual([0, 0, 1, 2, 3]);
   });
 
-  it("mutes the reveal blips", async () => {
-    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+  it("buys another pack for the overlay without tearing it down", async () => {
+    renderShop();
+    await openPack();
+
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 600 });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "overlay open another" }));
+    });
+
+    expect(openPackAction).toHaveBeenCalledTimes(2);
+    // The stage stays up; the till behind it keeps count.
+    expect(screen.getByTestId("opening")).toBeTruthy();
+    expect(screen.getByText("$600")).toBeTruthy();
+    expect(screen.getByText("5 packs opened")).toBeTruthy();
+  });
+
+  it("takes the stage down when the opening is done with it", async () => {
+    renderShop();
+    await openPack();
+    expect(screen.getByTestId("opening")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "overlay done" }));
+    expect(screen.queryByTestId("opening")).toBeNull();
+    // The wallet the opening spent stays spent.
+    expect(screen.getByText("$800")).toBeTruthy();
+  });
+
+  it("toggles the sound preference through the shared store", async () => {
     renderShop();
     fireEvent.click(screen.getByRole("button", { name: /mute pack sounds/i }));
     expect(sounds.setMuted).toHaveBeenCalledWith(true);
     // The toggle flips to its "click to unmute" state off the store, not off
-    // local component state.
+    // local component state — and the overlay is told the same thing.
     expect(screen.getByRole("button", { name: /unmute pack sounds/i })).toBeTruthy();
 
     await openPack();
-    await ripPack();
-    expect(revealTone).not.toHaveBeenCalled();
+    expect(screen.getByTestId("opening-muted").textContent).toBe("true");
   });
 });

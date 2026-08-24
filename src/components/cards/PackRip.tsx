@@ -20,8 +20,10 @@ import type { RarityClass } from "@/lib/packs/config";
 import { ripOpen, ripTick } from "@/lib/packs/sounds";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
- *  against the 260px pack: a shade wider than the pack itself, so opening it
- *  is a deliberate swipe rather than a twitch. */
+ *  against the pack's own width — a swipe most of the way across it, so
+ *  opening it is deliberate rather than a twitch. Left where it was when the
+ *  pack grew to 300px for the full-screen stage: a tear that scaled with the
+ *  art would have made the drag longer for no reason. */
 const RIP_DISTANCE = 240;
 
 /** Past this the pack is coming open whether you keep dragging or not — the
@@ -93,7 +95,9 @@ const SIGNED_SPARKS = [
   { left: "50%", top: "6%", delay: "0.8s" }, { left: "44%", top: "92%", delay: "1.9s" },
 ];
 
-function prefersReducedMotion(): boolean {
+/** Exported so the full-screen opening (PackOpening) asks the same question
+ *  the same way — one answer for the whole ritual, not one per component. */
+export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
   try {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -107,6 +111,7 @@ export default function PackRip({
   hasSigned,
   muted,
   onOpened,
+  onProgress,
 }: {
   /** The best rarity in the pack — what the aura is colored and paced by. */
   bestRarity: RarityClass;
@@ -115,6 +120,10 @@ export default function PackRip({
   muted: boolean;
   /** The wrapper is gone; start the card reveal. */
   onOpened: () => void;
+  /** How far the tear has got, 0–1, whenever it moves. The stage around the
+   *  pack rides this — the vignette and the light rays swell with the rip —
+   *  and 1 means the foil has given way, i.e. the burst is playing. */
+  onProgress?: (progress: number) => void;
 }) {
   const [progress, setProgress] = useState(0);
   const [opening, setOpening] = useState(false);
@@ -131,11 +140,20 @@ export default function PackRip({
   // Held in a ref so the open effects don't re-fire if the parent hands us a
   // fresh closure on some unrelated render.
   const onOpenedRef = useRef(onOpened);
+  const onProgressRef = useRef(onProgress);
 
   useEffect(() => {
     mutedRef.current = muted;
     onOpenedRef.current = onOpened;
+    onProgressRef.current = onProgress;
   });
+
+  // Reported from an effect rather than from advance() so every path that
+  // moves the tear — drag, clicks, held Enter, the burst's jump to 1 — is
+  // covered by one line instead of three call sites that could drift.
+  useEffect(() => {
+    onProgressRef.current?.(progress);
+  }, [progress]);
 
   // No rip at all when motion is off: the pack was already paid for, and
   // making someone sit through an animation they've asked not to see is a

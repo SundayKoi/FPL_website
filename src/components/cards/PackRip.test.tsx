@@ -119,6 +119,25 @@ describe("PackRip", () => {
     expect(onOpened).toHaveBeenCalledTimes(1);
   });
 
+  it("reports the tear's progress so the stage around it can swell", () => {
+    const onProgress = vi.fn();
+    renderRip({ onProgress });
+    const target = pack();
+
+    // Mounted sealed: the stage is told so, rather than left guessing.
+    expect(onProgress).toHaveBeenLastCalledWith(0);
+
+    fireEvent.pointerDown(target, { pointerId: 1, clientX: 0 });
+    fireEvent.pointerMove(target, { pointerId: 1, clientX: 120 });
+    const midway = onProgress.mock.calls.at(-1)?.[0];
+    expect(midway).toBeGreaterThan(0);
+    expect(midway).toBeLessThan(1);
+
+    // The burst pins it at 1 — which is how the stage knows to shake.
+    fireEvent.pointerMove(target, { pointerId: 1, clientX: 230 });
+    expect(onProgress).toHaveBeenLastCalledWith(1);
+  });
+
   it("crackles as the tear widens and opens once the foil gives way", () => {
     const { onOpened } = renderRip();
     const target = pack();

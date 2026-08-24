@@ -86,9 +86,18 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         <CardsLeagueToggle league={league} suffix="/packs" />
       </header>
 
-      <PackShop league={league} balance={user.balance} packCost={PACK_COST} openCount={openCount} />
+      <PackShop
+        league={league}
+        balance={user.balance}
+        packCost={PACK_COST}
+        openCount={openCount}
+        // What's already on the shelf, so the opening can mark a pull NEW.
+        // Slugs only: the overlay asks "do I own this player at all", which
+        // an inventory row's own slug answers without shipping the cards.
+        ownedSlugs={[...new Set(inventory.map((row) => row.slug))]}
+      />
 
-      <section className="flex flex-col gap-4">
+      <section id="collection" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Your collection</h2>
           <Link href={`${base}/trades`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">

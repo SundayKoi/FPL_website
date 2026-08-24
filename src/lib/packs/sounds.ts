@@ -141,8 +141,9 @@ function shimmer(c: AudioContext, at: number, dur: number, peak: number): void {
 
 /**
  * Mute is one process-wide, persisted setting rather than component state:
- * the reveal blips fire from PackShop and the rip noises from inside PackRip,
- * and a preference about the speakers should outlive both (and the tab).
+ * the rip noises fire from inside PackRip, the flips and walkout stings from
+ * PackOpening, and the toggle itself lives in PackShop — a preference about
+ * the speakers should outlive all three (and the tab).
  *
  * Exposed as a subscribe/snapshot pair so React can read it with
  * useSyncExternalStore — which is what it actually is, an external store —
@@ -285,6 +286,125 @@ export function revealTone(rank: number): void {
     // A minor third per rarity class: common 392Hz up to legendary ~659Hz.
     const freq = 392 * Math.pow(2, Math.max(0, rank) / 4);
     note(c, freq, at, 0.16, MASTER_GAIN * 0.45);
+  } catch {
+    /* see ripTick */
+  }
+}
+
+/**
+ * One card turning over in the flip line: a short whoosh as the face swings
+ * round, then revealTone's blip landing under it as the front arrives. The
+ * whoosh's sweep tops out higher the better the card, so a run of flips
+ * climbs in two voices at once rather than only in the blip.
+ *
+ * Deliberately lighter than ripOpen — five of these fire per pack, and a
+ * flip is a beat, not a payoff.
+ */
+export function flipTone(rank: number): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+    const source = noise(c, 0.16);
+    const filter = c.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(620, at);
+    filter.frequency.exponentialRampToValueAtTime(1900 + Math.max(0, rank) * 620, at + 0.15);
+    filter.Q.setValueAtTime(0.9, at);
+    const gain = envelope(c, at, MASTER_GAIN * 0.3, 0.02, 0.13);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(c.destination);
+    source.start(at);
+    source.stop(at + 0.22);
+
+    // The blip sits at the end of the swing, where the face comes round —
+    // inlined rather than calling revealTone so it can be offset.
+    note(c, 392 * Math.pow(2, Math.max(0, rank) / 4), at + 0.1, 0.18, MASTER_GAIN * 0.45);
+  } catch {
+    /* see ripTick */
+  }
+}
+
+/**
+ * The walkout: what plays when a card is good enough to stop the whole
+ * opening. Same shape as ripOpen — a run up the rarity's notes — but built
+ * out with an impact underneath it, a held chord over the label slam, and a
+ * long shimmer tail. Everything lands inside ~2s, comfortably under the 2.5s
+ * the takeover animation gives it.
+ */
+export function walkoutSting(rarity: RarityClass, signed: boolean): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+
+    // The impact. Lands with the card's scale-up, not after it.
+    const boom = c.createOscillator();
+    boom.type = "sine";
+    boom.frequency.setValueAtTime(96, at);
+    boom.frequency.exponentialRampToValueAtTime(38, at + 1.1);
+    const boomGain = envelope(c, at, MASTER_GAIN * 1.8, 0.02, 1.08);
+    boom.connect(boomGain);
+    boomGain.connect(c.destination);
+    boom.start(at);
+    boom.stop(at + 1.3);
+
+    // Slower than the rip's run: this one is allowed to take its time.
+    const notes = STING_NOTES[rarity] ?? STING_NOTES.epic;
+    const step = 0.115;
+    notes.forEach((freq, i) => {
+      const last = i === notes.length - 1;
+      note(c, freq, at + 0.1 + i * step, last ? 0.85 : 0.26, MASTER_GAIN * (last ? 1.1 : 0.7));
+    });
+
+    // A chord held under the label, and air over the top of it.
+    const runEnd = at + 0.1 + notes.length * step;
+    const top = notes[notes.length - 1];
+    [top, top * 1.5, top * 2].forEach((freq, i) => {
+      note(c, freq, runEnd, 0.8 - i * 0.12, MASTER_GAIN * 0.28, "sine");
+    });
+    shimmer(c, runEnd, 0.9, MASTER_GAIN * 0.45);
+
+    if (signed) {
+      note(c, 2637.02, runEnd + 0.08, 0.55, MASTER_GAIN * 0.4, "sine");
+      note(c, 3520.0, runEnd + 0.2, 0.45, MASTER_GAIN * 0.3, "sine");
+    }
+  } catch {
+    /* see ripTick */
+  }
+}
+
+/** The pack landing in the spotlight: a low thud with a slap of air over it,
+ *  so it reads as foil hitting a table rather than a kick drum. */
+export function packDropThud(): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(148, at);
+    osc.frequency.exponentialRampToValueAtTime(52, at + 0.24);
+    const gain = envelope(c, at, MASTER_GAIN * 0.9, 0.008, 0.26);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(at);
+    osc.stop(at + 0.36);
+
+    const source = noise(c, 0.12);
+    const filter = c.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(880, at);
+    const airGain = envelope(c, at, MASTER_GAIN * 0.35, 0.005, 0.1);
+    source.connect(filter);
+    filter.connect(airGain);
+    airGain.connect(c.destination);
+    source.start(at);
+    source.stop(at + 0.18);
   } catch {
     /* see ripTick */
   }
