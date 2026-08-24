@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireBettingStaff } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import type { BettingTeam } from "@/lib/betting/types";
+import type { BettingEvent, BettingTeam } from "@/lib/betting/types";
 import CatalogAdmin, { type StoreItemRow } from "@/components/admin/betting/CatalogAdmin";
 
 export default async function AdminBettingCatalogPage() {
@@ -19,7 +19,7 @@ export default async function AdminBettingCatalogPage() {
     service.from("betting_store_items").select("*").order("id"),
   ]);
   const teams = (teamsRes.data as BettingTeam[] | null) ?? [];
-  const events = (eventsRes.data as { id: number; name: string; description: string | null }[] | null) ?? [];
+  const events = (eventsRes.data as BettingEvent[] | null) ?? [];
   const storeItems = (storeRes.data as StoreItemRow[] | null) ?? [];
 
   return (

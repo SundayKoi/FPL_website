@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireBettingOwner, requireBettingStaff } from "./access";
 import { DISCORD_COMMANDS } from "./discord/commandDefs";
 import { createBettingServiceClient } from "./service-client";
+import type { BettingEventLeague } from "./types";
 
 // Admin (staff-only) actions for the betting domain (Task 9). Every export
 // here starts with `requireBettingStaff()` — throws for a non-staff caller,
@@ -372,6 +373,8 @@ export interface UpsertEventInput {
   id?: number;
   name: string;
   description?: string;
+  league?: BettingEventLeague | null;
+  scheduleSeason?: string | null;
 }
 
 export async function upsertEvent(input: UpsertEventInput): Promise<IdResult> {
@@ -381,8 +384,25 @@ export async function upsertEvent(input: UpsertEventInput): Promise<IdResult> {
   if (!input.name || !input.name.trim()) return { ok: false, error: "Enter an event name." };
   if (input.id !== undefined && !isFiniteInt(input.id)) return { ok: false, error: "Invalid event id." };
 
+  const league = input.league ?? null;
+  const scheduleSeason = input.scheduleSeason?.trim().toUpperCase() || null;
+  if (league !== null && league !== "premier" && league !== "academy") {
+    return { ok: false, error: "Choose Premier or Academy for the schedule league." };
+  }
+  if ((league === null) !== (scheduleSeason === null)) {
+    return { ok: false, error: "Schedule league and season must be provided together." };
+  }
+  if (scheduleSeason !== null && !/^[A-Z0-9_-]+$/.test(scheduleSeason)) {
+    return { ok: false, error: "Schedule season must contain only letters, numbers, hyphens, or underscores." };
+  }
+
   const service = createBettingServiceClient();
-  const row = { name: input.name.trim(), description: input.description?.trim() || null };
+  const row = {
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    league,
+    schedule_season: scheduleSeason,
+  };
 
   const { data, error } =
     input.id === undefined
@@ -397,7 +417,7 @@ export async function upsertEvent(input: UpsertEventInput): Promise<IdResult> {
     p_action: "event_upsert",
     p_target: `betting_events:${id}`,
     p_before: null,
-    p_after: { name: row.name },
+    p_after: { name: row.name, league: row.league, schedule_season: row.schedule_season },
   });
 
   revalidateBetting();
