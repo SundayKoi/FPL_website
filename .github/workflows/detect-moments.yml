@@ -1,0 +1,39 @@
+name: Mint moment cards
+
+on:
+  schedule:
+    # 14:30 UTC Tuesday — after the ingest (07:00) and before the card drop
+    # (15:00), so a week's moments exist by the time the drop posts.
+    - cron: "30 14 * * 2"
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Monday of the week to examine (YYYY-MM-DD). Blank = the last completed week."
+        type: string
+        default: ""
+      dry_run:
+        description: "Report what would mint and write nothing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: detect-moments
+  cancel-in-progress: false
+
+jobs:
+  mint:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/detect-moments.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MOMENT_WEEK: ${{ inputs.week }}
+          MOMENTS_DRY_RUN: ${{ inputs.dry_run }}
