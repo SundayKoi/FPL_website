@@ -232,6 +232,61 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   });
 }
 
+export interface LeagueMoment {
+  id: number;
+  weekStart: string;
+  slug: string;
+  summonerName: string;
+  teamName: string | null;
+  champion: string | null;
+  role: string | null;
+  triggerKey: string;
+  title: string;
+  headline: string;
+  gameDate: string | null;
+}
+
+/**
+ * The season's minted moment cards, newest first.
+ *
+ * Errors return [] rather than throwing: an environment without the
+ * card_moments migration should render an empty wall, not a 500.
+ */
+export async function fetchSeasonMoments(supabase: SupabaseClient, season: string): Promise<LeagueMoment[]> {
+  const { data, error } = await supabase
+    .from("card_moments")
+    .select("id, week_start, slug, summoner_name, team_name, champion, role, trigger_key, title, headline, game_date")
+    .eq("season", season)
+    .order("week_start", { ascending: false })
+    .order("rarity", { ascending: false });
+  if (error) return [];
+  return ((data as {
+    id: number;
+    week_start: string;
+    slug: string;
+    summoner_name: string;
+    team_name: string | null;
+    champion: string | null;
+    role: string | null;
+    trigger_key: string;
+    title: string;
+    headline: string;
+    game_date: string | null;
+  }[]) ?? []).map((row) => ({
+    id: row.id,
+    weekStart: row.week_start,
+    slug: row.slug,
+    summonerName: row.summoner_name,
+    teamName: row.team_name,
+    champion: row.champion,
+    role: row.role,
+    triggerKey: row.trigger_key,
+    title: row.title,
+    headline: row.headline,
+    gameDate: row.game_date,
+  }));
+}
+
 export interface RatingHistoryPoint {
   overall: number;
   tier: string;

@@ -138,6 +138,12 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           >
             Fantasy →
           </Link>
+          <Link
+            href={`${base}/moments`}
+            className="rounded-full border border-gold/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy"
+          >
+            Moments →
+          </Link>
           {showClaims ? (
             <Link
               href="/cards/claims"
