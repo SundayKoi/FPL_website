@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { voteBangerPost, voteDailyBanger, type BangerVote } from "@/lib/bangers/actions";
 import {
   getRecentPosts,
+  getStinkerPosts,
   getTopPosts,
   pickRandomPost,
   rating,
   type BangerPost,
 } from "@/lib/bangers/feed";
 
-type Vote = "banger" | "mid";
+type Vote = BangerVote;
 
 function withVotes(post: BangerPost, votes: Partial<Record<string, Vote>>) {
   const vote = votes[post.id];
@@ -18,6 +20,7 @@ function withVotes(post: BangerPost, votes: Partial<Record<string, Vote>>) {
     ...post,
     bangerVotes: post.bangerVotes + (vote === "banger" ? 1 : 0),
     midVotes: post.midVotes + (vote === "mid" ? 1 : 0),
+    stinkerVotes: post.stinkerVotes + (vote === "stinker" ? 1 : 0),
   };
 }
 
@@ -43,6 +46,18 @@ function VoteButtons({ post, currentVote, onVote }: { post: BangerPost; currentV
         }`}
       >
         🍌 Banger
+      </button>
+      <button
+        type="button"
+        aria-pressed={currentVote === "stinker"}
+        onClick={() => onVote("stinker")}
+        className={`rounded-full border px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.16em] transition ${
+          currentVote === "stinker"
+            ? "border-purple-300 bg-purple-300 text-jungle"
+            : "border-white/15 text-white/60 hover:border-purple-300/70 hover:text-purple-200"
+        }`}
+      >
+        💩 Stinker
       </button>
       <button
         type="button"
@@ -89,14 +104,27 @@ function TweetCard({ post, currentVote, onVote, featured = false }: { post: Bang
   );
 }
 
-export default function BangerBoard({ posts }: { posts: BangerPost[] }) {
+export default function BangerBoard({ posts, dailyBanger }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null }) {
   const [votes, setVotes] = useState<Record<string, Vote | undefined>>({});
   const [randomPost, setRandomPost] = useState<BangerPost | undefined>(undefined);
+  const [dailyVote, setDailyVote] = useState<Vote | undefined>(undefined);
+  const [dailyMessage, setDailyMessage] = useState("");
   const recentPosts = useMemo(() => getRecentPosts(posts), [posts]);
   const rankedPosts = useMemo(() => getTopPosts(posts).map((post) => withVotes(post, votes)), [posts, votes]);
+  const stinkerPosts = useMemo(() => getStinkerPosts(posts).map((post) => withVotes(post, votes)), [posts, votes]);
 
-  function vote(id: string, nextVote: Vote) {
+  async function vote(id: string, nextVote: Vote) {
     setVotes((current) => ({ ...current, [id]: current[id] === nextVote ? undefined : nextVote }));
+    const result = await voteBangerPost(id, nextVote);
+    if (!result.ok) setVotes((current) => ({ ...current, [id]: undefined }));
+  }
+
+  async function voteDaily(nextVote: Vote) {
+    if (!dailyBanger || dailyVote) return;
+    setDailyVote(nextVote);
+    const result = await voteDailyBanger(dailyBanger.id, nextVote);
+    setDailyMessage(result.ok ? (result.alreadyVoted ? "You already voted today." : "Vote locked in — $100 added to your wallet.") : result.error);
+    if (!result.ok) setDailyVote(undefined);
   }
 
   return (
@@ -121,9 +149,21 @@ export default function BangerBoard({ posts }: { posts: BangerPost[] }) {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
+        <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · rotates every 24h UTC</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">Banger check</h2></div><span className="text-4xl">🎁 🍌</span></div>
+          {dailyBanger ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><p className="max-w-3xl text-xl leading-snug text-white/85">{dailyBanger.text}</p><div><p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $100</p><VoteButtons post={dailyBanger} currentVote={dailyVote} onVote={voteDaily} /><p className="mt-3 text-xs text-white/45">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-5 py-12 sm:px-10">
         <div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The podium</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">Top 3 all-time</h2></div><span className="hidden text-4xl sm:block">🍌 🐒 🍌</span></div>
-        <div className="grid gap-4 lg:grid-cols-3">{rankedPosts.length > 0 ? rankedPosts.map((post, index) => <div key={post.id} className={`${index === 0 ? "lg:-translate-y-3" : ""} rounded-2xl border border-white/10 bg-jungle-card/70 p-4`}><div className="mb-3 flex items-center justify-between"><span className={`flex h-8 w-8 items-center justify-center rounded-full font-display text-lg font-bold ${index === 0 ? "bg-banana text-jungle" : "bg-white/10 text-white/60"}`}>{index + 1}</span><span className="text-xs font-bold uppercase tracking-[0.15em] text-white/40">Awaiting votes</span></div><p className="min-h-16 text-sm leading-relaxed text-white/45">Verified posts will appear here once the archive is connected.</p></div>) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm text-white/50 lg:col-span-3">No verified posts or community ratings yet.</div>}</div>
+        <div className="grid gap-4 lg:grid-cols-3">{rankedPosts.length > 0 ? rankedPosts.map((post, index) => <div key={post.id} className={`${index === 0 ? "lg:-translate-y-3" : ""} rounded-2xl border border-white/10 bg-jungle-card/70 p-4`}><div className="mb-3 flex items-center justify-between"><span className={`flex h-8 w-8 items-center justify-center rounded-full font-display text-lg font-bold ${index === 0 ? "bg-banana text-jungle" : "bg-white/10 text-white/60"}`}>{index + 1}</span><span className="text-xs font-bold uppercase tracking-[0.15em] text-banana">{percent(post)}% banger</span></div><p className="min-h-16 text-sm leading-relaxed text-white/75">{post.text}</p></div>) : <div className="rounded-2xl border border-dashed border-banana/30 bg-jungle-card/40 p-6 text-sm text-white/50 lg:col-span-3">No community ratings yet.</div>}</div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-12 sm:px-10">
+        <div className="mb-6 flex items-end justify-between gap-4"><div><p className="label-dash">The basement</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">Top stinkers</h2></div><span className="text-4xl">💩 🐒 💩</span></div>
+        <div className="grid gap-4 lg:grid-cols-3">{stinkerPosts.length > 0 ? stinkerPosts.map((post, index) => <div key={post.id} className="rounded-2xl border border-purple-300/20 bg-jungle-card/70 p-4"><div className="mb-3 flex items-center justify-between"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-300/20 font-display text-lg font-bold text-purple-200">{index + 1}</span><span className="text-xs font-bold uppercase tracking-[0.15em] text-purple-200">{Math.round((post.stinkerVotes / (post.bangerVotes + post.midVotes + post.stinkerVotes)) * 100)}% stinker</span></div><p className="min-h-16 text-sm leading-relaxed text-white/75">{post.text}</p></div>) : <div className="rounded-2xl border border-dashed border-purple-300/30 bg-jungle-card/40 p-6 text-sm text-white/50 lg:col-span-3">No community stinkers yet.</div>}</div>
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-8 px-5 pb-16 sm:px-10 lg:grid-cols-[0.72fr_1.28fr]">

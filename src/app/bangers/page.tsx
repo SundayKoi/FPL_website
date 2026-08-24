@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import BangerBoard from "@/components/bangers/BangerBoard";
-import { fetchBangerPosts } from "@/lib/bangers/queries";
+import { fetchBangerPosts, fetchDailyBanger } from "@/lib/bangers/queries";
 
 export const metadata: Metadata = {
   title: "Banger Board | FPL Draft League",
@@ -8,5 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default async function BangersPage() {
-  return <BangerBoard posts={await fetchBangerPosts()} />;
+  const [posts, dailyBanger] = await Promise.all([fetchBangerPosts(), fetchDailyBanger()]);
+  return <BangerBoard posts={posts} dailyBanger={dailyBanger} />;
 }

@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_table('public', 'banger_posts', 'banger_posts exists');
+select has_table('public', 'banger_votes', 'banger_votes exists');
+select has_table('public', 'daily_banger_checks', 'daily check table exists');
+select has_table('public', 'daily_banger_votes', 'daily votes table exists');
+select col_is_pk('public', 'daily_banger_checks', 'check_date', 'daily checks keyed by UTC date');
+select is((select count(*) from pg_constraint where conrelid = 'public.daily_banger_votes'::regclass and contype = 'p' and conkey = array[(select attnum from pg_attribute where attrelid = 'public.daily_banger_votes'::regclass and attname = 'check_date'), (select attnum from pg_attribute where attrelid = 'public.daily_banger_votes'::regclass and attname = 'voter_id')]), 1::bigint, 'daily votes keyed by date and voter');
+select ok((select relrowsecurity from pg_class where relname='daily_banger_votes'), 'daily votes use RLS');
+select ok(to_regprocedure('public.vote_daily_banger(text,uuid,text,text)') is not null, 'rewarded daily vote RPC exists');
+select * from finish();
+rollback;

@@ -4,6 +4,7 @@ export type BangerPost = {
   publishedAt: string;
   bangerVotes: number;
   midVotes: number;
+  stinkerVotes: number;
   replies?: number;
   reposts?: number;
   likes?: number;
@@ -15,8 +16,13 @@ export type BangerPost = {
 export const BANGER_POSTS: BangerPost[] = [];
 
 export function rating(post: BangerPost) {
-  const total = post.bangerVotes + post.midVotes;
+  const total = post.bangerVotes + post.midVotes + post.stinkerVotes;
   return total === 0 ? 0 : Math.round((post.bangerVotes / total) * 100);
+}
+
+export function stinkerRating(post: BangerPost) {
+  const total = post.bangerVotes + post.midVotes + post.stinkerVotes;
+  return total === 0 ? 0 : Math.round((post.stinkerVotes / total) * 100);
 }
 
 export function getRecentPosts(posts: BangerPost[], now = new Date()) {
@@ -28,7 +34,17 @@ export function getRecentPosts(posts: BangerPost[], now = new Date()) {
 }
 
 export function getTopPosts(posts: BangerPost[]) {
-  return [...posts].sort((a, b) => rating(b) - rating(a) || b.bangerVotes - a.bangerVotes).slice(0, 3);
+  return [...posts]
+    .filter((post) => post.bangerVotes + post.midVotes + post.stinkerVotes > 0)
+    .sort((a, b) => rating(b) - rating(a) || b.bangerVotes - a.bangerVotes)
+    .slice(0, 3);
+}
+
+export function getStinkerPosts(posts: BangerPost[]) {
+  return [...posts]
+    .filter((post) => post.bangerVotes + post.midVotes + post.stinkerVotes > 0)
+    .sort((a, b) => stinkerRating(b) - stinkerRating(a) || b.stinkerVotes - a.stinkerVotes)
+    .slice(0, 3);
 }
 
 export function pickRandomPost(posts: BangerPost[], random = Math.random): BangerPost | undefined {

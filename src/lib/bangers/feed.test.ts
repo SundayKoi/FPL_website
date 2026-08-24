@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { BANGER_POSTS, getRecentPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
+import { BANGER_POSTS, getRecentPosts, getStinkerPosts, getTopPosts, pickRandomPost, type BangerPost } from "./feed";
 
 const posts: BangerPost[] = [
-  { id: "old", text: "Old wisdom", publishedAt: "2025-01-01", bangerVotes: 20, midVotes: 10, url: "https://x.com" },
-  { id: "one", text: "One", publishedAt: "2026-08-20", bangerVotes: 80, midVotes: 20, url: "https://x.com" },
-  { id: "two", text: "Two", publishedAt: "2026-08-19", bangerVotes: 70, midVotes: 10, url: "https://x.com" },
-  { id: "three", text: "Three", publishedAt: "2026-08-18", bangerVotes: 60, midVotes: 10, url: "https://x.com" },
-  { id: "four", text: "Four", publishedAt: "2026-08-17", bangerVotes: 50, midVotes: 10, url: "https://x.com" },
+  { id: "old", text: "Old wisdom", publishedAt: "2025-01-01", bangerVotes: 20, midVotes: 10, stinkerVotes: 0, url: "https://x.com" },
+  { id: "one", text: "One", publishedAt: "2026-08-20", bangerVotes: 80, midVotes: 20, stinkerVotes: 0, url: "https://x.com" },
+  { id: "two", text: "Two", publishedAt: "2026-08-19", bangerVotes: 70, midVotes: 10, stinkerVotes: 20, url: "https://x.com" },
+  { id: "three", text: "Three", publishedAt: "2026-08-18", bangerVotes: 60, midVotes: 10, stinkerVotes: 30, url: "https://x.com" },
+  { id: "four", text: "Four", publishedAt: "2026-08-17", bangerVotes: 50, midVotes: 10, stinkerVotes: 40, url: "https://x.com" },
 ];
 
 describe("banger feed rules", () => {
@@ -24,7 +24,11 @@ describe("banger feed rules", () => {
   });
 
   it("returns the three highest-rated posts by banger share", () => {
-    expect(getTopPosts(posts).map((post) => post.id)).toEqual(["two", "three", "four"]);
+    expect(getTopPosts(posts).map((post) => post.id)).toEqual(["one", "two", "old"]);
+  });
+
+  it("returns the most stinker-rated posts separately", () => {
+    expect(getStinkerPosts(posts).map((post) => post.id)).toEqual(["four", "three", "two"]);
   });
 
   it("can pick any post from the all-time archive", () => {
