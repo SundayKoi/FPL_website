@@ -1,12 +1,22 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { mockUsePathname } = vi.hoisted(() => ({ mockUsePathname: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: mockUsePathname,
+}));
 
 import SupportDevButton from "./SupportDevButton";
 
 describe("SupportDevButton", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    mockUsePathname.mockReset();
+  });
 
   it("links visitors to the support section from the bottom-left affordance", () => {
+    mockUsePathname.mockReturnValue("/info");
     render(<SupportDevButton />);
 
     const link = screen.getByRole("link", { name: /support the devs/i });
@@ -23,4 +33,14 @@ describe("SupportDevButton", () => {
     expect(image?.getAttribute("alt")).toBe("Support the devs");
     expect(image?.className).toContain("object-cover");
   });
+
+  it.each(["/drafter", "/drafter/abc123"]) (
+    "hides on drafter route %s",
+    (pathname) => {
+      mockUsePathname.mockReturnValue(pathname);
+      render(<SupportDevButton />);
+
+      expect(screen.queryByRole("link", { name: /support the devs/i })).toBeNull();
+    },
+  );
 });

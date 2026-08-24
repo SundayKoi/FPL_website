@@ -1,7 +1,13 @@
+'use client';
+
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function SupportDevButton() {
+  const pathname = usePathname();
+  if (pathname === "/drafter" || pathname?.startsWith("/drafter/")) return null;
+
   return (
     <Link
       href="/support-devs"
