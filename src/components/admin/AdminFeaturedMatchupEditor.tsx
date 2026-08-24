@@ -71,14 +71,14 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
   };
 
   return (
-    <section aria-labelledby={`${homepage}-featured-matchup-title`} className="card-brand flex flex-col gap-3 p-5">
-      <div>
+    <details className="card-brand flex flex-col gap-3 p-5">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span className="label-dash">Homepage display</span>
         <h3 id={`${homepage}-featured-matchup-title`} className="type-display mt-2 text-2xl">
           {label} featured matchup
         </h3>
         <p className="mt-1 text-sm text-steel">Choose the current fixture and the copy shown above it on the {label} homepage.</p>
-      </div>
+      </summary>
 
       <label className="flex flex-col gap-1 text-xs text-steel">
         {label} fixture
@@ -132,6 +132,6 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           {busy ? "Saving…" : `Save ${label} featured matchup`}
         </button>
       </div>
-    </section>
+    </details>
   );
 }

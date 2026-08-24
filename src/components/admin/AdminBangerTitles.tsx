@@ -48,11 +48,11 @@ export default function AdminBangerTitles({ initial }: { initial: BangerBoardSet
   }
 
   return (
-    <div className="card-brand flex flex-col gap-5 p-5">
-      <div>
+    <details className="card-brand flex flex-col gap-5 p-5">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span className="label-dash">Banger Board titles</span>
         <p className="mt-1 text-sm text-steel">Customize the headings shown to every visitor.</p>
-      </div>
+      </summary>
       <div className="grid gap-4 sm:grid-cols-2">
         {FIELDS.map(({ key, label }) => (
           <label key={key} className="flex flex-col gap-1.5 text-sm text-steel">
@@ -72,6 +72,6 @@ export default function AdminBangerTitles({ initial }: { initial: BangerBoardSet
         </button>
         {message ? <p className="text-sm text-steel" role="status">{message}</p> : null}
       </div>
-    </div>
+    </details>
   );
 }

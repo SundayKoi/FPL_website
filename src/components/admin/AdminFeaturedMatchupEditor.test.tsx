@@ -33,6 +33,26 @@ afterEach(() => {
 });
 
 describe("AdminFeaturedMatchupEditor", () => {
+  it("starts collapsed and reveals its editable fields when opened", () => {
+    render(
+      <AdminFeaturedMatchupEditor
+        homepage="premier"
+        fixtures={fixtures}
+        settings={{ fixtureId: "fixture-1", title: "Premier feature", description: "Premier copy" }}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Premier featured matchup" });
+    const disclosure = heading.closest("details");
+    expect(disclosure).not.toBeNull();
+    expect(disclosure?.open).toBe(false);
+
+    fireEvent.click(heading);
+
+    expect(disclosure?.open).toBe(true);
+    expect(screen.getByLabelText("Premier title")).not.toBeNull();
+  });
+
   it("renders independent Premier and Academy fixture and copy controls", () => {
     render(
       <>
@@ -48,6 +68,9 @@ describe("AdminFeaturedMatchupEditor", () => {
         />
       </>,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     expect(screen.getByRole("heading", { name: "Premier featured matchup" })).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Academy featured matchup" })).not.toBeNull();
@@ -67,6 +90,8 @@ describe("AdminFeaturedMatchupEditor", () => {
         settings={{ fixtureId: null, title: null, description: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Premier featured matchup" }));
 
     fireEvent.change(screen.getByLabelText("Premier fixture"), { target: { value: "fixture-2" } });
     fireEvent.change(screen.getByLabelText("Premier title"), { target: { value: "  Week 4 showdown  " } });
@@ -99,6 +124,8 @@ describe("AdminFeaturedMatchupEditor", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
+
     fireEvent.change(screen.getByLabelText("Academy fixture"), { target: { value: "fixture-1" } });
     fireEvent.change(screen.getByLabelText("Academy title"), { target: { value: "Academy showcase" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Academy featured matchup" }));
@@ -130,6 +157,8 @@ describe("AdminFeaturedMatchupEditor", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
+
     fireEvent.click(screen.getByRole("button", { name: "Save Academy featured matchup" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("You do not have permission to save this matchup.");
@@ -146,6 +175,8 @@ describe("AdminFeaturedMatchupEditor", () => {
         settings={{ fixtureId: null, title: null, description: null }}
       />,
     );
+
+    fireEvent.click(screen.getByRole("heading", { name: "Academy featured matchup" }));
 
     const saveButton = screen.getByRole("button", { name: "Save Academy featured matchup" });
     fireEvent.click(saveButton);

@@ -27,7 +27,6 @@ vi.mock("@/components/admin/AdminFeaturedMatchupEditor", () => ({ default: edito
 vi.mock("@/components/admin/DraftListClient", () => ({ default: () => <div /> }));
 vi.mock("@/components/admin/AdminHomepageMode", () => ({ default: () => <div /> }));
 vi.mock("@/components/admin/AdminStaff", () => ({ default: () => <div /> }));
-vi.mock("@/components/admin/AdminBriefEditor", () => ({ default: () => <div /> }));
 // Renders a browser Supabase client at mount — mocked like every other
 // admin child so the page test needs no NEXT_PUBLIC_SUPABASE_* env.
 vi.mock("@/components/admin/AdminBangerTitles", () => ({ default: () => <div /> }));
@@ -91,6 +90,12 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("AdminPage", () => {
+  it("does not render the removed homepage write-up section", async () => {
+    render(await AdminPage());
+
+    expect(screen.queryByRole("region", { name: "Homepage write-up" })).toBeNull();
+  });
+
   it("shows Premier and Academy featured editors to staff with their scoped settings and fixtures", async () => {
     fetchHomepageSchedule
       .mockResolvedValueOnce({ fixtures: [fixture("premier-fixture", "Premier A", "Premier B")] })
