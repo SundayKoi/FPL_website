@@ -117,9 +117,15 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
  */
 export function pctOf(values: number[], value: number): number {
   if (values.length <= 1) return 50;
-  const sorted = [...values].sort((a, b) => a - b);
-  if (sorted[0] === sorted[sorted.length - 1]) return 50;
-  const index = sorted.indexOf(value);
-  if (index === -1) return 50;
-  return (index / (sorted.length - 1)) * 100;
+  let below = 0;
+  let equal = 0;
+  for (const peer of values) {
+    if (peer < value) below += 1;
+    else if (peer === value) equal += 1;
+  }
+  if (equal === 0) return 50;
+  // Midrank, matching build.ts's pct: ties split their band down the
+  // middle. indexOf handed every tied player the BOTTOM of the band, which
+  // understated a whole cohort that had done identically well.
+  return ((below + (equal - 1) / 2) / (values.length - 1)) * 100;
 }

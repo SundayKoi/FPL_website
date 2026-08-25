@@ -328,6 +328,29 @@ describe("archetype scarcity", () => {
 
 describe("archetypes fit the role they land on", () => {
   /** A full role cohort, so percentiles are computed within the role. */
+  /** Each player's standout axis. A cohort where one multiplier scales
+   *  every stat makes the bottom players uniformly worse at everything,
+   *  and "no title fits" is then the honest answer for them — which is not
+   *  what this suite is trying to exercise. Real rosters have specialists,
+   *  so each fixture player spikes on something different and the
+   *  archetype pool has a real claim to sort out. */
+  /** The un-spiked value of each stat a spike can touch, so a spike is a
+   *  multiplier on the same scale the row would otherwise have had. */
+  const BASE_STATS: Record<string, number> = {
+    avg_dmg_per_min: 500, avg_dmg_share_pct: 25, avg_vision_per_min: 1,
+    avg_assists: 8, avg_cs_per_min: 7, avg_cs_at_10: 60, avg_gold_per_min: 380,
+    avg_solo_kills: 1, first_blood_involvements: 3, total_plates: 4,
+    avg_deaths: 4, avg_dmg_taken_per_min: 700, avg_kp_pct: 55,
+  };
+
+  const SPIKES: Record<string, number>[] = [
+    { avg_dmg_per_min: 1.8, avg_dmg_share_pct: 1.8 },
+    { avg_vision_per_min: 2.4, avg_assists: 1.8 },
+    { avg_cs_per_min: 1.7, avg_cs_at_10: 1.7, avg_gold_per_min: 1.5 },
+    { avg_solo_kills: 3, first_blood_involvements: 2.5, total_plates: 2.5 },
+    { avg_deaths: 0.35, avg_dmg_taken_per_min: 1.9, avg_kp_pct: 1.5 },
+  ];
+
   const roleCohort = (role: string): PlayerAggRow[] =>
     [1.6, 1.3, 1.0, 0.8, 0.6].map((mult, index) =>
       agg({
@@ -351,6 +374,20 @@ describe("archetypes fit the role they land on", () => {
         first_blood_involvements: 3 * mult,
         total_plates: 4 * mult,
         winrate_pct: Math.min(95, 50 * mult),
+        // Duration and games vary too. They used to be identical across the
+        // fixture, and the old pct() spread tied players across the whole
+        // 0-100 range by array position — so the archetypes that read them
+        // were discriminating on sort order rather than on play. Now that
+        // ties share a percentile, a fixture where everyone ties genuinely
+        // has nothing to tell those players apart.
+        avg_game_duration: 40 - 4 * mult,
+        games: Math.round(6 + 4 * mult),
+        ...Object.fromEntries(
+          Object.entries(SPIKES[index]).map(([key, factor]) => [
+            key,
+            (BASE_STATS[key] ?? 1) * mult * factor,
+          ]),
+        ),
       }),
     );
 

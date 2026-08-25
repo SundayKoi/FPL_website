@@ -133,3 +133,33 @@ describe("gameTotals game-length normalisation", () => {
     expect(totals.objectives).toBe(2);
   });
 })
+
+describe("pctOf tie handling", () => {
+  it("gives identical values identical percentiles", () => {
+    // The bug this replaces: ranking by sort position handed four players
+    // with the SAME 2-0 record percentiles of 40, 60, 80 and 100 — up to
+    // 13 OVR of pure array-order noise once winning was weighted at 30.
+    const wrs = [100, 100, 100, 100, 0, 0];
+    const first = pctOf(wrs, 100);
+    expect(pctOf(wrs, 100)).toBe(first);
+    expect(pctOf(wrs, 0)).toBeLessThan(first);
+  });
+
+  it("splits a tied band down its middle rather than pinning it low", () => {
+    // Four of six at the top: the band spans ranks 2..5 of 0..5, so its
+    // midpoint is 3.5/5 = 70.
+    expect(pctOf([100, 100, 100, 100, 0, 0], 100)).toBeCloseTo(70, 6);
+    expect(pctOf([100, 100, 100, 100, 0, 0], 0)).toBeCloseTo(10, 6);
+  });
+
+  it("still puts a unique best at the top and a unique worst at the bottom", () => {
+    expect(pctOf([1, 2, 3], 3)).toBe(100);
+    expect(pctOf([1, 2, 3], 1)).toBe(0);
+    expect(pctOf([1, 2, 3], 2)).toBe(50);
+  });
+
+  it("returns the middle when everybody ties, or the value is absent", () => {
+    expect(pctOf([5, 5, 5], 5)).toBe(50);
+    expect(pctOf([1, 2, 3], 99)).toBe(50);
+  });
+})

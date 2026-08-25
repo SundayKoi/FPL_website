@@ -216,11 +216,30 @@ function playerKey(row: { summoner_name: string; tag: string }): string {
 /** Percentile (0-100) of the row within the cohort for one stat, matching
  *  formulas.ts's pctile shape (rank position over cohort size). */
 function pct(cohort: PlayerAggRow[], row: PlayerAggRow, pick: (r: PlayerAggRow) => number, invert = false): number {
-  const sorted = [...cohort].sort((a, b) => pick(a) - pick(b));
   const key = playerKey(row);
-  const idx = sorted.findIndex((r) => playerKey(r) === key);
-  if (idx === -1) return 50;
-  const p = (idx / (sorted.length - 1 || 1)) * 100;
+  if (!cohort.some((r) => playerKey(r) === key)) return 50;
+  const value = pick(row);
+  let below = 0;
+  let equal = 0;
+  for (const peer of cohort) {
+    const peerValue = pick(peer);
+    if (peerValue < value) below += 1;
+    else if (peerValue === value) equal += 1;
+  }
+  // MIDRANK, not sort position. Ranking by index in a sorted array gives
+  // tied players DIFFERENT percentiles purely by where they sat in the
+  // input — four bot laners who all went 2-0 came out at 40, 60, 80 and
+  // 100. With winning weighted at 30 that was up to 13 OVR of array-order
+  // noise, and a two-game week ties constantly (a winrate can only be 0,
+  // 50 or 100). Splitting the tied band down the middle gives every player
+  // with the same number the same percentile, and leaves distinct values
+  // exactly where they were.
+  // equal counts the row itself, so zero means its value compared equal to
+  // nothing — a NaN or undefined field, since NaN === NaN is false. The old
+  // sort-position code still returned some index for such a row; this would
+  // return a NEGATIVE percentile and drag every threshold that reads it.
+  if (equal === 0) return 50;
+  const p = ((below + (equal - 1) / 2) / (cohort.length - 1 || 1)) * 100;
   return invert ? 100 - p : p;
 }
 
