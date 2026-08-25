@@ -65,10 +65,16 @@ function TeamCrest({
 
 export default function FixtureCard({
   fixture,
+  draftedFixtureIds,
   identities = {},
   teamBasePath = "/teams",
 }: {
   fixture: FixtureRow;
+  /** Fixture ids the site drafter actually recorded a pick/ban phase for.
+   *  Gating on "played" instead sent people to an empty section: a game
+   *  drafted in the client, or played before this drafter existed, has no
+   *  match_drafts row and nothing to show. */
+  draftedFixtureIds?: ReadonlySet<string>;
   identities?: Record<string, TeamIdentity>;
   /** Where a crest links. Pass null for Academy: /teams/[slug] resolves the
    *  Premier draft only, so those links would 404. */
@@ -114,7 +120,7 @@ export default function FixtureCard({
         {/* The pick/ban phase was only reachable by guessing that the SCORE
             was a link to a page that happened to contain it. People asking
             "where can I see the draft" were not going to find that. */}
-        {played ? (
+        {draftedFixtureIds?.has(fixture.id) ? (
           <Link
             href={`/match/${fixture.id}#draft`}
             className="rounded-full border border-line bg-panel px-2 py-0.5 font-semibold uppercase hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"

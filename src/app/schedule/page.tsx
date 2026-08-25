@@ -28,7 +28,7 @@ export default async function SchedulePage({
   const supabase = await createServerSupabase();
   const { isAdmin, isOwner } = await fetchStaffTier(supabase);
 
-  const [fixturesResult, settingsResult, identities, leagueSeasons] = await Promise.all([
+  const [fixturesResult, settingsResult, identities, leagueSeasons, draftsResult] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
     isAdmin
       ? supabase
@@ -39,6 +39,9 @@ export default async function SchedulePage({
       : Promise.resolve({ data: null }),
     fetchTeamIdentities(),
     fetchLeagueSeasons(supabase),
+    // Which fixtures the site drafter actually recorded. Ids only — the
+    // schedule needs to know whether a draft EXISTS, not what is in it.
+    supabase.from("match_drafts").select("fixture_id"),
   ]);
   // Academy fixtures live in the same table under their own season code —
   // this is the Premier calendar, so they are not listed here.
@@ -55,6 +58,12 @@ export default async function SchedulePage({
   const requested = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
   const seasons = seasonsOf(allFixtures);
   const season = resolveSeason(allFixtures, requested);
+  // Ids only: the schedule needs to know whether a draft EXISTS, not what
+  // is in it. A game drafted in the client, or played before this drafter
+  // existed, has no row here and gets no link.
+  const draftedFixtureIds = new Set(
+    ((draftsResult.data as { fixture_id: string }[] | null) ?? []).map((row) => row.fixture_id),
+  );
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : [];
 
   const grouped = groupByStage(fixtures);
@@ -148,7 +157,7 @@ export default async function SchedulePage({
                         </p>
                       ) : (
                         stageFixtures.map((fixture) => (
-                          <FixtureCard key={fixture.id} fixture={fixture} identities={identities} />
+                          <FixtureCard key={fixture.id} fixture={fixture} identities={identities} draftedFixtureIds={draftedFixtureIds} />
                         ))
                       )}
                     </CollapsibleScheduleStage>
