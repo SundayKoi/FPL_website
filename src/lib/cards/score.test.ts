@@ -122,6 +122,21 @@ describe("cardScore", () => {
     }
   });
 
+  it("pays a 2-0 week the same in every role, however crowded it is", () => {
+    // The win term takes the RAW winrate, so 100 means 2-0 everywhere.
+    // Percentiling it made the same result worth 95 in a role where two
+    // players went 2-0 and 77 where six did — which is what left whole
+    // roles topping out ten OVR below others.
+    const scores = Object.keys(ROLE_SCORE_WEIGHTS).map((role) => cardScore(role, flat(80), 100));
+    for (const score of scores) expect(score).toBeCloseTo(scores[0], 6);
+  });
+
+  it("reads a 1-1 week as the middle and a 0-2 as the floor", () => {
+    const bars = flat(80);
+    expect(cardScore("TOP", bars, 100)).toBeGreaterThan(cardScore("TOP", bars, 50));
+    expect(cardScore("TOP", bars, 50)).toBeGreaterThan(cardScore("TOP", bars, 0));
+  });
+
   it("stays inside the 0-100 the OVR curve expects", () => {
     expect(cardScore("TOP", flat(0), 0)).toBe(0);
     expect(cardScore("TOP", flat(100), 100)).toBe(100);
