@@ -39,13 +39,27 @@ function Laurel() {
   );
 }
 
-export default function MomentPlate({ moment, season }: { moment: LeagueMoment; season?: string | null }) {
+export default function MomentPlate({
+  moment,
+  season,
+  className = "",
+}: {
+  moment: LeagueMoment;
+  season?: string | null;
+  /** Sizing belongs to the caller. The plate used to cap itself at 16rem,
+   *  which is right on the moments wall — a flex row where an uncapped
+   *  plate would stretch across the whole line — and wrong everywhere a
+   *  moment sits in a grid beside player cards, where it came out visibly
+   *  smaller than everything around it. Same aspect ratio as a player card,
+   *  so matching the width matches the height too. */
+  className?: string;
+}) {
   const icon = moment.champion ? championIconUrl(moment.champion) : null;
 
   return (
     <article
       aria-label={`${moment.title} — ${moment.summonerName}`}
-      className="moment-plate relative flex aspect-[5/7] w-full max-w-[16rem] flex-col overflow-hidden rounded-xl"
+      className={`moment-plate relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-xl ${className}`}
     >
       <span className="moment-brush" />
       <span className="moment-bevel" />

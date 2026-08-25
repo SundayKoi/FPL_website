@@ -25,7 +25,9 @@ export default function MomentWall({
   return (
     <div className="flex flex-wrap justify-center gap-6 sm:justify-start">
       {moments.map((moment) => (
-        <MomentPlate key={moment.id} moment={moment} season={season} />
+        // The cap lives here, not in the plate: this is a flex row, so an
+        // uncapped plate would stretch across the whole line.
+        <MomentPlate key={moment.id} moment={moment} season={season} className="max-w-[16rem]" />
       ))}
     </div>
   );
