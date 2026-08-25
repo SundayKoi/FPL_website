@@ -147,6 +147,25 @@ describe("MatchDraftBoard", () => {
     expect(zeri.hasAttribute("disabled")).toBe(true);
   });
 
+  it("crosses out fearless-blocked champions and says which game took them", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, gameNumber: 2, blockedGames: { zeri: 1 } }}
+        onSave={vi.fn()}
+        seriesFormat={{ bestOf: 3, fearless: true }}
+      />,
+    );
+
+    // Blocked by a previous game: struck through, badged, and it says so.
+    const zeri = screen.getByRole("button", { name: /Zeri unavailable — picked in game 1/i });
+    expect(zeri.querySelector('[data-testid="fearless-cross"]')).toBeTruthy();
+    expect(zeri.textContent).toContain("G1");
+
+    // Used in THIS game (a ban) stays the plain dim — the two must not look alike.
+    const aatrox = screen.getByRole("button", { name: /Aatrox unavailable$/i });
+    expect(aatrox.querySelector('[data-testid="fearless-cross"]')).toBeNull();
+  });
+
   it("shows the banned champion's image and name in the ban tile", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
