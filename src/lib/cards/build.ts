@@ -7,7 +7,6 @@
 // moves automatically as the nightly ingest lands new games.
 
 import { championDisplayName } from "@/lib/match-draft/champions";
-import { powerRanking } from "@/lib/stats/formulas";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import { MEASURE_LABELS, type MeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
 
@@ -578,6 +577,81 @@ export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string
   return assigned;
 }
 
+/**
+ * How much each of a role's five bars, plus winning, is worth in the OVR.
+ *
+ * The card is now scored on exactly what it displays. Before this, the bars
+ * came from the measure vocabulary while the number came from POWER_WEIGHTS
+ * — nine aggregate fields with no objectives, no turrets, no plates, no
+ * laning and no damage share in them. A jungler's card showed an Objectives
+ * bar while dragons and barons contributed nothing to their rating, and a
+ * top laner's Turrets bar was pure decoration. Reading a card could not tell
+ * you why the number was what it was.
+ *
+ * Every weight below keys a measure in that role's ROLE_BARS, plus `win`.
+ * Winning is its own term rather than a bar because it belongs to all five
+ * roles equally and is the one thing no per-role measure captures.
+ *
+ * The weights are judgement, not derivation — they say what the league
+ * thinks each role is FOR. Tune them here; nothing else needs to know.
+ */
+export type ScoreWeights = { win: number } & Partial<Record<MeasureKey, number>>;
+
+export const ROLE_SCORE_WEIGHTS: Record<string, ScoreWeights> = {
+  // Wins lane, takes the map, survives being on an island.
+  TOP: { win: 18, combat: 22, laning: 20, turrets: 14, survival: 12, impact: 14 },
+  // Objectives are the job. This is the biggest single correction here:
+  // dragons and barons used to count for nothing at all.
+  JUNGLE: { win: 20, combat: 20, objectives: 20, vision: 10, presence: 15, impact: 15 },
+  MIDDLE: { win: 18, combat: 20, damage: 22, laning: 15, presence: 12, impact: 13 },
+  // Damage is the reason a bot laner is fed everything the team has.
+  BOTTOM: { win: 18, combat: 18, damage: 24, economy: 16, laning: 12, impact: 12 },
+  // Vision and presence carry it; damage share barely matters, which is
+  // what the old formula got most obviously wrong in the other direction.
+  UTILITY: { win: 20, combat: 12, vision: 26, presence: 22, survival: 12, impact: 8 },
+};
+
+export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
+  win: 20,
+  combat: 20,
+  damage: 20,
+  economy: 15,
+  vision: 10,
+  impact: 15,
+};
+
+export function scoreWeightsForRole(roleMode: string | null | undefined): ScoreWeights {
+  return (roleMode && ROLE_SCORE_WEIGHTS[roleMode]) || DEFAULT_SCORE_WEIGHTS;
+}
+
+/**
+ * The card's 0-100 score: the weighted mean of its own bars and its winrate.
+ *
+ * Every input is already a percentile against the player's ROLE cohort, so
+ * the output is on the same 0-100 scale the OVR curve expects and no
+ * renormalising is needed. Divided by the weights actually used rather than
+ * by 100, so a role whose weights do not sum to 100 still scores on scale.
+ */
+export function cardScore(
+  roleMode: string | null | undefined,
+  values: Record<MeasureKey, number>,
+  winPctile: number,
+): number {
+  const weights = scoreWeightsForRole(roleMode);
+  let total = 0;
+  let used = 0;
+  for (const [key, weight] of Object.entries(weights) as [keyof ScoreWeights, number][]) {
+    if (!weight) continue;
+    const value = key === "win" ? winPctile : values[key as MeasureKey];
+    if (typeof value !== "number") continue;
+    total += value * weight;
+    used += weight;
+  }
+  // No usable weights would mean a role with no bars at all; the middle is
+  // the only honest answer, and it keeps the curve from returning NaN.
+  return used > 0 ? total / used : 50;
+}
+
 /** Every bar's raw percentile for one player, before toStat()'s 20-99 squeeze.
  *  `totalsByKey` is every cohort member's per-game objective/turret work,
  *  which only the whole-league builder can assemble — a solo buildCard
@@ -661,10 +735,7 @@ export function buildCard({
   standout = false,
   totalsByKey = new Map<string, GameTotals>(),
 }: BuildCardInput): PlayerCardData {
-  const ranked = powerRanking(cohort);
   const key = playerKey(row);
-  const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
-  const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
   // buildSeasonCards already computed every cohort member's totals once to
   // build totalsByKey — reuse this player's own entry instead of calling
@@ -673,6 +744,13 @@ export function buildCard({
   const totals = totalsByKey.get(key) ?? gameTotals(games);
   const values = measureValues(cohort, row, totals, totalsByKey);
   const bars = barsForRole(row.role_mode);
+
+  // The number comes from the same measures the bars draw, so a card can be
+  // read: the five bars and the win rate ARE the rating. powerRanking is no
+  // longer consulted here — it scores nine aggregate fields that between
+  // them contain no objectives, turrets, plates, laning or damage share.
+  const score = cardScore(row.role_mode, values, pct(roleCohort(cohort, row), row, (r) => r.winrate_pct));
+  const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
   // Form: the last five results, weighted toward the streak the player is
   // currently on — still tracked for the flip-card dots and the "On A

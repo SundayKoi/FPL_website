@@ -8,22 +8,22 @@ import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
 import PlayerDetail from "./PlayerDetail";
 import PlayersTab, { type SelectedPlayer } from "./PlayersTab";
-import PowerRankingsTab from "./PowerRankingsTab";
 import RecordsTab from "./RecordsTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
 import TeamsTab from "./TeamsTab";
 import TimelineTab from "./TimelineTab";
 
-// No separate MVP tab: mvpScores and powerRanking are near-identical
-// weighted percentile ladders (see formulas.ts) and produced the same names
-// in a slightly different order. Power Rankings absorbed the concept — its
-// #1 player carries the MVP crown in the hero card.
+// No Power Rankings tab, and so no MVP tab either — the two were
+// near-identical weighted percentile ladders and Power Rankings had
+// absorbed MVP. Both are gone now that a player card's OVR is the league's
+// rating: two ladders that ranked the same players differently was one
+// ladder too many, and the card is the one people actually read. The tab's
+// component stays in the tree for the moment; nothing routes to it.
 const TABS = [
   "Leaderboard",
   "Teams",
   "Champions",
   "Records",
-  "Power Rankings",
   "Timeline",
   "Players",
 ] as const;
@@ -223,8 +223,6 @@ export default function StatsTabs({
         <ChampionsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} teamNames={teamNames} />
-      ) : activeTab === "Power Rankings" ? (
-        <PowerRankingsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Timeline" ? (
         <TimelineTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Players" ? (
