@@ -297,6 +297,16 @@ describe("loadMyTeamDashboard", () => {
     });
   });
 
+  it("propagates an own-roster failure instead of returning a false ready dashboard", async () => {
+    fetchMyRoster.mockImplementation(async (_client: unknown, teamId: string) => {
+      if (teamId === academyOne.id) throw new Error("own roster unavailable");
+      return { draftPlayers: [], riotAccounts: [] };
+    });
+
+    await expect(loadMyTeamDashboard(fakeClient() as never, "academy"))
+      .rejects.toThrow("own roster unavailable");
+  });
+
   it("throws explicit core query failures instead of returning an empty success state", async () => {
     await expect(loadMyTeamDashboard(
       fakeClient({ errors: { fixtures: { message: "fixtures unavailable" } } }) as never,

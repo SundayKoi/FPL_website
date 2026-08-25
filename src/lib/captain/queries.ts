@@ -273,23 +273,31 @@ export async function fetchMyRoster(
   season: string,
   league: "premier" | "academy" = "premier",
 ): Promise<MyRosterData> {
-  const { data: teamRow } = await supabase.from("league_teams").select("name").eq("id", teamId).single();
+  const { data: teamRow, error: teamError } = await supabase
+    .from("league_teams")
+    .select("name")
+    .eq("id", teamId)
+    .single();
+  if (teamError) throw teamError;
   const teamName = (teamRow as { name: string } | null)?.name ?? null;
 
   let draftPlayers: Player[] = [];
   if (teamName) {
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from("league_settings")
       .select("featured_draft_id, academy_draft_id")
       .eq("id", 1)
       .single();
+    if (settingsError) throw settingsError;
     const settingRows = (settings as { featured_draft_id: string | null; academy_draft_id?: string | null } | null) ?? null;
     const draftIds = [settingRows?.featured_draft_id, settingRows?.academy_draft_id].filter(
       (id): id is string => Boolean(id),
     );
-    const { data: draftTeams } = draftIds.length
+    const draftTeamsResult = draftIds.length
       ? await supabase.from("teams").select("id, name").in("draft_id", draftIds)
-      : { data: [] };
+      : { data: [], error: null };
+    if (draftTeamsResult.error) throw draftTeamsResult.error;
+    const { data: draftTeams } = draftTeamsResult;
     const draftTeamId = findDraftTeamId(teamName, (draftTeams as { id: string; name: string }[] | null) ?? []);
 
     if (draftTeamId) {
@@ -306,6 +314,7 @@ export async function fetchMyRoster(
       ]);
       const { data: playerRows, error: playersError } = playersResult;
       if (playersError) throw playersError;
+      if (canonicalResult.error) throw canonicalResult.error;
       const canonicalPlayers =
         (canonicalResult.data as { id: string; display_name: string; rank: string | null; opgg_url: string | null }[]) ?? [];
       draftPlayers = ((playerRows as Player[]) ?? []).map((player) => ({
