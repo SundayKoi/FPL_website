@@ -101,12 +101,28 @@ describe("printArtExists", () => {
     );
   });
 
-  it("answers no art for a champion it can't resolve", async () => {
-    const fetchMock = vi.fn();
+  it("answers no art when the CDN serves neither directory", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false }) as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(printArtExists("Not A Champion", 1)).resolves.toBe(false);
-    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("probes a name the bundled roster does not know, rather than assuming no art", async () => {
+    // This used to short-circuit: a champion missing from CHAMPION_NAMES
+    // was treated as having no art, without asking. That assumption is
+    // exactly what left champions released since the last roster update
+    // with a blank frame — their art exists, we just never looked. The
+    // cost is a HEAD request for a genuinely bad name, which the per-URL
+    // cache above collapses on repeats.
+    const fetchMock = vi.fn(async () => ({ ok: true }) as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(printArtExists("Zaheen", 1)).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Zaheen_1.jpg",
+      { method: "HEAD" },
+    );
   });
 });
 
