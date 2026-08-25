@@ -4,7 +4,7 @@
 -- player_identity_state(); authenticated reads remain scoped by RLS to the
 -- claimant, their team captain, or an admin.
 
-create table public.player_identity_links (
+create table if not exists public.player_identity_links (
   id uuid primary key default gen_random_uuid(),
   player_pool_id uuid not null references public.player_pool(id) on delete cascade,
   profile_id uuid not null references public.profiles(id) on delete cascade,
@@ -25,19 +25,19 @@ create table public.player_identity_links (
   unique (profile_id, league, season)
 );
 
-create index player_identity_links_team_season_idx
+create index if not exists player_identity_links_team_season_idx
   on public.player_identity_links (league_team_id, season)
   where league_team_id is not null;
-create index player_identity_links_requested_by_idx
+create index if not exists player_identity_links_requested_by_idx
   on public.player_identity_links (requested_by);
-create index player_identity_links_decided_by_idx
+create index if not exists player_identity_links_decided_by_idx
   on public.player_identity_links (decided_by)
   where decided_by is not null;
 
 -- Exact canonical roster proof. A player is rostered only when the supplied
 -- league/season selects the active draft in league_settings and that draft's
 -- normalized team name resolves to the supplied canonical league team.
-create function public.is_player_rostered_on_team(
+create or replace function public.is_player_rostered_on_team(
   p_player_pool_id uuid,
   p_league_team_id uuid,
   p_league text,
@@ -81,7 +81,7 @@ grant execute on function public.is_player_rostered_on_team(uuid, uuid, text, te
   to authenticated, service_role;
 
 -- Caller-scoped helper used by the private match_codes RLS policy.
-create function public.is_approved_team_member(
+create or replace function public.is_approved_team_member(
   p_league_team_id uuid,
   p_season text
 ) returns boolean
@@ -108,7 +108,7 @@ grant execute on function public.is_approved_team_member(uuid, text)
 -- Public-safe claim state. This is deliberately SECURITY DEFINER because the
 -- underlying table has no anonymous grant; the only possible return values
 -- contain no profile or team information.
-create function public.player_identity_state(
+create or replace function public.player_identity_state(
   p_player_pool_id uuid,
   p_league text,
   p_season text
@@ -137,6 +137,8 @@ grant execute on function public.player_identity_state(uuid, text, text)
 
 alter table public.player_identity_links enable row level security;
 
+drop policy if exists player_identity_links_select
+  on public.player_identity_links;
 create policy player_identity_links_select
   on public.player_identity_links
   for select
@@ -150,6 +152,8 @@ create policy player_identity_links_select
     )
   );
 
+drop policy if exists player_identity_links_self_insert
+  on public.player_identity_links;
 create policy player_identity_links_self_insert
   on public.player_identity_links
   for insert
@@ -168,6 +172,8 @@ create policy player_identity_links_self_insert
     )
   );
 
+drop policy if exists player_identity_links_delete
+  on public.player_identity_links;
 create policy player_identity_links_delete
   on public.player_identity_links
   for delete
@@ -187,6 +193,8 @@ create policy player_identity_links_delete
     )
   );
 
+drop policy if exists player_identity_links_update
+  on public.player_identity_links;
 create policy player_identity_links_update
   on public.player_identity_links
   for update
@@ -217,7 +225,7 @@ create policy player_identity_links_update
 -- intended transition: approve the existing request and stamp the real
 -- caller. Admins retain unrestricted update access; service-role JWTs remain
 -- trusted for server maintenance.
-create function public.enforce_player_identity_decision_update()
+create or replace function public.enforce_player_identity_decision_update()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -269,6 +277,8 @@ $$;
 revoke all on function public.enforce_player_identity_decision_update()
   from public, anon, authenticated;
 
+drop trigger if exists player_identity_links_enforce_decision_update
+  on public.player_identity_links;
 create trigger player_identity_links_enforce_decision_update
   before update on public.player_identity_links
   for each row
@@ -280,7 +290,7 @@ grant select, insert, update, delete on table public.player_identity_links
 grant all on table public.player_identity_links to service_role;
 
 -- Approved members gain the same read-only fixture-code access as captains.
-drop policy match_codes_select on public.match_codes;
+drop policy if exists match_codes_select on public.match_codes;
 create policy match_codes_select
   on public.match_codes
   for select
@@ -294,19 +304,63 @@ create policy match_codes_select
 
 -- Card claims may optionally name the canonical player they represent.
 alter table public.card_claims
-  add column player_pool_id uuid
+  add column if not exists player_pool_id uuid
   references public.player_pool(id) on delete set null;
 
-create index card_claims_player_pool_id_idx
+create index if not exists card_claims_player_pool_id_idx
   on public.card_claims (player_pool_id)
   where player_pool_id is not null;
+
+-- Compare a card Riot ID with curated canonical OP.GG metadata. Both direct
+-- summoner URLs and multisearch URLs are accepted, but aliases and base-name
+-- guesses are not: private team access requires an exact name + tag pair.
+create or replace function public.card_claim_matches_opgg(
+  p_summoner text,
+  p_tag text,
+  p_opgg_url text
+) returns boolean
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  with encoded as (
+    select
+      lower(net._urlencode_string(trim(p_summoner)::varchar)) as game_name,
+      lower(net._urlencode_string(trim(p_tag)::varchar)) as tag,
+      lower(net._urlencode_string(
+        (trim(p_summoner) || '#' || trim(p_tag))::varchar
+      )) as account
+  ), normalized as (
+    select replace(lower(coalesce(p_opgg_url, '')), '+', '%20') as url
+  )
+  select exists (
+    select 1
+    from encoded e
+    cross join normalized n
+    where
+      lower(regexp_replace(split_part(n.url, '?', 1), '^.*/', ''))
+        = e.game_name || '-' || e.tag
+      or e.account = any(string_to_array(
+        replace(
+          split_part(split_part(n.url, 'summoners=', 2), '&', 1),
+          ',',
+          '%2c'
+        ),
+        '%2c'
+      ))
+  )
+$$;
+
+revoke all on function public.card_claim_matches_opgg(text, text, text)
+  from public, anon, authenticated, service_role;
 
 -- Moderate the card and synchronize an exact compatible identity in one
 -- transaction. Missing/ambiguous Riot roster membership intentionally leaves
 -- this as a card-only approval. A supplied canonical player that contradicts
 -- the one exact roster team, or conflicts with an existing identity, aborts
 -- the whole function and therefore rolls the card approval back too.
-create function public.approve_card_claim(
+create or replace function public.approve_card_claim(
   p_season text,
   p_summoner text,
   p_tag text
@@ -317,9 +371,9 @@ set search_path = ''
 as $$
 declare
   v_claim public.card_claims%rowtype;
+  v_candidate_player_id uuid;
   v_league_team_id uuid;
-  v_roster_count integer;
-  v_leagues text[];
+  v_candidate_count integer;
   v_league text;
   v_has_exact_identity boolean;
   v_has_conflict boolean;
@@ -358,33 +412,47 @@ begin
 
   select
     count(*)::integer,
-    (array_agg(rm.league_team_id order by rm.league_team_id))[1]
-  into v_roster_count, v_league_team_id
-  from public.roster_memberships rm
-  join public.riot_accounts ra on ra.id = rm.riot_account_id
-  where rm.season = v_claim.season
-    and lower(trim(ra.game_name)) = lower(trim(v_claim.summoner_name))
-    and lower(trim(ra.tag_line)) = lower(trim(v_claim.tag));
-
-  if v_roster_count <> 1 then
-    return;
-  end if;
-
-  select array_agg(candidate.league order by candidate.league)
-  into v_leagues
-  from (values ('premier'::text), ('academy'::text)) as candidate(league)
-  where public.is_player_rostered_on_team(
-    v_claim.player_pool_id,
+    (array_agg(candidate.player_pool_id order by candidate.player_pool_id))[1],
+    (array_agg(candidate.league_team_id order by candidate.league_team_id))[1],
+    min(candidate.league)
+  into
+    v_candidate_count,
+    v_candidate_player_id,
     v_league_team_id,
-    candidate.league,
-    v_claim.season
-  );
+    v_league
+  from (
+    select distinct
+      configured.league,
+      p.canonical_player_id as player_pool_id,
+      lt.id as league_team_id
+    from public.league_settings settings
+    cross join lateral (
+      values
+        ('premier'::text, settings.current_season, settings.featured_draft_id),
+        ('academy'::text, settings.academy_season, settings.academy_draft_id)
+    ) as configured(league, season, draft_id)
+    join public.players p
+      on p.draft_id = configured.draft_id
+    join public.player_pool pp on pp.id = p.canonical_player_id
+    join public.teams t
+      on t.id = p.team_id
+     and t.draft_id = p.draft_id
+    join public.league_teams lt
+      on lower(trim(lt.name)) = lower(trim(t.name))
+     and lt.active
+    where settings.id = 1
+      and configured.season = v_claim.season
+      and public.card_claim_matches_opgg(
+        v_claim.summoner_name,
+        v_claim.tag,
+        pp.opgg_url
+      )
+  ) candidate;
 
-  if coalesce(cardinality(v_leagues), 0) <> 1 then
+  if v_candidate_count <> 1
+     or v_candidate_player_id is distinct from v_claim.player_pool_id then
     raise exception 'CARD_IDENTITY_MISMATCH';
   end if;
-
-  v_league := v_leagues[1];
 
   perform 1
   from public.player_identity_links pil

@@ -6,7 +6,7 @@
 --   f on winner_team, set_open_draft_winner -> 20260826000010_open_draft_winners.sql
 --   f on lobby create locked down    -> 20260826000011_open_draft_premium_gate.sql
 --   f on card_editions table         -> 20260827000003_card_editions.sql
---   f on player_identity_links table -> 20260827000009_player_identity_links.sql
+--   f on player_identity_links table -> 20260827000012_player_identity_links.sql
 --
 -- Touches nothing: no DDL, no writes.
 

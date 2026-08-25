@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(40);
+select plan(45);
 grant usage on schema tests to authenticated;
 
 -- Schema contract.
@@ -77,12 +77,34 @@ set current_season = 'IDENTITY-S1',
 where id = 1;
 
 insert into public.player_pool (
-  id, season_key, normalized_name, display_name, role
+  id, season_key, normalized_name, display_name, role, opgg_url
 ) values
-  ('67000000-0000-0000-0000-000000000040', 'identity', 'alpha-mid', 'Alpha Mid', 'mid'),
-  ('67000000-0000-0000-0000-000000000041', 'identity', 'alpha-jungle', 'Alpha Jungle', 'jungle'),
-  ('67000000-0000-0000-0000-000000000042', 'identity', 'bravo-adc', 'Bravo ADC', 'adc'),
-  ('67000000-0000-0000-0000-000000000043', 'identity', 'academy-support', 'Academy Support', 'support');
+  ('67000000-0000-0000-0000-000000000040', 'identity', 'alpha-mid', 'Alpha Mid', 'mid', null),
+  (
+    '67000000-0000-0000-0000-000000000041', 'identity',
+    'alpha-jungle', 'Alpha Jungle', 'jungle',
+    'https://op.gg/lol/summoners/na/Exact%20Card-SYNC'
+  ),
+  (
+    '67000000-0000-0000-0000-000000000042', 'identity',
+    'bravo-adc', 'Bravo ADC', 'adc',
+    'https://op.gg/lol/summoners/na/Conflict%20Card-SYNC'
+  ),
+  (
+    '67000000-0000-0000-0000-000000000043', 'identity',
+    'academy-support', 'Academy Support', 'support',
+    'https://op.gg/lol/summoners/na/Historical%20Card-HIST'
+  ),
+  (
+    '67000000-0000-0000-0000-000000000044', 'identity',
+    'ambiguous-one', 'Ambiguous One', 'top',
+    'https://op.gg/lol/summoners/na/Ambiguous%20Card-DUPE'
+  ),
+  (
+    '67000000-0000-0000-0000-000000000045', 'identity',
+    'ambiguous-two', 'Ambiguous Two', 'top',
+    'https://op.gg/lol/summoners/na/Ambiguous%20Card-DUPE'
+  );
 
 insert into public.players (
   id, draft_id, display_name, role, team_id, price, acquisition, canonical_player_id
@@ -90,7 +112,9 @@ insert into public.players (
   ('67000000-0000-0000-0000-000000000050', '67000000-0000-0000-0000-000000000010', 'Alpha Mid', 'mid', '67000000-0000-0000-0000-000000000030', 1, 'auction', '67000000-0000-0000-0000-000000000040'),
   ('67000000-0000-0000-0000-000000000051', '67000000-0000-0000-0000-000000000010', 'Alpha Jungle', 'jungle', '67000000-0000-0000-0000-000000000030', 1, 'auction', '67000000-0000-0000-0000-000000000041'),
   ('67000000-0000-0000-0000-000000000052', '67000000-0000-0000-0000-000000000010', 'Bravo ADC', 'adc', '67000000-0000-0000-0000-000000000031', 1, 'auction', '67000000-0000-0000-0000-000000000042'),
-  ('67000000-0000-0000-0000-000000000053', '67000000-0000-0000-0000-000000000011', 'Academy Support', 'support', '67000000-0000-0000-0000-000000000032', 1, 'auction', '67000000-0000-0000-0000-000000000043');
+  ('67000000-0000-0000-0000-000000000053', '67000000-0000-0000-0000-000000000011', 'Academy Support', 'support', '67000000-0000-0000-0000-000000000032', 1, 'auction', '67000000-0000-0000-0000-000000000043'),
+  ('67000000-0000-0000-0000-000000000054', '67000000-0000-0000-0000-000000000010', 'Ambiguous One', 'top', '67000000-0000-0000-0000-000000000030', 1, 'auction', '67000000-0000-0000-0000-000000000044'),
+  ('67000000-0000-0000-0000-000000000055', '67000000-0000-0000-0000-000000000010', 'Ambiguous Two', 'top', '67000000-0000-0000-0000-000000000031', 1, 'auction', '67000000-0000-0000-0000-000000000045');
 
 insert into public.league_team_captains (league_team_id, season, profile_id) values
   ('67000000-0000-0000-0000-000000000020', 'IDENTITY-S1', tests.cap(2)),
@@ -105,12 +129,10 @@ insert into public.match_codes (
 );
 
 insert into public.riot_accounts (id, game_name, tag_line, display_name) values
-  ('67000000-0000-0000-0000-000000000070', 'Exact Card', 'SYNC', 'Exact Card'),
   ('67000000-0000-0000-0000-000000000071', 'Forged Card', 'SYNC', 'Forged Card'),
   ('67000000-0000-0000-0000-000000000072', 'Conflict Card', 'SYNC', 'Conflict Card');
 
 insert into public.roster_memberships (riot_account_id, season, league_team_id) values
-  ('67000000-0000-0000-0000-000000000070', 'IDENTITY-S1', '67000000-0000-0000-0000-000000000020'),
   ('67000000-0000-0000-0000-000000000071', 'IDENTITY-S1', '67000000-0000-0000-0000-000000000021'),
   ('67000000-0000-0000-0000-000000000072', 'IDENTITY-S1', '67000000-0000-0000-0000-000000000021');
 
@@ -434,7 +456,7 @@ create or replace function tests.forged_card_mapping_rolls_back() returns boolea
 language plpgsql
 as $test$
 begin
-  perform tests.acting_as(tests.cap(3));
+  perform tests.acting_as(tests.admin_id());
   perform public.approve_card_claim('IDENTITY-S1', 'Forged Card', 'SYNC');
   return false;
 exception when others then
@@ -458,6 +480,43 @@ insert into public.card_claims (
 select ok(
   tests.forged_card_mapping_rolls_back(),
   'a forged player-to-team card mapping rolls back the whole approval RPC'
+);
+
+create or replace function tests.ambiguous_card_mapping_rolls_back() returns boolean
+language plpgsql
+as $test$
+begin
+  perform tests.acting_as(tests.admin_id());
+  perform public.approve_card_claim('IDENTITY-S1', 'Ambiguous Card', 'DUPE');
+  return false;
+exception when others then
+  return sqlerrm = 'CARD_IDENTITY_MISMATCH' and (
+    select status = 'pending' and decided_by is null and decided_at is null
+    from public.card_claims
+    where season = 'IDENTITY-S1'
+      and summoner_name = 'Ambiguous Card'
+      and tag = 'DUPE'
+  ) and not exists (
+    select 1 from public.player_identity_links
+    where player_pool_id in (
+      '67000000-0000-0000-0000-000000000044',
+      '67000000-0000-0000-0000-000000000045'
+    )
+      and league = 'premier'
+      and season = 'IDENTITY-S1'
+  );
+end
+$test$;
+
+insert into public.card_claims (
+  season, summoner_name, tag, profile_id, player_pool_id
+) values (
+  'IDENTITY-S1', 'Ambiguous Card', 'DUPE', tests.cap(1),
+  '67000000-0000-0000-0000-000000000044'
+);
+select ok(
+  tests.ambiguous_card_mapping_rolls_back(),
+  'an ambiguous Riot ID rolls back approval even when one candidate was submitted'
 );
 
 insert into public.player_identity_links (
@@ -500,6 +559,85 @@ $test$;
 select ok(
   tests.conflicting_card_mapping_rolls_back(),
   'a conflicting identity owner rolls back the whole card approval RPC'
+);
+
+insert into public.card_claims (
+  season, summoner_name, tag, profile_id
+) values (
+  'IDENTITY-S1', 'Direct Approval', 'BLOCK', tests.cap(1)
+);
+select tests.acting_as(tests.cap(2));
+set local role authenticated;
+select throws_ok(
+  $$
+    update public.card_claims
+    set status = 'approved', decided_by = tests.cap(2), decided_at = now()
+    where season = 'IDENTITY-S1'
+      and summoner_name = 'Direct Approval'
+      and tag = 'BLOCK'
+  $$,
+  '42501',
+  null,
+  'card approval cannot bypass the exact-resolution RPC with a direct update'
+);
+reset role;
+
+update public.card_claims
+set status = 'approved',
+    player_pool_id = null,
+    decided_by = tests.admin_id(),
+    decided_at = now()
+where season = 'IDENTITY-S1'
+  and summoner_name = 'Conflict Card'
+  and tag = 'SYNC';
+select public.sync_approved_card_claim_identities();
+select is(
+  (
+    select player_pool_id
+    from public.card_claims
+    where season = 'IDENTITY-S1'
+      and summoner_name = 'Conflict Card'
+      and tag = 'SYNC'
+  ),
+  null::uuid,
+  'a conflicting historical identity is left completely untouched'
+);
+
+-- Claims approved before canonical identity links existed are synchronized
+-- only when one active-roster player has the exact Riot ID in canonical
+-- account metadata.
+insert into public.card_claims (
+  season, summoner_name, tag, profile_id,
+  status, decided_by, decided_at
+) values (
+  'IDENTITY-A1', 'Historical Card', 'HIST', tests.cap(1),
+  'approved', tests.admin_id(), now()
+);
+
+select lives_ok(
+  $$ select public.sync_approved_card_claim_identities() $$,
+  'approved historical card claims can be synchronized'
+);
+select ok(
+  exists (
+    select 1
+    from public.player_identity_links
+    where player_pool_id = '67000000-0000-0000-0000-000000000043'
+      and profile_id = tests.cap(1)
+      and league_team_id = '67000000-0000-0000-0000-000000000022'
+      and league = 'academy'
+      and season = 'IDENTITY-A1'
+      and status = 'approved'
+      and source = 'card'
+  )
+  and (
+    select player_pool_id = '67000000-0000-0000-0000-000000000043'
+    from public.card_claims
+    where season = 'IDENTITY-A1'
+      and summoner_name = 'Historical Card'
+      and tag = 'HIST'
+  ),
+  'the exact historical claimant receives their canonical My Team identity'
 );
 
 select * from finish();
