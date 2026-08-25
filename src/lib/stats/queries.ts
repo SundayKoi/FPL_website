@@ -14,6 +14,7 @@
 // few repeated lines for types that actually check.
 
 import { createClient } from "@/lib/supabase/client";
+import type { HeadToHeadRow } from "./headToHead";
 import type {
   ChampionAggRow,
   GameLogRow,
@@ -144,6 +145,43 @@ export function compareSeasonsNewestFirst(a: string, b: string): number {
  * — see `compareSeasonsNewestFirst`). Used by `SeasonSelect` to build its
  * option list and default to the newest season.
  */
+/**
+ * Every raw row the head-to-head matrix needs, PAGED.
+ *
+ * PostgREST caps a response at max_rows (1000). A season is ten rows per
+ * game and runs well past that, so an unpaged select would silently return
+ * the first thousand and the matrix would report matchups that stop
+ * halfway through the season with no sign anything was missing.
+ *
+ * Ordered by id because pagination without a total order can overlap or
+ * skip rows between requests.
+ */
+export async function fetchHeadToHeadRows(
+  season?: string,
+  phase?: string,
+  teamNames?: string[],
+): Promise<HeadToHeadRow[]> {
+  const supabase = createClient();
+  const rows: HeadToHeadRow[] = [];
+  const pageSize = 1000;
+  for (let page = 0; page < 100; page += 1) {
+    let query = supabase
+      .from("raw_stats")
+      .select("id, match_id, team_name, summoner_name, win")
+      .order("id")
+      .range(page * pageSize, page * pageSize + pageSize - 1);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    if (teamNames?.length) query = query.in("team_name", teamNames);
+    const { data, error } = await query;
+    if (error) throw error;
+    const batch = (data as HeadToHeadRow[]) ?? [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+}
+
 export async function fetchSeasons(): Promise<string[]> {
   const supabase = createClient();
   const { data, error } = await supabase.from("stats_game_log").select("season");

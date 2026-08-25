@@ -8,6 +8,7 @@ import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
 import PlayerDetail from "./PlayerDetail";
 import PlayersTab, { type SelectedPlayer } from "./PlayersTab";
+import HeadToHeadTab from "./HeadToHeadTab";
 import RecordsTab from "./RecordsTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
 import TeamsTab from "./TeamsTab";
@@ -24,6 +25,7 @@ const TABS = [
   "Teams",
   "Champions",
   "Records",
+  "Head to Head",
   "Timeline",
   "Players",
 ] as const;
@@ -223,6 +225,8 @@ export default function StatsTabs({
         <ChampionsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Records" ? (
         <RecordsTab season={season} phase={phase} teamNames={teamNames} />
+      ) : activeTab === "Head to Head" ? (
+        <HeadToHeadTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Timeline" ? (
         <TimelineTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Players" ? (
