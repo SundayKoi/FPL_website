@@ -33,6 +33,11 @@ export interface CardGameRow {
   turret_kills?: number | null;
   turret_damage?: number | null;
   turret_plates_destroyed?: number | null;
+  /** Vision DENIAL and the investment behind it. vision_score rewards
+   *  having wards up; it barely distinguishes the player who clears the
+   *  enemy's. Same story as the objective columns — raw_stats only. */
+  wards_killed?: number | null;
+  control_wards_bought?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */
@@ -715,7 +720,7 @@ function measureValues(
   totalsByKey: Map<string, GameTotals>,
 ): Record<MeasureKey, number> {
   const rc = roleCohort(cohort, row);
-  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0 });
+  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0 });
   return {
     // kda and kp are already length-neutral (a ratio and a share); kills
     // and deaths are counts, so they go through perMinute.
@@ -728,7 +733,17 @@ function measureValues(
     damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
     economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
     laning: mean([pct(rc, row, (r) => r.avg_cs_at_10), pct(rc, row, (r) => r.avg_gold_at_10)]),
-    vision: pct(rc, row, (r) => r.avg_vision_per_min),
+    // Two halves, because vision_score alone cannot tell them apart.
+    // Riot's score rewards having wards UP, so a player who farms uptime
+    // and one who hunts the enemy's wards can land on the same number.
+    // The second term is the denial-and-investment half: wards killed plus
+    // control wards bought, per minute. Both halves are rates, so a longer
+    // game gives no free credit — a bigger raw vision score across more
+    // minutes is not more vision work.
+    vision: mean([
+      pct(rc, row, (r) => r.avg_vision_per_min),
+      pctOf(peerTotals.map((t) => t.visionWork), totals.visionWork),
+    ]),
     // Deaths per minute, not per game: surviving a 45-minute game with
     // three deaths is better than dying three times in 25, and the
     // per-game figure said they were identical.

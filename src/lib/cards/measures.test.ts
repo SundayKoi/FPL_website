@@ -37,7 +37,7 @@ describe("gameTotals", () => {
   });
 
   it("returns zeroes for a player with no games", () => {
-    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0 });
+    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0 });
   });
 });
 
@@ -161,5 +161,32 @@ describe("pctOf tie handling", () => {
   it("returns the middle when everybody ties, or the value is absent", () => {
     expect(pctOf([5, 5, 5], 5)).toBe(50);
     expect(pctOf([1, 2, 3], 99)).toBe(50);
+  });
+})
+
+describe("vision work", () => {
+  const warding = (matchId: string, killed: number, control: number): CardGameRow =>
+    ({
+      match_id: matchId, summoner_name: "Ari", tag: "NA1", champion: null, win: true,
+      game_date: null, team_name: null, kills: 0, deaths: 0, assists: 0, cs: 0,
+      total_damage_to_champions: 0, wards_killed: killed, control_wards_bought: control,
+    }) as CardGameRow;
+
+  it("counts denial and the control wards paid for", () => {
+    const totals = gameTotals([warding("m1", 6, 4)], new Map([["m1", 20]]));
+    expect(totals.visionWork).toBeCloseTo(0.5, 6);
+  });
+
+  it("gives a longer game no free credit for the same work", () => {
+    // Spies' case: more raw vision across more minutes is not more vision.
+    const long = gameTotals([warding("m1", 10, 6)], new Map([["m1", 40]]));
+    const short = gameTotals([warding("m2", 5, 3)], new Map([["m2", 20]]));
+    expect(long.visionWork).toBeCloseTo(short.visionWork, 6);
+  });
+
+  it("separates a ward hunter from someone who only holds uptime", () => {
+    const hunter = gameTotals([warding("m1", 12, 5)], new Map([["m1", 30]]));
+    const passive = gameTotals([warding("m2", 1, 1)], new Map([["m2", 30]]));
+    expect(hunter.visionWork).toBeGreaterThan(passive.visionWork);
   });
 })
