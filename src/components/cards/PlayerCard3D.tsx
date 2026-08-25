@@ -679,6 +679,10 @@ export default function PlayerCard3D(props: {
           gameDate: null,
         }}
         season={props.card.season}
+        // Forwarded, so a moment sizes exactly like the player card it sits
+        // next to. Dropping it here is why a pulled moment rendered smaller
+        // than every other card in the same grid.
+        className={props.className}
       />
     );
   }

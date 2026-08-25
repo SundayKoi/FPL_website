@@ -305,3 +305,52 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector(".blur-3xl")).toBeTruthy();
   });
 });
+
+describe("a moment sits the same size as the cards beside it", () => {
+  /** A pulled moment copy, as card_inventory stores one. */
+  const momentCard = {
+    ...card,
+    moment: {
+      id: 7,
+      weekStart: "2026-08-24",
+      playerSlug: "x80hdgraphicsx",
+      summonerName: "X80HDgraphicsX",
+      teamName: "Astronauts",
+      champion: "Naafiri",
+      title: "The Steal",
+      headline: "1 objective stolen · 4/0/9",
+    },
+  } as unknown as typeof card;
+
+  /** The element that actually carries the card's footprint. */
+  const frame = (root: HTMLElement) => root.querySelector("[class*='aspect-']") as HTMLElement;
+
+  it("no longer caps its own width", () => {
+    // The plate used to pin itself to 16rem, which is right on the moments
+    // wall (a flex row, where uncapped it would stretch the whole line) and
+    // wrong in a grid of player cards, where it came out visibly smaller
+    // than everything around it.
+    const { container } = render(<PlayerCard3D card={momentCard} />);
+
+    expect(frame(container).className).not.toMatch(/max-w-/);
+  });
+
+  it("shares the player card's width and aspect ratio", () => {
+    // Same aspect ratio means matching the width matches the height too.
+    const moment = render(<PlayerCard3D card={momentCard} />);
+    const player = render(<PlayerCard3D card={card} />);
+
+    for (const cls of ["w-full", "aspect-[5/7]"]) {
+      expect(frame(moment.container).className).toContain(cls);
+      expect(frame(player.container).className).toContain(cls);
+    }
+  });
+
+  it("honours a className the call site sets, as a player card does", () => {
+    // Dropping it was the second half of the bug: any call site sizing a
+    // card was silently ignored for moments.
+    const { container } = render(<PlayerCard3D card={momentCard} className="max-w-[20rem]" />);
+
+    expect(frame(container).className).toContain("max-w-[20rem]");
+  });
+});
