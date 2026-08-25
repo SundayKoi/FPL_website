@@ -1,0 +1,28 @@
+name: Inspect card scores
+
+# Manual only, read-only. Prints the week's top cards per role broken into
+# the inputs that produced each OVR — the thing every rating question has
+# needed and no page shows.
+on:
+  workflow_dispatch:
+    inputs:
+      top:
+        description: "How many cards per role to print"
+        type: string
+        default: "3"
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/inspect-card-scores.ts "${{ inputs.top }}"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
