@@ -22,6 +22,7 @@ import { resolvePlayerOpggUrl } from "@/lib/draft/playerMetadata";
 import { DEFAULT_ACADEMY_SEASON } from "@/lib/league/season";
 import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import type { GameLogRow, PlayerAggRow } from "@/lib/stats/types";
+import { createLeagueTeamScope } from "@/lib/my-team/leagueScope";
 
 /** One row of `match_codes` — the one genuinely private table in the app. */
 export interface MatchCode {
@@ -233,7 +234,8 @@ export async function fetchCodes(supabase: SupabaseClient, fixtureId: string): P
 export async function fetchMyReports(
   supabase: SupabaseClient,
   teamId: string,
-  season: string
+  season: string,
+  leagueTeams: LeagueTeam[],
 ): Promise<MyReportRow[]> {
   const { data: reports, error } = await supabase
     .from("match_reports")
@@ -242,7 +244,9 @@ export async function fetchMyReports(
     .or(`team_a_id.eq.${teamId},team_b_id.eq.${teamId}`)
     .order("submitted_at", { ascending: false });
   if (error) throw error;
-  const rows = (reports as MatchReport[]) ?? [];
+  const scope = createLeagueTeamScope(leagueTeams);
+  const rows = ((reports as MatchReport[]) ?? [])
+    .filter((report) => scope.includesTeamPair(report.team_a_id, report.team_b_id));
   if (rows.length === 0) return [];
 
   const { data: games, error: gamesError } = await supabase

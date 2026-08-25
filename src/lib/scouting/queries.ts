@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeTeamName } from "@/lib/league/context";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
+import { createLeagueFixtureScope } from "@/lib/my-team/leagueScope";
 import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory, ScoutRosterPlayer } from "./types";
 import { parseDrafterPage } from "./drafter";
 import { buildInhousePlayerStats, type InhouseGameRow, type InhousePlayerStats } from "./inhouse";
@@ -167,15 +167,10 @@ export async function fetchScoutingHistory(
   if (reportResult.error) throw reportResult.error;
   if (reportGameResult.error) throw reportGameResult.error;
 
-  const names = new Set([...input.leagueTeamNames].map(normalizeTeamName).filter(Boolean));
+  const scope = createLeagueFixtureScope(input.leagueTeamNames);
   const fixtures = asRows(fixtureResult.data)
     .map(mapFixture)
-    .filter((fixture): fixture is ScoutFixtureRow => {
-      if (!fixture) return false;
-      const teamA = names.has(normalizeTeamName(fixture.team_a));
-      const teamB = names.has(normalizeTeamName(fixture.team_b));
-      return input.league === "academy" ? teamA || teamB : teamA && teamB;
-    });
+    .filter((fixture): fixture is ScoutFixtureRow => Boolean(fixture && scope.includesFixture(fixture)));
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const fixtureIds = new Set(fixturesById.keys());
   const teamNamesById = new Map(

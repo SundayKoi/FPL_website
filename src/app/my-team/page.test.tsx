@@ -223,7 +223,7 @@ describe("My Team page", () => {
     render(await MyTeamPageView({ league: "premier", searchParams: Promise.resolve({}) }));
 
     expect(screen.getByText("Report a Result")).toBeTruthy();
-    expect(fetchMyReports).toHaveBeenCalledWith(serverClient, "team-1", "S5");
+    expect(fetchMyReports).toHaveBeenCalledWith(serverClient, "team-1", "S5", ready().teams);
     expect(reportBox).toHaveBeenCalledWith(expect.objectContaining({
       defaultSeason: "S5",
       fixtureId: "fixture-1",

@@ -41,10 +41,17 @@ describe("fetchScoutingHistory", () => {
     expect(history.drafts[0].positions).toBeNull();
   });
 
-  it("uses Academy's one-team boundary and throws either PostgREST error", async () => {
-    const rows = [fixture("academy", "Academy Wolves", "Premier Lions"), fixture("none", "Premier Lions", "Other")];
+  it("excludes mixed-league fixtures from Academy history and throws either PostgREST error", async () => {
+    const rows = [
+      fixture("academy", "Academy Wolves", "Academy Owls"),
+      fixture("mixed", "Academy Wolves", "Premier Lions"),
+      fixture("none", "Premier Lions", "Other"),
+    ];
     const from = vi.fn((table: string) => table === "fixtures" ? builder(rows) : builder([]));
-    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, { league: "academy", leagueTeamNames: new Set(["academy wolves"]) });
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "academy",
+      leagueTeamNames: new Set(["academy wolves", "academy owls"]),
+    });
     expect(history.fixtures.map((row) => row.id)).toEqual(["academy"]);
 
     const fixtureError = new Error("fixture failed");

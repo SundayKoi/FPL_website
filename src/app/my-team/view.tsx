@@ -115,7 +115,7 @@ export async function MyTeamPageView({
     try {
       const [phaseResult, myReports] = await Promise.all([
         supabase.from("league_settings").select("current_phase").eq("id", 1).single(),
-        fetchMyReports(supabase, dashboard.team.id, dashboard.season),
+        fetchMyReports(supabase, dashboard.team.id, dashboard.season, dashboard.teams),
       ]);
       if (phaseResult.error) throw phaseResult.error;
       const defaultPhase = (phaseResult.data as { current_phase: string } | null)?.current_phase ?? "Regular";
