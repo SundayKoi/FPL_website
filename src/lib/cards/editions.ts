@@ -9,11 +9,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "./build";
 
 /**
- * Freezes `cards` as `season`'s edition for `week`.
+ * Freezes `cards` as `season`'s edition for `week` — the WHOLE edition,
+ * replacing whatever was there.
  *
  * Keyed on the edition week rather than the run time, so re-archiving a
- * week overwrites it instead of laying down a second copy — which is what
- * makes a re-run of the drop safe.
+ * week overwrites it instead of laying down a second copy.
+ *
+ * The prune at the end is what makes that true of the ROSTER and not just
+ * of each row. An upsert alone is additive: re-archiving a week whose
+ * roster shrank writes the new cards over the old ones and leaves everyone
+ * no longer in the pool sitting there. That is not hypothetical — the
+ * first archives were taken on a season-to-date basis, so week 2's edition
+ * held every player who had played all season. Rebuilding it on the week's
+ * own games wrote the right 61 cards and left 5 week-1-only players
+ * behind, and packs kept minting them.
+ *
+ * Order matters: cards are written FIRST and the stale ones removed after,
+ * so the edition is never momentarily empty. A pack opened mid-run sees a
+ * superset, which is the state it would have seen anyway; a pack opened
+ * against an empty edition would fail outright.
+ *
+ * Never prunes to nothing — an empty `cards` returns early, so a week that
+ * fetched no games leaves its existing edition alone rather than deleting
+ * it. Losing an archived week to a transient read is worse than leaving it
+ * stale, and the caller cannot tell those two apart.
+ *
+ * Copies people already pulled live in card_inventory and are untouched.
  *
  * Returns an error message rather than throwing: the weekly drop treats a
  * failed archive as tolerable (an environment without the card_editions
@@ -42,7 +63,35 @@ export async function archiveEdition(
     })),
     { onConflict: "season,edition_week,slug" },
   );
-  return error?.message ?? null;
+  if (error) return error.message;
+
+  // Reconcile the roster. Reading the week's slugs back and deleting the
+  // difference, rather than a "not in (...)" filter: slugs are derived from
+  // player names, which in this league include Greek and Japanese, and
+  // building a filter string out of them invites a quoting bug that would
+  // delete the wrong rows.
+  const kept = new Set(cards.map((card) => card.slug));
+  const { data: existing, error: readError } = await supabase
+    .from("card_editions")
+    .select("slug")
+    .eq("season", season)
+    .eq("edition_week", week);
+  // The cards are already written, so a failed prune leaves the edition
+  // correct-but-wide rather than wrong. Report it; do not undo the write.
+  if (readError) return readError.message;
+
+  const stale = ((existing as { slug: string }[]) ?? [])
+    .map((row) => row.slug)
+    .filter((slug) => !kept.has(slug));
+  if (stale.length === 0) return null;
+
+  const { error: pruneError } = await supabase
+    .from("card_editions")
+    .delete()
+    .eq("season", season)
+    .eq("edition_week", week)
+    .in("slug", stale);
+  return pruneError?.message ?? null;
 }
 
 /** The literal a caller passes to rebuild the whole archive. */
