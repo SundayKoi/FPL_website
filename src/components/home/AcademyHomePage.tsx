@@ -40,7 +40,6 @@ export default async function AcademyHomePage() {
 
   return (
     <HomeDashboard
-      view="academy"
       ariaLabel="Academy homepage dashboard"
       twitch={twitch}
       featuredFixture={featuredFixture}

@@ -81,7 +81,7 @@ describe("TeamsDirectory", () => {
     expect(screen.getByText("Editing enabled")).toBeTruthy();
   });
 
-  it("emphasizes Academy and links back to Premier from the Academy view", () => {
+  it("emphasizes Academy in the Academy view", () => {
     render(
       <TeamsDirectory
         draftName="S1 Academy"
@@ -92,13 +92,5 @@ describe("TeamsDirectory", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Academy Teams" })).toBeTruthy();
-    expect(screen.getByRole("navigation", { name: "League" }).className).toContain("rounded");
-    const premierLink = screen.getByRole("link", { name: "Premier" });
-    const academyLink = screen.getByRole("link", { name: "Academy" });
-    expect(premierLink.getAttribute("href")).toBe("/teams");
-    expect(academyLink.getAttribute("href")).toBe("/academy/teams");
-    expect(academyLink.className).toContain("bg-coral");
-    expect(academyLink.className).toContain("font-bold");
-    expect(screen.getByRole("navigation", { name: "League" }).className).toContain("bg-navy");
   });
 });

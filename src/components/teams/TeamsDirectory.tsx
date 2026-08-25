@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import type { RosterTeamView } from "@/lib/draft/types";
 import { DIVISIONS, type Division } from "@/lib/schedule/types";
 import TeamRosterCard from "./TeamRosterCard";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 
 type LeagueView = "premier" | "academy";
 
@@ -47,10 +46,7 @@ export default function TeamsDirectory({
               {isPreview ? "PREVIEW DATA" : draftName}
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <LeaguePageToggle page="teams" view={isAcademy ? "academy" : "premier"} />
-            {adminControls ? <div>{adminControls}</div> : null}
-          </div>
+          {adminControls ? <div className="flex shrink-0 items-center gap-3">{adminControls}</div> : null}
         </header>
 
         <section aria-label="Team rosters" className="mt-10">

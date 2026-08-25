@@ -90,7 +90,6 @@ export default async function PlayersPage() {
       initialAvgBids={initialAvgBids}
       freeAgencyPlayers={FREE_AGENCY_PLAYER_SUMMARIES}
       emptyStateMessages={emptyStateMessages}
-      pageView="premier"
       identityLeague={isAdmin ? "premier" : undefined}
       identitySeason={isAdmin ? leagueSeasons.premier : undefined}
       identityLinks={isAdmin ? identityLinks : undefined}

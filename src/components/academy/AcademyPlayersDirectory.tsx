@@ -60,7 +60,6 @@ export default function AcademyPlayersDirectory({
       seasons={{ "season-5": sections, "season-4": [], "academy-1": [] }}
       canonicalPlayers={canonicalPlayers}
       isAdmin={isAdmin}
-      pageView="academy"
       poolSeasonKey={poolSeasonKey}
       identityLeague={identitySeason ? "academy" : undefined}
       identitySeason={identitySeason}

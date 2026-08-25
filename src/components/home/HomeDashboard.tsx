@@ -5,7 +5,6 @@ import LiveTicker from "./LiveTicker";
 import StandingsRace from "./StandingsRace";
 import UpcomingSchedule from "./UpcomingSchedule";
 import TopCards from "./TopCards";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { twitchChannelLoginFromUrl, twitchUrlFromUrl } from "@/lib/home/twitchChannels";
 import type { HomepageTwitchData } from "@/lib/home/twitch";
 import { buildTickerItems } from "@/lib/home/ticker";
@@ -18,7 +17,6 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 type HomeDashboardProps = {
-  view: "premier" | "academy";
   ariaLabel: string;
   twitch: HomepageTwitchData;
   featuredFixture: FixtureRow | null;
@@ -47,7 +45,6 @@ type HomeDashboardProps = {
  * league's knobs.
  */
 export default function HomeDashboard({
-  view,
   ariaLabel,
   twitch,
   featuredFixture,
@@ -74,14 +71,7 @@ export default function HomeDashboard({
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section aria-label={ariaLabel} className="space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <LiveTicker items={tickerItems} />
-            </div>
-            <div className="flex shrink-0 justify-end">
-              <LeaguePageToggle page="home" view={view} />
-            </div>
-          </div>
+          <LiveTicker items={tickerItems} />
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
               fixture={featuredFixture}

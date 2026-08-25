@@ -8,7 +8,6 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 
 export default async function AcademySchedulePage({ searchParams }: { searchParams: Promise<{ season?: string | string[] }> }) {
@@ -27,7 +26,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
   const defaultOpenStages = selectDefaultOpenStages(seasonFixtures, upNext?.stage ?? null);
   return (
     <main className="bg-hash flex-1"><div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-      <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between"><div><span className="label-dash">ACADEMY LEAGUE CALENDAR</span><h1 className="type-display mt-3 text-5xl sm:text-6xl">Academy Schedule</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-steel">Academy fixtures filtered to the teams in the S1 Academy draft.</p></div><LeaguePageToggle page="schedule" view="academy" params={{ season: Array.isArray(requested) ? requested[0] : requested }} /></header>
+      <header className="border-b border-line pb-8"><span className="label-dash">ACADEMY LEAGUE CALENDAR</span><h1 className="type-display mt-3 text-5xl sm:text-6xl">Academy Schedule</h1><p className="mt-4 max-w-2xl text-lg leading-8 text-steel">Academy fixtures filtered to the teams in the S1 Academy draft.</p></header>
       {upNext ? <UpNextBanner stageId={upNext.stage} stageLabel={stageMeta(upNext.stage).label} kickoffText={formatKickoff(upNext.kickoff)} kickoff={upNext.kickoff} count={upNext.count} /> : null}
       {seasonsOf(fixtures).length > 1 ? <nav aria-label="Season" className="mt-8 flex flex-wrap gap-2">{seasonsOf(fixtures).map((value) => <Link key={value} href={`/academy/schedule?season=${encodeURIComponent(value)}`} className="rounded-full border border-line bg-panel px-3 py-1 text-xs text-steel">{value}</Link>)}</nav> : null}
       {/* No Gauntlet in Academy: the split goes straight from the regular

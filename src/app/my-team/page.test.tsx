@@ -67,7 +67,6 @@ vi.mock("@/components/matches/LeagueTeamsEditor", () => ({
 vi.mock("@/components/matches/RosterEditor", () => ({
   default: (props: unknown) => rosterEditor(props),
 }));
-vi.mock("@/components/LeaguePageToggle", () => ({ default: () => null }));
 
 import { MyTeamPageView } from "./view";
 

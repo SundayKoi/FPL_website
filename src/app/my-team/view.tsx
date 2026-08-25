@@ -4,7 +4,6 @@ import AdminCodeEditor from "@/components/captain/AdminCodeEditor";
 import AdminReportsQueue from "@/components/captain/AdminReportsQueue";
 import LeagueTeamsEditor from "@/components/matches/LeagueTeamsEditor";
 import RosterEditor, { type RosterMembershipRow } from "@/components/matches/RosterEditor";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { fetchMyReports, type MatchCode, type MyReportRow } from "@/lib/captain/queries";
 import { matchTeamId, normalizeName } from "@/lib/captain/teamNames";
@@ -222,15 +221,6 @@ export async function MyTeamPageView({
 
   return (
     <>
-      <div className="bg-hash">
-        <div className="mx-auto flex w-full max-w-[1800px] justify-end px-4 pt-8 sm:px-6">
-          <LeaguePageToggle
-            page="my-team"
-            view={league}
-            params={dashboard.isAdmin ? { team: dashboard.team.id } : undefined}
-          />
-        </div>
-      </div>
       <MyTeamGate dashboard={dashboard} league={league} />
       {(dashboard.isAdmin || captainTools) ? (
         <div className="bg-hash pb-12 sm:pb-16">

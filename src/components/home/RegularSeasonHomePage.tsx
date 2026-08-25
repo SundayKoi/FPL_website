@@ -87,7 +87,6 @@ export default async function RegularSeasonHomePage() {
 
   return (
     <HomeDashboard
-      view="premier"
       ariaLabel="Homepage dashboard"
       twitch={twitch}
       featuredFixture={featuredFixture}

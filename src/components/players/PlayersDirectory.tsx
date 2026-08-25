@@ -8,7 +8,6 @@ import { findFreeAgencyPlayer, isPlayerAvailableToCaptain } from "@/lib/players/
 import { FREE_AGENCY_CAPTAINS, type FreeAgencyCaptain } from "@/lib/players/freeAgencyData";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
 import type { LeagueKey } from "@/lib/players/identity";
 import type {
@@ -29,7 +28,6 @@ type Props = {
   initialAvgBids?: Record<string, number>;
   freeAgencyPlayers?: { name: string; avgBid: number | null }[];
   emptyStateMessages?: Partial<Record<SeasonKey, string>>;
-  pageView?: "premier" | "academy";
   showFreeAgency?: boolean;
   showMinSort?: boolean;
   identityLeague?: LeagueKey;
@@ -56,7 +54,6 @@ export default function PlayersDirectory({
   initialAvgBids = {},
   freeAgencyPlayers,
   emptyStateMessages = {},
-  pageView = "premier",
   showFreeAgency = true,
   showMinSort = true,
   identityLeague,
@@ -152,7 +149,6 @@ export default function PlayersDirectory({
           </div>
 
           <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
-            <LeaguePageToggle page="players" view={pageView} />
             <div className="flex w-full flex-col gap-2 sm:w-auto">
               <label htmlFor="player-season" className="label-dash">
                 Season

@@ -26,8 +26,6 @@ vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchInhousePla
 vi.mock("@/components/captain/OpponentScout", () => ({
   default: (props: { source: { opponentName: string } }) => opponentScout(props),
 }));
-vi.mock("@/components/LeaguePageToggle", () => ({ default: () => null }));
-
 import { MyTeamScoutingPageView } from "./view";
 
 const fixture = {

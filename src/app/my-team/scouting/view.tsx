@@ -1,6 +1,5 @@
 import MyTeamGate from "@/components/my-team/MyTeamGate";
 import OpponentScout from "@/components/captain/OpponentScout";
-import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { leaguePath } from "@/lib/league/links";
 import { loadMyTeamDashboard } from "@/lib/my-team/queries";
 import type { LeagueKey } from "@/lib/players/identity";
@@ -87,17 +86,12 @@ export async function MyTeamScoutingPageView({
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <header className="border-b border-line pb-8">
           <div>
             <span className="label-dash">My Team · {dashboard.season}</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Scouting</h1>
             <p className="mt-4 text-lg leading-8 text-steel">Review your next opponent&apos;s draft history.</p>
           </div>
-          <LeaguePageToggle
-            page="scouting"
-            view={league}
-            params={dashboard.isAdmin ? { team: dashboard.team.id } : undefined}
-          />
         </header>
 
         {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
