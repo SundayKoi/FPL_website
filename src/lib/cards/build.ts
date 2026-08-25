@@ -38,6 +38,9 @@ export interface CardGameRow {
    *  enemy's. Same story as the objective columns — raw_stats only. */
   wards_killed?: number | null;
   control_wards_bought?: number | null;
+  /** Control wards actually PLACED. Preferred over control_wards_bought:
+   *  a control ward sitting in the inventory gives no vision to anyone. */
+  detector_wards_placed?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */

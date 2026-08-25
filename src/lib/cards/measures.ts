@@ -55,7 +55,7 @@ export function barsForRole(roleMode: string | null | undefined): MeasureKey[] {
 }
 
 export interface GameTotals {
-  /** Wards killed + control wards bought, per minute played. The denial
+  /** Wards killed + control wards PLACED, per minute played. The denial
    *  half of vision, which vision_score barely separates from provision. */
   visionWork: number;
   /** Objective takedowns + objective damage per 1k, per minute played. */
@@ -101,7 +101,15 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     plates += num(game.turret_plates_destroyed);
     // Both are counts of deliberate acts, so they add rather than needing
     // the per-1k scaling the damage terms above use.
-    visionWork += num(game.wards_killed) + num(game.control_wards_bought);
+    //
+    // PLACED control wards, not bought ones — a control ward left in the
+    // inventory lights nothing up, and buying is an intention while
+    // placing is the act. Falls back to the purchase count only when the
+    // placed figure is missing, so a partially-ingested row still counts
+    // for something instead of reading as no vision work at all.
+    const controlWards =
+      game.detector_wards_placed == null ? num(game.control_wards_bought) : num(game.detector_wards_placed);
+    visionWork += num(game.wards_killed) + controlWards;
     minutes += durations?.get(game.match_id) ?? 0;
   }
   // No durations at all (a solo build with no game log) keeps the old

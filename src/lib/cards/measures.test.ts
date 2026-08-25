@@ -172,6 +172,29 @@ describe("vision work", () => {
       total_damage_to_champions: 0, wards_killed: killed, control_wards_bought: control,
     }) as CardGameRow;
 
+  it("prefers control wards PLACED over control wards bought", () => {
+    // Buying is an intention; placing is the act. A control ward left in
+    // the inventory lights nothing up for anybody.
+    const placed = ({
+      match_id: "m1", summoner_name: "Ari", tag: "NA1", champion: null, win: true,
+      game_date: null, team_name: null, kills: 0, deaths: 0, assists: 0, cs: 0,
+      total_damage_to_champions: 0, wards_killed: 0,
+      control_wards_bought: 10, detector_wards_placed: 2,
+    }) as CardGameRow;
+    // 2 placed / 20 min, not 10 bought / 20 min.
+    expect(gameTotals([placed], new Map([["m1", 20]])).visionWork).toBeCloseTo(0.1, 6);
+  });
+
+  it("falls back to purchases when the placed figure was never ingested", () => {
+    const noPlaced = ({
+      match_id: "m1", summoner_name: "Ari", tag: "NA1", champion: null, win: true,
+      game_date: null, team_name: null, kills: 0, deaths: 0, assists: 0, cs: 0,
+      total_damage_to_champions: 0, wards_killed: 0, control_wards_bought: 10,
+    }) as CardGameRow;
+    // Missing, not zero: a partial row should still count for something.
+    expect(gameTotals([noPlaced], new Map([["m1", 20]])).visionWork).toBeCloseTo(0.5, 6);
+  });
+
   it("counts denial and the control wards paid for", () => {
     const totals = gameTotals([warding("m1", 6, 4)], new Map([["m1", 20]]));
     expect(totals.visionWork).toBeCloseTo(0.5, 6);
