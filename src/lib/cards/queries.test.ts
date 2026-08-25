@@ -1,6 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import type { PlayerCardData } from "./build";
-import { backfillTeamIdentity } from "./queries";
+import { backfillTeamIdentity, fetchWeekCards } from "./queries";
 
 /** A frozen copy as it sits in card_inventory: whatever the card looked like
  *  the moment it was pulled. Older copies predate both the badge lookup and
@@ -54,5 +55,32 @@ describe("backfillTeamIdentity", () => {
 
     expect(repaired.teamImageUrl).toBeNull();
     expect(repaired.teamAbbr).toBeNull();
+  });
+});
+
+describe("fetchWeekCards", () => {
+  it("rates a player on the requested week's games alone", async () => {
+    const inWeek = { game_date: "2026-08-17T20:00:00Z", match_id: "NA1_1" };
+    const nextWeek = { game_date: "2026-08-24T20:00:00Z", match_id: "NA1_9" };
+    const captured: { column: string; value: unknown }[] = [];
+    const supabase = {
+      from: () => {
+        const chain: Record<string, unknown> = {};
+        for (const m of ["select", "eq", "order", "maybeSingle"]) chain[m] = () => chain;
+        chain.gte = (column: string, value: unknown) => { captured.push({ column, value }); return chain; };
+        chain.lt = (column: string, value: unknown) => { captured.push({ column, value }); return chain; };
+        chain.then = (resolve: (r: { data: unknown; error: null }) => unknown) =>
+          Promise.resolve({ data: [], error: null }).then(resolve);
+        return chain;
+      },
+    } as unknown as SupabaseClient;
+
+    await fetchWeekCards(supabase, "S5", "2026-08-17");
+
+    // The window must be half-open on the following Monday, so a game played
+    // at 23:59 Sunday counts and the next week's opener does not.
+    expect(captured).toContainEqual({ column: "game_date", value: "2026-08-17T00:00:00.000Z" });
+    expect(captured).toContainEqual({ column: "game_date", value: "2026-08-24T00:00:00.000Z" });
+    void inWeek; void nextWeek;
   });
 });

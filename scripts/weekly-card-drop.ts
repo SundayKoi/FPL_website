@@ -16,7 +16,7 @@
  * games have been ingested, mirroring the weekly-brief jobs.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { fetchAllCardSeasons, fetchSeasonCards, type CardLeague } from "../src/lib/cards/queries";
+import { fetchAllCardSeasons, fetchWeekCards, type CardLeague } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
 import { archiveEdition } from "../src/lib/cards/editions";
 import { planPayouts } from "../src/lib/fantasy/payouts";
@@ -72,7 +72,15 @@ async function processSeason(
   const hubPath = league === "academy" ? "/academy/cards" : "/cards";
   const footer = origin ? `${origin}${hubPath}` : `FPL ${label.toLowerCase()} player cards`;
 
-  const cards = await fetchSeasonCards(supabase, season);
+  // Computed up front (was previously derived further down, after the card
+  // read) so the archive read below can be scoped to this week instead of
+  // the whole season.
+  const editionWeek = mondayOf(new Date());
+
+  // The week's cards, not the season's: an edition is a snapshot of how
+  // people played that week. Weeks archived before this change stay exactly
+  // as they were — this only affects drops from here on.
+  const cards = await fetchWeekCards(supabase, season, editionWeek);
   console.log(`[${label}] Built ${cards.length} cards for season ${season}.`);
   if (cards.length === 0) {
     console.log(`[${label}] No cards — skipping.`);
@@ -143,7 +151,6 @@ async function processSeason(
   // Archive this week's cards in full, so a pack bought for this week can
   // mint them again forever. Tolerated failure: an environment without the
   // card_editions migration still gets its snapshot and its movers post.
-  const editionWeek = mondayOf(new Date());
   const editionError = await archiveEdition(supabase, season, editionWeek, cards, takenAt);
   if (editionError) {
     console.warn(`[${label}] Could not archive the ${editionWeek} edition (migration applied?): ${editionError}`);
