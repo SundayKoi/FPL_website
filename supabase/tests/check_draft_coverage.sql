@@ -27,6 +27,9 @@ left join (select distinct fixture_id from public.match_drafts) d
 -- `roles_confirmed` is what turns the pick column into role order — pick
 -- numbers show either way, but this is the case that used to hide them.
 select
+  f.id,
+  -- Paste onto the site's origin to go straight to the pick/ban section.
+  '/match/' || f.id || '#draft' as draft_url,
   f.scheduled_at,
   f.team_a, f.team_b,
   f.score_a, f.score_b,
