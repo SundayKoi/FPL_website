@@ -23,12 +23,28 @@ type ColumnKey =
   | "winrate_pct"
   | "kda"
   | "kda_avg"
+  | "avg_kills"
+  | "avg_deaths"
+  | "avg_assists"
   | "avg_kp_pct"
   | "avg_cs_per_min"
   | "avg_gold_per_min"
   | "avg_dmg_per_min"
   | "avg_dmg_share_pct"
-  | "avg_vision_per_min";
+  | "avg_dmg_taken_per_min"
+  | "avg_vision_per_min"
+  | "avg_cs_at_10"
+  | "avg_gold_at_10"
+  | "avg_xp_at_10"
+  | "avg_solo_kills"
+  | "total_solo_kills"
+  | "total_plates"
+  | "first_blood_involvements"
+  | "total_doubles"
+  | "total_triples"
+  | "total_quadras"
+  | "total_pentas"
+  | "avg_game_duration";
 
 type Column = SortableColumn<PlayerAggRow, ColumnKey>;
 
@@ -120,6 +136,154 @@ const COLUMNS: Column[] = [
     sortValue: (r) => r.avg_vision_per_min,
     display: (r) => r.avg_vision_per_min.toFixed(2),
   },
+  {
+    key: "avg_kills",
+    label: "K/g",
+    numeric: true,
+    sortValue: (r) => r.avg_kills,
+    display: (r) => r.avg_kills.toFixed(1),
+  },
+  {
+    // Its own column at last. Deaths lived inside the K/D/A cell, which
+    // sorts on kills — so the league's most and least death-prone players
+    // were the one thing this table could not be ordered by.
+    key: "avg_deaths",
+    label: "D/g",
+    numeric: true,
+    sortValue: (r) => r.avg_deaths,
+    display: (r) => r.avg_deaths.toFixed(1),
+  },
+  {
+    key: "avg_assists",
+    label: "A/g",
+    numeric: true,
+    sortValue: (r) => r.avg_assists,
+    display: (r) => r.avg_assists.toFixed(1),
+  },
+  {
+    key: "avg_dmg_taken_per_min",
+    label: "DMG taken/m",
+    numeric: true,
+    sortValue: (r) => r.avg_dmg_taken_per_min,
+    display: (r) => Math.round(r.avg_dmg_taken_per_min).toLocaleString(),
+  },
+  {
+    key: "avg_cs_at_10",
+    label: "CS@10",
+    numeric: true,
+    sortValue: (r) => r.avg_cs_at_10,
+    display: (r) => r.avg_cs_at_10.toFixed(1),
+  },
+  {
+    key: "avg_gold_at_10",
+    label: "Gold@10",
+    numeric: true,
+    sortValue: (r) => r.avg_gold_at_10,
+    display: (r) => Math.round(r.avg_gold_at_10).toLocaleString(),
+  },
+  {
+    key: "avg_xp_at_10",
+    label: "XP@10",
+    numeric: true,
+    sortValue: (r) => r.avg_xp_at_10,
+    display: (r) => Math.round(r.avg_xp_at_10).toLocaleString(),
+  },
+  {
+    key: "avg_solo_kills",
+    label: "Solo/g",
+    numeric: true,
+    sortValue: (r) => r.avg_solo_kills,
+    display: (r) => r.avg_solo_kills.toFixed(2),
+  },
+  {
+    key: "total_solo_kills",
+    label: "Solo",
+    numeric: true,
+    sortValue: (r) => r.total_solo_kills,
+    display: (r) => String(r.total_solo_kills),
+  },
+  {
+    key: "total_plates",
+    label: "Plates",
+    numeric: true,
+    sortValue: (r) => r.total_plates,
+    display: (r) => String(r.total_plates),
+  },
+  {
+    key: "first_blood_involvements",
+    label: "First bloods",
+    numeric: true,
+    sortValue: (r) => r.first_blood_involvements,
+    display: (r) => String(r.first_blood_involvements),
+  },
+  {
+    key: "total_doubles",
+    label: "2K",
+    numeric: true,
+    sortValue: (r) => r.total_doubles,
+    display: (r) => String(r.total_doubles),
+  },
+  {
+    key: "total_triples",
+    label: "3K",
+    numeric: true,
+    sortValue: (r) => r.total_triples,
+    display: (r) => String(r.total_triples),
+  },
+  {
+    key: "total_quadras",
+    label: "4K",
+    numeric: true,
+    sortValue: (r) => r.total_quadras,
+    display: (r) => String(r.total_quadras),
+  },
+  {
+    key: "total_pentas",
+    label: "PENTA",
+    numeric: true,
+    sortValue: (r) => r.total_pentas,
+    display: (r) => String(r.total_pentas),
+  },
+  {
+    key: "avg_game_duration",
+    label: "Avg game",
+    numeric: true,
+    sortValue: (r) => r.avg_game_duration,
+    display: (r) => `${r.avg_game_duration.toFixed(1)}m`,
+  },
+];
+
+/** Shown until someone asks for more. The full set is 28 columns wide,
+ *  which is a spreadsheet rather than a leaderboard; these are the ones
+ *  the old table had, so nobody's default view changes. */
+const DEFAULT_COLUMNS: ColumnKey[] = [
+  "player",
+  "role_mode",
+  "games",
+  "winrate_pct",
+  "kda",
+  "kda_avg",
+  "avg_kp_pct",
+  "avg_cs_per_min",
+  "avg_gold_per_min",
+  "avg_dmg_per_min",
+  "avg_dmg_share_pct",
+  "avg_vision_per_min",
+];
+
+/** Player and Role always show — a table of numbers with no name on the
+ *  row is not a leaderboard. */
+const PINNED_COLUMNS: ColumnKey[] = ["player", "role_mode"];
+
+/** The optional columns, grouped so the picker reads as categories rather
+ *  than one run of sixteen chips. */
+const COLUMN_GROUPS: { title: string; keys: ColumnKey[] }[] = [
+  { title: "Core", keys: ["games", "winrate_pct", "kda", "kda_avg", "avg_game_duration"] },
+  { title: "Combat", keys: ["avg_kills", "avg_deaths", "avg_assists", "avg_kp_pct", "avg_solo_kills", "total_solo_kills", "first_blood_involvements"] },
+  { title: "Damage", keys: ["avg_dmg_per_min", "avg_dmg_share_pct", "avg_dmg_taken_per_min"] },
+  { title: "Economy", keys: ["avg_cs_per_min", "avg_gold_per_min", "avg_cs_at_10", "avg_gold_at_10", "avg_xp_at_10", "total_plates"] },
+  { title: "Vision", keys: ["avg_vision_per_min"] },
+  { title: "Multikills", keys: ["total_doubles", "total_triples", "total_quadras", "total_pentas"] },
 ];
 
 export default function LeaderboardTab({
@@ -143,6 +307,8 @@ export default function LeaderboardTab({
   const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
   const rows = useMemo(() => data ?? [], [data]);
   const [minGames, setMinGames] = useState(3);
+  const [shownColumns, setShownColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const { sortKey, sortDir, handleSort, sortRows } = useSortableColumns(COLUMNS, "kda");
@@ -179,6 +345,13 @@ export default function LeaderboardTab({
     if (!edge) return sorted;
     return edge === "top" ? sorted.slice(0, 10) : sorted.slice(-10).reverse();
   }, [sorted, edge]);
+
+  // COLUMNS' own order, not click order, so turning one on never
+  // reshuffles the columns already there.
+  const visibleColumns = useMemo(
+    () => COLUMNS.filter((col) => PINNED_COLUMNS.includes(col.key) || shownColumns.includes(col.key)),
+    [shownColumns],
+  );
 
   const sortCol = COLUMNS.find((c) => c.key === sortKey)!;
   // Peak value of the active numeric sort column across visible rows — used
@@ -225,6 +398,10 @@ export default function LeaderboardTab({
             className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
           />
 
+          <FilterPill active={pickerOpen} onClick={() => setPickerOpen((open) => !open)}>
+            Stats ({visibleColumns.length})
+          </FilterPill>
+
           <div className="ml-auto flex gap-1">
             <FilterPill active={edge === "top"} onClick={() => setEdge((e) => (e === "top" ? null : "top"))}>
               Top 10
@@ -262,6 +439,58 @@ export default function LeaderboardTab({
             ))}
           </div>
         </div>
+
+        {pickerOpen ? (
+          <div className="flex flex-col gap-3 border-t border-line/60 pt-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mono-label">Columns</span>
+              <button
+                type="button"
+                onClick={() => setShownColumns(COLUMNS.map((col) => col.key))}
+                className="text-[11px] uppercase tracking-wide text-steel underline-offset-4 hover:text-cyan hover:underline"
+              >
+                Show all
+              </button>
+              <button
+                type="button"
+                onClick={() => setShownColumns(DEFAULT_COLUMNS)}
+                className="text-[11px] uppercase tracking-wide text-steel underline-offset-4 hover:text-cyan hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+            {COLUMN_GROUPS.map((group) => (
+              <div key={group.title} className="flex flex-wrap items-center gap-1.5">
+                <span className="mono-label mr-1 w-20 shrink-0">{group.title}</span>
+                {group.keys.map((key) => {
+                  const column = COLUMNS.find((col) => col.key === key);
+                  if (!column) return null;
+                  const on = shownColumns.includes(key);
+                  return (
+                    <FilterPill
+                      key={key}
+                      active={on}
+                      onClick={() =>
+                        setShownColumns((current) => {
+                          if (!current.includes(key)) return [...current, key];
+                          // Sorting by a column you just hid would leave the
+                          // table ordered by something invisible.
+                          if (sortKey === key) handleSort("winrate_pct");
+                          return current.filter((k) => k !== key);
+                        })
+                      }
+                    >
+                      {column.label}
+                    </FilterPill>
+                  );
+                })}
+              </div>
+            ))}
+            <p className="text-[11px] text-steel">
+              Player and Role always show. Click any header to sort — a second click reverses it.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {visible.length === 0 ? (
@@ -277,7 +506,7 @@ export default function LeaderboardTab({
                 <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
                   #
                 </th>
-                {COLUMNS.map((col) => (
+                {visibleColumns.map((col) => (
                   <SortableHeaderCell
                     key={col.key}
                     column={col}
@@ -332,7 +561,7 @@ export default function LeaderboardTab({
                       />
                     </td>
                     <td className="px-2 py-1.5 font-mono text-xs text-steel">{i + 1}</td>
-                    {COLUMNS.map((col) => {
+                    {visibleColumns.map((col) => {
                       if (col.key === "role_mode") {
                         return (
                           <td key={col.key} className="px-2 py-1.5">
