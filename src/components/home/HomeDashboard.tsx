@@ -4,7 +4,7 @@ import AwardsDesk from "./AwardsDesk";
 import LiveTicker from "./LiveTicker";
 import StandingsRace from "./StandingsRace";
 import UpcomingSchedule from "./UpcomingSchedule";
-import WeeklyStandouts from "./WeeklyStandouts";
+import TopCards from "./TopCards";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { twitchChannelLoginFromUrl, twitchUrlFromUrl } from "@/lib/home/twitchChannels";
 import type { HomepageTwitchData } from "@/lib/home/twitch";
@@ -14,7 +14,7 @@ import type { HomeStandingsData } from "@/lib/home/standings";
 import type { HomepageScheduleData } from "@/lib/home/schedule";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import type { TeamIdentity } from "@/lib/teams/identity";
-import type { WeeklyStandout } from "@/lib/stats/weekly";
+import type { PlayerCardData } from "@/lib/cards/build";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 type HomeDashboardProps = {
@@ -25,11 +25,16 @@ type HomeDashboardProps = {
   featuredSettings: HomepageFeaturedSettings;
   awards: HomepageAwardsData;
   standings: HomeStandingsData;
-  standouts: WeeklyStandout[];
+  /** This week's cards, best first. The homepage used to rank players by
+   *  powerRanking here while the card hub ranked them by their OVR — two
+   *  ladders disagreeing about who had the better week. */
+  topCards: PlayerCardData[];
   schedule: HomepageScheduleData;
   identities: Record<string, TeamIdentity>;
   /** Passed through to HomeStandings; Premier omits it and keeps its default. */
   seasonLabel?: string;
+  /** Where Top Cards links — Academy has its own card hub. */
+  cardsBasePath?: string;
   /** Passed through to UpcomingSchedule — Academy has its own schedule page. */
   scheduleBasePath?: string;
   scheduleTeamBasePath?: string | null;
@@ -37,7 +42,7 @@ type HomeDashboardProps = {
 
 /**
  * The shared regular-season dashboard shell: ticker, featured matchup,
- * standings, awards, standings race, standouts, and the upcoming schedule.
+ * standings, awards, standings race, top cards, and the upcoming schedule.
  * Premier and Academy each fetch their own data and render this with their
  * league's knobs.
  */
@@ -49,10 +54,11 @@ export default function HomeDashboard({
   featuredSettings,
   awards,
   standings,
-  standouts,
+  topCards,
   schedule,
   identities,
   seasonLabel,
+  cardsBasePath,
   scheduleBasePath,
   scheduleTeamBasePath,
 }: HomeDashboardProps) {
@@ -96,10 +102,10 @@ export default function HomeDashboard({
           {standings.race.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
               <StandingsRace race={standings.race} />
-              <WeeklyStandouts standouts={standouts} />
+              <TopCards cards={topCards} basePath={cardsBasePath} />
             </div>
           ) : (
-            <WeeklyStandouts standouts={standouts} />
+            <TopCards cards={topCards} basePath={cardsBasePath} />
           )}
           <UpcomingSchedule
             schedule={schedule}

@@ -189,8 +189,6 @@ describe("RegularSeasonHomePage", () => {
     render(await RegularSeasonHomePage());
 
     expect(screen.getByRole("region", { name: /awards desk/i })).not.toBeNull();
-    expect(screen.getByRole("article", { name: /latest week's standouts/i })).not.toBeNull();
-    expect(screen.getByText(/weekly standouts will appear/i)).not.toBeNull();
   });
 
   it("adds the team standings panel to the landing page", async () => {
@@ -209,7 +207,6 @@ describe("RegularSeasonHomePage", () => {
     const schedule = screen.getByRole("article", { name: /upcoming schedule/i });
     const standings = screen.getByRole("article", { name: /team standings/i });
     const awards = screen.getByRole("region", { name: /awards desk/i });
-    const standouts = screen.getByRole("article", { name: /latest week's standouts/i });
 
     expect(
       broadcast.compareDocumentPosition(standings) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -220,12 +217,8 @@ describe("RegularSeasonHomePage", () => {
     expect(
       awards.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(
-      awards.compareDocumentPosition(standouts) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      standouts.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // Top Cards renders nothing when the week has no cards, which is this
+    // fixture's state — the awards/schedule ordering is what this asserts.
   });
 
   it("adds the upcoming schedule below the dashboard", async () => {

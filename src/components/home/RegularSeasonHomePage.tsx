@@ -5,7 +5,9 @@ import { fetchHomepageSchedule, selectHomepageFeaturedFixture, type HomepageSche
 import { fetchHomepageAwards, PREMIER_SEASON, type HomepageAwardsData } from "@/lib/home/awards";
 import { fetchHomepageFeaturedSettings, type HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
-import { fetchLatestWeeklyStandouts, type WeeklyStandout } from "@/lib/stats/weekly";
+import { fetchCardSeason, fetchCurrentWeekCards } from "@/lib/cards/queries";
+import { createServerSupabase } from "@/lib/supabase/server";
+import type { PlayerCardData } from "@/lib/cards/build";
 import type { TeamIdentity } from "@/lib/teams/identity";
 
 const fallbackTwitch: HomepageTwitchData = {
@@ -60,12 +62,21 @@ async function fallbackTo<T>(load: Promise<T>, fallback: T): Promise<T> {
 
 /** The approved post-opening homepage, stored as the Regular Season Home Page. */
 export default async function RegularSeasonHomePage() {
-  const [awards, standingsData, schedule, identities, standouts, featuredSettings] = await Promise.all([
+  const [awards, standingsData, schedule, identities, topCards, featuredSettings] = await Promise.all([
     fallbackTo(fetchHomepageAwards(), fallbackAwards),
     fallbackTo<HomeStandingsData>(fetchHomepageStandings(), { teams: [], race: [] }),
     fallbackTo(fetchHomepageSchedule(), fallbackSchedule),
     fallbackTo<Record<string, TeamIdentity>>(fetchTeamIdentities(), {}),
-    fallbackTo<WeeklyStandout[]>(fetchLatestWeeklyStandouts(), []),
+    // The same build the card hub renders, so the homepage and the hub
+    // cannot disagree about who had the better week.
+    fallbackTo<PlayerCardData[]>(
+      (async () => {
+        const supabase = await createServerSupabase();
+        const season = await fetchCardSeason(supabase, "premier");
+        return season ? fetchCurrentWeekCards(supabase, season) : [];
+      })(),
+      [],
+    ),
     fallbackTo(fetchHomepageFeaturedSettings("premier"), fallbackFeaturedSettings),
   ]);
   const twitch = await fallbackTo(
@@ -83,7 +94,7 @@ export default async function RegularSeasonHomePage() {
       featuredSettings={featuredSettings}
       awards={awards}
       standings={standingsData}
-      standouts={standouts}
+      topCards={topCards}
       schedule={schedule}
       identities={identities}
     />
