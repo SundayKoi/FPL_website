@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import TeamCardsSection from "@/components/cards/TeamCardsSection";
-import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -36,7 +36,7 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
 
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
-  const cards = season ? await fetchSeasonCards(supabase, season) : [];
+  const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">

@@ -7,12 +7,17 @@ import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
 import { fetchChampionSkinNums } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { PlayerCardData } from "@/lib/cards/build";
 
-/** The card's weekly readings plus today's live rating — the season arc.
- *  Tier changes get a highlighted marker. Hidden until two points exist. */
-function SeasonJourney({ history, card }: { history: RatingHistoryPoint[]; card: PlayerCardData }) {
-  const points = [...history.map((point) => ({ overall: point.overall, tier: point.tier })), { overall: card.overall, tier: card.tier.label }];
+/** The card's recorded weekly readings — the season arc. Tier changes get a
+ *  highlighted marker. Hidden until two points exist.
+ *
+ *  The live card is deliberately NOT appended any more. card_rating_history
+ *  is written by the weekly drop from the season-cumulative build, while the
+ *  card above now rates this week alone; pinning a weekly number onto the end
+ *  of a season arc would draw a cliff that nothing actually did. The strip is
+ *  the recorded history and only that. */
+function SeasonJourney({ history }: { history: RatingHistoryPoint[] }) {
+  const points = history.map((point) => ({ overall: point.overall, tier: point.tier }));
   // Collapse consecutive identical readings so quiet weeks don't repeat.
   const arc = points.filter(
     (point, index) => index === 0 || point.overall !== points[index - 1].overall || point.tier !== points[index - 1].tier,
@@ -209,7 +214,7 @@ export default async function CardSharePage({
       </header>
       <PlayerCard3D card={card} reveal bloom />
       <p className="text-xs text-steel">Hover to tilt · click to flip</p>
-      <SeasonJourney history={history} card={card} />
+      <SeasonJourney history={history} />
       <ShareCardActions slug={card.slug} />
       <CardClaim
         season={card.season}

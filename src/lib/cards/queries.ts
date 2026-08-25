@@ -320,6 +320,55 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
  * A game at 23:00 ET on Sunday therefore belongs to the week that just
  * ended, and Monday's opener starts the next one.
  */
+/**
+ * The Monday of the most recent week this season played, or null before
+ * any game is ingested.
+ *
+ * Derived from the last game rather than from today's date: early in a
+ * week no games have been played yet, and "this week" would then be an
+ * empty cohort with no cards in it at all. The last game's week is always
+ * a week that has something to show, and it rolls over on its own the
+ * moment Monday night's ingest lands.
+ */
+export async function fetchLatestGameWeek(supabase: SupabaseClient, season: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("raw_stats")
+    .select("game_date")
+    .eq("season", season)
+    .not("game_date", "is", null)
+    .order("game_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const { game_date: gameDate } = data as { game_date: string | null };
+  return gameDate ? mondayOf(new Date(gameDate)) : null;
+}
+
+/**
+ * The cards as this week's drop rates them — the live view everywhere a
+ * card is shown.
+ *
+ * Cards used to be season-cumulative, which averaged a player's best week
+ * together with their worst and pulled everyone toward the middle. A drop
+ * is a weekly event, so the rating it publishes is a weekly one.
+ *
+ * Falls back to the season build only when no game has been ingested yet;
+ * that is a season with no weeks rather than a preference.
+ *
+ * Frozen copies are untouched by any of this. A card someone already
+ * pulled keeps the numbers it was pulled with, which is the whole point of
+ * freezing it.
+ */
+export async function fetchCurrentWeekCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
+  const week = await fetchLatestGameWeek(supabase, season);
+  if (!week) return fetchSeasonCards(supabase, season);
+  const cards = await fetchWeekCards(supabase, season, week);
+  // A week that ingested no usable rows would otherwise blank every card
+  // surface at once; the season build is a worse answer than the week's,
+  // but it is a far better one than nothing.
+  return cards.length > 0 ? cards : fetchSeasonCards(supabase, season);
+}
+
 export async function fetchWeekCards(
   supabase: SupabaseClient,
   season: string,
@@ -527,6 +576,8 @@ export async function fetchCardBySlug(
   season: string,
   slug: string,
 ): Promise<PlayerCardData | null> {
-  const cards = await fetchSeasonCards(supabase, season);
+  // The week's build, like every other live surface — a share link and the
+  // hub must not disagree about what a player's card says.
+  const cards = await fetchCurrentWeekCards(supabase, season);
   return cards.find((card) => card.slug === slug) ?? null;
 }

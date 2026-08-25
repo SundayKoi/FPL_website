@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, fetchSeasonCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { ALT_SKIN_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
@@ -93,9 +93,12 @@ export async function openPackAction(
     return { ok: false, error: "That week isn't available yet." };
   }
 
+  // The archive is what an edition pack mints from — that is what makes a
+  // week's pack that week's cards, and it is untouched here. The fallback
+  // is for a season with nothing archived yet, and it follows the hub.
   const cards = editionWeek
     ? await fetchEditionCards(service, season, editionWeek)
-    : await fetchSeasonCards(service, season);
+    : await fetchCurrentWeekCards(service, season);
   if (cards.length === 0) return { ok: false, error: "No cards to open yet — check back once games are played." };
 
   const { data: openId, error: openError } = await service.rpc("open_card_pack", {

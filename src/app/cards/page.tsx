@@ -6,7 +6,7 @@ import ClaimFinder from "@/components/cards/ClaimFinder";
 import { toClaimFinderCards } from "@/lib/cards/claimFinder";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { cardSlug } from "@/lib/cards/build";
-import { fetchCardSeason, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -54,7 +54,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
 
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
-  const cards = season ? await fetchSeasonCards(supabase, season) : [];
+  const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
   // Whether to point at the approvals queue. Working out if THIS viewer is a
   // captain of some roster costs a round trip per claim, so don't: admins
