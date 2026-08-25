@@ -547,8 +547,20 @@ export default function MatchDraftBoard({
   const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
     onSave ? "connected" : "connecting",
   );
-  const [imageSizeIndex, setImageSizeIndex] = useState(0);
+  // Index 2 = "MD". The pool opened at XS, which fits the most champions on
+  // screen but renders portraits too small to recognise at a glance during
+  // a timed turn — the thing the pool exists for.
+  const [imageSizeIndex, setImageSizeIndex] = useState(2);
   const [saving, setSaving] = useState(false);
+  // Two clicks to pass: forfeiting a ban is a real cost, and the button
+  // sits where a captain's cursor already is during their turn.
+  //
+  // Stored as the step being confirmed rather than a bare boolean, so a
+  // half-confirmed pass left over from an earlier step just stops applying
+  // — same reasoning as pendingPick below. Clearing it from an effect
+  // instead would leave the next captain one click from forfeiting a ban
+  // they never meant to, in the window before the effect ran.
+  const [confirmingPassAt, setConfirmingPassAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentStep = LCS_DRAFT_STEPS[state.currentStepIndex] ?? LCS_DRAFT_STEPS[LCS_DRAFT_STEPS.length - 1];
   const currentAction = currentStep ? actionForStep(state.actions, currentStep) : null;
@@ -807,6 +819,62 @@ export default function MatchDraftBoard({
       setState(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Draft could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Decline the ban that is currently up.
+   *
+   * A team can lose a ban — a sub who never got one, a penalty, a house
+   * rule — and until now the only way to record that was to let the clock
+   * run out, which meant 33 seconds of dead air for a decision already
+   * made. The server enforces the rules (your own side, bans only); this
+   * just asks.
+   *
+   * The action written is identical to a timeout skip, so the board, the
+   * summary and the change-request flow all render it already, and a ban
+   * passed by mistake can be reopened like any other step.
+   */
+  const passBan = async () => {
+    if (!currentStep || currentStep.kind !== "ban") return;
+    const appended: MatchDraftAction[] = [
+      ...state.actions.filter((action) => action.stepIndex !== currentStep.index),
+      {
+        stepIndex: currentStep.index,
+        side: currentStep.side,
+        kind: currentStep.kind,
+        slot: currentStep.slot,
+        champion: null,
+        skipped: true,
+      },
+    ];
+    const nextStepIndex = nextEmptyStepIndex(appended);
+    const next: MatchDraftState = {
+      ...state,
+      currentStepIndex: nextStepIndex ?? LCS_DRAFT_STEPS.length - 1,
+      status: nextStepIndex === null ? "complete" : "drafting",
+      turnStartedAt: new Date().toISOString(),
+      actions: appended,
+    };
+    setSaving(true);
+    setError(null);
+    try {
+      if (onSave) {
+        await persist(next);
+      } else if (supabase) {
+        const { error: rpcError } = await draftRpc(supabase, "pass_match_draft_step", {
+          p_game: state.gameNumber,
+        });
+        if (rpcError) throw rpcError;
+      }
+      setPendingPick(null);
+      sendIntent(null);
+      setState(next);
+      setConfirmingPassAt(null);
+    } catch (err) {
+      setError(saveErrorMessage(err, "Could not pass the ban."));
     } finally {
       setSaving(false);
     }
@@ -1513,6 +1581,20 @@ export default function MatchDraftBoard({
     </section>
   ) : null;
 
+  // Only on a BAN, only on your own turn, only while the draft is live.
+  // Picks are excluded here and refused by the server too: a passed pick
+  // is a team playing four against five, which nobody clicks on purpose.
+  const passStepKey = `${state.gameNumber}:${state.currentStepIndex}`;
+  const confirmingPass = confirmingPassAt === passStepKey;
+  const canPassBan = Boolean(
+    drafting &&
+      bothReady &&
+      currentStep &&
+      currentStep.kind === "ban" &&
+      mayActFor(currentStep.side) &&
+      !state.changeRequest,
+  );
+
   const championPool = (
     <section className="min-w-0 rounded border border-line bg-navy/60 p-3" aria-label="Champion pool">
       <div className="flex flex-wrap items-end gap-3">
@@ -1545,6 +1627,40 @@ export default function MatchDraftBoard({
             </button>
           ))}
         </div>
+        {canPassBan ? (
+          <div className="ml-auto flex items-center gap-2">
+            {confirmingPass ? (
+              <>
+                <span className="text-[11px] uppercase tracking-wide text-steel">Ban nothing?</span>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => setConfirmingPassAt(null)}
+                  className="rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void passBan()}
+                  className="rounded-full border border-red-400/60 bg-red-400/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-300 transition hover:bg-red-400/20 disabled:opacity-40"
+                >
+                  Confirm pass
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setConfirmingPassAt(passStepKey)}
+                className="rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
+              >
+                Pass ban
+              </button>
+            )}
+          </div>
+        ) : null}
       </div>
       <div className={`mt-3 grid gap-2 ${sizeByValue[imageSize].grid}`} data-testid="champion-pool-grid" data-size={imageSize}>
         {filteredChampions.map((champion) => {
