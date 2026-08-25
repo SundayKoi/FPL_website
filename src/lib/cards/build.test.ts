@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerAggRow } from "@/lib/stats/types";
-import { assignArchetypes, buildCard, buildSeasonCards, cardSlug, FALLBACK_ARCHETYPE, teamBadgeKey, tierFor, type CardGameRow } from "./build";
+import { assignArchetypes, buildCard, buildSeasonCards, cardSlug, FALLBACK_ARCHETYPE, OVR_BASE, OVR_SCALE, teamBadgeKey, tierFor, type CardGameRow } from "./build";
 
 const agg = (over: Partial<PlayerAggRow> = {}): PlayerAggRow => ({
   summoner_name: "Player",
@@ -225,6 +225,14 @@ describe("buildCard", () => {
     // the full name rather than showing an empty slot.
     const withoutAbbr = buildCard({ row: target, cohort: cohortOf(target), games, gameLog });
     expect(withoutAbbr.teamAbbr).toBeNull();
+  });
+
+  it("maps the league's best week onto a reachable top tier", () => {
+    const best = buildCard({ row: target, cohort: cohortOf(target), games, gameLog });
+    expect(best.overall).toBeGreaterThan(0);
+    // The curve itself: a 92 raw score must clear Challenger's 94 floor.
+    expect(tierFor(Math.round(OVR_BASE + 92 * OVR_SCALE)).key).toBe("challenger");
+    expect(tierFor(Math.round(OVR_BASE + 55 * OVR_SCALE)).key).toBe("gold");
   });
 });
 

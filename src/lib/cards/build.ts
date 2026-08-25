@@ -115,8 +115,14 @@ export interface PlayerCardData {
 // percentile — see formulas.ts) onto the familiar 1-99 card scale. The
 // affine constants spread real scores (which cluster 30-85) across
 // FIFA-ish territory; tune here, everything downstream follows.
-const OVR_BASE = 28;
-const OVR_SCALE = 0.68;
+export const OVR_BASE = 28;
+// 0.72, not 0.68: raw Power scores top out near 86 over a season and 92-96
+// over a single week, so the old scale left Master (89) and Challenger (94)
+// unreachable and the pack economy's legendary class permanently empty.
+// Modelled on four real weekly cohorts — 0.72 mints roughly one Challenger
+// in a strong week and none in a quiet one, and never hits the 99 clamp
+// (which would tie players and make collector serials arbitrary).
+export const OVR_SCALE = 0.72;
 
 const TIERS: { min: number; tier: CardTier }[] = [
   { min: 94, tier: { key: "challenger", label: "Challenger" } },
