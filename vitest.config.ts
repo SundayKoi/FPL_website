@@ -11,7 +11,11 @@ export default defineConfig({
     // fails immediately (Playwright's test() isn't valid outside its runner).
     // .worktrees/ holds linked git worktrees (whole checkouts of this repo);
     // crawling them duplicates every suite and runs their e2e specs too.
-    exclude: [...configDefaults.exclude, "e2e/**", ".worktrees/**"],
+    // .claude/worktrees/ is the same thing from the harness's own worktree
+    // tool — a different directory, so the exclusion above never covered it,
+    // and a session working in one turned `npm test` red with hundreds of
+    // failures from the OTHER branch's copy of every suite.
+    exclude: [...configDefaults.exclude, "e2e/**", ".worktrees/**", ".claude/worktrees/**"],
   },
   resolve: { alias: { "@": path.resolve(__dirname, "src") } },
 });
