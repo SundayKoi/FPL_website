@@ -9,6 +9,7 @@
 import { championDisplayName } from "@/lib/match-draft/champions";
 import { powerRanking } from "@/lib/stats/formulas";
 import type { PlayerAggRow } from "@/lib/stats/types";
+import { MEASURE_LABELS, type MeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
 
 /** One game a player actually played, distilled from raw_stats. */
 export interface CardGameRow {
@@ -62,7 +63,10 @@ export interface CardTier {
 }
 
 export interface CardSubStat {
-  key: "combat" | "economy" | "vision" | "form" | "clutch";
+  /** "form" and "clutch" are retired but stay in the union: every copy
+   *  already frozen in card_inventory carries them, and the renderer prints
+   *  whatever a card holds. */
+  key: MeasureKey | "form" | "clutch";
   label: string;
   value: number;
 }
@@ -547,6 +551,37 @@ export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string
   return assigned;
 }
 
+/** Every bar's raw percentile for one player, before toStat()'s 20-99 squeeze.
+ *  `objectiveCohort` and `turretCohort` are every cohort member's per-game
+ *  work, which only the whole-league builder can assemble — a solo buildCard
+ *  passes empty arrays and those two bars land at the middle. */
+function measureValues(
+  cohort: PlayerAggRow[],
+  row: PlayerAggRow,
+  totals: GameTotals,
+  objectiveCohort: number[],
+  turretCohort: number[],
+): Record<MeasureKey, number> {
+  const rc = roleCohort(cohort, row);
+  return {
+    combat: mean([
+      pct(rc, row, (r) => r.kda),
+      pct(rc, row, (r) => r.avg_kills),
+      pct(rc, row, (r) => r.avg_kp_pct),
+      pct(rc, row, (r) => r.avg_deaths, true),
+    ]),
+    damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
+    economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
+    laning: mean([pct(rc, row, (r) => r.avg_cs_at_10), pct(rc, row, (r) => r.avg_gold_at_10)]),
+    vision: pct(rc, row, (r) => r.avg_vision_per_min),
+    survival: mean([pct(rc, row, (r) => r.avg_deaths, true), pct(rc, row, (r) => r.avg_dmg_taken_per_min, true)]),
+    presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => r.avg_assists)]),
+    impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
+    objectives: pctOf(objectiveCohort, totals.objectives),
+    turrets: pctOf(turretCohort, totals.turrets),
+  };
+}
+
 // ── Card assembly ─────────────────────────────────────────────────────────
 
 export interface BuildCardInput {
@@ -572,6 +607,10 @@ export interface BuildCardInput {
   motto?: string | null;
   /** This week's Weekly Standout — Card of the Week. */
   standout?: boolean;
+  /** Every cohort member's per-game objective work, for the Objectives bar. */
+  objectiveCohort?: number[];
+  /** Every cohort member's per-game turret work, for the Turrets bar. */
+  turretCohort?: number[];
 }
 
 export function buildCard({
@@ -586,41 +625,28 @@ export function buildCard({
   artSkin = 0,
   motto = null,
   standout = false,
+  objectiveCohort = [],
+  turretCohort = [],
 }: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
   const key = playerKey(row);
   const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
   const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
-  const rc = roleCohort(cohort, row);
-  const combat = toStat(
-    mean([
-      pct(rc, row, (r) => r.kda),
-      pct(rc, row, (r) => r.avg_dmg_per_min),
-      pct(rc, row, (r) => r.avg_kills),
-      pct(rc, row, (r) => r.avg_kp_pct),
-      pct(rc, row, (r) => r.avg_deaths, true),
-    ]),
-  );
-  const economy = toStat(
-    mean([
-      pct(rc, row, (r) => r.avg_cs_per_min),
-      pct(rc, row, (r) => r.avg_gold_per_min),
-      pct(rc, row, (r) => r.avg_gold_at_10),
-    ]),
-  );
-  const vision = toStat(pct(rc, row, (r) => r.avg_vision_per_min));
+  const totals = gameTotals(games);
+  const values = measureValues(cohort, row, totals, objectiveCohort, turretCohort);
+  const bars = barsForRole(row.role_mode);
 
   // Form: the last five results, weighted toward the streak the player is
-  // currently on. A 5-0 heater reads 99; a 0-5 skid scrapes the floor.
+  // currently on — still tracked for the flip-card dots and the "On A
+  // Heater" archetype's streak count, even though it no longer prints as
+  // its own bar (see CardSubStat's comment on the retired "form"/"clutch"
+  // keys).
   const dated = [...games].sort((a, b) => (a.game_date ?? "").localeCompare(b.game_date ?? ""));
   const lastFive = lastFiveOf(dated);
-  const formWr = lastFive.length > 0 ? lastFive.filter(Boolean).length / lastFive.length : 0.5;
   const streak = streakOf(lastFive);
-  const form = Math.max(1, Math.min(99, Math.round(20 + formWr * 70 + Math.max(0, streak - 1) * 3)));
 
   const clutchWr = clutchRate(dated, gameLog, row.winrate_pct / 100);
-  const clutch = Math.max(1, Math.min(99, Math.round(15 + clutchWr * 80)));
 
   const resolvedArchetype =
     archetype ??
@@ -677,13 +703,7 @@ export function buildCard({
     highlights: computeHighlights(dated, gameLog),
     badges: computeBadges(row, dated, recordCategories),
     standout,
-    subStats: [
-      { key: "combat", label: "Combat", value: combat },
-      { key: "economy", label: "Economy", value: economy },
-      { key: "vision", label: "Vision", value: vision },
-      { key: "form", label: "Form", value: form },
-      { key: "clutch", label: "Clutch", value: clutch },
-    ],
+    subStats: bars.map((barKey) => ({ key: barKey, label: MEASURE_LABELS[barKey], value: toStat(values[barKey]) })),
     wins: row.wins,
     losses: row.games - row.wins,
     winratePct: row.winrate_pct,
@@ -729,6 +749,17 @@ export function buildSeasonCards({
   }
   const archetypes = assignArchetypes(cohort, extrasByKey);
 
+  // Objective and turret work live on the per-game rows, not on the agg
+  // view, so their cohort has to be assembled here where every player's
+  // games are in hand.
+  const totalsByKey = new Map<string, GameTotals>();
+  for (const row of cohort) {
+    const key = playerKey(row);
+    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? []));
+  }
+  const objectiveCohort = [...totalsByKey.values()].map((t) => t.objectives);
+  const turretCohort = [...totalsByKey.values()].map((t) => t.turrets);
+
   const cards = cohort
     .map((row) => {
       const key = playerKey(row);
@@ -742,6 +773,8 @@ export function buildSeasonCards({
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
         teamAbbrs,
+        objectiveCohort,
+        turretCohort,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
       });

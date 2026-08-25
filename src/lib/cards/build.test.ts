@@ -121,15 +121,21 @@ describe("buildCard", () => {
 
   it("takes form from the last five games, oldest first", () => {
     expect(card.form).toEqual([false, true, true, true, true]);
-    // Four of five + a 4-win streak: form should read hot.
-    const form = card.subStats.find((s) => s.key === "form")!;
-    expect(form.value).toBeGreaterThan(80);
+    // Form is no longer its own bar — measures.ts's ADC set (agg()'s
+    // role_mode is BOTTOM) is combat/damage/economy/laning/impact. "form"
+    // survives only as a legacy CardSubStat key on copies already frozen in
+    // card_inventory; the last-five history above still drives the
+    // flip-card dots and feeds the "On A Heater" archetype's streak count.
+    expect(card.subStats.some((s) => s.key === "form")).toBe(false);
   });
 
   it("computes clutch from long games only", () => {
-    // Long games (>=32min): NA1_2 (L), NA1_3 (W), NA1_5 (W) -> 2/3.
-    const clutch = card.subStats.find((s) => s.key === "clutch")!;
-    expect(clutch.value).toBe(Math.round(15 + (2 / 3) * 80));
+    // Clutch is likewise no longer its own bar — like "form", it survives
+    // only as a legacy CardSubStat key on frozen copies. The underlying
+    // long-game win rate (NA1_2 L, NA1_3 W, NA1_5 W -> 2/3 for >=32min
+    // games) still feeds archetypeFacts.clutchWr for the Clutch Gene / Ice
+    // In The Veins titles, exercised via the archetype tests below.
+    expect(card.subStats.some((s) => s.key === "clutch")).toBe(false);
   });
 
   it("keeps every sub-stat on the 1-99 scale", () => {
@@ -405,5 +411,52 @@ describe("team badge keys", () => {
   it("keeps genuinely different teams apart", () => {
     expect(teamBadgeKey("Winter")).not.toBe(teamBadgeKey("Winters"));
     expect(teamBadgeKey("")).toBe("");
+  });
+});
+
+describe("role-aware bars", () => {
+  it("gives each role its own five bars", () => {
+    const cohort = cohortOf(agg());
+    const cards = buildSeasonCards({
+      cohort,
+      gamesByPlayer: new Map([["player#na1", [gameRow({ turret_kills: 2, dragon_kills: 1 })]]]),
+      gameLog: logOf({ NA1_1: 30 }),
+    });
+    const card = cards.find((c) => c.name === "Player")!;
+    expect(card.subStats).toHaveLength(5);
+    expect(card.subStats[0].key).toBe("combat");
+    expect(card.subStats.at(-1)!.key).toBe("impact");
+    // agg()'s role_mode is BOTTOM, so this card must wear the ADC set.
+    expect(card.subStats.map((s) => s.key)).toEqual(["combat", "damage", "economy", "laning", "impact"]);
+  });
+
+  it("labels every bar and keeps values on the 20-99 scale", () => {
+    const cohort = cohortOf(agg());
+    const cards = buildSeasonCards({ cohort, gamesByPlayer: new Map(), gameLog: new Map() });
+    for (const stat of cards[0].subStats) {
+      expect(stat.label.length).toBeGreaterThan(0);
+      expect(stat.value).toBeGreaterThanOrEqual(20);
+      expect(stat.value).toBeLessThanOrEqual(99);
+    }
+  });
+
+  it("scores objectives and turrets against the cohort's per-game work", () => {
+    // Two junglers, one doing all the objective work. Both need games so the
+    // objective cohort has something to rank.
+    const busy = agg({ summoner_name: "Busy", role_mode: "JUNGLE" });
+    const idle = agg({ summoner_name: "Idle", role_mode: "JUNGLE" });
+    const cards = buildSeasonCards({
+      cohort: [busy, idle, agg({ summoner_name: "Third", role_mode: "JUNGLE" }), agg({ summoner_name: "Fourth", role_mode: "JUNGLE" })],
+      gamesByPlayer: new Map([
+        ["busy#na1", [gameRow({ dragon_kills: 4, baron_kills: 2, objective_damage: 20000 })]],
+        ["idle#na1", [gameRow({ dragon_kills: 0, baron_kills: 0, objective_damage: 0 })]],
+        ["third#na1", [gameRow({ dragon_kills: 1, objective_damage: 2000 })]],
+        ["fourth#na1", [gameRow({ dragon_kills: 2, objective_damage: 4000 })]],
+      ]),
+      gameLog: logOf({ NA1_1: 30 }),
+    });
+    const objectivesOf = (name: string) =>
+      cards.find((c) => c.name === name)!.subStats.find((s) => s.key === "objectives")!.value;
+    expect(objectivesOf("Busy")).toBeGreaterThan(objectivesOf("Idle"));
   });
 });
