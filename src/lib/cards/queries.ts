@@ -63,9 +63,16 @@ export async function fetchAllCardSeasons(supabase: SupabaseClient): Promise<{ l
  * edition stores the badge it resolved at mint time, so any card minted
  * before a team's logo was uploaded (or before its name was bridged here)
  * would carry a null badge forever. Callers re-run the lookup over frozen
- * cards with backfillTeamBadges below.
+ * cards with backfillTeamIdentity below.
  */
-export async function fetchTeamBadges(supabase: SupabaseClient, season: string): Promise<Map<string, string>> {
+export interface TeamIdentity {
+  /** normalized team name/abbreviation -> logo URL. */
+  badges: Map<string, string>;
+  /** normalized team name/abbreviation -> the short code the card prints. */
+  abbrs: Map<string, string>;
+}
+
+export async function fetchTeamIdentity(supabase: SupabaseClient, season: string): Promise<TeamIdentity> {
   const [teamsResult, leagueTeamsResult, settingsResult] = await Promise.all([
     // draft_id comes along so the badge can be scoped to THIS season's
     // teams below — team names get reused season to season, and an
@@ -139,23 +146,47 @@ export async function fetchTeamBadges(supabase: SupabaseClient, season: string):
     const viaAbbreviation = teamImages.get(teamBadgeKey(leagueTeam.abbreviation));
     if (viaAbbreviation) teamImages.set(nameKey, viaAbbreviation);
   }
-  return teamImages;
+
+  // Abbreviations are filed the same way, from both tables, so a card whose
+  // team_name matches either spelling still finds its short code.
+  const abbrs = new Map<string, string>();
+  const addAbbr = (key: string | null | undefined, abbreviation: string | null | undefined) => {
+    if (!key || !abbreviation?.trim()) return;
+    const normalized = teamBadgeKey(key);
+    if (normalized && !abbrs.has(normalized)) abbrs.set(normalized, abbreviation.trim());
+  };
+  for (const team of scopedTeams) {
+    addAbbr(team.name, team.abbreviation);
+    addAbbr(team.abbreviation, team.abbreviation);
+  }
+  for (const leagueTeam of leagueTeamRows) {
+    addAbbr(leagueTeam.name, leagueTeam.abbreviation);
+    addAbbr(leagueTeam.abbreviation, leagueTeam.abbreviation);
+  }
+
+  return { badges: teamImages, abbrs };
 }
 
 /**
- * Re-resolves the team badge on frozen cards.
+ * Re-resolves a frozen card's team branding — badge and abbreviation.
  *
- * Ratings on a frozen copy are the whole point and stay untouched, but the
- * badge is pure branding for a team that (per league rules) can't change
- * within a season, so filling a null one in is a repair rather than a
- * rewrite. Cards that already carry a badge are left exactly as they were.
+ * Ratings on a frozen copy are the whole point and stay untouched, but
+ * branding is for a team that (per league rules) can't change within a
+ * season, so filling a null one in is a repair rather than a rewrite. The
+ * abbreviation rides along because every copy pulled before the card front
+ * started printing it would otherwise wear the full name over its signature
+ * forever. Fields that already carry a value are left exactly as they were.
  */
-export function backfillTeamBadges(cards: PlayerCardData[], badges: Map<string, string>): PlayerCardData[] {
-  if (badges.size === 0) return cards;
+export function backfillTeamIdentity(cards: PlayerCardData[], identity: TeamIdentity): PlayerCardData[] {
+  const { badges, abbrs } = identity;
+  if (badges.size === 0 && abbrs.size === 0) return cards;
   return cards.map((card) => {
-    if (card.teamImageUrl || !card.teamName) return card;
-    const url = badges.get(teamBadgeKey(card.teamName));
-    return url ? { ...card, teamImageUrl: url } : card;
+    if (!card.teamName) return card;
+    const key = teamBadgeKey(card.teamName);
+    const url = card.teamImageUrl ?? badges.get(key) ?? null;
+    const abbr = card.teamAbbr ?? abbrs.get(key) ?? null;
+    if (url === card.teamImageUrl && abbr === card.teamAbbr) return card;
+    return { ...card, teamImageUrl: url, teamAbbr: abbr };
   });
 }
 
@@ -165,7 +196,7 @@ export function backfillTeamBadges(cards: PlayerCardData[], badges: Map<string, 
  * ratings are league-relative), so per-player fetching would save nothing.
  */
 export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult, recordsResult, teamImages, artResult] = await Promise.all([
+  const [aggResult, gamesResult, logResult, recordsResult, teamIdentity, artResult] = await Promise.all([
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
       .from("raw_stats")
@@ -173,7 +204,7 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
       .eq("season", season),
     supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
     supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
-    fetchTeamBadges(supabase, season),
+    fetchTeamIdentity(supabase, season),
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
     supabase.from("card_art_prefs").select("*").eq("season", season),
@@ -227,7 +258,8 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     gamesByPlayer,
     gameLog,
     recordsByPlayer,
-    teamImages,
+    teamImages: teamIdentity.badges,
+    teamAbbrs: teamIdentity.abbrs,
     artPrefs,
   });
 }
@@ -332,7 +364,7 @@ export async function fetchEditionCards(
     .eq("edition_week", editionWeek);
   if (error) return [];
   const cards = ((data as { card: PlayerCardData }[]) ?? []).map((row) => row.card);
-  return backfillTeamBadges(cards, await fetchTeamBadges(supabase, season));
+  return backfillTeamIdentity(cards, await fetchTeamIdentity(supabase, season));
 }
 
 export async function fetchRatingHistory(
