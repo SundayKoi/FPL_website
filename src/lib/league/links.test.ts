@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leaguePageLinks } from "./links";
+import { leaguePageLinks, leaguePath } from "./links";
 
 describe("league page links", () => {
   it("returns paired Premier and Academy links", () => {
@@ -9,10 +9,15 @@ describe("league page links", () => {
     });
   });
 
-  it("keeps the dedicated Scouting route and selected admin team", () => {
+  it("maps My Team to the canonical paired routes", () => {
+    expect(leaguePath("my-team", "premier")).toBe("/my-team");
+    expect(leaguePath("my-team", "academy")).toBe("/academy/my-team");
+  });
+
+  it("keeps the canonical Scouting route and selected admin team", () => {
     expect(leaguePageLinks("scouting", "academy", { team: "team-2" })).toEqual({
-      premier: "/captain/scouting?team=team-2",
-      academy: "/academy/captain/scouting?team=team-2",
+      premier: "/my-team/scouting?team=team-2",
+      academy: "/academy/my-team/scouting?team=team-2",
     });
   });
 });
