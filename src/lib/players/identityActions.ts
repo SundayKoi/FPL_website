@@ -133,15 +133,22 @@ async function resolveActiveRosterTeamId(
   if (teamsError) return null;
 
   const candidates = (teamData as { id: string }[] | null) ?? [];
-  const matches = (await Promise.all(candidates.map(async (team) => {
+  const lookupResults = await Promise.all(candidates.map(async (team) => {
     const { data, error } = await supabase.rpc("is_player_rostered_on_team", {
       p_player_pool_id: input.playerPoolId,
       p_league_team_id: team.id,
       p_league: input.league,
       p_season: input.season,
     });
-    return !error && data === true ? team.id : null;
-  }))).filter((teamId): teamId is string => teamId !== null);
+    return { teamId: team.id, matches: data === true, error };
+  }));
+  // A lookup failure leaves roster uniqueness unknown. Fail closed rather
+  // than treating the failed candidate as a non-match beside one success.
+  if (lookupResults.some((result) => result.error)) return null;
+
+  const matches = lookupResults
+    .filter((result) => result.matches)
+    .map((result) => result.teamId);
 
   return matches.length === 1 ? matches[0] : null;
 }

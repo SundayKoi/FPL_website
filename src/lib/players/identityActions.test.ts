@@ -23,6 +23,7 @@ function mutationClient({
   academySeason = "A1",
   activeTeams = [{ id: "team-1" }],
   rosteredTeamIds = ["team-1"],
+  rosterLookupErrorTeamIds = [],
 }: {
   userId?: string | null;
   insertResult?: { error: { code?: string; message: string } | null };
@@ -33,6 +34,7 @@ function mutationClient({
   academySeason?: string;
   activeTeams?: { id: string }[];
   rosteredTeamIds?: string[];
+  rosterLookupErrorTeamIds?: string[];
 }) {
   const insert = vi.fn(async () => insertResult);
   const updateChain = mutationChain(updateResult);
@@ -45,7 +47,9 @@ function mutationClient({
   const teamsQuery = readChain(activeTeams);
   const rpc = vi.fn(async (_functionName: string, params: { p_league_team_id: string }) => ({
     data: rosteredTeamIds.includes(params.p_league_team_id),
-    error: null,
+    error: rosterLookupErrorTeamIds.includes(params.p_league_team_id)
+      ? { message: "roster lookup failed" }
+      : null,
   }));
   const client = {
     auth: { getUser: vi.fn(async () => ({ data: { user: userId ? { id: userId } : null } })) },
@@ -209,6 +213,21 @@ describe("player identity actions", () => {
 
     await expect(assignPlayerIdentity({
       playerPoolId: "ambiguous-pool", profileId: "profile-2", league: "premier", season: "S5",
+    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("safely rejects an assignment when any active-team roster lookup errors", async () => {
+    const { client, insert } = mutationClient({
+      activeTeams: [{ id: "team-1" }, { id: "team-2" }],
+      rosteredTeamIds: ["team-1"],
+      rosterLookupErrorTeamIds: ["team-2"],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await expect(assignPlayerIdentity({
+      playerPoolId: "pool-1", profileId: "profile-2", league: "premier", season: "S5",
     })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
 
     expect(insert).not.toHaveBeenCalled();
