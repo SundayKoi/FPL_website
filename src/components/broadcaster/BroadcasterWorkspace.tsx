@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import OpponentScout from "@/components/captain/OpponentScout";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
@@ -40,6 +40,20 @@ export default function BroadcasterWorkspace({
     { id: "matchups", label: "Matchups" },
     { id: "team-b", label: `${teamBName} scouting` },
   ];
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const selectTabFromKeyboard = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    setTab(tabs[nextIndex].id);
+    tabRefs.current[nextIndex]?.focus();
+  };
 
   return (
     <section className="space-y-6">
@@ -63,16 +77,19 @@ export default function BroadcasterWorkspace({
 
       <div className="card-brand p-2">
         <div role="tablist" aria-label="Broadcaster workspace" className="flex flex-wrap gap-1">
-          {tabs.map((item) => {
+          {tabs.map((item, index) => {
             const selected = tab === item.id;
             return <button
               key={item.id}
+              ref={(node) => { tabRefs.current[index] = node; }}
               id={`broadcaster-tab-${item.id}`}
               type="button"
               role="tab"
               aria-selected={selected}
               aria-controls={`broadcaster-panel-${item.id}`}
+              tabIndex={selected ? 0 : -1}
               onClick={() => setTab(item.id)}
+              onKeyDown={(event) => selectTabFromKeyboard(event, index)}
               className={`rounded px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                 selected ? "bg-coral text-navy" : "text-steel hover:bg-panel hover:text-white"
               }`}
@@ -83,15 +100,20 @@ export default function BroadcasterWorkspace({
         </div>
       </div>
 
-      <div
-        id={`broadcaster-panel-${tab}`}
-        role="tabpanel"
-        aria-labelledby={`broadcaster-tab-${tab}`}
-      >
-        {tab === "team-a" ? <OpponentScout source={teamA} perspective="team" /> : null}
-        {tab === "matchups" ? <BroadcasterMatchups teamA={teamA} teamB={teamB} /> : null}
-        {tab === "team-b" ? <OpponentScout source={teamB} perspective="team" /> : null}
-      </div>
+      {tabs.map((item) => {
+        const selected = tab === item.id;
+        return <div
+          key={item.id}
+          id={`broadcaster-panel-${item.id}`}
+          role="tabpanel"
+          aria-labelledby={`broadcaster-tab-${item.id}`}
+          hidden={!selected}
+        >
+          {selected && item.id === "team-a" ? <OpponentScout source={teamA} perspective="team" /> : null}
+          {selected && item.id === "matchups" ? <BroadcasterMatchups teamA={teamA} teamB={teamB} /> : null}
+          {selected && item.id === "team-b" ? <OpponentScout source={teamB} perspective="team" /> : null}
+        </div>;
+      })}
     </section>
   );
 }

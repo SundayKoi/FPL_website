@@ -3,11 +3,15 @@
 import { Fragment, useMemo, useState } from "react";
 import ChampionDatum from "@/components/captain/scouting/ChampionDatum";
 import { deriveBroadcasterMatchups, type BroadcasterMatchupPlayer } from "@/lib/broadcaster/matchups";
+import { ROLE_LABELS } from "@/lib/draft/types";
 import type { ScoutScope, ScoutSource } from "@/lib/scouting/types";
 
 function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
   return <article className="rounded border border-line/70 bg-navy/40 p-3">
-    <h3 className="font-semibold text-white">{player.name}</h3>
+    <div className="flex items-baseline justify-between gap-2">
+      <h3 className="font-semibold text-white">{player.name}</h3>
+      <span className="text-xs uppercase tracking-wider text-steel">{ROLE_LABELS[player.role]}</span>
+    </div>
     <div className="mt-3 flex flex-wrap gap-2">
       {player.champions.slice(0, 5).map((champion) => <Fragment key={champion.champion}>
         <ChampionDatum champion={champion.champion} />
@@ -19,12 +23,12 @@ function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
     </p>
     {player.inhouse ? <div className="mt-4 border-t border-line/50 pt-3">
       <p className="label-dash">{player.inhouse.games} in-house games</p>
-      <div className="mt-2 space-y-2">
+      {player.inhouse.champions.length === 0 ? <p className="mt-2 text-sm text-steel">No in-house games found</p> : <div className="mt-2 space-y-2">
         {player.inhouse.champions.slice(0, 5).map((champion) => <div key={champion.champion} className="flex flex-wrap items-center gap-2">
           <ChampionDatum champion={champion.champion} />
-          <span className="text-xs text-steel">{champion.winrate_pct.toFixed(0)}% WR · {champion.avg_kda.toFixed(2)} KDA</span>
+          <span className="text-xs text-steel">×{champion.games} · {champion.winrate_pct.toFixed(0)}% WR · {champion.avg_kda.toFixed(2)} KDA</span>
         </div>)}
-      </div>
+      </div>}
     </div> : null}
   </article>;
 }

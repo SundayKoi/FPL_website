@@ -55,7 +55,15 @@ function sideDraft(draft: ScoutDraftRow, side: DraftSide): FullDraftSide {
     banPhaseOne: steps.filter((step) => step.kind === "ban" && step.slot <= 3).map((step) => slot(actionForStep(draft.actions, step))),
     banPhaseTwo: steps.filter((step) => step.kind === "ban" && step.slot > 3).map((step) => slot(actionForStep(draft.actions, step))), };
 }
-export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedScoutData {
+export interface DeriveScoutDataOptions {
+  playerLimit?: number | null;
+}
+
+export function deriveScoutData(
+  source: ScoutSource,
+  scope: ScoutScope,
+  options: DeriveScoutDataOptions = {},
+): ScopedScoutData {
   const games = scopeTeamGames(source, scope); const first: ChampionCounts = new Map(); const against: ChampionCounts = new Map(); const p1: ChampionCounts = new Map(); const p2: ChampionCounts = new Map(); const picked = new Set<string>();
   for (const game of games) {
     const own = LCS_DRAFT_STEPS.filter((step) => step.side === game.side && step.kind === "pick").map((step) => actionForStep(game.draft.actions, step));
@@ -118,7 +126,11 @@ export function deriveScoutData(source: ScoutSource, scope: ScoutScope): ScopedS
       : null;
     return Boolean(confirmed && normalizeChampionName(championDisplayName(confirmed)) === normalizeChampionName(championDisplayName(action.champion)));
   };
-  const playerPools = source.roster.slice().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.displayName.localeCompare(b.displayName)).slice(0, 5).map((player) => {
+  const sortedRoster = source.roster.slice().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.displayName.localeCompare(b.displayName));
+  const poolRoster = options.playerLimit === null
+    ? sortedRoster
+    : sortedRoster.slice(0, options.playerLimit ?? 5);
+  const playerPools = poolRoster.map((player) => {
     let attributed = source.drafts.filter((draft) => draft.actions.some((action) => attributedToPlayer(draft, action, player)));
     if (scope === "season") attributed = attributed.filter((draft) => source.fixtures.find((fixture) => fixture.id === draft.fixture_id)?.season === source.currentSeason);
     if (scope === "recent") {

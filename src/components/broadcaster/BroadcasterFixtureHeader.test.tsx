@@ -45,6 +45,7 @@ describe("BroadcasterFixtureHeader", () => {
       "http://localhost:3000/match-draft/fixture-1?overlay=1&bg=transparent",
     ));
     expect(await screen.findByText("Copied ✓")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("OBS overlay URL copied");
     expect(screen.getByRole("link", { name: /watch on twitch/i }).getAttribute("href"))
       .toBe("https://twitch.tv/fpl");
   });

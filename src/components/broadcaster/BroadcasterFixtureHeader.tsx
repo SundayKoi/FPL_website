@@ -40,6 +40,13 @@ export default function BroadcasterFixtureHeader({
       </p>
     </div>
     <div className="flex flex-wrap items-center gap-2">
+      <span role="status" aria-live="polite" className="sr-only">
+        {copyState === "copied"
+          ? "OBS overlay URL copied"
+          : copyState === "failed"
+            ? "Clipboard unavailable. Copy the OBS overlay URL from the field."
+            : ""}
+      </span>
       <a
         href={matchDraftHref(fixture)}
         className="rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"

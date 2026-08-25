@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { filterAcademyFixtures } from "@/lib/academy/filtering";
 import { fetchCaptainContext, fetchMyRoster } from "@/lib/captain/queries";
-import { matchTeamId } from "@/lib/captain/teamNames";
+import { matchTeamId, normalizeName } from "@/lib/captain/teamNames";
 import { fetchHomepageFeaturedSettings, type HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
 import { academyTeamNames, type LeagueView } from "@/lib/league/context";
@@ -76,10 +76,15 @@ export async function loadBroadcasterScouting(
 
   const teamAId = matchTeamId(context.teams, teamAName);
   const teamBId = matchTeamId(context.teams, teamBName);
+  const historyTeamNames = [...new Map(
+    [...context.teams.map((team) => team.name), teamAName, teamBName]
+      .map((name) => [normalizeName(name), name.trim()] as const)
+      .filter(([key]) => Boolean(key)),
+  ).values()];
   const [history, teamARosterData, teamBRosterData] = await Promise.all([
     fetchScoutingHistory(supabase, {
       league: context.league,
-      leagueTeamNames: context.teams.map((team) => team.name),
+      leagueTeamNames: historyTeamNames,
     }),
     teamAId ? fetchMyRoster(supabase, teamAId, context.season, context.league) : Promise.resolve(null),
     teamBId ? fetchMyRoster(supabase, teamBId, context.season, context.league) : Promise.resolve(null),

@@ -229,6 +229,10 @@ describe("loadBroadcasterScouting", () => {
     const data = await loadBroadcasterScouting(supabase, context({ fixture: fixture({ team_b: "Unknown" }) }));
 
     expect(fetchScoutingHistory).toHaveBeenCalledTimes(1);
+    expect(fetchScoutingHistory).toHaveBeenCalledWith(supabase, {
+      league: "premier",
+      leagueTeamNames: ["Alpha", "Beta", "Unknown"],
+    });
     expect(fetchMyRoster).toHaveBeenCalledTimes(1);
     expect(data?.teamB.roster).toEqual([]);
     expect(data?.teamB.inhousePlayerStats).toEqual([]);

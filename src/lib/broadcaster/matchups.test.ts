@@ -40,13 +40,18 @@ const teamA: ScoutSource = {
   currentSeason: "S5",
   nextFixture: fixture("99"),
   roster: [
+    { id: "alpha-top", displayName: "Alpha Top", role: "top" },
+    { id: "alpha-jungle", displayName: "Alpha Jungle", role: "jungle" },
     { id: "alpha-sub", displayName: "Alpha Sub", role: "mid" },
     { id: "alpha-mid", displayName: "Alpha Mid", role: "mid" },
+    { id: "alpha-adc", displayName: "Alpha ADC", role: "adc" },
+    { id: "alpha-support", displayName: "Alpha Support", role: "support" },
   ],
   fixtures: [fixture("01")],
   drafts: [
     draft("alpha-mid", "01", "Alpha", "Alpha Mid", "Orianna"),
     draft("alpha-sub", "01", "Alpha", "Alpha Sub", "LeBlanc"),
+    draft("alpha-support", "01", "Alpha", "Alpha Support", "Nautilus"),
   ],
 };
 
@@ -96,5 +101,18 @@ describe("deriveBroadcasterMatchups", () => {
       .toEqual([{ champion: "Ahri", count: 2 }]);
     expect(all.find((row) => row.role === "mid")?.teamBPlayers[0].champions)
       .toEqual([{ champion: "Ahri", count: 2 }, { champion: "Zed", count: 1 }]);
+  });
+
+  it("retains attributed pools for a sixth sorted roster player", () => {
+    const support = deriveBroadcasterMatchups(teamA, teamB, "season")
+      .find((row) => row.role === "support")?.teamAPlayers[0];
+
+    expect(support).toMatchObject({
+      name: "Alpha Support",
+      champions: [{ champion: "Nautilus", count: 1 }],
+      totalPicks: 1,
+      distinctChampions: 1,
+      gamesSampled: 1,
+    });
   });
 });

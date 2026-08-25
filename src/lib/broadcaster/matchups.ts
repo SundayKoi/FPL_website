@@ -22,7 +22,7 @@ export interface BroadcasterRoleMatchup {
 }
 
 function playersFor(source: ScoutSource, scope: ScoutScope): BroadcasterMatchupPlayer[] {
-  const data = deriveScoutData(source, scope);
+  const data = deriveScoutData(source, scope, { playerLimit: null });
   const pools = new Map(data.playerPools.map((pool) => [scoutKey(pool.playerName), pool]));
   const inhouse = new Map((source.inhousePlayerStats ?? []).map((row) => [row.playerId, row]));
 

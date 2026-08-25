@@ -75,4 +75,35 @@ describe("BroadcasterWorkspace", () => {
     expect(premier.getAttribute("aria-current")).toBe("page");
     expect(academy.getAttribute("aria-current")).toBeNull();
   });
+
+  it("supports roving keyboard navigation and keeps every controlled panel mounted", () => {
+    render(<BroadcasterWorkspace league="premier" fixture={fixture} settings={settings} teamA={source("Alpha")} teamB={source("Beta")} />);
+
+    const alpha = screen.getByRole("tab", { name: /Alpha scouting/i });
+    const matchups = screen.getByRole("tab", { name: /^Matchups$/ });
+    const beta = screen.getByRole("tab", { name: /Beta scouting/i });
+    expect(alpha.tabIndex).toBe(0);
+    expect(matchups.tabIndex).toBe(-1);
+    for (const tab of [alpha, matchups, beta]) {
+      expect(document.getElementById(tab.getAttribute("aria-controls")!)).toBeTruthy();
+    }
+
+    alpha.focus();
+    fireEvent.keyDown(alpha, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(matchups);
+    expect(matchups.getAttribute("aria-selected")).toBe("true");
+    expect(matchups.tabIndex).toBe(0);
+
+    fireEvent.keyDown(matchups, { key: "End" });
+    expect(document.activeElement).toBe(beta);
+    expect(beta.getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(beta, { key: "Home" });
+    expect(document.activeElement).toBe(alpha);
+    expect(alpha.getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.keyDown(alpha, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(beta);
+    expect(beta.getAttribute("aria-selected")).toBe("true");
+  });
 });

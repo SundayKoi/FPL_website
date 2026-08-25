@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import type { ScoutSource } from "@/lib/scouting/types";
@@ -55,6 +55,13 @@ const teamA: ScoutSource = {
     draft("alpha-sub-one", "01", "Alpha", "Alpha Sub", "LeBlanc"),
     draft("alpha-sub-two", "02", "Alpha", "Alpha Sub", "LeBlanc"),
   ],
+  inhousePlayerStats: [{
+    playerId: "alpha-top",
+    playerName: "Alpha Top",
+    role: "top",
+    games: 0,
+    champions: [],
+  }],
 };
 
 const teamB: ScoutSource = {
@@ -91,8 +98,27 @@ describe("BroadcasterMatchups", () => {
     expect(screen.getByText("Alpha Sub")).toBeTruthy();
     expect(screen.getByText("2 picks · 1 champion · 2 games")).toBeTruthy();
     expect(screen.getByText("3 in-house games")).toBeTruthy();
-    expect(screen.getByText("50% WR · 3.17 KDA")).toBeTruthy();
     expect(screen.getAllByText("No rostered player")).toHaveLength(1);
+  });
+
+  it("renders an explicit role label on every player card", () => {
+    render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
+
+    const betaMidCard = screen.getByText("Beta Mid").closest("article");
+    expect(betaMidCard).toBeTruthy();
+    expect(within(betaMidCard!).getByText("Mid")).toBeTruthy();
+  });
+
+  it("renders a no-games state for an in-house row with zero games", () => {
+    render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
+
+    expect(screen.getByText("No in-house games found")).toBeTruthy();
+  });
+
+  it("renders the per-champion in-house sample count", () => {
+    render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
+
+    expect(screen.getByText("×2 · 50% WR · 3.17 KDA")).toBeTruthy();
   });
 
   it("includes prior-season picks when matchup history changes to all history", () => {

@@ -77,6 +77,31 @@ describe("opponent scouting derivation", () => {
     expect(pools.some((row) => row.playerName === "Former Mid")).toBe(false);
   });
 
+  it("preserves the captain pool cap while allowing full-roster derivation", () => {
+    const expanded = structuredClone(source);
+    expanded.roster = [
+      { id: "top", displayName: "Alpha Top", role: "top" },
+      { id: "jungle", displayName: "Alpha Jungle", role: "jungle" },
+      { id: "mid", displayName: "Alpha Mid", role: "mid" },
+      { id: "sub", displayName: "Alpha Sub", role: "mid" },
+      { id: "adc", displayName: "Alpha ADC", role: "adc" },
+      { id: "support", displayName: "Alpha Support", role: "support" },
+    ];
+    expanded.drafts = [{
+      ...expanded.drafts[0],
+      actions: [{
+        stepIndex: 11, side: "blue", kind: "pick", slot: 3,
+        champion: "Nautilus", playerName: "Alpha Support",
+      }],
+    }];
+
+    expect(deriveScoutData(expanded, "all").playerPools).toHaveLength(5);
+    expect(deriveScoutData(expanded, "all", { playerLimit: null }).playerPools.at(-1)).toMatchObject({
+      playerName: "Alpha Support",
+      champions: [{ champion: "Nautilus", count: 1 }],
+    });
+  });
+
   it("keeps current-season former-team history and limits recent pools to five fixture groups", () => {
     const scoped = structuredClone(source);
     scoped.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
