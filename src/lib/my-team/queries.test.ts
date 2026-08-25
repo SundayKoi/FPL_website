@@ -182,25 +182,31 @@ describe("loadMyTeamDashboard", () => {
     });
   });
 
-  it("loads a league-scoped Academy dashboard and excludes Premier fixtures", async () => {
-    const crossLeagueFixture = {
+  it("requires both fixture sides in the Academy set before next-match and scouting resolution", async () => {
+    const mixedLeagueFixture = {
       ...upcoming,
-      id: "premier-fixture",
-      team_a: "Premier One",
+      id: "mixed-league-fixture",
+      team_a: "Academy One",
       team_b: "Outside Team",
+      scheduled_at: "2026-08-31T00:00:00Z",
     };
 
-    await expect(loadMyTeamDashboard(
-      fakeClient({ fixtures: [upcoming, crossLeagueFixture] }) as never,
+    const result = await loadMyTeamDashboard(
+      fakeClient({ fixtures: [mixedLeagueFixture, upcoming] }) as never,
       "academy",
-    )).resolves.toMatchObject({
+    );
+
+    expect(result).toMatchObject({
       kind: "ready",
       season: "A1",
       team: academyOne,
       schedule: [{ id: upcoming.id }],
+      nextFixture: { id: upcoming.id },
+      opponent: { name: academyTwo.name },
       isCaptain: false,
       isAdmin: false,
     });
+    expect(fetchCodes).toHaveBeenCalledWith(expect.anything(), upcoming.id);
   });
 
   it("accepts only an admin override that belongs to the active league set", async () => {

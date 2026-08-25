@@ -1,4 +1,4 @@
-import { MyTeamPageView } from "@/app/my-team/page";
+import { MyTeamPageView } from "@/app/my-team/view";
 
 export default function AcademyMyTeamPage({
   searchParams,

@@ -69,7 +69,7 @@ vi.mock("@/components/matches/RosterEditor", () => ({
 }));
 vi.mock("@/components/LeaguePageToggle", () => ({ default: () => null }));
 
-import { MyTeamPageView } from "./page";
+import { MyTeamPageView } from "./view";
 
 const fixture = {
   id: "fixture-1",
@@ -200,7 +200,25 @@ describe("My Team page", () => {
   });
 
   it("adds result reporting for the exact resolved captain team", async () => {
-    loadMyTeamDashboard.mockResolvedValue(ready({ isCaptain: true }));
+    loadMyTeamDashboard.mockResolvedValue(ready({
+      isCaptain: true,
+      draftGames: [
+        {
+          gameNumber: 1,
+          status: "complete",
+          started: true,
+          blueTeamId: "team-1",
+          winnerTeamId: "team-1",
+        },
+        {
+          gameNumber: 2,
+          status: "complete",
+          started: true,
+          blueTeamId: "team-2",
+          winnerTeamId: "team-1",
+        },
+      ],
+    }));
 
     render(await MyTeamPageView({ league: "premier", searchParams: Promise.resolve({}) }));
 
@@ -211,6 +229,15 @@ describe("My Team page", () => {
       fixtureId: "fixture-1",
       prefillTeamAId: "team-1",
       prefillTeamBId: "team-2",
+      draftPrefill: {
+        draftUrl: "/match-draft/fixture-1",
+        games: [
+          { gameNumber: 1, blueTeamId: "team-1" },
+          { gameNumber: 2, blueTeamId: "team-2" },
+        ],
+        scoreA: 2,
+        scoreB: 0,
+      },
     }));
     expect(screen.queryByText("Admin code editor")).toBeNull();
   });
@@ -229,6 +256,63 @@ describe("My Team page", () => {
     expect(screen.getByText("Roster editor")).toBeTruthy();
     expect(container.querySelector("form[method='get']")?.getAttribute("action")).toBe("/my-team");
     expect(fetchStaffTier).toHaveBeenCalledWith(serverClient);
+  });
+
+  it("excludes mixed-league fixtures, reports, and codes from Academy admin editors", async () => {
+    const mixedFixture = {
+      ...fixture,
+      id: "mixed-fixture",
+      team_b: "Outside Team",
+    };
+    const validReport = {
+      id: "report-valid",
+      season: "S5",
+      season_phase: "Regular",
+      team_a_id: "team-1",
+      team_b_id: "team-2",
+      score_a: 2,
+      score_b: 0,
+      draft_url: null,
+      submitted_by: "admin",
+      submitted_at: "2026-08-01T00:00:00Z",
+      status: "pending",
+      error_text: null,
+      warning_text: null,
+      ingested_at: null,
+      fixture_id: fixture.id,
+    };
+    const mixedReport = { ...validReport, id: "report-mixed", team_b_id: "outside-team" };
+    const validCode = {
+      id: "code-valid",
+      fixture_id: fixture.id,
+      season: "S5",
+      team_a_id: "team-1",
+      team_b_id: "team-2",
+      game_number: 1,
+      code: "VALID",
+      note: null,
+      created_by: "admin",
+      created_at: "2026-08-01T00:00:00Z",
+    };
+    const mixedCode = { ...validCode, id: "code-mixed", team_b_id: "outside-team", code: "MIXED" };
+    loadMyTeamDashboard.mockResolvedValue(ready({ isAdmin: true, league: "academy" }));
+    from.mockImplementation((table: string) => {
+      if (table === "league_settings") return query({ data: { current_phase: "Regular" }, error: null });
+      if (table === "fixtures") return query({ data: [fixture, mixedFixture], error: null });
+      if (table === "match_reports") return query({ data: [validReport, mixedReport], error: null });
+      if (table === "match_codes") return query({ data: [validCode, mixedCode], error: null });
+      return query({ data: [], error: null });
+    });
+
+    render(await MyTeamPageView({ league: "academy", searchParams: Promise.resolve({}) }));
+
+    expect(adminCodeEditor).toHaveBeenCalledWith(expect.objectContaining({
+      fixtures: [fixture],
+      codes: [validCode],
+    }));
+    expect(adminReportsQueue).toHaveBeenCalledWith(expect.objectContaining({
+      reports: [validReport],
+    }));
   });
 
   it("keeps core query failures distinct from onboarding states", async () => {

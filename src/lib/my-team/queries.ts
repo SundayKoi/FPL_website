@@ -15,6 +15,7 @@ import {
 } from "@/lib/opgg/multiSearch";
 import { resolvePlayerIdentity, type LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { createLeagueTeamScope } from "./leagueScope";
 import type { MyTeamDashboardResult, MyTeamOpponent } from "./types";
 
 type LeagueSettingsRow = {
@@ -64,14 +65,9 @@ async function loadLeagueTeams(
 function leagueFixtures(
   fixtures: FixtureRow[],
   teams: LeagueTeam[],
-  league: LeagueKey,
 ): FixtureRow[] {
-  const names = new Set(teams.map((team) => normalizeName(team.name)));
-  return fixtures.filter((fixture) => {
-    const teamA = names.has(normalizeName(fixture.team_a));
-    const teamB = names.has(normalizeName(fixture.team_b));
-    return league === "academy" ? teamA || teamB : teamA && teamB;
-  });
+  const scope = createLeagueTeamScope(teams);
+  return fixtures.filter((fixture) => scope.includesFixture(fixture));
 }
 
 function teamFixtures(fixtures: FixtureRow[], teamName: string): FixtureRow[] {
@@ -173,7 +169,6 @@ export async function loadMyTeamDashboard(
   const fixtures = leagueFixtures(
     (fixturesResult.data as FixtureRow[] | null) ?? [],
     teams,
-    league,
   );
   const schedule = teamFixtures(fixtures, team.name);
   const nextFixture = pickNextFixture(schedule, team.name);
