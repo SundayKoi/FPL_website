@@ -594,30 +594,39 @@ export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string
  *
  * The weights are judgement, not derivation — they say what the league
  * thinks each role is FOR. Tune them here; nothing else needs to know.
+ *
+ * WINNING IS WEIGHTED HEAVILY, and that is a correction rather than a
+ * preference. Several measures are SHARES of a team's totals — damage share
+ * and kill participation feed damage, presence, impact and combat between
+ * them — and a share is anti-correlated with winning: a 2-0 stomp spreads
+ * kills and damage across five players, while a 0-2 loss concentrates them
+ * in whoever kept trying. With winning at 18 the share-driven measures
+ * outvoted it, and a mid who lost 0-2 out-rated a mid who won 2-0 on the
+ * same week. At 30 the result the game actually produced leads, and the
+ * shares say how the player got there.
  */
 export type ScoreWeights = { win: number } & Partial<Record<MeasureKey, number>>;
 
 export const ROLE_SCORE_WEIGHTS: Record<string, ScoreWeights> = {
   // Wins lane, takes the map, survives being on an island.
-  TOP: { win: 18, combat: 22, laning: 20, turrets: 14, survival: 12, impact: 14 },
-  // Objectives are the job. This is the biggest single correction here:
-  // dragons and barons used to count for nothing at all.
-  JUNGLE: { win: 20, combat: 20, objectives: 20, vision: 10, presence: 15, impact: 15 },
-  MIDDLE: { win: 18, combat: 20, damage: 22, laning: 15, presence: 12, impact: 13 },
+  TOP: { win: 30, combat: 18, laning: 16, turrets: 12, survival: 12, impact: 12 },
+  // Objectives are the job. Dragons and barons used to count for nothing.
+  JUNGLE: { win: 30, combat: 16, objectives: 18, vision: 10, presence: 14, impact: 12 },
+  MIDDLE: { win: 30, combat: 18, damage: 18, laning: 14, presence: 10, impact: 10 },
   // Damage is the reason a bot laner is fed everything the team has.
-  BOTTOM: { win: 18, combat: 18, damage: 24, economy: 16, laning: 12, impact: 12 },
+  BOTTOM: { win: 30, combat: 16, damage: 20, economy: 14, laning: 10, impact: 10 },
   // Vision and presence carry it; damage share barely matters, which is
   // what the old formula got most obviously wrong in the other direction.
-  UTILITY: { win: 20, combat: 12, vision: 26, presence: 22, survival: 12, impact: 8 },
+  UTILITY: { win: 30, combat: 10, vision: 22, presence: 18, survival: 12, impact: 8 },
 };
 
 export const DEFAULT_SCORE_WEIGHTS: ScoreWeights = {
-  win: 20,
-  combat: 20,
-  damage: 20,
-  economy: 15,
+  win: 30,
+  combat: 18,
+  damage: 18,
+  economy: 14,
   vision: 10,
-  impact: 15,
+  impact: 10,
 };
 
 export function scoreWeightsForRole(roleMode: string | null | undefined): ScoreWeights {
