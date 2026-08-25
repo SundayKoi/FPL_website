@@ -21,6 +21,27 @@ The site now also includes:
 See [docs/backend.md](docs/backend.md) for the backend architecture and the
 source-file map intended for agents picking up work.
 
+## Navigation
+
+FPL and FPL Academy are paired experiences with the same information
+architecture. The active brand in the header identifies the current league;
+selecting the FPL/FPL Academy brand opens the league chooser, which owns league
+switching and preserves the current paired destination (including supported
+query strings). Pages do not render a second league toggle.
+
+The header provides five direct links for the active league: **Players**,
+**Teams**, **Schedule**, **Stats**, and **My Team**. The shared grouped menus
+are:
+
+- **Play** — Auction Draft and Match Drafter.
+- **Premium** — Betting, Banger Board, Player Cards, and Draft League.
+- **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
+
+Admin and Broadcaster appear as conditional Staff entries inside Info. Their
+visibility is only a presentation hint: `/admin` and `/broadcaster` retain
+their existing server-side access checks and redirect or deny unauthorized
+users regardless of what the header displays.
+
 ## Roles and access
 
 - **Visitors** can browse public league pages, stats, cards, schedules, and

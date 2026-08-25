@@ -77,6 +77,22 @@ Keep integration-specific authorization at the boundary that owns it, then
 let the database enforce the final state transition. Do not add a new general
 API layer just to proxy a Supabase query.
 
+### Navigation and route boundaries
+
+The site presents Premier/FPL and Academy as paired league experiences. The
+header's `LeagueBrandChooser` is the single league-switching control: it maps
+the current supported route (and its query string) to the corresponding
+Premier or Academy path, while an unrelated shared route falls back to the
+target league home. Page-level league toggles are intentionally absent.
+
+`SiteNavigation` renders five direct links for the active league—Players,
+Teams, Schedule, Stats, and My Team—and groups shared destinations under Play,
+Premium, and Info. Admin and Broadcaster are Staff entries within Info,
+conditionally rendered from the server-provided staff tier. Those props do
+not authorize access: `/admin` and `/broadcaster` continue to perform their
+existing server-side gates, and the route checks remain authoritative if a
+link is hidden or manually visited.
+
 ## Authentication and authorization
 
 Supabase Auth owns the session. Discord is the production sign-in provider;
