@@ -87,27 +87,50 @@ side effect, makes them cheaper against the fantasy salary cap.
 
 ## 3. Role-aware bars
 
-Five slots stay. Combat, Economy and Clutch are unchanged and remain
-role-relative. Two slots change:
+Five slots stay, but **each role gets its own set**. Only the first and
+last slots are shared, so every card stays comparable at a glance while the
+middle three say what that role is actually for.
 
-**Slot 3 becomes role-dependent**, replacing Vision-for-everyone:
+Bars are drawn from one vocabulary of measures, each a percentile against
+the player's own role cohort (so a Support's Vision is judged against
+Supports, never against ADCs):
 
-| Role | Slot 3 | Measured by |
-|---|---|---|
-| Support | Vision | vision/min (unchanged) |
-| Jungle | Objectives | dragon + baron kills, objective damage |
-| Top | Laning | CS and gold at 10 |
-| Mid | Damage | damage/min and damage share |
-| Bot | Damage | damage/min and damage share |
+| Measure | Built from |
+|---|---|
+| Combat | KDA, kills, kill participation, deaths (inverted) |
+| Damage | damage/min, damage share |
+| Economy | CS/min, gold/min |
+| Laning | CS at 10, gold at 10 |
+| Vision | vision score/min |
+| Objectives | dragon + baron kills, objective damage |
+| Turrets | turret kills, turret damage, plates destroyed |
+| Survival | deaths (inverted), damage taken/min |
+| Presence | kill participation, assists |
 
-The objective columns (`dragon_kills`, `baron_kills`, `objective_damage`,
-`turret_damage`, `turret_plates_destroyed`) exist in `raw_stats` but not in
-`stats_player_agg`. The card engine already reads `raw_stats` directly for
-its game rows, so this widens an existing column list — **no migration**.
+Assigned per role:
 
-**Slot 4, Form, becomes window-dependent.** Consistency cannot be measured
-across two or three games, so the bar means what the drop's window can
-support:
+| Role | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Top | Combat | Laning | **Turrets** | Survival | Impact |
+| Jungle | Combat | **Objectives** | Vision | Presence | Impact |
+| Mid | Combat | **Damage** | Laning | Presence | Impact |
+| Bot | Combat | **Damage** | Economy | Laning | Impact |
+| Support | Combat | **Vision** | Presence | Survival | Impact |
+
+Every column this needs (`dragon_kills`, `baron_kills`, `objective_damage`,
+`turret_kills`, `turret_damage`, `turret_plates_destroyed`, `vision_score`,
+`damage_taken`, `assists`, `kill_participation_pct`) already exists on
+`raw_stats`. It does **not** exist on `stats_player_agg`, which has no
+objective or turret columns at all — so both the weekly and the season
+build paths must source these from the per-game rows the engine already
+fetches. `CardGameRow` and `WEEKLY_STAT_COLUMNS` widen; **no migration**.
+
+Clutch is retired as a universal bar. It was long-game win rate, which at a
+weekly window is one or two games — closer to a coin flip than a stat.
+
+**Slot 5, formerly Form, becomes window-dependent.** Consistency cannot be
+measured across two or three games, so the bar means what the drop's window
+can support:
 
 - **Weekly editions — Impact:** the player's share of their team's damage
   and kills that week.
@@ -122,21 +145,23 @@ in either drop.
 
 - `fetchWeekCards` scopes to one week and excludes adjacent weeks' games.
 - The curve change: a known Power score maps to the expected OVR and tier.
-- Each role resolves its own slot-3 bar, and an unknown role falls back to
-  the current behaviour rather than rendering an empty bar.
-- Impact and Consistency each compute from a fixture with a known answer,
-  including the degenerate cases (one game; zero team damage).
+- Each role resolves its own five-bar set, and an unknown or missing role
+  falls back to a defined default set rather than rendering empty bars.
+- Every measure computes from a fixture with a known answer, including the
+  degenerate cases (zero objective damage; zero team damage).
 - Frozen copies keep their stored bars: a pre-change card in a collection
   must render without a slot-3 or slot-4 crash.
 
 ## Risks
 
-- **Small-sample volatility** is intended, but a player with one game in a
-  week gets a percentile drawn from almost nothing. Consider a minimum
-  games threshold for a week to mint a card at all.
-- **Bars on frozen copies.** Old cards carry `subStats` with the old keys.
-  The renderer must key off what the card carries, not off the role, or
-  every card already owned breaks.
+- **Small-sample volatility** is intended. Confirmed 2026-08-25 that every
+  player plays a full series each week, so no minimum-games threshold is
+  needed.
+- **Bars on frozen copies.** Every card already owned carries the old five
+  (`combat`/`economy`/`vision`/`form`/`clutch`). The renderer must key off
+  the `subStats` the card actually carries — label and all — never off the
+  role, or every collection, trade preview and binder breaks at once. This
+  is the highest-risk part of the change.
 - **The all-season drop does not exist yet.** Consistency has no shipping
   surface until it does; it can be built with the bar and left unused, or
   deferred until that drop is designed.
