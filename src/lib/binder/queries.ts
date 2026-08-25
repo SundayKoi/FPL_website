@@ -18,6 +18,7 @@ export interface BinderCard {
   editionWeek: string;
   tier: string;
   foil: boolean;
+  foilType: string | null;
   signed: boolean;
   card: PlayerCardData;
 }
@@ -40,6 +41,7 @@ interface SlotJoinRow {
     edition_week: string;
     tier: string;
     foil: boolean;
+    foil_type: string | null;
     signed: boolean | null;
     card: PlayerCardData;
   } | null;
@@ -57,7 +59,7 @@ async function fetchBinderCards(
 ): Promise<BinderCard[]> {
   const { data, error } = await supabase
     .from("card_binder_slots")
-    .select("slot, inventory_id, card_inventory(discord_id, player_name, edition_week, tier, foil, signed, card)")
+    .select("slot, inventory_id, card_inventory(discord_id, player_name, edition_week, tier, foil, foil_type, signed, card)")
     .eq("discord_id", discordId)
     .order("slot");
   if (error) return [];
@@ -70,6 +72,7 @@ async function fetchBinderCards(
       editionWeek: row.card_inventory!.edition_week,
       tier: row.card_inventory!.tier,
       foil: row.card_inventory!.foil,
+      foilType: row.card_inventory!.foil_type ?? null,
       signed: row.card_inventory!.signed === true,
       card: row.card_inventory!.card,
     }));

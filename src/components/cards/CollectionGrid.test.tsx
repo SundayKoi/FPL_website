@@ -51,7 +51,7 @@ function makeRow(
   name: string,
   overall: number,
   editionWeek: string,
-  { foil = false, signed = false, artSkin = 0 } = {},
+  { foil = false, signed = false, artSkin = 0, foilType = null as string | null } = {},
 ): InventoryRow {
   return {
     id,
@@ -60,6 +60,9 @@ function makeRow(
     playerName: name,
     role: "Mid",
     editionWeek,
+    // A foil always names its parallel; the database rejects the pairing
+    // otherwise, so a fixture that skipped it would not be a real row.
+    foilType: foilType ?? (foil ? "prisma" : null),
     overall,
     tier: "gold",
     foil,

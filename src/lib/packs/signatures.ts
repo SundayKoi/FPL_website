@@ -10,7 +10,7 @@
 // (actions.ts writes it inside the card json), so a later redraw never
 // rewrites a card someone already owns.
 
-import { SIGNED_CHANCE } from "./config";
+import { DEFAULT_FOIL_TYPE, SIGNED_CHANCE } from "./config";
 import type { PackPull } from "./rng";
 
 /** A pull with its autograph resolved. `autograph` is the signature PNG
@@ -40,6 +40,18 @@ export function applyAutographs(
     // the game, and a matte signed card read as a downgrade next to a foil
     // common — so the foil roll below is overridden rather than re-rolled
     // (no extra rand, the sequence stays pinned).
-    return { ...pull, foil: pull.foil || signed, signed, autograph: signed ? signature : null };
+    return {
+      ...pull,
+      foil: pull.foil || signed,
+      // A promotion, not a parallel win: a copy the autograph turned foil
+      // gets the base look, while one that already rolled a parallel keeps
+      // it. Assigning rather than rolling is what keeps this pass free of
+      // rand, which is the whole reason it lives outside rollPack — and a
+      // foil with no type now violates a database constraint, so this can
+      // never be left null.
+      foilType: pull.foilType ?? (signed ? DEFAULT_FOIL_TYPE : null),
+      signed,
+      autograph: signed ? signature : null,
+    };
   });
 }

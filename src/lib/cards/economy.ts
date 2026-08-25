@@ -9,6 +9,7 @@
 // Framework-free (any SupabaseClient), same as its siblings.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FOIL_TYPES, foilTypeOf, type FoilType } from "@/lib/packs/config";
 
 /**
  * Wallets left out of every number here.
@@ -51,6 +52,9 @@ export interface EconomyStats {
    */
   cardsPulled: number;
   foils: number;
+  /** Foils broken down by parallel, common first. The ladder is only worth
+   *  having if the league can see how thin the top of it is. */
+  foilsByType: Record<FoilType, number>;
   signed: number;
   altArts: number;
   /** Minted, not pulled — moments aren't in packs. */
@@ -71,6 +75,7 @@ interface InventoryStatRow {
   overall: number;
   tier: string;
   foil: boolean;
+  foil_type: string | null;
   signed: boolean | null;
   artSkin: number | null;
 }
@@ -167,7 +172,7 @@ export async function fetchEconomyStats(
     fetchAllRows<InventoryStatRow>(
       supabase,
       "card_inventory",
-      "id, discord_id, player_name, overall, tier, foil, signed, artSkin:card->artSkin",
+      "id, discord_id, player_name, overall, tier, foil, foil_type, signed, artSkin:card->artSkin",
       season,
       pageSize,
       maxPages,
@@ -181,10 +186,16 @@ export async function fetchEconomyStats(
   const copiesByPlayer = new Map<string, number>();
   let best: EconomyStats["bestPull"] = null;
   let foils = 0;
+  const foilsByType = Object.fromEntries(FOIL_TYPES.map((type) => [type, 0])) as Record<FoilType, number>;
   let signed = 0;
   let altArts = 0;
   for (const card of cards) {
-    if (card.foil) foils += 1;
+    if (card.foil) {
+      foils += 1;
+      // foilTypeOf, not the raw column: a copy pulled before parallels
+      // existed has no type and counts as what it is, a Prisma.
+      foilsByType[foilTypeOf(card.foil_type)] += 1;
+    }
     if (card.signed === true) signed += 1;
     if ((card.artSkin ?? 0) > 0) altArts += 1;
     copiesByPlayer.set(card.player_name, (copiesByPlayer.get(card.player_name) ?? 0) + 1);
@@ -204,6 +215,7 @@ export async function fetchEconomyStats(
     collectors: new Set(cards.map((card) => card.discord_id)).size,
     cardsPulled: cards.length,
     foils,
+    foilsByType,
     signed,
     altArts,
     momentsMinted: momentsResult.error ? 0 : momentsResult.count ?? 0,

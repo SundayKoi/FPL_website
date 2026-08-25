@@ -53,6 +53,7 @@ export default function CardCopyPreview({
   card = null,
   loadCard,
   foil = false,
+  foilType = null,
   caption,
   label,
   className = "",
@@ -64,6 +65,8 @@ export default function CardCopyPreview({
   loadCard?: () => Promise<PlayerCardData | null>;
   /** Holograph the card whatever its tier — this copy's own foil roll. */
   foil?: boolean;
+  /** Which parallel that roll produced. */
+  foilType?: string | null;
   caption: CopyCaption;
   /** Accessible name for the trigger, when the chip's own text isn't one. */
   label?: string;
@@ -151,7 +154,7 @@ export default function CardCopyPreview({
             </button>
 
             {shown ? (
-              <PlayerCard3D card={shown} interactive forceFoil={foil} />
+              <PlayerCard3D card={shown} interactive forceFoil={foil} foilType={foilType} />
             ) : (
               <p className="w-72 rounded-xl border border-line bg-panel p-6 text-center text-sm text-steel">
                 {failed ? "That card couldn't be loaded — it may have moved on." : "Loading the card…"}

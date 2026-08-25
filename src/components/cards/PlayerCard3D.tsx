@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
+import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -83,12 +84,23 @@ const FOIL_PEAK_OPACITY = 0.85;
 const FOIL_GRADIENT =
   "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
+/** The light layer each parallel wears, and how it composites. Aurora
+ *  screens rather than dodges — a wide soft gradient under color-dodge
+ *  clips straight to white and stops being a curtain. */
+const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
+  prisma: { className: "card-foil-holo", blend: "color-dodge" },
+  aurora: { className: "card-foil-aurora", blend: "screen" },
+  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
+  ice: { className: "card-foil-ice", blend: "color-dodge" },
+};
+
 function PlayerCardFace({
   card,
   interactive = true,
   reveal = false,
   bloom = false,
   forceFoil = false,
+  foilType,
   className = "",
 }: {
   card: PlayerCardData;
@@ -101,6 +113,10 @@ function PlayerCardFace({
   /** Holograph the card whatever its tier — the pack economy's foil pull is
    *  a cosmetic rolled independently of rarity, so a foil Bronze exists. */
   forceFoil?: boolean;
+  /** Which parallel this copy printed. Absent on a copy minted before
+   *  parallels existed, which is a Prisma — exactly what it looked like
+   *  then, and what it must keep looking like now. */
+  foilType?: string | null;
   className?: string;
 }) {
   // `hovering` is the only pointer state React still owns — it flips twice per
@@ -121,6 +137,8 @@ function PlayerCardFace({
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
   const style = TIER_STYLES[card.tier.key];
+  const parallel = foilTypeOf(foilType);
+  const foilLayer = FOIL_LAYERS[parallel];
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = card.standout ? "card-frame-standout" : style.frameClass;
   const frameStyle = frameClass ? undefined : style.frame;
@@ -294,7 +312,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${FOIL_TYPE_LABELS[parallel]} foil` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
@@ -375,6 +393,19 @@ function PlayerCardFace({
               >
                 {card.tier.label}
               </span>
+              {/* Which parallel, said out loud. A ladder nobody can see is
+                  not a ladder — half the point of pulling a Cracked Ice is
+                  knowing you did. Prisma stays unlabelled: it is the base,
+                  every foil before parallels was one, and badging it would
+                  make ordinary foils look like a new thing. */}
+              {forceFoil && parallel !== "prisma" ? (
+                <span
+                  className="rounded-full border border-white/45 bg-navy/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
+                  title={`${FOIL_TYPE_LABELS[parallel]} parallel`}
+                >
+                  {FOIL_TYPE_LABELS[parallel]}
+                </span>
+              ) : null}
               <div className="flex flex-col items-end gap-0.5">
                 <div
                   className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-navy/85 text-center"
@@ -508,7 +539,7 @@ function PlayerCardFace({
                 className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl transition-opacity duration-300"
                 style={{ opacity: FOIL_REST_OPACITY }}
               >
-                <div ref={holoRef} className="card-foil-holo" style={{ mixBlendMode: "color-dodge" }} />
+                <div ref={holoRef} className={foilLayer.className} style={{ mixBlendMode: foilLayer.blend }} />
                 <div ref={cosmosRef} className="card-foil-cosmos" style={{ mixBlendMode: "screen" }} />
               </div>
             ) : style.foil || card.standout ? (
@@ -653,6 +684,7 @@ export default function PlayerCard3D(props: {
   reveal?: boolean;
   bloom?: boolean;
   forceFoil?: boolean;
+  foilType?: string | null;
   className?: string;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,

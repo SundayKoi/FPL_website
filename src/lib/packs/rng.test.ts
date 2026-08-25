@@ -54,7 +54,10 @@ const NO_FOIL = 0.5;
 const FIRST = 0;
 
 /** One slot's three rand values, in the order rollPack consumes them. */
-const slot = (classRoll: number, index = FIRST, foil = NO_FOIL) => [classRoll, index, foil];
+/** One slot's rand values: class, index, foil — and a fourth ONLY when the
+ *  foil roll lands, matching pull()'s conditional parallel roll. */
+const slot = (classRoll: number, index = FIRST, foil = NO_FOIL, parallel?: number) =>
+  foil < FOIL_CHANCE ? [classRoll, index, foil, parallel ?? 0] : [classRoll, index, foil];
 
 const tiersOf = (pulls: { card: PlayerCardData }[]) => pulls.map((pull) => pull.card.tier.key);
 
@@ -200,6 +203,38 @@ describe("rollPack", () => {
     );
 
     expect(pulls.map((pull) => pull.foil)).toEqual([true, true, false, false, false]);
+  });
+
+  it("rolls a parallel only for the foils, and leaves the rest null", () => {
+    // A foil type on a matte card is a lie the renderer would believe, and
+    // the database now rejects the pairing outright.
+    const pulls = rollPack(
+      fullPool,
+      scripted([
+        ...slot(CLASS.rare, FIRST, 0, 0),      // foil, first weight bucket
+        ...slot(CLASS.rare, FIRST, 0.5),       // not foil
+        ...slot(CLASS.rare, FIRST, 0.5),
+        ...slot(CLASS.rare, FIRST, 0.5),
+        ...slot(CLASS.rare, FIRST, 0.5),
+      ]),
+    );
+
+    expect(pulls.map((pull) => pull.foilType)).toEqual(["prisma", null, null, null, null]);
+  });
+
+  it("spends only two rand values on a card that is not foil", () => {
+    // The parallel roll is conditional so the 94% of pulls that are matte
+    // leave the sequence exactly where it has always been. A scripted queue
+    // this tight fails loudly if that stops being true.
+    expect(() =>
+      rollPack(fullPool, scripted([
+        ...[CLASS.rare, FIRST, 0.5],
+        ...[CLASS.rare, FIRST, 0.5],
+        ...[CLASS.rare, FIRST, 0.5],
+        ...[CLASS.rare, FIRST, 0.5],
+        ...[CLASS.rare, FIRST, 0.5],
+      ])),
+    ).not.toThrow();
   });
 
   it("is deterministic for a given rand sequence", () => {
