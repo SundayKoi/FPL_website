@@ -38,3 +38,17 @@ Tests       16 passed (16)
 
 The repository lint command completed with no errors (one unrelated existing
 `<img>` warning in `src/components/captain/scouting/ChampionDatum.tsx`).
+
+## Review follow-up
+
+Removed the redundant always-Premier root brand link. `LeagueBrandChooser` is
+now the sole top-left league control, so Academy routes do not render a second
+FPL brand or an accidental root league switcher.
+
+Follow-up focused verification:
+
+```text
+npm test -- src/components/SiteNavigation.test.tsx src/components/LeagueBrandChooser.test.tsx src/app/layout.test.tsx
+Test Files  3 passed (3)
+Tests       17 passed (17)
+```

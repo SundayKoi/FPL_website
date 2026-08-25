@@ -16,7 +16,8 @@ describe("SiteNavigation", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     expect(screen.queryByRole("link", { name: /^Home$/ })).toBeNull();
-    expect(screen.getByRole("link", { name: /fpl home/i }).getAttribute("href")).toBe("/");
+    expect(screen.queryByRole("link", { name: /fpl home/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /fpl, choose league/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /premier menu/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /academy menu/i })).toBeNull();
     for (const name of ["Players", "Teams", "Schedule", "Stats", "My Team"]) {
@@ -133,13 +134,12 @@ describe("SiteNavigation", () => {
     expect(headerRow?.className).toContain("sm:py-4");
     expect(headerRow?.className).toContain("lg:px-10");
 
-    const brandLink = screen.getByRole("link", { name: /fpl home/i });
-    expect(brandLink.className).toContain("sm:gap-3");
+    const brandButton = screen.getByRole("button", { name: /fpl, choose league/i });
+    expect(brandButton.className).toContain("gap-2");
 
-    const logo = brandLink.querySelector("img");
-    expect(logo?.getAttribute("width")).toBe("44");
-    expect(logo?.getAttribute("height")).toBe("44");
-    expect(brandLink.querySelector("span")?.className).toContain("sm:text-2xl");
+    const logo = brandButton.querySelector("img");
+    expect(logo?.getAttribute("width")).toBe("28");
+    expect(logo?.getAttribute("height")).toBe("28");
 
     const playMenu = screen.getByRole("button", { name: /play menu/i });
     expect(playMenu.className).toContain("sm:text-sm");

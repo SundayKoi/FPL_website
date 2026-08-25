@@ -51,4 +51,15 @@ describe("LeagueBrandChooser", () => {
 
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it("closes after selecting the current league home", () => {
+    const onNavigate = vi.fn();
+    render(<LeagueBrandChooser pathname="/stats" search="" onNavigate={onNavigate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL$/ }));
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
 });

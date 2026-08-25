@@ -50,3 +50,21 @@ exit 0
 
 The broader `npm test` run still has one unrelated pre-existing failure in
 `src/components/teams/AdminTeamEditor.test.tsx`.
+
+## Review follow-up
+
+Updated menu-item selection to close the chooser before invoking
+`onNavigate`, including when selecting the current league home (where the
+pathname may not change). Added a regression test for that behavior.
+
+```text
+npm test -- src/components/LeagueBrandChooser.test.tsx
+Test Files  1 passed (1)
+Tests       5 passed (5)
+
+npx eslint src/components/LeagueBrandChooser.tsx src/components/LeagueBrandChooser.test.tsx
+exit 0
+
+git diff --check
+exit 0
+```

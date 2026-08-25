@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
@@ -135,16 +134,6 @@ export default function SiteNavigation({
       style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
       <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
-        <Link href="/" className="flex shrink-0 items-center gap-2 sm:gap-3" aria-label="FPL home">
-          <Image
-            src="/fpl-logo.png"
-            width={44}
-            height={44}
-            alt=""
-            className="h-[30px] w-[30px] sm:h-11 sm:w-11"
-          />
-          <span className="type-display text-base sm:text-2xl">FPL</span>
-        </Link>
         <LeagueBrandChooser
           pathname={pathname ?? "/"}
           search={searchParams?.toString() ?? ""}

@@ -76,7 +76,10 @@ export default function LeagueBrandChooser({ pathname, search, onNavigate }: Lea
               role="menuitem"
               href={hrefFor(league)}
               aria-current={league === current ? "page" : undefined}
-              onClick={onNavigate}
+              onClick={() => {
+                setOpen(false);
+                onNavigate();
+              }}
               className="flex w-full items-center rounded px-3 py-2 text-left hover:bg-panel focus-visible:bg-panel focus-visible:outline-none"
             >
               <BrandMark league={league} />
