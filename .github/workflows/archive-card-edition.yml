@@ -1,17 +1,29 @@
 name: Archive card edition
 
 # Manual only, on purpose. The Tuesday drop archives the current week as
-# part of its run; this is for filling in a week the drop never covered.
+# part of its run; this is for filling in a week the drop never covered,
+# and for rebuilding the archive after the rating formula changes.
+#
 # The week's cards are rebuilt from that week's raw_stats, so there is no
 # window that shuts — any past Monday can be archived exactly, whenever
 # someone notices it is missing.
+#
+# The rebuild case matters because packs mint from card_editions, not from
+# the live cards. Change src/lib/cards/build.ts and the site shows the new
+# overalls immediately while every pack keeps handing out the old ones,
+# because the archived json still holds what the previous formula produced.
+# Run this with "Rebuild every week" ticked to close that gap.
 on:
   workflow_dispatch:
     inputs:
       edition_week:
-        description: "Monday of the week to archive (YYYY-MM-DD, Eastern). Blank = the current week."
+        description: "Monday of the week to archive (YYYY-MM-DD, Eastern). Blank = the current week. Ignored when 'Rebuild every week' is ticked."
         type: string
         default: ""
+      all_weeks:
+        description: "Rebuild every archived week with the CURRENT rating formula. Tick this after changing how cards are scored — packs mint from the archive, so until it is rebuilt they keep handing out the old overalls."
+        type: boolean
+        default: false
 
 concurrency:
   # Shares the drop's group: both write card_editions, and the drop would
@@ -34,4 +46,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EDITION_WEEK: ${{ inputs.edition_week }}
+          # The tickbox wins over the text field: "rebuild everything" and
+          # "rebuild this one week" cannot both be honoured, and the one
+          # someone ticked deliberately is the safer of the two to obey.
+          EDITION_WEEK: ${{ inputs.all_weeks && 'all' || inputs.edition_week }}

@@ -169,6 +169,7 @@ change and update their local state.
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, and posts movement/showcase content to Discord. |
+| Card edition archive | `.github/workflows/archive-card-edition.yml` → `scripts/archive-card-edition.ts` | Manual. Rebuilds one week (or every week, with `all_weeks`) into `card_editions` from that week's `raw_stats`. Run it after any change to the rating formula — see the pitfall below. |
 | Betting lifecycle | Supabase cron migrations → `supabase/functions/discord-announcer/index.ts` | Locks/resolves/announces betting markets and pick'ems, posts Discord messages, and runs a ledger-drift watchdog. |
 | Weekly betting markets | Supabase Cron (`weekly-betting-markets-edt` / `weekly-betting-markets-est`) → `run_weekly_betting_market_cron()` → `generate_weekly_betting_markets()` | Runs Tuesday at 1:00 AM Eastern (05:00 UTC during EDT, 06:00 UTC during EST), reads the following Monday's Premier and Academy fixtures, validates every event/team mapping, and inserts only missing fixture-linked markets. The wrapper's Eastern-time guard makes the DST jobs safe and retries idempotent. |
 
@@ -221,6 +222,13 @@ flows when Docker/Supabase is available.
   make a UI action appear faster.
 - Do not edit an old migration to repair a cloud database. Add a forward
   migration and a regression test.
+- Changing the card rating formula in `src/lib/cards/build.ts` does **not**
+  change what packs mint. Packs draw from `card_editions`, a frozen json
+  snapshot of each week's cards, so the site shows new overalls while packs
+  keep handing out the old ones. Rebuild the archive afterwards with
+  `npx tsx scripts/archive-card-edition.ts all`, or the "Archive card
+  edition" workflow with "Rebuild every week" ticked. Cards already pulled
+  live in `card_inventory` and stay frozen by design.
 - When a stats row has no `team_name`, the stats views intentionally handle it
   as unknown rather than inventing a team. Use the report-side resolution or
   the documented `--team-map`/backfill path.

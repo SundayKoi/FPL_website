@@ -5,6 +5,20 @@
 // ratings are cohort-relative (percentile within the season, role cohort
 // where it matters) so a 90 means top of THIS league, and every number
 // moves automatically as the nightly ingest lands new games.
+//
+// CHANGING THE SCORING HERE DOES NOT CHANGE WHAT PACKS MINT.
+// Packs pull from card_editions — a frozen json snapshot of each week's
+// cards — not from this module. Editing the formula updates every card the
+// SITE renders immediately, while every pack keeps handing out overalls
+// the old formula produced, because the archived json still holds them.
+// After any change here, rebuild the archive:
+//
+//   npx tsx scripts/archive-card-edition.ts all
+//
+// or run the "Archive card edition" workflow with "Rebuild every week"
+// ticked. Every week is recomputed from that week's raw_stats, so a
+// rebuild reproduces the drop exactly with today's formula. Cards people
+// already pulled are frozen in card_inventory and are NOT touched.
 
 import { championDisplayName } from "@/lib/match-draft/champions";
 import type { PlayerAggRow } from "@/lib/stats/types";

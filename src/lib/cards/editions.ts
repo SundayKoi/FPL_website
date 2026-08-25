@@ -44,3 +44,26 @@ export async function archiveEdition(
   );
   return error?.message ?? null;
 }
+
+/** The literal a caller passes to rebuild the whole archive. */
+export const ALL_WEEKS = "all";
+
+/**
+ * Which weeks one archiver run should write.
+ *
+ * `all` returns every week already archived, plus the current one — the
+ * current week matters because it may not be archived yet, and the pack
+ * shop offers the newest ARCHIVED week by default. Rebuilding the rest
+ * while leaving that one behind would fix every edition except the one
+ * most people are actually buying.
+ *
+ * Newest first, deduped, so a run's log reads in the order the shop lists
+ * them and re-archiving a week that is also the current one does not do
+ * the work twice.
+ */
+export function weeksToArchive(requested: string, archived: string[], currentWeek: string): string[] {
+  if (requested === ALL_WEEKS) {
+    return [...new Set([...archived, currentWeek])].sort((a, b) => b.localeCompare(a));
+  }
+  return [requested || currentWeek];
+}

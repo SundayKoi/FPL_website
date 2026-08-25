@@ -521,16 +521,48 @@ export interface RatingHistoryPoint {
  * shop treats that as "current cards only" rather than an error, so packs
  * keep working on a league that has never run a drop.
  */
-export async function fetchCardEditionWeeks(supabase: SupabaseClient, season: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("card_editions")
-    .select("edition_week")
-    .eq("season", season)
-    .order("edition_week", { ascending: false });
-  // Garnish, not load-bearing: an environment without the card_editions
-  // migration still sells current-week packs.
-  if (error) return [];
-  return [...new Set(((data as { edition_week: string }[]) ?? []).map((row) => row.edition_week))];
+export async function fetchCardEditionWeeks(
+  supabase: SupabaseClient,
+  season: string,
+  /** Must not exceed the API's max_rows or every page comes back short and
+   *  paging stops after the first. Exposed for tests. */
+  paging: { pageSize?: number; maxPages?: number } = {},
+): Promise<string[]> {
+  const pageSize = paging.pageSize ?? 1000;
+  const maxPages = paging.maxPages ?? 100;
+  const weeks = new Set<string>();
+
+  // Paged, because this reads one row per CARD and only wants the distinct
+  // weeks. PostgREST caps an unpaged select at max_rows (1000) and says
+  // nothing, so at ~50 cards a week the archive crosses that line after
+  // about twenty weeks — and since the order is newest-first, the rows that
+  // fall off the end are the OLDEST weeks. They would simply stop appearing
+  // in the pack shop, with no error anywhere to explain it.
+  for (let page = 0; page < maxPages; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabase
+      .from("card_editions")
+      .select("edition_week")
+      .eq("season", season)
+      .order("edition_week", { ascending: false })
+      // Total order, not just newest-first: thousands of rows share an
+      // edition_week, and paging on a non-unique sort key lets the database
+      // return a row twice on one page and skip another. Duplicates the Set
+      // absorbs; a skipped row could drop a whole week off the list. The
+      // primary key is (season, edition_week, slug), so adding slug makes
+      // the ordering unique and the pages disjoint.
+      .order("slug", { ascending: true })
+      .range(from, from + pageSize - 1);
+    // Garnish, not load-bearing: an environment without the card_editions
+    // migration still sells current-week packs. A later page failing leaves
+    // the weeks already collected, which beats losing the list entirely.
+    if (error) break;
+    const batch = (data as { edition_week: string }[]) ?? [];
+    for (const row of batch) weeks.add(row.edition_week);
+    if (batch.length < pageSize) break;
+  }
+
+  return [...weeks];
 }
 
 /**
