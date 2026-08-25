@@ -17,7 +17,7 @@ const devs = [
     handle: "@spiesss",
     avatar: "/spies-avatar.jpg",
     venmoLabel: "Venmo Matthew Wolanski",
-    venmoUrl: "https://venmo.com/u/Matthew-Wolanski",
+    venmoUrl: "https://venmo.com/u/Mwolanski1",
   },
 ] as const;
 

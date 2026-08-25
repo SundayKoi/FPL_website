@@ -26,7 +26,7 @@ describe("SupportDevsPage", () => {
     const matthew = within(screen.getByAltText("Spies avatar").closest("article")!).getByRole("link", {
       name: "Venmo Matthew Wolanski",
     });
-    expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Matthew-Wolanski");
+    expect(matthew.getAttribute("href")).toBe("https://venmo.com/u/Mwolanski1");
     // target=_blank without noopener hands the new tab a window.opener
     // handle back to us.
     for (const link of [zachari, matthew]) {
@@ -60,7 +60,7 @@ describe("SupportDevsPage", () => {
     expect(screen.getByText("@spiesss")).toBeTruthy();
     expect(screen.getByAltText("Spies avatar")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Venmo Matthew Wolanski" }).getAttribute("href")).toBe(
-      "https://venmo.com/u/Matthew-Wolanski",
+      "https://venmo.com/u/Mwolanski1",
     );
   });
 });
