@@ -26,7 +26,7 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
     expect(screen.getByRole("link", { name: /^My Team$/ }).getAttribute("href")).toBe("/my-team");
     expect(screen.getByRole("button", { name: /league menu/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /play menu/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
@@ -105,6 +105,36 @@ describe("SiteNavigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
     expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe("/academy/players");
     expect(screen.getByRole("menuitem", { name: /^Broadcaster$/ }).getAttribute("href")).toBe("/broadcaster");
+  });
+
+  it("groups draft destinations under League and Premium", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+
+    expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent?.trim())).toEqual([
+      "Players",
+      "Teams",
+      "Schedule",
+      "Auction Draft",
+    ]);
+
+    cleanup();
+    render(<SiteNavigation authSlot={<span>Account</span>} showBroadcaster />);
+    fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent?.trim())).toEqual([
+      "Players",
+      "Teams",
+      "Schedule",
+      "Broadcaster",
+      "Auction Draft",
+    ]);
+
+    cleanup();
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Match Drafter$/ }).getAttribute("href")).toBe("/drafter");
   });
 
   it("opens the Premium dropdown with internal and external destinations", () => {

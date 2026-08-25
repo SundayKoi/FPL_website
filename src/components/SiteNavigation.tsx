@@ -16,17 +16,9 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "league" | "play" | "premium" | "info";
+type DropdownKey = "league" | "premium" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
-  {
-    key: "play",
-    label: "Play",
-    links: [
-      { href: "/draft", label: "Auction Draft" },
-      { href: "/drafter", label: "Match Drafter" },
-    ],
-  },
   {
     key: "premium",
     label: "Premium",
@@ -40,6 +32,7 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
         target: "_blank",
         rel: "noopener noreferrer",
       },
+      { href: "/drafter", label: "Match Drafter" },
     ],
   },
   {
@@ -61,7 +54,11 @@ function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): Dropdo
     label: page[0].toUpperCase() + page.slice(1),
   }));
 
-  return showBroadcaster ? [...links, { href: "/broadcaster", label: "Broadcaster" }] : links;
+  return [
+    ...links,
+    ...(showBroadcaster ? [{ href: "/broadcaster", label: "Broadcaster" }] : []),
+    { href: "/draft", label: "Auction Draft" },
+  ];
 }
 
 const linkBase =

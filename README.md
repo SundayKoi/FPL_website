@@ -30,11 +30,12 @@ switching and preserves the current paired destination (including supported
 query strings). Pages do not render a second league toggle.
 
 The header provides five direct links for the active league: **Players**,
-**Teams**, **Schedule**, **Stats**, and **My Team**. The shared grouped menus
-are:
+**Teams**, **Schedule**, **Stats**, and **My Team**. The grouped menus are:
 
-- **Play** — Auction Draft and Match Drafter.
-- **Premium** — Betting, Banger Board, Player Cards, and Draft League.
+- **League** — Players, Teams, Schedule, and Auction Draft for the active
+  league.
+- **Premium** — Betting, Banger Board, Player Cards, Draft League, and Match
+  Drafter.
 - **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
 
 Admin and Broadcaster appear as conditional Staff entries inside Info. Their

@@ -86,9 +86,10 @@ Premier or Academy path, while an unrelated shared route falls back to the
 target league home. Page-level league toggles are intentionally absent.
 
 `SiteNavigation` renders five direct links for the active league—Players,
-Teams, Schedule, Stats, and My Team—and groups shared destinations under Play,
-Premium, and Info. Admin and Broadcaster are Staff entries within Info,
-conditionally rendered from the server-provided staff tier. Those props do
+Teams, Schedule, Stats, and My Team—and groups active-league destinations plus
+Auction Draft under League, with shared destinations under Premium and Info.
+Match Drafter is grouped under Premium. Admin and Broadcaster are Staff entries
+within Info, conditionally rendered from the server-provided staff tier. Those props do
 not authorize access: `/admin` and `/broadcaster` continue to perform their
 existing server-side gates, and the route checks remain authoritative if a
 link is hidden or manually visited.
