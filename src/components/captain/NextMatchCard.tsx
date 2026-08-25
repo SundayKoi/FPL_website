@@ -66,7 +66,7 @@ export default function NextMatchCard({
               href={matchDraftHref(fixture)}
               className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
             >
-              Open match drafter →
+              Watch Draft →
             </Link>
             {/* Untouched rows (a lone ready check) aren't worth a chip. */}
             {draftGames

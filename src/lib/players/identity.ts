@@ -45,7 +45,7 @@ export async function resolvePlayerIdentity(
   supabase: SupabaseClient,
   league: LeagueKey,
 ): Promise<ResolvedPlayerIdentity> {
-  const [{ data: userData }, { data: settingsData }] = await Promise.all([
+  const [authResult, settingsResult] = await Promise.all([
     supabase.auth.getUser(),
     supabase
       .from("league_settings")
@@ -53,6 +53,10 @@ export async function resolvePlayerIdentity(
       .eq("id", 1)
       .single(),
   ]);
+  if (authResult.error) throw authResult.error;
+  if (settingsResult.error) throw settingsResult.error;
+  const userData = authResult.data;
+  const settingsData = settingsResult.data;
   const settings = settingsData as SettingsRow | null;
   const season = (league === "academy" ? settings?.academy_season : settings?.current_season) ?? "";
   const profileId = userData.user?.id ?? null;
@@ -66,7 +70,7 @@ export async function resolvePlayerIdentity(
           .select("league_team_id")
           .eq("profile_id", profileId)
           .eq("season", season)
-      : Promise.resolve({ data: [] as { league_team_id: string }[] }),
+      : Promise.resolve({ data: [] as { league_team_id: string }[], error: null }),
     season
       ? supabase
           .from("player_identity_links")
@@ -75,8 +79,11 @@ export async function resolvePlayerIdentity(
           .eq("league", league)
           .eq("season", season)
           .maybeSingle()
-      : Promise.resolve({ data: null as IdentityLinkRow | null }),
+      : Promise.resolve({ data: null as IdentityLinkRow | null, error: null }),
   ]);
+  if (profileResult.error) throw profileResult.error;
+  if (captainResult.error) throw captainResult.error;
+  if (linkResult.error) throw linkResult.error;
 
   const link = linkResult.data as IdentityLinkRow | null;
   const isCaptain = ((captainResult.data as { league_team_id: string }[] | null) ?? []).length > 0;

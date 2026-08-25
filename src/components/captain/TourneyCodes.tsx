@@ -23,8 +23,8 @@ function CopyButton({ code }: { code: string }) {
 }
 
 /**
- * Section 2 of the captain page: tourney codes for the resolved next-match
- * fixture. RLS (match_codes_select) is what actually keeps this private —
+ * Tourney codes for the resolved My Team next-match fixture. RLS
+ * (match_codes_select) is what actually keeps this private —
  * this component just renders whatever the server handed it, per-fixture,
  * ordered by game number.
  */
@@ -34,7 +34,7 @@ export default function TourneyCodes({ codes }: { codes: MatchCode[] }) {
       <h2 className="label-dash">Tourney codes</h2>
       {codes.length === 0 ? (
         <p className="mt-3 text-sm text-steel">
-          No codes posted yet — your admin will add them before the match.
+          No codes posted yet — a captain or admin will add them before the match.
         </p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">

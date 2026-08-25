@@ -19,10 +19,13 @@ export default function MyRoster({
   draftPlayers,
   riotAccounts,
   multiOpggUrl = null,
+  playerPoolId = null,
 }: {
   draftPlayers: Player[];
   riotAccounts: (RiotAccount & { membershipId: string })[];
   multiOpggUrl?: string | null;
+  /** Stable canonical identity for highlighting the signed-in roster member. */
+  playerPoolId?: string | null;
 }) {
   const byRole = [...draftPlayers].sort(
     (a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role)
@@ -39,24 +42,36 @@ export default function MyRoster({
         <p className="mt-3 text-sm text-steel">No draft roster on record yet for this team.</p>
       ) : (
         <ul className="mt-3 flex flex-col divide-y divide-line/60">
-          {byRole.map((player) => (
-            <li key={player.id} className="flex flex-wrap items-center gap-3 py-2">
-              <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">
-                {ROLE_LABELS[player.role]}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
-                {player.display_name}
-              </span>
-              {player.price !== null && (
-                <span className="shrink-0 text-sm font-semibold text-gold">{player.price}</span>
-              )}
-              {player.acquisition && (
-                <span className="shrink-0 rounded border border-steel/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-steel">
-                  {ACQUISITION_LABELS[player.acquisition] ?? player.acquisition}
+          {byRole.map((player) => {
+            const isViewer = Boolean(playerPoolId && player.canonical_player_id === playerPoolId);
+            return (
+              <li
+                key={player.id}
+                aria-current={isViewer ? "true" : undefined}
+                className={`flex flex-wrap items-center gap-3 py-2 ${isViewer ? "rounded border-l-2 border-mint bg-mint/5 pl-2" : ""}`}
+              >
+                <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">
+                  {ROLE_LABELS[player.role]}
                 </span>
-              )}
-            </li>
-          ))}
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                  {player.display_name}
+                </span>
+                {isViewer ? (
+                  <span className="shrink-0 rounded border border-mint/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-mint">
+                    You
+                  </span>
+                ) : null}
+                {player.price !== null && (
+                  <span className="shrink-0 text-sm font-semibold text-gold">{player.price}</span>
+                )}
+                {player.acquisition && (
+                  <span className="shrink-0 rounded border border-steel/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-steel">
+                    {ACQUISITION_LABELS[player.acquisition] ?? player.acquisition}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

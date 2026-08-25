@@ -24,4 +24,46 @@ describe("MyRoster", () => {
 
     expect(screen.queryByRole("link", { name: "My Team OP.GG Multi" })).toBeNull();
   });
+
+  it("highlights only the signed-in canonical player's roster spot", () => {
+    render(
+      <MyRoster
+        playerPoolId="pool-mine"
+        draftPlayers={[
+          {
+            id: "draft-mine",
+            draft_id: "draft-1",
+            display_name: "Player Mine",
+            role: "mid",
+            rank: null,
+            opgg_url: null,
+            notes: null,
+            canonical_player_id: "pool-mine",
+            team_id: "team-1",
+            price: 10,
+            acquisition: "auction",
+          },
+          {
+            id: "draft-other",
+            draft_id: "draft-1",
+            display_name: "Player Other",
+            role: "top",
+            rank: null,
+            opgg_url: null,
+            notes: null,
+            canonical_player_id: "pool-other",
+            team_id: "team-1",
+            price: 8,
+            acquisition: "auction",
+          },
+        ]}
+        riotAccounts={[]}
+      />,
+    );
+
+    expect(screen.getByText("Player Mine").closest("li")?.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByText("Player Other").closest("li")?.getAttribute("aria-current")).toBeNull();
+    expect(screen.getAllByText("You")).toHaveLength(1);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });

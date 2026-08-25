@@ -20,6 +20,7 @@ function clientFor({
   profile = { is_admin: false },
   captainRows = [],
   link = null,
+  errors = {},
 }: {
   userId?: string | null;
   season?: string;
@@ -27,14 +28,18 @@ function clientFor({
   profile?: { is_admin: boolean } | null;
   captainRows?: { league_team_id: string }[];
   link?: { id: string; player_pool_id: string; league_team_id: string | null; status: "pending" | "approved" } | null;
+  errors?: Partial<Record<"auth" | "settings" | "profile" | "captain" | "link", { message: string }>>;
 }) {
   return {
-    auth: { getUser: vi.fn(async () => ({ data: { user: userId ? { id: userId } : null } })) },
+    auth: { getUser: vi.fn(async () => ({
+      data: { user: userId ? { id: userId } : null },
+      error: errors.auth ?? null,
+    })) },
     from: vi.fn((table: string) => {
-      if (table === "league_settings") return query({ data: { current_season: season, academy_season: academySeason } });
-      if (table === "profiles") return query({ data: profile });
-      if (table === "league_team_captains") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(async () => ({ data: captainRows })) })) })) };
-      if (table === "player_identity_links") return query({ data: link });
+      if (table === "league_settings") return query({ data: { current_season: season, academy_season: academySeason }, error: errors.settings });
+      if (table === "profiles") return query({ data: profile, error: errors.profile });
+      if (table === "league_team_captains") return { select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(async () => ({ data: captainRows, error: errors.captain })) })) })) };
+      if (table === "player_identity_links") return query({ data: link, error: errors.link });
       throw new Error(`Unexpected table ${table}`);
     }),
   };
@@ -136,5 +141,17 @@ describe("resolvePlayerIdentity", () => {
       season: "A1",
       leagueTeamId: "academy-team",
     });
+  });
+
+  it.each([
+    ["auth", "auth unavailable"],
+    ["settings", "settings unavailable"],
+    ["profile", "profile unavailable"],
+    ["captain", "captain unavailable"],
+    ["link", "identity unavailable"],
+  ] as const)("throws an explicit %s read failure", async (source, message) => {
+    const client = clientFor({ errors: { [source]: { message } } });
+
+    await expect(resolvePlayerIdentity(client as never, "premier")).rejects.toMatchObject({ message });
   });
 });
