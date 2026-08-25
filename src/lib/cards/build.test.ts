@@ -535,3 +535,44 @@ describe("role-aware bars", () => {
     expect(objectivesOf(crowded, "Idle")).toBe(objectivesOf(junglesOnly, "Idle"));
   });
 });
+
+describe("laning counts duelling, not just farm", () => {
+  const agg = (over: Partial<PlayerAggRow>): PlayerAggRow =>
+    ({
+      season: "S5", season_phase: "Regular", summoner_name: "P", tag: "NA1",
+      team_name: "T", role_mode: "MIDDLE", games: 2, wins: 1, losses: 1,
+      winrate_pct: 50, kda: 3, avg_kills: 4, avg_deaths: 3, avg_assists: 5,
+      avg_kp_pct: 55, avg_dmg_per_min: 500, avg_dmg_share_pct: 25,
+      avg_dmg_taken_per_min: 700, avg_cs_per_min: 7, avg_gold_per_min: 380,
+      avg_cs_at_10: 60, avg_gold_at_10: 3200, avg_xp_at_10: 4200,
+      avg_vision_per_min: 1, avg_solo_kills: 0, total_solo_kills: 0,
+      first_blood_involvements: 0, total_plates: 4, avg_game_duration: 30,
+      ...over,
+    }) as PlayerAggRow;
+
+  /** Four mids on identical farm; only their duelling differs. */
+  function laningOf(target: PlayerAggRow, cohort: PlayerAggRow[]): number {
+    const built = buildCard({ row: target, cohort, games: [], gameLog: new Map() });
+    return built.subStats.find((stat) => stat.key === "laning")?.value ?? 0;
+  }
+
+  it("rates a solo-kill winner above an equal farmer who never killed", () => {
+    const duellist = agg({ summoner_name: "Duellist", avg_solo_kills: 3, first_blood_involvements: 2 });
+    const farmer = agg({ summoner_name: "Farmer" });
+    const cohort = [
+      duellist,
+      farmer,
+      agg({ summoner_name: "C", avg_solo_kills: 1, first_blood_involvements: 1 }),
+      agg({ summoner_name: "D", avg_solo_kills: 2 }),
+    ];
+    // Same CS and gold at 10 — the only difference is who won the 1v1s.
+    expect(laningOf(duellist, cohort)).toBeGreaterThan(laningOf(farmer, cohort));
+  });
+
+  it("still lets farm carry the bar — duelling is one third of it", () => {
+    const bigFarm = agg({ summoner_name: "BigFarm", avg_cs_at_10: 90, avg_gold_at_10: 4200 });
+    const allKills = agg({ summoner_name: "AllKills", avg_cs_at_10: 30, avg_gold_at_10: 2400, avg_solo_kills: 4, first_blood_involvements: 2 });
+    const cohort = [bigFarm, allKills, agg({ summoner_name: "C" }), agg({ summoner_name: "D" })];
+    expect(laningOf(bigFarm, cohort)).toBeGreaterThan(laningOf(allKills, cohort));
+  });
+});
