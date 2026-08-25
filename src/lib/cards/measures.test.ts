@@ -79,3 +79,57 @@ describe("ROLE_BARS", () => {
     expect(ROLE_BARS.SOMETHING_ELSE).toBeUndefined();
   });
 });
+
+describe("gameTotals game-length normalisation", () => {
+  const game = (matchId: string, over: Partial<CardGameRow> = {}): CardGameRow =>
+    ({
+      match_id: matchId,
+      summoner_name: "Ari",
+      tag: "NA1",
+      champion: null,
+      win: true,
+      game_date: null,
+      team_name: null,
+      kills: 0,
+      deaths: 0,
+      assists: 0,
+      cs: 0,
+      total_damage_to_champions: 0,
+      dragon_kills: 0,
+      baron_kills: 0,
+      objective_damage: 0,
+      turret_kills: 0,
+      turret_damage: 0,
+      turret_plates_destroyed: 0,
+      ...over,
+    }) as CardGameRow;
+
+  it("rates identical work in a long and a short game the same", () => {
+    // Two dragons in 40 minutes is the same rate as one in 20 — the
+    // per-game count said the long game was twice as good.
+    const long = gameTotals([game("m1", { dragon_kills: 2 })], new Map([["m1", 40]]));
+    const short = gameTotals([game("m2", { dragon_kills: 1 })], new Map([["m2", 20]]));
+    expect(long.objectives).toBeCloseTo(short.objectives, 6);
+  });
+
+  it("ranks real efficiency above raw accumulation", () => {
+    const grinder = gameTotals([game("m1", { baron_kills: 2 })], new Map([["m1", 50]]));
+    const efficient = gameTotals([game("m2", { baron_kills: 2 })], new Map([["m2", 25]]));
+    expect(efficient.objectives).toBeGreaterThan(grinder.objectives);
+  });
+
+  it("keeps plates per game, since plating only exists before 14 minutes", () => {
+    // A long game offers no extra plates, so dividing them by its duration
+    // would penalise the player for minutes they could not farm plates in.
+    const long = gameTotals([game("m1", { turret_plates_destroyed: 3 })], new Map([["m1", 45]]));
+    const short = gameTotals([game("m2", { turret_plates_destroyed: 3 })], new Map([["m2", 22]]));
+    expect(long.turrets).toBeCloseTo(short.turrets, 6);
+  });
+
+  it("falls back to per-game when no duration is known", () => {
+    // A solo build has no game log; every player in that cohort shares the
+    // old scale, so the percentiles still rank correctly against each other.
+    const totals = gameTotals([game("m1", { dragon_kills: 2 })]);
+    expect(totals.objectives).toBe(2);
+  });
+})
