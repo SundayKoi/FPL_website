@@ -147,6 +147,10 @@ export default async function ClaimApprovalsPage() {
         <Link href="/cards" className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
           ← Back to player cards
         </Link>
+        <span className="mx-2 text-line">·</span>
+        <Link href="/identity-claims" className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          Roster identity claims →
+        </Link>
       </header>
 
       {totalPending === 0 ? (
@@ -168,7 +172,6 @@ export default async function ClaimApprovalsPage() {
                   slug={claim.slug}
                   claimantName={claim.claimantName}
                   createdLabel={claim.createdLabel}
-                  viewerProfileId={viewerProfileId}
                 />
               ))}
               {section.otherCount > 0 ? (

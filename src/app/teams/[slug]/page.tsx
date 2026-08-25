@@ -19,7 +19,9 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import { sideRows, type DraftSummaryGame } from "@/components/matches/MatchDraftSummary";
 import { linkedAccountLabel, linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import TeamRecentDrafts, { type TeamDraftRow } from "@/components/teams/TeamRecentDrafts";
+import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
+import { fetchRosterClaimStates } from "@/lib/teams/rosterClaims";
 
 
 /**
@@ -48,7 +50,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     : settings?.featured_draft_id;
   if (!draftId) notFound();
 
-  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult, academySheetPlayers] =
+  const [draftResult, teamsResult, playersResult, profilesResult, canonicalResult, fixturesResult, leagueTeamsResult, viewerResult, academySheetPlayers] =
     await Promise.all([
       supabase.from("drafts").select("*").eq("id", draftId).single(),
       supabase
@@ -60,6 +62,8 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
       supabase.from("profiles").select("id, display_name").order("display_name"),
       supabase.from("player_pool").select("id, display_name, rank, opgg_url").eq("season_key", league === "academy" ? "academy-1" : "season-5"),
       supabase.from("fixtures").select("*").order("scheduled_at"),
+      supabase.from("league_teams").select("id, name").eq("active", true),
+      supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } })),
       league === "academy" ? fetchAcademyPlayers() : Promise.resolve([]),
     ]);
 
@@ -93,6 +97,25 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
   const allFixtures = (fixturesResult.data as FixtureRow[]) ?? [];
   const season = (league === "academy" ? settings?.academy_season : settings?.current_season) ?? null;
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : allFixtures;
+  const leagueTeamId = ((leagueTeamsResult.data as { id: string; name: string }[] | null) ?? [])
+    .find((candidate) => candidate.name.trim().toLowerCase() === team.name.trim().toLowerCase())?.id ?? null;
+  const viewerProfileId = viewerResult.data.user?.id ?? null;
+  const draftPlayerById = new Map(draftPlayers.map((player) => [player.id, player]));
+  const rosterClaimStates = season
+    ? await fetchRosterClaimStates(
+        supabase,
+        team.players.map((player) => ({
+          id: player.id,
+          canonicalPlayerId: player.isEmpty
+            ? null
+            : draftPlayerById.get(player.id)?.canonical_player_id ?? null,
+        })),
+        league,
+        season,
+        viewerProfileId,
+      )
+    : {};
+  const teamReturnPath = league === "academy" ? `/academy/teams/${slug}` : `/teams/${slug}`;
 
   const record = teamRecord(fixtures, team.name);
   const { upcoming, results } = splitTeamFixtures(fixtures, team.name);
@@ -270,6 +293,18 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                       </div>
                     </details>
                   )}
+                  {!player.isEmpty && leagueTeamId && season ? (
+                    <PlayerRosterClaim
+                      playerPoolId={draftPlayerById.get(player.id)?.canonical_player_id ?? null}
+                      leagueTeamId={leagueTeamId}
+                      league={league}
+                      season={season}
+                      returnPath={teamReturnPath}
+                      signedIn={viewerProfileId !== null}
+                      state={rosterClaimStates[player.id]?.state ?? "unclaimed"}
+                      claimLinkId={rosterClaimStates[player.id]?.claimLinkId ?? null}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>

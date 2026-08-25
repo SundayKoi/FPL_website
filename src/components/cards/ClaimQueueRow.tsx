@@ -2,17 +2,17 @@
 
 // One pending claim in the approvals queue, with the two decisions attached.
 //
-// The writes are CardClaim's writes verbatim — an update to 'approved' and a
-// delete, both keyed by the claim's composite primary key — because RLS is
-// what actually authorizes them and the queue must not invent a second
-// shape for the same act. What's different here is the setting: a stranger's
-// name next to a card you may not recognize, ten in a row, so Reject asks
-// twice before it throws a claim away (approving is recoverable — revoke on
-// the card page; a deleted claim is gone and the player must ask again).
+// Approval uses the same atomic server action as CardClaim; rejection remains
+// an RLS'd delete keyed by the claim's composite primary key. What's different
+// here is the setting: a stranger's name next to a card you may not recognize,
+// ten in a row, so Reject asks twice before it throws a claim away (approving
+// is recoverable — revoke on the card page; a deleted claim is gone and the
+// player must ask again).
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { approveCardClaim } from "@/lib/cards/claimActions";
 import { createClient } from "@/lib/supabase/client";
 
 const ACTION =
@@ -25,7 +25,6 @@ export default function ClaimQueueRow({
   slug,
   claimantName,
   createdLabel,
-  viewerProfileId,
 }: {
   season: string;
   summonerName: string;
@@ -33,7 +32,6 @@ export default function ClaimQueueRow({
   slug: string;
   claimantName: string;
   createdLabel: string;
-  viewerProfileId: string;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -41,15 +39,15 @@ export default function ClaimQueueRow({
   const [confirmReject, setConfirmReject] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** One RLS'd write plus a refresh; the server re-derives the queue, so an
-   *  approved or rejected row simply leaves the list. */
-  const run = async (write: () => Promise<{ error: { message: string } | null }>) => {
+  /** One authorized mutation plus a refresh; the server re-derives the queue,
+   * so an approved or rejected row simply leaves the list. */
+  const run = async (write: () => Promise<{ ok: true } | { ok: false; error: string }>) => {
     setBusy(true);
     setError(null);
-    const { error: writeError } = await write();
+    const result = await write();
     setBusy(false);
-    if (writeError) {
-      setError(writeError.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     router.refresh();
@@ -57,14 +55,7 @@ export default function ClaimQueueRow({
 
   const key = { season, summoner_name: summonerName, tag };
 
-  const approve = () =>
-    run(
-      async () =>
-        await supabase
-          .from("card_claims")
-          .update({ status: "approved", decided_by: viewerProfileId, decided_at: new Date().toISOString() })
-          .match(key),
-    );
+  const approve = () => run(() => approveCardClaim({ season, summonerName, tag }));
 
   const reject = () => {
     if (!confirmReject) {
@@ -72,7 +63,10 @@ export default function ClaimQueueRow({
       return;
     }
     setConfirmReject(false);
-    void run(async () => await supabase.from("card_claims").delete().match(key));
+    void run(async () => {
+      const { error: writeError } = await supabase.from("card_claims").delete().match(key);
+      return writeError ? { ok: false as const, error: writeError.message } : { ok: true as const };
+    });
   };
 
   return (

@@ -6,13 +6,14 @@
 //
 // Deliberately a single quiet row of chips rather than a panel: on the vast
 // majority of visits this card belongs to someone else and the claim state is
-// trivia. Writes go straight from the client like SkinPicker's and RLS is what
-// actually authorizes them — the props only decide what to draw. Once a claim
-// is approved, can_edit_card_art starts returning true for the claimant and
-// the customizer appears on the next refresh with no extra wiring.
+// trivia. Creation and approval cross the cookie-bound server boundary so an
+// exact canonical mapping can be stored and approved atomically; RLS/the RPC
+// remain authoritative. Once approved, can_edit_card_art starts returning true
+// and the customizer appears on the next refresh with no extra wiring.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { approveCardClaim, requestCardClaim } from "@/lib/cards/claimActions";
 import { createClient } from "@/lib/supabase/client";
 
 export type CardClaimState = {
@@ -49,35 +50,31 @@ export default function CardClaim({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** Every action is one RLS'd write plus a refresh; the server re-derives
-   *  the state (and the customizer's visibility) from the row. */
-  const run = async (write: () => Promise<{ error: { message: string } | null }>) => {
+  /** The server re-derives claim ownership and compatible canonical identity.
+   * Deletes remain ordinary user-scoped writes under the existing RLS rule. */
+  const run = async (write: () => Promise<{ ok: true } | { ok: false; error: string }>) => {
     setBusy(true);
     setError(null);
-    const { error: writeError } = await write();
+    const result = await write();
     setBusy(false);
-    if (writeError) {
-      setError(writeError.message);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     router.refresh();
   };
 
   const key = { season, summoner_name: summonerName, tag };
+  const actionInput = { season, summonerName, tag };
 
-  const claimIt = () =>
-    run(async () => await supabase.from("card_claims").insert({ ...key, profile_id: viewerProfileId }));
+  const claimIt = () => run(() => requestCardClaim(actionInput));
 
-  const approve = () =>
-    run(
-      async () =>
-        await supabase
-          .from("card_claims")
-          .update({ status: "approved", decided_by: viewerProfileId, decided_at: new Date().toISOString() })
-          .match(key),
-    );
+  const approve = () => run(() => approveCardClaim(actionInput));
 
-  const drop = () => run(async () => await supabase.from("card_claims").delete().match(key));
+  const drop = () => run(async () => {
+    const { error: writeError } = await supabase.from("card_claims").delete().match(key);
+    return writeError ? { ok: false as const, error: writeError.message } : { ok: true as const };
+  });
 
   const wrap = (children: React.ReactNode) => (
     <div

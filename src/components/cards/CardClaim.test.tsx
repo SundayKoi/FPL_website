@@ -1,28 +1,28 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/** The slice of the supabase builder the component actually reaches for:
- *  insert(row), update(patch).match(key), delete().match(key). */
-const { insert, update, del, match, from, refresh } = vi.hoisted(() => {
+/** Card creation and approval are server actions; the browser client remains
+ *  only for claimant/moderator deletion under the existing RLS policy. */
+const { requestCardClaim, approveCardClaim, del, match, from, refresh } = vi.hoisted(() => {
   type Row = Record<string, unknown>;
   type WriteResult = { error: { message: string } | null };
-  const insert = vi.fn(async (row: Row): Promise<WriteResult> => {
-    void row;
-    return { error: null };
-  });
   const match = vi.fn(async (key: Row): Promise<WriteResult> => {
     void key;
     return { error: null };
   });
-  const update = vi.fn((patch: Row) => {
-    void patch;
-    return { match };
-  });
   const del = vi.fn(() => ({ match }));
-  return { insert, update, del, match, from: vi.fn(() => ({ insert, update, delete: del })), refresh: vi.fn() };
+  return {
+    requestCardClaim: vi.fn(),
+    approveCardClaim: vi.fn(),
+    del,
+    match,
+    from: vi.fn(() => ({ delete: del })),
+    refresh: vi.fn(),
+  };
 });
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ from }) }));
+vi.mock("@/lib/cards/claimActions", () => ({ requestCardClaim, approveCardClaim }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 import CardClaim, { type CardClaimState } from "./CardClaim";
@@ -39,12 +39,17 @@ afterEach(() => {
 });
 
 describe("CardClaim", () => {
-  it("offers the claim to a signed-in stranger and files it as their own", async () => {
+  it("offers the claim to a signed-in stranger and lets the server derive its owner and canonical mapping", async () => {
+    requestCardClaim.mockResolvedValueOnce({ ok: true });
     render(<CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} />);
 
     fireEvent.click(screen.getByRole("button", { name: "This is me — claim this card" }));
 
-    await waitFor(() => expect(insert).toHaveBeenCalledWith({ ...cardKey, profile_id: "player-1" }));
+    await waitFor(() => expect(requestCardClaim).toHaveBeenCalledWith({
+      season: "S5",
+      summonerName: "Chaseworthy",
+      tag: "NA1",
+    }));
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -60,7 +65,8 @@ describe("CardClaim", () => {
     expect(container.textContent).toBe("");
   });
 
-  it("lets a moderator approve a pending claim", async () => {
+  it("lets a moderator approve through the atomic card-and-identity server action", async () => {
+    approveCardClaim.mockResolvedValueOnce({ ok: true });
     render(<CardClaim {...card} viewerProfileId="cap-1" canModerate claim={pending} />);
 
     expect(screen.getByText("Claim pending — waiting for a captain or admin")).toBeTruthy();
@@ -69,9 +75,11 @@ describe("CardClaim", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
-    await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(update.mock.calls[0][0]).toMatchObject({ status: "approved", decided_by: "cap-1" });
-    expect(match).toHaveBeenCalledWith(cardKey);
+    await waitFor(() => expect(approveCardClaim).toHaveBeenCalledWith({
+      season: "S5",
+      summonerName: "Chaseworthy",
+      tag: "NA1",
+    }));
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -123,12 +131,12 @@ describe("CardClaim", () => {
   });
 
   it("surfaces a rejected write inline and does not refresh", async () => {
-    insert.mockResolvedValueOnce({ error: { message: "new row violates row-level security policy" } });
+    requestCardClaim.mockResolvedValueOnce({ ok: false, error: "Unable to update card claim" });
     render(<CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} />);
 
     fireEvent.click(screen.getByRole("button", { name: "This is me — claim this card" }));
 
-    await waitFor(() => expect(screen.getByText("new row violates row-level security policy")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Unable to update card claim")).toBeTruthy());
     expect(refresh).not.toHaveBeenCalled();
   });
 });
