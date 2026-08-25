@@ -8,6 +8,7 @@ import { applyAutographs } from "./signatures";
 const pull = (slug: string): PackPull => ({
   card: { slug, name: slug, tag: "NA1" } as PlayerCardData,
   foil: false,
+  foilType: null,
 });
 
 const INK = "data:image/png;base64,AAAA";

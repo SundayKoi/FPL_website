@@ -24,6 +24,10 @@ export interface InventoryRow {
   overall: number;
   tier: string;
   foil: boolean;
+  /** Which parallel this copy printed — null on a matte card. Older foils
+   *  read as 'prisma', which is what they are: the only foil that existed
+   *  before parallels. */
+  foilType: string | null;
   /** This copy came out autographed — the rarest print there is. The ink
    *  itself lives on `card.autograph`. */
   signed: boolean;
@@ -43,6 +47,7 @@ interface InventoryDbRow {
   overall: number;
   tier: string;
   foil: boolean;
+  foil_type: string | null;
   signed: boolean | null;
   card: PlayerCardData;
   pack_open_id: number | null;
@@ -59,7 +64,7 @@ export async function fetchInventory(
 ): Promise<InventoryRow[]> {
   const { data, error } = await supabase
     .from("card_inventory")
-    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, signed, card, pack_open_id, acquired_at")
+    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at")
     .eq("discord_id", discordId)
     .eq("season", season)
     .order("acquired_at", { ascending: false });
@@ -92,6 +97,7 @@ export async function fetchInventory(
     overall: row.overall,
     tier: row.tier,
     foil: row.foil,
+    foilType: row.foil_type ?? null,
     signed: row.signed === true,
     card: repaired[index],
     packOpenId: row.pack_open_id,

@@ -140,7 +140,7 @@ function CopyCaption({
 function CopyCell({ row, count, pinned }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number> }) {
   return (
     <div className="card-cell flex flex-col items-center gap-2">
-      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} />
+      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} foilType={row.foilType} />
       <CopyCaption row={row} count={count} pinned={pinned} />
     </div>
   );
@@ -272,7 +272,7 @@ export default function CollectionGrid({
       <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
         {owned.map((entry) => (
           <div key={entry.best.slug} className="card-cell flex flex-col items-center gap-2">
-            <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} />
+            <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} foilType={entry.best.foilType} />
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="text-sm font-semibold text-white">
                 {entry.best.playerName}
@@ -321,7 +321,7 @@ export default function CollectionGrid({
               <div className="flex w-80 gap-4 overflow-x-auto pb-2">
                 {entry.prints.map((print) => (
                   <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
-                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} />
+                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} foilType={print.copy.foilType} />
                     <CopyCaption row={print.copy} count={print.count} pinned={pinned} />
                   </div>
                 ))}

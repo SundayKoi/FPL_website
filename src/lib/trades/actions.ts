@@ -57,6 +57,7 @@ interface OwnedCardRow {
   season: string;
   tier: string;
   foil: boolean;
+  foil_type: string | null;
   signed: boolean | null;
 }
 
@@ -107,7 +108,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, signed")
+    .select("id, discord_id, season, tier, foil, foil_type, signed")
     .eq("id", inventoryId)
     .maybeSingle();
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
@@ -120,7 +121,14 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
   const locked = await lockedInventoryIds(service, user.discordId, row.season);
   if (locked.has(row.id)) return { ok: false, error: "That card is fielded in this week's lineup." };
 
-  const value = dustValueOf({ tier: row.tier, foil: row.foil, signed: row.signed === true });
+  // foil_type included: without it a Cracked Ice would dust for the base
+  // foil rate, quietly paying out a fifth of what the copy is worth.
+  const value = dustValueOf({
+    tier: row.tier,
+    foil: row.foil,
+    foilType: row.foil_type,
+    signed: row.signed === true,
+  });
   const { data: balance, error: rpcError } = await service.rpc("dust_card", {
     p_user: user.discordId,
     p_inventory: row.id,
@@ -192,7 +200,7 @@ export async function createTradeAction(input: {
   if (allIds.length > 0) {
     const { data, error } = await service
       .from("card_inventory")
-      .select("id, discord_id, season, tier, foil, signed")
+      .select("id, discord_id, season, tier, foil, foil_type, signed")
       .in("id", allIds);
     if (error) return { ok: false, error: "Couldn't read those cards — try again." };
 

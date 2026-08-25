@@ -71,11 +71,11 @@ function makeCard(
 // Deliberately handed over best-first, so a passing order assertion can only
 // come from the overlay's own sort.
 const pulls = [
-  { card: makeCard("Chaseworthy", { key: "challenger", label: "Challenger" }, 92), foil: true, signed: false, inventoryId: 5 },
-  { card: makeCard("Epicsson", { key: "diamond", label: "Diamond" }, 84), foil: false, signed: false, inventoryId: 4 },
-  { card: makeCard("Rarity", { key: "platinum", label: "Platinum" }, 76), foil: false, signed: false, inventoryId: 3 },
-  { card: makeCard("Commonly", { key: "silver", label: "Silver" }, 62), foil: false, signed: false, inventoryId: 2 },
-  { card: makeCard("Bronzey", { key: "bronze", label: "Bronze" }, 51), foil: false, signed: false, inventoryId: 1 },
+  { card: makeCard("Chaseworthy", { key: "challenger", label: "Challenger" }, 92), foil: true, foilType: "prisma", signed: false, inventoryId: 5 },
+  { card: makeCard("Epicsson", { key: "diamond", label: "Diamond" }, 84), foil: false, foilType: null, signed: false, inventoryId: 4 },
+  { card: makeCard("Rarity", { key: "platinum", label: "Platinum" }, 76), foil: false, foilType: null, signed: false, inventoryId: 3 },
+  { card: makeCard("Commonly", { key: "silver", label: "Silver" }, 62), foil: false, foilType: null, signed: false, inventoryId: 2 },
+  { card: makeCard("Bronzey", { key: "bronze", label: "Bronze" }, 51), foil: false, foilType: null, signed: false, inventoryId: 1 },
 ];
 
 function renderOpening(overrides: Partial<ComponentProps<typeof PackOpening>> = {}) {

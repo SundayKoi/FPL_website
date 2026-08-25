@@ -61,7 +61,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         <section aria-label="Cards on display" className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {binder.cards.map((entry) => (
             <figure key={entry.slot} className="flex flex-col items-center gap-3">
-              <PlayerCard3D card={entry.card} forceFoil={entry.foil} />
+              <PlayerCard3D card={entry.card} forceFoil={entry.foil} foilType={entry.foilType} />
               <figcaption className="text-center text-xs text-steel">
                 {entry.playerName} · {tierLabel(entry.tier)}
                 {entry.editionWeek ? ` · ${editionLabel(entry.editionWeek)}` : ""}

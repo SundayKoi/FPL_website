@@ -41,6 +41,8 @@ import PlayerCard3D from "./PlayerCard3D";
 export interface Pull {
   card: PlayerCardData;
   foil: boolean;
+  /** Which parallel — null on a matte pull. */
+  foilType: string | null;
   /** This copy pulled autographed — rarer than foil, and stung louder. */
   signed: boolean;
   inventoryId: number;
@@ -448,7 +450,7 @@ export default function PackOpening({
   }
 
   const dustTotal = pack.pulls.reduce(
-    (sum, pull) => sum + dustValueOf({ tier: pull.card.tier.key, foil: pull.foil, signed: pull.signed }),
+    (sum, pull) => sum + dustValueOf({ tier: pull.card.tier.key, foil: pull.foil, foilType: pull.foilType, signed: pull.signed }),
     0,
   );
   const newCount = pack.isNew.filter(Boolean).length;
@@ -551,7 +553,7 @@ export default function PackOpening({
                                   the pointer like anywhere else. The rear face
                                   counter-rotates the flip container, so the tilt
                                   reads the right way round in here. */}
-                              <PlayerCard3D card={pull.card} forceFoil={pull.foil} />
+                              <PlayerCard3D card={pull.card} forceFoil={pull.foil} foilType={pull.foilType} />
                             </div>
                           ) : null}
                         </div>
@@ -693,7 +695,7 @@ export default function PackOpening({
               backdrop — the walkout is dismissed by its own button or by the
               space around it. */}
           <div className="pack-walkout-card" onClick={(event) => event.stopPropagation()} role="presentation">
-            <PlayerCard3D card={walkoutPull.card} bloom forceFoil={walkoutPull.foil} />
+            <PlayerCard3D card={walkoutPull.card} bloom forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} />
           </div>
           <button
             type="button"

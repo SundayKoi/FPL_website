@@ -123,8 +123,89 @@ export const DUST_VALUES: Record<RarityClass, number> = {
   legendary: 150,
 };
 
-/** Foils dust for double — the same premium the pull itself carries. */
+/** Foils dust for double — the same premium the pull itself carries. This
+ *  is Prisma's multiplier; the rarer parallels scale up from it below. */
 export const FOIL_DUST_MULT = 2;
+
+/**
+ * Foil parallels, common first.
+ *
+ * A foil used to be one look, so "I pulled a foil" was the whole story.
+ * These four split that into a ladder, rolled INSIDE the existing
+ * FOIL_CHANCE — the odds of pulling *a* foil are exactly what they were,
+ * and what changes is that a foil is now a specific foil.
+ *
+ * The ladder deliberately sits on the LUCK axis. Tier says how well
+ * somebody played and is earned; foil says how the pack fell. Putting the
+ * chase here gives collectors something to hunt without inflating anyone's
+ * rating, which is what makes a Bronze Cracked Ice a good object rather
+ * than a contradiction.
+ *
+ * Ordered quiet to loud on purpose. A chase you cannot recognise across a
+ * room is a bad chase, so the subtle treatment (Aurora) sits low and the
+ * unmistakable one (Cracked Ice) tops out.
+ */
+export const FOIL_TYPES = ["prisma", "aurora", "refractor", "ice"] as const;
+export type FoilType = (typeof FOIL_TYPES)[number];
+
+/** The base, and what every foil minted before parallels existed IS. Never
+ *  change this: the migration backfilled real copies to it, and a pulled
+ *  card's look is frozen at mint like everything else on it. */
+export const DEFAULT_FOIL_TYPE: FoilType = "prisma";
+
+/** Relative weights within a foil pull. Multiply by FOIL_CHANCE for the
+ *  real per-card odds: Prisma 3.6%, Aurora 1.5%, Refractor 0.72%, Cracked
+ *  Ice 0.18% — roughly one Cracked Ice per 111 packs, which puts it just
+ *  past a signature (SIGNED_CHANCE, 1%) as the hardest cosmetic to hit. */
+export const FOIL_TYPE_WEIGHTS: Record<FoilType, number> = {
+  prisma: 60,
+  aurora: 25,
+  refractor: 12,
+  ice: 3,
+};
+
+/**
+ * Dust multiplier per parallel, replacing the flat FOIL_DUST_MULT.
+ *
+ * Kept deliberately shallow. The top of the ladder takes a legendary from
+ * 150 to 750, which is a real premium and still under MOMENT_DUST (1000) —
+ * moments stay the most valuable thing anyone can hold, and a lucky foil
+ * roll never outranks a performance that actually happened.
+ */
+export const FOIL_TYPE_DUST_MULT: Record<FoilType, number> = {
+  prisma: FOIL_DUST_MULT,
+  aurora: 2.5,
+  refractor: 3,
+  ice: 5,
+};
+
+/** What the card calls each parallel. */
+export const FOIL_TYPE_LABELS: Record<FoilType, string> = {
+  prisma: "Prisma",
+  aurora: "Aurora",
+  refractor: "Refractor",
+  ice: "Cracked Ice",
+};
+
+/** A stored value narrowed to a FoilType, falling back to the base.
+ *  card_inventory.foil_type is plain text, and an unrecognised value must
+ *  render and price as an ordinary foil rather than crash a collection. */
+export function foilTypeOf(value: string | null | undefined): FoilType {
+  return (FOIL_TYPES as readonly string[]).includes(value ?? "")
+    ? (value as FoilType)
+    : DEFAULT_FOIL_TYPE;
+}
+
+/** Weighted pick of a parallel. Consumes exactly one rand. */
+export function rollFoilType(rand: () => number): FoilType {
+  const total = FOIL_TYPES.reduce((sum, type) => sum + FOIL_TYPE_WEIGHTS[type], 0);
+  let ticket = rand() * total;
+  for (const type of FOIL_TYPES) {
+    ticket -= FOIL_TYPE_WEIGHTS[type];
+    if (ticket < 0) return type;
+  }
+  return DEFAULT_FOIL_TYPE;
+}
 
 /**
  * A flat bonus every autographed copy dusts for, ON TOP of the card's own
@@ -164,6 +245,9 @@ export function rarityOf(tier: CardTierKey): RarityClass {
 export function dustValueOf(row: {
   tier: CardTierKey | string;
   foil: boolean;
+  /** Which parallel. Absent on a copy minted before parallels existed,
+   *  which prices as Prisma — exactly what it is. */
+  foilType?: string | null;
   signed: boolean;
   /** A pulled moment prices flat, off MOMENT_DUST — it has no tier to
    *  scale off, and the placeholder tier it carries would otherwise dust
@@ -175,7 +259,9 @@ export function dustValueOf(row: {
   if (row.moment || row.tier === MOMENT_TIER) return MOMENT_DUST;
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];
-  if (row.foil) value *= FOIL_DUST_MULT;
+  // Rounded because the middle of the ladder is fractional (2.5) and dust
+  // is a whole-number currency — an un-rounded 62.5 would drift the ledger.
+  if (row.foil) value = Math.round(value * FOIL_TYPE_DUST_MULT[foilTypeOf(row.foilType)]);
   if (row.signed) value += SIGNED_DUST_BASE;
   return value;
 }

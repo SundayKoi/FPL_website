@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FOIL_TYPES, FOIL_TYPE_LABELS } from "@/lib/packs/config";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -95,6 +96,20 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               label="Moments minted"
               note="Minted by the league; pullable from that week's pack"
             />
+          </section>
+
+          {/* The parallels, thinnest last. A ladder is only worth having if
+              the league can see how thin the top of it is — "3 Cracked Ice
+              exist" is the number people repeat. */}
+          <section aria-label="Foil parallels" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {FOIL_TYPES.map((type) => (
+              <Figure
+                key={type}
+                value={(stats.foilsByType[type] ?? 0).toLocaleString()}
+                label={FOIL_TYPE_LABELS[type]}
+                note={rate(stats.foilsByType[type] ?? 0, stats.cardsPulled)}
+              />
+            ))}
           </section>
 
           <section aria-label="Standouts" className="grid gap-4 sm:grid-cols-2">

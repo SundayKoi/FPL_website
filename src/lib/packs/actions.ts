@@ -66,7 +66,11 @@ export async function openPackAction(
    *  edition is ever closed off. */
   requestedWeek?: string,
 ): Promise<
-  | { ok: true; cards: { card: PlayerCardData; foil: boolean; signed: boolean; inventoryId: number }[]; balance: number }
+  | {
+      ok: true;
+      cards: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean; inventoryId: number }[];
+      balance: number;
+    }
   | { ok: false; error: string }
 > {
   const user = await getBettingUser();
@@ -136,6 +140,7 @@ export async function openPackAction(
       pulls[pulls.length - 1] = {
         card: momentToCard(moment, season),
         foil: false,
+        foilType: null,
         signed: false,
         autograph: null,
       };
@@ -203,6 +208,7 @@ export async function openPackAction(
         // moment filed as gold would dust as an ordinary gold card.
         tier: print.card.moment ? MOMENT_TIER : print.card.tier.key,
         foil: print.foil,
+        foil_type: print.foilType,
         signed: print.signed,
         // the whole card, frozen: ratings restat nightly, collections don't
         // — and the autograph and rolled art ride along with it
@@ -242,6 +248,9 @@ export async function openPackAction(
       // print this pull actually rolled
       card: print.card,
       foil: print.foil,
+      // The reveal has to know which parallel to draw — without it every
+      // pull would flash up as a Prisma and the chase would land silently.
+      foilType: print.foilType,
       signed: print.signed,
       inventoryId: ids[index],
     })),

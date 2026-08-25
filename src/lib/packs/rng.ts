@@ -11,6 +11,8 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import {
   GUARANTEED_CLASS,
   FOIL_CHANCE,
+  rollFoilType,
+  type FoilType,
   PACK_SIZE,
   RARITY_ORDER,
   RARITY_WEIGHTS,
@@ -23,6 +25,9 @@ import {
 export interface PackPull {
   card: PlayerCardData;
   foil: boolean;
+  /** Which parallel, when foil. Null on a plain card — a foil type on a
+   *  non-foil is a lie the renderer would eventually believe. */
+  foilType: FoilType | null;
 }
 
 type Pool = Map<RarityClass, PlayerCardData[]>;
@@ -86,11 +91,18 @@ function rollClassAtLeast(pool: Pool, floor: RarityClass, rand: () => number): R
 }
 
 /** Uniform pick within a class, then the foil roll — two rand values, in
- *  that order (the tests depend on the ordering). */
+ *  that order (the tests depend on the ordering), plus a THIRD only when
+ *  the foil actually hits.
+ *
+ *  Conditional on purpose: a plain card still costs exactly two rands, so
+ *  the 94% of pulls that are not foil leave the stream where it has always
+ *  been. Always rolling would shift every subsequent pull in a scripted
+ *  sequence for no gain. */
 function pull(pool: Pool, rarity: RarityClass, rand: () => number): PackPull {
   const cards = pool.get(rarity)!;
   const index = Math.min(cards.length - 1, Math.max(0, Math.floor(rand() * cards.length)));
-  return { card: cards[index], foil: rand() < FOIL_CHANCE };
+  const foil = rand() < FOIL_CHANCE;
+  return { card: cards[index], foil, foilType: foil ? rollFoilType(rand) : null };
 }
 
 /**
