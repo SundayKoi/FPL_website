@@ -116,6 +116,7 @@ export default function MatchDraftSummary({ games }: { games: DraftSummaryGame[]
                         {pickNumbers[index] ? (
                           <span
                             aria-hidden
+                            title={`Pick ${pickNumbers[index]}`}
                             className="absolute -left-1 -top-1 rounded-full border border-line/70 bg-navy px-1 text-[8px] font-bold leading-4 text-steel"
                           >
                             {pickNumbers[index]}

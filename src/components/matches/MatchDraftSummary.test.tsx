@@ -84,3 +84,55 @@ describe("pick order", () => {
     expect(container.querySelector("#draft")).toBeTruthy();
   });
 });
+
+describe("a full 20-action draft, shaped as the database stores one", () => {
+  // The minimal fixtures above prove the mapping; this proves it against
+  // the real thing — every step present, both sides, all five positions
+  // filled, exactly what apply_match_draft_action writes.
+  const SIDES = [
+    "blue","red","blue","red","blue","red",
+    "blue","red","red","blue","blue","red",
+    "red","blue","red","blue",
+    "red","blue","blue","red",
+  ] as const;
+  const KINDS = [
+    "ban","ban","ban","ban","ban","ban",
+    "pick","pick","pick","pick","pick","pick",
+    "ban","ban","ban","ban",
+    "pick","pick","pick","pick",
+  ] as const;
+  const SLOTS = [1,1,2,2,3,3, 1,1,2,2,3,3, 4,4,5,5, 4,4,5,5];
+
+  const full = game({
+    actions: SLOTS.map((slot, index) => ({
+      stepIndex: index,
+      side: SIDES[index],
+      kind: KINDS[index],
+      slot,
+      champion: `${SIDES[index]}-${KINDS[index]}-${slot}`,
+      playerName: null,
+    })),
+    // Blue's five picks, deliberately NOT in draft order.
+    positions: {
+      blue: ["blue-pick-3", "blue-pick-5", "blue-pick-1", "blue-pick-4", "blue-pick-2"],
+      red: ["red-pick-1", "red-pick-2", "red-pick-3", "red-pick-4", "red-pick-5"],
+    },
+  });
+
+  it("numbers every pick on both sides", () => {
+    expect(sideRows(full, "blue").pickNumbers).toEqual([3, 5, 1, 4, 2]);
+    expect(sideRows(full, "red").pickNumbers).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("renders a badge for each of the ten picks", () => {
+    const { container } = render(<MatchDraftSummary games={[full]} />);
+
+    expect(container.querySelectorAll("[title^='Pick ']")).toHaveLength(10);
+  });
+
+  it("keeps bans out of the numbering", () => {
+    // Ten picks, ten badges — a ban that leaked in would push it higher.
+    expect(sideRows(full, "blue").bans).toHaveLength(5);
+    expect(sideRows(full, "blue").pickNumbers.filter((n) => n !== null)).toHaveLength(5);
+  });
+});
