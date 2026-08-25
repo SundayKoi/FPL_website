@@ -84,6 +84,13 @@ function insertNames(source: string, names: string[]): string {
   return `${source.slice(0, start + marker.length)}\n${rebuilt}\n${source.slice(end)}`;
 }
 
+/** `--out <path>`: the missing champions as JSON, so a later CI step can
+ *  act on the diff without re-deriving it by scraping this log. */
+function outPath(): string | null {
+  const index = process.argv.indexOf("--out");
+  return index === -1 ? null : process.argv[index + 1] ?? null;
+}
+
 async function main(): Promise<void> {
   const write = process.argv.includes("--write");
   const { version, champions } = await fetchRoster();
@@ -118,6 +125,12 @@ async function main(): Promise<void> {
   if (stale.length > 0) {
     console.log(`\nBundled but not in the live roster (${stale.length}): ${stale.join(", ")}`);
     console.log("Left alone — a champion Riot renamed still needs to resolve for old games.");
+  }
+
+  const out = outPath();
+  if (out) {
+    writeFileSync(out, JSON.stringify({ version, missing, needsAlias, stale }, null, 2));
+    console.log(`\nWrote the diff to ${out}.`);
   }
 
   if (!write) {
