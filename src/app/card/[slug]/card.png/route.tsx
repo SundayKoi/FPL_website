@@ -156,7 +156,23 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
           </span>
           {card.subStats.map((stat) => (
             <div key={stat.key} style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ width: 130, fontSize: 20, color: "#c6d2de", textTransform: "uppercase", letterSpacing: 2 }}>
+              {/* Same overflow as the live card's bar labels: "OBJECTIVES"
+                  is ~146px at 20px + 2px tracking, past the old 130, and
+                  satori wraps rather than clipping — which would push the
+                  row's bar out of line in the unfurl. Widened with room to
+                  spare (the panel has ~660px to give) and pinned to one
+                  line. */}
+              <span
+                style={{
+                  width: 168,
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                  fontSize: 20,
+                  color: "#c6d2de",
+                  textTransform: "uppercase",
+                  letterSpacing: 2,
+                }}
+              >
                 {stat.label}
               </span>
               <div style={{ display: "flex", flex: 1, height: 14, background: "rgba(255,255,255,0.12)", borderRadius: 999 }}>

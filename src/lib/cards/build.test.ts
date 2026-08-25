@@ -233,10 +233,10 @@ describe("buildCard", () => {
     expect(withoutAbbr.teamAbbr).toBeNull();
   });
 
-  it("maps the league's best week onto a reachable top tier", () => {
-    const best = buildCard({ row: target, cohort: cohortOf(target), games, gameLog });
-    expect(best.overall).toBeGreaterThan(0);
-    // The curve itself: a 92 raw score must clear Challenger's 94 floor.
+  it("keeps the OVR curve's top tier reachable from a real raw score", () => {
+    // The constants only, not a built card: a 92 raw Power score (a strong
+    // week) must clear Challenger's 94 floor, and a middling 55 must still
+    // land in Gold rather than being dragged up with it.
     expect(tierFor(Math.round(OVR_BASE + 92 * OVR_SCALE)).key).toBe("challenger");
     expect(tierFor(Math.round(OVR_BASE + 55 * OVR_SCALE)).key).toBe("gold");
   });

@@ -10,6 +10,7 @@
 // it with fetchStandoutKey (src/lib/cards/standout.ts).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { mondayOf } from "@/lib/packs/week";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
@@ -307,17 +308,28 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
  * narrower window spreads them — which is the point, and why the curve was
  * retuned alongside this.
  *
- * `week` is a Monday (YYYY-MM-DD); the window is half-open, [Monday, next
- * Monday), so a Sunday-night game lands in the week it was played.
+ * `week` is the Monday (YYYY-MM-DD) of an EASTERN-calendar week — the same
+ * week `mondayOf` (src/lib/packs/week.ts) stamps on pack pulls and fantasy
+ * lineups. raw_stats.game_date is an instant, and ET runs 4-5 hours behind
+ * UTC, so the query cannot express that week as a date range: a UTC
+ * [Monday, next Monday) window would hand a 23:00 ET Sunday game to the
+ * FOLLOWING edition, permanently, because editions freeze at mint. Instead
+ * the fetch pulls a deliberately WIDER UTC window (padded a day either
+ * side, which no ET offset can escape) and `mondayOf` itself trims it —
+ * one definition of a week, not a second one written in query params.
+ * A game at 23:00 ET on Sunday therefore belongs to the week that just
+ * ended, and Monday's opener starts the next one.
  */
 export async function fetchWeekCards(
   supabase: SupabaseClient,
   season: string,
   week: string,
 ): Promise<PlayerCardData[]> {
+  // Padding, not precision: the exact boundary is mondayOf's job below.
   const start = new Date(`${week}T00:00:00.000Z`);
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 7);
+  start.setUTCDate(start.getUTCDate() - 1);
+  const end = new Date(`${week}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 8);
 
   const [gamesResult, logResult, teamIdentity, artResult] = await Promise.all([
     supabase
@@ -331,7 +343,18 @@ export async function fetchWeekCards(
     supabase.from("card_art_prefs").select("*").eq("season", season),
   ]);
 
-  const games = (gamesResult.data as CardGameRow[]) ?? [];
+  // Loud, exactly like fetchSeasonCards. A swallowed error here reads as
+  // "no games this week", and the drop would log "No cards — skipping" and
+  // exit green — silently losing a week that can never be re-minted.
+  if (gamesResult.error) throw gamesResult.error;
+  if (logResult.error) throw logResult.error;
+
+  // Trim the padded UTC window down to the Eastern week. An empty result
+  // after this is the legitimate quiet-week case — the throws above are
+  // what a failure looks like.
+  const games = ((gamesResult.data as CardGameRow[]) ?? []).filter(
+    (game) => game.game_date && mondayOf(new Date(game.game_date)) === week,
+  );
   if (games.length === 0) return [];
 
   // The week's own cohort: aggregate the raw rows the same way the weekly
