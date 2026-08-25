@@ -29,6 +29,32 @@
 
 :root { color-scheme: dark; }
 
+.league-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.league-brand-academy-mark {
+  display: inline-flex;
+  height: 1.25rem;
+  width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-cyan);
+  border-radius: 0.25rem;
+  color: var(--color-cyan);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.league-brand-menu {
+  background: var(--color-navy);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 0.45);
+}
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
