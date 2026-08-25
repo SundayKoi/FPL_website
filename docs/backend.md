@@ -81,7 +81,11 @@ demo users can be used without Discord.
 
 Authorization has several independent dimensions:
 
-- `profiles.is_admin` and `profiles.is_owner` provide site staff tiers.
+- `profiles.is_admin`, `profiles.is_owner`, and `profiles.is_broadcaster`
+  provide site staff tiers. The private `/broadcaster` server route allows
+  owners or broadcasters; admin status alone does not grant access. The route
+  uses the signed-in server Supabase client and existing authenticated reads,
+  while owners inherit broadcaster workspace access in the application gate.
 - `league_team_captains` maps a profile to a league team and season.
 - Database helper functions such as `is_admin()`, `is_owner()`,
   `is_captain()`, and `is_captain_of(...)` are used by policies and RPCs.
@@ -117,6 +121,7 @@ Postgres database and public schema:
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
+| Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
 
 The exact schema is the ordered SQL in `supabase/migrations/`. Migrations are
 append-only: add a new migration for a schema, policy, grant, view, trigger,

@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
+import { fetchAllRows } from "@/lib/cards/economy";
 
 export type TradeStatus = "pending" | "accepted" | "declined" | "cancelled";
 
@@ -265,11 +266,18 @@ export interface Collector {
  * at most, two small columns each).
  */
 export async function fetchCollectors(supabase: SupabaseClient, season: string): Promise<Collector[]> {
-  const { data, error } = await supabase.from("card_inventory").select("discord_id").eq("season", season);
-  if (error) return [];
+  // Paged, not a bare select: PostgREST caps an unpaginated read at max_rows
+  // and returns no error, so every owner whose rows sat past the cap silently
+  // vanished from the trade dropdown — they read as owning nothing at all.
+  const { rows } = await fetchAllRows<{ discord_id: string }>(
+    supabase,
+    "card_inventory",
+    "discord_id",
+    season,
+  );
 
   const counts = new Map<string, number>();
-  for (const row of (data as { discord_id: string }[]) ?? []) {
+  for (const row of rows) {
     counts.set(row.discord_id, (counts.get(row.discord_id) ?? 0) + 1);
   }
   if (counts.size === 0) return [];

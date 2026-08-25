@@ -88,6 +88,10 @@ export interface MatchDraftState {
   winnerTeam?: string | null;
   actions: MatchDraftAction[];
   blockedChampions: string[];
+  /** Display only: normalized champion name → the game that took it, for the
+   *  pool's fearless badge. `blockedChampions` stays the authority on what is
+   *  actually blocked (and the RPCs enforce it regardless). */
+  blockedGames?: Record<string, number>;
 }
 
 export interface MatchDraftLink {

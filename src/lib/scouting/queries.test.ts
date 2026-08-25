@@ -88,6 +88,36 @@ describe("fetchScoutingHistory", () => {
     expect(history.drafts[0].red_team_name).toBe("Other");
   });
 
+  it("retains Premier history for an explicitly scoped unmatched featured team", async () => {
+    const fixtureQuery = builder([
+      fixture("featured", "Alpha", "Featured Outsider"),
+      fixture("outside-scope", "Featured Outsider", "Unrelated"),
+    ]);
+    const draftQuery = builder([
+      {
+        id: "featured-draft", fixture_id: "featured", game_number: 1,
+        blue_team_name: "Alpha", red_team_name: "Featured Outsider", winner_team: null,
+        actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }],
+        positions: null, created_at: "2026-08-01",
+      },
+      {
+        id: "outside-draft", fixture_id: "outside-scope", game_number: 1,
+        blue_team_name: "Featured Outsider", red_team_name: "Unrelated", winner_team: null,
+        actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Lux" }],
+        positions: null, created_at: "2026-08-01",
+      },
+    ]);
+    const from = vi.fn((table: string) => table === "fixtures" ? fixtureQuery : draftQuery);
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier",
+      leagueTeamNames: ["Alpha", "Beta", "Featured Outsider"],
+    });
+
+    expect(history.fixtures.map((row) => row.id)).toEqual(["featured"]);
+    expect(history.drafts.map((row) => row.id)).toEqual(["featured-draft"]);
+  });
+
   it("loads completed historical drafts from the Drafter URL stored on a match report", async () => {
     const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
     const draftQuery = builder([]);

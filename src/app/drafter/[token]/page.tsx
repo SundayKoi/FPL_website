@@ -1,6 +1,6 @@
 import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
-import { fearlessBlockedChampions } from "@/lib/match-draft/rules";
+import { fearlessBlockedByGame, fearlessBlockedChampions } from "@/lib/match-draft/rules";
 import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
 import type {
   MatchDraftAction,
@@ -85,6 +85,7 @@ function stateFor({
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions,
     blockedChampions: info.fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
+    blockedGames: info.fearless ? fearlessBlockedByGame(prior, gameNumber) : {},
   };
 }
 

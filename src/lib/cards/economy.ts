@@ -104,7 +104,7 @@ async function excludedIds(supabase: SupabaseClient, names: string[]): Promise<S
  * `truncated` is surfaced rather than swallowed. A cap that nobody is told
  * about reads as the truth.
  */
-async function fetchAllRows<T>(
+export async function fetchAllRows<T>(
   supabase: SupabaseClient,
   table: string,
   columns: string,

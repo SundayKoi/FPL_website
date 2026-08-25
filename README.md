@@ -31,6 +31,9 @@ source-file map intended for agents picking up work.
   captain and match-report workflows for those teams.
 - **Admins and owners** manage league data, drafts, fixtures, staff, and
   betting operations according to the database policies and domain gates.
+- **Broadcasters** can open the private broadcaster workspace and maintain the
+  Premier/Academy featured-matchup presentation; owners inherit broadcaster
+  workspace access, while admins do not.
 - **Discord members** may receive additional access to betting and public
   lobby creation based on configured guild roles.
 

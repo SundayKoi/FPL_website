@@ -134,4 +134,45 @@ describe("fetchCollectors", () => {
   it("returns nobody when the season has no cards", async () => {
     expect(await fetchCollectors(client({ card_inventory: [{ data: [] }] }), "S5")).toEqual([]);
   });
+
+  it("pages past PostgREST's row cap so late owners still appear", async () => {
+    // The bug this guards: a single unpaginated select returns max_rows with
+    // no error, so an owner whose only rows sit past the cap silently drops
+    // out of the trade dropdown — they look like they own nothing at all.
+    const PAGE = 1000;
+    const rows = [
+      ...Array.from({ length: PAGE }, () => ({ discord_id: "early-collector" })),
+      { discord_id: "solomon" },
+    ];
+    // A client that serves real slices, the way PostgREST would.
+    const paging = {
+      from: (table: string) => {
+        const chain: Record<string, unknown> = {};
+        for (const method of ["select", "eq", "in", "order"]) chain[method] = () => chain;
+        chain.range = (from: number, to: number) =>
+          Promise.resolve({
+            data:
+              table === "card_inventory"
+                ? rows.slice(from, Math.min(to + 1, from + PAGE))
+                : [{ discord_id: "solomon", username: "Solomon" }],
+            error: null,
+          });
+        // Awaiting without range() is the production bug in miniature:
+        // PostgREST hands back its max_rows slice and no error at all.
+        chain.then = (resolve: (v: { data: unknown; error: null }) => unknown) =>
+          Promise.resolve({
+            data:
+              table === "card_inventory"
+                ? rows.slice(0, PAGE)
+                : [{ discord_id: "solomon", username: "Solomon" }],
+            error: null,
+          }).then(resolve);
+        return chain;
+      },
+    } as unknown as SupabaseClient;
+
+    const collectors = await fetchCollectors(paging, "S5");
+
+    expect(collectors.map((c) => c.discordId)).toContain("solomon");
+  });
 });

@@ -44,6 +44,34 @@ describe("OpponentScout", () => {
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("3");
     expect(screen.queryByText(/recommend|must ban|priority|threat score/i)).toBeNull();
   });
+  it("uses neutral team wording when requested", () => {
+    render(<OpponentScout source={source} perspective="team" />);
+    expect(screen.getByText("Team")).toBeTruthy();
+    expect(screen.queryByText("Opponent")).toBeNull();
+    expect(screen.getByText(/Bo3 · vs Other/)).toBeTruthy();
+  });
+  it("derives the first fixture side when scouting the second team", () => {
+    render(<OpponentScout source={{ ...source, opponentName: "Other", teamName: "Other" }} perspective="team" />);
+    expect(screen.getByText(/Bo3 · vs Night Vale/)).toBeTruthy();
+  });
+  it("keeps team player pools and in-house controls available without draft history", () => {
+    render(<OpponentScout source={{
+      ...source,
+      drafts: [],
+      inhousePlayerStats: [{
+        playerId: "1", playerName: "Northstar", role: "mid", games: 0, champions: [],
+      }],
+    }} perspective="team" />);
+    expect(screen.getByText("No recorded drafts for this team yet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Player pools" })).toBeTruthy();
+    expect(screen.getByRole("switch")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Past drafts" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("switch"));
+    expect(screen.getByRole("heading", { name: "In-house champion stats" })).toBeTruthy();
+    expect(screen.getByText("No in-house games found")).toBeTruthy();
+  });
   it("handles no drafts and unavailable current roster independently", () => {
     renderScout({ drafts: [], roster: [] });
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();

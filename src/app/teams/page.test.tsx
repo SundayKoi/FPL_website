@@ -42,7 +42,10 @@ function query(result: unknown) {
 function profilesQuery(adminResult: unknown, captainProfilesResult: unknown) {
   return {
     select: (columns: string) => {
-      if (columns === "is_admin, is_owner") return query(adminResult);
+      // Matched loosely: fetchStaffTier's column list grows as staff roles are
+      // added (is_broadcaster joined it), and an exact-string match silently
+      // routed the staff read to the captain-profiles branch instead.
+      if (columns.startsWith("is_admin, is_owner")) return query(adminResult);
 
       const profileRows = (captainProfilesResult as { data?: Array<{ id: string }> }).data ?? [];
       const builder = query(captainProfilesResult);
