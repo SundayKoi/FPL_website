@@ -1,6 +1,5 @@
 "use server";
 
-import { normalizeBasePlayerName } from "@/lib/players/normalize";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export type CardClaimActionInput = {
@@ -22,9 +21,55 @@ function validInput(input: unknown): input is CardClaimActionInput {
   return Boolean(value && nonEmpty(value.season) && nonEmpty(value.summonerName) && nonEmpty(value.tag));
 }
 
-/** Resolve only a direct, unique canonical name in exactly one configured
- * league season. Alias normalization is intentionally excluded: a fuzzy or
- * ambiguous display-name match must never grant private team access. */
+function riotIdentityKey(gameName: string, tag: string): string | null {
+  const normalizedName = gameName.trim().toLowerCase();
+  const normalizedTag = tag.trim().toLowerCase();
+  return normalizedName && normalizedTag ? `${normalizedName}\u0000${normalizedTag}` : null;
+}
+
+function canonicalRiotIdentityKeys(rawUrl: string | null): Set<string> {
+  if (!rawUrl) return new Set();
+
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return new Set();
+  }
+  if (url.hostname !== "op.gg" && !url.hostname.endsWith(".op.gg")) return new Set();
+
+  let accounts: string[] = [];
+  const multisearch = url.searchParams.get("summoners");
+  if (multisearch) {
+    accounts = multisearch.split(",");
+  } else {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const summonersIndex = parts.indexOf("summoners");
+    const encodedAccount = summonersIndex >= 0 ? parts[summonersIndex + 2] : null;
+    if (!encodedAccount) return new Set();
+    try {
+      const account = decodeURIComponent(encodedAccount);
+      const tagBreak = account.lastIndexOf("-");
+      if (tagBreak <= 0 || tagBreak === account.length - 1) return new Set();
+      accounts = [`${account.slice(0, tagBreak)}#${account.slice(tagBreak + 1)}`];
+    } catch {
+      return new Set();
+    }
+  }
+
+  const keys = new Set<string>();
+  for (const account of accounts) {
+    const hashIndex = account.lastIndexOf("#");
+    if (hashIndex <= 0 || hashIndex === account.length - 1) continue;
+    const key = riotIdentityKey(account.slice(0, hashIndex), account.slice(hashIndex + 1));
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+/** Resolve only a direct, unique Riot ID in one configured active draft.
+ * The canonical account metadata must prove both game name and tag; display
+ * name normalization is never enough to grant private team access. */
 async function exactCanonicalPlayerId(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   input: CardClaimActionInput,
@@ -65,13 +110,14 @@ async function exactCanonicalPlayerId(
 
   const { data: candidates, error } = await supabase
     .from("player_pool")
-    .select("id, normalized_name")
+    .select("id, opgg_url")
     .in("id", canonicalIds);
   if (error) return null;
 
-  const normalized = normalizeBasePlayerName(input.summonerName);
-  const matches = ((candidates as { id: string; normalized_name: string }[] | null) ?? [])
-    .filter((candidate) => candidate.normalized_name === normalized);
+  const identityKey = riotIdentityKey(input.summonerName, input.tag);
+  if (!identityKey) return null;
+  const matches = ((candidates as { id: string; opgg_url: string | null }[] | null) ?? [])
+    .filter((candidate) => canonicalRiotIdentityKeys(candidate.opgg_url).has(identityKey));
   return matches.length === 1 ? matches[0].id : null;
 }
 

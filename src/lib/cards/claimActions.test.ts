@@ -6,7 +6,7 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 
 import { approveCardClaim, requestCardClaim } from "./claimActions";
 
-type Candidate = { id: string; normalized_name: string };
+type Candidate = { id: string; opgg_url: string | null };
 
 function cardClaimClient({
   userId = "profile-1",
@@ -17,7 +17,10 @@ function cardClaimClient({
     academy_draft_id: "draft-a1",
   },
   canonicalIds = ["pool-1"],
-  candidates = [{ id: "pool-1", normalized_name: "chaseworthy" }],
+  candidates = [{
+    id: "pool-1",
+    opgg_url: "https://op.gg/lol/summoners/na/Chaseworthy-NA1",
+  }],
   insertError = null,
   rpcError = null,
 }: {
@@ -107,7 +110,10 @@ describe("card claim actions", () => {
         academy_draft_id: "draft-a2",
       },
       canonicalIds: ["pool-s6"],
-      candidates: [{ id: "pool-s6", normalized_name: "new premier player" }],
+      candidates: [{
+        id: "pool-s6",
+        opgg_url: "https://op.gg/lol/summoners/na/New%20Premier%20Player-NA1",
+      }],
     });
     createServerSupabase.mockResolvedValue(client);
 
@@ -121,7 +127,10 @@ describe("card claim actions", () => {
   it("uses only exact canonical IDs from the configured active Academy draft", async () => {
     const { client, insert, activePlayersQuery, candidatesQuery } = cardClaimClient({
       canonicalIds: ["pool-academy"],
-      candidates: [{ id: "pool-academy", normalized_name: "academy player" }],
+      candidates: [{
+        id: "pool-academy",
+        opgg_url: "https://op.gg/lol/summoners/na/Academy%20Player-NA1",
+      }],
     });
     createServerSupabase.mockResolvedValue(client);
 
@@ -130,6 +139,20 @@ describe("card claim actions", () => {
     expect(activePlayersQuery.eq).toHaveBeenCalledWith("draft_id", "draft-a1");
     expect(candidatesQuery.in).toHaveBeenCalledWith("id", ["pool-academy"]);
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: "pool-academy" }));
+  });
+
+  it("maps an exact Riot identity from curated canonical multisearch metadata", async () => {
+    const { client, insert } = cardClaimClient({
+      candidates: [{
+        id: "pool-1",
+        opgg_url: "https://op.gg/lol/multisearch/na?summoners=Alt%23NA1%2CChaseworthy%23NA1",
+      }],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await requestCardClaim({ season: "S5", summonerName: "Chaseworthy", tag: "NA1" });
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: "pool-1" }));
   });
 
   it("stores null when no canonical player matches so approval remains card-only", async () => {
@@ -141,12 +164,43 @@ describe("card claim actions", () => {
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: null }));
   });
 
+  it("does not map the same base Riot name when the canonical tag is different", async () => {
+    const { client, insert } = cardClaimClient({
+      candidates: [{
+        id: "pool-1",
+        opgg_url: "https://op.gg/lol/summoners/na/Chaseworthy-REAL",
+      }],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await requestCardClaim({ season: "S5", summonerName: "Chaseworthy", tag: "IMPOSTER" });
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: null }));
+  });
+
+  it("keeps approval card-only when canonical account metadata cannot prove the Riot identity", async () => {
+    const { client, insert } = cardClaimClient({
+      candidates: [{ id: "pool-1", opgg_url: null }],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await requestCardClaim({ season: "S5", summonerName: "Chaseworthy", tag: "NA1" });
+
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: null }));
+  });
+
   it("stores null for an ambiguous canonical match so no team identity can be granted", async () => {
     const { client, insert } = cardClaimClient({
       canonicalIds: ["pool-1", "pool-2"],
       candidates: [
-        { id: "pool-1", normalized_name: "chaseworthy" },
-        { id: "pool-2", normalized_name: "chaseworthy" },
+        {
+          id: "pool-1",
+          opgg_url: "https://op.gg/lol/summoners/na/Chaseworthy-NA1",
+        },
+        {
+          id: "pool-2",
+          opgg_url: "https://op.gg/lol/multisearch/na?summoners=Chaseworthy%23NA1",
+        },
       ],
     });
     createServerSupabase.mockResolvedValue(client);
@@ -158,7 +212,7 @@ describe("card claim actions", () => {
 
   it("does not use an alias-only normalized-name guess for private identity", async () => {
     const { client, insert } = cardClaimClient({
-      candidates: [{ id: "pool-1", normalized_name: "flying squirtle" }],
+      candidates: [{ id: "pool-1", opgg_url: "https://op.gg/lol/summoners/na/Flying%20Squirtle-NA1" }],
     });
     createServerSupabase.mockResolvedValue(client);
 
