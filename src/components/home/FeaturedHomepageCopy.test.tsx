@@ -48,7 +48,14 @@ vi.mock("@/lib/league/season", () => ({ fetchLeagueSeasons: vi.fn(async () => ({
 vi.mock("./HomeStandings", () => ({ default: () => <div /> }));
 vi.mock("./AwardsDesk", () => ({ default: () => <div /> }));
 vi.mock("./UpcomingSchedule", () => ({ default: () => <div /> }));
-vi.mock("./WeeklyStandouts", () => ({ default: () => <div /> }));
+vi.mock("./TopCards", () => ({ default: () => <div /> }));
+// The Academy page builds this week's cards for the Top Cards panel; the
+// stub supabase client here has no query surface, and the panel is mocked
+// out anyway.
+vi.mock("@/lib/cards/queries", () => ({
+  fetchCardSeason: vi.fn(async () => null),
+  fetchCurrentWeekCards: vi.fn(async () => []),
+}));
 vi.mock("@/components/LeaguePageToggle", () => ({ default: () => <div /> }));
 
 beforeEach(() => {
