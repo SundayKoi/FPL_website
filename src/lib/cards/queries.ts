@@ -319,6 +319,17 @@ export async function fetchSeasonMoments(supabase: SupabaseClient, season: strin
   }));
 }
 
+/** One week's minted moments — the pool a pack bought for that week can
+ *  draw from. Empty is the normal case: most weeks mint none that anyone
+ *  opens a pack for. */
+export async function fetchWeekMoments(
+  supabase: SupabaseClient,
+  season: string,
+  weekStart: string,
+): Promise<LeagueMoment[]> {
+  return (await fetchSeasonMoments(supabase, season)).filter((moment) => moment.weekStart === weekStart);
+}
+
 export interface RatingHistoryPoint {
   overall: number;
   tier: string;

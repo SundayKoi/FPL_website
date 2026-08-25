@@ -93,7 +93,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
             <Figure
               value={stats.momentsMinted.toLocaleString()}
               label="Moments minted"
-              note="Minted by the league, not pulled from packs"
+              note="Minted by the league; pullable from that week's pack"
             />
           </section>
 

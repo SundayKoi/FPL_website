@@ -16,6 +16,8 @@
 //      number minted is bounded, and the ones that survive are the rarest
 //      of what happened rather than the first detected.
 
+import type { PlayerCardData } from "./build";
+
 /** Moments minted per league per week, after ranking. Roughly one per team
  *  per season at a 12-team league. */
 export const MOMENTS_PER_WEEK = 2;
@@ -226,4 +228,92 @@ export function selectMoments(
       return magB - magA || a.slug.localeCompare(b.slug);
     })
     .slice(0, Math.max(0, limit));
+}
+
+/** What card_inventory's flat `tier` column holds for a pulled moment.
+ *  Not one of the eight card tiers — a moment has no rating — but that
+ *  column is plain text and is what dust pricing reads, so marking it here
+ *  keeps every reader honest without a new column. */
+export const MOMENT_TIER = "moment";
+
+/** Dust for a pulled moment. Flat, like the autograph bonus and for the
+ *  same reason: a moment has no tier to scale off, and every one of them is
+ *  equally a one-of-a-kind. Sits below SIGNED_DUST_BASE so the autograph
+ *  stays the top of the dust table, and well under PACK_COST × the pull
+ *  rate, so moments cannot turn packs into an income. */
+export const MOMENT_DUST = 1000;
+
+/**
+ * Chance that a pack contains a moment, when one exists for the week being
+ * opened.
+ *
+ * Deliberately checked per PACK, not per card: at 2% roughly one pack in
+ * fifty carries one, and a week with two moments minted has them competing
+ * for that single slot rather than each rolling separately.
+ */
+export const MOMENT_PULL_CHANCE = 0.02;
+
+/** The card-shaped wrapper a pulled moment is stored and rendered as.
+ *
+ *  Rating fields carry placeholders and are never displayed — PlayerCard3D
+ *  branches on `moment` before it reads any of them. They exist because
+ *  card_inventory's columns are NOT NULL, and inventing a rating for a
+ *  moment would be a worse lie than storing an obvious zero. */
+export function momentToCard(moment: LeagueMomentLike, season: string): PlayerCardData {
+  return {
+    moment: {
+      id: moment.id,
+      title: moment.title,
+      headline: moment.headline,
+      summonerName: moment.summonerName,
+      champion: moment.champion,
+      teamName: moment.teamName,
+      weekStart: moment.weekStart,
+      playerSlug: moment.slug,
+    },
+    // A slug of its own: "do I own this player" must not answer yes because
+    // you hold their moment, and two moments must not collapse into one
+    // shelf entry the way two copies of a player do.
+    slug: `moment-${moment.id}`,
+    name: moment.summonerName,
+    tag: "",
+    teamName: moment.teamName,
+    teamImageUrl: null,
+    role: moment.role ?? "",
+    overall: 0,
+    tier: { key: "gold", label: "Moment" },
+    archetype: moment.title,
+    signature: null,
+    artSkin: 0,
+    motto: null,
+    serial: 0,
+    collectionSize: 0,
+    topChampions: [],
+    form: [],
+    subStats: [],
+    highlights: [],
+    badges: [],
+    standout: false,
+    wins: 0,
+    losses: 0,
+    winratePct: 0,
+    level: 0,
+    pentas: 0,
+    season,
+  };
+}
+
+/** The shape momentToCard needs — satisfied by LeagueMoment from queries.ts
+ *  without this module having to import it and take the whole query layer
+ *  with it. */
+export interface LeagueMomentLike {
+  id: number;
+  title: string;
+  headline: string;
+  summonerName: string;
+  champion: string | null;
+  teamName: string | null;
+  role?: string | null;
+  weekStart: string;
+  slug: string;
 }

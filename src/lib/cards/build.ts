@@ -58,7 +58,34 @@ export interface CardSubStat {
   value: number;
 }
 
+/**
+ * A moment riding inside a card copy.
+ *
+ * A pulled moment is stored as a card_inventory row like any other, because
+ * every surface a collection has — the shelf, trades, dust, the binder, the
+ * pack reveal — already knows how to carry one. What makes it a moment is
+ * this field: PlayerCard3D checks for it and renders the engraved plate
+ * instead of a player card, so one branch covers every surface at once.
+ *
+ * The card's own rating fields are filled with placeholders on a moment and
+ * are never shown. A moment has no overall, which is the whole premise of
+ * the plate design.
+ */
+export interface MomentPrint {
+  id: number;
+  title: string;
+  headline: string;
+  summonerName: string;
+  champion: string | null;
+  teamName: string | null;
+  weekStart: string;
+  /** The player's card slug, so the plate can link to them. */
+  playerSlug: string;
+}
+
 export interface PlayerCardData {
+  /** Set only on a pulled moment — see MomentPrint. */
+  moment?: MomentPrint | null;
   slug: string;
   name: string;
   tag: string;

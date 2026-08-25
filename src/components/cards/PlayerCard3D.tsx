@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
+import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
  *  glint layer — deterministic so SSR and client agree. */
@@ -82,7 +83,7 @@ const FOIL_PEAK_OPACITY = 0.85;
 const FOIL_GRADIENT =
   "linear-gradient(115deg, rgb(255 80 120 / 0.5) 0%, rgb(255 208 100 / 0.5) 20%, rgb(80 220 130 / 0.5) 40%, rgb(80 170 255 / 0.5) 60%, rgb(190 100 255 / 0.5) 80%, rgb(255 80 120 / 0.5) 100%)";
 
-export default function PlayerCard3D({
+function PlayerCardFace({
   card,
   interactive = true,
   reveal = false,
@@ -635,4 +636,42 @@ export default function PlayerCard3D({
       </div>
     </div>
   );
+}
+
+export default function PlayerCard3D(props: {
+  card: PlayerCardData;
+  interactive?: boolean;
+  reveal?: boolean;
+  bloom?: boolean;
+  forceFoil?: boolean;
+  className?: string;
+}) {
+  // A pulled moment is stored as a card copy so the shelf, trades, dust,
+  // the binder and the pack reveal all carry it without changes — but it is
+  // not a player card and must never be drawn as one. Branching in a
+  // wrapper rather than at each call site is what makes that true
+  // everywhere at once; it has to be a wrapper rather than an early return
+  // because PlayerCardFace's hooks cannot run conditionally.
+  const { moment } = props.card;
+  if (moment) {
+    return (
+      <MomentPlate
+        moment={{
+          id: moment.id,
+          weekStart: moment.weekStart,
+          slug: moment.playerSlug,
+          summonerName: moment.summonerName,
+          teamName: moment.teamName,
+          champion: moment.champion,
+          role: null,
+          triggerKey: "",
+          title: moment.title,
+          headline: moment.headline,
+          gameDate: null,
+        }}
+        season={props.card.season}
+      />
+    );
+  }
+  return <PlayerCardFace {...props} />;
 }
