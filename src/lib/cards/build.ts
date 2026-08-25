@@ -822,7 +822,15 @@ export function buildCard({
   // read: the five bars and the win rate ARE the rating. powerRanking is no
   // longer consulted here — it scores nine aggregate fields that between
   // them contain no objectives, turrets, plates, laning or damage share.
-  const score = cardScore(row.role_mode, values, pct(roleCohort(cohort, row), row, (r) => r.winrate_pct));
+  // Winrate goes in RAW, not as a percentile. It is already an absolute
+  // 0-100 number, and every other input is a percentile only because "500
+  // damage a minute" means nothing without a cohort to read it against.
+  // Ranking it as well made a 2-0 week worth LESS in a role where more
+  // players also went 2-0 — 95th percentile where two did, 77th where six
+  // did, for the identical achievement. That is why whole roles topped out
+  // ten OVR below others: the same result bought different credit
+  // depending on how crowded the winners' bracket happened to be.
+  const score = cardScore(row.role_mode, values, row.winrate_pct);
   const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
   // Form: the last five results, weighted toward the streak the player is
