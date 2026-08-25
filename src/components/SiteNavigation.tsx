@@ -4,9 +4,10 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { LeagueView } from "@/lib/league/context";
-import { leaguePath, type LeaguePage } from "@/lib/league/links";
+import { usePathname, useSearchParams } from "next/navigation";
+import LeagueBrandChooser from "./LeagueBrandChooser";
+import { leagueNavigationLinks } from "@/lib/league/navigation";
+import { resolveLeagueFromPath } from "@/lib/league/links";
 
 type DropdownLink = {
   href: string;
@@ -15,29 +16,23 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "premier" | "academy" | "info" | "premium";
+type DropdownKey = "play" | "premium" | "info";
 
-const PRIMARY_LINKS = [{ href: "/draft", label: "Draft" }] as const;
-
-const LEAGUE_PAGES = ["home", "players", "stats", "schedule", "teams", "captain"] as const satisfies readonly LeaguePage[];
-
-function leagueDropdownLinks(view: LeagueView): DropdownLink[] {
-  return LEAGUE_PAGES.map((page) => ({
-    href: leaguePath(page, view),
-    label: page === "home" ? "Home" : page[0].toUpperCase() + page.slice(1),
-  }));
-}
-
-const DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
-  { key: "premier", label: "Premier", links: leagueDropdownLinks("premier") },
-  { key: "academy", label: "Academy", links: leagueDropdownLinks("academy") },
+const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
+  {
+    key: "play",
+    label: "Play",
+    links: [
+      { href: "/draft", label: "Auction Draft" },
+      { href: "/drafter", label: "Match Drafter" },
+    ],
+  },
   {
     key: "premium",
     label: "Premium",
     links: [
       { href: "/betting", label: "Betting" },
       { href: "/bangers", label: "Banger Board" },
-      { href: "/drafter", label: "Drafter" },
       { href: "/cards", label: "Player Cards" },
       {
         href: "https://www.draftleague.lol/",
@@ -51,6 +46,7 @@ const DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly Dro
     key: "info",
     label: "Info",
     links: [
+      { href: "/info", label: "Info" },
       { href: "/signup", label: "Sign Up" },
       { href: "/league-links", label: "League Links" },
       { href: "/rulebook", label: "Rulebook" },
@@ -87,6 +83,9 @@ export default function SiteNavigation({
   showBroadcaster?: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const league = resolveLeagueFromPath(pathname ?? "/");
+  const directLinks = leagueNavigationLinks(league);
   const [open, setOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
   const menuId = useId();
@@ -146,6 +145,11 @@ export default function SiteNavigation({
           />
           <span className="type-display text-base sm:text-2xl">FPL</span>
         </Link>
+        <LeagueBrandChooser
+          pathname={pathname ?? "/"}
+          search={searchParams?.toString() ?? ""}
+          onNavigate={closeMenus}
+        />
 
         <nav
           id={menuId}
@@ -156,7 +160,7 @@ export default function SiteNavigation({
           } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
           style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
-          {PRIMARY_LINKS.map((link) => {
+          {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
             return (
               <Link
@@ -170,7 +174,7 @@ export default function SiteNavigation({
               </Link>
             );
           })}
-          {DROPDOWNS.map((dropdown) => {
+          {SHARED_DROPDOWNS.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;
             const active = dropdown.links.some((link) => isActive(pathname, link.href));
@@ -214,31 +218,37 @@ export default function SiteNavigation({
                         {dropdownLink.label}
                       </Link>
                     ))}
+                    {dropdown.key === "info" && (showAdmin || showBroadcaster) ? (
+                      <div className="mt-1 border-t border-line pt-1" aria-label="Staff">
+                        {showAdmin ? (
+                          <Link
+                            href="/admin"
+                            role="menuitem"
+                            aria-current={isActive(pathname, "/admin") ? "page" : undefined}
+                            onClick={closeMenus}
+                            className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                          >
+                            Admin
+                          </Link>
+                        ) : null}
+                        {showBroadcaster ? (
+                          <Link
+                            href="/broadcaster"
+                            role="menuitem"
+                            aria-current={isActive(pathname, "/broadcaster") ? "page" : undefined}
+                            onClick={closeMenus}
+                            className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                          >
+                            Broadcaster
+                          </Link>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
             );
           })}
-          {showAdmin && (
-            <Link
-              href="/admin"
-              aria-current={isActive(pathname, "/admin") ? "page" : undefined}
-              onClick={closeMenus}
-              className={topLinkClass(isActive(pathname, "/admin"))}
-            >
-              Admin
-            </Link>
-          )}
-          {showBroadcaster && (
-            <Link
-              href="/broadcaster"
-              aria-current={isActive(pathname, "/broadcaster") ? "page" : undefined}
-              onClick={closeMenus}
-              className={topLinkClass(isActive(pathname, "/broadcaster"))}
-            >
-              Broadcaster
-            </Link>
-          )}
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
