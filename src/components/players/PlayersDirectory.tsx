@@ -10,6 +10,11 @@ import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
 import { SEASON_OPTIONS } from "@/lib/players/seasonData";
 import LeaguePageToggle from "@/components/LeaguePageToggle";
 import { rankValue, ROLE_TONES } from "@/lib/players/roleDisplay";
+import type { LeagueKey } from "@/lib/players/identity";
+import type {
+  PlayerIdentityLinkRow,
+  VerifiedProfileOption,
+} from "@/components/players/PlayerIdentityAdmin";
 
 type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
@@ -27,6 +32,10 @@ type Props = {
   pageView?: "premier" | "academy";
   showFreeAgency?: boolean;
   showMinSort?: boolean;
+  identityLeague?: LeagueKey;
+  identitySeason?: string;
+  identityLinks?: PlayerIdentityLinkRow[];
+  identityProfiles?: VerifiedProfileOption[];
 };
 
 export function mergeScopedPlayerPoolRows(
@@ -50,6 +59,10 @@ export default function PlayersDirectory({
   pageView = "premier",
   showFreeAgency = true,
   showMinSort = true,
+  identityLeague,
+  identitySeason,
+  identityLinks = [],
+  identityProfiles = [],
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
@@ -304,7 +317,7 @@ export default function PlayersDirectory({
             <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">
               {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
             </button>
-            {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} /> : null}
+            {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} identityLeague={identityLeague} identitySeason={identitySeason} identityLinks={identityLinks} identityProfiles={identityProfiles} /> : null}
           </>
         ) : null}
       </div>

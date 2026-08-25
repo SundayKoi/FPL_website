@@ -5,6 +5,11 @@ import { adaptCanonicalPlayerPool } from "@/lib/players/freeAgency";
 import { primaryLinkedAccountUrl } from "@/lib/players/linkedAccounts";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
+import { fetchLeagueSeasons } from "@/lib/league/season";
+import type {
+  PlayerIdentityLinkRow,
+  VerifiedProfileOption,
+} from "@/components/players/PlayerIdentityAdmin";
 
 export default async function PlayersPage() {
   const supabase = await createServerSupabase();
@@ -12,6 +17,7 @@ export default async function PlayersPage() {
     { isAdmin, isOwner },
     { data: bids },
     { data: canonicalPlayers, error: canonicalPlayersError },
+    leagueSeasons,
   ] = await Promise.all([
     fetchStaffTier(supabase),
     supabase.from("free_agency_avg_bids").select("player_name, avg_bid"),
@@ -19,7 +25,32 @@ export default async function PlayersPage() {
       .from("player_pool")
       .select("id, season_key, display_name, role, rank, opgg_url")
       .eq("season_key", "season-5"),
+    fetchLeagueSeasons(supabase),
   ]);
+
+  const [profileResult, identityResult] = isAdmin && leagueSeasons.premier
+    ? await Promise.all([
+        supabase.from("profiles").select("id, display_name, discord_id"),
+        supabase
+          .from("player_identity_links")
+          .select("id, player_pool_id, profile_id, status")
+          .eq("league", "premier")
+          .eq("season", leagueSeasons.premier),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const identityProfiles: VerifiedProfileOption[] = (profileResult.data ?? [])
+    .map((profile) => ({
+      id: profile.id,
+      displayName: profile.display_name,
+      discordId: profile.discord_id,
+    }))
+    .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  const identityLinks: PlayerIdentityLinkRow[] = (identityResult.data ?? []).map((link) => ({
+    id: link.id,
+    playerPoolId: link.player_pool_id,
+    profileId: link.profile_id,
+    status: link.status,
+  }));
 
   const initialAvgBids = Object.fromEntries(
     (bids ?? []).map((bid) => [bid.player_name, bid.avg_bid]),
@@ -60,6 +91,10 @@ export default async function PlayersPage() {
       freeAgencyPlayers={FREE_AGENCY_PLAYER_SUMMARIES}
       emptyStateMessages={emptyStateMessages}
       pageView="premier"
+      identityLeague={isAdmin ? "premier" : undefined}
+      identitySeason={isAdmin ? leagueSeasons.premier : undefined}
+      identityLinks={isAdmin ? identityLinks : undefined}
+      identityProfiles={isAdmin ? identityProfiles : undefined}
     />
   );
 }

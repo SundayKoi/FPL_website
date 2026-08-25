@@ -3,6 +3,11 @@ import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchAcademyPlayers, mergeAcademyPlayers } from "@/lib/academy/playerSheet";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { fetchLeagueSeasons } from "@/lib/league/season";
+import type {
+  PlayerIdentityLinkRow,
+  VerifiedProfileOption,
+} from "@/components/players/PlayerIdentityAdmin";
 
 export default async function AcademyPlayersPage() {
   const supabase = await createServerSupabase();
@@ -11,6 +16,7 @@ export default async function AcademyPlayersPage() {
     draftData,
     sheetPlayers,
     { data: canonicalPlayers },
+    leagueSeasons,
   ] = await Promise.all([
     supabase.auth.getUser(),
     fetchAcademyDraftData(supabase),
@@ -19,6 +25,7 @@ export default async function AcademyPlayersPage() {
       .from("player_pool")
       .select("id, season_key, display_name, role, rank, opgg_url")
       .eq("season_key", "academy-1"),
+    fetchLeagueSeasons(supabase),
   ]);
 
   let isAdmin = false;
@@ -30,6 +37,30 @@ export default async function AcademyPlayersPage() {
       .single();
     isAdmin = profile?.is_admin ?? false;
   }
+
+  const [profileResult, identityResult] = isAdmin && leagueSeasons.academy
+    ? await Promise.all([
+        supabase.from("profiles").select("id, display_name, discord_id"),
+        supabase
+          .from("player_identity_links")
+          .select("id, player_pool_id, profile_id, status")
+          .eq("league", "academy")
+          .eq("season", leagueSeasons.academy),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const identityProfiles: VerifiedProfileOption[] = (profileResult.data ?? [])
+    .map((profile) => ({
+      id: profile.id,
+      displayName: profile.display_name,
+      discordId: profile.discord_id,
+    }))
+    .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  const identityLinks: PlayerIdentityLinkRow[] = (identityResult.data ?? []).map((link) => ({
+    id: link.id,
+    playerPoolId: link.player_pool_id,
+    profileId: link.profile_id,
+    status: link.status,
+  }));
 
   const players = draftData.draft ? mergeAcademyPlayers(draftData.players, sheetPlayers) : [];
   const canonicalAdminRows: PlayerPoolRow[] = (canonicalPlayers ?? []).map((player) => ({
@@ -47,6 +78,9 @@ export default async function AcademyPlayersPage() {
       canonicalPlayers={canonicalAdminRows}
       isAdmin={isAdmin}
       poolSeasonKey="academy-1"
+      identitySeason={isAdmin ? leagueSeasons.academy : undefined}
+      identityLinks={isAdmin ? identityLinks : undefined}
+      identityProfiles={isAdmin ? identityProfiles : undefined}
     />
   );
 }

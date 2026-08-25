@@ -4,12 +4,19 @@ import type { RoleSection } from "@/lib/players/seasonData";
 import type { AcademySheetPlayer } from "@/lib/academy/playerSheet";
 import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { academyOpggUrlForPlayer, individualOpggUrl } from "@/lib/academy/playerSheet";
+import type {
+  PlayerIdentityLinkRow,
+  VerifiedProfileOption,
+} from "@/components/players/PlayerIdentityAdmin";
 
 type Props = {
   players: AcademySheetPlayer[];
   canonicalPlayers?: PlayerPoolRow[];
   isAdmin?: boolean;
   poolSeasonKey?: "academy-1";
+  identitySeason?: string;
+  identityLinks?: PlayerIdentityLinkRow[];
+  identityProfiles?: VerifiedProfileOption[];
 };
 
 export default function AcademyPlayersDirectory({
@@ -17,6 +24,9 @@ export default function AcademyPlayersDirectory({
   canonicalPlayers = [],
   isAdmin = false,
   poolSeasonKey = "academy-1",
+  identitySeason,
+  identityLinks = [],
+  identityProfiles = [],
 }: Props) {
   const roleKey = (role: string) => {
     const normalized = role.toLowerCase();
@@ -52,6 +62,10 @@ export default function AcademyPlayersDirectory({
       isAdmin={isAdmin}
       pageView="academy"
       poolSeasonKey={poolSeasonKey}
+      identityLeague={identitySeason ? "academy" : undefined}
+      identitySeason={identitySeason}
+      identityLinks={identityLinks}
+      identityProfiles={identityProfiles}
       showFreeAgency={false}
       showMinSort={false}
       emptyStateMessages={{ "season-5": "Academy player data is unavailable right now." }}

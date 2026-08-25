@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RoleSection, SeasonKey } from "@/lib/players/seasonData";
+import type { LeagueKey } from "@/lib/players/identity";
+import PlayerIdentityAdmin, {
+  type PlayerIdentityLinkRow,
+  type VerifiedProfileOption,
+} from "@/components/players/PlayerIdentityAdmin";
 
 export type PlayerPoolRow = {
   id: string;
@@ -13,10 +18,26 @@ export type PlayerPoolRow = {
   opgg_url: string | null;
 };
 
-type Props = { seasonKey: SeasonKey; players: PlayerPoolRow[]; onPlayersChange: (players: PlayerPoolRow[]) => void };
+type Props = {
+  seasonKey: SeasonKey;
+  players: PlayerPoolRow[];
+  onPlayersChange: (players: PlayerPoolRow[]) => void;
+  identityLeague?: LeagueKey;
+  identitySeason?: string;
+  identityLinks?: PlayerIdentityLinkRow[];
+  identityProfiles?: VerifiedProfileOption[];
+};
 const roles: RoleSection["key"][] = ["top", "jungle", "mid", "adc", "support"];
 
-export default function PlayerPoolAdmin({ seasonKey, players, onPlayersChange }: Props) {
+export default function PlayerPoolAdmin({
+  seasonKey,
+  players,
+  onPlayersChange,
+  identityLeague,
+  identitySeason,
+  identityLinks = [],
+  identityProfiles = [],
+}: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ display_name: "", role: "top" as RoleSection["key"], rank: "", opgg_url: "" });
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +78,6 @@ export default function PlayerPoolAdmin({ seasonKey, players, onPlayersChange }:
       <input aria-label="Player OP.GG URL" value={form.opgg_url} onChange={(e) => setForm({ ...form, opgg_url: e.target.value })} placeholder="https://op.gg/..." className="rounded border border-line bg-navy px-3 py-2 text-sm text-white" />
       <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">{editingId ? "Save" : "Add"}</button>{editingId ? <button type="button" onClick={reset} className="rounded border border-line px-3 py-2 text-sm text-steel">Cancel</button> : null}</div>
     </div>
-    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm text-white"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-coral underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></li>)}</ul>
+    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="py-2 text-sm text-white"><div className="flex flex-wrap items-center justify-between gap-3"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-coral underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></div>{identityLeague && identitySeason ? <PlayerIdentityAdmin playerPoolId={player.id} league={identityLeague} season={identitySeason} currentLink={identityLinks.find((link) => link.playerPoolId === player.id) ?? null} profiles={identityProfiles} /> : null}</li>)}</ul>
   </section>;
 }

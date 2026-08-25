@@ -1,9 +1,15 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PlayerPoolAdmin, { type PlayerPoolRow } from "./PlayerPoolAdmin";
 import { createClient } from "@/lib/supabase/client";
+import { assignPlayerIdentity } from "@/lib/players/identityActions";
 
 vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
+vi.mock("@/lib/players/identityActions", () => ({
+  assignPlayerIdentity: vi.fn(),
+  revokePlayerIdentity: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 afterEach(cleanup);
 
 const player: PlayerPoolRow = {
@@ -73,6 +79,37 @@ describe("PlayerPoolAdmin", () => {
     await waitFor(() =>
       expect(insert).toHaveBeenCalledWith(
         expect.objectContaining({ season_key: "academy-1" }),
+      ),
+    );
+  });
+
+  it("renders identity administration beside each existing canonical player", async () => {
+    vi.mocked(assignPlayerIdentity).mockResolvedValue({ ok: true });
+    render(
+      <PlayerPoolAdmin
+        seasonKey="season-5"
+        players={[player]}
+        onPlayersChange={vi.fn()}
+        identityLeague="premier"
+        identitySeason="S5"
+        identityLinks={[]}
+        identityProfiles={[
+          { id: "profile-2", displayName: "Verified Bravo", discordId: "222222" },
+        ]}
+      />,
+    );
+
+    const playerRow = screen.getByText("Canny#rip").closest("li");
+    expect(playerRow).toBeTruthy();
+    fireEvent.change(
+      within(playerRow as HTMLElement).getByRole("combobox", { name: /verified discord profile/i }),
+      { target: { value: "profile-2" } },
+    );
+    fireEvent.click(within(playerRow as HTMLElement).getByRole("button", { name: /link profile/i }));
+
+    await waitFor(() =>
+      expect(assignPlayerIdentity).toHaveBeenCalledWith(
+        expect.objectContaining({ playerPoolId: "player-1", profileId: "profile-2" }),
       ),
     );
   });

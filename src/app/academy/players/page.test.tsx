@@ -23,12 +23,18 @@ vi.mock("@/components/academy/AcademyPlayersDirectory", () => ({
     canonicalPlayers?: Array<{ display_name: string }>;
     isAdmin?: boolean;
     poolSeasonKey?: string;
+    identitySeason?: string;
+    identityLinks?: Array<{ id: string; profileId: string; status: string }>;
+    identityProfiles?: Array<{ id: string; displayName: string; discordId: string | null }>;
   }) => {
     directoryProps(props);
     return (
       <div>
         <p>{props.poolSeasonKey}</p>
         <p>{props.canonicalPlayers?.map((player) => player.display_name).join(",") ?? ""}</p>
+        <p>{props.identitySeason}</p>
+        <p>{props.identityLinks?.map((link) => link.profileId).join(",") ?? ""}</p>
+        <p>{props.identityProfiles?.map((profile) => profile.displayName).join(",") ?? ""}</p>
         {props.isAdmin ? <button type="button">Edit Player Pool</button> : null}
       </div>
     );
@@ -71,7 +77,17 @@ describe("AcademyPlayersPage", () => {
     const profileQuery = query({ data: { is_admin: true }, error: null });
     const from = vi.fn((table: string) => {
       if (table === "player_pool") return playerPoolQuery;
-      if (table === "profiles") return profileQuery;
+      if (table === "league_settings") {
+        return query({ data: { current_season: "S5", academy_season: "A1" }, error: null });
+      }
+      if (table === "player_identity_links") return query({ data: [], error: null });
+      if (table === "profiles") {
+        return {
+          select: (columns: string) => columns === "is_admin"
+            ? profileQuery
+            : query({ data: [], error: null }),
+        };
+      }
       return query({ data: null, error: null });
     });
 
@@ -117,6 +133,10 @@ describe("AcademyPlayersPage", () => {
         });
       }
 
+      if (table === "league_settings") {
+        return query({ data: { current_season: "S5", academy_season: "A1" }, error: null });
+      }
+
       return query({ data: null, error: null });
     });
 
@@ -130,6 +150,85 @@ describe("AcademyPlayersPage", () => {
     render(await AcademyPlayersPage());
 
     expect(screen.queryByRole("button", { name: "Edit Player Pool" })).toBeNull();
-    expect(directoryProps).toHaveBeenCalledWith(expect.objectContaining({ isAdmin: false }));
+    expect(from).not.toHaveBeenCalledWith("player_identity_links");
+    expect(directoryProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isAdmin: false,
+        identitySeason: undefined,
+        identityLinks: undefined,
+        identityProfiles: undefined,
+      }),
+    );
+  });
+
+  it("passes active Academy identity data to the admin editor", async () => {
+    const playerPoolQuery = query({
+      data: [
+        {
+          id: "academy-player-1",
+          season_key: "academy-1",
+          display_name: "Academy Canon",
+          role: "top",
+          rank: "E1",
+          opgg_url: "https://op.gg/academy-canon",
+        },
+      ],
+      error: null,
+    });
+    const identityQuery = query({
+      data: [
+        {
+          id: "academy-link-1",
+          player_pool_id: "academy-player-1",
+          profile_id: "profile-2",
+          status: "pending",
+        },
+      ],
+      error: null,
+    });
+    const from = vi.fn((table: string) => {
+      if (table === "player_pool") return playerPoolQuery;
+      if (table === "league_settings") {
+        return query({ data: { current_season: "S5", academy_season: "A2" }, error: null });
+      }
+      if (table === "player_identity_links") return identityQuery;
+      if (table === "profiles") {
+        return {
+          select: (columns: string) => {
+            if (columns === "is_admin") {
+              return query({ data: { is_admin: true }, error: null });
+            }
+            return query({
+              data: [{ id: "profile-2", display_name: "Academy Verified", discord_id: "333333" }],
+              error: null,
+            });
+          },
+        };
+      }
+      return query({ data: null, error: null });
+    });
+
+    createServerSupabase.mockResolvedValue({
+      auth: { getUser: async () => ({ data: { user: { id: "admin-1" } } }) },
+      from,
+    });
+    fetchAcademyDraftData.mockResolvedValue({ draft: null, players: [], teams: [], profiles: [] });
+    fetchAcademyPlayers.mockResolvedValue([]);
+
+    render(await AcademyPlayersPage());
+
+    expect(identityQuery.eq).toHaveBeenCalledWith("league", "academy");
+    expect(identityQuery.eq).toHaveBeenCalledWith("season", "A2");
+    expect(directoryProps).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identitySeason: "A2",
+        identityLinks: [
+          expect.objectContaining({ id: "academy-link-1", profileId: "profile-2", status: "pending" }),
+        ],
+        identityProfiles: [
+          { id: "profile-2", displayName: "Academy Verified", discordId: "333333" },
+        ],
+      }),
+    );
   });
 });
