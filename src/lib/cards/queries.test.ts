@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { WEEKLY_STAT_COLUMNS } from "@/lib/stats/weekly";
 import type { PlayerCardData } from "./build";
-import { backfillTeamIdentity, fetchWeekCards } from "./queries";
+import { backfillTeamIdentity, fetchCardEditionWeeks, fetchWeekCards } from "./queries";
 
 /** A frozen copy as it sits in card_inventory: whatever the card looked like
  *  the moment it was pulled. Older copies predate both the badge lookup and
@@ -203,5 +203,96 @@ describe("fetchWeekCards", () => {
     );
     const missing = WEEKLY_STAT_COLUMNS.filter((column) => !rawStatsColumns.has(column));
     expect(missing).toEqual([]);
+  });
+});
+
+/** A Supabase stand-in for card_editions that pages: `pages` is handed out
+ *  one `.range()` call at a time, so a test can prove the reader keeps
+ *  going past the first 1000-row response. */
+function editionsSupabase(pages: { edition_week: string }[][], error: { message: string } | null = null) {
+  const ranges: [number, number][] = [];
+  const orders: string[] = [];
+  const client = {
+    from: () => {
+      const chain: Record<string, unknown> = {};
+      chain.select = () => chain;
+      chain.eq = () => chain;
+      chain.order = (column: string) => {
+        orders.push(column);
+        return chain;
+      };
+      chain.range = (from: number, to: number) => {
+        ranges.push([from, to]);
+        const page = pages[ranges.length - 1] ?? [];
+        return Promise.resolve({ data: error ? null : page, error });
+      };
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+  return { client, ranges, orders };
+}
+
+describe("fetchCardEditionWeeks", () => {
+  it("keeps reading past the first page", async () => {
+    // PostgREST caps an unpaged select at max_rows and says nothing about
+    // it. At ~50 cards a week the archive crosses 1000 rows after about
+    // twenty weeks, and because the order is newest-first the rows that
+    // fall off the end are the OLDEST weeks — they would simply stop
+    // appearing in the pack shop with no error to explain it.
+    const full = Array.from({ length: 3 }, () => ({ edition_week: "2026-08-24" }));
+    const { client } = editionsSupabase([full, [{ edition_week: "2026-08-17" }]]);
+
+    const weeks = await fetchCardEditionWeeks(client, "S5", { pageSize: 3 });
+
+    expect(weeks).toEqual(["2026-08-24", "2026-08-17"]);
+  });
+
+  it("stops on the first short page rather than requesting forever", async () => {
+    const { client, ranges } = editionsSupabase([[{ edition_week: "2026-08-24" }]]);
+
+    await fetchCardEditionWeeks(client, "S5", { pageSize: 3 });
+
+    expect(ranges).toEqual([[0, 2]]);
+  });
+
+  it("orders by slug as well as week, so pages cannot skip a row", async () => {
+    // Thousands of rows share an edition_week. Paging on a non-unique sort
+    // key lets the database repeat a row on one page and skip another; the
+    // Set absorbs a repeat, but a skip could drop a whole week.
+    const { client, orders } = editionsSupabase([[]]);
+
+    await fetchCardEditionWeeks(client, "S5");
+
+    expect(orders).toEqual(["edition_week", "slug"]);
+  });
+
+  it("returns nothing when the table is not there yet", async () => {
+    const { client } = editionsSupabase([[]], { message: "relation does not exist" });
+
+    expect(await fetchCardEditionWeeks(client, "S5")).toEqual([]);
+  });
+
+  it("keeps the weeks it already collected when a later page fails", async () => {
+    const pages = [[{ edition_week: "2026-08-24" }, { edition_week: "2026-08-24" }]];
+    let call = 0;
+    const client = {
+      from: () => {
+        const chain: Record<string, unknown> = {};
+        chain.select = () => chain;
+        chain.eq = () => chain;
+        chain.order = () => chain;
+        chain.range = () => {
+          call += 1;
+          return call === 1
+            ? Promise.resolve({ data: pages[0], error: null })
+            : Promise.resolve({ data: null, error: { message: "timeout" } });
+        };
+        return chain;
+      },
+    } as unknown as SupabaseClient;
+
+    // Losing the whole list because page two timed out would empty the pack
+    // shop's week picker; a partial list still sells packs.
+    expect(await fetchCardEditionWeeks(client, "S5", { pageSize: 2 })).toEqual(["2026-08-24"]);
   });
 });
