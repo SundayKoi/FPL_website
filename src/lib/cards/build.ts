@@ -737,7 +737,24 @@ function measureValues(
     ]),
     damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
     economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
-    laning: mean([pct(rc, row, (r) => r.avg_cs_at_10), pct(rc, row, (r) => r.avg_gold_at_10)]),
+    // Laning is farm lead AND beating the player in front of you. CS and
+    // gold at 10 measure the first; solo kills and first bloods measure
+    // the second, and nothing on the card measured it at all before. A
+    // solo laner who wins their lane by killing rather than out-farming
+    // used to read as an average laner.
+    //
+    // Farm keeps two thirds of the weight and duelling one, so this
+    // sharpens the bar rather than turning it into a second Combat.
+    // first_blood_involvements is a total for the window, so it divides by
+    // games — there is one first blood per game however long it runs.
+    laning: mean([
+      pct(rc, row, (r) => r.avg_cs_at_10),
+      pct(rc, row, (r) => r.avg_gold_at_10),
+      mean([
+        pct(rc, row, (r) => perMinute(r, (x) => x.avg_solo_kills)),
+        pct(rc, row, (r) => (r.games > 0 ? r.first_blood_involvements / r.games : 0)),
+      ]),
+    ]),
     // Two halves, because vision_score alone cannot tell them apart.
     // Riot's score rewards having wards UP, so a player who farms uptime
     // and one who hunts the enemy's wards can land on the same number.
