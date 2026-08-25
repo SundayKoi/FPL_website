@@ -92,10 +92,10 @@ Authorization has several independent dimensions:
   while owners inherit broadcaster workspace access in the application gate.
 - `league_team_captains` maps a profile to a league team and season.
 - `player_identity_links` maps one canonical `player_pool` row to one signed-in
-  `profiles` row for a league season. An approved, currently rostered link is
-  the normal-player capability for private My Team data; it does not replace a
-  captain assignment. Links are stable foreign-key records, not Discord,
-  Riot, or display-name matches.
+  `profiles` row for a league season. An approved link whose stored team is in
+  the active featured-league team set is the normal-player capability for
+  private My Team data; it does not replace a captain assignment. Links are
+  stable foreign-key records, not Discord, Riot, or display-name matches.
 - Database helper functions such as `is_admin()`, `is_owner()`,
   `is_captain()`, and `is_captain_of(...)` are used by policies and RPCs.
 - Identity helpers keep public and private paths separate:
@@ -111,9 +111,9 @@ Authorization has several independent dimensions:
   no identity permission. The decision trigger limits a non-admin captain to
   the pending-to-approved transition and stamps that captain as the decider.
 - `match_codes` remains private by RLS: a caller must be an admin, a captain
-  of a fixture team, or an approved member of either fixture team. A signed-in
-  role, navigation visibility, or a spectator draft URL alone never grants
-  tournament-code or draft-mutation access.
+  of a fixture team, or have an approved identity link stored for either
+  fixture team. A signed-in role, navigation visibility, or a spectator draft
+  URL alone never grants tournament-code or draft-mutation access.
 - Betting access checks Discord guild membership and roles in
   `src/lib/betting/access.ts`; staff and owner checks are separate from normal
   member access.
@@ -178,9 +178,12 @@ normal player access. It has unique player/league/season and
 profile/league/season keys, so a player or profile cannot be linked twice in
 one league season. A link is `pending` or `approved` and records the source
 (`admin`, `team`, or `card`), requester, decision, and timestamps. Deleting a
-link immediately removes the identity capability; an approved link without an
-active roster resolves to an unrostered state rather than granting private
-team access.
+link immediately removes the identity capability. An approved link without a
+stored team, or whose stored team is not in the active featured-league team
+set, resolves to an unrostered state rather than loading a My Team dashboard.
+Self-claims and captain decisions prove the exact current roster relationship,
+but the current My Team and match-code read paths do not revalidate that roster
+relationship after approval.
 
 There are three supported link lifecycles:
 

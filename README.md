@@ -27,18 +27,20 @@ source-file map intended for agents picking up work.
   public draft views.
 - **Signed-in users** authenticate through Supabase Auth with Discord in
   production. Local development also exposes the email/password form.
-- **Approved rostered players** use the paired `/my-team` and
-  `/academy/my-team` dashboards for their current team’s schedule, roster,
-  private tournament codes, draft viewing, and opponent scouting. A player
-  links their signed-in profile by claiming an exact public roster spot, then
-  waits for captain or admin approval.
+- **Approved player identities** whose stored league team is active use the
+  paired `/my-team` and `/academy/my-team` dashboards for that team’s
+  schedule, roster, private tournament codes, draft viewing, and opponent
+  scouting. A player links their signed-in profile by claiming an exact public
+  roster spot, then waits for captain or admin approval.
 - **Captains** are linked to league teams for a season independently of player
   identity. They retain My Team access and captain-only result reporting for
   those teams, and can approve or reject claims for their current roster.
 - **Admins and owners** manage league data, drafts, fixtures, staff, and
   betting operations according to the database policies and domain gates.
-  They can link a canonical player to an existing signed-in profile, manage
-  all identity claims, and select an active team from My Team’s admin tools.
+- **Admins** can link a canonical player to an existing signed-in profile,
+  manage all identity claims, and select an active team from My Team’s admin
+  tools. Owners retain only the owner capabilities granted by the applicable
+  existing route and database policy.
 - **Broadcasters** can open the private broadcaster workspace and maintain the
   Premier/Academy featured-matchup presentation; owners inherit broadcaster
   workspace access, while admins do not.
