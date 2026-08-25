@@ -24,6 +24,15 @@ export interface CardGameRow {
   assists: number | null;
   cs: number | null;
   total_damage_to_champions: number | null;
+  /** Objective and turret work — only on raw_stats, never on
+   *  stats_player_agg, so these ride the per-game rows both build paths
+   *  already fetch. */
+  dragon_kills?: number | null;
+  baron_kills?: number | null;
+  objective_damage?: number | null;
+  turret_kills?: number | null;
+  turret_damage?: number | null;
+  turret_plates_destroyed?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */
