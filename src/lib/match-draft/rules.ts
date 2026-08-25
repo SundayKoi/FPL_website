@@ -1,6 +1,6 @@
 import { stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
-import type { DraftStep, MatchDraftAction, MatchDraftLink } from "./types";
+import type { DraftStep, MatchDraftAction, MatchDraftLink, DraftSide} from "./types";
 
 export const DRAFT_TURN_SECONDS = 30;
 
@@ -135,4 +135,46 @@ export function nextEmptyStepIndex(actions: Pick<MatchDraftAction, "stepIndex">[
     if (!taken.has(step.index)) return step.index;
   }
   return null;
+}
+
+/** Where one champion fell in the draft. */
+export interface PickOrderEntry {
+  /** This side's own pick number, 1-5 — "our third pick". */
+  pick: number;
+  /** Position in the whole draft, 0-19 — what tells you a pick was
+   *  answered immediately rather than three turns later. */
+  step: number;
+}
+
+/**
+ * Champion -> where that side picked it.
+ *
+ * Pick order is recorded on every action and always has been, but it stops
+ * being VISIBLE the moment captains confirm roles: both the board and the
+ * match summary re-order the column top-to-support and relabel each slot
+ * with its role, so "which pick was this" leaves the screen. Nothing is
+ * lost in the data — this is the lookup that puts it back on it.
+ *
+ * Keyed by champion because that is what the confirmed role order stores:
+ * `positions` is five champion names, with no step index attached. A
+ * champion cannot be picked twice by one side in a game, so the key is
+ * unique where it is used.
+ *
+ * Prefers the action's own `slot`, which the draft steps define as the
+ * per-side pick number, and falls back to draft order for a row that
+ * predates it. Skipped picks carry no champion and are simply absent.
+ */
+export function pickOrderBySide(actions: MatchDraftAction[], side: DraftSide): Map<string, PickOrderEntry> {
+  const picks = actions
+    .filter((action) => action.kind === "pick" && action.side === side && action.champion)
+    .sort((a, b) => (a.stepIndex ?? 0) - (b.stepIndex ?? 0));
+
+  const order = new Map<string, PickOrderEntry>();
+  picks.forEach((action, index) => {
+    order.set(normalizeChampionName(action.champion!), {
+      pick: action.slot ?? index + 1,
+      step: action.stepIndex ?? index,
+    });
+  });
+  return order;
 }

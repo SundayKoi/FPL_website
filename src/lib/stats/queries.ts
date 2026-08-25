@@ -23,24 +23,71 @@ import type {
   TeamAggRow,
 } from "./types";
 
+/**
+ * Every row of a query, in pages.
+ *
+ * PostgREST caps a response at max_rows — 1000 here — and says nothing when
+ * it does. An unpaged select therefore returns a plausible-looking prefix,
+ * which is how a leaderboard quietly loses half a season and how the pack
+ * shop quietly lost its oldest edition weeks. Every fetcher in this file
+ * reads "all of X", so every one of them needs this.
+ *
+ * Takes a thunk that BUILDS the query for a page rather than a query to
+ * page over: Supabase's PostgrestFilterBuilder generics do not survive
+ * being threaded through a user-defined generic function (tsc reports
+ * "excessively deep"), which is the same reason the .eq() chains below are
+ * written out per-fetcher. Keeping the builder inside the caller keeps its
+ * types intact and confines the cast to one place.
+ *
+ * The caller must order by something TOTAL. Paging on a non-unique key lets
+ * the database repeat a row on one page and skip another, and a skipped row
+ * is invisible — the failure this function exists to prevent.
+ */
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 100;
+
+async function fetchAllPages<T>(
+  buildPage: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE_SIZE;
+    const { data, error } = await buildPage(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data as T[]) ?? [];
+    rows.push(...batch);
+    // A short page is the last page. Equal-to-PAGE_SIZE has to try again:
+    // a result that exactly fills the window is indistinguishable from one
+    // that was truncated by it.
+    if (batch.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 export async function fetchPlayerKeysForTeams(teamNames: string[]): Promise<Set<string>> {
   if (!teamNames.length) return new Set();
   const supabase = createClient();
-  const { data, error } = await supabase.from("raw_stats").select("summoner_name, tag").in("team_name", teamNames);
-  if (error) throw error;
-  return new Set(((data as { summoner_name: string; tag: string }[]) ?? []).map((row) => `${row.summoner_name}#${row.tag}`.toLowerCase()));
+  const rows = await fetchAllPages<{ summoner_name: string; tag: string }>((from, to) =>
+    supabase.from("raw_stats").select("id, summoner_name, tag").in("team_name", teamNames).order("id").range(from, to),
+  );
+  return new Set(rows.map((row) => `${row.summoner_name}#${row.tag}`.toLowerCase()));
 }
 
 export async function fetchChampionAggForTeams(season?: string, phase?: string, teamNames?: string[]): Promise<ChampionAggRow[]> {
   if (!teamNames) return fetchChampionAgg(season, phase);
   if (!teamNames.length) return [];
   const supabase = createClient();
-  let query = supabase.from("raw_stats").select("champion, season, season_phase, match_id, win, kills, assists, deaths, ban_1, ban_2, ban_3, ban_4, ban_5").in("team_name", teamNames);
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  const { data, error } = await query;
-  if (error) throw error;
-  const rows = (data as Array<{ champion: string | null; season: string; season_phase: string; match_id: string; win: boolean; kills: number; assists: number; deaths: number; ban_1: string | null; ban_2: string | null; ban_3: string | null; ban_4: string | null; ban_5: string | null }>) ?? [];
+  const rows = await fetchAllPages<{ champion: string | null; season: string; season_phase: string; match_id: string; win: boolean; kills: number; assists: number; deaths: number; ban_1: string | null; ban_2: string | null; ban_3: string | null; ban_4: string | null; ban_5: string | null }>((from, to) => {
+    let query = supabase
+      .from("raw_stats")
+      .select("id, champion, season, season_phase, match_id, win, kills, assists, deaths, ban_1, ban_2, ban_3, ban_4, ban_5")
+      .in("team_name", teamNames)
+      .order("id")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    return query;
+  });
   const groups = new Map<string, { champion: string; season: string; season_phase: string; picks: number; wins: number; kills: number; assists: number; deaths: number; bans: Set<string> }>();
   const games = new Map<string, Set<string>>();
   for (const row of rows) {
@@ -69,56 +116,81 @@ export async function fetchChampionAggForTeams(season?: string, phase?: string, 
 
 export async function fetchPlayerAgg(season?: string, phase?: string): Promise<PlayerAggRow[]> {
   const supabase = createClient();
-  let query = supabase.from("stats_player_agg").select("*");
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as PlayerAggRow[];
+  return fetchAllPages<PlayerAggRow>((from, to) => {
+    let query = supabase
+      .from("stats_player_agg")
+      .select("*")
+      // The view's own primary key, which is what makes the pages disjoint.
+      .order("summoner_name").order("tag").order("season").order("season_phase")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    return query;
+  });
 }
 
 export async function fetchTeamAgg(season?: string, phase?: string, teamNames?: string[]): Promise<TeamAggRow[]> {
   if (teamNames && teamNames.length === 0) return [];
   const supabase = createClient();
-  let query = supabase.from("stats_team_agg").select("*");
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  if (teamNames?.length) query = query.in("team_name", teamNames);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as TeamAggRow[];
+  return fetchAllPages<TeamAggRow>((from, to) => {
+    let query = supabase
+      .from("stats_team_agg")
+      .select("*")
+      .order("team_name").order("season").order("season_phase")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    if (teamNames?.length) query = query.in("team_name", teamNames);
+    return query;
+  });
 }
 
 export async function fetchChampionAgg(season?: string, phase?: string): Promise<ChampionAggRow[]> {
   const supabase = createClient();
-  let query = supabase.from("stats_champion_agg").select("*");
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as ChampionAggRow[];
+  return fetchAllPages<ChampionAggRow>((from, to) => {
+    let query = supabase
+      .from("stats_champion_agg")
+      .select("*")
+      .order("champion").order("season").order("season_phase")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    return query;
+  });
 }
 
 export async function fetchRecords(season?: string, phase?: string, teamNames?: string[]): Promise<RecordRow[]> {
   if (teamNames && teamNames.length === 0) return [];
   const supabase = createClient();
-  let query = supabase.from("stats_records").select("*");
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  if (teamNames?.length) query = query.in("team_name", teamNames);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as RecordRow[];
+  return fetchAllPages<RecordRow>((from, to) => {
+    let query = supabase
+      .from("stats_records")
+      .select("*")
+      // RecordsTab re-sorts by value, so this ordering is for paging only
+      // and changes nothing on screen.
+      .order("category").order("match_id").order("summoner_name").order("tag")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    if (teamNames?.length) query = query.in("team_name", teamNames);
+    return query;
+  });
 }
 
 export async function fetchGameLog(season?: string, phase?: string): Promise<GameLogRow[]> {
   const supabase = createClient();
-  let query = supabase.from("stats_game_log").select("*");
-  if (season) query = query.eq("season", season);
-  if (phase && phase !== "All") query = query.eq("season_phase", phase);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as GameLogRow[];
+  return fetchAllPages<GameLogRow>((from, to) => {
+    let query = supabase
+      .from("stats_game_log")
+      .select("*")
+      // TimelineTab re-sorts by date; match_id is unique per game and makes
+      // the pages disjoint.
+      .order("match_id")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    return query;
+  });
 }
 
 /**
@@ -162,30 +234,27 @@ export async function fetchHeadToHeadRows(
   teamNames?: string[],
 ): Promise<HeadToHeadRow[]> {
   const supabase = createClient();
-  const rows: HeadToHeadRow[] = [];
-  const pageSize = 1000;
-  for (let page = 0; page < 100; page += 1) {
+  return fetchAllPages<HeadToHeadRow>((from, to) => {
     let query = supabase
       .from("raw_stats")
       .select("id, match_id, team_name, summoner_name, win")
       .order("id")
-      .range(page * pageSize, page * pageSize + pageSize - 1);
+      .range(from, to);
     if (season) query = query.eq("season", season);
     if (phase && phase !== "All") query = query.eq("season_phase", phase);
     if (teamNames?.length) query = query.in("team_name", teamNames);
-    const { data, error } = await query;
-    if (error) throw error;
-    const batch = (data as HeadToHeadRow[]) ?? [];
-    rows.push(...batch);
-    if (batch.length < pageSize) break;
-  }
-  return rows;
+    return query;
+  });
 }
 
 export async function fetchSeasons(): Promise<string[]> {
   const supabase = createClient();
-  const { data, error } = await supabase.from("stats_game_log").select("season");
-  if (error) throw error;
-  const unique = Array.from(new Set((data ?? []).map((row) => row.season as string)));
+  // One row per GAME for a handful of distinct seasons, so this crosses
+  // max_rows long before the league runs out of seasons — and a truncated
+  // read here drops a whole season out of the picker with no error.
+  const rows = await fetchAllPages<{ season: string; match_id: string }>((from, to) =>
+    supabase.from("stats_game_log").select("season, match_id").order("match_id").range(from, to),
+  );
+  const unique = Array.from(new Set(rows.map((row) => row.season)));
   return unique.sort(compareSeasonsNewestFirst);
 }

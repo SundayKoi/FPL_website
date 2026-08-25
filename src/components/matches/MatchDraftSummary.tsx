@@ -1,5 +1,5 @@
 import { championIconUrl } from "@/lib/match-draft/champions";
-import { actionForStep, LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
+import { actionForStep, LCS_DRAFT_STEPS, normalizeChampionName, pickOrderBySide } from "@/lib/match-draft/rules";
 import type { DraftSide, MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 
 const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support"] as const;
@@ -32,16 +32,32 @@ export function ChampionIcon({ name, banned = false, size = "h-9 w-9" }: { name:
   );
 }
 
-export function sideRows(game: DraftSummaryGame, side: DraftSide): { bans: (string | null)[]; picks: (string | null)[]; confirmed: boolean } {
+export function sideRows(
+  game: DraftSummaryGame,
+  side: DraftSide,
+): {
+  bans: (string | null)[];
+  picks: (string | null)[];
+  /** Per-side pick number for each entry of `picks`, aligned by index.
+   *  Null where a pick was skipped or the champion is unknown. */
+  pickNumbers: (number | null)[];
+  confirmed: boolean;
+} {
   const steps = LCS_DRAFT_STEPS.filter((step) => step.side === side);
   const forKind = (kind: "pick" | "ban") =>
     steps.filter((step) => step.kind === kind).map((step) => actionForStep(game.actions, step)?.champion ?? null);
   const confirmedOrder = game.positions?.[side] ?? null;
+  // Confirmed role order (top→support) when the captains set it, draft
+  // order otherwise.
+  const picks = confirmedOrder ?? forKind("pick");
+  // Once roles are confirmed the row is no longer in draft order, so the
+  // pick number has to travel WITH each champion — reading it off the
+  // index would then be wrong for every reordered game.
+  const order = pickOrderBySide(game.actions, side);
   return {
     bans: forKind("ban"),
-    // Confirmed role order (top→support) when the captains set it, draft
-    // order otherwise.
-    picks: confirmedOrder ?? forKind("pick"),
+    picks,
+    pickNumbers: picks.map((champion) => (champion ? order.get(normalizeChampionName(champion))?.pick ?? null : null)),
     confirmed: confirmedOrder !== null,
   };
 }
@@ -69,7 +85,7 @@ export default function MatchDraftSummary({ games }: { games: DraftSummaryGame[]
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             {(["blue", "red"] as DraftSide[]).map((side) => {
-              const { bans, picks, confirmed } = sideRows(game, side);
+              const { bans, picks, pickNumbers, confirmed } = sideRows(game, side);
               const teamName = side === "blue" ? game.blueTeamName : game.redTeamName;
               return (
                 <div key={side} className="rounded border border-line/60 bg-navy/40 p-3">
@@ -90,9 +106,29 @@ export default function MatchDraftSummary({ games }: { games: DraftSummaryGame[]
                   </div>
                   <div className="mt-2 flex flex-wrap items-start gap-1.5">
                     {picks.map((champion, index) => (
-                      <span key={`pick-${index}`} className="flex flex-col items-center gap-0.5">
+                      <span key={`pick-${index}`} className="relative flex flex-col items-center gap-0.5">
                         <ChampionIcon name={champion} />
-                        {confirmed && <span className="text-[9px] uppercase tracking-wide text-steel">{ROLE_LABELS[index]}</span>}
+                        {/* The pick number, always. Before roles are
+                            confirmed the row IS draft order and the badge
+                            just restates it; after, the row is top-to-support
+                            and this is the only thing left saying when the
+                            champion was taken. */}
+                        {pickNumbers[index] ? (
+                          <span
+                            aria-hidden
+                            className="absolute -left-1 -top-1 rounded-full border border-line/70 bg-navy px-1 text-[8px] font-bold leading-4 text-steel"
+                          >
+                            {pickNumbers[index]}
+                          </span>
+                        ) : null}
+                        {confirmed && (
+                          <span className="text-[9px] uppercase tracking-wide text-steel">
+                            {ROLE_LABELS[index]}
+                            <span className="sr-only">
+                              {pickNumbers[index] ? `, pick ${pickNumbers[index]}` : ""}
+                            </span>
+                          </span>
+                        )}
                       </span>
                     ))}
                   </div>

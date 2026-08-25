@@ -9,7 +9,7 @@ import {
   type LiveConnectionStatus,
 } from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
-import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
+import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName, pickOrderBySide } from "@/lib/match-draft/rules";
 import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
@@ -222,6 +222,11 @@ function SlotColumn({
   slotClassName?: string;
 }) {
   if (positions && positions.length === ROLE_LABELS.length) {
+    // Confirming roles re-orders this column top-to-support, which is the
+    // point — but it also used to relabel every slot with its role and
+    // take the pick number off the screen for good. The order was never
+    // lost from the data; it just stopped being shown.
+    const order = pickOrderBySide(actions, side);
     return (
       <div className="grid gap-2">
         {positions.map((champion, index) => {
@@ -230,13 +235,14 @@ function SlotColumn({
                 (entry) => entry.kind === "pick" && entry.side === side && entry.champion === champion,
               ) ?? null
             : null;
+          const drafted = champion ? order.get(normalizeChampionName(champion)) : undefined;
           return (
             <DraftSlot
               key={`${side}-role-${index}`}
               side={side}
               kind="pick"
               slot={index + 1}
-              label={ROLE_LABELS[index]}
+              label={drafted ? `${ROLE_LABELS[index]} · P${drafted.pick}` : ROLE_LABELS[index]}
               // The drafted playerName reflects pick order, not roles — the
               // roster (already top→support) names the row instead.
               action={action ? { ...action, playerName: null } : null}
