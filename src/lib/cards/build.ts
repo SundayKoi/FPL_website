@@ -661,6 +661,25 @@ export function cardScore(
   return used > 0 ? total / used : 50;
 }
 
+/**
+ * A counting stat as a RATE, so a long game does not flatter it.
+ *
+ * Kills, deaths and assists are averaged per GAME, and a 45-minute game
+ * simply contains more of all three than a 25-minute one. Percentiling the
+ * per-game figure therefore rewards whoever happened to play the longer
+ * games that week, which in a two- or three-game window is mostly luck of
+ * the draw. Vision never had this problem — it was already per-minute —
+ * and this is what gives the rest of the counting stats the same footing.
+ *
+ * A row with no recorded duration keeps its per-game value: a wrong scale
+ * shared by nobody is worse than a right one shared by everyone, but zero
+ * would be worse than both.
+ */
+function perMinute(row: PlayerAggRow, pick: (r: PlayerAggRow) => number): number {
+  const minutes = row.avg_game_duration;
+  return minutes > 0 ? pick(row) / minutes : pick(row);
+}
+
 /** Every bar's raw percentile for one player, before toStat()'s 20-99 squeeze.
  *  `totalsByKey` is every cohort member's per-game objective/turret work,
  *  which only the whole-league builder can assemble — a solo buildCard
@@ -679,18 +698,26 @@ function measureValues(
   const rc = roleCohort(cohort, row);
   const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0 });
   return {
+    // kda and kp are already length-neutral (a ratio and a share); kills
+    // and deaths are counts, so they go through perMinute.
     combat: mean([
       pct(rc, row, (r) => r.kda),
-      pct(rc, row, (r) => r.avg_kills),
+      pct(rc, row, (r) => perMinute(r, (x) => x.avg_kills)),
       pct(rc, row, (r) => r.avg_kp_pct),
-      pct(rc, row, (r) => r.avg_deaths, true),
+      pct(rc, row, (r) => perMinute(r, (x) => x.avg_deaths), true),
     ]),
     damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
     economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
     laning: mean([pct(rc, row, (r) => r.avg_cs_at_10), pct(rc, row, (r) => r.avg_gold_at_10)]),
     vision: pct(rc, row, (r) => r.avg_vision_per_min),
-    survival: mean([pct(rc, row, (r) => r.avg_deaths, true), pct(rc, row, (r) => r.avg_dmg_taken_per_min, true)]),
-    presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => r.avg_assists)]),
+    // Deaths per minute, not per game: surviving a 45-minute game with
+    // three deaths is better than dying three times in 25, and the
+    // per-game figure said they were identical.
+    survival: mean([
+      pct(rc, row, (r) => perMinute(r, (x) => x.avg_deaths), true),
+      pct(rc, row, (r) => r.avg_dmg_taken_per_min, true),
+    ]),
+    presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => perMinute(r, (x) => x.avg_assists))]),
     impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
     objectives: pctOf(peerTotals.map((t) => t.objectives), totals.objectives),
     turrets: pctOf(peerTotals.map((t) => t.turrets), totals.turrets),
@@ -877,10 +904,16 @@ export function buildSeasonCards({
   // view, so their cohort has to be assembled here where every player's
   // games are in hand. measureValues percentiles each player against just
   // their own role's slice of this map (roleCohort), not the flat map.
+  // match_id -> minutes, so objective and turret work can be a rate rather
+  // than a per-game count. Built once for the whole cohort.
+  const durations = new Map<string, number>();
+  for (const [matchId, meta] of gameLog) {
+    if (meta.durationMin > 0) durations.set(matchId, meta.durationMin);
+  }
   const totalsByKey = new Map<string, GameTotals>();
   for (const row of cohort) {
     const key = playerKey(row);
-    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? []));
+    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? [], durations));
   }
 
   const cards = cohort

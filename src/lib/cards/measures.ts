@@ -55,30 +55,56 @@ export function barsForRole(roleMode: string | null | undefined): MeasureKey[] {
 }
 
 export interface GameTotals {
-  /** Objective takedowns + objective damage per 1k, averaged per game. */
+  /** Objective takedowns + objective damage per 1k, per minute played. */
   objectives: number;
-  /** Turret kills + turret damage per 1k + plates, averaged per game. */
+  /** Turret kills + turret damage per 1k per minute, plus plates per game —
+   *  plates live in a fixed 14-minute window and are not a rate. */
   turrets: number;
 }
 
 const num = (value: number | null | undefined): number => (typeof value === "number" ? value : 0);
 
 /**
- * Per-game objective and turret work for one player.
+ * Per-minute objective and turret work for one player.
  *
  * Damage is divided by 1000 before being added to takedowns so a single
  * 9000-damage baron doesn't drown out the count of objectives actually
  * taken — the two live on comparable scales this way.
+ *
+ * Rates, not per-game totals: dragons and barons respawn on timers and
+ * turret damage accrues throughout, so a 45-minute game contains more of
+ * both than a 25-minute one no matter who was playing. Comparing per-game
+ * figures ranked whoever drew the longer games.
+ *
+ * PLATES ARE THE EXCEPTION and stay per game. Turret plating only exists
+ * until 14 minutes, so the window is the same length in every game;
+ * dividing by a duration the plates could not use would penalise a player
+ * for a long game they had no plates left to take in.
+ *
+ * `durations` maps match_id to minutes. A game with no recorded duration
+ * falls back to counting toward the per-game figure, which is the old
+ * behaviour for that game rather than a zero that would erase it.
  */
-export function gameTotals(games: CardGameRow[]): GameTotals {
+export function gameTotals(games: CardGameRow[], durations?: Map<string, number>): GameTotals {
   if (games.length === 0) return { objectives: 0, turrets: 0 };
   let objectives = 0;
   let turrets = 0;
+  let plates = 0;
+  let minutes = 0;
   for (const game of games) {
     objectives += num(game.dragon_kills) + num(game.baron_kills) + num(game.objective_damage) / 1000;
-    turrets += num(game.turret_kills) + num(game.turret_damage) / 1000 + num(game.turret_plates_destroyed);
+    turrets += num(game.turret_kills) + num(game.turret_damage) / 1000;
+    plates += num(game.turret_plates_destroyed);
+    minutes += durations?.get(game.match_id) ?? 0;
   }
-  return { objectives: objectives / games.length, turrets: turrets / games.length };
+  // No durations at all (a solo build with no game log) keeps the old
+  // per-game scale — every player in that cohort shares it, so the
+  // percentiles still rank correctly against each other.
+  const divisor = minutes > 0 ? minutes : games.length;
+  return {
+    objectives: objectives / divisor,
+    turrets: turrets / divisor + plates / games.length,
+  };
 }
 
 /**
