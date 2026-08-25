@@ -89,18 +89,21 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("uses extra-small champion images by default and resizes with minus and plus controls", () => {
+  it("uses medium champion images by default and resizes with minus and plus controls", () => {
+    // XS fits the most champions on screen but renders portraits too small
+    // to recognise at a glance, which is what the pool is for during a
+    // timed turn.
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("xs");
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
 
     fireEvent.click(screen.getByRole("button", { name: /increase image size/i }));
 
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("sm");
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("lg");
 
     fireEvent.click(screen.getByRole("button", { name: /decrease image size/i }));
 
-    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("xs");
+    expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
   });
 
   it("auto-fills a pick with that side's individual player name", () => {
@@ -627,5 +630,98 @@ describe("MatchDraftBoard", () => {
         p_player_name: null,
       });
     });
+  });
+});
+
+describe("passing a ban", () => {
+  /** A draft sitting on step 1 — red's second ban — with step 0 taken. */
+  const onBan: MatchDraftState = {
+    ...state,
+    currentStepIndex: 1,
+    actions: [{ stepIndex: 0, side: "blue", kind: "ban", slot: 1, champion: "Aatrox", playerName: null }],
+  };
+
+  it("offers the pass on a ban turn", () => {
+    render(<MatchDraftBoard initialState={onBan} onSave={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: /^pass ban$/i })).toBeTruthy();
+  });
+
+  it("does not offer it on a pick turn — a passed pick is a four-versus-five", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: /^pass ban$/i })).toBeNull();
+  });
+
+  it("does not offer it to a spectator", () => {
+    render(<MatchDraftBoard initialState={onBan} viewerTeamName={null} />);
+
+    expect(screen.queryByRole("button", { name: /^pass ban$/i })).toBeNull();
+  });
+
+  it("does not offer it to the captain whose turn it is not", () => {
+    // Step 1 is red's. Blue's captain must not be able to spend it.
+    render(<MatchDraftBoard initialState={onBan} viewerTeamName="Blue Team" />);
+
+    expect(screen.queryByRole("button", { name: /^pass ban$/i })).toBeNull();
+  });
+
+  it("takes two clicks, so a stray one does not forfeit a ban", () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={onBan} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^pass ban$/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /confirm pass/i })).toBeTruthy();
+  });
+
+  it("records a champion-less skipped action and moves the draft on", async () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={onBan} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^pass ban$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm pass/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const next = onSave.mock.calls[0][0] as MatchDraftState;
+    // Byte-identical to what a timeout writes, so every existing surface
+    // already knows how to render it.
+    expect(next.actions.find((action) => action.stepIndex === 1)).toMatchObject({
+      side: "red",
+      kind: "ban",
+      champion: null,
+      skipped: true,
+    });
+    expect(next.currentStepIndex).toBe(2);
+  });
+
+  it("backs out of the confirm without spending the ban", () => {
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={onBan} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^pass ban$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /^pass ban$/i })).toBeTruthy();
+  });
+  it("drops a half-confirmed pass when the turn moves on", async () => {
+    // Otherwise the next captain inherits an armed "Confirm pass" and is
+    // one click from forfeiting a ban they never meant to. Driven through a
+    // real lock-in rather than new props, because the board seeds its state
+    // once — a rerender would not advance the turn at all.
+    const onSave = vi.fn();
+    render(<MatchDraftBoard initialState={onBan} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^pass ban$/i }));
+    expect(screen.getByRole("button", { name: /confirm pass/i })).toBeTruthy();
+
+    // Ban a champion instead — step 2 is the next ban, and it is a fresh turn.
+    fireEvent.click(screen.getByRole("button", { name: "Amumu" }));
+    fireEvent.click(screen.getByRole("button", { name: /lock in Amumu/i }));
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: /confirm pass/i })).toBeNull());
+    expect(screen.getByRole("button", { name: /^pass ban$/i })).toBeTruthy();
   });
 });
