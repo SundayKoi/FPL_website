@@ -1,5 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { ALL_WEEKS, weeksToArchive } from "./editions";
+import type { PlayerCardData } from "./build";
+import { ALL_WEEKS, archiveEdition, weeksToArchive } from "./editions";
 
 const CURRENT = "2026-08-24";
 const ARCHIVED = ["2026-08-17", "2026-08-10"];
@@ -39,5 +41,110 @@ describe("weeksToArchive", () => {
 
   it("still archives the current week on 'all' with an empty archive", () => {
     expect(weeksToArchive(ALL_WEEKS, [], CURRENT)).toEqual([CURRENT]);
+  });
+});
+
+
+/** Just the fields archiveEdition reads off a card. */
+function card(slug: string): PlayerCardData {
+  return {
+    slug,
+    name: slug,
+    role: "Mid",
+    overall: 70,
+    tier: { key: "gold", label: "Gold" },
+  } as PlayerCardData;
+}
+
+/** A card_editions stand-in that records what was written and deleted, and
+ *  reads back whatever slugs the week already holds. */
+function editionsClient(existingSlugs: string[], errors: { upsert?: string; read?: string; prune?: string } = {}) {
+  const calls = { upserted: [] as string[], deleted: [] as string[][] };
+  const client = {
+    from: () => {
+      const chain: Record<string, unknown> = {};
+      chain.upsert = (rows: { slug: string }[]) => {
+        calls.upserted = rows.map((row) => row.slug);
+        return Promise.resolve({ error: errors.upsert ? { message: errors.upsert } : null });
+      };
+      chain.select = () => chain;
+      chain.delete = () => {
+        chain.isDelete = true;
+        return chain;
+      };
+      chain.eq = () => chain;
+      chain.in = (_column: string, values: string[]) => {
+        calls.deleted.push(values);
+        return Promise.resolve({ error: errors.prune ? { message: errors.prune } : null });
+      };
+      chain.then = (resolve: (r: { data: unknown; error: unknown }) => unknown) =>
+        Promise.resolve({
+          data: errors.read ? null : existingSlugs.map((slug) => ({ slug })),
+          error: errors.read ? { message: errors.read } : null,
+        }).then(resolve);
+      return chain;
+    },
+  } as unknown as SupabaseClient;
+  return { client, calls };
+}
+
+describe("archiveEdition", () => {
+  it("removes a player who is no longer in the week's pool", async () => {
+    // The bug this exists to stop: an upsert is additive, so re-archiving a
+    // week whose roster shrank wrote the new cards over the old and left
+    // everyone else behind — and packs kept minting them.
+    const { client, calls } = editionsClient(["stayed", "left-last-week"]);
+
+    await archiveEdition(client, "S5", "2026-08-24", [card("stayed")]);
+
+    expect(calls.deleted).toEqual([["left-last-week"]]);
+  });
+
+  it("still writes the current roster", async () => {
+    const { client, calls } = editionsClient(["stayed", "gone"]);
+
+    await archiveEdition(client, "S5", "2026-08-24", [card("stayed"), card("joined")]);
+
+    expect(calls.upserted).toEqual(["stayed", "joined"]);
+  });
+
+  it("deletes nothing when the roster is unchanged", async () => {
+    const { client, calls } = editionsClient(["a", "b"]);
+
+    await archiveEdition(client, "S5", "2026-08-24", [card("a"), card("b")]);
+
+    expect(calls.deleted).toEqual([]);
+  });
+
+  it("leaves an existing edition alone when the week fetched no cards", async () => {
+    // A week that read no games must not wipe its archive: losing an
+    // archived week to a transient read is worse than leaving it stale,
+    // and the caller cannot tell those two apart.
+    const { client, calls } = editionsClient(["a", "b"]);
+
+    expect(await archiveEdition(client, "S5", "2026-08-24", [])).toBeNull();
+    expect(calls.deleted).toEqual([]);
+    expect(calls.upserted).toEqual([]);
+  });
+
+  it("does not prune when the write itself failed", async () => {
+    const { client, calls } = editionsClient(["a"], { upsert: "permission denied" });
+
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toBe("permission denied");
+    expect(calls.deleted).toEqual([]);
+  });
+
+  it("reports a failed read without undoing the cards it wrote", async () => {
+    const { client, calls } = editionsClient(["a"], { read: "timeout" });
+
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toBe("timeout");
+    // Correct-but-wide beats wrong: the new cards stay.
+    expect(calls.upserted).toEqual(["b"]);
+  });
+
+  it("reports a failed prune", async () => {
+    const { client } = editionsClient(["a", "b"], { prune: "deadlock" });
+
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("a")])).toBe("deadlock");
   });
 });

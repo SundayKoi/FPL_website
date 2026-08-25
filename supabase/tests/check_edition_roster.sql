@@ -15,6 +15,14 @@
 -- 'S5' to 'A1' for Academy, and the date to whichever week you are asking
 -- about.
 --
+-- The slug expression mirrors cardSlug() in src/lib/cards/build.ts, TRIM
+-- INCLUDED. cardSlug ends with .replace(/^-+|-+$/g, ""), and without it
+-- this query reports false mismatches for any player whose name or tag is
+-- not ASCII: "Zoodiac#すべて同じ" slugs to "zoodiac-" instead of "zoodiac"
+-- and "ΣΠΑΡΤΙΑΤΗΣ#Sprtn" to "-sprtn" instead of "sprtn", so both show up
+-- in A and A2 at once. A player appearing in BOTH lists is the signature
+-- of a slug mismatch rather than a real archive fault.
+--
 -- The Eastern-week projection below mirrors mondayOf() in
 -- src/lib/packs/week.ts exactly: raw_stats.game_date is a naive `timestamp`
 -- holding UTC, and the league's week is a Monday-start EASTERN week, so a
@@ -35,7 +43,7 @@ where e.season = 'S5'
     select 1
     from public.raw_stats r
     where r.season = e.season
-      and lower(regexp_replace(r.summoner_name || '-' || r.tag, '[^a-zA-Z0-9]+', '-', 'g')) = e.slug
+      and trim(both '-' from lower(regexp_replace(r.summoner_name || '-' || r.tag, '[^a-zA-Z0-9]+', '-', 'g'))) = e.slug
       and date_trunc('week', (r.game_date at time zone 'UTC') at time zone 'America/New_York')::date
           = e.edition_week
   )
@@ -55,7 +63,7 @@ where r.season = 'S5'
     select 1 from public.card_editions e
     where e.season = r.season
       and e.edition_week = date '2026-08-24'
-      and e.slug = lower(regexp_replace(r.summoner_name || '-' || r.tag, '[^a-zA-Z0-9]+', '-', 'g'))
+      and e.slug = trim(both '-' from lower(regexp_replace(r.summoner_name || '-' || r.tag, '[^a-zA-Z0-9]+', '-', 'g')))
   )
 order by r.summoner_name;
 
