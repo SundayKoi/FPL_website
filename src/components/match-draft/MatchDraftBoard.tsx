@@ -9,7 +9,7 @@ import {
   type LiveConnectionStatus,
 } from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
-import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex } from "@/lib/match-draft/rules";
+import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
 import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
@@ -571,6 +571,22 @@ export default function MatchDraftBoard({
       );
     return [...new Set([...state.blockedChampions, ...priorPicks])];
   }, [seriesFormat.fearless, state.blockedChampions, statesByGame, gameNumber]);
+  // Which game took each blocked champion, for the pool's G1/G2 badge. Same
+  // server-plus-live merge as blockedChampions above, so a champion picked in
+  // game 1 while game 2 is open badges the moment it lands. Display only.
+  const blockedGames = useMemo(() => {
+    if (!seriesFormat.fearless) return {};
+    const merged: Record<string, number> = { ...(state.blockedGames ?? {}) };
+    for (const game of Object.values(statesByGame)) {
+      if (game.gameNumber >= gameNumber) continue;
+      for (const action of game.actions) {
+        if (action.kind !== "pick" || !action.champion?.trim()) continue;
+        const key = normalizeChampionName(action.champion);
+        if (merged[key] === undefined || game.gameNumber < merged[key]) merged[key] = game.gameNumber;
+      }
+    }
+    return merged;
+  }, [seriesFormat.fearless, state.blockedGames, statesByGame, gameNumber]);
   const sameTeam = (a: string | null | undefined, b: string | null | undefined) =>
     Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
   const viewerSide: DraftSide | null = sameTeam(viewerTeamName, state.blueTeam.name)
@@ -1533,6 +1549,10 @@ export default function MatchDraftBoard({
       <div className={`mt-3 grid gap-2 ${sizeByValue[imageSize].grid}`} data-testid="champion-pool-grid" data-size={imageSize}>
         {filteredChampions.map((champion) => {
           const unavailable = isChampionUnavailable(champion.name, state.actions, blockedChampions);
+          // Taken by an EARLIER game (fearless) rather than merely used in this
+          // one — the two states share `unavailable` but must never look alike.
+          const takenInGame = blockedGames[normalizeChampionName(champion.name)];
+          const fearlessBlocked = unavailable && takenInGame !== undefined;
           return (
             <button
               key={champion.id}
@@ -1540,11 +1560,39 @@ export default function MatchDraftBoard({
               disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
               aria-pressed={activePendingPick?.champion === champion.name}
               onClick={() => chooseChampion(champion.name)}
-              aria-label={`${champion.name}${unavailable ? " unavailable" : ""}`}
-              className={`group relative aspect-square overflow-hidden border border-line bg-panel text-left font-semibold text-white hover:border-coral disabled:cursor-not-allowed disabled:opacity-35 ${sizeByValue[imageSize].name}`}
+              aria-label={`${champion.name}${unavailable ? " unavailable" : ""}${fearlessBlocked ? ` — picked in game ${takenInGame}` : ""}`}
+              className={`group relative aspect-square overflow-hidden border text-left font-semibold text-white disabled:cursor-not-allowed ${
+                fearlessBlocked
+                  ? "border-red-500/40 bg-panel disabled:opacity-60"
+                  : "border-line bg-panel hover:border-coral disabled:opacity-35"
+              } ${sizeByValue[imageSize].name}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={champion.iconUrl} alt="" className="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+              <img
+                src={champion.iconUrl}
+                alt=""
+                className={`h-full w-full object-cover transition group-hover:scale-105 ${fearlessBlocked ? "grayscale" : ""}`}
+                loading="lazy"
+              />
+              {fearlessBlocked ? (
+                <>
+                  {/* The strike itself: two hairlines corner to corner, drawn
+                      over the art so it reads at every grid size. */}
+                  <svg
+                    data-testid="fearless-cross"
+                    aria-hidden
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                  >
+                    <line x1="4" y1="4" x2="96" y2="96" stroke="rgb(248 113 113 / 0.85)" strokeWidth="6" />
+                    <line x1="96" y1="4" x2="4" y2="96" stroke="rgb(248 113 113 / 0.85)" strokeWidth="6" />
+                  </svg>
+                  <span className="absolute right-0 top-0 bg-red-500/85 px-1 text-[10px] font-bold leading-tight text-white">
+                    G{takenInGame}
+                  </span>
+                </>
+              ) : null}
               <span className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-xs">{champion.name}</span>
             </button>
           );

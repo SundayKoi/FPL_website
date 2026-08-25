@@ -3,6 +3,7 @@ import {
   DRAFT_TURN_SECONDS,
   LCS_DRAFT_STEPS,
   fearlessBlockedChampions,
+  fearlessBlockedByGame,
   matchDraftBestOf,
   matchDraftGameLinks,
   matchDraftHref,
@@ -85,5 +86,29 @@ describe("fearlessBlockedChampions", () => {
         3,
       ),
     ).toEqual(new Set(["Ahri", "Zeri"]));
+  });
+});
+
+describe("fearlessBlockedByGame", () => {
+  it("maps each blocked champion to the game that took it, keeping the earliest", () => {
+    expect(
+      fearlessBlockedByGame(
+        [
+          { gameNumber: 1, actions: [{ kind: "pick", champion: "Ahri" }, { kind: "ban", champion: "Aatrox" }] },
+          // Re-picking a champion is impossible under fearless, but a series
+          // played with fearless toggled on mid-way can carry one — the first
+          // game that used it is the honest answer for the badge.
+          { gameNumber: 2, actions: [{ kind: "pick", champion: "Ahri" }, { kind: "pick", champion: "Zeri" }] },
+          { gameNumber: 3, actions: [{ kind: "pick", champion: "Orianna" }] },
+        ],
+        3,
+      ),
+    ).toEqual({ ahri: 1, zeri: 2 });
+  });
+
+  it("keys by normalized name so casing and spacing can't miss a badge", () => {
+    expect(
+      fearlessBlockedByGame([{ gameNumber: 1, actions: [{ kind: "pick", champion: "  Lee  Sin " }] }], 2),
+    ).toEqual({ "lee sin": 1 });
   });
 });

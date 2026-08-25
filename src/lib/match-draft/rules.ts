@@ -89,6 +89,31 @@ export function fearlessBlockedChampions(
   return blocked;
 }
 
+/** The same blocks as `fearlessBlockedChampions`, but carrying WHICH game
+ *  took each champion so the pool can badge it (G1, G2, ...). Keyed by
+ *  normalized name because the badge is looked up per rendered champion,
+ *  whose casing comes from the champion list rather than the stored action.
+ *  Blocking itself still runs off `fearlessBlockedChampions` — this is
+ *  display metadata and must never be the thing that forbids a pick. */
+export function fearlessBlockedByGame(
+  drafts: { gameNumber: number; actions: Pick<MatchDraftAction, "kind" | "champion">[] }[],
+  gameNumber: number,
+): Record<string, number> {
+  const takenIn: Record<string, number> = {};
+  for (const draft of drafts) {
+    if (draft.gameNumber >= gameNumber) continue;
+    for (const action of draft.actions) {
+      if (action.kind !== "pick" || !action.champion?.trim()) continue;
+      const key = normalizeChampionName(action.champion);
+      // Earliest game wins: a champion's story is where it FIRST went.
+      if (takenIn[key] === undefined || draft.gameNumber < takenIn[key]) {
+        takenIn[key] = draft.gameNumber;
+      }
+    }
+  }
+  return takenIn;
+}
+
 export function isChampionUnavailable(
   champion: string,
   actions: MatchDraftAction[],

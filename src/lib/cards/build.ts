@@ -65,6 +65,10 @@ export interface PlayerCardData {
   teamName: string | null;
   /** The team's logo, watermarked onto the card. */
   teamImageUrl: string | null;
+  /** The short form the card front prints — the full name ran under the
+   *  signature. Null on copies frozen before this existed; the renderer
+   *  falls back to teamName, and backfillTeamIdentity repairs them on read. */
+  teamAbbr?: string | null;
   role: string;
   overall: number;
   tier: CardTier;
@@ -545,6 +549,8 @@ export interface BuildCardInput {
   recordCategories?: string[];
   /** team name (lowercased) -> logo URL. */
   teamImages?: Map<string, string>;
+  /** team name (lowercased) -> abbreviation, same keying as teamImages. */
+  teamAbbrs?: Map<string, string>;
   /** Chosen art skin number (card_art_prefs), 0 = base. */
   artSkin?: number;
   /** Player-chosen motto line (card_art_prefs). */
@@ -561,6 +567,7 @@ export function buildCard({
   archetype,
   recordCategories = [],
   teamImages,
+  teamAbbrs,
   artSkin = 0,
   motto = null,
   standout = false,
@@ -640,6 +647,7 @@ export function buildCard({
     tag: row.tag,
     teamName,
     teamImageUrl: teamName ? teamImages?.get(teamBadgeKey(teamName)) ?? null : null,
+    teamAbbr: teamName ? teamAbbrs?.get(teamBadgeKey(teamName)) ?? null : null,
     role: ROLE_LABELS[row.role_mode] ?? row.role_mode,
     overall,
     tier: tierFor(overall),
@@ -678,6 +686,8 @@ export interface BuildSeasonCardsInput {
   recordsByPlayer?: Map<string, string[]>;
   /** team name (lowercased) -> logo URL. */
   teamImages?: Map<string, string>;
+  /** team name (lowercased) -> abbreviation, same keying as teamImages. */
+  teamAbbrs?: Map<string, string>;
   /** player key -> chosen art (skin + motto) from card_art_prefs. */
   artPrefs?: Map<string, { skin: number; motto: string | null }>;
 }
@@ -690,6 +700,7 @@ export function buildSeasonCards({
   gameLog,
   recordsByPlayer,
   teamImages,
+  teamAbbrs,
   artPrefs,
 }: BuildSeasonCardsInput): PlayerCardData[] {
   const extrasByKey = new Map<string, ArchetypeExtras>();
@@ -715,6 +726,7 @@ export function buildSeasonCards({
         archetype: archetypes.get(key),
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
+        teamAbbrs,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
       });

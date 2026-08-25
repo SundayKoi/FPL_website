@@ -28,6 +28,10 @@ export function supabaseQuery(
     not: filter("not"),
     order: filter("order"),
     limit: filter("limit"),
+    // Passthrough: enough for a paging caller not to explode. A test that
+    // needs to prove paging (rather than just tolerate it) supplies its own
+    // slicing mock — see fetchCollectors' row-cap test.
+    range: filter("range"),
     maybeSingle: () => Promise.resolve(result),
     then: (resolve: (value: SupabaseQueryResult) => unknown, reject?: (error: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),

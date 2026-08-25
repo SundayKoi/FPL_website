@@ -405,11 +405,15 @@ export default function PlayerCard3D({
             ) : null}
 
             {/* Identity */}
-            <div className="relative mt-1 px-4">
+            <div className="relative mt-1 px-4" data-testid="card-identity">
               <h3 className="font-display text-3xl font-bold not-italic text-white [text-shadow:0_2px_6px_rgb(0_0_0/0.9)]">{card.name}</h3>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/80 [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]">
                 {card.role}
-                {card.teamName ? ` · ${card.teamName}` : ""}
+                {/* Abbreviation, not the full name: the signature is anchored
+                    over the right half of this band, and a long name ran
+                    straight underneath it. Falls back to the name for copies
+                    frozen before abbreviations were carried on the card. */}
+                {card.teamName ? ` · ${card.teamAbbr ?? card.teamName}` : ""}
               </p>
             </div>
 

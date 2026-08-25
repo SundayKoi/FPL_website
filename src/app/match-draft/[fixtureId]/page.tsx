@@ -1,7 +1,7 @@
 import Link from "next/link";
 import MatchDraftBoard from "@/components/match-draft/MatchDraftBoard";
 import { ROLE_ORDER, type LolRole } from "@/lib/draft/types";
-import { fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
+import { fearlessBlockedByGame, fearlessBlockedChampions, matchDraftBestOf, matchDraftGameLinks } from "@/lib/match-draft/rules";
 import { fetchLiveChampions } from "@/lib/match-draft/liveRoster";
 import type { MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftSettingsRow, MatchDraftState, MatchDraftTeam } from "@/lib/match-draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
@@ -84,6 +84,7 @@ function stateFor({
     sideChoiceRequired: gameNumber > 1 && actions.length === 0 && !(row?.blue_team_name && row?.red_team_name),
     actions: actions.filter((action): action is MatchDraftAction => Boolean(action && (action.champion || action.skipped))),
     blockedChampions: fearless ? [...fearlessBlockedChampions(prior, gameNumber)] : [],
+    blockedGames: fearless ? fearlessBlockedByGame(prior, gameNumber) : {},
   };
 }
 

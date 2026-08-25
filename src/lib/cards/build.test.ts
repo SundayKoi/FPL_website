@@ -210,6 +210,22 @@ describe("buildCard", () => {
     expect(built.artSkin).toBe(4);
     expect(built.teamImageUrl).toBe("https://cdn.example/gamblers.png");
   });
+
+  it("carries the team's abbreviation, and leaves it null when none resolves", () => {
+    const withAbbr = buildCard({
+      row: target,
+      cohort: cohortOf(target),
+      games,
+      gameLog,
+      teamAbbrs: new Map([["gamblers", "GMB"]]),
+    });
+    expect(withAbbr.teamAbbr).toBe("GMB");
+
+    // No map at all: the card still builds, and the renderer falls back to
+    // the full name rather than showing an empty slot.
+    const withoutAbbr = buildCard({ row: target, cohort: cohortOf(target), games, gameLog });
+    expect(withoutAbbr.teamAbbr).toBeNull();
+  });
 });
 
 describe("archetype scarcity", () => {
@@ -249,6 +265,25 @@ describe("archetype scarcity", () => {
     }
     expect(cards.map((card) => card.serial)).toEqual(cards.map((_, index) => index + 1));
     expect(cards[0].collectionSize).toBe(cohort.length);
+  });
+
+  it("threads team abbreviations through the whole-season build", () => {
+    // buildCard taking teamAbbrs isn't enough: fetchSeasonCards goes through
+    // buildSeasonCards, and a map that stops at the seam leaves every live
+    // card without its short code.
+    const cohort = cohortOf(agg());
+    // A card's team comes from its GAMES, not the agg row, so the player
+    // under test needs one before there's a team to abbreviate at all.
+    const cards = buildSeasonCards({
+      cohort,
+      gamesByPlayer: new Map([["player#na1", [gameRow({ team_name: "Gamblers" })]]]),
+      gameLog: logOf({ NA1_1: 30 }),
+      teamAbbrs: new Map([[teamBadgeKey("Gamblers"), "GMB"]]),
+    });
+
+    const withTeam = cards.filter((card) => card.teamName === "Gamblers");
+    expect(withTeam.length).toBeGreaterThan(0);
+    expect(withTeam.every((card) => card.teamAbbr === "GMB")).toBe(true);
   });
 
   it("crowns the highest-OVR card in each role as Card of the Week", () => {

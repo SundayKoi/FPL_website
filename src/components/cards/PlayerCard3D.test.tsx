@@ -171,6 +171,22 @@ describe("PlayerCard3D", () => {
     expect(Number(foil.style.opacity)).toBeLessThan(0.5);
   });
 
+  it("names the team by its abbreviation so a long name can't run under the signature", () => {
+    const { container, rerender } = render(
+      <PlayerCard3D card={{ ...card, teamName: "The Original Mocha House", teamAbbr: "TOM9" }} />
+    );
+    const identity = container.querySelector('[data-testid="card-identity"]')!;
+    expect(identity.textContent).toContain("TOM9");
+    expect(identity.textContent).not.toContain("The Original Mocha House");
+
+    // Older copies were frozen before abbreviations existed — they keep the
+    // full name rather than losing their team entirely.
+    rerender(<PlayerCard3D card={{ ...card, teamName: "The Original Mocha House", teamAbbr: null }} />);
+    expect(container.querySelector('[data-testid="card-identity"]')!.textContent).toContain(
+      "The Original Mocha House"
+    );
+  });
+
   it("renders statically without a button when not interactive", () => {
     render(<PlayerCard3D card={card} interactive={false} />);
     expect(screen.queryByRole("button")).toBeNull();

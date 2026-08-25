@@ -1,22 +1,19 @@
-// The wall of moments: one plaque per minted performance.
+// The wall of moments: one engraved plate per minted performance.
 //
-// Not a PlayerCard3D — a moment is a stat line and a date, not a rating, and
-// dressing it as a player card would imply an overall it does not have.
+// The plate design itself lives in MomentPlate; this is the shelf it sits
+// on, plus the empty state — which says WHY it is empty, because "no
+// moments yet" and "these are hard to get" are the same sentence here.
 
-import Link from "next/link";
-import { championIconUrl } from "@/lib/match-draft/champions";
+import MomentPlate from "./MomentPlate";
 import type { LeagueMoment } from "@/lib/cards/queries";
 
-/** "2026-08-24" -> "Aug 24". Read as UTC: the stored value is a plain
- *  calendar date, and letting the browser's zone parse it slides a chunk of
- *  the world back a day. */
-function weekLabel(week: string): string {
-  const date = new Date(`${week}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return week;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-export default function MomentWall({ moments }: { moments: LeagueMoment[] }) {
+export default function MomentWall({
+  moments,
+  season,
+}: {
+  moments: LeagueMoment[];
+  season?: string | null;
+}) {
   if (moments.length === 0) {
     return (
       <p className="text-sm text-steel">
@@ -26,34 +23,9 @@ export default function MomentWall({ moments }: { moments: LeagueMoment[] }) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="flex flex-wrap justify-center gap-6 sm:justify-start">
       {moments.map((moment) => (
-        <article key={moment.id} aria-label={`${moment.title} — ${moment.summonerName}`} className="card-brand flex gap-4 p-5">
-          {moment.champion && championIconUrl(moment.champion) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={championIconUrl(moment.champion)!}
-              alt=""
-              className="h-16 w-16 shrink-0 rounded-lg border border-line object-cover"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : null}
-          <div className="min-w-0 flex-1">
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gold">{moment.title}</span>
-            <h3 className="mt-1 truncate font-display text-xl font-semibold text-white">
-              <Link href={`/card/${moment.slug}`} className="underline-offset-4 hover:text-coral hover:underline">
-                {moment.summonerName}
-              </Link>
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-steel">{moment.headline}</p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-steel">
-              {moment.champion ? `${moment.champion} · ` : ""}
-              {moment.teamName ? `${moment.teamName} · ` : ""}
-              Week of {weekLabel(moment.weekStart)}
-            </p>
-          </div>
-        </article>
+        <MomentPlate key={moment.id} moment={moment} season={season} />
       ))}
     </div>
   );

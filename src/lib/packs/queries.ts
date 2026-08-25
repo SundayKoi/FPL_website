@@ -9,7 +9,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { backfillTeamBadges, fetchTeamBadges } from "@/lib/cards/queries";
+import { backfillTeamIdentity, fetchTeamIdentity } from "@/lib/cards/queries";
 
 /** One owned copy of a card. The flat columns mirror `card`'s contents at
  *  pull time — read them for filtering/sorting, read `card` to render. */
@@ -70,11 +70,17 @@ export async function fetchInventory(
   // team that can't change mid-season, and a copy pulled before that
   // team's logo resolved would otherwise wear a blank crest forever.
   // One lookup for the whole collection, applied only where it's missing.
-  const repaired = backfillTeamBadges(
+  // Abbreviations joined the badge here: every copy pulled before the card
+  // front started printing them has a null one, so the repair has to cover
+  // both or old copies keep the long name over their signature.
+  const needsRepair = rows.some(
+    (row) => row.card && row.card.teamName && (!row.card.teamImageUrl || !row.card.teamAbbr),
+  );
+  const repaired = backfillTeamIdentity(
     rows.map((row) => row.card),
-    rows.some((row) => row.card && !row.card.teamImageUrl && row.card.teamName)
-      ? await fetchTeamBadges(supabase, season)
-      : new Map<string, string>(),
+    needsRepair
+      ? await fetchTeamIdentity(supabase, season)
+      : { badges: new Map<string, string>(), abbrs: new Map<string, string>() },
   );
   return rows.map((row, index) => ({
     id: row.id,

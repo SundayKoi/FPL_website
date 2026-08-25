@@ -44,5 +44,26 @@ describe("MomentWall", () => {
   it("renders a moment with no champion recorded", () => {
     render(<MomentWall moments={[moment({ champion: null })]} />);
     expect(screen.getByText("PENTAKILL")).toBeTruthy();
+    // No champion means no medallion; the plate must not print a broken one.
+    expect(document.querySelector("img")).toBeNull();
+  });
+
+  it("strikes the champion medallion when one is recorded", () => {
+    const { container } = render(<MomentWall moments={[moment()]} />);
+    const medallion = container.querySelector("img");
+    expect(medallion?.getAttribute("src")).toContain("Jinx");
+    // Decorative — the champion is already named in the meta line, so a
+    // screen reader shouldn't hear it twice.
+    expect(medallion?.getAttribute("alt")).toBe("");
+  });
+
+  it("stamps the season on the plate when the page knows it", () => {
+    render(<MomentWall moments={[moment()]} season="S5" />);
+    expect(screen.getByText(/Season S5 · Moment/)).toBeTruthy();
+  });
+
+  it("omits the season rather than printing a blank one", () => {
+    render(<MomentWall moments={[moment()]} />);
+    expect(screen.getByText("Moment")).toBeTruthy();
   });
 });
