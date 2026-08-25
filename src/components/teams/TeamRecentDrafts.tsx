@@ -11,6 +11,10 @@ export interface TeamDraftRow {
   score: string | null;
   stageLabel: string;
   picks: (string | null)[];
+  /** Per-side pick number for each entry of `picks`, aligned by index —
+   *  the row is in confirmed ROLE order, so position no longer says when a
+   *  champion was taken. */
+  pickNumbers: (number | null)[];
   bans: (string | null)[];
   /** Picks are in captain-confirmed role order (top→support). */
   confirmed: boolean;
@@ -53,7 +57,18 @@ export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
               </span>
               <span className="flex flex-wrap items-center gap-1.5" aria-label="Game one picks and bans">
                 {row.picks.map((champion, index) => (
-                  <ChampionIcon key={`pick-${index}`} name={champion} size="h-7 w-7" />
+                  <span key={`pick-${index}`} className="relative inline-flex">
+                    <ChampionIcon name={champion} size="h-7 w-7" />
+                    {row.pickNumbers[index] ? (
+                      <span
+                        aria-hidden
+                        title={`Pick ${row.pickNumbers[index]}`}
+                        className="absolute -left-1 -top-1 rounded-full border border-line/70 bg-navy px-1 text-[8px] font-bold leading-4 text-steel"
+                      >
+                        {row.pickNumbers[index]}
+                      </span>
+                    ) : null}
+                  </span>
                 ))}
                 <span aria-hidden className="mx-1 h-5 w-px bg-line" />
                 {row.bans.map((champion, index) => (

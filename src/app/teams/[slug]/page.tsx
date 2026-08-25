@@ -169,7 +169,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         ? ("red" as const)
         : null;
     if (!side) return [];
-    const { picks, bans, confirmed } = sideRows(game, side);
+    const { picks, bans, pickNumbers, confirmed } = sideRows(game, side);
     return [
       {
         fixtureId: fixture.id,
@@ -178,6 +178,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         score: fixture.score_a != null && fixture.score_b != null ? `${fixture.score_a}–${fixture.score_b}` : null,
         stageLabel: stageMeta(fixture.stage).label,
         picks,
+        pickNumbers,
         bans,
         confirmed,
       },

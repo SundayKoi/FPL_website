@@ -11,6 +11,7 @@ const row: TeamDraftRow = {
   score: "2–1",
   stageLabel: "Week 4",
   picks: ["Ahri", "Zed", "Jinx", "Lulu", "Ornn"],
+  pickNumbers: [1, 2, 3, 4, 5],
   bans: ["Aatrox", "Annie", null, "Amumu", "Akali"],
   confirmed: true,
 };
