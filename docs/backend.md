@@ -42,6 +42,10 @@ brief prose), Vercel (hosting), and Supabase Cloud (production data).
 - `src/lib/supabase/server.ts` creates the cookie-bound server client with the
   same public key pair. Use it in Server Components, server-side queries, and
   Server Actions when the current Supabase Auth session should be visible.
+- My Team, roster identity claims, the identity approval inbox, and admin
+  player linking all use those browser or cookie-bound server clients. They do
+  not import a service-role client: the current session and RLS determine the
+  rows that can be read or changed.
 - `src/lib/betting/service-client.ts` creates a `service_role` client and is
   marked `server-only`. It bypasses RLS and must never be imported by a Client
   Component or sent to the browser.
@@ -87,8 +91,29 @@ Authorization has several independent dimensions:
   uses the signed-in server Supabase client and existing authenticated reads,
   while owners inherit broadcaster workspace access in the application gate.
 - `league_team_captains` maps a profile to a league team and season.
+- `player_identity_links` maps one canonical `player_pool` row to one signed-in
+  `profiles` row for a league season. An approved, currently rostered link is
+  the normal-player capability for private My Team data; it does not replace a
+  captain assignment. Links are stable foreign-key records, not Discord,
+  Riot, or display-name matches.
 - Database helper functions such as `is_admin()`, `is_owner()`,
   `is_captain()`, and `is_captain_of(...)` are used by policies and RPCs.
+- Identity helpers keep public and private paths separate:
+  `player_identity_state(...)` returns only `unclaimed`, `pending`, or
+  `claimed` for public roster presentation; `is_player_rostered_on_team(...)`
+  proves the exact canonical player/team/league/season roster relationship;
+  and `is_approved_team_member(...)` checks the caller’s approved link. These
+  security-definer helpers use a fixed search path and narrow execute grants.
+- RLS is the authority for identity links. Authenticated users may create and
+  withdraw only their own pending, team-sourced claims; captains may inspect
+  and decide current-roster claims for their exact team and season; admins can
+  assign, replace, approve, or revoke links. Broadcaster status alone grants
+  no identity permission. The decision trigger limits a non-admin captain to
+  the pending-to-approved transition and stamps that captain as the decider.
+- `match_codes` remains private by RLS: a caller must be an admin, a captain
+  of a fixture team, or an approved member of either fixture team. A signed-in
+  role, navigation visibility, or a spectator draft URL alone never grants
+  tournament-code or draft-mutation access.
 - Betting access checks Discord guild membership and roles in
   `src/lib/betting/access.ts`; staff and owner checks are separate from normal
   member access.
@@ -110,7 +135,7 @@ Postgres database and public schema:
 
 | Domain | Main tables/views | Backend behavior |
 | --- | --- | --- |
-| League and identity | `profiles`, `league_settings`, `league_teams`, `teams`, `riot_accounts`, `roster_memberships`, `league_team_captains`, `fixtures` | Season, tier, roster, captain, team, and schedule configuration. |
+| League and identity | `profiles`, `league_settings`, `league_teams`, `teams`, `riot_accounts`, `roster_memberships`, `league_team_captains`, `player_identity_links`, `fixtures` | Season, tier, roster, canonical player/profile identity, captain, team, and schedule configuration. |
 | Auction draft | `drafts`, `players`, `lots`, `bids` | Nomination, bidding, countdown settlement, admin overrides, roster assignment, chat, and Nemesis picks are protected by RPCs and RLS. |
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
 | Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. |
@@ -141,6 +166,56 @@ Important RPC families include:
 - Match drafts: `apply_match_draft_action`, `set_match_draft_ready`,
   `choose_match_draft_blue`, change/undo/reset functions, and their
   `open_draft_*` token equivalents.
+- Player identity: `player_identity_state` is the neutral public roster-state
+  read; `approve_card_claim` approves a card claim and, only when its canonical
+  player and Riot roster mapping resolve to exactly one compatible team,
+  synchronizes the approved identity in the same transaction.
+
+## Player identity and My Team
+
+`player_identity_links` is the season- and league-scoped source of truth for
+normal player access. It has unique player/league/season and
+profile/league/season keys, so a player or profile cannot be linked twice in
+one league season. A link is `pending` or `approved` and records the source
+(`admin`, `team`, or `card`), requester, decision, and timestamps. Deleting a
+link immediately removes the identity capability; an approved link without an
+active roster resolves to an unrostered state rather than granting private
+team access.
+
+There are three supported link lifecycles:
+
+- On a public Premier or Academy team page, an authenticated person can claim
+  an unclaimed canonical roster spot for their own profile. Public roster
+  cards reveal only neutral claim state. The claimant can withdraw their own
+  pending claim; no linked Discord identity is shown there.
+- The `/identity-claims` inbox combines roster identity review for captains
+  and admins. Captains see and decide only their current team’s claims;
+  admins see every pending claim. This UI is a convenience layer over the RLS
+  policy and trigger, not an authorization bypass.
+- On the league Players pages, an admin can select an already-created
+  `profiles` row and immediately assign, replace, or revoke a link. The picker
+  displays verified profile context but never persists a free-form Discord
+  handle. Separately, an approved card claim may atomically create or approve
+  a compatible identity link. Missing or ambiguous mappings remain card-only;
+  a conflicting exact mapping rolls back both changes.
+
+The paired canonical dashboards are `/my-team` and `/academy/my-team`, with
+scouting at `/my-team/scouting` and `/academy/my-team/scouting`. They resolve
+the authenticated profile, active league season, approved identity, active
+team, fixture, and private codes through the cookie-bound server client. A
+normal player cannot select a different team through a query parameter.
+Captains retain access from `league_team_captains` even before identity links
+are populated; admins can choose a validated active team. Read-only team data,
+spectator draft links, and scouting are composed separately from captain result
+reporting and admin management panels, so ordinary-player branches do not load
+those mutation controls.
+
+The legacy `/captain`, `/captain/scouting`, `/academy/captain`, and
+`/academy/captain/scouting` routes are redirect-only compatibility paths to
+their equivalent canonical My Team routes. They preserve an old `team` query
+override only after the server verifies that the signed-in caller is an admin
+and that the requested team is valid for that league; legacy URLs never render
+the old Captain page.
 
 ## Realtime behavior
 

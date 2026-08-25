@@ -27,10 +27,18 @@ source-file map intended for agents picking up work.
   public draft views.
 - **Signed-in users** authenticate through Supabase Auth with Discord in
   production. Local development also exposes the email/password form.
-- **Captains** are linked to league teams for a season and can perform the
-  captain and match-report workflows for those teams.
+- **Approved rostered players** use the paired `/my-team` and
+  `/academy/my-team` dashboards for their current team’s schedule, roster,
+  private tournament codes, draft viewing, and opponent scouting. A player
+  links their signed-in profile by claiming an exact public roster spot, then
+  waits for captain or admin approval.
+- **Captains** are linked to league teams for a season independently of player
+  identity. They retain My Team access and captain-only result reporting for
+  those teams, and can approve or reject claims for their current roster.
 - **Admins and owners** manage league data, drafts, fixtures, staff, and
   betting operations according to the database policies and domain gates.
+  They can link a canonical player to an existing signed-in profile, manage
+  all identity claims, and select an active team from My Team’s admin tools.
 - **Broadcasters** can open the private broadcaster workspace and maintain the
   Premier/Academy featured-matchup presentation; owners inherit broadcaster
   workspace access, while admins do not.
@@ -49,6 +57,9 @@ Anthropic are external integrations used by specific workflows.
 - `src/components/` — page and interactive UI components.
 - `src/lib/` — domain queries, rules, formatting, access checks, Supabase
   clients, and reusable server/client logic.
+- `src/app/my-team/` and `src/app/academy/my-team/` — the paired, role-aware
+  My Team routes. The older Captain routes remain redirect-only compatibility
+  URLs.
 - `supabase/migrations/` — the complete append-only database history: tables,
   views, RLS policies, grants, triggers, and RPCs.
 - `supabase/tests/` — pgTAP database contract and authorization tests.
