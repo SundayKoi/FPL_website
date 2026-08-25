@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { assignPlayerIdentity, revokePlayerIdentity } from "@/lib/players/identityActions";
+import {
+  assignPlayerIdentity,
+  replacePlayerIdentity,
+  revokePlayerIdentity,
+} from "@/lib/players/identityActions";
 import type { LeagueKey } from "@/lib/players/identity";
 
 export type VerifiedProfileOption = {
@@ -73,24 +77,20 @@ export default function PlayerIdentityAdmin({
 
     setSaving(true);
     setError(null);
-    if (currentLink) {
-      const revoked = await revokePlayerIdentity(currentLink.id);
-      if (!revoked.ok) {
-        setSaving(false);
-        setError(revoked.error);
-        return;
-      }
-    }
-
-    const assigned = await assignPlayerIdentity({
-      playerPoolId,
-      profileId: selectedProfileId,
-      league,
-      season,
-    });
+    const result = currentLink
+      ? await replacePlayerIdentity({
+          linkId: currentLink.id,
+          profileId: selectedProfileId,
+        })
+      : await assignPlayerIdentity({
+          playerPoolId,
+          profileId: selectedProfileId,
+          league,
+          season,
+        });
     setSaving(false);
-    if (!assigned.ok) {
-      setError(assigned.error);
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     setSelectedProfileId("");

@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 import {
   assignPlayerIdentity,
   decidePlayerIdentityClaim,
+  replacePlayerIdentity,
   requestPlayerIdentityClaim,
   revokePlayerIdentity,
   withdrawPlayerIdentityClaim,
@@ -26,7 +27,8 @@ function mutationClient({
   profile?: { id: string } | null;
 }) {
   const insert = vi.fn(async () => insertResult);
-  const update = vi.fn(() => mutationChain(updateResult));
+  const updateChain = mutationChain(updateResult);
+  const update = vi.fn(() => updateChain);
   const remove = vi.fn(() => mutationChain(deleteResult));
   const profileQuery = {
     select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: profile, error: null })) })) })),
@@ -39,7 +41,7 @@ function mutationClient({
       throw new Error(`Unexpected table ${table}`);
     }),
   };
-  return { client, insert, update, remove, profileQuery };
+  return { client, insert, update, updateChain, remove, profileQuery };
 }
 
 function mutationChain(result: { data?: { id: string }[] | null; error: { code?: string; message: string } | null }) {
@@ -152,6 +154,34 @@ describe("player identity actions", () => {
       requested_by: "profile-1",
       decided_by: "profile-1",
     }));
+  });
+
+  it("replaces a link with one atomic update so a profile conflict preserves the old row", async () => {
+    const { client, insert, update, updateChain, remove, profileQuery } = mutationClient({
+      updateResult: {
+        data: null,
+        error: { code: "23505", message: "player_identity_links_profile_id_league_season_key" },
+      },
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await expect(replacePlayerIdentity({ linkId: "link-1", profileId: "profile-2" })).resolves.toEqual({
+      ok: false,
+      error: "Profile already linked",
+    });
+
+    expect(profileQuery.select).toHaveBeenCalledWith("id");
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      profile_id: "profile-2",
+      status: "approved",
+      source: "admin",
+      requested_by: "profile-1",
+      decided_by: "profile-1",
+    }));
+    expect(updateChain.eq).toHaveBeenCalledWith("id", "link-1");
+    expect(updateChain.select).toHaveBeenCalledWith("id");
+    expect(insert).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it("uses a friendly player conflict message", async () => {

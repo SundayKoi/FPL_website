@@ -4,10 +4,15 @@ import PlayerIdentityAdmin, {
   type PlayerIdentityLink,
   type VerifiedProfileOption,
 } from "./PlayerIdentityAdmin";
-import { assignPlayerIdentity, revokePlayerIdentity } from "@/lib/players/identityActions";
+import {
+  assignPlayerIdentity,
+  replacePlayerIdentity,
+  revokePlayerIdentity,
+} from "@/lib/players/identityActions";
 
 vi.mock("@/lib/players/identityActions", () => ({
   assignPlayerIdentity: vi.fn(),
+  replacePlayerIdentity: vi.fn(),
   revokePlayerIdentity: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -40,6 +45,7 @@ describe("PlayerIdentityAdmin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(assignPlayerIdentity).mockResolvedValue({ ok: true });
+    vi.mocked(replacePlayerIdentity).mockResolvedValue({ ok: true });
     vi.mocked(revokePlayerIdentity).mockResolvedValue({ ok: true });
   });
 
@@ -112,7 +118,7 @@ describe("PlayerIdentityAdmin", () => {
     expect(assignPlayerIdentity).toHaveBeenCalledTimes(1);
   });
 
-  it("confirms replacement before revoking the old link and assigning the selected profile", async () => {
+  it("confirms replacement and performs one atomic replacement action", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderEditor(approvedLink);
     fireEvent.change(screen.getByRole("combobox", { name: /verified discord profile/i }), {
@@ -121,10 +127,27 @@ describe("PlayerIdentityAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: /replace profile/i }));
 
     expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining("Replace Alpha Player"));
-    await waitFor(() => expect(revokePlayerIdentity).toHaveBeenCalledWith("link-1"));
-    expect(assignPlayerIdentity).toHaveBeenCalledWith(
-      expect.objectContaining({ profileId: "profile-2" }),
-    );
+    await waitFor(() => expect(replacePlayerIdentity).toHaveBeenCalledWith({
+      linkId: "link-1",
+      profileId: "profile-2",
+    }));
+    expect(revokePlayerIdentity).not.toHaveBeenCalled();
+    expect(assignPlayerIdentity).not.toHaveBeenCalled();
+  });
+
+  it("keeps the current link when a conflicting replacement is rejected", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(replacePlayerIdentity).mockResolvedValue({ ok: false, error: "Profile already linked" });
+    renderEditor(approvedLink);
+    fireEvent.change(screen.getByRole("combobox", { name: /verified discord profile/i }), {
+      target: { value: "profile-2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /replace profile/i }));
+
+    await waitFor(() => expect(screen.getByText("Profile already linked")).toBeTruthy());
+    expect(screen.getByText("Linked — Alpha Player")).toBeTruthy();
+    expect(revokePlayerIdentity).not.toHaveBeenCalled();
+    expect(assignPlayerIdentity).not.toHaveBeenCalled();
   });
 
   it("confirms revocation and leaves the link untouched when confirmation is declined", async () => {

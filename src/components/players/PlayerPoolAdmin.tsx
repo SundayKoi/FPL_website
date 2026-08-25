@@ -68,6 +68,9 @@ export default function PlayerPoolAdmin({
     if (deleteError) return setError(deleteError.message);
     onPlayersChange(players.filter((candidate) => candidate.id !== player.id));
   };
+  const profilesForPlayer = (playerId: string) => identityProfiles.filter((profile) =>
+    !identityLinks.some((link) => link.profileId === profile.id && link.playerPoolId !== playerId),
+  );
   return <section aria-label="Player pool administration" className="mb-8 rounded border border-coral/40 bg-coral/5 p-4 sm:p-6">
     <p className="mb-4 text-sm text-coral">Removing a canonical player preserves linked draft records and clears only their canonical link.</p>
     {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
@@ -78,6 +81,6 @@ export default function PlayerPoolAdmin({
       <input aria-label="Player OP.GG URL" value={form.opgg_url} onChange={(e) => setForm({ ...form, opgg_url: e.target.value })} placeholder="https://op.gg/..." className="rounded border border-line bg-navy px-3 py-2 text-sm text-white" />
       <div className="flex gap-2"><button type="button" onClick={() => void save()} disabled={saving} className="rounded border border-coral px-3 py-2 text-sm font-semibold text-coral">{editingId ? "Save" : "Add"}</button>{editingId ? <button type="button" onClick={reset} className="rounded border border-line px-3 py-2 text-sm text-steel">Cancel</button> : null}</div>
     </div>
-    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="py-2 text-sm text-white"><div className="flex flex-wrap items-center justify-between gap-3"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-coral underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></div>{identityLeague && identitySeason ? <PlayerIdentityAdmin playerPoolId={player.id} league={identityLeague} season={identitySeason} currentLink={identityLinks.find((link) => link.playerPoolId === player.id) ?? null} profiles={identityProfiles} /> : null}</li>)}</ul>
+    <ul className="mt-5 divide-y divide-line/50">{players.map((player) => <li key={player.id} className="py-2 text-sm text-white"><div className="flex flex-wrap items-center justify-between gap-3"><span>{player.display_name} <span className="text-steel">({player.role}, {player.rank ?? "—"})</span></span><span className="flex gap-2"><button type="button" onClick={() => beginEdit(player)} className="text-coral underline">Edit</button><button type="button" onClick={() => void remove(player)} disabled={saving} className="text-red-400 underline">Remove</button></span></div>{identityLeague && identitySeason ? <PlayerIdentityAdmin playerPoolId={player.id} league={identityLeague} season={identitySeason} currentLink={identityLinks.find((link) => link.playerPoolId === player.id) ?? null} profiles={profilesForPlayer(player.id)} /> : null}</li>)}</ul>
   </section>;
 }

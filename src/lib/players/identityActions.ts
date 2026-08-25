@@ -22,6 +22,11 @@ export type AssignIdentityInput = {
   season: string;
 };
 
+export type ReplaceIdentityInput = {
+  linkId: string;
+  profileId: string;
+};
+
 export type IdentityActionResult = { ok: true } | { ok: false; error: string };
 
 type DatabaseError = { code?: string; message?: string } | null;
@@ -62,6 +67,15 @@ function validAssignInput(input: unknown): input is AssignIdentityInput {
       && nonEmptyString(value.profileId)
       && isLeagueKey(value.league)
       && nonEmptyString(value.season),
+  );
+}
+
+function validReplaceInput(input: unknown): input is ReplaceIdentityInput {
+  const value = input as Partial<ReplaceIdentityInput> | null;
+  return Boolean(
+    value
+      && nonEmptyString(value.linkId)
+      && nonEmptyString(value.profileId),
   );
 }
 
@@ -182,6 +196,40 @@ export async function assignPlayerIdentity(input: AssignIdentityInput): Promise<
     decided_at: new Date().toISOString(),
   });
   return error ? friendlyIdentityError(error) : { ok: true };
+}
+
+/** Atomically replaces the selected profile on an existing link. PostgreSQL
+ * uniqueness checks and the update happen in one statement, so a conflicting
+ * profile leaves the old identity row untouched. The trigger rejects field
+ * changes by captains; RLS permits this admin replacement only to an admin. */
+export async function replacePlayerIdentity(input: ReplaceIdentityInput): Promise<IdentityActionResult> {
+  if (!validReplaceInput(input)) return { ok: false, error: "Unable to update player identity" };
+
+  const { supabase, profileId: actorId } = await authenticatedSession();
+  if (!actorId) return { ok: false, error: "Unable to update player identity" };
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", input.profileId)
+    .maybeSingle();
+  if (profileError || !profile) return { ok: false, error: "Unable to update player identity" };
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("player_identity_links")
+    .update({
+      profile_id: input.profileId,
+      status: "approved",
+      source: "admin",
+      requested_by: actorId,
+      requested_at: now,
+      decided_by: actorId,
+      decided_at: now,
+    })
+    .eq("id", input.linkId)
+    .select("id");
+  return mutationResult(data, error);
 }
 
 /** Revocation is intentionally scoped only by link id. RLS decides whether

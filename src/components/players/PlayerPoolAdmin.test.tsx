@@ -7,6 +7,7 @@ import { assignPlayerIdentity } from "@/lib/players/identityActions";
 vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/players/identityActions", () => ({
   assignPlayerIdentity: vi.fn(),
+  replacePlayerIdentity: vi.fn(),
   revokePlayerIdentity: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -112,5 +113,39 @@ describe("PlayerPoolAdmin", () => {
         expect.objectContaining({ playerPoolId: "player-1", profileId: "profile-2" }),
       ),
     );
+  });
+
+  it("excludes profiles linked to another player from each row picker", () => {
+    const otherPlayer: PlayerPoolRow = {
+      ...player,
+      id: "player-2",
+      display_name: "Other Player",
+    };
+    render(
+      <PlayerPoolAdmin
+        seasonKey="season-5"
+        players={[player, otherPlayer]}
+        onPlayersChange={vi.fn()}
+        identityLeague="premier"
+        identitySeason="S5"
+        identityLinks={[
+          { id: "link-1", playerPoolId: "player-1", profileId: "profile-1", status: "approved" },
+          { id: "link-2", playerPoolId: "player-2", profileId: "profile-2", status: "approved" },
+        ]}
+        identityProfiles={[
+          { id: "profile-1", displayName: "Current Profile", discordId: "111111" },
+          { id: "profile-2", displayName: "Already Used", discordId: "222222" },
+          { id: "profile-3", displayName: "Available Profile", discordId: "333333" },
+        ]}
+      />,
+    );
+
+    const playerRow = screen.getByText("Canny#rip").closest("li");
+    const picker = within(playerRow as HTMLElement).getByRole("combobox", {
+      name: /verified discord profile/i,
+    });
+    expect(within(picker).getByRole("option", { name: /Current Profile/ })).toBeTruthy();
+    expect(within(picker).getByRole("option", { name: /Available Profile/ })).toBeTruthy();
+    expect(within(picker).queryByRole("option", { name: /Already Used/ })).toBeNull();
   });
 });
