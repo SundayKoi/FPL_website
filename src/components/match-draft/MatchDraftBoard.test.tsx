@@ -725,3 +725,57 @@ describe("passing a ban", () => {
     expect(screen.getByRole("button", { name: /^pass ban$/i })).toBeTruthy();
   });
 });
+
+describe("pick order after roles are confirmed", () => {
+  /** A finished draft whose captains have confirmed the role order. Blue
+   *  took Ahri first and Sett third, but the confirmed order lists Sett
+   *  (top) before Ahri (mid) — so position in the column no longer says
+   *  anything about when a champion was taken. */
+  const confirmed: MatchDraftState = {
+    ...state,
+    status: "complete",
+    currentStepIndex: 19,
+    actions: [
+      { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: "Blue Mid" },
+      { stepIndex: 9, side: "blue", kind: "pick", slot: 2, champion: "Lulu", playerName: "Blue Support" },
+      { stepIndex: 10, side: "blue", kind: "pick", slot: 3, champion: "Sett", playerName: "Blue Top" },
+      { stepIndex: 17, side: "blue", kind: "pick", slot: 4, champion: "Amumu", playerName: "Blue Jungle" },
+      { stepIndex: 18, side: "blue", kind: "pick", slot: 5, champion: "Jinx", playerName: "Blue ADC" },
+    ],
+    positions: { blue: ["Sett", "Amumu", "Ahri", "Jinx", "Lulu"] },
+  };
+
+  it("still says which pick each champion was", () => {
+    // The order was always in the data; confirming roles just stopped
+    // showing it, and there was no other place on the site to read it.
+    render(<MatchDraftBoard initialState={confirmed} onSave={vi.fn()} />);
+
+    // Sett went third and sits first in the confirmed column.
+    expect(screen.getByText(/Top · P3/i)).toBeTruthy();
+    // Ahri went first and sits third.
+    expect(screen.getByText(/Mid · P1/i)).toBeTruthy();
+  });
+
+  it("keeps the role as the heading — the pick number is an addition", () => {
+    render(<MatchDraftBoard initialState={confirmed} onSave={vi.fn()} />);
+
+    for (const role of ["Top", "Jungle", "Mid", "ADC", "Support"]) {
+      expect(screen.getByText(new RegExp(`^${role} · P\\d$`, "i"))).toBeTruthy();
+    }
+  });
+
+  it("labels a slot with the role alone when the champion was never picked", () => {
+    const withGap: MatchDraftState = {
+      ...confirmed,
+      actions: confirmed.actions.filter((action) => action.champion !== "Sett"),
+      positions: { blue: [null, "Amumu", "Ahri", "Jinx", "Lulu"] },
+    };
+    render(<MatchDraftBoard initialState={withGap} onSave={vi.fn()} />);
+
+    // The slot keeps its role heading and gains no pick number — a plain
+    // "Top" match would also hit the pool's role filter button, so the
+    // assertion is on the ABSENCE of an invented number.
+    expect(screen.queryByText(/^Top · P/i)).toBeNull();
+    expect(screen.getByText(/^Jungle · P4$/i)).toBeTruthy();
+  });
+});
