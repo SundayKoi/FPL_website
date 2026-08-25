@@ -459,4 +459,42 @@ describe("role-aware bars", () => {
       cards.find((c) => c.name === name)!.subStats.find((s) => s.key === "objectives")!.value;
     expect(objectivesOf("Busy")).toBeGreaterThan(objectivesOf("Idle"));
   });
+
+  it("percentiles objectives against the player's own role, not the whole league", () => {
+    // Four junglers, same spread as the test above.
+    const busy = agg({ summoner_name: "Busy", role_mode: "JUNGLE" });
+    const idle = agg({ summoner_name: "Idle", role_mode: "JUNGLE" });
+    const third = agg({ summoner_name: "Third", role_mode: "JUNGLE" });
+    const fourth = agg({ summoner_name: "Fourth", role_mode: "JUNGLE" });
+    const junglers = [busy, idle, third, fourth];
+    const jungleGames = new Map([
+      ["busy#na1", [gameRow({ dragon_kills: 4, baron_kills: 2, objective_damage: 20000 })]],
+      ["idle#na1", [gameRow({ dragon_kills: 0, baron_kills: 0, objective_damage: 0 })]],
+      ["third#na1", [gameRow({ dragon_kills: 1, objective_damage: 2000 })]],
+      ["fourth#na1", [gameRow({ dragon_kills: 2, objective_damage: 4000 })]],
+    ]);
+    const gameLog = logOf({ NA1_1: 30 });
+    const objectivesOf = (cards: ReturnType<typeof buildSeasonCards>, name: string) =>
+      cards.find((c) => c.name === name)!.subStats.find((s) => s.key === "objectives")!.value;
+
+    const junglesOnly = buildSeasonCards({ cohort: junglers, gamesByPlayer: jungleGames, gameLog });
+
+    // Four non-junglers with objective numbers that would swamp a flat,
+    // whole-league ranking (real objective_damage this high dwarfs Busy's).
+    // A bar that forgot to scope by role would let these drag the junglers'
+    // percentiles around; one scoped correctly must ignore them entirely.
+    const laners = ["TOP", "MIDDLE", "BOTTOM", "UTILITY"].map((role, i) => agg({ summoner_name: `Laner${i}`, role_mode: role }));
+    const crowdedGames = new Map(jungleGames);
+    laners.forEach((_row, i) => crowdedGames.set(`laner${i}#na1`, [gameRow({ dragon_kills: 10, baron_kills: 5, objective_damage: 90000 })]));
+    const crowded = buildSeasonCards({ cohort: [...junglers, ...laners], gamesByPlayer: crowdedGames, gameLog });
+
+    // Busy still outranks Idle in both universes.
+    expect(objectivesOf(junglesOnly, "Busy")).toBeGreaterThan(objectivesOf(junglesOnly, "Idle"));
+    expect(objectivesOf(crowded, "Busy")).toBeGreaterThan(objectivesOf(crowded, "Idle"));
+
+    // Adding non-junglers with huge objective numbers must not move either
+    // jungler's bar at all — they are percentiled against JUNGLE only.
+    expect(objectivesOf(crowded, "Busy")).toBe(objectivesOf(junglesOnly, "Busy"));
+    expect(objectivesOf(crowded, "Idle")).toBe(objectivesOf(junglesOnly, "Idle"));
+  });
 });

@@ -552,17 +552,22 @@ export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string
 }
 
 /** Every bar's raw percentile for one player, before toStat()'s 20-99 squeeze.
- *  `objectiveCohort` and `turretCohort` are every cohort member's per-game
- *  work, which only the whole-league builder can assemble — a solo buildCard
- *  passes empty arrays and those two bars land at the middle. */
+ *  `totalsByKey` is every cohort member's per-game objective/turret work,
+ *  which only the whole-league builder can assemble — a solo buildCard
+ *  passes an empty map and those two bars land at the middle. Objectives and
+ *  turrets are percentiled against the player's own ROLE cohort, same as
+ *  every other bar: junglers take nearly every dragon/baron, so ranking a
+ *  jungler's objective work against the whole league would put every
+ *  jungler in the top decile at once and stop the bar from discriminating
+ *  between them. */
 function measureValues(
   cohort: PlayerAggRow[],
   row: PlayerAggRow,
   totals: GameTotals,
-  objectiveCohort: number[],
-  turretCohort: number[],
+  totalsByKey: Map<string, GameTotals>,
 ): Record<MeasureKey, number> {
   const rc = roleCohort(cohort, row);
+  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0 });
   return {
     combat: mean([
       pct(rc, row, (r) => r.kda),
@@ -577,8 +582,8 @@ function measureValues(
     survival: mean([pct(rc, row, (r) => r.avg_deaths, true), pct(rc, row, (r) => r.avg_dmg_taken_per_min, true)]),
     presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => r.avg_assists)]),
     impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
-    objectives: pctOf(objectiveCohort, totals.objectives),
-    turrets: pctOf(turretCohort, totals.turrets),
+    objectives: pctOf(peerTotals.map((t) => t.objectives), totals.objectives),
+    turrets: pctOf(peerTotals.map((t) => t.turrets), totals.turrets),
   };
 }
 
@@ -607,10 +612,12 @@ export interface BuildCardInput {
   motto?: string | null;
   /** This week's Weekly Standout — Card of the Week. */
   standout?: boolean;
-  /** Every cohort member's per-game objective work, for the Objectives bar. */
-  objectiveCohort?: number[];
-  /** Every cohort member's per-game turret work, for the Turrets bar. */
-  turretCohort?: number[];
+  /** Every cohort member's per-game objective/turret work, keyed by
+   *  playerKey — feeds the Objectives and Turrets bars, percentiled against
+   *  the player's own role cohort. Absent — e.g. a solo build in tests —
+   *  those two bars land at the middle, and this player's own totals are
+   *  computed fresh from `games` instead of looked up. */
+  totalsByKey?: Map<string, GameTotals>;
 }
 
 export function buildCard({
@@ -625,16 +632,19 @@ export function buildCard({
   artSkin = 0,
   motto = null,
   standout = false,
-  objectiveCohort = [],
-  turretCohort = [],
+  totalsByKey = new Map<string, GameTotals>(),
 }: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
   const key = playerKey(row);
   const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
   const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
-  const totals = gameTotals(games);
-  const values = measureValues(cohort, row, totals, objectiveCohort, turretCohort);
+  // buildSeasonCards already computed every cohort member's totals once to
+  // build totalsByKey — reuse this player's own entry instead of calling
+  // gameTotals(games) a second time. A solo buildCard (no map) still needs
+  // its own totals computed fresh.
+  const totals = totalsByKey.get(key) ?? gameTotals(games);
+  const values = measureValues(cohort, row, totals, totalsByKey);
   const bars = barsForRole(row.role_mode);
 
   // Form: the last five results, weighted toward the streak the player is
@@ -751,14 +761,13 @@ export function buildSeasonCards({
 
   // Objective and turret work live on the per-game rows, not on the agg
   // view, so their cohort has to be assembled here where every player's
-  // games are in hand.
+  // games are in hand. measureValues percentiles each player against just
+  // their own role's slice of this map (roleCohort), not the flat map.
   const totalsByKey = new Map<string, GameTotals>();
   for (const row of cohort) {
     const key = playerKey(row);
     totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? []));
   }
-  const objectiveCohort = [...totalsByKey.values()].map((t) => t.objectives);
-  const turretCohort = [...totalsByKey.values()].map((t) => t.turrets);
 
   const cards = cohort
     .map((row) => {
@@ -773,8 +782,7 @@ export function buildSeasonCards({
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
         teamAbbrs,
-        objectiveCohort,
-        turretCohort,
+        totalsByKey,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
       });
