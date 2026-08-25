@@ -456,7 +456,16 @@ function PlayerCardFace({
               <div className="flex flex-col gap-1.5">
                 {card.subStats.map((stat) => (
                   <div key={stat.key} className="flex items-center gap-2">
-                    <span className="w-16 text-[9px] font-bold uppercase tracking-[0.14em] text-white/75">{stat.label}</span>
+                    {/* Sized for the longest label the engine can print
+                        ("OBJECTIVES" runs ~68px at 9px + 0.14em tracking,
+                        past the old w-16), with truncate as the backstop so
+                        any future label clips on one line instead of
+                        wrapping and shoving the bar track out of line. The
+                        track stays flex-1, so the extra 4px comes out of it
+                        rather than out of the card. */}
+                    <span className="w-[4.75rem] shrink-0 truncate whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.14em] text-white/75">
+                      {stat.label}
+                    </span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/15">
                       {/* Bars sweep in from zero on mount — the stat reveal. */}
                       <div

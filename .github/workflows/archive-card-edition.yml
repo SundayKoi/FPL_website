@@ -1,15 +1,15 @@
 name: Archive card edition
 
 # Manual only, on purpose. The Tuesday drop archives the current week as
-# part of its run; this is for capturing a week the drop never covered —
-# and that window closes the moment the next ingest lands, since cards are
-# recomputed from season-to-date stats and there is no history to rebuild
-# an old version from.
+# part of its run; this is for filling in a week the drop never covered.
+# The week's cards are rebuilt from that week's raw_stats, so there is no
+# window that shuts — any past Monday can be archived exactly, whenever
+# someone notices it is missing.
 on:
   workflow_dispatch:
     inputs:
       edition_week:
-        description: "Monday of the week to stamp these cards as (YYYY-MM-DD). Blank = the current week."
+        description: "Monday of the week to archive (YYYY-MM-DD, Eastern). Blank = the current week."
         type: string
         default: ""
 

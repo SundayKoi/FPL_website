@@ -38,6 +38,9 @@ out/
 
 # Local worktrees
 .worktrees/
+# Same, from the harness's own worktree tool — a whole checkout of this repo
+# lives here, so leaving it untracked-but-unignored risks committing one.
+.claude/worktrees/
 
 # Playwright
 /test-results/

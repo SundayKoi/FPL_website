@@ -17,6 +17,10 @@ const eslintConfig = defineConfig([
     // Checked-out git worktrees: each is a full copy of the repo on another
     // branch, so linting them reports every finding a second time.
     ".worktrees/**",
+    // The harness's worktree tool uses its own directory, which the pattern
+    // above never matched — a session working in one reported hundreds of
+    // errors from that copy's build output instead of a clean run.
+    ".claude/worktrees/**",
   ]),
 ]);
 

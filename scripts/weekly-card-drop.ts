@@ -1,9 +1,14 @@
 /**
  * Weekly card drop: posts each league's player-card movers to Discord,
  * refreshes the card_snapshots baselines that movement is measured against,
- * and grades + pays out the week's fantasy lineups. Premier and Academy run
- * back to back — they share every table, separated by season code, so each
- * gets its own embeds.
+ * archives the week as a frozen card edition, and grades + pays out the
+ * week's fantasy lineups. Premier and Academy run back to back — they share
+ * every table, separated by season code, so each gets its own embeds.
+ *
+ * Note the two rating bases inside processSeason: everything the site reads
+ * live (movers, snapshots, rating history) is season-to-date, while the
+ * archived edition alone is rated on that week's games. They are not
+ * interchangeable — see the comment there before merging the two reads.
  *
  * Run: npx tsx scripts/weekly-card-drop.ts
  * Needs SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY; DISCORD_CARDS_WEBHOOK_URL
@@ -16,7 +21,7 @@
  * games have been ingested, mirroring the weekly-brief jobs.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { fetchAllCardSeasons, fetchSeasonCards, type CardLeague } from "../src/lib/cards/queries";
+import { fetchAllCardSeasons, fetchSeasonCards, fetchWeekCards, type CardLeague } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
 import { archiveEdition } from "../src/lib/cards/editions";
 import { planPayouts } from "../src/lib/fantasy/payouts";
@@ -72,6 +77,22 @@ async function processSeason(
   const hubPath = league === "academy" ? "/academy/cards" : "/cards";
   const footer = origin ? `${origin}${hubPath}` : `FPL ${label.toLowerCase()} player cards`;
 
+  // Computed up front (was previously derived further down, after the card
+  // read) so the archive read below can be scoped to this week instead of
+  // the whole season.
+  const editionWeek = mondayOf(new Date());
+
+  // TWO rating bases, on purpose — DO NOT collapse them back into one:
+  //
+  //  * `cards` is season-to-DATE, and it is what the site itself shows. The
+  //    movers post compares it to card_snapshots (also season-to-date), and
+  //    card_rating_history feeds the SeasonJourney strip on /card/[slug],
+  //    which appends today's live season OVR as the arc's final point.
+  //    Weekly numbers there would turn the season arc into a sawtooth
+  //    ending on an unrelated season rating.
+  //  * `editionCards` is that ONE WEEK alone, and only the archive takes it:
+  //    an edition is a snapshot of how people played that week, which is
+  //    what a pack bought for that week mints from.
   const cards = await fetchSeasonCards(supabase, season);
   console.log(`[${label}] Built ${cards.length} cards for season ${season}.`);
   if (cards.length === 0) {
@@ -140,15 +161,22 @@ async function processSeason(
 
   const takenAt = new Date().toISOString();
 
-  // Archive this week's cards in full, so a pack bought for this week can
-  // mint them again forever. Tolerated failure: an environment without the
-  // card_editions migration still gets its snapshot and its movers post.
-  const editionWeek = mondayOf(new Date());
-  const editionError = await archiveEdition(supabase, season, editionWeek, cards, takenAt);
-  if (editionError) {
-    console.warn(`[${label}] Could not archive the ${editionWeek} edition (migration applied?): ${editionError}`);
+  // Archive the WEEK's cards — rated on this week's games against this
+  // week's cohort — so a pack bought for this week can mint them again
+  // forever. This is the only consumer of the weekly basis; everything
+  // else in this function stays on `cards` (see the note above).
+  const editionCards = await fetchWeekCards(supabase, season, editionWeek);
+  if (editionCards.length === 0) {
+    console.log(`[${label}] No games in the week of ${editionWeek} — no edition to archive.`);
   } else {
-    console.log(`[${label}] Archived ${cards.length} cards as the ${editionWeek} edition.`);
+    // Tolerated failure: an environment without the card_editions migration
+    // still gets its snapshot and its movers post.
+    const editionError = await archiveEdition(supabase, season, editionWeek, editionCards, takenAt);
+    if (editionError) {
+      console.warn(`[${label}] Could not archive the ${editionWeek} edition (migration applied?): ${editionError}`);
+    } else {
+      console.log(`[${label}] Archived ${editionCards.length} cards as the ${editionWeek} edition.`);
+    }
   }
 
   const { error: upsertError } = await supabase.from("card_snapshots").upsert(

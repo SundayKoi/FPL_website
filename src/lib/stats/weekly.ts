@@ -49,6 +49,7 @@ export type WeeklyRawStatRow = {
  *  score players with this exact same pipeline. */
 export const WEEKLY_STAT_COLUMNS = [
   "assists",
+  "baron_kills",
   "cs",
   "cs_at_10",
   "cs_per_min",
@@ -57,6 +58,7 @@ export const WEEKLY_STAT_COLUMNS = [
   "damage_taken_per_min",
   "deaths",
   "double_kills",
+  "dragon_kills",
   "first_blood_assist",
   "first_blood_kill",
   "game_duration_min",
@@ -66,6 +68,7 @@ export const WEEKLY_STAT_COLUMNS = [
   "kda_challenges",
   "kill_participation_pct",
   "kills",
+  "objective_damage",
   "penta_kills",
   "quadra_kills",
   "role",
@@ -76,6 +79,8 @@ export const WEEKLY_STAT_COLUMNS = [
   "tag",
   "total_damage_to_champions",
   "triple_kills",
+  "turret_damage",
+  "turret_kills",
   "turret_plates_destroyed",
   "vision_score",
   "vision_score_per_min",

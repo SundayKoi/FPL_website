@@ -9,6 +9,7 @@
 import { championDisplayName } from "@/lib/match-draft/champions";
 import { powerRanking } from "@/lib/stats/formulas";
 import type { PlayerAggRow } from "@/lib/stats/types";
+import { MEASURE_LABELS, type MeasureKey, barsForRole, gameTotals, pctOf, type GameTotals } from "./measures";
 
 /** One game a player actually played, distilled from raw_stats. */
 export interface CardGameRow {
@@ -24,6 +25,15 @@ export interface CardGameRow {
   assists: number | null;
   cs: number | null;
   total_damage_to_champions: number | null;
+  /** Objective and turret work — only on raw_stats, never on
+   *  stats_player_agg, so these ride the per-game rows both build paths
+   *  already fetch. */
+  dragon_kills?: number | null;
+  baron_kills?: number | null;
+  objective_damage?: number | null;
+  turret_kills?: number | null;
+  turret_damage?: number | null;
+  turret_plates_destroyed?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */
@@ -53,7 +63,10 @@ export interface CardTier {
 }
 
 export interface CardSubStat {
-  key: "combat" | "economy" | "vision" | "form" | "clutch";
+  /** "form" and "clutch" are retired but stay in the union: every copy
+   *  already frozen in card_inventory carries them, and the renderer prints
+   *  whatever a card holds. */
+  key: MeasureKey | "form" | "clutch";
   label: string;
   value: number;
 }
@@ -142,8 +155,14 @@ export interface PlayerCardData {
 // percentile — see formulas.ts) onto the familiar 1-99 card scale. The
 // affine constants spread real scores (which cluster 30-85) across
 // FIFA-ish territory; tune here, everything downstream follows.
-const OVR_BASE = 28;
-const OVR_SCALE = 0.68;
+export const OVR_BASE = 28;
+// 0.72, not 0.68: raw Power scores top out near 86 over a season and 92-96
+// over a single week, so the old scale left Master (89) and Challenger (94)
+// unreachable and the pack economy's legendary class permanently empty.
+// Modelled on four real weekly cohorts — 0.72 mints roughly one Challenger
+// in a strong week and none in a quiet one, and never hits the 99 clamp
+// (which would tie players and make collector serials arbitrary).
+export const OVR_SCALE = 0.72;
 
 const TIERS: { min: number; tier: CardTier }[] = [
   { min: 94, tier: { key: "challenger", label: "Challenger" } },
@@ -559,6 +578,42 @@ export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string
   return assigned;
 }
 
+/** Every bar's raw percentile for one player, before toStat()'s 20-99 squeeze.
+ *  `totalsByKey` is every cohort member's per-game objective/turret work,
+ *  which only the whole-league builder can assemble — a solo buildCard
+ *  passes an empty map and those two bars land at the middle. Objectives and
+ *  turrets are percentiled against the player's own ROLE cohort, same as
+ *  every other bar: junglers take nearly every dragon/baron, so ranking a
+ *  jungler's objective work against the whole league would put every
+ *  jungler in the top decile at once and stop the bar from discriminating
+ *  between them. */
+function measureValues(
+  cohort: PlayerAggRow[],
+  row: PlayerAggRow,
+  totals: GameTotals,
+  totalsByKey: Map<string, GameTotals>,
+): Record<MeasureKey, number> {
+  const rc = roleCohort(cohort, row);
+  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0 });
+  return {
+    combat: mean([
+      pct(rc, row, (r) => r.kda),
+      pct(rc, row, (r) => r.avg_kills),
+      pct(rc, row, (r) => r.avg_kp_pct),
+      pct(rc, row, (r) => r.avg_deaths, true),
+    ]),
+    damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
+    economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
+    laning: mean([pct(rc, row, (r) => r.avg_cs_at_10), pct(rc, row, (r) => r.avg_gold_at_10)]),
+    vision: pct(rc, row, (r) => r.avg_vision_per_min),
+    survival: mean([pct(rc, row, (r) => r.avg_deaths, true), pct(rc, row, (r) => r.avg_dmg_taken_per_min, true)]),
+    presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => r.avg_assists)]),
+    impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
+    objectives: pctOf(peerTotals.map((t) => t.objectives), totals.objectives),
+    turrets: pctOf(peerTotals.map((t) => t.turrets), totals.turrets),
+  };
+}
+
 // ── Card assembly ─────────────────────────────────────────────────────────
 
 export interface BuildCardInput {
@@ -584,6 +639,12 @@ export interface BuildCardInput {
   motto?: string | null;
   /** This week's Weekly Standout — Card of the Week. */
   standout?: boolean;
+  /** Every cohort member's per-game objective/turret work, keyed by
+   *  playerKey — feeds the Objectives and Turrets bars, percentiled against
+   *  the player's own role cohort. Absent — e.g. a solo build in tests —
+   *  those two bars land at the middle, and this player's own totals are
+   *  computed fresh from `games` instead of looked up. */
+  totalsByKey?: Map<string, GameTotals>;
 }
 
 export function buildCard({
@@ -598,41 +659,31 @@ export function buildCard({
   artSkin = 0,
   motto = null,
   standout = false,
+  totalsByKey = new Map<string, GameTotals>(),
 }: BuildCardInput): PlayerCardData {
   const ranked = powerRanking(cohort);
   const key = playerKey(row);
   const score = ranked.find((r) => playerKey(r) === key)?.score ?? 50;
   const overall = Math.max(1, Math.min(99, Math.round(OVR_BASE + score * OVR_SCALE)));
 
-  const rc = roleCohort(cohort, row);
-  const combat = toStat(
-    mean([
-      pct(rc, row, (r) => r.kda),
-      pct(rc, row, (r) => r.avg_dmg_per_min),
-      pct(rc, row, (r) => r.avg_kills),
-      pct(rc, row, (r) => r.avg_kp_pct),
-      pct(rc, row, (r) => r.avg_deaths, true),
-    ]),
-  );
-  const economy = toStat(
-    mean([
-      pct(rc, row, (r) => r.avg_cs_per_min),
-      pct(rc, row, (r) => r.avg_gold_per_min),
-      pct(rc, row, (r) => r.avg_gold_at_10),
-    ]),
-  );
-  const vision = toStat(pct(rc, row, (r) => r.avg_vision_per_min));
+  // buildSeasonCards already computed every cohort member's totals once to
+  // build totalsByKey — reuse this player's own entry instead of calling
+  // gameTotals(games) a second time. A solo buildCard (no map) still needs
+  // its own totals computed fresh.
+  const totals = totalsByKey.get(key) ?? gameTotals(games);
+  const values = measureValues(cohort, row, totals, totalsByKey);
+  const bars = barsForRole(row.role_mode);
 
   // Form: the last five results, weighted toward the streak the player is
-  // currently on. A 5-0 heater reads 99; a 0-5 skid scrapes the floor.
+  // currently on — still tracked for the flip-card dots and the "On A
+  // Heater" archetype's streak count, even though it no longer prints as
+  // its own bar (see CardSubStat's comment on the retired "form"/"clutch"
+  // keys).
   const dated = [...games].sort((a, b) => (a.game_date ?? "").localeCompare(b.game_date ?? ""));
   const lastFive = lastFiveOf(dated);
-  const formWr = lastFive.length > 0 ? lastFive.filter(Boolean).length / lastFive.length : 0.5;
   const streak = streakOf(lastFive);
-  const form = Math.max(1, Math.min(99, Math.round(20 + formWr * 70 + Math.max(0, streak - 1) * 3)));
 
   const clutchWr = clutchRate(dated, gameLog, row.winrate_pct / 100);
-  const clutch = Math.max(1, Math.min(99, Math.round(15 + clutchWr * 80)));
 
   const resolvedArchetype =
     archetype ??
@@ -689,13 +740,7 @@ export function buildCard({
     highlights: computeHighlights(dated, gameLog),
     badges: computeBadges(row, dated, recordCategories),
     standout,
-    subStats: [
-      { key: "combat", label: "Combat", value: combat },
-      { key: "economy", label: "Economy", value: economy },
-      { key: "vision", label: "Vision", value: vision },
-      { key: "form", label: "Form", value: form },
-      { key: "clutch", label: "Clutch", value: clutch },
-    ],
+    subStats: bars.map((barKey) => ({ key: barKey, label: MEASURE_LABELS[barKey], value: toStat(values[barKey]) })),
     wins: row.wins,
     losses: row.games - row.wins,
     winratePct: row.winrate_pct,
@@ -741,6 +786,16 @@ export function buildSeasonCards({
   }
   const archetypes = assignArchetypes(cohort, extrasByKey);
 
+  // Objective and turret work live on the per-game rows, not on the agg
+  // view, so their cohort has to be assembled here where every player's
+  // games are in hand. measureValues percentiles each player against just
+  // their own role's slice of this map (roleCohort), not the flat map.
+  const totalsByKey = new Map<string, GameTotals>();
+  for (const row of cohort) {
+    const key = playerKey(row);
+    totalsByKey.set(key, gameTotals(gamesByPlayer.get(key) ?? []));
+  }
+
   const cards = cohort
     .map((row) => {
       const key = playerKey(row);
@@ -754,6 +809,7 @@ export function buildSeasonCards({
         recordCategories: recordsByPlayer?.get(key) ?? [],
         teamImages,
         teamAbbrs,
+        totalsByKey,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
       });
