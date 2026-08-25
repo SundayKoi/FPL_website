@@ -102,11 +102,12 @@ async function main(): Promise<void> {
         console.log(`[${league}] Season ${season} played no games in the week of ${week} — nothing to archive.`);
         continue;
       }
-      const error = await archiveEdition(supabase, season, week, cards, takenAt);
+      const { error, pruned } = await archiveEdition(supabase, season, week, cards, takenAt);
       // Fatal here, unlike in the drop: archiving is the ONLY thing this
       // script does, so a failure has to be visible and has to fail the job.
       if (error) throw new Error(`[${league}] Could not archive season ${season} week ${week}: ${error}`);
-      console.log(`[${league}] Archived ${cards.length} cards of season ${season} as the ${week} edition.`);
+      const removed = pruned > 0 ? `, removed ${pruned} no longer in that week's pool` : "";
+      console.log(`[${league}] Archived ${cards.length} cards of season ${season} as the ${week} edition${removed}.`);
       archived += cards.length;
     }
   }

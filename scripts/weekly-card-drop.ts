@@ -171,11 +171,18 @@ async function processSeason(
   } else {
     // Tolerated failure: an environment without the card_editions migration
     // still gets its snapshot and its movers post.
-    const editionError = await archiveEdition(supabase, season, editionWeek, editionCards, takenAt);
+    const { error: editionError, pruned } = await archiveEdition(
+      supabase,
+      season,
+      editionWeek,
+      editionCards,
+      takenAt,
+    );
     if (editionError) {
       console.warn(`[${label}] Could not archive the ${editionWeek} edition (migration applied?): ${editionError}`);
     } else {
-      console.log(`[${label}] Archived ${editionCards.length} cards as the ${editionWeek} edition.`);
+      const removed = pruned > 0 ? `, removed ${pruned} no longer in that week's pool` : "";
+      console.log(`[${label}] Archived ${editionCards.length} cards as the ${editionWeek} edition${removed}.`);
     }
   }
 
