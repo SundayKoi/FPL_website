@@ -10,7 +10,9 @@
 // it with fetchStandoutKey (src/lib/cards/standout.ts).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { mondayOf } from "@/lib/packs/week";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
+import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import type { GameLogRow, PlayerAggRow, RecordRow } from "@/lib/stats/types";
 import {
   buildSeasonCards,
@@ -22,6 +24,39 @@ import {
 } from "./build";
 
 export type CardLeague = "premier" | "academy";
+
+/** The per-game columns a card needs. Objective and turret work is only on
+ *  raw_stats — stats_player_agg has no such columns — so both build paths
+ *  read it here.
+ *
+ *  A single string literal, line-continued with `\` rather than `+`
+ *  concatenated: `+` would widen the result to `string` and defeat
+ *  Supabase's column-checking `.select()` overload. */
+const CARD_GAME_COLUMNS =
+  "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
+total_damage_to_champions, dragon_kills, baron_kills, objective_damage, turret_kills, turret_damage, \
+turret_plates_destroyed";
+
+/**
+ * `CARD_GAME_COLUMNS` plus every column `aggregateWeeklyPlayerRows` (see
+ * `@/lib/stats/weekly`) reads. `fetchSeasonCards` gets its cohort from
+ * `stats_player_agg` and only ever reads raw_stats for CardGameRow fields,
+ * so the narrower list is enough there — but `fetchWeekCards` has no
+ * per-week agg view to fall back on: the SAME raw rows have to double as
+ * both a CardGameRow (for the card bars) and a WeeklyRawStatRow (fed into
+ * aggregateWeeklyPlayerRows to build the week's own cohort). Missing a
+ * column here doesn't error, it just silently zeroes that stat for every
+ * player — e.g. without `game_duration_min` every per-minute rate
+ * (dmg/cs/gold per min) reads as 0 for the whole cohort, flattening the
+ * ratings the whole feature exists to spread out.
+ */
+const WEEK_GAME_COLUMNS =
+  "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
+total_damage_to_champions, dragon_kills, baron_kills, objective_damage, turret_kills, turret_damage, \
+turret_plates_destroyed, cs_at_10, cs_per_min, damage_per_min, damage_share_pct, damage_taken_per_min, \
+double_kills, first_blood_assist, first_blood_kill, game_duration_min, gold_at_10, gold_earned, \
+gold_per_min, kda_challenges, kill_participation_pct, penta_kills, quadra_kills, role, season, \
+season_phase, solo_kills, triple_kills, vision_score, vision_score_per_min, xp_at_10";
 
 /** The season a league's cards rate — Premier's current season or the
  *  Academy's own code. The two leagues share every stats table and are
@@ -200,7 +235,7 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     supabase.from("stats_player_agg").select("*").eq("season", season),
     supabase
       .from("raw_stats")
-      .select("summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, total_damage_to_champions")
+      .select(CARD_GAME_COLUMNS)
       .eq("season", season),
     supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
     supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
@@ -258,6 +293,95 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
     gamesByPlayer,
     gameLog,
     recordsByPlayer,
+    teamImages: teamIdentity.badges,
+    teamAbbrs: teamIdentity.abbrs,
+    artPrefs,
+  });
+}
+
+/**
+ * Every player's card for ONE week, rated against that week's cohort.
+ *
+ * The sibling of fetchSeasonCards, and the builder a weekly drop archives:
+ * a card stops meaning "how good is this player this season" and starts
+ * meaning "how did they play that week". Ratings are cohort-relative, so a
+ * narrower window spreads them — which is the point, and why the curve was
+ * retuned alongside this.
+ *
+ * `week` is the Monday (YYYY-MM-DD) of an EASTERN-calendar week — the same
+ * week `mondayOf` (src/lib/packs/week.ts) stamps on pack pulls and fantasy
+ * lineups. raw_stats.game_date is an instant, and ET runs 4-5 hours behind
+ * UTC, so the query cannot express that week as a date range: a UTC
+ * [Monday, next Monday) window would hand a 23:00 ET Sunday game to the
+ * FOLLOWING edition, permanently, because editions freeze at mint. Instead
+ * the fetch pulls a deliberately WIDER UTC window (padded a day either
+ * side, which no ET offset can escape) and `mondayOf` itself trims it —
+ * one definition of a week, not a second one written in query params.
+ * A game at 23:00 ET on Sunday therefore belongs to the week that just
+ * ended, and Monday's opener starts the next one.
+ */
+export async function fetchWeekCards(
+  supabase: SupabaseClient,
+  season: string,
+  week: string,
+): Promise<PlayerCardData[]> {
+  // Padding, not precision: the exact boundary is mondayOf's job below.
+  const start = new Date(`${week}T00:00:00.000Z`);
+  start.setUTCDate(start.getUTCDate() - 1);
+  const end = new Date(`${week}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 8);
+
+  const [gamesResult, logResult, teamIdentity, artResult] = await Promise.all([
+    supabase
+      .from("raw_stats")
+      .select(WEEK_GAME_COLUMNS)
+      .eq("season", season)
+      .gte("game_date", start.toISOString())
+      .lt("game_date", end.toISOString()),
+    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
+    fetchTeamIdentity(supabase, season),
+    supabase.from("card_art_prefs").select("*").eq("season", season),
+  ]);
+
+  // Loud, exactly like fetchSeasonCards. A swallowed error here reads as
+  // "no games this week", and the drop would log "No cards — skipping" and
+  // exit green — silently losing a week that can never be re-minted.
+  if (gamesResult.error) throw gamesResult.error;
+  if (logResult.error) throw logResult.error;
+
+  // Trim the padded UTC window down to the Eastern week. An empty result
+  // after this is the legitimate quiet-week case — the throws above are
+  // what a failure looks like.
+  const games = ((gamesResult.data as CardGameRow[]) ?? []).filter(
+    (game) => game.game_date && mondayOf(new Date(game.game_date)) === week,
+  );
+  if (games.length === 0) return [];
+
+  // The week's own cohort: aggregate the raw rows the same way the weekly
+  // standouts and the fantasy scorer do, so one rating engine answers for
+  // all three.
+  const cohort = aggregateWeeklyPlayerRows(games as unknown as WeeklyRawStatRow[]);
+
+  const gamesByPlayer = new Map<string, CardGameRow[]>();
+  for (const game of games) {
+    const key = cardPlayerKey(game.summoner_name, game.tag);
+    gamesByPlayer.set(key, [...(gamesByPlayer.get(key) ?? []), game]);
+  }
+
+  const gameLog = new Map<string, CardGameMeta>();
+  for (const log of (logResult.data as Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">[]) ?? []) {
+    gameLog.set(log.match_id, { durationMin: log.duration_min, blueTeam: log.blue_team, redTeam: log.red_team });
+  }
+
+  const artPrefs = new Map<string, { skin: number; motto: string | null }>();
+  for (const art of ((artResult.data as { summoner_name: string; tag: string; skin: number; motto?: string | null }[]) ?? [])) {
+    artPrefs.set(cardPlayerKey(art.summoner_name, art.tag), { skin: art.skin, motto: art.motto ?? null });
+  }
+
+  return buildSeasonCards({
+    cohort,
+    gamesByPlayer,
+    gameLog,
     teamImages: teamIdentity.badges,
     teamAbbrs: teamIdentity.abbrs,
     artPrefs,
