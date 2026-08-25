@@ -294,11 +294,9 @@ export async function fetchMyRoster(
       .single();
     if (settingsError) throw settingsError;
     const settingRows = (settings as { featured_draft_id: string | null; academy_draft_id?: string | null } | null) ?? null;
-    const draftIds = [settingRows?.featured_draft_id, settingRows?.academy_draft_id].filter(
-      (id): id is string => Boolean(id),
-    );
-    const draftTeamsResult = draftIds.length
-      ? await supabase.from("teams").select("id, name").in("draft_id", draftIds)
+    const draftId = league === "academy" ? settingRows?.academy_draft_id : settingRows?.featured_draft_id;
+    const draftTeamsResult = draftId
+      ? await supabase.from("teams").select("id, name").eq("draft_id", draftId)
       : { data: [], error: null };
     if (draftTeamsResult.error) throw draftTeamsResult.error;
     const { data: draftTeams } = draftTeamsResult;

@@ -102,6 +102,76 @@ function rosterClient(failedTable: string) {
   };
 }
 
+function collidingRosterClient() {
+  const tables: Record<string, Record<string, unknown>[]> = {
+    league_teams: [{ id: "league-team", name: "Shared Team" }],
+    league_settings: [{
+      id: 1,
+      featured_draft_id: "premier-draft",
+      academy_draft_id: "academy-draft",
+    }],
+    teams: [
+      { id: "premier-team", draft_id: "premier-draft", name: "Shared Team" },
+      { id: "academy-team", draft_id: "academy-draft", name: "Shared Team" },
+    ],
+    players: [
+      {
+        id: "premier-player",
+        draft_id: "premier-draft",
+        display_name: "Premier Player",
+        role: "mid",
+        rank: null,
+        opgg_url: null,
+        notes: null,
+        canonical_player_id: "premier-pool",
+        team_id: "premier-team",
+        price: 10,
+        acquisition: "auction",
+      },
+      {
+        id: "academy-player",
+        draft_id: "academy-draft",
+        display_name: "Academy Player",
+        role: "mid",
+        rank: null,
+        opgg_url: null,
+        notes: null,
+        canonical_player_id: "academy-pool",
+        team_id: "academy-team",
+        price: 8,
+        acquisition: "auction",
+      },
+    ],
+    player_pool: [],
+    roster_memberships: [],
+  };
+
+  return {
+    from: vi.fn((table: string) => {
+      let rows = [...(tables[table] ?? [])];
+      const response = () => ({ data: rows, error: null });
+      const chain = {
+        select: vi.fn(() => chain),
+        eq: vi.fn((column: string, value: unknown) => {
+          rows = rows.filter((row) => row[column] === value);
+          return chain;
+        }),
+        in: vi.fn((column: string, values: unknown[]) => {
+          rows = rows.filter((row) => values.includes(row[column]));
+          return chain;
+        }),
+        order: vi.fn(() => chain),
+        single: vi.fn(async () => ({ data: rows[0] ?? null, error: null })),
+        then: (
+          onFulfilled: (value: ReturnType<typeof response>) => unknown,
+          onRejected?: (reason: unknown) => unknown,
+        ) => Promise.resolve(response()).then(onFulfilled, onRejected),
+      };
+      return chain;
+    }),
+  };
+}
+
 describe("fetchMyRoster", () => {
   it.each([
     "league_teams",
@@ -115,6 +185,20 @@ describe("fetchMyRoster", () => {
       "A1",
       "academy",
     )).rejects.toMatchObject({ message: `${table} unavailable` });
+  });
+
+  it.each([
+    ["premier", "Premier Player"],
+    ["academy", "Academy Player"],
+  ] as const)("selects only the %s draft when both leagues use the same team name", async (league, playerName) => {
+    const roster = await fetchMyRoster(
+      collidingRosterClient() as never,
+      "league-team",
+      league === "academy" ? "A1" : "S5",
+      league,
+    );
+
+    expect(roster.draftPlayers.map((player) => player.display_name)).toEqual([playerName]);
   });
 });
 
