@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
+import CardsNav from "@/components/cards/CardsNav";
 import ClaimFinder from "@/components/cards/ClaimFinder";
 import { toClaimFinderCards } from "@/lib/cards/claimFinder";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
@@ -106,66 +107,12 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             tilt, click to flip, and share your card straight into Discord.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CardsLeagueToggle league={league} />
-          <Link
-            href={`${base}/teams`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Team cards →
-          </Link>
-          <Link
-            href={`${base}/compare`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Card vs Card →
-          </Link>
-          <Link
-            href={`${base}/packs`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Packs →
-          </Link>
-          <Link
-            href={`${base}/trades`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Trades →
-          </Link>
-          <Link
-            href={`${base}/fantasy`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Fantasy →
-          </Link>
-          <Link
-            href={`${base}/moments`}
-            className="rounded-full border border-gold/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gold transition hover:bg-gold hover:text-navy"
-          >
-            Moments →
-          </Link>
-          <Link
-            href={`${base}/stats`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Ledger →
-          </Link>
-          <Link
-            href={`${base}/packs#binder`}
-            className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-          >
-            Your binder →
-          </Link>
-          {showClaims ? (
-            <Link
-              href="/cards/claims"
-              className="rounded-full border border-coral/60 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
-            >
-              Claims{(pendingClaims ?? 0) > 0 ? ` (${pendingClaims})` : ""} →
-            </Link>
-          ) : null}
-        </div>
+        <CardsLeagueToggle league={league} />
       </header>
+
+      {/* Nine identical pills used to sit in the header, all shouting at the
+          same volume. Grouped by what someone came here to do instead. */}
+      <CardsNav base={base} showClaims={showClaims} pendingClaims={pendingClaims ?? 0} />
       {/* Your card, before the wall of everyone else's. */}
       {myClaim && myClaim.status === "approved" && mySlug ? (
         <section className="card-brand flex flex-wrap items-center justify-between gap-4 px-5 py-4">
