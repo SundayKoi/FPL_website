@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabase } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LeagueKey } from "./identity";
 
 export type RequestIdentityInput = {
@@ -30,6 +31,7 @@ export type ReplaceIdentityInput = {
 export type IdentityActionResult = { ok: true } | { ok: false; error: string };
 
 type DatabaseError = { code?: string; message?: string } | null;
+type LeagueSettingsRow = { current_season: string | null; academy_season: string | null };
 
 function isLeagueKey(value: unknown): value is LeagueKey {
   return value === "premier" || value === "academy";
@@ -105,6 +107,45 @@ async function authenticatedSession() {
   return { supabase, profileId: userData.user?.id ?? null };
 }
 
+/**
+ * Maps a canonical player to exactly one active league team for the current
+ * season. The database helper owns the roster/draft/name equivalence rule, so
+ * this action cannot reconstruct it from a browser-supplied team id. A missing
+ * or ambiguous result is deliberately not assigned as an unrostered identity.
+ */
+async function resolveActiveRosterTeamId(
+  supabase: SupabaseClient,
+  input: Pick<AssignIdentityInput, "playerPoolId" | "league" | "season">,
+): Promise<string | null> {
+  const { data: settingsData, error: settingsError } = await supabase
+    .from("league_settings")
+    .select("current_season, academy_season")
+    .eq("id", 1)
+    .single();
+  const settings = settingsData as LeagueSettingsRow | null;
+  const activeSeason = input.league === "academy" ? settings?.academy_season : settings?.current_season;
+  if (settingsError || !activeSeason || input.season !== activeSeason) return null;
+
+  const { data: teamData, error: teamsError } = await supabase
+    .from("league_teams")
+    .select("id")
+    .eq("active", true);
+  if (teamsError) return null;
+
+  const candidates = (teamData as { id: string }[] | null) ?? [];
+  const matches = (await Promise.all(candidates.map(async (team) => {
+    const { data, error } = await supabase.rpc("is_player_rostered_on_team", {
+      p_player_pool_id: input.playerPoolId,
+      p_league_team_id: team.id,
+      p_league: input.league,
+      p_season: input.season,
+    });
+    return !error && data === true ? team.id : null;
+  }))).filter((teamId): teamId is string => teamId !== null);
+
+  return matches.length === 1 ? matches[0] : null;
+}
+
 /** Creates a pending request for the current session only. RLS validates that
  * the requested team is an exact current roster match before accepting it. */
 export async function requestPlayerIdentityClaim(input: RequestIdentityInput): Promise<IdentityActionResult> {
@@ -166,9 +207,10 @@ export async function decidePlayerIdentityClaim(input: DecideIdentityInput): Pro
   return mutationResult(data, error);
 }
 
-/** Creates an immediately approved, unrostered admin identity link. The
+/** Creates an immediately approved, rostered admin identity link. The
  * selected profile is re-read by id; no display name or Discord identifier is
- * accepted as a persistence input. RLS permits the final insert only to an
+ * accepted as a persistence input. The team is resolved server-side through
+ * the migration's exact roster helper; RLS permits the final insert only to an
  * administrator. */
 export async function assignPlayerIdentity(input: AssignIdentityInput): Promise<IdentityActionResult> {
   if (!validAssignInput(input)) return { ok: false, error: "Unable to update player identity" };
@@ -183,10 +225,13 @@ export async function assignPlayerIdentity(input: AssignIdentityInput): Promise<
     .maybeSingle();
   if (profileError || !profile) return { ok: false, error: "Unable to update player identity" };
 
+  const leagueTeamId = await resolveActiveRosterTeamId(supabase, input);
+  if (!leagueTeamId) return { ok: false, error: "Unable to update player identity" };
+
   const { error } = await supabase.from("player_identity_links").insert({
     player_pool_id: input.playerPoolId,
     profile_id: input.profileId,
-    league_team_id: null,
+    league_team_id: leagueTeamId,
     league: input.league,
     season: input.season,
     status: "approved",

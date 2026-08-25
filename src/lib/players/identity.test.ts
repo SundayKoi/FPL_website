@@ -46,7 +46,7 @@ function clientFor({
 }
 
 describe("resolvePlayerIdentity", () => {
-  it("returns the caller's approved Premier link", async () => {
+  it("resolves a rostered admin-assigned Premier link as approved", async () => {
     const client = clientFor({
       link: { id: "link-1", player_pool_id: "pool-1", league_team_id: "team-1", status: "approved" },
     });

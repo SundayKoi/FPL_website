@@ -19,12 +19,20 @@ function mutationClient({
   updateResult = { data: [{ id: "link-1" }], error: null },
   deleteResult = { data: [{ id: "link-1" }], error: null },
   profile = { id: "profile-2" },
+  currentSeason = "S5",
+  academySeason = "A1",
+  activeTeams = [{ id: "team-1" }],
+  rosteredTeamIds = ["team-1"],
 }: {
   userId?: string | null;
   insertResult?: { error: { code?: string; message: string } | null };
   updateResult?: { data?: { id: string }[] | null; error: { code?: string; message: string } | null };
   deleteResult?: { data?: { id: string }[] | null; error: { code?: string; message: string } | null };
   profile?: { id: string } | null;
+  currentSeason?: string;
+  academySeason?: string;
+  activeTeams?: { id: string }[];
+  rosteredTeamIds?: string[];
 }) {
   const insert = vi.fn(async () => insertResult);
   const updateChain = mutationChain(updateResult);
@@ -33,15 +41,34 @@ function mutationClient({
   const profileQuery = {
     select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn(async () => ({ data: profile, error: null })) })) })),
   };
+  const settingsQuery = readChain({ current_season: currentSeason, academy_season: academySeason });
+  const teamsQuery = readChain(activeTeams);
+  const rpc = vi.fn(async (_functionName: string, params: { p_league_team_id: string }) => ({
+    data: rosteredTeamIds.includes(params.p_league_team_id),
+    error: null,
+  }));
   const client = {
     auth: { getUser: vi.fn(async () => ({ data: { user: userId ? { id: userId } : null } })) },
+    rpc,
     from: vi.fn((table: string) => {
       if (table === "player_identity_links") return { insert, update, delete: remove };
       if (table === "profiles") return profileQuery;
+      if (table === "league_settings") return settingsQuery;
+      if (table === "league_teams") return teamsQuery;
       throw new Error(`Unexpected table ${table}`);
     }),
   };
-  return { client, insert, update, updateChain, remove, profileQuery };
+  return { client, insert, update, updateChain, remove, profileQuery, rpc };
+}
+
+function readChain(data: unknown) {
+  const chain: Record<string, unknown> = {
+    select: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
+    single: vi.fn(async () => ({ data, error: null })),
+    then: (resolve: (value: { data: unknown; error: null }) => unknown) => Promise.resolve({ data, error: null }).then(resolve),
+  };
+  return chain;
 }
 
 function mutationChain(result: { data?: { id: string }[] | null; error: { code?: string; message: string } | null }) {
@@ -136,8 +163,8 @@ describe("player identity actions", () => {
     expect(remove).toHaveBeenCalled();
   });
 
-  it("links an existing selected profile without accepting a Discord name", async () => {
-    const { client, insert, profileQuery } = mutationClient({});
+  it("links an existing selected profile to its one active roster team without accepting a Discord name", async () => {
+    const { client, insert, profileQuery, rpc } = mutationClient({});
     createServerSupabase.mockResolvedValue(client);
 
     await expect(assignPlayerIdentity({
@@ -148,12 +175,43 @@ describe("player identity actions", () => {
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({
       player_pool_id: "pool-1",
       profile_id: "profile-2",
-      league_team_id: null,
+      league_team_id: "team-1",
       source: "admin",
       status: "approved",
       requested_by: "profile-1",
       decided_by: "profile-1",
     }));
+    expect(rpc).toHaveBeenCalledWith("is_player_rostered_on_team", {
+      p_player_pool_id: "pool-1",
+      p_league_team_id: "team-1",
+      p_league: "premier",
+      p_season: "S5",
+    });
+  });
+
+  it("safely rejects an admin assignment for an unrostered player", async () => {
+    const { client, insert } = mutationClient({ rosteredTeamIds: [] });
+    createServerSupabase.mockResolvedValue(client);
+
+    await expect(assignPlayerIdentity({
+      playerPoolId: "unrostered-pool", profileId: "profile-2", league: "premier", season: "S5",
+    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("safely rejects an admin assignment when the active roster match is ambiguous", async () => {
+    const { client, insert } = mutationClient({
+      activeTeams: [{ id: "team-1" }, { id: "team-2" }],
+      rosteredTeamIds: ["team-1", "team-2"],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await expect(assignPlayerIdentity({
+      playerPoolId: "ambiguous-pool", profileId: "profile-2", league: "premier", season: "S5",
+    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("replaces a link with one atomic update so a profile conflict preserves the old row", async () => {

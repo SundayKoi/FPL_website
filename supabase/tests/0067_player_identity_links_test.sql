@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(38);
+select plan(40);
 grant usage on schema tests to authenticated;
 
 -- Schema contract.
@@ -252,6 +252,30 @@ $decider_forgery$, 'IDENTITY_DECIDER_MISMATCH%', 'a captain cannot forge the app
 rollback to savepoint captain_decider_forgery;
 reset role;
 
+select tests.acting_as(tests.cap(2));
+set local role authenticated;
+delete from public.player_identity_links
+where player_pool_id = '67000000-0000-0000-0000-000000000040';
+reset role;
+select is(
+  (select count(*) from public.player_identity_links
+   where player_pool_id = '67000000-0000-0000-0000-000000000040'),
+  0::bigint,
+  'the exact team captain can reject a pending identity claim'
+);
+
+select tests.acting_as(tests.cap(1));
+set local role authenticated;
+insert into public.player_identity_links (
+  player_pool_id, profile_id, league_team_id, league, season,
+  status, source, requested_by
+) values (
+  '67000000-0000-0000-0000-000000000040', tests.cap(1),
+  '67000000-0000-0000-0000-000000000020', 'premier', 'IDENTITY-S1',
+  'pending', 'team', tests.cap(1)
+);
+reset role;
+
 select tests.acting_as(tests.cap(3));
 set local role authenticated;
 update public.player_identity_links
@@ -335,13 +359,25 @@ set local role authenticated;
 delete from public.player_identity_links
 where player_pool_id = '67000000-0000-0000-0000-000000000040';
 reset role;
+select is(
+  (select count(*) from public.player_identity_links
+   where player_pool_id = '67000000-0000-0000-0000-000000000040'),
+  1::bigint,
+  'a captain cannot revoke an approved identity link'
+);
+
+select tests.acting_as(tests.admin_id());
+set local role authenticated;
+delete from public.player_identity_links
+where player_pool_id = '67000000-0000-0000-0000-000000000040';
+reset role;
 select tests.acting_as(tests.cap(1));
 set local role authenticated;
 select ok(
   not public.is_approved_team_member(
     '67000000-0000-0000-0000-000000000020', 'IDENTITY-S1'
   ),
-  'captain revocation removes member access immediately'
+  'admin revocation removes member access immediately'
 );
 reset role;
 
