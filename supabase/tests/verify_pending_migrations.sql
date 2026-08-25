@@ -1,4 +1,4 @@
--- Read-only check: are the four hand-applied migrations actually on the
+-- Read-only check: are the hand-applied migrations actually on the
 -- remote database? Paste this into the Supabase SQL editor. Every row
 -- should read `t`; any `f` names a migration that still needs running.
 --
@@ -6,6 +6,7 @@
 --   f on winner_team, set_open_draft_winner -> 20260826000010_open_draft_winners.sql
 --   f on lobby create locked down    -> 20260826000011_open_draft_premium_gate.sql
 --   f on card_editions table         -> 20260827000003_card_editions.sql
+--   f on player_identity_links table -> 20260827000009_player_identity_links.sql
 --
 -- Touches nothing: no DDL, no writes.
 
@@ -34,6 +35,13 @@ union all
 select 'set_open_draft_winner()',      to_regprocedure('public.set_open_draft_winner(text,int,text)') is not null
 union all
 select 'card_editions table',          to_regclass('public.card_editions') is not null
+union all
+select 'player_identity_links table',  to_regclass('public.player_identity_links') is not null
+union all
+select 'card claims player pool link',
+       exists (select 1 from information_schema.columns
+               where table_schema='public' and table_name='card_claims'
+                 and column_name='player_pool_id')
 union all
 select 'lobby create locked down',
        case when to_regprocedure('public.create_open_draft_lobby(text,text,int,boolean,jsonb,jsonb)') is null
