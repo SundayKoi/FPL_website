@@ -12,11 +12,16 @@ import { fetchTeamIdentities } from "@/lib/teams/identity";
 
 export default async function AcademySchedulePage({ searchParams }: { searchParams: Promise<{ season?: string | string[] }> }) {
   const supabase = await createServerSupabase();
-  const [{ data }, draftData, identities] = await Promise.all([
+  const [{ data }, draftData, identities, draftsResult] = await Promise.all([
     supabase.from("fixtures").select("*").order("stage").order("sort_order"),
     fetchAcademyDraftData(supabase),
     fetchTeamIdentities("academy_draft_id"),
+    // Ids only — whether a pick/ban phase EXISTS, not what is in it.
+    supabase.from("match_drafts").select("fixture_id"),
   ]);
+  const draftedFixtureIds = new Set(
+    ((draftsResult.data as { fixture_id: string }[] | null) ?? []).map((row) => row.fixture_id),
+  );
   const fixtures = filterAcademyFixtures((data as FixtureRow[]) ?? [], academyTeamNames(draftData.teams));
   const requested = (await searchParams).season;
   const season = resolveSeason(fixtures, Array.isArray(requested) ? requested[0] : requested);
@@ -31,7 +36,7 @@ export default async function AcademySchedulePage({ searchParams }: { searchPara
       {seasonsOf(fixtures).length > 1 ? <nav aria-label="Season" className="mt-8 flex flex-wrap gap-2">{seasonsOf(fixtures).map((value) => <Link key={value} href={`/academy/schedule?season=${encodeURIComponent(value)}`} className="rounded-full border border-line bg-panel px-3 py-1 text-xs text-steel">{value}</Link>)}</nav> : null}
       {/* No Gauntlet in Academy: the split goes straight from the regular
           season into the playoff bracket. */}
-      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <CollapsibleScheduleStage key={meta.stage} stageId={meta.stage} label={meta.label} note={meta.note} initiallyOpen={defaultOpenStages.has(meta.stage)}>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={null} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</CollapsibleScheduleStage>)}</div></section>)}</div>
+      <div className="mt-10 flex flex-col gap-12">{(["Regular Season", "Playoffs"] as const).map((group) => <section key={group}><h2 className="label-dash">{group}</h2><div className="mt-4 flex flex-col gap-4">{grouped.filter(({ meta }) => meta.group === group).map(({ meta, fixtures: stageFixtures }) => <CollapsibleScheduleStage key={meta.stage} stageId={meta.stage} label={meta.label} note={meta.note} initiallyOpen={defaultOpenStages.has(meta.stage)}>{stageFixtures.length ? stageFixtures.map((fixture) => <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={null} draftedFixtureIds={draftedFixtureIds} />) : <p className="px-4 py-4 text-sm text-steel">Academy matchups TBD.</p>}</CollapsibleScheduleStage>)}</div></section>)}</div>
     </div></main>
   );
 }
