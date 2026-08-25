@@ -89,6 +89,17 @@ function editionsClient(existingSlugs: string[], errors: { upsert?: string; read
 }
 
 describe("archiveEdition", () => {
+  it("reports how many it removed, so a silent no-op cannot pass for success", async () => {
+    // The run that failed to prune looked identical in its log to one that
+    // worked. Only a hand-written query told them apart.
+    const { client } = editionsClient(["stayed", "left-last-week", "also-left"]);
+
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("stayed")])).toEqual({
+      error: null,
+      pruned: 2,
+    });
+  });
+
   it("removes a player who is no longer in the week's pool", async () => {
     // The bug this exists to stop: an upsert is additive, so re-archiving a
     // week whose roster shrank wrote the new cards over the old and left
@@ -122,7 +133,7 @@ describe("archiveEdition", () => {
     // and the caller cannot tell those two apart.
     const { client, calls } = editionsClient(["a", "b"]);
 
-    expect(await archiveEdition(client, "S5", "2026-08-24", [])).toBeNull();
+    expect(await archiveEdition(client, "S5", "2026-08-24", [])).toEqual({ error: null, pruned: 0 });
     expect(calls.deleted).toEqual([]);
     expect(calls.upserted).toEqual([]);
   });
@@ -130,14 +141,14 @@ describe("archiveEdition", () => {
   it("does not prune when the write itself failed", async () => {
     const { client, calls } = editionsClient(["a"], { upsert: "permission denied" });
 
-    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toBe("permission denied");
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toEqual({ error: "permission denied", pruned: 0 });
     expect(calls.deleted).toEqual([]);
   });
 
   it("reports a failed read without undoing the cards it wrote", async () => {
     const { client, calls } = editionsClient(["a"], { read: "timeout" });
 
-    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toBe("timeout");
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("b")])).toEqual({ error: "timeout", pruned: 0 });
     // Correct-but-wide beats wrong: the new cards stay.
     expect(calls.upserted).toEqual(["b"]);
   });
@@ -145,6 +156,6 @@ describe("archiveEdition", () => {
   it("reports a failed prune", async () => {
     const { client } = editionsClient(["a", "b"], { prune: "deadlock" });
 
-    expect(await archiveEdition(client, "S5", "2026-08-24", [card("a")])).toBe("deadlock");
+    expect(await archiveEdition(client, "S5", "2026-08-24", [card("a")])).toEqual({ error: "deadlock", pruned: 0 });
   });
 });

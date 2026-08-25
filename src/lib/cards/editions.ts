@@ -36,6 +36,10 @@ import type { PlayerCardData } from "./build";
  *
  * Copies people already pulled live in card_inventory and are untouched.
  *
+ * Reports how many stale rows it removed. A delete that says nothing is
+ * how a broken rebuild hides: the run before this one silently did not
+ * prune, and the only way to find out was to query the database by hand.
+ *
  * Returns an error message rather than throwing: the weekly drop treats a
  * failed archive as tolerable (an environment without the card_editions
  * migration should still get its snapshot and its movers post), and the
@@ -47,8 +51,8 @@ export async function archiveEdition(
   week: string,
   cards: PlayerCardData[],
   takenAt: string = new Date().toISOString(),
-): Promise<string | null> {
-  if (cards.length === 0) return null;
+): Promise<{ error: string | null; pruned: number }> {
+  if (cards.length === 0) return { error: null, pruned: 0 };
   const { error } = await supabase.from("card_editions").upsert(
     cards.map((card) => ({
       season,
@@ -63,7 +67,7 @@ export async function archiveEdition(
     })),
     { onConflict: "season,edition_week,slug" },
   );
-  if (error) return error.message;
+  if (error) return { error: error.message, pruned: 0 };
 
   // Reconcile the roster. Reading the week's slugs back and deleting the
   // difference, rather than a "not in (...)" filter: slugs are derived from
@@ -78,12 +82,12 @@ export async function archiveEdition(
     .eq("edition_week", week);
   // The cards are already written, so a failed prune leaves the edition
   // correct-but-wide rather than wrong. Report it; do not undo the write.
-  if (readError) return readError.message;
+  if (readError) return { error: readError.message, pruned: 0 };
 
   const stale = ((existing as { slug: string }[]) ?? [])
     .map((row) => row.slug)
     .filter((slug) => !kept.has(slug));
-  if (stale.length === 0) return null;
+  if (stale.length === 0) return { error: null, pruned: 0 };
 
   const { error: pruneError } = await supabase
     .from("card_editions")
@@ -91,7 +95,7 @@ export async function archiveEdition(
     .eq("season", season)
     .eq("edition_week", week)
     .in("slug", stale);
-  return pruneError?.message ?? null;
+  return { error: pruneError?.message ?? null, pruned: pruneError ? 0 : stale.length };
 }
 
 /** The literal a caller passes to rebuild the whole archive. */
