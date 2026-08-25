@@ -35,7 +35,7 @@ export type CardLeague = "premier" | "academy";
 const CARD_GAME_COLUMNS =
   "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
 total_damage_to_champions, dragon_kills, baron_kills, objective_damage, turret_kills, turret_damage, \
-wards_killed, control_wards_bought, detector_wards_placed, \
+wards_killed, control_wards_bought, detector_wards_placed, damage_mitigated, \
 turret_plates_destroyed";
 
 /**
@@ -54,7 +54,7 @@ turret_plates_destroyed";
 const WEEK_GAME_COLUMNS =
   "summoner_name, tag, champion, win, game_date, match_id, team_name, kills, deaths, assists, cs, \
 total_damage_to_champions, dragon_kills, baron_kills, objective_damage, turret_kills, turret_damage, \
-wards_killed, control_wards_bought, detector_wards_placed, \
+wards_killed, control_wards_bought, detector_wards_placed, damage_mitigated, \
 turret_plates_destroyed, cs_at_10, cs_per_min, damage_per_min, damage_share_pct, damage_taken_per_min, \
 double_kills, first_blood_assist, first_blood_kill, game_duration_min, gold_at_10, gold_earned, \
 gold_per_min, kda_challenges, kill_participation_pct, penta_kills, quadra_kills, role, season, \
