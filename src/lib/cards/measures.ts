@@ -58,6 +58,8 @@ export interface GameTotals {
   /** Wards killed + control wards PLACED, per minute played. The denial
    *  half of vision, which vision_score barely separates from provision. */
   visionWork: number;
+  /** Damage absorbed by armour, MR and shields, per minute played. */
+  mitigated: number;
   /** Objective takedowns + objective damage per 1k, per minute played. */
   objectives: number;
   /** Turret kills + turret damage per 1k per minute, plus plates per game —
@@ -89,11 +91,12 @@ const num = (value: number | null | undefined): number => (typeof value === "num
  * behaviour for that game rather than a zero that would erase it.
  */
 export function gameTotals(games: CardGameRow[], durations?: Map<string, number>): GameTotals {
-  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0 };
+  if (games.length === 0) return { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 };
   let objectives = 0;
   let turrets = 0;
   let plates = 0;
   let visionWork = 0;
+  let mitigated = 0;
   let minutes = 0;
   for (const game of games) {
     objectives += num(game.dragon_kills) + num(game.baron_kills) + num(game.objective_damage) / 1000;
@@ -110,6 +113,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     const controlWards =
       game.detector_wards_placed == null ? num(game.control_wards_bought) : num(game.detector_wards_placed);
     visionWork += num(game.wards_killed) + controlWards;
+    mitigated += num(game.damage_mitigated);
     minutes += durations?.get(game.match_id) ?? 0;
   }
   // No durations at all (a solo build with no game log) keeps the old
@@ -120,6 +124,7 @@ export function gameTotals(games: CardGameRow[], durations?: Map<string, number>
     objectives: objectives / divisor,
     turrets: turrets / divisor + plates / games.length,
     visionWork: visionWork / divisor,
+    mitigated: mitigated / divisor,
   };
 }
 

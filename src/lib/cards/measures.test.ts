@@ -37,7 +37,7 @@ describe("gameTotals", () => {
   });
 
   it("returns zeroes for a player with no games", () => {
-    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0 });
+    expect(gameTotals([])).toEqual({ objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
   });
 });
 
@@ -211,5 +211,28 @@ describe("vision work", () => {
     const hunter = gameTotals([warding("m1", 12, 5)], new Map([["m1", 30]]));
     const passive = gameTotals([warding("m2", 1, 1)], new Map([["m2", 30]]));
     expect(hunter.visionWork).toBeGreaterThan(passive.visionWork);
+  });
+})
+
+describe("damage mitigated", () => {
+  const tank = (matchId: string, mitigated: number): CardGameRow =>
+    ({
+      match_id: matchId, summoner_name: "Ari", tag: "NA1", champion: null, win: true,
+      game_date: null, team_name: null, kills: 0, deaths: 0, assists: 0, cs: 0,
+      total_damage_to_champions: 0, damage_mitigated: mitigated,
+    }) as CardGameRow;
+
+  it("is a rate, so a long game earns nothing extra for the same tanking", () => {
+    const long = gameTotals([tank("m1", 40000)], new Map([["m1", 40]]));
+    const short = gameTotals([tank("m2", 20000)], new Map([["m2", 20]]));
+    expect(long.mitigated).toBeCloseTo(short.mitigated, 6);
+  });
+
+  it("separates a frontline from someone who stayed out of range", () => {
+    // Survival used to invert damage TAKEN, which rewarded avoiding the
+    // fight. Mitigation rewards absorbing it, which is a top laner's job.
+    const frontline = gameTotals([tank("m1", 30000)], new Map([["m1", 30]]));
+    const backline = gameTotals([tank("m2", 3000)], new Map([["m2", 30]]));
+    expect(frontline.mitigated).toBeGreaterThan(backline.mitigated);
   });
 })

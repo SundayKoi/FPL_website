@@ -41,6 +41,8 @@ export interface CardGameRow {
   /** Control wards actually PLACED. Preferred over control_wards_bought:
    *  a control ward sitting in the inventory gives no vision to anyone. */
   detector_wards_placed?: number | null;
+  /** Damage absorbed by armour, MR and shields — the tanking stat. */
+  damage_mitigated?: number | null;
 }
 
 /** Per-match context from stats_game_log — the clock and both team names. */
@@ -723,7 +725,7 @@ function measureValues(
   totalsByKey: Map<string, GameTotals>,
 ): Record<MeasureKey, number> {
   const rc = roleCohort(cohort, row);
-  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0 });
+  const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
   return {
     // kda and kp are already length-neutral (a ratio and a share); kills
     // and deaths are counts, so they go through perMinute.
@@ -750,9 +752,18 @@ function measureValues(
     // Deaths per minute, not per game: surviving a 45-minute game with
     // three deaths is better than dying three times in 25, and the
     // per-game figure said they were identical.
+    //
+    // The second half is damage MITIGATED, not damage taken. Inverting
+    // damage taken rewarded avoiding the fight, which is the opposite of
+    // a top laner's job — and it put this bar in direct opposition to
+    // Turrets, which needs diving and trading. Across a real week those
+    // two correlated at -0.82, so no top laner could lead both and the
+    // whole role's ceiling sat ten points under everyone else's.
+    // Mitigation is what armour, MR and shields absorbed: it rewards
+    // being in the fight AND living, which is what the bar always meant.
     survival: mean([
       pct(rc, row, (r) => perMinute(r, (x) => x.avg_deaths), true),
-      pct(rc, row, (r) => r.avg_dmg_taken_per_min, true),
+      pctOf(peerTotals.map((t) => t.mitigated), totals.mitigated),
     ]),
     presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => perMinute(r, (x) => x.avg_assists))]),
     impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
