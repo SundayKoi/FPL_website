@@ -23,6 +23,7 @@ const baseProps: {
   returnPath: string;
   signedIn: boolean;
   claimLinkId: string | null;
+  unavailable: boolean;
 } = {
   playerPoolId: "pool-1",
   leagueTeamId: "team-1",
@@ -31,6 +32,7 @@ const baseProps: {
   returnPath: "/teams/mint-ice-cubes",
   signedIn: true,
   claimLinkId: null,
+  unavailable: false,
 };
 
 function renderClaim(state: PlayerRosterClaimState, overrides: Partial<typeof baseProps> = {}) {
@@ -104,6 +106,14 @@ describe("PlayerRosterClaim", () => {
     const { container } = renderClaim("unclaimed", { playerPoolId: null });
 
     expect(container.textContent).toBe("");
+  });
+
+  it("offers no claim action when roster claim reads are unavailable", () => {
+    renderClaim("unclaimed", { unavailable: true });
+
+    expect(screen.getByText(/Claim status unavailable/i)).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link", { name: /claim/i })).toBeNull();
   });
 
   it("surfaces a safe action failure without refreshing", async () => {

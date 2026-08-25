@@ -10,13 +10,25 @@ type Candidate = { id: string; normalized_name: string };
 
 function cardClaimClient({
   userId = "profile-1",
-  settings = { current_season: "S5", academy_season: "A1" },
+  settings = {
+    current_season: "S5",
+    academy_season: "A1",
+    featured_draft_id: "draft-s5",
+    academy_draft_id: "draft-a1",
+  },
+  canonicalIds = ["pool-1"],
   candidates = [{ id: "pool-1", normalized_name: "chaseworthy" }],
   insertError = null,
   rpcError = null,
 }: {
   userId?: string | null;
-  settings?: { current_season: string | null; academy_season: string | null };
+  settings?: {
+    current_season: string | null;
+    academy_season: string | null;
+    featured_draft_id: string | null;
+    academy_draft_id: string | null;
+  };
+  canonicalIds?: Array<string | null>;
   candidates?: Candidate[];
   insertError?: { message: string } | null;
   rpcError?: { message: string } | null;
@@ -27,14 +39,25 @@ function cardClaimClient({
     eq: vi.fn(() => settingsQuery),
     maybeSingle: vi.fn(async () => ({ data: settings, error: null })),
   };
+  const activePlayersResult = {
+    data: canonicalIds.map((canonical_player_id) => ({ canonical_player_id })),
+    error: null,
+  };
+  const activePlayersQuery = {
+    select: vi.fn(() => activePlayersQuery),
+    eq: vi.fn(() => activePlayersQuery),
+    then: (resolve: (value: typeof activePlayersResult) => unknown) => Promise.resolve(activePlayersResult).then(resolve),
+  };
   const candidatesResult = { data: candidates, error: null };
   const candidatesQuery = {
     select: vi.fn(() => candidatesQuery),
     eq: vi.fn(() => candidatesQuery),
+    in: vi.fn(() => candidatesQuery),
     then: (resolve: (value: typeof candidatesResult) => unknown) => Promise.resolve(candidatesResult).then(resolve),
   };
   const from = vi.fn((table: string) => {
     if (table === "league_settings") return settingsQuery;
+    if (table === "players") return activePlayersQuery;
     if (table === "player_pool") return candidatesQuery;
     if (table === "card_claims") return { insert };
     throw new Error(`Unexpected table ${table}`);
@@ -48,6 +71,7 @@ function cardClaimClient({
     },
     insert,
     settingsQuery,
+    activePlayersQuery,
     candidatesQuery,
     rpc,
   };
@@ -56,14 +80,15 @@ function cardClaimClient({
 beforeEach(() => vi.resetAllMocks());
 
 describe("card claim actions", () => {
-  it("stores an exact unique canonical mapping from the configured league season", async () => {
-    const { client, insert, candidatesQuery } = cardClaimClient();
+  it("stores an exact unique canonical mapping from the configured active Premier draft", async () => {
+    const { client, insert, activePlayersQuery, candidatesQuery } = cardClaimClient();
     createServerSupabase.mockResolvedValue(client);
 
     await expect(requestCardClaim({ season: "S5", summonerName: "Chaseworthy", tag: "NA1" }))
       .resolves.toEqual({ ok: true });
 
-    expect(candidatesQuery.eq).toHaveBeenCalledWith("season_key", "season-5");
+    expect(activePlayersQuery.eq).toHaveBeenCalledWith("draft_id", "draft-s5");
+    expect(candidatesQuery.in).toHaveBeenCalledWith("id", ["pool-1"]);
     expect(insert).toHaveBeenCalledWith({
       season: "S5",
       summoner_name: "Chaseworthy",
@@ -71,6 +96,40 @@ describe("card claim actions", () => {
       profile_id: "profile-1",
       player_pool_id: "pool-1",
     });
+  });
+
+  it("uses the configured active Premier draft after a season rollover", async () => {
+    const { client, insert, activePlayersQuery, candidatesQuery } = cardClaimClient({
+      settings: {
+        current_season: "S6",
+        academy_season: "A2",
+        featured_draft_id: "draft-s6",
+        academy_draft_id: "draft-a2",
+      },
+      canonicalIds: ["pool-s6"],
+      candidates: [{ id: "pool-s6", normalized_name: "new premier player" }],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await requestCardClaim({ season: "S6", summonerName: "New Premier Player", tag: "NA1" });
+
+    expect(activePlayersQuery.eq).toHaveBeenCalledWith("draft_id", "draft-s6");
+    expect(candidatesQuery.in).toHaveBeenCalledWith("id", ["pool-s6"]);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: "pool-s6" }));
+  });
+
+  it("uses only exact canonical IDs from the configured active Academy draft", async () => {
+    const { client, insert, activePlayersQuery, candidatesQuery } = cardClaimClient({
+      canonicalIds: ["pool-academy"],
+      candidates: [{ id: "pool-academy", normalized_name: "academy player" }],
+    });
+    createServerSupabase.mockResolvedValue(client);
+
+    await requestCardClaim({ season: "A1", summonerName: "Academy Player", tag: "NA1" });
+
+    expect(activePlayersQuery.eq).toHaveBeenCalledWith("draft_id", "draft-a1");
+    expect(candidatesQuery.in).toHaveBeenCalledWith("id", ["pool-academy"]);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ player_pool_id: "pool-academy" }));
   });
 
   it("stores null when no canonical player matches so approval remains card-only", async () => {
@@ -84,6 +143,7 @@ describe("card claim actions", () => {
 
   it("stores null for an ambiguous canonical match so no team identity can be granted", async () => {
     const { client, insert } = cardClaimClient({
+      canonicalIds: ["pool-1", "pool-2"],
       candidates: [
         { id: "pool-1", normalized_name: "chaseworthy" },
         { id: "pool-2", normalized_name: "chaseworthy" },
@@ -109,7 +169,12 @@ describe("card claim actions", () => {
 
   it("stores null when the card season does not identify exactly one configured league", async () => {
     const { client, insert } = cardClaimClient({
-      settings: { current_season: "SAME", academy_season: "SAME" },
+      settings: {
+        current_season: "SAME",
+        academy_season: "SAME",
+        featured_draft_id: "draft-premier",
+        academy_draft_id: "draft-academy",
+      },
     });
     createServerSupabase.mockResolvedValue(client);
 

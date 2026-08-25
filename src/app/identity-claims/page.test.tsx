@@ -35,7 +35,12 @@ function query(result: unknown) {
   return builder;
 }
 
-function clientFor(rows: ClaimRow[], userId = "captain-1", captainTeamIds = ["team-own"]) {
+function clientFor(
+  rows: ClaimRow[],
+  userId = "captain-1",
+  captainAssignments = [{ league_team_id: "team-own", season: "S5" }],
+  errors: { claims?: { message: string }; captains?: { message: string } } = {},
+) {
   const names = {
     "pool-own": "Own Mid",
     "pool-other": "Other ADC",
@@ -48,10 +53,10 @@ function clientFor(rows: ClaimRow[], userId = "captain-1", captainTeamIds = ["te
     "claimant-own": "Own Claimant",
     "claimant-other": "Other Claimant",
   } as Record<string, string>;
-  const claimsQuery = query({ data: rows, error: null });
+  const claimsQuery = query({ data: errors.claims ? null : rows, error: errors.claims ?? null });
   const captainsQuery = query({
-    data: captainTeamIds.map((league_team_id) => ({ league_team_id })),
-    error: null,
+    data: errors.captains ? null : captainAssignments,
+    error: errors.captains ?? null,
   });
   const from = vi.fn((table: string) => {
     if (table === "player_identity_links") return claimsQuery;
@@ -149,5 +154,42 @@ describe("IdentityClaimsPage", () => {
 
     expect(screen.queryByText("Own Mid")).toBeNull();
     expect(screen.getByText(/No pending roster identity claims/)).toBeTruthy();
+  });
+
+  it("does not present a current claimant's row using their captain assignment from a prior season", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    const { client } = clientFor(
+      [ownClaim],
+      "claimant-own",
+      [{ league_team_id: "team-own", season: "S4" }],
+    );
+    createServerSupabase.mockResolvedValue(client);
+
+    render(await IdentityClaimsPage());
+
+    expect(screen.queryByText("Own Mid")).toBeNull();
+    expect(screen.getByText(/No pending roster identity claims/)).toBeTruthy();
+  });
+
+  it("shows a retryable unavailable state when the pending-claims read fails", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    const { client } = clientFor([], "captain-1", [], { claims: { message: "network unavailable" } });
+    createServerSupabase.mockResolvedValue(client);
+
+    render(await IdentityClaimsPage());
+
+    expect(screen.getByText(/Identity claims are unavailable/i)).toBeTruthy();
+    expect(screen.queryByText(/all caught up/i)).toBeNull();
+  });
+
+  it("shows a retryable unavailable state when captain assignments cannot be read", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    const { client } = clientFor([], "captain-1", [], { captains: { message: "network unavailable" } });
+    createServerSupabase.mockResolvedValue(client);
+
+    render(await IdentityClaimsPage());
+
+    expect(screen.getByText(/Identity claims are unavailable/i)).toBeTruthy();
+    expect(screen.queryByText(/all caught up/i)).toBeNull();
   });
 });

@@ -101,8 +101,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     .find((candidate) => candidate.name.trim().toLowerCase() === team.name.trim().toLowerCase())?.id ?? null;
   const viewerProfileId = viewerResult.data.user?.id ?? null;
   const draftPlayerById = new Map(draftPlayers.map((player) => [player.id, player]));
-  const rosterClaimStates = season
-    ? await fetchRosterClaimStates(
+  let rosterClaimStates = {} as Awaited<ReturnType<typeof fetchRosterClaimStates>>;
+  let rosterClaimsUnavailable = false;
+  if (season) {
+    try {
+      rosterClaimStates = await fetchRosterClaimStates(
         supabase,
         team.players.map((player) => ({
           id: player.id,
@@ -113,8 +116,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         league,
         season,
         viewerProfileId,
-      )
-    : {};
+      );
+    } catch {
+      rosterClaimsUnavailable = true;
+    }
+  }
   const teamReturnPath = league === "academy" ? `/academy/teams/${slug}` : `/teams/${slug}`;
 
   const record = teamRecord(fixtures, team.name);
@@ -303,6 +309,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                       signedIn={viewerProfileId !== null}
                       state={rosterClaimStates[player.id]?.state ?? "unclaimed"}
                       claimLinkId={rosterClaimStates[player.id]?.claimLinkId ?? null}
+                      unavailable={rosterClaimsUnavailable}
                     />
                   ) : null}
                 </li>

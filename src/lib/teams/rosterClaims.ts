@@ -13,6 +13,7 @@ export type RosterClaimPresentation = {
 };
 
 const PUBLIC_STATES = new Set(["unclaimed", "pending", "claimed"]);
+const UNAVAILABLE = "Roster claim status is unavailable";
 
 /** Combines a public-safe neutral state with, for an authenticated viewer,
  * one separately RLS-scoped self row. Profile IDs never leave this mapper. */
@@ -33,16 +34,17 @@ export async function fetchRosterClaimStates(
       p_league: league,
       p_season: season,
     });
-    const state = !error && typeof data === "string" && PUBLIC_STATES.has(data)
-      ? data as "unclaimed" | "pending" | "claimed"
-      : "unclaimed";
+    if (error || typeof data !== "string" || !PUBLIC_STATES.has(data)) {
+      throw new Error(UNAVAILABLE);
+    }
+    const state = data as "unclaimed" | "pending" | "claimed";
     return [player.id, { state, claimLinkId: null }] as const;
   }));
   const result: Record<string, RosterClaimPresentation> = Object.fromEntries(neutralEntries);
 
   if (!viewerProfileId) return result;
 
-  const { data: ownRow } = await supabase
+  const { data: ownRow, error: ownRowError } = await supabase
     .from("player_identity_links")
     .select("id, player_pool_id, status")
     .eq("profile_id", viewerProfileId)
@@ -50,6 +52,7 @@ export async function fetchRosterClaimStates(
     .eq("season", season)
     .limit(1)
     .maybeSingle();
+  if (ownRowError) throw new Error(UNAVAILABLE);
   const own = ownRow as { id: string; player_pool_id: string; status: "pending" | "approved" } | null;
   if (!own) return result;
 

@@ -45,46 +45,60 @@ export default async function IdentityClaimsPage() {
     );
   }
 
-  const [staffTier, captainsResult, claimsResult] = await Promise.all([
+  const [staffTier, [captainsSettled, claimsSettled]] = await Promise.all([
     fetchStaffTier(supabase),
-    supabase
-      .from("league_team_captains")
-      .select("league_team_id")
-      .eq("profile_id", userData.user.id)
-      .then((result) => result, () => ({ data: null })),
-    // RLS is the authority boundary. It also lets a claimant read their own
-    // row, so the presentation filter below narrows non-admin reviewers to
-    // teams they captain rather than drawing controls they cannot use.
-    supabase
-      .from("player_identity_links")
-      .select("id, player_pool_id, profile_id, league_team_id, league, season, source, requested_at")
-      .eq("status", "pending")
-      .order("requested_at")
-      .then((result) => result, () => ({ data: null })),
+    Promise.allSettled([
+      supabase
+        .from("league_team_captains")
+        .select("league_team_id, season")
+        .eq("profile_id", userData.user.id),
+      // RLS is the authority boundary. It also lets a claimant read their own
+      // row, so the presentation filter below narrows non-admin reviewers to
+      // teams and seasons they captain rather than drawing forbidden controls.
+      supabase
+        .from("player_identity_links")
+        .select("id, player_pool_id, profile_id, league_team_id, league, season, source, requested_at")
+        .eq("status", "pending")
+        .order("requested_at"),
+    ]),
   ]);
-  const captainTeamIds = new Set(
-    ((captainsResult.data as { league_team_id: string }[] | null) ?? []).map((row) => row.league_team_id),
+  const captainsResult = captainsSettled.status === "fulfilled" ? captainsSettled.value : null;
+  const claimsResult = claimsSettled.status === "fulfilled" ? claimsSettled.value : null;
+  let claimsUnavailable = Boolean(
+    claimsResult?.error || !claimsResult?.data || (!staffTier.isAdmin && (captainsResult?.error || !captainsResult?.data)),
   );
-  const rows = ((claimsResult.data as PendingIdentityRow[] | null) ?? [])
+  const captainAssignments = new Set(
+    ((captainsResult?.data as { league_team_id: string; season: string }[] | null) ?? [])
+      .map((row) => `${row.league_team_id}\u0000${row.season}`),
+  );
+  const rows = ((claimsResult?.data as PendingIdentityRow[] | null) ?? [])
     .filter((row) => row.league_team_id)
-    .filter((row) => staffTier.isAdmin || captainTeamIds.has(row.league_team_id));
+    .filter((row) => staffTier.isAdmin || captainAssignments.has(`${row.league_team_id}\u0000${row.season}`));
 
   const playerIds = [...new Set(rows.map((row) => row.player_pool_id))];
   const teamIds = [...new Set(rows.map((row) => row.league_team_id))];
   const profileIds = [...new Set(rows.map((row) => row.profile_id))];
-  const [playersResult, teamsResult, profilesResult] = rows.length > 0
-    ? await Promise.all([
+  const lookupSettled = rows.length > 0
+    ? await Promise.allSettled([
         supabase.from("player_pool").select("id, display_name").in("id", playerIds),
         supabase.from("league_teams").select("id, name").in("id", teamIds),
         supabase.from("profiles").select("id, display_name").in("id", profileIds),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : null;
+  const [playersResult, teamsResult, profilesResult] = lookupSettled
+    ? lookupSettled.map((result) => result.status === "fulfilled" ? result.value : null)
+    : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+  claimsUnavailable ||= Boolean(
+    playersResult?.error || !playersResult?.data
+      || teamsResult?.error || !teamsResult?.data
+      || profilesResult?.error || !profilesResult?.data,
+  );
 
-  const playerNames = new Map(((playersResult.data as { id: string; display_name: string }[] | null) ?? [])
+  const playerNames = new Map(((playersResult?.data as { id: string; display_name: string }[] | null) ?? [])
     .map((row) => [row.id, row.display_name]));
-  const teamNames = new Map(((teamsResult.data as { id: string; name: string }[] | null) ?? [])
+  const teamNames = new Map(((teamsResult?.data as { id: string; name: string }[] | null) ?? [])
     .map((row) => [row.id, row.name]));
-  const profileNames = new Map(((profilesResult.data as { id: string; display_name: string | null }[] | null) ?? [])
+  const profileNames = new Map(((profilesResult?.data as { id: string; display_name: string | null }[] | null) ?? [])
     .map((row) => [row.id, row.display_name ?? "a signed-in player"]));
 
   return (
@@ -102,7 +116,9 @@ export default async function IdentityClaimsPage() {
         </div>
       </header>
 
-      {rows.length === 0 ? (
+      {claimsUnavailable ? (
+        <p className="text-sm text-steel">Identity claims are unavailable right now. Refresh to try again.</p>
+      ) : rows.length === 0 ? (
         <p className="text-sm text-steel">No pending roster identity claims — all caught up.</p>
       ) : (
         <div className="flex flex-col gap-3">

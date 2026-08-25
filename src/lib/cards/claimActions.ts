@@ -29,23 +29,44 @@ async function exactCanonicalPlayerId(
   supabase: Awaited<ReturnType<typeof createServerSupabase>>,
   input: CardClaimActionInput,
 ): Promise<string | null> {
-  const { data: settings } = await supabase
+  const { data: settings, error: settingsError } = await supabase
     .from("league_settings")
-    .select("current_season, academy_season")
+    .select("current_season, academy_season, featured_draft_id, academy_draft_id")
     .eq("id", 1)
     .maybeSingle();
-  const row = settings as { current_season: string | null; academy_season: string | null } | null;
+  if (settingsError) return null;
+  const row = settings as {
+    current_season: string | null;
+    academy_season: string | null;
+    featured_draft_id: string | null;
+    academy_draft_id: string | null;
+  } | null;
   const matchingLeagues = [
-    row?.current_season === input.season ? "premier" : null,
-    row?.academy_season === input.season ? "academy" : null,
-  ].filter((league): league is "premier" | "academy" => league !== null);
-  if (matchingLeagues.length !== 1) return null;
+    row?.current_season === input.season
+      ? { league: "premier" as const, draftId: row.featured_draft_id }
+      : null,
+    row?.academy_season === input.season
+      ? { league: "academy" as const, draftId: row.academy_draft_id }
+      : null,
+  ].filter((match): match is { league: "premier" | "academy"; draftId: string | null } => match !== null);
+  if (matchingLeagues.length !== 1 || !matchingLeagues[0].draftId) return null;
 
-  const seasonKey = matchingLeagues[0] === "academy" ? "academy-1" : "season-5";
+  const { data: activePlayers, error: activePlayersError } = await supabase
+    .from("players")
+    .select("canonical_player_id")
+    .eq("draft_id", matchingLeagues[0].draftId);
+  if (activePlayersError) return null;
+  const canonicalIds = [...new Set(
+    ((activePlayers as { canonical_player_id: string | null }[] | null) ?? [])
+      .map((player) => player.canonical_player_id)
+      .filter((id): id is string => Boolean(id)),
+  )];
+  if (canonicalIds.length === 0) return null;
+
   const { data: candidates, error } = await supabase
     .from("player_pool")
     .select("id, normalized_name")
-    .eq("season_key", seasonKey);
+    .in("id", canonicalIds);
   if (error) return null;
 
   const normalized = normalizeBasePlayerName(input.summonerName);

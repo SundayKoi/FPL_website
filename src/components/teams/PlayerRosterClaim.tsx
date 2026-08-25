@@ -28,6 +28,7 @@ export default function PlayerRosterClaim({
   signedIn,
   state,
   claimLinkId,
+  unavailable,
 }: {
   playerPoolId: string | null;
   leagueTeamId: string;
@@ -37,6 +38,7 @@ export default function PlayerRosterClaim({
   signedIn: boolean;
   state: PlayerRosterClaimState;
   claimLinkId: string | null;
+  unavailable: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -57,7 +59,13 @@ export default function PlayerRosterClaim({
   };
 
   let content: React.ReactNode;
-  if (state === "claimed") {
+  if (unavailable) {
+    content = (
+      <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-steel">
+        Claim status unavailable — try again
+      </span>
+    );
+  } else if (state === "claimed") {
     content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-mint">Claimed</span>;
   } else if (state === "pending") {
     content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-steel">Pending</span>;

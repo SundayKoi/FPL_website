@@ -3,12 +3,16 @@ import { fetchRosterClaimStates } from "./rosterClaims";
 
 type OwnRow = { id: string; player_pool_id: string; status: "pending" | "approved" } | null;
 
-function clientFor(states: Record<string, "unclaimed" | "pending" | "claimed">, ownRow: OwnRow = null) {
+function clientFor(
+  states: Record<string, "unclaimed" | "pending" | "claimed">,
+  ownRow: OwnRow = null,
+  errors: { rpcPlayerId?: string; own?: { message: string } } = {},
+) {
   const rpc = vi.fn(async (_name: string, args: { p_player_pool_id: string }) => ({
     data: states[args.p_player_pool_id] ?? "unclaimed",
-    error: null,
+    error: args.p_player_pool_id === errors.rpcPlayerId ? { message: "rpc unavailable" } : null,
   }));
-  const result = { data: ownRow, error: null };
+  const result = { data: errors.own ? null : ownRow, error: errors.own ?? null };
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
@@ -66,5 +70,19 @@ describe("fetchRosterClaimStates", () => {
         "draft-1": { state: "claimed", claimLinkId: null },
         "draft-2": { state: "mine-approved", claimLinkId: null },
       });
+  });
+
+  it("rejects instead of presenting an RPC outage as an unclaimed roster spot", async () => {
+    const { client } = clientFor({}, null, { rpcPlayerId: "pool-1" });
+
+    await expect(fetchRosterClaimStates(client as never, roster, "premier", "S5", null))
+      .rejects.toThrow("Roster claim status is unavailable");
+  });
+
+  it("rejects instead of hiding a signed-in viewer identity read failure", async () => {
+    const { client } = clientFor({}, null, { own: { message: "identity read unavailable" } });
+
+    await expect(fetchRosterClaimStates(client as never, roster, "premier", "S5", "profile-1"))
+      .rejects.toThrow("Roster claim status is unavailable");
   });
 });
