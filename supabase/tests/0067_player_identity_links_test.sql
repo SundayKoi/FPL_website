@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(34);
+select plan(38);
 grant usage on schema tests to authenticated;
 
 -- Schema contract.
@@ -203,6 +203,55 @@ insert into public.player_identity_links (
 reset role;
 
 -- Captain decisions are team/season scoped and re-check the canonical roster.
+-- Identity-defining fields are immutable for captains, and the decision audit
+-- must identify the actual caller. Savepoints keep an unexpectedly-permitted
+-- mutation from contaminating the following regression assertions.
+select tests.acting_as(tests.cap(2));
+set local role authenticated;
+savepoint captain_profile_mutation;
+select throws_like($profile_mutation$
+  update public.player_identity_links
+  set profile_id = tests.cap(4),
+      status = 'approved',
+      decided_by = tests.cap(2),
+      decided_at = now()
+  where player_pool_id = '67000000-0000-0000-0000-000000000040'
+$profile_mutation$, 'IDENTITY_DECISION_IMMUTABLE%', 'a captain cannot rewrite the claimant profile while approving');
+rollback to savepoint captain_profile_mutation;
+
+savepoint captain_requester_mutation;
+select throws_like($requester_mutation$
+  update public.player_identity_links
+  set requested_by = tests.cap(4),
+      status = 'approved',
+      decided_by = tests.cap(2),
+      decided_at = now()
+  where player_pool_id = '67000000-0000-0000-0000-000000000040'
+$requester_mutation$, 'IDENTITY_DECISION_IMMUTABLE%', 'a captain cannot rewrite the requester while approving');
+rollback to savepoint captain_requester_mutation;
+
+savepoint captain_source_mutation;
+select throws_like($source_mutation$
+  update public.player_identity_links
+  set source = 'admin',
+      status = 'approved',
+      decided_by = tests.cap(2),
+      decided_at = now()
+  where player_pool_id = '67000000-0000-0000-0000-000000000040'
+$source_mutation$, 'IDENTITY_DECISION_IMMUTABLE%', 'a captain cannot rewrite the claim source while approving');
+rollback to savepoint captain_source_mutation;
+
+savepoint captain_decider_forgery;
+select throws_like($decider_forgery$
+  update public.player_identity_links
+  set status = 'approved',
+      decided_by = tests.cap(3),
+      decided_at = now()
+  where player_pool_id = '67000000-0000-0000-0000-000000000040'
+$decider_forgery$, 'IDENTITY_DECIDER_MISMATCH%', 'a captain cannot forge the approving profile');
+rollback to savepoint captain_decider_forgery;
+reset role;
+
 select tests.acting_as(tests.cap(3));
 set local role authenticated;
 update public.player_identity_links

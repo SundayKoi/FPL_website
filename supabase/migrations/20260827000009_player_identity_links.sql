@@ -212,6 +212,68 @@ create policy player_identity_links_update
     )
   );
 
+-- RLS scopes the old and new rows to the captain's team, but PostgreSQL
+-- policies cannot compare OLD with NEW. Keep captain updates to the one
+-- intended transition: approve the existing request and stamp the real
+-- caller. Admins retain unrestricted update access; service-role JWTs remain
+-- trusted for server maintenance.
+create function public.enforce_player_identity_decision_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if public.is_admin()
+     or coalesce((select auth.jwt()->>'role'), '') = 'service_role' then
+    return new;
+  end if;
+
+  if row(
+    new.player_pool_id,
+    new.profile_id,
+    new.league_team_id,
+    new.league,
+    new.season,
+    new.requested_by,
+    new.source,
+    new.requested_at
+  ) is distinct from row(
+    old.player_pool_id,
+    old.profile_id,
+    old.league_team_id,
+    old.league,
+    old.season,
+    old.requested_by,
+    old.source,
+    old.requested_at
+  ) then
+    raise exception 'IDENTITY_DECISION_IMMUTABLE: identity request fields cannot change during captain approval';
+  end if;
+
+  if old.status <> 'pending' or new.status <> 'approved' then
+    raise exception 'IDENTITY_DECISION_TRANSITION: captains may only approve pending identity requests';
+  end if;
+
+  if new.decided_by is distinct from (select auth.uid()) then
+    raise exception 'IDENTITY_DECIDER_MISMATCH: decided_by must identify the approving captain';
+  end if;
+
+  if new.decided_at is null then
+    raise exception 'IDENTITY_DECISION_TIME_REQUIRED: decided_at is required for captain approval';
+  end if;
+
+  return new;
+end
+$$;
+
+revoke all on function public.enforce_player_identity_decision_update()
+  from public, anon, authenticated;
+
+create trigger player_identity_links_enforce_decision_update
+  before update on public.player_identity_links
+  for each row
+  execute function public.enforce_player_identity_decision_update();
+
 revoke all on table public.player_identity_links from anon;
 grant select, insert, update, delete on table public.player_identity_links
   to authenticated;
@@ -368,7 +430,8 @@ begin
       and profile_id = v_claim.profile_id
       and league_team_id = v_league_team_id
       and league = v_league
-      and season = v_claim.season;
+      and season = v_claim.season
+      and status = 'pending';
   else
     insert into public.player_identity_links (
       player_pool_id,
