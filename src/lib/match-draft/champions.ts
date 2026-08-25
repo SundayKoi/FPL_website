@@ -446,8 +446,35 @@ export function championDisplayName(name: string): string {
   return championByName(name)?.name ?? name;
 }
 
+/**
+ * The Data Dragon id for a champion the bundled roster has never heard of.
+ *
+ * Riot's ids are the display name with spaces and punctuation stripped
+ * (DATA_DRAGON_IDS covers the handful that are not), so a champion released
+ * after CHAMPION_NAMES was last updated still points at the right files.
+ *
+ * This matters because the art helpers used to answer `null` for anyone
+ * missing from the list, and null means NO IMAGE — cards, moment plates,
+ * scouting rows and match summaries all just rendered a blank where the
+ * champion should be. A guessed id that 404s is no worse than that, and for
+ * almost every champion it is simply correct.
+ *
+ * Returns null for a name with nothing alphanumeric left in it, which would
+ * otherwise build a URL ending in a bare slash.
+ */
+function fallbackChampionId(name: string): string | null {
+  const id = dataDragonId(name.trim());
+  return id.length > 0 ? id : null;
+}
+
 export function championIconUrl(name: string): string | null {
-  return championByName(name)?.iconUrl ?? null;
+  const known = championByName(name);
+  if (known) return known.iconUrl;
+  const id = fallbackChampionId(name);
+  // Icons ARE version-scoped, unlike splash art, so an unknown champion
+  // resolves against the pinned version. Keep DDRAGON_VERSION current when
+  // bumping patches or new champions lose their icon while keeping splash.
+  return id ? `${DDRAGON_CDN}/${DDRAGON_VERSION}/img/champion/${id}.png` : null;
 }
 
 /** Riot's full splash art. `skin` picks an alternate skin's art (0 = base).
@@ -455,8 +482,10 @@ export function championIconUrl(name: string): string | null {
  *  catalog lists has a splash, while plenty are missing from `centered`
  *  below — so it's the fallback art the card system falls to. */
 export function championSplashUrl(name: string, skin = 0): string | null {
-  const base = championByName(name)?.splashUrl ?? null;
-  return base && skin > 0 ? base.replace(/_0\.jpg$/, `_${skin}.jpg`) : base;
+  const id = championByName(name)?.id ?? fallbackChampionId(name);
+  // Splash art is NOT version-scoped — this path is always Riot's latest —
+  // so it keeps working for a champion released after the pinned version.
+  return id ? `${DDRAGON_CDN}/img/champion/splash/${id}_${skin}.jpg` : null;
 }
 
 /** Riot's "centered" splash — the horizontal crop with the champion in the
