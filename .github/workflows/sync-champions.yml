@@ -36,9 +36,17 @@ jobs:
       # Data Dragon has no lane field, so this asks elsewhere. Printed raw
       # and truncated rather than parsed into a verdict: these are
       # third-party shapes that change without notice, and a parser written
-      # against a guessed schema reports confident nonsense. Read the
-      # output, then write the roles by hand.
-      - name: Probe for lane data
+      # against a guessed schema reports confident nonsense.
+      #
+      # What the 2026-08-25 run established: CommunityDragon answers, but
+      # its `roles` are CLASSES (assassin, mage, fighter) exactly like Data
+      # Dragon's `tags` — useful for narrowing a champion down, not for
+      # deciding their lane. The Meraki CDN, the one source that did carry
+      # lanes, now 404s. So there is currently NO free source for lane
+      # position: a person still has to say where a new champion plays.
+      # This step exists to give them the champion's classes, id and title
+      # to decide from, not to answer for them.
+      - name: Probe for champion classes
         run: |
           set -uo pipefail
           missing=$(jq -r '.missing[].id' /tmp/champions.json)
@@ -46,7 +54,7 @@ jobs:
           echo "Missing champion ids: $missing"
           echo
 
-          echo "=== communitydragon champion-summary (names + ids) ==="
+          echo "=== communitydragon champion-summary (id, title, classes) ==="
           curl -sS --max-time 30 \
             "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-summary.json" \
             -o /tmp/cd.json -w "http %{http_code}\n" || echo "unreachable"
@@ -56,15 +64,6 @@ jobs:
             echo
           done
 
-          echo "=== meraki champions.json (has lane data for some champs) ==="
-          curl -sS --max-time 60 \
-            "https://cdn.merakianalytics.com/riot/lol/resources/latest/en/champions.json" \
-            -o /tmp/meraki.json -w "http %{http_code}\n" || echo "unreachable"
-          echo "-- shape check on a champion we already know (Ahri) --"
-          jq -c '.Ahri | {name, roles, attackType, adaptiveType}' /tmp/meraki.json 2>/dev/null | head -c 600 || echo "unparseable"
           echo
-          for id in $missing; do
-            echo "--- $id ---"
-            jq -c --arg id "$id" '.[$id] | {name, roles}' /tmp/meraki.json 2>/dev/null | head -c 600 || echo "not found"
-            echo
-          done
+          echo 'Those roles are champion CLASSES, not lanes. Pick the lanes by hand'
+          echo "and add them to CHAMPION_ROLES in src/lib/match-draft/champions.ts."
