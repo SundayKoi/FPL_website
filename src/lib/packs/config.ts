@@ -4,6 +4,7 @@
 // rather than hardcoding their own.
 
 import type { CardTier } from "@/lib/cards/build";
+import { MOMENT_DUST, MOMENT_TIER } from "@/lib/cards/moments";
 
 /** A card tier key, as produced by the rating engine's `tierFor`. */
 export type CardTierKey = CardTier["key"];
@@ -160,7 +161,18 @@ export function rarityOf(tier: CardTierKey): RarityClass {
  * `tier` column (a plain text column, see queries.ts's InventoryRow): an
  * unrecognized tier dusts as common rather than crashing the collection.
  */
-export function dustValueOf(row: { tier: CardTierKey | string; foil: boolean; signed: boolean }): number {
+export function dustValueOf(row: {
+  tier: CardTierKey | string;
+  foil: boolean;
+  signed: boolean;
+  /** A pulled moment prices flat, off MOMENT_DUST — it has no tier to
+   *  scale off, and the placeholder tier it carries would otherwise dust
+   *  it as an ordinary card of that rarity. */
+  moment?: boolean;
+}): number {
+  // Either signal is enough: the flat column says "moment" on a stored
+  // copy, and the flag covers a caller holding the card json instead.
+  if (row.moment || row.tier === MOMENT_TIER) return MOMENT_DUST;
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];
   if (row.foil) value *= FOIL_DUST_MULT;

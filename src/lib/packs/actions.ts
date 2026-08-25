@@ -4,7 +4,8 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, fetchSeasonCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, fetchSeasonCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { ALT_SKIN_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { rollPack } from "./rng";
@@ -113,6 +114,31 @@ export async function openPackAction(
   // a signed pull is as unguessable as the pull itself.
   const pulls = applyAutographs(rollPack(cards, rand), await fetchSignatures(service, season), rand);
 
+  // A moment can only come out of the week it happened in — that is what
+  // ties the print to the performance, and it is why an edition pack is
+  // worth buying for a specific week rather than always the newest.
+  //
+  // Rolled once for the whole PACK, not per card: at MOMENT_PULL_CHANCE
+  // roughly one pack in fifty carries one, and a week that minted two has
+  // them competing for that single slot rather than each rolling its own.
+  // The roll happens after the autograph pass so the earlier stages'
+  // consumption of `rand` is untouched.
+  if (editionWeek) {
+    const weekMoments = await fetchWeekMoments(service, season, editionWeek);
+    if (weekMoments.length > 0 && rand() < MOMENT_PULL_CHANCE) {
+      const moment = weekMoments[Math.floor(rand() * weekMoments.length)];
+      // Replaces the last slot rather than lengthening the pack: five cards
+      // is the pack, and a sixth would make the moment a bonus instead of
+      // the thing you got instead of a card.
+      pulls[pulls.length - 1] = {
+        card: momentToCard(moment, season),
+        foil: false,
+        signed: false,
+        autograph: null,
+      };
+    }
+  }
+
   // Pack prints roll their own art: every copy freezes a random skin of the
   // player's signature champion, so opening the same player twice gives you
   // two different prints. The player's chosen skin still drives their live
@@ -169,7 +195,10 @@ export async function openPackAction(
         role: print.card.role,
         edition_week: stampedWeek,
         overall: print.card.overall,
-        tier: print.card.tier.key,
+        // "moment" rather than the placeholder tier the wrapper carries:
+        // this column is what dust pricing and the ledger read, and a
+        // moment filed as gold would dust as an ordinary gold card.
+        tier: print.card.moment ? MOMENT_TIER : print.card.tier.key,
         foil: print.foil,
         signed: print.signed,
         // the whole card, frozen: ratings restat nightly, collections don't
