@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import MatchDraftSummary, { type DraftSummaryGame } from "./MatchDraftSummary";
+import MatchDraftSummary, { sideRows, type DraftSummaryGame } from "./MatchDraftSummary";
 
 afterEach(cleanup);
 
@@ -44,5 +44,43 @@ describe("MatchDraftSummary", () => {
 
     // Role labels only appear on a confirmed side.
     expect(screen.getByText("Top")).toBeTruthy();
+  });
+});
+
+describe("pick order", () => {
+  /** Blue took Ahri FIRST and Sett THIRD, but the captains confirmed a role
+   *  order that lists Sett (top) before Ahri (mid). Position in the row
+   *  therefore says nothing about when a champion was taken. */
+  const reordered = game({
+    actions: [
+      { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri" },
+      { stepIndex: 9, side: "blue", kind: "pick", slot: 2, champion: "Lulu" },
+      { stepIndex: 10, side: "blue", kind: "pick", slot: 3, champion: "Sett" },
+    ],
+    positions: { blue: ["Sett", null, "Ahri", null, "Lulu"] },
+  });
+
+  it("numbers each pick by when it was taken, not where it sits", () => {
+    const { bans, picks, pickNumbers } = sideRows(reordered, "blue");
+    void bans;
+    expect(picks[0]).toBe("Sett");
+    expect(pickNumbers[0]).toBe(3);
+    expect(picks[2]).toBe("Ahri");
+    expect(pickNumbers[2]).toBe(1);
+  });
+
+  it("leaves a slot with no pick unnumbered", () => {
+    expect(sideRows(reordered, "blue").pickNumbers[1]).toBeNull();
+  });
+
+  it("renders the number beside the champion", () => {
+    render(<MatchDraftSummary games={[reordered]} />);
+    // Sett was pick 3 and leads the confirmed row.
+    expect(screen.getAllByText("3").length).toBeGreaterThan(0);
+  });
+
+  it("anchors the section so the schedule can link straight to it", () => {
+    const { container } = render(<MatchDraftSummary games={[reordered]} />);
+    expect(container.querySelector("#draft")).toBeTruthy();
   });
 });

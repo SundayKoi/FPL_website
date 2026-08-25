@@ -111,6 +111,17 @@ export default function FixtureCard({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2 text-xs text-steel">
+        {/* The pick/ban phase was only reachable by guessing that the SCORE
+            was a link to a page that happened to contain it. People asking
+            "where can I see the draft" were not going to find that. */}
+        {played ? (
+          <Link
+            href={`/match/${fixture.id}#draft`}
+            className="rounded-full border border-line bg-panel px-2 py-0.5 font-semibold uppercase hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+          >
+            Draft
+          </Link>
+        ) : null}
         <span className="rounded-full border border-line bg-panel px-2 py-0.5 font-semibold uppercase">
           Bo{fixture.best_of}
         </span>

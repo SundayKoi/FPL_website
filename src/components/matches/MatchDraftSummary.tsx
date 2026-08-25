@@ -71,7 +71,7 @@ export default function MatchDraftSummary({ games }: { games: DraftSummaryGame[]
   const drafted = games.filter((game) => game.actions.length > 0);
   if (drafted.length === 0) return null;
   return (
-    <section className="card-brand flex flex-col gap-4 p-4" aria-label="Pick and ban phase">
+    <section id="draft" className="card-brand flex flex-col gap-4 p-4" aria-label="Pick and ban phase">
       <h2 className="label-dash">Pick / ban</h2>
       {drafted.map((game) => (
         <div key={game.gameNumber} className="flex flex-col gap-2">
