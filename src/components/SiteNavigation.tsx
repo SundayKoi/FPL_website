@@ -6,7 +6,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
-import { resolveLeagueFromPath } from "@/lib/league/links";
+import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
+import type { LeagueView } from "@/lib/league/context";
 
 type DropdownLink = {
   href: string;
@@ -15,7 +16,7 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "play" | "premium" | "info";
+type DropdownKey = "league" | "play" | "premium" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
   {
@@ -54,6 +55,15 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
   },
 ];
 
+function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): DropdownLink[] {
+  const links = ["players", "teams", "schedule"].map((page) => ({
+    href: leaguePath(page as "players" | "teams" | "schedule", view),
+    label: page[0].toUpperCase() + page.slice(1),
+  }));
+
+  return showBroadcaster ? [...links, { href: "/broadcaster", label: "Broadcaster" }] : links;
+}
+
 const linkBase =
   "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
 
@@ -84,7 +94,11 @@ export default function SiteNavigation({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const league = resolveLeagueFromPath(pathname ?? "/");
-  const directLinks = leagueNavigationLinks(league);
+  const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
+  const dropdowns = [
+    { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
+    ...SHARED_DROPDOWNS,
+  ];
   const [open, setOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<DropdownKey | null>(null);
   const menuId = useId();
@@ -163,7 +177,7 @@ export default function SiteNavigation({
               </Link>
             );
           })}
-          {SHARED_DROPDOWNS.map((dropdown) => {
+          {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;
             const active = dropdown.links.some((link) => isActive(pathname, link.href));
@@ -207,7 +221,7 @@ export default function SiteNavigation({
                         {dropdownLink.label}
                       </Link>
                     ))}
-                    {dropdown.key === "info" && (showAdmin || showBroadcaster) ? (
+                    {dropdown.key === "info" && showAdmin ? (
                       <div className="mt-1 border-t border-line pt-1" aria-label="Staff">
                         {showAdmin ? (
                           <Link
@@ -218,17 +232,6 @@ export default function SiteNavigation({
                             className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
                           >
                             Admin
-                          </Link>
-                        ) : null}
-                        {showBroadcaster ? (
-                          <Link
-                            href="/broadcaster"
-                            role="menuitem"
-                            aria-current={isActive(pathname, "/broadcaster") ? "page" : undefined}
-                            onClick={closeMenus}
-                            className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
-                          >
-                            Broadcaster
                           </Link>
                         ) : null}
                       </div>
