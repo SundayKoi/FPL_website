@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { CardLeague } from "@/lib/cards/queries";
 import { openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
+import { dustManyAction } from "@/lib/trades/actions";
 import { PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
@@ -151,6 +152,21 @@ export default function PackShop({
     router.refresh();
   }, [router]);
 
+  // The overlay's "Sell pack" — the wallet lives here, so the shop makes
+  // the call and banks the new balance. No openCount bump: selling isn't
+  // an open, and `banked` would count it as one.
+  const sellPack = useCallback(
+    async (inventoryIds: number[]) => {
+      const result = await dustManyAction(inventoryIds);
+      if (result.ok) {
+        setBalance(result.balance);
+        router.refresh();
+      }
+      return result;
+    },
+    [router],
+  );
+
   return (
     <section className="flex flex-col gap-6">
       <div className="card-brand flex flex-wrap items-center gap-4 p-5">
@@ -258,6 +274,7 @@ export default function PackShop({
           muted={muted}
           onOpenAnother={openAnother}
           onExit={handleExit}
+          onSellPack={sellPack}
           flame={flameKey}
         />
       ) : null}

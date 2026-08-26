@@ -33,6 +33,9 @@ const MAX_TRADE_DOLLARS = 100_000;
 const MAX_TRADE_CARDS = 20;
 
 type DustResult = { ok: true; value: number; balance: number } | { ok: false; error: string };
+export type DustAllResult =
+  | { ok: true; dusted: number; value: number; balance: number; skipped: number }
+  | { ok: false; error: string };
 type CreateResult = { ok: true; id: number } | { ok: false; error: string };
 type RespondResult = { ok: true } | { ok: false; error: string };
 
@@ -138,6 +141,80 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
 
   revalidateCardSurfaces();
   return { ok: true, value, balance: Number(balance) };
+}
+
+/**
+ * Sells a handful of owned copies back in one go — the "Sell pack" button.
+ *
+ * Same guards as dustCardAction, priced per copy server-side, but the
+ * ownership read and the fantasy-lock read happen ONCE for the batch. The
+ * money still moves through dust_card one copy at a time: the RPC's
+ * delete-and-credit is the atomic unit, so a copy that fails (already
+ * traded away in another tab, say) skips without poisoning the rest.
+ *
+ * Capped at a pack-and-change: this is for the pack you just opened, not
+ * for liquidating a collection.
+ */
+export async function dustManyAction(inventoryIds: number[]): Promise<DustAllResult> {
+  const ids = normalizeIds(inventoryIds);
+  if (!ids || ids.length === 0) return { ok: false, error: "Nothing to sell." };
+  if (ids.length > 10) return { ok: false, error: "That's too many cards to sell at once." };
+
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  const service = createBettingServiceClient();
+  const { data, error } = await service
+    .from("card_inventory")
+    .select("id, discord_id, season, tier, foil, foil_type, signed")
+    .in("id", ids);
+  if (error) return { ok: false, error: "Couldn't read your collection — try again." };
+
+  const owned = ((data as OwnedCardRow[]) ?? []).filter((row) => row.discord_id === user.discordId);
+  if (owned.length === 0) return { ok: false, error: "Those cards aren't yours." };
+
+  // One lock read per season in the batch (a pack is one season, so
+  // normally one), not one per card.
+  const seasons = [...new Set(owned.map((row) => row.season))];
+  const lockedBySeason = new Map(
+    await Promise.all(
+      seasons.map(async (season) => [season, await lockedInventoryIds(service, user.discordId, season)] as const),
+    ),
+  );
+
+  let dusted = 0;
+  let value = 0;
+  let balance: number | null = null;
+  let skipped = ids.length - owned.length;
+  for (const row of owned) {
+    if (lockedBySeason.get(row.season)?.has(row.id)) {
+      skipped += 1;
+      continue;
+    }
+    const rowValue = dustValueOf({
+      tier: row.tier,
+      foil: row.foil,
+      foilType: row.foil_type,
+      signed: row.signed === true,
+    });
+    const { data: nextBalance, error: rpcError } = await service.rpc("dust_card", {
+      p_user: user.discordId,
+      p_inventory: row.id,
+      p_value: rowValue,
+    });
+    if (rpcError) {
+      skipped += 1;
+      continue;
+    }
+    dusted += 1;
+    value += rowValue;
+    balance = Number(nextBalance);
+  }
+
+  if (dusted === 0 || balance === null) return { ok: false, error: "Couldn't sell those cards." };
+  revalidateCardSurfaces();
+  return { ok: true, dusted, value, balance, skipped };
 }
 
 /** A whole-number count of dollars inside the allowed band. */

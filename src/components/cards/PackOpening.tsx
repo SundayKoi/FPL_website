@@ -214,6 +214,7 @@ export default function PackOpening({
   muted,
   onOpenAnother,
   onExit,
+  onSellPack,
   flame = null,
 }: {
   /** The pack that's just been paid for, in any order — sorted here. */
@@ -228,6 +229,12 @@ export default function PackOpening({
   onOpenAnother: () => Promise<OpenResult>;
   /** Tear the stage down (and let the collection behind it catch up). */
   onExit: () => void;
+  /** Dust the whole pack back into dollars. Owned by the shop for the same
+   *  reason onOpenAnother is — the wallet lives there. Absent hides the
+   *  button entirely. */
+  onSellPack?: (inventoryIds: number[]) => Promise<
+    { ok: true; dusted: number; value: number; balance: number; skipped: number } | { ok: false; error: string }
+  >;
   /** The ripper's Patron Flame — they own every pull on this stage. */
   flame?: string | null;
 }) {
@@ -266,6 +273,11 @@ export default function PackOpening({
   const [bestPull, setBestPull] = useState<Pull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // The sell button is a two-tap: "Sell pack" arms it, the second tap
+  // commits. "sold" is terminal for THIS pack — Open another re-arms it.
+  const [sellStage, setSellStage] = useState<"idle" | "confirm" | "selling">("idle");
+  const [sold, setSold] = useState<{ dusted: number; value: number } | null>(null);
+  const [sellError, setSellError] = useState<string | null>(null);
 
   // `flipped` is mirrored into a ref because turning a card is not an
   // idempotent state update — it also plays a tone and can queue a walkout,
@@ -474,11 +486,51 @@ export default function PackOpening({
     setProgress(0);
     setBalance(result.balance);
     setSessionCount((n) => n + 1);
+    setSellStage("idle");
+    setSold(null);
+    setSellError(null);
     setPhase("drop");
   }
 
+  async function handleSellPack() {
+    if (!onSellPack || sold) return;
+    if (sellStage === "idle") {
+      // Arm, don't fire: selling five cards you just paid for deserves a
+      // deliberate second tap, not a misclick.
+      setSellStage("confirm");
+      setSellError(null);
+      return;
+    }
+    if (sellStage !== "confirm") return;
+    setSellStage("selling");
+    const result = await onSellPack(pack.pulls.map((pull) => pull.inventoryId));
+    if (!result.ok) {
+      setSellStage("idle");
+      setSellError(result.error);
+      return;
+    }
+    setSold({ dusted: result.dusted, value: result.value });
+    // Out of "selling" even on success — leaving it set would keep the
+    // other summary buttons disabled for the rest of the pack.
+    setSellStage("idle");
+    setBalance(result.balance);
+    setSellError(
+      result.skipped > 0 ? `${result.skipped} card${result.skipped === 1 ? "" : "s"} couldn't be sold.` : null,
+    );
+  }
+
   const dustTotal = pack.pulls.reduce(
-    (sum, pull) => sum + dustValueOf({ tier: pull.card.tier.key, foil: pull.foil, foilType: pull.foilType, signed: pull.signed }),
+    (sum, pull) =>
+      sum +
+      dustValueOf({
+        tier: pull.card.tier.key,
+        foil: pull.foil,
+        foilType: pull.foilType,
+        signed: pull.signed,
+        // Without the flag a pulled moment would price as the placeholder
+        // gold tier its wrapper carries, not as the moment it is.
+        moment: Boolean(pull.card.moment),
+      }),
     0,
   );
   const newCount = pack.isNew.filter(Boolean).length;
@@ -711,10 +763,35 @@ export default function PackOpening({
                 {error}
               </p>
             ) : null}
+            {sellError ? (
+              <p role="alert" className="text-sm text-red-400">
+                {sellError}
+              </p>
+            ) : null}
+            {onSellPack ? (
+              sold ? (
+                <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
+                  Sold {sold.dusted} for +{fmtPoints(sold.value)}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleSellPack()}
+                  disabled={sellStage === "selling" || pending}
+                  className="rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {sellStage === "selling"
+                    ? "Selling…"
+                    : sellStage === "confirm"
+                      ? `Sell all ${count} — sure?`
+                      : `Sell pack — +${fmtPoints(dustTotal)}`}
+                </button>
+              )
+            ) : null}
             <button
               type="button"
               onClick={handleOpenAnother}
-              disabled={pending || error !== null}
+              disabled={pending || error !== null || sellStage === "selling"}
               className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Opening…" : `Open another — ${fmtPoints(packCost)}`}

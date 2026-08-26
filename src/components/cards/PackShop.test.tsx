@@ -31,6 +31,8 @@ const { openPackAction, sounds } = vi.hoisted(() => {
 });
 
 vi.mock("@/lib/packs/actions", () => ({ openPackAction }));
+// server-only transitively — the shop only hands it to the overlay.
+vi.mock("@/lib/trades/actions", () => ({ dustManyAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/lib/packs/sounds", () => ({ ...sounds, revealTone: vi.fn(), ripTick: vi.fn(), ripOpen: vi.fn() }));
 

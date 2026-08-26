@@ -292,6 +292,69 @@ describe("PackOpening", () => {
     expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
   });
 
+  it("sells the whole pack in two deliberate taps", async () => {
+    const onSellPack = vi.fn(async (ids: number[]) => ({ ok: true as const, dusted: ids.length, value: 405, balance: 1205, skipped: 0 }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    // First tap arms; nothing is sold yet.
+    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    expect(onSellPack).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+    });
+    // Every inventory id in the pack, and the balance banks the proceeds.
+    expect(onSellPack).toHaveBeenCalledTimes(1);
+    expect([...onSellPack.mock.calls[0][0]].sort()).toEqual([1, 2, 3, 4, 5]);
+    expect(screen.getByText("Sold 5 for +$405")).toBeTruthy();
+    expect(screen.getByText("$1,205")).toBeTruthy();
+    // Terminal for this pack — the button is gone, not re-armed.
+    expect(screen.queryByRole("button", { name: /sell/i })).toBeNull();
+  });
+
+  it("re-arms the sell button for the next pack", async () => {
+    const onSellPack = vi.fn(async () => ({ ok: true as const, dusted: 5, value: 405, balance: 1205, skipped: 0 }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Open another — $200" }));
+    });
+    await ripPack();
+    flipEverything();
+    expect(screen.getByRole("button", { name: "Sell pack — +$405" })).toBeTruthy();
+  });
+
+  it("keeps the stage up when the sell is refused", async () => {
+    const onSellPack = vi.fn(async () => ({ ok: false as const, error: "Those cards aren't yours." }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+    });
+
+    expect(screen.getByRole("alert").textContent).toBe("Those cards aren't yours.");
+    // Back to idle — the pack is still sellable once the problem is fixed.
+    expect(screen.getByRole("button", { name: "Sell pack — +$405" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
+  });
+
+  it("offers no sell button when the shop didn't provide one", async () => {
+    renderOpening();
+    await ripPack();
+    flipEverything();
+    expect(screen.queryByRole("button", { name: /sell/i })).toBeNull();
+  });
+
   it("flips the rest on request, one beat at a time", async () => {
     renderOpening();
     await ripPack();
