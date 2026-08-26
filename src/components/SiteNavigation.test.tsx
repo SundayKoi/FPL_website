@@ -28,7 +28,7 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("button", { name: /league menu/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe("/premium");
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Sign Up$/ })).toBeNull();
     expect(screen.getByText("Account")).toBeTruthy();
@@ -131,42 +131,30 @@ describe("SiteNavigation", () => {
       "Auction Draft",
     ]);
 
-    cleanup();
-    render(<SiteNavigation authSlot={<span>Account</span>} />);
-    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
-    expect(screen.getByRole("menuitem", { name: /^Match Drafter$/ }).getAttribute("href")).toBe("/drafter");
+    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe("/premium");
   });
 
-  it("opens the Premium dropdown with internal and external destinations", () => {
+  it("keeps Info dropdown behavior while Premium is a direct link", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
-
-    expect(screen.getByRole("menuitem", { name: /^Betting$/ }).getAttribute("href")).toBe("/betting");
-    expect(screen.getByRole("menuitem", { name: /^Banger Board$/ }).getAttribute("href")).toBe("/bangers");
-    expect(screen.getByRole("menuitem", { name: /^Player Cards$/ }).getAttribute("href")).toBe("/cards");
-
-    const draftLeagueLink = screen.getByRole("menuitem", { name: /^Draft League$/ });
-    expect(draftLeagueLink.getAttribute("href")).toBe("https://www.draftleague.lol/");
-    expect(draftLeagueLink.getAttribute("target")).toBe("_blank");
-    expect(draftLeagueLink.getAttribute("rel")).toBe("noopener noreferrer");
-  });
-
-  it("closes a dropdown with Escape, a link selection, or an outside click", () => {
-    render(<SiteNavigation authSlot={<span>Account</span>} />);
-
-    const premiumMenu = screen.getByRole("button", { name: /premium menu/i });
-    fireEvent.click(premiumMenu);
+    const infoMenu = screen.getByRole("button", { name: /info menu/i });
+    fireEvent.click(infoMenu);
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(premiumMenu.getAttribute("aria-expanded")).toBe("false");
+    expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
 
-    fireEvent.click(premiumMenu);
-    fireEvent.click(screen.getByRole("menuitem", { name: /^Betting$/ }));
-    expect(premiumMenu.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(infoMenu);
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Info$/ }));
+    expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
 
-    fireEvent.click(premiumMenu);
+    fireEvent.click(infoMenu);
     fireEvent.pointerDown(document.body);
-    expect(premiumMenu.getAttribute("aria-expanded")).toBe("false");
+    expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("marks Premium active on its hub and premium feature routes", () => {
+    pathname.value = "/cards/compare";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("aria-current")).toBe("page");
   });
 
   it("uses the larger desktop header and brand treatment", () => {

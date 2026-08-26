@@ -16,25 +16,9 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "league" | "premium" | "info";
+type DropdownKey = "league" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
-  {
-    key: "premium",
-    label: "Premium",
-    links: [
-      { href: "/betting", label: "Betting" },
-      { href: "/bangers", label: "Banger Board" },
-      { href: "/cards", label: "Player Cards" },
-      {
-        href: "https://www.draftleague.lol/",
-        label: "Draft League",
-        target: "_blank",
-        rel: "noopener noreferrer",
-      },
-      { href: "/drafter", label: "Match Drafter" },
-    ],
-  },
   {
     key: "info",
     label: "Info",
@@ -73,6 +57,10 @@ function topLinkClass(active: boolean, extra = "") {
 function isActive(pathname: string | null, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
+}
+
+function isPremiumActive(pathname: string | null) {
+  return ["/premium", "/betting", "/bangers", "/cards", "/drafter"].some((href) => isActive(pathname, href));
 }
 
 export default function SiteNavigation({
@@ -174,6 +162,14 @@ export default function SiteNavigation({
               </Link>
             );
           })}
+          <Link
+            href="/premium"
+            aria-current={isPremiumActive(pathname) ? "page" : undefined}
+            onClick={closeMenus}
+            className={topLinkClass(isPremiumActive(pathname))}
+          >
+            Premium
+          </Link>
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;

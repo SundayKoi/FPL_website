@@ -27,16 +27,18 @@ FPL and FPL Academy are paired experiences with the same information
 architecture. The active brand in the header identifies the current league;
 selecting the FPL/FPL Academy brand opens the league chooser, which owns league
 switching and preserves the current paired destination (including supported
-query strings). Pages do not render a second league toggle.
+query strings). Premium HQ is the intentional exception: its Premier/Academy
+toggle keeps the selected card and fantasy destinations in the same league.
 
 The header provides five direct links for the active league: **Players**,
 **Teams**, **Schedule**, **Stats**, and **My Team**. The grouped menus are:
 
 - **League** — Players, Teams, Schedule, and Auction Draft for the active
   league.
-- **Premium** — Betting, Banger Board, Player Cards, Draft League, and Match
-  Drafter.
 - **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
+
+**Premium** is a direct link to the gated Premium HQ for Betting, Banger
+Board, Player Cards, Draft League, Match Drafter, and the card economy.
 
 Admin and Broadcaster appear as conditional Staff entries inside Info. Their
 visibility is only a presentation hint: `/admin` and `/broadcaster` retain
@@ -66,8 +68,9 @@ users regardless of what the header displays.
 - **Broadcasters** can open the private broadcaster workspace and maintain the
   Premier/Academy featured-matchup presentation; owners inherit broadcaster
   workspace access, while admins do not.
-- **Discord members** may receive additional access to betting and public
-  lobby creation based on configured guild roles.
+- **FPL Premium members** receive Premium HQ and premium feature access from
+  the configured Discord guild role. The hub's locked state links to the
+  official payment resource from League Links.
 
 ## Stack and repository map
 
@@ -253,8 +256,9 @@ service's dashboard in a browser.
    - `DISCORD_PUBLIC_KEY` (for `/api/discord/interactions`)
    - `DISCORD_BOT_TOKEN`, `DISCORD_GUILD_ID`, and the configured betting role
      IDs when Discord-gated betting is enabled
-   - `DRAFTER_GUILD_ID` and `DRAFTER_ROLE_ID` when the premium lobby gate is
-     enabled
+   - `DISCORD_GUILD_ID` and `DISCORD_REQUIRED_ROLE_ID` for the shared FPL
+     Premium gate (the older `DRAFTER_GUILD_ID`/`DRAFTER_ROLE_ID` names remain
+     supported as a fallback)
    - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if the live-channel status
      feature is used
 3. Deploy.

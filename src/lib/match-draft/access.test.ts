@@ -51,6 +51,16 @@ describe("drafterAccess", () => {
     expect(fetchGuildMemberMock).toHaveBeenCalledWith("discord-1", "1534318803318739146");
   });
 
+  it("uses the canonical FPL Premium role and guild when configured", async () => {
+    vi.stubEnv("DISCORD_REQUIRED_ROLE_ID", "fpl-premium-role");
+    vi.stubEnv("DISCORD_GUILD_ID", "fpl-premium-guild");
+    signedInAs("discord-1");
+    fetchGuildMemberMock.mockResolvedValue({ inGuild: true, roles: ["fpl-premium-role"] });
+
+    expect(await drafterAccess()).toEqual({ signedIn: true, allowed: true, inconclusive: false });
+    expect(fetchGuildMemberMock).toHaveBeenCalledWith("discord-1", "fpl-premium-guild");
+  });
+
   it("denies guild members without the premium role, and non-members", async () => {
     signedInAs("discord-1");
     fetchGuildMemberMock.mockResolvedValue({ inGuild: true, roles: ["other-role"] });
