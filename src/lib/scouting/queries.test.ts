@@ -355,4 +355,30 @@ describe("fetchIngestedScoutingGames", () => {
       gameDate: "2026-08-01T00:00:00Z",
     }]);
   });
+
+  it("maps an unlinked report game to its unique fixture for outcome attribution", async () => {
+    const rawStatsQuery = builder([{
+      id: 1, match_id: "match-1", game_date: "2026-08-01T00:00:00Z", season: "S5",
+      summoner_name: "Northstar", tag: "NA1", champion: "Ahri", team_side: "Blue", win: true,
+    }]);
+    const reportGamesQuery = builder([{ id: "game-1", match_id: "match-1", report_id: "report-1", game_number: 1 }]);
+    const reportsQuery = builder([{
+      id: "report-1", fixture_id: null, season: "S5", team_a_id: "team-a", team_b_id: "team-b", draft_url: null,
+    }]);
+    const teamsQuery = builder([{ id: "team-a", name: "Night Vale" }, { id: "team-b", name: "Other" }]);
+    const from = vi.fn((table: string) => ({
+      raw_stats: rawStatsQuery,
+      match_report_games: reportGamesQuery,
+      match_reports: reportsQuery,
+      league_teams: teamsQuery,
+    }[table] ?? builder([])));
+
+    const result = await fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid" }],
+      [{ ...fixture("fixture-1", "Night Vale", "Other"), stage: "week_1" as const, best_of: 3 as const }],
+    );
+
+    expect(result[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 1, teamSide: "blue", win: true });
+  });
 });

@@ -19,7 +19,7 @@ export const FIXTURE_COLUMNS =
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
 export const INGESTED_SCOUTING_COLUMNS =
-  "id, match_id, game_date, season, summoner_name, tag, champion, team_side";
+  "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win";
 const TEAM_COLUMNS = "id, name";
 const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";
@@ -303,6 +303,7 @@ export async function fetchScoutingHistory(
 export async function fetchIngestedScoutingGames(
   supabase: SupabaseClient,
   roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"]; opggUrl?: string | null }>,
+  fixtures: ScoutFixtureRow[] = [],
 ): Promise<IngestedScoutingGame[]> {
   const rows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
       .from("raw_stats")
@@ -317,15 +318,28 @@ export async function fetchIngestedScoutingGames(
       .select("id, match_id, report_id, game_number")
       .order("id")
       .range(from, to)),
-    fetchAllScoutingRows<{ id: string; fixture_id: string | null }>((from, to) => supabase
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase
       .from("match_reports")
-      .select("id, fixture_id")
+      .select(REPORT_COLUMNS)
       .order("id")
       .range(from, to)),
   ]);
+  const teamRows = fixtures.length
+    ? await fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to))
+    : [];
   const fixtureIdsByReportId = new Map(
-    reports
-      .flatMap((row) => row.id && row.fixture_id ? [[row.id, row.fixture_id] as const] : []),
+    (fixtures.length
+      ? resolveReportFixtureIds(asRows(reports), fixtures, new Map(fixtures.map((fixture) => [fixture.id, fixture])), new Map(asRows(teamRows).flatMap((row) => {
+          const id = asNullableString(row.id);
+          const name = asNullableString(row.name);
+          return id && name ? [[id, name] as const] : [];
+        })))
+      : asRows(reports))
+      .flatMap((row) => {
+        const id = asNullableString(row.id);
+        const fixtureId = asNullableString(row.fixture_id);
+        return id && fixtureId ? [[id, fixtureId] as const] : [];
+      }),
   );
   const fixtureIdsByMatchId = new Map<string, IngestedMatchReference>(
     reportGames

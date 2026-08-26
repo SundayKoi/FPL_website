@@ -59,6 +59,25 @@ describe("opponent scouting derivation", () => {
     expect(games.map((game) => [game.fixture.id, game.side])).toEqual([["three", "red"], ["four", "blue"]]);
   });
 
+  it("resolves reported draft outcomes from per-game Riot results", () => {
+    const withResults = structuredClone(source) as ScoutSource;
+    withResults.opponentName = "Night Vale";
+    withResults.fixtures = [fixture("blue-win"), fixture("red-win", "S5", "2026-08-09T00:00:00Z")];
+    withResults.drafts = [
+      { ...source.drafts[0], id: "blue-win-draft", fixture_id: "blue-win", winner_team: null },
+      { ...source.drafts[0], id: "red-win-draft", fixture_id: "red-win", winner_team: null },
+    ];
+    withResults.ingestedGames = [
+      { playerId: "blue-player", playerName: "Blue player", role: "mid", champion: "Ahri", fixtureId: "blue-win", gameNumber: 1, teamSide: "blue", win: true, season: "S5", matchId: "blue-win-game-1", gameDate: null },
+      { playerId: "red-player", playerName: "Red player", role: "mid", champion: "Ahri", fixtureId: "red-win", gameNumber: 1, teamSide: "red", win: true, season: "S5", matchId: "red-win-game-1", gameDate: null },
+    ];
+
+    const data = deriveScoutData(withResults, "all");
+
+    expect(data.pastDrafts.find((draft) => draft.fixture.id === "blue-win")?.winnerTeam).toBe("Night Vale");
+    expect(data.pastDrafts.find((draft) => draft.fixture.id === "red-win")?.winnerTeam).toBe("Other");
+  });
+
   it("derives first picks, opposing bans, ordered slots, and stable ties", () => {
     const data = deriveScoutData(source, "season");
     expect(data.firstPicks[0]).toMatchObject({ champion: "Ahri", count: 2 });

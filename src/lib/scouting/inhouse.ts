@@ -22,6 +22,7 @@ export interface IngestedScoutingGameRow {
   match_id: string | null;
   game_date: string | null;
   team_side?: string | null;
+  win?: boolean | null;
 }
 
 export interface IngestedMatchReference {
@@ -40,6 +41,7 @@ export interface IngestedScoutingGame {
   gameDate: string | null;
   gameNumber?: number;
   teamSide?: DraftSide;
+  win?: boolean;
 }
 
 export interface InhouseChampionStat {
@@ -175,6 +177,7 @@ export function buildIngestedScoutingGames(
       gameDate: row.game_date,
       ...(gameNumber === undefined ? {} : { gameNumber }),
       ...(teamSide ? { teamSide } : {}),
+      ...(typeof row.win === "boolean" ? { win: row.win } : {}),
     }];
   });
 }
