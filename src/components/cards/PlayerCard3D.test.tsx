@@ -354,3 +354,44 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect(frame(container).className).toContain("max-w-[20rem]");
   });
 });
+
+describe("gyroscope tilt", () => {
+  /** Fires a deviceorientation event the way a phone being tilted would. */
+  function tiltPhone(beta = 70, gamma = 20) {
+    const event = new Event("deviceorientation") as Event & { beta: number; gamma: number };
+    event.beta = beta;
+    event.gamma = gamma;
+    fireEvent(window, event);
+  }
+
+  it("ignores the gyroscope unless a surface opts in", () => {
+    // A 50-card grid must not have 50 cards listening to one global event:
+    // every card tilted at once, and the whole gallery wobbled in unison.
+    render(<PlayerCard3D card={card} />);
+    const frame = screen.getByRole("button");
+    const before = frame.style.transform;
+
+    tiltPhone();
+
+    expect(frame.style.transform).toBe(before);
+  });
+
+  it("tilts to the phone's angle when a single-card surface opts in", () => {
+    render(<PlayerCard3D card={card} gyro />);
+    const frame = screen.getByRole("button");
+    const before = frame.style.transform;
+
+    tiltPhone();
+
+    expect(frame.style.transform).not.toBe(before);
+    expect(frame.style.transform).toMatch(/rotate[XY]\(/);
+  });
+
+  it("stops listening once unmounted", () => {
+    const { unmount } = render(<PlayerCard3D card={card} gyro />);
+    unmount();
+    // Nothing to assert on the detached node beyond not throwing: the guard
+    // is that a stale listener writing to a removed card would crash here.
+    expect(() => tiltPhone()).not.toThrow();
+  });
+});

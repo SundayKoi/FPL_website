@@ -154,7 +154,7 @@ export default function CardCopyPreview({
             </button>
 
             {shown ? (
-              <PlayerCard3D card={shown} interactive forceFoil={foil} foilType={foilType} />
+              <PlayerCard3D card={shown} interactive gyro forceFoil={foil} foilType={foilType} />
             ) : (
               <p className="w-72 rounded-xl border border-line bg-panel p-6 text-center text-sm text-steel">
                 {failed ? "That card couldn't be loaded — it may have moved on." : "Loading the card…"}

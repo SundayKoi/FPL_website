@@ -250,6 +250,12 @@ export default function PackOpening({
   const [shaking, setShaking] = useState(false);
   const [balance, setBalance] = useState(initialBalance);
   const [sessionCount, setSessionCount] = useState(1);
+  // Phone layout reveals ONE card at a time. The fan below 540px shrank each
+  // card to 92px — under a third of its design size, five of them overlapping
+  // on a 390px screen — so the name, the OVR and the bars were all
+  // unreadable and the flip target was a sliver. Desktop keeps the fan.
+  const [narrow, setNarrow] = useState(false);
+  const [cursor, setCursor] = useState(0);
   const [bestPull, setBestPull] = useState<Pull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -265,6 +271,15 @@ export default function PackOpening({
     mutedRef.current = muted;
     reducedRef.current = reduced;
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 540px)");
+    const sync = () => setNarrow(query.matches);
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
 
   const count = pack.pulls.length;
   const activeWalkout = walkoutQueue.length > 0 ? walkoutQueue[0] : null;
@@ -282,6 +297,9 @@ export default function PackOpening({
   // costing an extra render on the last flip, and means the state machine only
   // has to be moved by things a user actually did.
   const view: Phase = phase === "line" && allFlipped && activeWalkout === null ? "summary" : phase;
+  /** One-card-at-a-time reveal: phones only, and only while still revealing —
+   *  the summary is a contact sheet of the whole pack on every screen. */
+  const solo = narrow && view === "line";
 
   // The page behind the overlay must not scroll under it.
   useEffect(() => {
@@ -512,18 +530,21 @@ export default function PackOpening({
           </div>
         ) : (
           <>
-            <div className="pack-line">
+            <div className={`pack-line${solo ? " pack-line-solo" : ""}`}>
               {pack.pulls.map((pull, index) => {
+                // Phones show one card; the summary still lays them all out.
+                if (solo && index !== cursor) return null;
                 const rarity = rarityOf(pull.card.tier.key);
                 const face = flipped[index];
-                const straight = view === "summary";
+                // A lone card has nothing to fan against, so it sits straight.
+                const straight = view === "summary" || solo;
                 return (
                   <div
                     key={pull.inventoryId}
                     className="flex flex-col items-center gap-2"
                     style={{
                       zIndex: index,
-                      marginLeft: index === 0 ? 0 : straight ? 10 : -22,
+                      marginLeft: solo ? 0 : index === 0 ? 0 : straight ? 10 : -22,
                       transition: "margin 420ms ease",
                     }}
                   >
@@ -597,6 +618,26 @@ export default function PackOpening({
                 );
               })}
             </div>
+            {/* Phone reveal: where you are in the pack, and the way forward.
+                Next only unlocks once the current card is face-up, so the
+                pack can't be skimmed past without being seen. */}
+            {solo ? (
+              <div className="relative mt-3 flex items-center justify-center gap-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-steel">
+                  {cursor + 1} / {count}
+                </span>
+                {cursor < count - 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setCursor((c) => Math.min(c + 1, count - 1))}
+                    disabled={!flipped[cursor]}
+                    className="btn-pill px-5 py-2 text-sm disabled:opacity-40"
+                  >
+                    Next card →
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <p className="relative mt-6 text-xs uppercase tracking-[0.22em] text-steel">
               {allFlipped ? "That's the pack" : "Tap a card to turn it over"}
@@ -695,7 +736,7 @@ export default function PackOpening({
               backdrop — the walkout is dismissed by its own button or by the
               space around it. */}
           <div className="pack-walkout-card" onClick={(event) => event.stopPropagation()} role="presentation">
-            <PlayerCard3D card={walkoutPull.card} bloom forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} />
+            <PlayerCard3D card={walkoutPull.card} bloom gyro forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} />
           </div>
           <button
             type="button"

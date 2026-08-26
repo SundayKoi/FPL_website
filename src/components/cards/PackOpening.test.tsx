@@ -22,14 +22,21 @@ vi.mock("@/lib/packs/sounds", () => ({
   revealTone: vi.fn(),
 }));
 
-/** jsdom ships no matchMedia at all, so every test states its own answer. */
-function stubReducedMotion(reduce: boolean) {
+/** jsdom ships no matchMedia at all, so every test states its own answer.
+ *  Query-aware on purpose: the component now asks two different questions
+ *  (reduced motion AND viewport width), and a stub that answered `matches`
+ *  to both would silently put every reduced-motion test into phone layout. */
+function stubMedia({ reduce = false, narrow = false }: { reduce?: boolean; narrow?: boolean } = {}) {
   vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: reduce,
+    matches: query.includes("prefers-reduced-motion") ? reduce : query.includes("max-width") ? narrow : false,
     media: query,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }));
+}
+
+function stubReducedMotion(reduce: boolean) {
+  stubMedia({ reduce });
 }
 
 function makeCard(
@@ -355,5 +362,42 @@ describe("PackOpening", () => {
     expect(walkoutSting).not.toHaveBeenCalled();
     // The tally still lands.
     expect(screen.getByText("$405")).toBeTruthy();
+  });
+});
+
+describe("phone reveal", () => {
+  // Below 540px the fan shrank each card to 92px wide — under a third of the
+  // card's design size, five of them overlapping by 22px on a 390px screen.
+  // The name, the OVR and the bars were all unreadable, and the tap target
+  // for flipping was that same sliver.
+  it("shows one card at a time instead of fanning all five", async () => {
+    stubMedia({ narrow: true });
+    renderOpening();
+    await ripPack();
+
+    // Exactly one face-down back is reachable, not five.
+    expect(screen.getAllByRole("button", { name: /reveal card/i })).toHaveLength(1);
+    // And the viewer is told where they are in the pack.
+    expect(screen.getByText(/1\s*\/\s*5|1 of 5/i)).toBeTruthy();
+  });
+
+  it("keeps the full fan on a pointer-sized screen", async () => {
+    stubMedia({ narrow: false });
+    renderOpening();
+    await ripPack();
+
+    expect(screen.getAllByRole("button", { name: /reveal card/i })).toHaveLength(5);
+  });
+
+  it("advances to the next card once the current one is turned", async () => {
+    stubMedia({ narrow: true });
+    renderOpening();
+    await ripPack();
+
+    fireEvent.click(screen.getByRole("button", { name: /reveal card 1 of 5/i }));
+    fireEvent.click(screen.getByRole("button", { name: /next card/i }));
+
+    expect(screen.getByRole("button", { name: /reveal card 2 of 5/i })).toBeTruthy();
+    expect(screen.getByText(/2\s*\/\s*5|2 of 5/i)).toBeTruthy();
   });
 });

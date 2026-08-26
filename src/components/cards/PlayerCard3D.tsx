@@ -99,6 +99,7 @@ function PlayerCardFace({
   interactive = true,
   reveal = false,
   bloom = false,
+  gyro = false,
   forceFoil = false,
   foilType,
   className = "",
@@ -110,6 +111,12 @@ function PlayerCardFace({
   reveal?: boolean;
   /** Ambient tier-colored glow behind the card (share-page pedestal). */
   bloom?: boolean;
+  /** Let the phone's gyroscope drive the tilt. Off by default and opt-in per
+   *  surface, because the listener is on `window`: a grid of 50 cards each
+   *  attached its own, so one global event tilted the whole gallery in
+   *  unison at device refresh rate. Only surfaces showing ONE card — the
+   *  share page, a pack reveal, a copy preview — should turn this on. */
+  gyro?: boolean;
   /** Holograph the card whatever its tier — the pack economy's foil pull is
    *  a cosmetic rolled independently of rarity, so a foil Bronze exists. */
   forceFoil?: boolean;
@@ -136,6 +143,8 @@ function PlayerCardFace({
   // Latest pointer position, parked for the next animation frame.
   const pointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const rafRef = useRef(0);
+  /** iOS only ever answers the permission prompt once; don't re-ask per tap. */
+  const gyroAskedRef = useRef(false);
   const style = TIER_STYLES[card.tier.key];
   const parallel = foilTypeOf(foilType);
   const foilLayer = FOIL_LAYERS[parallel];
@@ -243,8 +252,13 @@ function PlayerCardFace({
 
   // Phones don't hover: the gyroscope drives the same tilt instead — and it's
   // every bit as chatty as a mouse, so it takes the same direct-write path.
+  //
+  // Opt-in via `gyro`. This listener lives on `window`, so every mounted card
+  // used to receive every reading: a 50-card grid ran 50 handlers per frame
+  // and tilted as one sheet, which reads as jank rather than as your card
+  // responding to your hand.
   useEffect(() => {
-    if (!interactive || typeof window === "undefined" || !("DeviceOrientationEvent" in window)) return;
+    if (!gyro || !interactive || typeof window === "undefined" || !("DeviceOrientationEvent" in window)) return;
     const onOrientation = (event: DeviceOrientationEvent) => {
       if (event.beta === null || event.gamma === null) return;
       const x = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, event.gamma / 3));
@@ -253,7 +267,26 @@ function PlayerCardFace({
     };
     window.addEventListener("deviceorientation", onOrientation);
     return () => window.removeEventListener("deviceorientation", onOrientation);
-  }, [interactive, writeTilt]);
+  }, [gyro, interactive, writeTilt]);
+
+  /**
+   * iOS 13+ never delivers deviceorientation until it is asked, from inside a
+   * user gesture. `"DeviceOrientationEvent" in window` is true on iPhone
+   * regardless, so the old guard passed, the listener attached, and the tilt
+   * silently did nothing on every iPhone. Asking on the first tap — the tap
+   * that already flips the card — costs the user nothing extra.
+   */
+  const askForGyro = useCallback(() => {
+    if (!gyro || typeof window === "undefined") return;
+    const request = (
+      window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined
+    )?.requestPermission;
+    if (typeof request !== "function" || gyroAskedRef.current) return;
+    gyroAskedRef.current = true;
+    // A refusal is a normal answer, not an error: the card keeps its
+    // pointer/tap behaviour and simply never tilts.
+    void request().catch(() => {});
+  }, [gyro]);
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!interactive) return;
@@ -316,8 +349,10 @@ function PlayerCardFace({
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
-        onClick={interactive ? () => setFlipped((f) => !f) : undefined}
-        onKeyDown={interactive ? (e) => (e.key === "Enter" || e.key === " ") && setFlipped((f) => !f) : undefined}
+        onClick={interactive ? () => { askForGyro(); setFlipped((f) => !f); } : undefined}
+        onKeyDown={
+          interactive ? (e) => (e.key === "Enter" || e.key === " ") && setFlipped((f) => !f) : undefined
+        }
         className={`relative aspect-[5/7] w-full select-none rounded-2xl [transform-style:preserve-3d] ${
           interactive ? "cursor-pointer" : ""
         }`}
@@ -683,6 +718,8 @@ export default function PlayerCard3D(props: {
   interactive?: boolean;
   reveal?: boolean;
   bloom?: boolean;
+  /** See PlayerCardFace: opt-in gyroscope tilt, for single-card surfaces. */
+  gyro?: boolean;
   forceFoil?: boolean;
   foilType?: string | null;
   className?: string;

@@ -1022,6 +1022,16 @@ body {
 }
 @media (max-width: 540px) {
   .pack-line { --pack-slot-w: 92px; --pack-slot-h: 129px; --pack-slot-scale: 0.2875; }
+  /* One card at a time (PackOpening's `solo`), so it gets the room the fan
+     could never give it: 92px was under a third of the card's 320px design
+     size, which left the name, the OVR and the bars illegible and the flip
+     target a sliver. Sized off the viewport so it fills a phone without
+     overflowing the narrowest ones. */
+  .pack-line-solo {
+    --pack-slot-w: min(17rem, 78vw);
+    --pack-slot-h: calc(min(17rem, 78vw) * 1.4);
+    --pack-slot-scale: calc(min(17rem, 78vw) / 320);
+  }
 }
 
 @utility pack-slot {

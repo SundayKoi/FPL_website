@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import TiltHint from "@/components/cards/TiltHint";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
@@ -212,8 +213,8 @@ export default async function CardSharePage({
         <span className="label-dash">FPL player card · Season {card.season}</span>
         <h1 className="type-display mt-2 text-4xl">{card.name}</h1>
       </header>
-      <PlayerCard3D card={card} reveal bloom />
-      <p className="text-xs text-steel">Hover to tilt · click to flip</p>
+      <PlayerCard3D card={card} reveal bloom gyro />
+      <TiltHint />
       <SeasonJourney history={history} />
       <ShareCardActions slug={card.slug} />
       <CardClaim
