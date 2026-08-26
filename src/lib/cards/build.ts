@@ -117,6 +117,16 @@ export interface MomentPrint {
   weekStart: string;
   /** The player's card slug, so the plate can link to them. */
   playerSlug: string;
+  /** Which trigger fired — picks the print's colorway family. Optional:
+   *  copies frozen before the Signature redesign carry none and print in
+   *  the fallback family. */
+  triggerKey?: string | null;
+  /** Provenance: the other team, and the game clock at final whistle.
+   *  Optional for the same frozen-copy reason. */
+  opponent?: string | null;
+  durationMin?: number | null;
+  /** Which mint of this moment the copy is (1 = first pulled). */
+  copySerial?: number | null;
 }
 
 export interface PlayerCardData {

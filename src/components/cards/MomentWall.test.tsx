@@ -16,6 +16,8 @@ function moment(overrides: Partial<LeagueMoment> = {}): LeagueMoment {
     title: "PENTAKILL",
     headline: "Five in a row · 12/1/4",
     gameDate: "2026-08-24T02:00:00Z",
+    opponent: "Cakesters",
+    durationMin: 31.7,
     ...overrides,
   };
 }
@@ -38,28 +40,42 @@ describe("MomentWall", () => {
 
   it("dates the week in UTC so the label can't slide back a day", () => {
     render(<MomentWall moments={[moment()]} />);
-    expect(screen.getByText(/Week of Aug 24/)).toBeTruthy();
+    expect(screen.getByText(/Aug 24/)).toBeTruthy();
+  });
+
+  it("shows the provenance row: opponent and game clock", () => {
+    render(<MomentWall moments={[moment()]} />);
+    expect(screen.getByText(/vs Cakesters/)).toBeTruthy();
+    expect(screen.getByText(/31:42/)).toBeTruthy();
+  });
+
+  it("degrades by omission on a copy frozen before the redesign", () => {
+    render(<MomentWall moments={[moment({ opponent: null, durationMin: null })]} />);
+    // No clock and no opponent — never a fake one; the team fills in.
+    expect(screen.queryByText(/31:42/)).toBeNull();
+    expect(screen.getByText(/Wolves · Aug 24/)).toBeTruthy();
   });
 
   it("renders a moment with no champion recorded", () => {
     render(<MomentWall moments={[moment({ champion: null })]} />);
     expect(screen.getByText("PENTAKILL")).toBeTruthy();
-    // No champion means no medallion; the plate must not print a broken one.
+    // No champion means no splash; the family backdrop carries the card
+    // rather than a broken image.
     expect(document.querySelector("img")).toBeNull();
   });
 
-  it("strikes the champion medallion when one is recorded", () => {
+  it("prints the champion's splash when one is recorded", () => {
     const { container } = render(<MomentWall moments={[moment()]} />);
-    const medallion = container.querySelector("img");
-    expect(medallion?.getAttribute("src")).toContain("Jinx");
+    const splash = container.querySelector("img");
+    expect(splash?.getAttribute("src")).toContain("Jinx");
     // Decorative — the champion is already named in the meta line, so a
     // screen reader shouldn't hear it twice.
-    expect(medallion?.getAttribute("alt")).toBe("");
+    expect(splash?.getAttribute("alt")).toBe("");
   });
 
   it("stamps the season on the plate when the page knows it", () => {
     render(<MomentWall moments={[moment()]} season="S5" />);
-    expect(screen.getByText(/Season S5 · Moment/)).toBeTruthy();
+    expect(screen.getByText(/S5 Moment/)).toBeTruthy();
   });
 
   it("omits the season rather than printing a blank one", () => {

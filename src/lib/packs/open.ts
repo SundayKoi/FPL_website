@@ -177,11 +177,19 @@ export async function openPackFor(
     const weekMoments = await fetchWeekMoments(service, season, editionWeek);
     if (weekMoments.length > 0 && rand() < MOMENT_PULL_CHANCE) {
       const moment = weekMoments[Math.floor(rand() * weekMoments.length)];
+      // Which mint of this moment the copy is. A plain count, not an
+      // atomic claim: two same-second pulls could both stamp the same
+      // serial, and a shared "3rd mint" is a story, not a wallet bug.
+      const { count } = await service
+        .from("card_inventory")
+        .select("id", { count: "exact", head: true })
+        .eq("season", season)
+        .eq("slug", `moment-${moment.id}`);
       // Replaces the last slot rather than lengthening the pack: five cards
       // is the pack, and a sixth would make the moment a bonus instead of
       // the thing you got instead of a card.
       pulls[pulls.length - 1] = {
-        card: momentToCard(moment, season),
+        card: momentToCard(moment, season, (count ?? 0) + 1),
         foil: false,
         foilType: null,
         signed: false,

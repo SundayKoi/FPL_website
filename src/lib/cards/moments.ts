@@ -42,7 +42,16 @@ export interface MomentStatRow {
   kill_participation_pct: number | null;
   damage_share_pct: number | null;
   objectives_stolen: number | null;
-  vision_score_per_min: number | null;
+  largest_critical_strike: number | null;
+  bounty_gold: number | null;
+  nexus_kills: number | null;
+  solo_turrets_late_game: number | null;
+  effective_heal_and_shield: number | null;
+  max_cs_advantage_on_lane_opponent: number | null;
+  max_level_lead_on_lane_opponent: number | null;
+  damage_mitigated: number | null;
+  on_my_way_pings: number | null;
+  game_duration_min: number | null;
 }
 
 export interface MomentTrigger {
@@ -111,6 +120,45 @@ export const MOMENT_TRIGGERS: MomentTrigger[] = [
     headline: (row) => `No deaths · ${Math.round(num(row.kill_participation_pct))}% KP`,
   },
   {
+    key: "backdoor",
+    title: "THE BACKDOOR",
+    rarity: 80,
+    // A nexus last-hit alone is one per winning game; two SOLO late-game
+    // towers on top is what separates "pressed the button" from "won it
+    // alone while the team fought elsewhere".
+    qualifies: (row) => num(row.nexus_kills) >= 1 && num(row.solo_turrets_late_game) >= 2,
+    headline: (row) => `Ended it alone · ${num(row.solo_turrets_late_game)} solo late towers`,
+  },
+  {
+    key: "bounty_hunter",
+    title: "BOUNTY HUNTER",
+    rarity: 58,
+    // A four-figure bounty haul means someone else's spree economy got
+    // personally dismantled.
+    qualifies: (row) => num(row.bounty_gold) >= 1000 && row.win === true,
+    headline: (row) => `${num(row.bounty_gold)}g of bounties collected · ${kda(row)}`,
+  },
+  {
+    key: "nuke",
+    title: "THE NUKE",
+    rarity: 55,
+    // One number, one screenshot. No win gate — a 1500 crit is the story
+    // whatever the scoreboard said.
+    qualifies: (row) => num(row.largest_critical_strike) >= 1500,
+    headline: (row) => `${num(row.largest_critical_strike)} damage in one hit · ${kda(row)}`,
+  },
+  {
+    key: "lane_kingdom",
+    title: "LANE KINGDOM",
+    rarity: 52,
+    qualifies: (row) =>
+      num(row.max_cs_advantage_on_lane_opponent) >= 50 &&
+      num(row.max_level_lead_on_lane_opponent) >= 2 &&
+      row.win === true,
+    headline: (row) =>
+      `+${Math.round(num(row.max_cs_advantage_on_lane_opponent))} CS and ${num(row.max_level_lead_on_lane_opponent)} levels on lane`,
+  },
+  {
     key: "damage_monster",
     title: "THE WHOLE TEAM",
     rarity: 50,
@@ -118,13 +166,80 @@ export const MOMENT_TRIGGERS: MomentTrigger[] = [
     headline: (row) => `${Math.round(num(row.damage_share_pct))}% of the team's damage · ${kda(row)}`,
   },
   {
-    key: "vision_lock",
-    title: "LIGHTS ON",
-    rarity: 45,
-    qualifies: (row) => num(row.vision_score_per_min) >= 3 && row.win === true,
-    headline: (row) => `${num(row.vision_score_per_min).toFixed(1)} vision/min · ${kda(row)}`,
+    key: "raid_boss",
+    title: "THE RAID BOSS",
+    rarity: 48,
+    qualifies: (row) => num(row.damage_mitigated) >= 25000 && row.win === true,
+    headline: (row) => `${(num(row.damage_mitigated) / 1000).toFixed(1)}k damage soaked · ${kda(row)}`,
+  },
+  {
+    key: "bodyguard",
+    title: "BODYGUARD",
+    rarity: 47,
+    // The support moment that is not wards: heal + shield that actually
+    // landed (Riot's "effective" number discounts overheal).
+    qualifies: (row) => num(row.effective_heal_and_shield) >= 12000 && row.win === true,
+    headline: (row) => `${(num(row.effective_heal_and_shield) / 1000).toFixed(1)}k healed & shielded · ${kda(row)}`,
+  },
+  {
+    key: "on_my_way",
+    title: "HE'S ON HIS WAY",
+    rarity: 40,
+    // Pure comedy, and deliberately no win gate: sixty OMW pings is a
+    // performance in its own right.
+    qualifies: (row) => num(row.on_my_way_pings) >= 60,
+    headline: (row) => `${num(row.on_my_way_pings)} "on my way" pings · ${kda(row)}`,
   },
 ];
+
+/**
+ * Which colorway a trigger prints in. Families, not per-trigger colors, so
+ * a new trigger never needs new CSS: ember burns for kill drama, void for
+ * heists and objectives, ice for perfection and defiance, gold for the
+ * guardian and the comedian.
+ */
+export type MomentFamily = "ember" | "void" | "ice" | "gold";
+
+const MOMENT_FAMILIES: Record<string, MomentFamily> = {
+  pentakill: "ember",
+  quadra: "ember",
+  godlike: "ember",
+  solo_carry: "ember",
+  damage_monster: "ember",
+  nuke: "ember",
+  baron_steal: "void",
+  backdoor: "void",
+  bounty_hunter: "void",
+  flawless: "ice",
+  lane_kingdom: "ice",
+  raid_boss: "ice",
+  bodyguard: "gold",
+  on_my_way: "gold",
+};
+
+/** Ember as the fallback: a retired or unknown trigger still prints in the
+ *  family the loudest moments use, never unstyled. */
+export function momentFamilyOf(triggerKey: string | null | undefined): MomentFamily {
+  return MOMENT_FAMILIES[triggerKey ?? ""] ?? "ember";
+}
+
+/** 1 -> "1st" — the mint ordinal a copy's serial chip prints. */
+export function mintOrdinal(serial: number): string {
+  const mod100 = serial % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${serial}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[serial % 10] ?? "th";
+  return `${serial}${suffix}`;
+}
+
+/** 31.7 minutes -> "31:42". Null stays null: an old moment minted before
+ *  the clock was captured shows no clock rather than a fake one. */
+export function gameClock(durationMin: number | null | undefined): string | null {
+  if (durationMin === null || durationMin === undefined || !Number.isFinite(durationMin)) return null;
+  const totalSeconds = Math.round(durationMin * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 export interface MomentCandidate {
   season: string;
@@ -140,6 +255,9 @@ export interface MomentCandidate {
   headline: string;
   rarity: number;
   gameDate: string | null;
+  /** The other team in the match, derived from the match's own rows. */
+  opponent: string | null;
+  durationMin: number | null;
 }
 
 /** Magnitude within a trigger, for breaking ties between two of the same
@@ -166,6 +284,23 @@ export function findMomentCandidates(
   rows: MomentStatRow[],
   slugOf: (summonerName: string, tag: string) => string,
 ): MomentCandidate[] {
+  // Every match's team names, so a candidate can name its opponent — the
+  // rows themselves are the source: both teams' players are in the ingest.
+  const matchTeams = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!row.match_id || !row.team_name) continue;
+    const teams = matchTeams.get(row.match_id) ?? new Set<string>();
+    teams.add(row.team_name);
+    matchTeams.set(row.match_id, teams);
+  }
+  const opponentOf = (row: MomentStatRow): string | null => {
+    if (!row.match_id || !row.team_name) return null;
+    for (const team of matchTeams.get(row.match_id) ?? []) {
+      if (team !== row.team_name) return team;
+    }
+    return null;
+  };
+
   const candidates: MomentCandidate[] = [];
   for (const row of rows) {
     if (!row.match_id || !row.season || !row.summoner_name || !row.tag) continue;
@@ -191,6 +326,8 @@ export function findMomentCandidates(
       headline: best.headline(row),
       rarity: best.rarity,
       gameDate: row.game_date,
+      opponent: opponentOf(row),
+      durationMin: row.game_duration_min,
     });
   }
   return candidates;
@@ -259,7 +396,7 @@ export const MOMENT_PULL_CHANCE = 0.02;
  *  branches on `moment` before it reads any of them. They exist because
  *  card_inventory's columns are NOT NULL, and inventing a rating for a
  *  moment would be a worse lie than storing an obvious zero. */
-export function momentToCard(moment: LeagueMomentLike, season: string): PlayerCardData {
+export function momentToCard(moment: LeagueMomentLike, season: string, copySerial?: number): PlayerCardData {
   return {
     moment: {
       id: moment.id,
@@ -270,6 +407,13 @@ export function momentToCard(moment: LeagueMomentLike, season: string): PlayerCa
       teamName: moment.teamName,
       weekStart: moment.weekStart,
       playerSlug: moment.slug,
+      triggerKey: moment.triggerKey ?? null,
+      opponent: moment.opponent ?? null,
+      durationMin: moment.durationMin ?? null,
+      // Stamped at pull time — which mint of this moment the copy is.
+      // Frozen like everything else in the json; older copies carry none
+      // until the backfill writes theirs.
+      ...(copySerial ? { copySerial } : {}),
     },
     // A slug of its own: "do I own this player" must not answer yes because
     // you hold their moment, and two moments must not collapse into one
@@ -316,4 +460,7 @@ export interface LeagueMomentLike {
   role?: string | null;
   weekStart: string;
   slug: string;
+  triggerKey?: string | null;
+  opponent?: string | null;
+  durationMin?: number | null;
 }

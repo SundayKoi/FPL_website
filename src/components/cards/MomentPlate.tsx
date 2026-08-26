@@ -1,19 +1,37 @@
-// One moment, printed as an engraved award plate.
+// One moment, printed as its Signature card.
 //
-// Deliberately not a PlayerCard3D. A moment has no rating, no tier and no
-// pack to pull it from, so printing it as a player card would promise an
-// overall it does not have. The plate is the other reading: a commendation
-// for something that happened, which is what a card nobody can buy should
-// feel like.
+// Deliberately not a PlayerCard3D — a moment has no rating or tier, and
+// promising an overall it doesn't have is how the old plaque design went
+// wrong in the other direction. This is the chase-card reading instead:
+// full-bleed splash of the champion it happened on, the trigger struck
+// across a metal ribbon in its family's colorway, a serial chip, and the
+// broadcast provenance row (REC, game clock) that says THIS HAPPENED.
 //
-// Server-renderable — there is nothing to interact with. The champion sits
-// in a struck medallion rather than as splash art behind the text: a full
-// splash under a gold plate turns to mud, and the medallion is how a real
-// plaque carries a likeness.
+// Server-renderable — there is nothing to interact with. Copies frozen
+// before the redesign carry no triggerKey/opponent/clock; every one of
+// those degrades by omission (fallback family, no clock, no opponent)
+// rather than by lying.
 
 import Link from "next/link";
-import { championIconUrl } from "@/lib/match-draft/champions";
+import { championSplashUrl } from "@/lib/match-draft/champions";
+import { gameClock, mintOrdinal, momentFamilyOf, type MomentFamily } from "@/lib/cards/moments";
 import type { LeagueMoment } from "@/lib/cards/queries";
+
+// Written out as full literals — Tailwind emits a utility only when the
+// class name appears somewhere in source, so `sig-art-${family}` would
+// silently produce unstyled cards.
+const FAMILY_ART: Record<MomentFamily, string> = {
+  ember: "sig-art-ember",
+  void: "sig-art-void",
+  ice: "sig-art-ice",
+  gold: "sig-art-gold",
+};
+const FAMILY_RIBBON: Record<MomentFamily, string> = {
+  ember: "sig-ribbon-ember",
+  void: "sig-ribbon-void",
+  ice: "sig-ribbon-ice",
+  gold: "sig-ribbon-gold",
+};
 
 /** "2026-08-24" -> "Aug 24". Read as UTC: the stored value is a plain
  *  calendar date, and letting the browser's zone parse it slides a chunk of
@@ -24,83 +42,82 @@ export function weekLabel(week: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-/** The divider under the trigger — a struck rule with a centred lozenge,
- *  the plaque equivalent of the card's accent-rule. */
-function Laurel() {
-  return (
-    <svg width="58" height="10" viewBox="0 0 58 10" aria-hidden="true" className="my-1.5">
-      <path
-        d="M1 5 H21 M37 5 H57 M29 1 L32 5 L29 9 L26 5 Z"
-        fill="none"
-        stroke="#3a2a08"
-        strokeWidth="1.4"
-      />
-    </svg>
-  );
-}
-
 export default function MomentPlate({
   moment,
   season,
+  copySerial = null,
   className = "",
 }: {
   moment: LeagueMoment;
   season?: string | null;
-  /** Sizing belongs to the caller. The plate used to cap itself at 16rem,
-   *  which is right on the moments wall — a flex row where an uncapped
-   *  plate would stretch across the whole line — and wrong everywhere a
-   *  moment sits in a grid beside player cards, where it came out visibly
-   *  smaller than everything around it. Same aspect ratio as a player card,
-   *  so matching the width matches the height too. */
+  /** Which mint of the moment this copy is (1 = first pulled). Null on the
+   *  public wall, where the moment itself is shown rather than a copy. */
+  copySerial?: number | null;
+  /** Sizing belongs to the caller — same aspect ratio as a player card, so
+   *  matching the width matches the height too. */
   className?: string;
 }) {
-  const icon = moment.champion ? championIconUrl(moment.champion) : null;
+  const family = momentFamilyOf(moment.triggerKey);
+  const splash = moment.champion ? championSplashUrl(moment.champion, 0) : null;
+  const clock = gameClock(moment.durationMin);
 
   return (
     <article
       aria-label={`${moment.title} — ${moment.summonerName}`}
-      className={`moment-plate relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-xl ${className}`}
+      className={`sig-moment relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-xl ${className}`}
     >
-      <span className="moment-brush" />
-      <span className="moment-bevel" />
+      {/* Family backdrop first, splash over it: the family still tints the
+          edges through the scrim, and a champion with no splash art keeps a
+          finished card instead of a hole. */}
+      <span className={`${FAMILY_ART[family]} absolute inset-0`} />
+      {splash ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={splash}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-top opacity-85"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
+      <span className="sig-art-beam" />
+      <span className="sig-scrim" />
 
-      <div className="relative z-10 flex h-full flex-col items-center px-4 py-4 text-center">
-        <span className="font-body text-[0.58rem] uppercase tracking-[0.18em] text-[#b79a56]">
-          {season ? `Season ${season} · ` : ""}Moment
-        </span>
+      <div className="relative z-10 flex h-full flex-col px-3 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="font-display text-[0.6rem] font-bold uppercase tracking-[0.22em] text-white/75">
+              {season ? `${season} ` : ""}Moment
+            </span>
+            <span className="font-mono text-[0.6rem] tracking-[0.1em] text-white/80">
+              <span className="sig-rec">●</span> REC{clock ? ` · ${clock}` : ""}
+            </span>
+          </div>
+          <span className="sig-chip rounded font-mono text-[0.56rem] tracking-[0.1em]" style={{ padding: "3px 7px" }}>
+            № {moment.id}
+            {copySerial ? ` · ${mintOrdinal(copySerial)}` : ""}
+          </span>
+        </div>
 
-        {icon ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={icon}
-            alt=""
-            className="mt-4 h-20 w-20 rounded-full border-2 border-[#d8b055] object-cover sepia-[0.55] saturate-75"
-            style={{ boxShadow: "0 2px 8px rgb(0 0 0 / 0.55), inset 0 0 12px rgb(0 0 0 / 0.5)" }}
-            loading="lazy"
-            decoding="async"
-          />
-        ) : null}
+        <div className={`sig-ribbon ${FAMILY_RIBBON[family]}`}>
+          <span className="font-display text-[1.45rem] font-bold uppercase leading-none tracking-[0.05em]">
+            {moment.title}
+          </span>
+        </div>
 
-        <h3 className="moment-engrave mt-auto font-engrave text-lg font-black uppercase leading-tight tracking-[0.06em] text-[#fff4d2]">
-          {moment.title}
-        </h3>
-
-        <Laurel />
-
-        <Link
-          href={`/card/${moment.slug}`}
-          className="moment-engrave font-engrave text-base font-bold text-[#fffaf0] underline-offset-4 hover:underline"
-        >
-          {moment.summonerName}
-        </Link>
-
-        <p className="mt-1 font-body text-[0.72rem] leading-snug text-[#e2cd94]">{moment.headline}</p>
-
-        <p className="mt-2 font-body text-[0.56rem] uppercase tracking-[0.14em] text-[#b79a56]">
-          {moment.champion ? `${moment.champion} · ` : ""}
-          {moment.teamName ? `${moment.teamName} · ` : ""}
-          Week of {weekLabel(moment.weekStart)}
-        </p>
+        <div className="mt-auto flex flex-col items-center gap-0.5 pb-1 text-center">
+          <Link
+            href={`/card/${moment.slug}`}
+            className="font-display text-xl font-bold tracking-wide text-white underline-offset-4 hover:underline"
+          >
+            {moment.summonerName}
+          </Link>
+          <p className="font-mono text-[0.62rem] leading-snug tracking-[0.04em] text-white/75">{moment.headline}</p>
+          <p className="font-display text-[0.58rem] font-semibold uppercase tracking-[0.2em] text-white/50">
+            {moment.opponent ? `vs ${moment.opponent} · ` : moment.teamName ? `${moment.teamName} · ` : ""}
+            {weekLabel(moment.weekStart)}
+          </p>
+        </div>
       </div>
     </article>
   );

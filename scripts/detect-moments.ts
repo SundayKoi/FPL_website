@@ -49,7 +49,16 @@ const MOMENT_COLUMNS = [
   "kill_participation_pct",
   "damage_share_pct",
   "objectives_stolen",
-  "vision_score_per_min",
+  "largest_critical_strike",
+  "bounty_gold",
+  "nexus_kills",
+  "solo_turrets_late_game",
+  "effective_heal_and_shield",
+  "max_cs_advantage_on_lane_opponent",
+  "max_level_lead_on_lane_opponent",
+  "damage_mitigated",
+  "on_my_way_pings",
+  "game_duration_min",
 ].join(", ");
 
 function requireEnv(name: string): string {
@@ -151,6 +160,8 @@ async function mintForSeason(
       headline: moment.headline,
       rarity: moment.rarity,
       game_date: moment.gameDate,
+      opponent: moment.opponent,
+      duration_min: moment.durationMin,
     })),
   );
   if (insertError) throw new Error(`[${league}] Could not mint: ${insertError.message}`);

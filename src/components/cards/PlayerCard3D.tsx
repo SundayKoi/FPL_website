@@ -801,11 +801,14 @@ export default function PlayerCard3D(props: {
               teamName: moment.teamName,
               champion: moment.champion,
               role: null,
-              triggerKey: "",
+              triggerKey: moment.triggerKey ?? "",
               title: moment.title,
               headline: moment.headline,
               gameDate: null,
+              opponent: moment.opponent ?? null,
+              durationMin: moment.durationMin ?? null,
             }}
+            copySerial={moment.copySerial ?? null}
             season={props.card.season}
             className={props.className}
           />
@@ -823,11 +826,14 @@ export default function PlayerCard3D(props: {
           teamName: moment.teamName,
           champion: moment.champion,
           role: null,
-          triggerKey: "",
+          triggerKey: moment.triggerKey ?? "",
           title: moment.title,
           headline: moment.headline,
           gameDate: null,
+          opponent: moment.opponent ?? null,
+          durationMin: moment.durationMin ?? null,
         }}
+        copySerial={moment.copySerial ?? null}
         season={props.card.season}
         // Forwarded, so a moment sizes exactly like the player card it sits
         // next to. Dropping it here is why a pulled moment rendered smaller

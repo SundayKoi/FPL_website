@@ -466,56 +466,111 @@ body {
   .patron-flame-spark { animation: none; display: none; }
 }
 
-/* ── Moment cards ─────────────────────────────────────────────────────
-   A moment is not a player card: no rating, no tier, no pack to pull it
-   from. So it is not printed as one. This is an engraved award plate —
-   brushed gold struck at an angle, a bevelled inner edge, and text cut
-   INTO the metal rather than laid on top of it.
+/* ── Moment cards: the Signature print ────────────────────────────────
+   A moment is the loudest thing that happened all week, so it prints as
+   the chase card, not a plaque: full-bleed splash art of the champion it
+   happened on, a struck-metal ribbon carrying the trigger, a serial chip,
+   and a broadcast provenance row (REC dot, game clock).
 
-   The brushed effect is two layers: the gradient below gives the plate its
-   rolled-metal banding, and moment-brush lays fine diagonal grain over it.
-   Both are pure CSS — a texture image would be another request on a page
-   that already draws a lot of cards. */
-@utility moment-plate {
-  background-image: linear-gradient(
-    118deg,
-    #241b06 0%,
-    #45360f 20%,
-    #6f5819 38%,
-    #a8842a 52%,
-    #6f5819 66%,
-    #45360f 84%,
-    #241b06 100%
-  );
-  border: 2px solid #d8b055;
-  box-shadow: 0 14px 30px rgb(0 0 0 / 0.6), inset 0 0 26px rgb(0 0 0 / 0.55);
+   Trigger FAMILIES pick the colorway — ember for kill drama, void for
+   heists, ice for perfection, gold for the guardian and the comedian —
+   so a new trigger needs a family assignment, never new CSS. Each family
+   is two utilities: the art backdrop (also the fallback when a moment has
+   no champion, and the tint that keeps text legible over any splash) and
+   the ribbon metal. */
+@utility sig-moment {
+  background: #0c0d12;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.55);
 }
-/* Machined grain. repeating-linear-gradient rather than a noise texture:
-   it costs one paint and scales with the card instead of tiling visibly. */
-@utility moment-brush {
+@utility sig-art-ember {
+  background-image:
+    radial-gradient(120% 80% at 75% 18%, rgb(255 158 74 / 0.9), transparent 55%),
+    radial-gradient(140% 110% at 12% 70%, rgb(158 26 42 / 0.95), transparent 62%),
+    linear-gradient(165deg, #33101c, #0c0d12 75%);
+}
+@utility sig-art-void {
+  background-image:
+    radial-gradient(120% 80% at 72% 20%, rgb(148 108 255 / 0.85), transparent 55%),
+    radial-gradient(140% 110% at 15% 72%, rgb(38 22 84 / 0.95), transparent 65%),
+    linear-gradient(165deg, #171034, #0c0d12 75%);
+}
+@utility sig-art-ice {
+  background-image:
+    radial-gradient(120% 80% at 72% 20%, rgb(170 230 255 / 0.8), transparent 55%),
+    radial-gradient(140% 110% at 15% 72%, rgb(30 74 110 / 0.9), transparent 65%),
+    linear-gradient(165deg, #0f2333, #0c0d12 75%);
+}
+@utility sig-art-gold {
+  background-image:
+    radial-gradient(120% 80% at 72% 20%, rgb(255 214 110 / 0.85), transparent 55%),
+    radial-gradient(140% 110% at 15% 72%, rgb(122 82 16 / 0.9), transparent 65%),
+    linear-gradient(165deg, #2c2008, #0c0d12 75%);
+}
+/* A single hard light sweep, shared by every family — the "struck" read. */
+@utility sig-art-beam {
+  position: absolute;
+  inset: -30%;
+  background-image: conic-gradient(
+    from 210deg at 60% 35%,
+    transparent 0 40%,
+    rgb(255 255 255 / 0.14) 46%,
+    transparent 52%,
+    rgb(255 255 255 / 0.08) 58%,
+    transparent 64%
+  );
+  pointer-events: none;
+}
+/* Splash legibility: a vignette all round and a hard scrim behind the
+   footer, so any champion art keeps the text readable. */
+@utility sig-scrim {
   position: absolute;
   inset: 0;
-  background-image: repeating-linear-gradient(
-    118deg,
-    rgb(255 240 200 / 0.055) 0 1px,
-    transparent 1px 4px
-  );
+  background-image:
+    linear-gradient(rgb(5 5 8 / 0.55), transparent 22%),
+    linear-gradient(transparent 55%, rgb(5 5 8 / 0.92) 88%),
+    radial-gradient(120% 120% at 50% 40%, transparent 45%, rgb(0 0 0 / 0.55) 100%);
   pointer-events: none;
 }
-/* The inner edge. Inset rather than a second border so the plate keeps one
-   outline and the bevel reads as depth in the metal. */
-@utility moment-bevel {
+@utility sig-ribbon {
   position: absolute;
-  inset: 7px;
-  border: 1px solid rgb(255 240 200 / 0.32);
-  border-radius: 6px;
-  box-shadow: inset 0 0 18px rgb(0 0 0 / 0.45);
-  pointer-events: none;
+  left: -8%;
+  right: -8%;
+  bottom: 27%;
+  transform: rotate(-5deg);
+  padding: 0.32em 12%;
+  text-align: center;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.45);
 }
-/* Struck, not printed: a dark shadow below the glyph and a light one above
-   is what sells letters cut into metal. */
-@utility moment-engrave {
-  text-shadow: 0 1px 0 #6b5115, 0 2px 3px rgb(0 0 0 / 0.6);
+@utility sig-ribbon-ember {
+  background-image: linear-gradient(100deg, #7a1e22, #ff9d7e 30%, #b23a30 50%, #ffc4a6 72%, #7a1e22);
+  color: #1c0806;
+}
+@utility sig-ribbon-void {
+  background-image: linear-gradient(100deg, #4b3a8f, #d9ccff 30%, #7c68c8 50%, #e8e0ff 72%, #4b3a8f);
+  color: #191036;
+}
+@utility sig-ribbon-ice {
+  background-image: linear-gradient(100deg, #4e7d99, #e8f8ff 30%, #8fc4dd 50%, #f2fbff 72%, #4e7d99);
+  color: #0d2431;
+}
+@utility sig-ribbon-gold {
+  background-image: linear-gradient(100deg, #8a5a17, #ffdf8e 30%, #b8842c 50%, #ffe9a8 72%, #8a5a17);
+  color: #14100a;
+}
+@utility sig-chip {
+  background: rgb(0 0 0 / 0.45);
+  border: 1px solid rgb(255 255 255 / 0.35);
+  color: rgb(255 255 255 / 0.92);
+}
+@utility sig-rec {
+  color: #ff4b3e;
+  animation: sig-rec-blink 1.4s steps(2) infinite;
+}
+@keyframes sig-rec-blink {
+  50% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sig-rec { animation: none; }
 }
 
 @utility card-foil-holo {
