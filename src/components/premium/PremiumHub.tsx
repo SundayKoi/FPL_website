@@ -91,29 +91,29 @@ function FeatureCard({
   external?: boolean;
   className?: string;
 }) {
-  return (
-    <article className={`card-brand flex h-full flex-col gap-4 p-5 ${className}`}>
+  const cardClass = `card-brand flex h-full flex-col gap-4 p-5 transition hover:border-coral/60 ${className}`;
+  const cardContent = (
+    <>
       <header>
         <span className="label-dash">{eyebrow}</span>
         <h3 className="type-display mt-2 text-2xl">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-steel">{description}</p>
       </header>
       <div className="flex-1">{children}</div>
-      {external ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-coral hover:text-gold"
-        >
-          Open {title} ↗
-        </a>
-      ) : (
-        <Link href={href} className="text-xs font-semibold uppercase tracking-[0.16em] text-coral hover:text-gold">
-          Open {title} →
-        </Link>
-      )}
-    </article>
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-coral">
+        Open {title} {external ? "↗" : "→"}
+      </span>
+    </>
+  );
+
+  return external ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cardClass}>
+      {cardContent}
+    </a>
+  ) : (
+    <Link href={href} className={cardClass}>
+      {cardContent}
+    </Link>
   );
 }
 
@@ -227,9 +227,6 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
                   <p className="mt-1 text-sm text-steel">
                     {snapshot.cards.data.card.tier.label} · {snapshot.cards.data.card.overall} OVR · {snapshot.cards.data.count} cards in {snapshot.cards.data.season}
                   </p>
-                  <Link href={`${base}/compare?a=${snapshot.cards.data.card.slug}`} className="mt-5 inline-flex text-xs font-semibold uppercase tracking-wide text-gold hover:text-coral">
-                    Compare this card →
-                  </Link>
                 </div>
               </div>
             ) : <PreviewFallback result={snapshot.cards} />}
