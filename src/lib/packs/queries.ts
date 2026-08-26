@@ -166,3 +166,57 @@ export async function fetchDailyRipStatus(supabase: SupabaseClient, discordId: s
     flame: patron ? patronFlameOf(row?.patron_flame) : null,
   };
 }
+
+export interface LiveWindow {
+  until: string;
+  label: string;
+}
+
+/** The open Live Drops window, or null. league_settings is public-read, so
+ *  the banner shows for signed-out visitors too. */
+export async function fetchLiveWindow(supabase: SupabaseClient): Promise<LiveWindow | null> {
+  const { data } = await supabase
+    .from("league_settings")
+    .select("live_until, live_label")
+    .eq("id", 1)
+    .maybeSingle();
+  const row = data as { live_until: string | null; live_label: string | null } | null;
+  if (!row?.live_until || new Date(row.live_until).getTime() <= Date.now()) return null;
+  return { until: row.live_until, label: row.live_label?.trim() || "Live drop" };
+}
+
+export interface ChaseBanner {
+  title: string;
+  bounty: number;
+  week: string;
+  /** Who took it, or null while it still stands. */
+  claimedBy: string | null;
+}
+
+/**
+ * The chase for `week` — claimed or not, because "X already took it" is as
+ * much of the story as "it still stands". Errors (migration not applied)
+ * return null: the banner is garnish.
+ */
+export async function fetchChase(supabase: SupabaseClient, season: string, week: string): Promise<ChaseBanner | null> {
+  const { data, error } = await supabase
+    .from("card_chases")
+    .select("title, bounty, week, claimed_by, betting_profiles(username)")
+    .eq("season", season)
+    .eq("week", week)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as unknown as {
+    title: string;
+    bounty: number;
+    week: string;
+    claimed_by: string | null;
+    betting_profiles: { username: string } | null;
+  };
+  return {
+    title: row.title,
+    bounty: row.bounty,
+    week: row.week,
+    claimedBy: row.claimed_by ? row.betting_profiles?.username ?? "someone" : null,
+  };
+}

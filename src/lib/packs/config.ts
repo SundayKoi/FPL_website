@@ -63,6 +63,11 @@ export const RARITY_WEIGHTS: Record<RarityClass, number> = {
  *  independently of rarity so a foil bronze is a real (if modest) pull. */
 export const FOIL_CHANCE = 0.06;
 
+/** The foil chance while a Live Drops window is open — being in the room
+ *  while the games run is worth half again the shine. Applies to the whole
+ *  pack; parallels still roll at their normal weights inside it. */
+export const LIVE_FOIL_CHANCE = 0.09;
+
 /** Chance a pulled copy prints in an ALTERNATE skin of the player's
  *  signature champion instead of the base splash. Base is the expected
  *  look, so an alternate print reads as a pull in its own right (about

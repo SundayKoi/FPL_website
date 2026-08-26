@@ -8,7 +8,17 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
-import { fetchDailyRipStatus, fetchInventory, fetchPackOpenCount, type DailyRipStatus, type InventoryRow } from "@/lib/packs/queries";
+import {
+  fetchChase,
+  fetchDailyRipStatus,
+  fetchInventory,
+  fetchLiveWindow,
+  fetchPackOpenCount,
+  type ChaseBanner,
+  type DailyRipStatus,
+  type InventoryRow,
+  type LiveWindow,
+} from "@/lib/packs/queries";
 import { BINDER_SLOTS, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
@@ -74,6 +84,15 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         fetchDailyRipStatus(service, user.discordId),
       ])
     : [[], 0, [], null, { left: 0, patron: false, flame: null }];
+  // The banners above the shop: an open Live Drops window and this week's
+  // chase. The chase is pinned to the NEWEST edition, matching the week a
+  // pack mints by default.
+  const [liveWindow, chase]: [LiveWindow | null, ChaseBanner | null] = season
+    ? await Promise.all([
+        fetchLiveWindow(service),
+        editionWeeks[0] ? fetchChase(service, season, editionWeeks[0]) : Promise.resolve(null),
+      ])
+    : [null, null];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -108,6 +127,36 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         </div>
         <CardsLeagueToggle league={league} suffix="/packs" />
       </header>
+
+      {liveWindow ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-400/50 bg-red-500/10 px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-red-300">
+            <span aria-hidden className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-400" />
+            Live drops
+          </span>
+          <span className="text-sm text-white">{liveWindow.label}</span>
+          <span className="text-xs text-steel">
+            Foil odds boosted until{" "}
+            {new Date(liveWindow.until).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}{" "}
+            ET · every card stamped LIVE
+          </span>
+        </div>
+      ) : null}
+      {chase ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-gold/10 px-4 py-3">
+          <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">★ This week&apos;s chase</span>
+          <span className="text-sm text-white">{chase.title}</span>
+          {chase.claimedBy ? (
+            <span className="text-xs text-steel">
+              Taken by <span className="font-semibold text-white">{chase.claimedBy}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-steel">
+              First to pull it{chase.bounty > 0 ? ` wins ${chase.bounty} betting dollars and` : ""} takes the CHASE stamp
+            </span>
+          )}
+        </div>
+      ) : null}
 
       <PackShop
         league={league}

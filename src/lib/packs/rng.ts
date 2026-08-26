@@ -98,10 +98,10 @@ function rollClassAtLeast(pool: Pool, floor: RarityClass, rand: () => number): R
  *  the 94% of pulls that are not foil leave the stream where it has always
  *  been. Always rolling would shift every subsequent pull in a scripted
  *  sequence for no gain. */
-function pull(pool: Pool, rarity: RarityClass, rand: () => number): PackPull {
+function pull(pool: Pool, rarity: RarityClass, rand: () => number, foilChance: number): PackPull {
   const cards = pool.get(rarity)!;
   const index = Math.min(cards.length - 1, Math.max(0, Math.floor(rand() * cards.length)));
-  const foil = rand() < FOIL_CHANCE;
+  const foil = rand() < foilChance;
   return { card: cards[index], foil, foilType: foil ? rollFoilType(rand) : null };
 }
 
@@ -116,7 +116,13 @@ function pull(pool: Pool, rarity: RarityClass, rand: () => number): PackPull {
  * Rand consumption per slot is class → card index → foil, so a scripted
  * queue reads in that order.
  */
-export function rollPack(cards: PlayerCardData[], rand: () => number): PackPull[] {
+export function rollPack(
+  cards: PlayerCardData[],
+  rand: () => number,
+  /** Overridden during a Live Drops window (LIVE_FOIL_CHANCE); the rand
+   *  sequence is untouched either way — only the threshold moves. */
+  foilChance: number = FOIL_CHANCE,
+): PackPull[] {
   if (cards.length === 0) return [];
   const pool = groupByRarity(cards);
 
@@ -124,7 +130,7 @@ export function rollPack(cards: PlayerCardData[], rand: () => number): PackPull[
   for (let slot = 0; slot < PACK_SIZE; slot++) {
     const rarity = resolveClass(pool, rollClass(rand));
     if (!rarity) return pulls; // unreachable: cards.length > 0 means some class has entries
-    pulls.push(pull(pool, rarity, rand));
+    pulls.push(pull(pool, rarity, rand, foilChance));
   }
 
   // The bad-beat guarantee: an all-common pack is replaced at its last slot
@@ -137,7 +143,7 @@ export function rollPack(cards: PlayerCardData[], rand: () => number): PackPull[
     const forced = rollClassAtLeast(pool, GUARANTEED_CLASS, rand);
     // No rare-or-better card exists in this league at all — nothing to
     // upgrade to, so the pack stands as rolled.
-    if (forced) pulls[pulls.length - 1] = pull(pool, forced, rand);
+    if (forced) pulls[pulls.length - 1] = pull(pool, forced, rand, foilChance);
   }
 
   return pulls;

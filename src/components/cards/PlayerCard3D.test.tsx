@@ -485,3 +485,27 @@ describe("the Patron Flame on a card", () => {
     expect(container.querySelector("[data-testid='patron-flame']")).toBeTruthy();
   });
 });
+
+describe("provenance stamps", () => {
+  it("marks a copy opened during a Live Drops window", () => {
+    const liveCard = { ...card, live: { label: "Week 3 broadcast" } } as typeof card;
+    const { container } = render(<PlayerCard3D card={liveCard} />);
+
+    const stamp = container.querySelector("[data-testid='live-stamp']");
+    expect(stamp?.getAttribute("title")).toContain("Week 3 broadcast");
+  });
+
+  it("marks the copy that took the week's chase", () => {
+    const chaseCard = { ...card, chase: { title: "Any foil Naafiri" } } as typeof card;
+    const { container } = render(<PlayerCard3D card={chaseCard} />);
+
+    expect(container.querySelector("[data-testid='chase-stamp']")).toBeTruthy();
+  });
+
+  it("stamps nothing on an ordinary copy", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+
+    expect(container.querySelector("[data-testid='live-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='chase-stamp']")).toBeNull();
+  });
+});

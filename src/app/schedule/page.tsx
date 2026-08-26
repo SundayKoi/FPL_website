@@ -13,6 +13,7 @@ import {
 import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
+import AdminLiveDrops from "@/components/schedule/AdminLiveDrops";
 import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
@@ -33,7 +34,11 @@ export default async function SchedulePage({
     isAdmin
       ? supabase
           .from("league_settings")
-          .select("current_season, current_phase, academy_season")
+          // select(*) rather than naming columns: the live_* pair arrives in a
+          // later migration, and naming absent columns errors the whole read —
+          // which would blank season settings on a deploy that beat its
+          // migration. Star tolerates both worlds.
+          .select("*")
           .eq("id", 1)
           .single()
       : Promise.resolve({ data: null }),
@@ -48,10 +53,13 @@ export default async function SchedulePage({
   const allFixtures = ((fixturesResult.data as FixtureRow[]) ?? []).filter(
     (fixture) => fixture.season !== leagueSeasons.academy,
   );
+  const liveDropsActive = await isLiveDropsActive(settingsResult.data as { live_until?: string | null } | null);
   const settings = settingsResult.data as {
     current_season: string;
     current_phase: string;
     academy_season: string;
+    live_until: string | null;
+    live_label: string | null;
   } | null;
 
   const requestedRaw = (await searchParams).season;
@@ -123,6 +131,7 @@ export default async function SchedulePage({
                   currentPhase={settings?.current_phase ?? "Regular"}
                   academySeason={settings?.academy_season ?? leagueSeasons.academy}
                 />
+                <AdminLiveDrops liveUntil={settings?.live_until ?? null} liveLabel={settings?.live_label ?? null} active={liveDropsActive} />
                 {/* season is null until fixtures exist, which is exactly when the
                     draw is needed — fall back to the league's current season. */}
                 {(season ?? settings?.current_season) && (
@@ -169,4 +178,9 @@ export default async function SchedulePage({
       </div>
     </main>
   );
+}
+
+/** Off the render path — the purity rule bites bare Date.now() in bodies. */
+async function isLiveDropsActive(row: { live_until?: string | null } | null): Promise<boolean> {
+  return Boolean(row?.live_until && new Date(row.live_until).getTime() > Date.now());
 }
