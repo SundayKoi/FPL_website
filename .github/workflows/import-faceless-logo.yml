@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # ubuntu-latest stopped shipping ImageMagick preinstalled.
+      - name: Install ImageMagick
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
       - name: Fetch and inspect
         run: |
           URL="${{ inputs.source_url }}"
