@@ -125,7 +125,7 @@ export async function armChaseAction(input: {
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   await postCardsWebhook({
     title: "★ This week's chase is live",
-    description: `**${title}**\nFirst to pull it${bounty > 0 ? ` wins **${bounty}** betting dollars and` : ""} takes the CHASE stamp — ${editionLabel(week)} packs only.`,
+    description: `**${title}**\nFirst to pull it${bounty > 0 ? ` wins **${bounty}** betting dollars and` : ""} takes the CHASE stamp — ${editionLabel(week)} packs only, premier or academy.`,
     color: GOLD,
     ...(site && criteria.slug ? { image: { url: `${site}/card/${criteria.slug}/card.png` } } : {}),
   });

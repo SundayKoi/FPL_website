@@ -86,11 +86,12 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
     : [[], 0, [], null, { left: 0, patron: false, flame: null }];
   // The banners above the shop: an open Live Drops window and this week's
   // chase. The chase is pinned to the NEWEST edition, matching the week a
-  // pack mints by default.
+  // pack mints by default — and it is league-wide, so the academy shop
+  // shows (and academy pulls can win) the same one as premier.
   const [liveWindow, chase]: [LiveWindow | null, ChaseBanner | null] = season
     ? await Promise.all([
         fetchLiveWindow(service),
-        editionWeeks[0] ? fetchChase(service, season, editionWeeks[0]) : Promise.resolve(null),
+        editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
       ])
     : [null, null];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
