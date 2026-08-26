@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesChase } from "./chase";
+import { chaseCriteriaFromPreset, matchesChase } from "./chase";
 
 const pull = (over: Partial<{ slug: string; tier: string; foil: boolean; foilType: string | null; signed: boolean; moment: boolean }> = {}) => ({
   card: {
@@ -46,5 +46,25 @@ describe("matchesChase", () => {
   it("can demand a signed pull", () => {
     expect(matchesChase(pull({ signed: false }), { signed: true })).toBe(false);
     expect(matchesChase(pull({ signed: true, foil: true }), { signed: true })).toBe(true);
+  });
+});
+
+describe("chaseCriteriaFromPreset", () => {
+  it("builds each fixed preset", () => {
+    expect(chaseCriteriaFromPreset("any")).toEqual({});
+    expect(chaseCriteriaFromPreset("foil")).toEqual({ foil: true });
+    expect(chaseCriteriaFromPreset("ice")).toEqual({ foilType: "ice" });
+    expect(chaseCriteriaFromPreset("signed")).toEqual({ signed: true });
+  });
+
+  it("normalises the parameterised presets", () => {
+    expect(chaseCriteriaFromPreset("player", "  Doug-NA1 ")).toEqual({ slug: "doug-na1" });
+    expect(chaseCriteriaFromPreset("tier", "Diamond")).toEqual({ tier: "diamond" });
+  });
+
+  it("refuses a parameterised preset missing its parameter", () => {
+    // Arming an accidental match-anything is worse than not arming.
+    expect(chaseCriteriaFromPreset("player", "")).toBeNull();
+    expect(chaseCriteriaFromPreset("tier")).toBeNull();
   });
 });

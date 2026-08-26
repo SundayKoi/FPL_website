@@ -44,3 +44,37 @@ export function matchesChase(pull: ChaseCandidate, criteria: ChaseCriteria): boo
   if (criteria.signed !== undefined && Boolean(pull.signed) !== criteria.signed) return false;
   return true;
 }
+
+/** The arm-the-chase form's preset list — one honest sentence per option,
+ *  so an admin never hand-writes jsonb. */
+export const CHASE_PRESETS = ["any", "foil", "ice", "signed", "player", "tier"] as const;
+export type ChasePreset = (typeof CHASE_PRESETS)[number];
+
+/**
+ * Preset (+ its parameter, when it takes one) -> criteria. Returns null
+ * for a parameterised preset missing its parameter, which the form treats
+ * as "not ready to arm" rather than arming an accidental match-anything.
+ */
+export function chaseCriteriaFromPreset(
+  preset: ChasePreset,
+  parameter?: string,
+): ChaseCriteria | null {
+  switch (preset) {
+    case "any":
+      return {};
+    case "foil":
+      return { foil: true };
+    case "ice":
+      return { foilType: "ice" };
+    case "signed":
+      return { signed: true };
+    case "player": {
+      const slug = parameter?.trim().toLowerCase();
+      return slug ? { slug } : null;
+    }
+    case "tier": {
+      const tier = parameter?.trim().toLowerCase();
+      return tier ? { tier } : null;
+    }
+  }
+}
