@@ -13,6 +13,8 @@ export interface CardsEmbed {
   title: string;
   description: string;
   color: number;
+  /** A full-size image under the embed — the card itself, usually. */
+  image?: { url: string };
 }
 
 export const GOLD = 0xe8c14b;
