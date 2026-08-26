@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Chakra_Petch, Cinzel, Saira } from "next/font/google";
+import { Bangers, Chakra_Petch, Cinzel, Pinyon_Script, Saira } from "next/font/google";
 import AuthButton from "@/components/AuthButton";
 import SiteNavigation from "@/components/SiteNavigation";
 import SupportDevButton from "@/components/SupportDevButton";
@@ -27,6 +27,19 @@ const cinzel = Cinzel({
   weight: ["600", "700", "900"],
   variable: "--font-cinzel",
 });
+// Champions-drop cards only. Bangers is the FACELESS wordmark's brush-poster
+// voice; Pinyon is the ink an autographed relic signs in (champions have no
+// drawn signature on file — S4 names may never log in to draw one).
+const bangers = Bangers({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-bangers",
+});
+const pinyon = Pinyon_Script({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-pinyon",
+});
 
 export const metadata: Metadata = {
   // Without this, the share page's relative openGraph.images resolves
@@ -45,7 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${chakra.variable} ${saira.variable} ${cinzel.variable} h-full antialiased`}
+      className={`${chakra.variable} ${saira.variable} ${cinzel.variable} ${bangers.variable} ${pinyon.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
         <SiteNavigation
