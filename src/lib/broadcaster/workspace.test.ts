@@ -12,6 +12,7 @@ const {
   academyTeamNames,
   fetchMyRoster,
   fetchScoutingHistory,
+  fetchIngestedScoutingGames,
   fetchInhousePlayerStats,
 } = vi.hoisted(() => ({
   fetchCaptainContext: vi.fn(),
@@ -23,6 +24,7 @@ const {
   academyTeamNames: vi.fn(),
   fetchMyRoster: vi.fn(),
   fetchScoutingHistory: vi.fn(),
+  fetchIngestedScoutingGames: vi.fn(),
   fetchInhousePlayerStats: vi.fn(),
 }));
 
@@ -32,7 +34,7 @@ vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings })
 vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
 vi.mock("@/lib/academy/filtering", () => ({ filterAcademyFixtures }));
 vi.mock("@/lib/league/context", () => ({ academyTeamNames }));
-vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchInhousePlayerStats }));
+vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
 
 const supabase = {} as never;
 const teams = [
@@ -191,6 +193,7 @@ describe("loadBroadcasterScouting", () => {
       { playerId: "alpha-player", playerName: "Alpha Mid", role: "mid", games: 2, champions: [] },
       { playerId: "beta-player", playerName: "Beta Top", role: "top", games: 1, champions: [] },
     ]);
+    fetchIngestedScoutingGames.mockResolvedValue([]);
   }
 
   it("loads one shared history and in-house result while preserving each featured roster", async () => {
@@ -207,6 +210,10 @@ describe("loadBroadcasterScouting", () => {
     expect(fetchMyRoster).toHaveBeenCalledWith(supabase, "beta-id", "S5", "premier");
     expect(fetchInhousePlayerStats).toHaveBeenCalledTimes(1);
     expect(fetchInhousePlayerStats).toHaveBeenCalledWith(supabase, [
+      { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
+      { id: "beta-player", displayName: "Beta Top", role: "top" },
+    ]);
+    expect(fetchIngestedScoutingGames).toHaveBeenCalledWith(supabase, [
       { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
       { id: "beta-player", displayName: "Beta Top", role: "top" },
     ]);

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchInhousePlayerStats, fetchScoutingHistory } from "./queries";
+import {
+  fetchIngestedScoutingGames,
+  fetchInhousePlayerStats,
+  fetchScoutingHistory,
+  INGESTED_SCOUTING_COLUMNS,
+} from "./queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const fixture = (id: string, teamA: string | null, teamB: string | null) => ({
@@ -175,5 +180,56 @@ describe("fetchInhousePlayerStats", () => {
     expect(result[0].games).toBe(1001);
     expect(query.range).toHaveBeenNthCalledWith(1, 0, 999);
     expect(query.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+  });
+});
+
+describe("fetchIngestedScoutingGames", () => {
+  it("reads paged raw_stats rows and maps them to the current roster", async () => {
+    let pageIndex = 0;
+    const rawStatsQuery = {
+      select: vi.fn(() => rawStatsQuery),
+      order: vi.fn(() => rawStatsQuery),
+      range: vi.fn((offset: number) => { pageIndex = offset === 0 ? 0 : 1; return rawStatsQuery; }),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({
+        data: pageIndex === 0
+          ? Array.from({ length: 1000 }, (_, index) => ({ id: index + 1, match_id: `unknown-${index}`, game_date: null, season: "S5", summoner_name: "Unknown", tag: "NA1", champion: "Ahri" }))
+          : [{ id: 1001, match_id: "NA1_ingested_1", game_date: "2026-08-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Orianna" }],
+        error: null,
+      })),
+    };
+    const reportGamesQuery = {
+      select: vi.fn(() => reportGamesQuery),
+      order: vi.fn(() => reportGamesQuery),
+      range: vi.fn(() => reportGamesQuery),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: [{ id: "game-1", match_id: "NA1_ingested_1", report_id: "report-1" }], error: null })),
+    };
+    const reportsQuery = {
+      select: vi.fn(() => reportsQuery),
+      order: vi.fn(() => reportsQuery),
+      range: vi.fn(() => reportsQuery),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: [{ id: "report-1", fixture_id: "fixture-1" }], error: null })),
+    };
+    const from = vi.fn((table: string) => table === "raw_stats" ? rawStatsQuery : table === "match_report_games" ? reportGamesQuery : reportsQuery);
+
+    const result = await fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid", opggUrl: "https://op.gg/lol/summoners/na/Northstar-NA1" }],
+    );
+
+    expect(from).toHaveBeenCalledWith("raw_stats");
+    expect(rawStatsQuery.select).toHaveBeenCalledWith(INGESTED_SCOUTING_COLUMNS);
+    expect(rawStatsQuery.order).toHaveBeenCalledWith("id");
+    expect(rawStatsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(rawStatsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(result).toEqual([{
+      playerId: "n",
+      playerName: "Northstar",
+      role: "mid",
+      champion: "Orianna",
+      fixtureId: "fixture-1",
+      season: "S5",
+      matchId: "NA1_ingested_1",
+      gameDate: "2026-08-01T00:00:00Z",
+    }]);
   });
 });

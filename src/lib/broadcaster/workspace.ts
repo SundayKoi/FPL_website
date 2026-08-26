@@ -8,7 +8,7 @@ import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home
 import { academyTeamNames, type LeagueView } from "@/lib/league/context";
 import type { LeagueTeam } from "@/lib/matches/types";
 import type { FixtureRow } from "@/lib/schedule/types";
-import { fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
+import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
 import type { ScoutRosterPlayer, ScoutSource } from "@/lib/scouting/types";
 import type { InhousePlayerStats } from "@/lib/scouting/inhouse";
 
@@ -53,6 +53,7 @@ function rosterPlayers(roster: Awaited<ReturnType<typeof fetchMyRoster>> | null)
     id: player.id,
     displayName: player.display_name,
     role: player.role,
+    ...(player.opgg_url ? { opggUrl: player.opgg_url } : {}),
   }));
 }
 
@@ -91,7 +92,14 @@ export async function loadBroadcasterScouting(
   ]);
   const teamARoster = rosterPlayers(teamARosterData);
   const teamBRoster = rosterPlayers(teamBRosterData);
-  const inhousePlayerStats = await fetchInhousePlayerStats(supabase, [...teamARoster, ...teamBRoster]);
+  const allRoster = [...teamARoster, ...teamBRoster];
+  const [ingestedGames, inhousePlayerStats] = await Promise.all([
+    fetchIngestedScoutingGames(supabase, allRoster).catch((error) => {
+      console.error("Unable to load ingested scouting games; using draft attribution", error);
+      return null;
+    }),
+    fetchInhousePlayerStats(supabase, allRoster),
+  ]);
 
   const source = (
     teamName: string,
@@ -104,6 +112,7 @@ export async function loadBroadcasterScouting(
     currentSeason: context.season,
     nextFixture: fixture,
     roster,
+    ...(ingestedGames ? { ingestedGames } : {}),
     inhousePlayerStats: scopedStats,
   });
 

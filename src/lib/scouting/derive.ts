@@ -130,7 +130,65 @@ export function deriveScoutData(
   const poolRoster = options.playerLimit === null
     ? sortedRoster
     : sortedRoster.slice(0, options.playerLimit ?? 5);
+
+  const ingestedPoolRows = source.ingestedGames
+      ? (() => {
+        const sourceFixtureIds = new Set(source.fixtures.map((fixture) => fixture.id));
+        let rows = source.ingestedGames.filter((row) =>
+          (scope === "all" || row.season === source.currentSeason) && (!row.fixtureId || sourceFixtureIds.has(row.fixtureId)),
+        );
+        if (scope === "recent") {
+          const latestByFixture = new Map<string, (typeof rows)[number]>();
+          for (const row of rows) {
+            if (!row.fixtureId) continue;
+            const latest = latestByFixture.get(row.fixtureId);
+            if (!latest || (row.gameDate ?? "") > (latest.gameDate ?? "")) latestByFixture.set(row.fixtureId, row);
+          }
+          if (latestByFixture.size > 0) {
+            const recentFixtureIds = new Set(
+              [...latestByFixture.values()]
+                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+                .slice(0, 5)
+                .map((row) => row.fixtureId!),
+            );
+            const recentUnmappedMatchIds = new Set(
+              [...new Map(rows.filter((row) => row.fixtureId === null).map((row) => [row.matchId, row])).values()]
+                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+                .slice(0, 5)
+                .map((row) => row.matchId),
+            );
+            rows = rows.filter((row) => row.fixtureId
+              ? recentFixtureIds.has(row.fixtureId)
+              : recentUnmappedMatchIds.has(row.matchId));
+          } else {
+            const recentMatchIds = new Set(
+              [...new Map(rows.map((row) => [row.matchId, row])).values()]
+                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+                .slice(0, 5)
+                .map((row) => row.matchId),
+            );
+            rows = rows.filter((row) => recentMatchIds.has(row.matchId));
+          }
+        }
+        return rows;
+      })()
+    : null;
   const playerPools = poolRoster.map((player) => {
+    const playerRows = ingestedPoolRows?.filter((row) => row.playerId === player.id) ?? [];
+    if (playerRows.length > 0) {
+      const counts: ChampionCounts = new Map();
+      for (const row of playerRows) addChampion(counts, row.champion);
+      const champions = rankNames(counts);
+      return {
+        playerName: player.displayName.trim(),
+        role: player.role,
+        champions: champions.slice(0, 5),
+        distinctChampions: champions.length,
+        totalPicks: champions.reduce((sum, row) => sum + row.count, 0),
+        gamesSampled: new Set(playerRows.map((row) => row.matchId)).size,
+      };
+    }
+
     let attributed = source.drafts.filter((draft) => draft.actions.some((action) => attributedToPlayer(draft, action, player)));
     if (scope === "season") attributed = attributed.filter((draft) => source.fixtures.find((fixture) => fixture.id === draft.fixture_id)?.season === source.currentSeason);
     if (scope === "recent") {

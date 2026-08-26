@@ -204,4 +204,106 @@ describe("opponent scouting derivation", () => {
       playerName: "Northstar", champions: [{ champion: "Ahri", count: 1 }], totalPicks: 1,
     });
   });
+
+  it("uses ingested champion rows when a draft has no player names or role confirmation", () => {
+    const unconfirmed = structuredClone(source) as ScoutSource & {
+      ingestedGames: Array<{
+        playerId: string;
+        playerName: string;
+        role: "mid";
+        champion: string;
+        fixtureId: string | null;
+        season: string;
+        matchId: string;
+        gameDate: string;
+      }>;
+    };
+    unconfirmed.teamName = "Night Vale";
+    unconfirmed.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    unconfirmed.drafts = [{
+      ...unconfirmed.drafts[0],
+      actions: actions("Ahri").map((action) => ({ ...action, playerName: null })),
+      positions: null,
+    }];
+    unconfirmed.ingestedGames = [{
+      playerId: "n",
+      playerName: "Northstar",
+      role: "mid",
+      champion: "Orianna",
+      fixtureId: null,
+      season: "S5",
+      matchId: "NA1_ingested_1",
+      gameDate: "2026-08-01T00:00:00Z",
+    }];
+
+    expect(deriveScoutData(unconfirmed, "season").playerPools[0]).toMatchObject({
+      playerName: "Northstar",
+      champions: [{ champion: "Orianna", count: 1 }],
+      totalPicks: 1,
+      gamesSampled: 1,
+    });
+  });
+
+  it("keeps all games from the recent five ingested series", () => {
+    const recent = structuredClone(source) as ScoutSource & { ingestedGames: NonNullable<ScoutSource["ingestedGames"]> };
+    recent.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    recent.fixtures = Array.from({ length: 6 }, (_, fixtureIndex) => fixture(`series-${fixtureIndex}`, "S5", `2026-08-${String(fixtureIndex + 1).padStart(2, "0")}T00:00:00Z`));
+    const seriesGames = Array.from({ length: 6 }, (_, fixtureIndex) => {
+      const fixtureId = `series-${fixtureIndex}`;
+      return [1, 2].map((gameIndex) => ({
+        playerId: "n",
+        playerName: "Northstar",
+        role: "mid" as const,
+        champion: gameIndex === 1 ? "Orianna" : "Ahri",
+        fixtureId,
+        season: "S5",
+        matchId: `${fixtureId}-game-${gameIndex}`,
+        gameDate: `2026-08-${String(fixtureIndex + 1).padStart(2, "0")}T00:00:00Z`,
+      }));
+    }).flat() as NonNullable<ScoutSource["ingestedGames"]>;
+    recent.ingestedGames = seriesGames.concat({
+      playerId: "n",
+      playerName: "Northstar",
+      role: "mid",
+      champion: "Syndra",
+      fixtureId: null,
+      season: "S5",
+      matchId: "unmapped-game",
+      gameDate: "2026-08-08T00:00:00Z",
+    });
+
+    const pool = deriveScoutData(recent, "recent").playerPools[0];
+    expect(pool).toMatchObject({ totalPicks: 11, gamesSampled: 11 });
+    expect(pool.champions).toEqual([{ champion: "Ahri", count: 5 }, { champion: "Orianna", count: 5 }, { champion: "Syndra", count: 1 }]);
+  });
+
+  it("falls back to draft attribution only for players without ingested rows", () => {
+    const partial = structuredClone(source) as ScoutSource & { ingestedGames: NonNullable<ScoutSource["ingestedGames"]> };
+    partial.teamName = "Night Vale";
+    partial.roster = [
+      { id: "h", displayName: "Hollowpoint", role: "top" },
+      { id: "n", displayName: "Northstar", role: "mid" },
+    ];
+    partial.drafts = [{
+      ...partial.drafts[0],
+      actions: [
+        { stepIndex: 6, side: "blue", kind: "pick", slot: 1, playerName: "Hollowpoint", champion: "Gnar" },
+        { stepIndex: 8, side: "blue", kind: "pick", slot: 2, playerName: "Northstar", champion: "Ahri" },
+      ],
+    }];
+    partial.ingestedGames = [{
+      playerId: "n",
+      playerName: "Northstar",
+      role: "mid",
+      champion: "Orianna",
+      fixtureId: null,
+      season: "S5",
+      matchId: "ingested-1",
+      gameDate: "2026-08-01T00:00:00Z",
+    }];
+
+    const pools = deriveScoutData(partial, "all").playerPools;
+    expect(pools.find((row) => row.playerName === "Northstar")).toMatchObject({ champions: [{ champion: "Orianna", count: 1 }] });
+    expect(pools.find((row) => row.playerName === "Hollowpoint")).toMatchObject({ champions: [{ champion: "Gnar", count: 1 }] });
+  });
 });

@@ -6,12 +6,14 @@ const {
   serverClient,
   loadMyTeamDashboard,
   fetchScoutingHistory,
+  fetchIngestedScoutingGames,
   fetchInhousePlayerStats,
   opponentScout,
 } = vi.hoisted(() => ({
   serverClient: { from: vi.fn() },
   loadMyTeamDashboard: vi.fn(),
   fetchScoutingHistory: vi.fn(),
+  fetchIngestedScoutingGames: vi.fn(),
   fetchInhousePlayerStats: vi.fn(),
   opponentScout: vi.fn((props: { source: { opponentName: string } }) => (
     <section>Scouting dashboard: {props.source.opponentName}</section>
@@ -22,7 +24,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => serverClient),
 }));
 vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard }));
-vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchInhousePlayerStats }));
+vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
 vi.mock("@/components/captain/OpponentScout", () => ({
   default: (props: { source: { opponentName: string } }) => opponentScout(props),
 }));
@@ -100,6 +102,7 @@ describe("My Team scouting page", () => {
   it("uses the server-resolved ordinary player's opponent and league-scoped history", async () => {
     loadMyTeamDashboard.mockResolvedValue(ready());
     fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
+    fetchIngestedScoutingGames.mockResolvedValue([]);
     fetchInhousePlayerStats.mockResolvedValue([]);
 
     render(await MyTeamScoutingPageView({
@@ -119,6 +122,7 @@ describe("My Team scouting page", () => {
   it("keeps an admin's validated team on the canonical scouting switcher", async () => {
     loadMyTeamDashboard.mockResolvedValue(ready({ isAdmin: true }));
     fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
+    fetchIngestedScoutingGames.mockResolvedValue([]);
     fetchInhousePlayerStats.mockResolvedValue([]);
 
     const { container } = render(await MyTeamScoutingPageView({

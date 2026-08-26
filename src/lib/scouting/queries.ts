@@ -3,15 +3,26 @@ import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/ty
 import { createLeagueFixtureScope } from "@/lib/my-team/leagueScope";
 import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory, ScoutRosterPlayer } from "./types";
 import { parseDrafterPage } from "./drafter";
-import { buildInhousePlayerStats, type InhouseGameRow, type InhousePlayerStats } from "./inhouse";
+import {
+  buildIngestedScoutingGames,
+  buildInhousePlayerStats,
+  type IngestedScoutingGame,
+  type IngestedScoutingGameRow,
+  type InhouseGameRow,
+  type InhousePlayerStats,
+} from "./inhouse";
 
 export const FIXTURE_COLUMNS =
   "id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b";
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
+export const INGESTED_SCOUTING_COLUMNS =
+  "id, match_id, game_date, season, summoner_name, tag, champion";
 const TEAM_COLUMNS = "id, name";
 const REPORT_COLUMNS = "id, fixture_id, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "report_id, game_number, blue_team_id";
+const SCOUTING_PAGE_SIZE = 1000;
+const SCOUTING_MAX_PAGES = 100;
 
 export interface FetchScoutingHistoryInput {
   league: "premier" | "academy";
@@ -25,6 +36,21 @@ const asRows = (data: unknown): UnknownRow[] =>
 
 const asNullableString = (value: unknown): string | null => typeof value === "string" ? value : null;
 const asNumber = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
+
+async function fetchAllScoutingRows<T>(
+  buildPage: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < SCOUTING_MAX_PAGES; page += 1) {
+    const from = page * SCOUTING_PAGE_SIZE;
+    const { data, error } = await buildPage(from, from + SCOUTING_PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data as T[]) ?? [];
+    rows.push(...batch);
+    if (batch.length < SCOUTING_PAGE_SIZE) return rows;
+  }
+  throw new Error("scouting query exceeded the page limit");
+}
 
 function validAction(value: unknown): value is MatchDraftAction {
   if (!value || typeof value !== "object") return false;
@@ -203,10 +229,49 @@ export async function fetchScoutingHistory(
   return { fixtures, drafts };
 }
 
+/** Load Riot-ingested game rows used to identify champions when a draft did
+ * not record player names or post-draft role confirmation. */
+export async function fetchIngestedScoutingGames(
+  supabase: SupabaseClient,
+  roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"]; opggUrl?: string | null }>,
+): Promise<IngestedScoutingGame[]> {
+  const rows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
+      .from("raw_stats")
+      .select(INGESTED_SCOUTING_COLUMNS)
+      .order("id")
+      .range(from, to));
+  if (rows.length === 0) return buildIngestedScoutingGames(roster, rows);
+
+  const [reportGames, reports] = await Promise.all([
+    fetchAllScoutingRows<{ id: string; match_id: string | null; report_id: string | null }>((from, to) => supabase
+      .from("match_report_games")
+      .select("id, match_id, report_id")
+      .order("id")
+      .range(from, to)),
+    fetchAllScoutingRows<{ id: string; fixture_id: string | null }>((from, to) => supabase
+      .from("match_reports")
+      .select("id, fixture_id")
+      .order("id")
+      .range(from, to)),
+  ]);
+  const fixtureIdsByReportId = new Map(
+    reports
+      .flatMap((row) => row.id && row.fixture_id ? [[row.id, row.fixture_id] as const] : []),
+  );
+  const fixtureIdsByMatchId = new Map(
+    reportGames
+      .flatMap((row) => {
+        const fixtureId = row.report_id ? fixtureIdsByReportId.get(row.report_id) : null;
+        return row.match_id && fixtureId ? [[row.match_id, fixtureId] as const] : [];
+      }),
+  );
+  return buildIngestedScoutingGames(roster, rows, fixtureIdsByMatchId);
+}
+
 /** Load all in-house games and correlate them to the selected roster. */
 export async function fetchInhousePlayerStats(
   supabase: SupabaseClient,
-  roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"] }>,
+  roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"]; opggUrl?: string | null }>,
 ): Promise<InhousePlayerStats[]> {
   const pageSize = 1000;
   const rows: InhouseGameRow[] = [];

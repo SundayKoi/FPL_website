@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInhousePlayerStats } from "./inhouse";
+import { buildIngestedScoutingGames, buildInhousePlayerStats } from "./inhouse";
 
 describe("buildInhousePlayerStats", () => {
   it("correlates normalized in-house names and aggregates champion picks", () => {
@@ -57,5 +57,26 @@ describe("buildInhousePlayerStats", () => {
     );
 
     expect(result[0]).toMatchObject({ playerId: "p1", games: 0, champions: [] });
+  });
+
+  it("uses Riot tags when bare summoner names are ambiguous", () => {
+    const result = buildIngestedScoutingGames(
+      [
+        { id: "p1", displayName: "Mirror", role: "mid", opggUrl: "https://op.gg/lol/summoners/na/Mirror-ONE" },
+        { id: "p2", displayName: "Mirror", role: "adc", opggUrl: "https://op.gg/lol/summoners/na/Mirror-TWO" },
+      ],
+      [{ summoner_name: "Mirror", tag: "TWO", champion: "Jinx", season: "S5", match_id: "m1", game_date: null }],
+    );
+
+    expect(result).toEqual([expect.objectContaining({ playerId: "p2", champion: "Jinx" })]);
+  });
+
+  it("does not fall back to a bare name when a supplied Riot tag is unknown", () => {
+    const result = buildIngestedScoutingGames(
+      [{ id: "p1", displayName: "Solo", role: "mid", opggUrl: "https://op.gg/lol/summoners/na/Solo-ONE" }],
+      [{ summoner_name: "Solo", tag: "TWO", champion: "Ahri", season: "S5", match_id: "m1", game_date: null }],
+    );
+
+    expect(result).toEqual([]);
   });
 });

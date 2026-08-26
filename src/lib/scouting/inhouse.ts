@@ -11,6 +11,27 @@ export interface InhouseGameRow {
   win: boolean;
 }
 
+export interface IngestedScoutingGameRow {
+  id?: number | null;
+  summoner_name: string | null;
+  tag: string | null;
+  champion: string | null;
+  season: string | null;
+  match_id: string | null;
+  game_date: string | null;
+}
+
+export interface IngestedScoutingGame {
+  playerId: string;
+  playerName: string;
+  role: LolRole;
+  champion: string;
+  fixtureId: string | null;
+  season: string | null;
+  matchId: string;
+  gameDate: string | null;
+}
+
 export interface InhouseChampionStat {
   champion: string;
   games: number;
@@ -31,6 +52,7 @@ interface RosterPlayer {
   id: string;
   displayName: string;
   role: LolRole;
+  opggUrl?: string | null;
 }
 
 const INHOUSE_NAME_ALIASES: Record<string, string> = {
@@ -42,29 +64,98 @@ function linkedAccountNames(url: string): string[] {
   try {
     const parsed = new URL(url);
     const multisearch = parsed.searchParams.get("summoners");
-    if (multisearch) return multisearch.split(",").map((account) => account.split("#")[0].trim()).filter(Boolean);
+    if (multisearch) return multisearch.split(",").map((account) => account.trim()).filter(Boolean);
     const slug = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
     const separator = slug.lastIndexOf("-");
-    return separator > 0 ? [slug.slice(0, separator)] : [];
+    return separator > 0 ? [`${slug.slice(0, separator)}#${slug.slice(separator + 1)}`] : [];
   } catch {
     return [];
   }
 }
 
-function playerMatchKeys(displayName: string): Set<string> {
-  const names = [displayName, INHOUSE_NAME_ALIASES[normalizeCanonicalName(displayName)] ?? "", ...linkedAccountUrls(displayName).flatMap(linkedAccountNames)];
+function playerMatchNames(player: RosterPlayer): string[] {
+  const displayName = player.displayName;
+  return [
+    displayName,
+    INHOUSE_NAME_ALIASES[normalizeCanonicalName(displayName)] ?? "",
+    ...linkedAccountUrls(displayName).flatMap(linkedAccountNames),
+    ...(player.opggUrl ? linkedAccountNames(player.opggUrl) : []),
+  ]
+    .filter(Boolean);
+}
+
+function playerMatchKeys(player: RosterPlayer): Set<string> {
+  const names = playerMatchNames(player);
   return new Set(names.map(normalizeCanonicalName));
+}
+
+function riotIdKey(gameName: string, tag: string): string {
+  return `${normalizeCanonicalName(gameName)}#${tag.trim().toLocaleLowerCase()}`;
+}
+
+function playerMatchRiotIds(player: RosterPlayer): Set<string> {
+  return new Set(playerMatchNames(player).flatMap((value) => {
+    const separator = value.lastIndexOf("#");
+    if (separator <= 0 || separator === value.length - 1) return [];
+    return [riotIdKey(value.slice(0, separator), value.slice(separator + 1))];
+  }));
+}
+
+interface RosterPlayerMap {
+  byName: Map<string, RosterPlayer | null>;
+  byRiotId: Map<string, RosterPlayer | null>;
+}
+
+function rosterPlayerMap(roster: RosterPlayer[]): RosterPlayerMap {
+  const byName = new Map<string, RosterPlayer | null>();
+  const byRiotId = new Map<string, RosterPlayer | null>();
+  const add = (map: Map<string, RosterPlayer | null>, key: string, player: RosterPlayer) => {
+    const current = map.get(key);
+    map.set(key, current === undefined || current?.id === player.id ? player : null);
+  };
+  for (const player of roster) {
+    for (const key of playerMatchKeys(player)) add(byName, key, player);
+    for (const key of playerMatchRiotIds(player)) add(byRiotId, key, player);
+  }
+  return { byName, byRiotId };
+}
+
+function playerForSummoner(map: RosterPlayerMap, summonerName: string | null, tag: string | null = null): RosterPlayer | null {
+  if (!summonerName) return null;
+  if (tag?.trim()) return map.byRiotId.get(riotIdKey(summonerName, tag)) ?? null;
+  return map.byName.get(normalizeCanonicalName(summonerName)) ?? null;
+}
+
+/** Preserve the raw ingested game rows needed for scope-aware regular scouting. */
+export function buildIngestedScoutingGames(
+  roster: RosterPlayer[],
+  rows: IngestedScoutingGameRow[],
+  fixtureIdsByMatchId: ReadonlyMap<string, string> = new Map(),
+): IngestedScoutingGame[] {
+  const rosterByName = rosterPlayerMap(roster);
+  return rows.flatMap((row) => {
+    const player = playerForSummoner(rosterByName, row.summoner_name, row.tag);
+    if (!player || !row.champion) return [];
+    return [{
+      playerId: player.id,
+      playerName: player.displayName.trim(),
+      role: player.role,
+      champion: row.champion,
+      fixtureId: row.match_id ? fixtureIdsByMatchId.get(row.match_id) ?? null : null,
+      season: row.season,
+      matchId: row.match_id ?? `${row.season ?? "unknown"}:${row.game_date ?? row.id ?? "unknown"}:${row.summoner_name ?? "unknown"}`,
+      gameDate: row.game_date,
+    }];
+  });
 }
 
 /** Match all available in-house rows to the current roster and group picks by champion. */
 export function buildInhousePlayerStats(roster: RosterPlayer[], rows: InhouseGameRow[]): InhousePlayerStats[] {
   const rowsByPlayer = new Map<string, InhouseGameRow[]>();
-  const rosterByName = new Map<string, RosterPlayer>();
-  for (const player of roster) for (const key of playerMatchKeys(player.displayName)) rosterByName.set(key, player);
+  const rosterByName = rosterPlayerMap(roster);
 
   for (const row of rows) {
-    if (!row.summoner_name) continue;
-    const player = rosterByName.get(normalizeCanonicalName(row.summoner_name));
+    const player = playerForSummoner(rosterByName, row.summoner_name);
     if (!player) continue;
     rowsByPlayer.set(player.id, [...(rowsByPlayer.get(player.id) ?? []), row]);
   }

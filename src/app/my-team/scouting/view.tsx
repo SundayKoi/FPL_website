@@ -3,7 +3,7 @@ import OpponentScout from "@/components/captain/OpponentScout";
 import { leaguePath } from "@/lib/league/links";
 import { loadMyTeamDashboard } from "@/lib/my-team/queries";
 import type { LeagueKey } from "@/lib/players/identity";
-import { fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
+import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -65,7 +65,14 @@ export async function MyTeamScoutingPageView({
         id: player.id,
         displayName: player.display_name,
         role: player.role,
+        ...(player.opgg_url ? { opggUrl: player.opgg_url } : {}),
       }));
+      let ingestedGames: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
+      try {
+        ingestedGames = await fetchIngestedScoutingGames(supabase, roster);
+      } catch (error) {
+        console.error("Unable to load ingested scouting games; using draft attribution", error);
+      }
       scoutingSource = {
         ...history,
         opponentName: opponent.name,
@@ -73,6 +80,7 @@ export async function MyTeamScoutingPageView({
         currentSeason: dashboard.season,
         nextFixture,
         roster,
+        ...(ingestedGames ? { ingestedGames } : {}),
         inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
       };
     } catch (error) {
