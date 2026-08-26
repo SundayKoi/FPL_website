@@ -604,6 +604,56 @@ body {
   .sig-rec { animation: none; }
 }
 
+/* ── Champions drop: the Dealer's Hand ────────────────────────────────
+   The Faceless S4 relic cards (ChampionsCard.tsx). Black felt with a
+   crosshatch weave and a red glow rising from the bottom rail; the
+   champion's splash sits between felt and scrim. */
+@utility champ-felt {
+  background-image: linear-gradient(168deg, #141114 0%, #0c0a0d 70%);
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.55);
+}
+@utility champ-scrim {
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(45deg, transparent 0 14px, rgb(255 255 255 / 0.015) 14px 15px),
+    repeating-linear-gradient(-45deg, transparent 0 14px, rgb(255 255 255 / 0.015) 14px 15px),
+    linear-gradient(rgb(10 8 10 / 0.25), rgb(10 8 10 / 0.72) 78%),
+    radial-gradient(130% 120% at 50% 45%, transparent 30%, rgb(8 6 8 / 0.85) 100%),
+    radial-gradient(110% 70% at 50% 108%, rgb(214 31 44 / 0.22), transparent 55%);
+}
+@utility champ-wordmark {
+  font-family: var(--font-bangers), var(--font-display), sans-serif;
+  letter-spacing: 0.08em;
+  color: #d61f2c;
+  text-shadow: 0 2px 0 #5c0a12, 0 4px 10px rgb(0 0 0 / 0.6);
+}
+/* The pip's under-glow lives on the wrap so the SVG stays plain paint. */
+@utility champ-pipwrap {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: 35%;
+  filter: drop-shadow(0 0 18px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+}
+@utility champ-pipwrap-joker {
+  filter: drop-shadow(0 0 22px rgb(214 31 44 / 0.65)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+}
+@utility champ-idx-joker {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+.champ-pipwrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@utility champ-ink {
+  font-family: var(--font-pinyon), cursive;
+  color: #efe6ff;
+  text-shadow: 0 0 10px rgb(190 150 255 / 0.75), 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
 @utility card-foil-holo {
   position: absolute;
   inset: 0;

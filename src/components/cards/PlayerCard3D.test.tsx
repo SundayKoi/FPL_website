@@ -355,6 +355,30 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect((container.firstChild as HTMLElement).className).toContain("max-w-[18rem]");
   });
 
+  it("renders a champions card as the Hand, in the same 20rem shell", () => {
+    const champCard = {
+      ...card,
+      champWin: {
+        rank: "Q",
+        setIndex: 3,
+        setSize: 5,
+        team: "Faceless",
+        seasonWon: "S4",
+        champion: "Aurelion Sol",
+        joker: false,
+      },
+      name: "Shanedata",
+    } as unknown as typeof card;
+    const { container } = render(<PlayerCard3D card={champCard} />);
+
+    expect((container.firstChild as HTMLElement).style.width).toBe("20rem");
+    expect(container.textContent).toContain("FACELESS");
+    expect(container.textContent).toContain("Shanedata");
+    expect(container.textContent).toContain("Aurelion Sol · most played");
+    // The real splash rides behind the felt.
+    expect(container.querySelector("img")?.getAttribute("src")).toContain("AurelionSol");
+  });
+
   it("wraps itself in the player card's exact 20rem shell", () => {
     // The plate alone is width-less: in a content-sized flex cell it took
     // its width from its caption, and in a fractional grid column it

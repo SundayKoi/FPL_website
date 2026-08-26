@@ -132,6 +132,18 @@ export interface MomentPrint {
 export interface PlayerCardData {
   /** Set only on a pulled moment — see MomentPrint. */
   moment?: MomentPrint | null;
+  /** Set only on a champions-drop card (the Dealer's Hand) — see
+   *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
+   *  this before reading any rating field. */
+  champWin?: {
+    rank: string;
+    setIndex: number;
+    setSize: number;
+    team: string;
+    seasonWon: string;
+    champion: string;
+    joker: boolean;
+  } | null;
   slug: string;
   name: string;
   tag: string;

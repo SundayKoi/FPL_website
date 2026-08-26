@@ -1,0 +1,178 @@
+// One card of the Dealer's Hand — the Faceless S4 champions print.
+//
+// Not a PlayerCard3D and not a MomentPlate: a champions card is a playing
+// card from the winners' own deck. Black felt, the champion's real splash
+// dimmed beneath it, corner rank indices, and the obsidian spade pip —
+// razor-edged, red under-glow, no face. The Joker inverts to bone.
+//
+// Server-renderable — no hooks, no handlers. Foil parallels reuse the
+// exact overlay layers player cards wear (FOIL_LAYERS), held at a fixed
+// opacity since there is no pointer to chase. Ink is script type, not a
+// drawn PNG: S4 names may never sign in to draw one, and a relic's
+// autograph should read like a signing-day sharpie anyway.
+
+import { championSplashUrl } from "@/lib/match-draft/champions";
+import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import type { PlayerCardData } from "@/lib/cards/build";
+
+/** Same layer classes PlayerCard3D composes for each parallel. */
+const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
+  prisma: { className: "card-foil-holo", blend: "color-dodge" },
+  aurora: { className: "card-foil-aurora", blend: "screen" },
+  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
+  ice: { className: "card-foil-ice", blend: "color-dodge" },
+};
+
+const SPADE_PATH =
+  "M50 4 C60 30 92 44 92 66 C92 84 76 94 60 88 C62 100 68 108 76 114 L24 114 C32 108 38 100 40 88 C24 94 8 84 8 66 8 44 40 30 50 4 Z";
+const GLOSS_PATH =
+  "M50 10 C57 30 82 43 84 60 C70 48 58 40 50 22 C46 34 38 44 24 54 30 40 45 28 50 10 Z";
+
+/** The obsidian pip (bone for the Joker). Gradient ids are namespaced per
+ *  variant — five cards render on one page and duplicate ids would make
+ *  every pip resolve to the first card's gradient. Two variants is fine:
+ *  identical defs collapse to identical paint. */
+function SpadePip({ joker }: { joker: boolean }) {
+  const grad = joker ? "champPipBone" : "champPipObsidian";
+  return (
+    <span className={`champ-pipwrap ${joker ? "champ-pipwrap-joker" : ""}`} aria-hidden>
+      <svg viewBox="0 0 100 120">
+        <defs>
+          <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">
+            {joker ? (
+              <>
+                <stop offset="0" stopColor="#fdfaf3" />
+                <stop offset="0.55" stopColor="#ded6c5" />
+                <stop offset="1" stopColor="#a89f8c" />
+              </>
+            ) : (
+              <>
+                <stop offset="0" stopColor="#3a3a44" />
+                <stop offset="0.5" stopColor="#111116" />
+                <stop offset="1" stopColor="#050507" />
+              </>
+            )}
+          </linearGradient>
+          <linearGradient id="champPipGloss" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="rgba(255,255,255,0.55)" />
+            <stop offset="0.45" stopColor="rgba(255,255,255,0.07)" />
+            <stop offset="1" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+        </defs>
+        <path
+          d={SPADE_PATH}
+          fill={`url(#${grad})`}
+          stroke={joker ? "rgba(214,31,44,0.8)" : "rgba(240,234,235,0.75)"}
+          strokeWidth="1.6"
+        />
+        <path d={GLOSS_PATH} fill="url(#champPipGloss)" opacity="0.85" />
+      </svg>
+    </span>
+  );
+}
+
+/** A corner index: rank over the suit. The Joker spells itself vertically
+ *  and carries no suit — it is the wild card. */
+function CornerIndex({ rank, flipped }: { rank: string; flipped?: boolean }) {
+  const joker = rank === "JOKER";
+  return (
+    <span
+      className={`absolute flex flex-col items-center leading-none ${
+        flipped ? "bottom-[18px] right-[18px] rotate-180" : "left-[18px] top-[18px]"
+      }`}
+    >
+      <span
+        className={`font-engrave font-black text-[#f4eff0] ${joker ? "champ-idx-joker text-[0.72rem] tracking-[0.1em]" : "text-2xl"}`}
+      >
+        {rank}
+      </span>
+      {joker ? null : <span className="text-base leading-none text-[#d61f2c]">♠</span>}
+    </span>
+  );
+}
+
+export default function ChampionsCard({
+  card,
+  foil = false,
+  foilType = null,
+  signed = false,
+  className = "",
+}: {
+  card: PlayerCardData;
+  foil?: boolean;
+  foilType?: string | null;
+  signed?: boolean;
+  className?: string;
+}) {
+  const print = card.champWin;
+  if (!print) return null;
+  const splash = championSplashUrl(print.champion, 0);
+  const parallel = foilTypeOf(foilType);
+  const foilLayer = FOIL_LAYERS[parallel];
+
+  return (
+    <article
+      aria-label={`${print.team} ${print.seasonWon} champions — ${print.rank}, ${card.name}`}
+      className={`champ-felt relative flex aspect-[5/7] w-full flex-col overflow-hidden rounded-xl ${className}`}
+    >
+      {/* The champion, beneath the felt: real splash, dimmed and scrimmed
+          so the spade stays the subject. */}
+      {splash ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={splash}
+          alt=""
+          className="absolute inset-[10px] h-[calc(100%-20px)] w-[calc(100%-20px)] rounded-lg object-cover object-top opacity-55"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : null}
+      <span className="champ-scrim absolute inset-[10px] rounded-lg" aria-hidden />
+
+      {/* Double card edge: bone outer, red inner. */}
+      <span className="pointer-events-none absolute inset-[9px] rounded-lg border-[1.5px] border-[#ece7e8]/85" aria-hidden>
+        <span className="absolute inset-[3px] rounded-md border border-[#d61f2c]/70" />
+      </span>
+
+      <CornerIndex rank={print.rank} />
+      <CornerIndex rank={print.rank} flipped />
+
+      <SpadePip joker={print.joker} />
+
+      <span className="champ-wordmark absolute inset-x-0 top-[58.5%] text-center text-[1.7rem] leading-none">
+        {print.team.toUpperCase()}
+      </span>
+
+      <div className="absolute inset-x-0 bottom-[21%] text-center">
+        <span className="font-engrave text-xl font-bold text-white">{card.name}</span>
+      </div>
+      <p className="absolute inset-x-0 bottom-[16.5%] text-center font-mono text-[0.56rem] uppercase tracking-[0.18em] text-[#c46671]">
+        {print.champion} · most played
+      </p>
+      <p className="absolute inset-x-[16%] bottom-[4.5%] text-center text-[0.54rem] font-semibold uppercase tracking-[0.16em] text-[#8d8388]">
+        {print.seasonWon} Champions · The Hand · {print.setIndex} of {print.setSize}
+      </p>
+
+      {/* Which parallel, said out loud — same rule as player cards: Prisma
+          is the base and goes unbadged. */}
+      {foil && parallel !== "prisma" ? (
+        <span className="absolute right-[18px] top-[18px] rounded-full border border-white/45 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white">
+          {FOIL_TYPE_LABELS[parallel]}
+        </span>
+      ) : null}
+
+      {signed ? (
+        <span className="champ-ink absolute right-[5%] top-[24%] -rotate-[14deg] text-[1.75rem]" aria-label="Autographed">
+          {card.name}
+        </span>
+      ) : null}
+
+      {foil ? (
+        <div aria-hidden data-testid="champ-foil" className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" style={{ opacity: 0.5 }}>
+          <div className={foilLayer.className} style={{ mixBlendMode: foilLayer.blend }} />
+          <div className="card-foil-cosmos" style={{ mixBlendMode: "screen" }} />
+        </div>
+      ) : null}
+    </article>
+  );
+}

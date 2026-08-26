@@ -18,6 +18,7 @@ import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/m
 import type { PlayerCardData } from "@/lib/cards/build";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import PatronFlame from "@/components/patron/PatronFlame";
+import ChampionsCard from "./ChampionsCard";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -785,6 +786,21 @@ export default function PlayerCard3D(props: {
   // wrapper rather than at each call site is what makes that true
   // everywhere at once; it has to be a wrapper rather than an early return
   // because PlayerCardFace's hooks cannot run conditionally.
+  // A champions-drop card is a relic, not a rating — same wrapper-branch
+  // reasoning as moments below, same 20rem shell as everything.
+  if (props.card.champWin) {
+    return (
+      <div className={`relative ${props.className ?? ""}`} style={{ width: "20rem" }}>
+        <ChampionsCard
+          card={props.card}
+          foil={props.forceFoil === true}
+          foilType={props.foilType ?? null}
+          signed={Boolean(props.card.autograph)}
+        />
+        {props.flame ? <PatronFlame flame={props.flame} radius="0.75rem" /> : null}
+      </div>
+    );
+  }
   const { moment } = props.card;
   if (moment) {
     return (
