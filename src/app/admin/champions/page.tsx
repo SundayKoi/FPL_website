@@ -20,9 +20,20 @@ export default async function ChampionsPreviewPage() {
   const { isOwner } = await fetchStaffTier(supabase);
   if (!isOwner) redirect("/admin");
 
+  // The Faceless mark, from the draft-side teams table (any season's row
+  // that carries art — S4's should). Garnish contract: a miss just leaves
+  // the spade pip in the center, never a hole.
+  const { data: teamRows } = await supabase
+    .from("teams")
+    .select("name, image_url")
+    .ilike("name", "%faceless%");
+  const logo =
+    ((teamRows as { name: string; image_url: string | null }[]) ?? []).find((row) => row.image_url)?.image_url ??
+    null;
+
   // Season here only labels the future copies' shelf; preview renders the
   // same either way.
-  const cards = CHAMPIONS_SET.map((def) => championToCard(def, "S5"));
+  const cards = CHAMPIONS_SET.map((def) => ({ ...championToCard(def, "S5"), teamImageUrl: logo }));
   const queen = cards.find((card) => card.champWin?.rank === "Q") ?? cards[0];
 
   return (

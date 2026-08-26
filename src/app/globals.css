@@ -648,6 +648,25 @@ body {
   width: 100%;
   height: auto;
 }
+/* The team logo in the pip's place. Same seat and glow as the pip; the
+   radial mask fades the artwork's edges into the felt so any background
+   the file carries dissolves instead of reading as a sticker. */
+@utility champ-logowrap {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: 52%;
+  filter: drop-shadow(0 0 20px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+}
+@utility champ-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
+  filter: saturate(0.95) contrast(1.05);
+}
 @utility champ-ink {
   font-family: var(--font-pinyon), cursive;
   color: #efe6ff;

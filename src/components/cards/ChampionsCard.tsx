@@ -137,7 +137,18 @@ export default function ChampionsCard({
       <CornerIndex rank={print.rank} />
       <CornerIndex rank={print.rank} flipped />
 
-      <SpadePip joker={print.joker} />
+      {/* The center mark: the team's own logo when we hold one, seated
+          into the felt — edge-fade mask so no square boundary reads as a
+          sticker, the same red under-glow the pip wears. The spade pip is
+          the fallback, never a hole. */}
+      {card.teamImageUrl ? (
+        <span className="champ-logowrap" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={card.teamImageUrl} alt="" className="champ-logo" loading="lazy" decoding="async" />
+        </span>
+      ) : (
+        <SpadePip joker={print.joker} />
+      )}
 
       <span className="champ-wordmark absolute inset-x-0 top-[58.5%] text-center text-[1.7rem] leading-none">
         {print.team.toUpperCase()}
