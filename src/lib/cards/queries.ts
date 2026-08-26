@@ -451,6 +451,10 @@ export interface LeagueMoment {
   title: string;
   headline: string;
   gameDate: string | null;
+  /** Provenance the Signature print shows — null on moments minted before
+   *  the columns existed (the backfill migration repairs those). */
+  opponent: string | null;
+  durationMin: number | null;
 }
 
 /**
@@ -460,9 +464,12 @@ export interface LeagueMoment {
  * card_moments migration should render an empty wall, not a 500.
  */
 export async function fetchSeasonMoments(supabase: SupabaseClient, season: string): Promise<LeagueMoment[]> {
+  // select("*") on purpose: opponent/duration_min arrive in a later
+  // migration than the table, and naming them here would blank the whole
+  // wall on a deploy that beat the migration.
   const { data, error } = await supabase
     .from("card_moments")
-    .select("id, week_start, slug, summoner_name, team_name, champion, role, trigger_key, title, headline, game_date")
+    .select("*")
     .eq("season", season)
     .order("week_start", { ascending: false })
     .order("rarity", { ascending: false });
@@ -479,6 +486,8 @@ export async function fetchSeasonMoments(supabase: SupabaseClient, season: strin
     title: string;
     headline: string;
     game_date: string | null;
+    opponent?: string | null;
+    duration_min?: number | null;
   }[]) ?? []).map((row) => ({
     id: row.id,
     weekStart: row.week_start,
@@ -491,6 +500,8 @@ export async function fetchSeasonMoments(supabase: SupabaseClient, season: strin
     title: row.title,
     headline: row.headline,
     gameDate: row.game_date,
+    opponent: row.opponent ?? null,
+    durationMin: row.duration_min === null || row.duration_min === undefined ? null : Number(row.duration_min),
   }));
 }
 

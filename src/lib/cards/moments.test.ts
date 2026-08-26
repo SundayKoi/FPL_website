@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { findMomentCandidates, selectMoments, type MomentStatRow } from "./moments";
+import {
+  findMomentCandidates,
+  gameClock,
+  mintOrdinal,
+  momentFamilyOf,
+  selectMoments,
+  MOMENT_TRIGGERS,
+  type MomentStatRow,
+} from "./moments";
 
 const slugOf = (name: string, tag: string) => `${name}-${tag}`.toLowerCase();
 
@@ -24,7 +32,16 @@ function row(overrides: Partial<MomentStatRow> = {}): MomentStatRow {
     kill_participation_pct: 55,
     damage_share_pct: 25,
     objectives_stolen: 0,
-    vision_score_per_min: 1,
+    largest_critical_strike: 400,
+    bounty_gold: 150,
+    nexus_kills: 0,
+    solo_turrets_late_game: 0,
+    effective_heal_and_shield: 2000,
+    max_cs_advantage_on_lane_opponent: 12,
+    max_level_lead_on_lane_opponent: 1,
+    damage_mitigated: 8000,
+    on_my_way_pings: 12,
+    game_duration_min: 31.7,
     ...overrides,
   };
 }
@@ -69,6 +86,71 @@ describe("findMomentCandidates", () => {
     const found = findMomentCandidates([row({ objectives_stolen: 1, kills: 7, deaths: 1, assists: 3 })], slugOf);
     expect(found[0].headline).toBe("1 objective stolen · 7/1/3");
   });
+
+  it("names the opponent from the match's own rows", () => {
+    const found = findMomentCandidates(
+      [
+        row({ penta_kills: 1 }),
+        row({ summoner_name: "Enemy", team_name: "Cakesters", win: false }),
+      ],
+      slugOf,
+    );
+    expect(found[0].opponent).toBe("Cakesters");
+    expect(found[0].durationMin).toBe(31.7);
+  });
+
+  it("no longer mints for vision alone — LIGHTS ON is retired", () => {
+    expect(MOMENT_TRIGGERS.some((trigger) => trigger.key === "vision_lock")).toBe(false);
+  });
+
+  it("fires each new trigger at its threshold and not below", () => {
+    const cases: [Partial<MomentStatRow>, string][] = [
+      [{ nexus_kills: 1, solo_turrets_late_game: 2 }, "backdoor"],
+      [{ bounty_gold: 1200 }, "bounty_hunter"],
+      [{ largest_critical_strike: 1800, win: false }, "nuke"],
+      [{ max_cs_advantage_on_lane_opponent: 55, max_level_lead_on_lane_opponent: 2 }, "lane_kingdom"],
+      [{ damage_mitigated: 30000 }, "raid_boss"],
+      [{ effective_heal_and_shield: 14000 }, "bodyguard"],
+      [{ on_my_way_pings: 70, win: false }, "on_my_way"],
+    ];
+    for (const [overrides, key] of cases) {
+      const found = findMomentCandidates([row(overrides)], slugOf);
+      expect(found.map((candidate) => candidate.triggerKey)).toEqual([key]);
+    }
+    // Near-misses stay quiet: the compound halves are load-bearing.
+    expect(findMomentCandidates([row({ nexus_kills: 1, solo_turrets_late_game: 1 })], slugOf)).toHaveLength(0);
+    expect(findMomentCandidates([row({ bounty_gold: 1200, win: false })], slugOf)).toHaveLength(0);
+    expect(findMomentCandidates([row({ max_cs_advantage_on_lane_opponent: 80 })], slugOf)).toHaveLength(0);
+  });
+});
+
+describe("families and formatting", () => {
+  it("assigns every trigger a colorway family", () => {
+    for (const trigger of MOMENT_TRIGGERS) {
+      expect(["ember", "void", "ice", "gold"]).toContain(momentFamilyOf(trigger.key));
+    }
+  });
+
+  it("prints retired and unknown triggers in the fallback family", () => {
+    expect(momentFamilyOf("vision_lock")).toBe("ember");
+    expect(momentFamilyOf(null)).toBe("ember");
+  });
+
+  it("formats the game clock, and refuses to invent one", () => {
+    expect(gameClock(31.7)).toBe("31:42");
+    expect(gameClock(45)).toBe("45:00");
+    expect(gameClock(null)).toBeNull();
+    expect(gameClock(undefined)).toBeNull();
+  });
+
+  it("speaks mint ordinals like a collector", () => {
+    expect(mintOrdinal(1)).toBe("1st");
+    expect(mintOrdinal(2)).toBe("2nd");
+    expect(mintOrdinal(3)).toBe("3rd");
+    expect(mintOrdinal(4)).toBe("4th");
+    expect(mintOrdinal(11)).toBe("11th");
+    expect(mintOrdinal(21)).toBe("21st");
+  });
 });
 
 describe("selectMoments", () => {
@@ -89,9 +171,10 @@ describe("selectMoments", () => {
   });
 
   it("keeps the rarest, not the first detected", () => {
-    // Vision comes first in row order; the penta must still win the slot.
+    // The comedy trigger comes first in row order; the penta must still
+    // win the slot.
     const candidates = findMomentCandidates(
-      [row({ summoner_name: "Quiet", vision_score_per_min: 4 }), row({ summoner_name: "Loud", penta_kills: 1 })],
+      [row({ summoner_name: "Quiet", on_my_way_pings: 80 }), row({ summoner_name: "Loud", penta_kills: 1 })],
       slugOf,
     );
     const picked = selectMoments(candidates, rowsBySlug, 1);
