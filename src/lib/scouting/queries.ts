@@ -7,6 +7,7 @@ import { parseDrafterPage } from "./drafter";
 import {
   buildIngestedScoutingGames,
   buildInhousePlayerStats,
+  type IngestedMatchReference,
   type IngestedScoutingGame,
   type IngestedScoutingGameRow,
   type InhouseGameRow,
@@ -18,7 +19,7 @@ export const FIXTURE_COLUMNS =
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
 export const INGESTED_SCOUTING_COLUMNS =
-  "id, match_id, game_date, season, summoner_name, tag, champion";
+  "id, match_id, game_date, season, summoner_name, tag, champion, team_side";
 const TEAM_COLUMNS = "id, name";
 const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";
@@ -311,9 +312,9 @@ export async function fetchIngestedScoutingGames(
   if (rows.length === 0) return buildIngestedScoutingGames(roster, rows);
 
   const [reportGames, reports] = await Promise.all([
-    fetchAllScoutingRows<{ id: string; match_id: string | null; report_id: string | null }>((from, to) => supabase
+    fetchAllScoutingRows<{ id: string; match_id: string | null; report_id: string | null; game_number: number | null }>((from, to) => supabase
       .from("match_report_games")
-      .select("id, match_id, report_id")
+      .select("id, match_id, report_id, game_number")
       .order("id")
       .range(from, to)),
     fetchAllScoutingRows<{ id: string; fixture_id: string | null }>((from, to) => supabase
@@ -326,11 +327,13 @@ export async function fetchIngestedScoutingGames(
     reports
       .flatMap((row) => row.id && row.fixture_id ? [[row.id, row.fixture_id] as const] : []),
   );
-  const fixtureIdsByMatchId = new Map(
+  const fixtureIdsByMatchId = new Map<string, IngestedMatchReference>(
     reportGames
       .flatMap((row) => {
         const fixtureId = row.report_id ? fixtureIdsByReportId.get(row.report_id) : null;
-        return row.match_id && fixtureId ? [[row.match_id, fixtureId] as const] : [];
+        return row.match_id && fixtureId
+          ? [[row.match_id, { fixtureId, gameNumber: row.game_number }] as const]
+          : [];
       }),
   );
   return buildIngestedScoutingGames(roster, rows, fixtureIdsByMatchId);

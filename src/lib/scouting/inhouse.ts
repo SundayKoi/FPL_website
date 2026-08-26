@@ -2,6 +2,7 @@ import { normalizeCanonicalName } from "@/lib/players/canonicalMatch";
 import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import { normalizeBasePlayerName } from "@/lib/players/normalize";
 import type { LolRole } from "@/lib/draft/types";
+import type { DraftSide } from "@/lib/match-draft/types";
 
 export interface InhouseGameRow {
   summoner_name: string | null;
@@ -20,6 +21,12 @@ export interface IngestedScoutingGameRow {
   season: string | null;
   match_id: string | null;
   game_date: string | null;
+  team_side?: string | null;
+}
+
+export interface IngestedMatchReference {
+  fixtureId: string;
+  gameNumber: number | null;
 }
 
 export interface IngestedScoutingGame {
@@ -31,6 +38,8 @@ export interface IngestedScoutingGame {
   season: string | null;
   matchId: string;
   gameDate: string | null;
+  gameNumber?: number;
+  teamSide?: DraftSide;
 }
 
 export interface InhouseChampionStat {
@@ -136,25 +145,36 @@ function playerForSummoner(map: RosterPlayerMap, summonerName: string | null, ta
   return playerByName && !map.playerIdsWithRiotIds.has(playerByName.id) ? playerByName : null;
 }
 
+function draftSide(value: string | null | undefined): DraftSide | null {
+  const normalized = value?.trim().toLocaleLowerCase();
+  return normalized === "blue" || normalized === "red" ? normalized : null;
+}
+
 /** Preserve the raw ingested game rows needed for scope-aware regular scouting. */
 export function buildIngestedScoutingGames(
   roster: RosterPlayer[],
   rows: IngestedScoutingGameRow[],
-  fixtureIdsByMatchId: ReadonlyMap<string, string> = new Map(),
+  fixtureIdsByMatchId: ReadonlyMap<string, string | IngestedMatchReference> = new Map(),
 ): IngestedScoutingGame[] {
   const rosterByName = rosterPlayerMap(roster);
   return rows.flatMap((row) => {
     const player = playerForSummoner(rosterByName, row.summoner_name, row.tag);
     if (!player || !row.champion) return [];
+    const reference = row.match_id ? fixtureIdsByMatchId.get(row.match_id) : undefined;
+    const fixtureId = typeof reference === "string" ? reference : reference?.fixtureId ?? null;
+    const gameNumber = typeof reference === "string" ? undefined : reference?.gameNumber ?? undefined;
+    const teamSide = draftSide(row.team_side);
     return [{
       playerId: player.id,
       playerName: player.displayName.trim(),
       role: player.role,
       champion: row.champion,
-      fixtureId: row.match_id ? fixtureIdsByMatchId.get(row.match_id) ?? null : null,
+      fixtureId,
       season: row.season,
       matchId: row.match_id ?? `${row.season ?? "unknown"}:${row.game_date ?? row.id ?? "unknown"}:${row.summoner_name ?? "unknown"}`,
       gameDate: row.game_date,
+      ...(gameNumber === undefined ? {} : { gameNumber }),
+      ...(teamSide ? { teamSide } : {}),
     }];
   });
 }

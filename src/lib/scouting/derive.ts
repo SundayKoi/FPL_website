@@ -12,12 +12,27 @@ export function resolveScoutedSide(game: ScoutDraftRow, opponentName: string): D
   return null;
 }
 
+function resolveRosterEvidenceSide(game: ScoutDraftRow, source: ScoutSource): DraftSide | null {
+  const counts = new Map<DraftSide, Set<string>>();
+  for (const row of source.ingestedGames ?? []) {
+    if (row.fixtureId !== game.fixture_id || row.gameNumber !== game.game_number || !row.teamSide) continue;
+    const players = counts.get(row.teamSide) ?? new Set<string>();
+    players.add(row.playerId);
+    counts.set(row.teamSide, players);
+  }
+  const ranked = (["blue", "red"] as DraftSide[])
+    .map((side) => ({ side, count: counts.get(side)?.size ?? 0 }))
+    .sort((a, b) => b.count - a.count);
+  return ranked[0].count >= 3 && ranked[0].count > ranked[1].count ? ranked[0].side : null;
+}
+
 interface TeamGame { draft: ScoutDraftRow; fixture: ScoutSource["fixtures"][number]; side: DraftSide; }
 const hasRecordedAction = (draft: ScoutDraftRow) => draft.actions.some((action) => Boolean(action.skipped || action.champion));
 function allTeamGames(source: ScoutSource): TeamGame[] {
   const fixtures = new Map(source.fixtures.map((fixture) => [fixture.id, fixture]));
   return source.drafts.map((draft) => {
-    const fixture = fixtures.get(draft.fixture_id); const side = resolveScoutedSide(draft, source.opponentName);
+    const fixture = fixtures.get(draft.fixture_id);
+    const side = resolveScoutedSide(draft, source.opponentName) ?? resolveRosterEvidenceSide(draft, source);
     return fixture && side && hasRecordedAction(draft) ? { draft, fixture, side } : null;
   }).filter((game): game is TeamGame => Boolean(game)).sort((a, b) => {
     const date = (b.fixture.scheduled_at ?? "").localeCompare(a.fixture.scheduled_at ?? "");
@@ -119,7 +134,8 @@ export function deriveScoutData(
   const attributedToPlayer = (draft: ScoutDraftRow, action: MatchDraftAction, player: ScoutSource["roster"][number]) => {
     if (action.kind !== "pick" || !action.champion) return false;
     if (scoutKey(action.playerName) === scoutKey(player.displayName)) return true;
-    if (source.teamName && scoutKey(action.side === "blue" ? draft.blue_team_name : draft.red_team_name) !== scoutKey(source.teamName)) return false;
+    const side = resolveScoutedSide(draft, source.opponentName) ?? resolveRosterEvidenceSide(draft, source);
+    if (source.teamName && side !== action.side) return false;
     const roleIndex = ROLE_ORDER.indexOf(player.role);
     const confirmed = action.playerName == null && roleIndex >= 0 && rosterRoleCounts.get(player.role) === 1 && action.side
       ? draft.positions?.[action.side]?.[roleIndex]

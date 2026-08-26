@@ -131,4 +131,14 @@ describe("buildInhousePlayerStats", () => {
     expect(result.filter((game) => game.playerId === "sub")).toHaveLength(1);
     expect(new Set(result.map((game) => game.gameDate))).toEqual(new Set(["2026-08-17", "2026-08-24"]));
   });
+
+  it("preserves exact game and side evidence for roster-match attribution", () => {
+    const result = buildIngestedScoutingGames(
+      [{ id: "p1", displayName: "Starter", role: "mid" }],
+      [{ summoner_name: "Starter", tag: "NA1", champion: "Ahri", season: "S5", match_id: "match-1", game_date: null, team_side: "Blue" }],
+      new Map([["match-1", { fixtureId: "fixture-1", gameNumber: 2 }]]),
+    );
+
+    expect(result[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 2, teamSide: "blue" });
+  });
 });

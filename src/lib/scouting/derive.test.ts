@@ -34,6 +34,31 @@ describe("opponent scouting derivation", () => {
     expect(new Set(scopeTeamGames(source, "recent").map((game) => game.fixture.id)).size).toBe(5);
   });
 
+  it("attributes substitute games from three-or-more current-roster players on one side", () => {
+    const withSubstitutes = structuredClone(source) as ScoutSource;
+    withSubstitutes.opponentName = "Night Vale";
+    withSubstitutes.roster = [
+      { id: "p1", displayName: "Player 1", role: "top" },
+      { id: "p2", displayName: "Player 2", role: "jungle" },
+      { id: "p3", displayName: "Player 3", role: "mid" },
+      { id: "p4", displayName: "Player 4", role: "adc" },
+      { id: "p5", displayName: "Player 5", role: "support" },
+    ];
+    withSubstitutes.fixtures = [fixture("four", "S5", "2026-08-10T00:00:00Z"), fixture("three", "S5", "2026-08-11T00:00:00Z")];
+    withSubstitutes.drafts = [
+      { ...source.drafts[0], id: "four-draft", fixture_id: "four", blue_team_name: "Substitute Blue", red_team_name: "Other" },
+      { ...source.drafts[0], id: "three-draft", fixture_id: "three", blue_team_name: "Other", red_team_name: "Substitute Red" },
+    ];
+    withSubstitutes.ingestedGames = [
+      ...["p1", "p2", "p3", "p4"].map((playerId) => ({ playerId, playerName: playerId, role: "top" as const, champion: "Ahri", fixtureId: "four", gameNumber: 1, teamSide: "blue" as const, season: "S5", matchId: "four-game-1", gameDate: null })),
+      ...["p1", "p2", "p3"].map((playerId) => ({ playerId, playerName: playerId, role: "top" as const, champion: "Ahri", fixtureId: "three", gameNumber: 1, teamSide: "red" as const, season: "S5", matchId: "three-game-1", gameDate: null })),
+    ];
+
+    const games = scopeTeamGames(withSubstitutes, "all");
+
+    expect(games.map((game) => [game.fixture.id, game.side])).toEqual([["three", "red"], ["four", "blue"]]);
+  });
+
   it("derives first picks, opposing bans, ordered slots, and stable ties", () => {
     const data = deriveScoutData(source, "season");
     expect(data.firstPicks[0]).toMatchObject({ champion: "Ahri", count: 2 });
