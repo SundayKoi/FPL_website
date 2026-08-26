@@ -138,6 +138,19 @@ export default async function AdminPage() {
       description: "Create/resolve markets and pick'ems, manage the catalog, seasons, and balances.",
       href: "/admin/betting",
     },
+    // Owner-only: the page itself redirects admins away — who pays real
+    // money is owner business, so the door isn't shown to anyone else.
+    ...(isOwner
+      ? [
+          {
+            label: "Patrons",
+            stat: "Receipts & grants",
+            statTone: "text-gold",
+            description: "Record a payment, grant patron days, and read the receipt book.",
+            href: "/admin/patrons",
+          },
+        ]
+      : []),
   ] as const;
 
   return (
