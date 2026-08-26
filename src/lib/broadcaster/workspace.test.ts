@@ -198,6 +198,10 @@ describe("loadBroadcasterScouting", () => {
 
   it("loads one shared history and in-house result while preserving each featured roster", async () => {
     arrangeScouting();
+    fetchIngestedScoutingGames.mockResolvedValue([
+      { playerId: "alpha-player", playerName: "Alpha Mid", role: "mid", champion: "Ahri", fixtureId: "fixture-1", season: "S5", matchId: "match-a", gameDate: null },
+      { playerId: "beta-player", playerName: "Beta Top", role: "top", champion: "Garen", fixtureId: "fixture-1", season: "S5", matchId: "match-b", gameDate: null },
+    ]);
 
     const data = await loadBroadcasterScouting(supabase, context());
 
@@ -216,11 +220,13 @@ describe("loadBroadcasterScouting", () => {
     expect(fetchIngestedScoutingGames).toHaveBeenCalledWith(supabase, [
       { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
       { id: "beta-player", displayName: "Beta Top", role: "top" },
-    ]);
+    ], []);
     expect(data?.teamA.opponentName).toBe("Alpha");
     expect(data?.teamB.opponentName).toBe("Beta");
     expect(data?.teamA.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["alpha-player"]);
     expect(data?.teamB.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["beta-player"]);
+    expect(data?.teamA.ingestedGames?.map((row) => row.playerId)).toEqual(["alpha-player"]);
+    expect(data?.teamB.ingestedGames?.map((row) => row.playerId)).toEqual(["beta-player"]);
   });
 
   it("returns null without loading scouting when no featured fixture exists", async () => {
