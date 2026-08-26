@@ -95,9 +95,19 @@ describe("foil parallels", () => {
   });
 
   it("rounds a fractional multiplier — dust is whole numbers", () => {
-    // rare (25) x aurora (2.5) = 62.5, which would drift the ledger.
-    const value = dustValueOf({ tier: "platinum", foil: true, foilType: "aurora", signed: false });
+    // rare (25) x refractor (4.5) = 112.5, which would drift the ledger.
+    const value = dustValueOf({ tier: "platinum", foil: true, foilType: "refractor", signed: false });
     expect(Number.isInteger(value)).toBe(true);
+    expect(value).toBe(113);
+  });
+
+  it("pays the ladder in line with how thin it gets", () => {
+    // The first cut paid Cracked Ice (1-in-33 of foils) only 2.5x a
+    // Prisma (1-in-1.7). These are the corrected floors; lowering any of
+    // them is a collector-facing price cut and should be deliberate.
+    expect(FOIL_TYPE_DUST_MULT.aurora).toBeGreaterThanOrEqual(3);
+    expect(FOIL_TYPE_DUST_MULT.refractor).toBeGreaterThanOrEqual(4.5);
+    expect(FOIL_TYPE_DUST_MULT.ice).toBeGreaterThanOrEqual(6.5);
   });
 
   it("prices a copy with no parallel recorded as the base foil", () => {
