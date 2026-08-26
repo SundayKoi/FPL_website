@@ -348,10 +348,23 @@ describe("a moment sits the same size as the cards beside it", () => {
 
   it("honours a className the call site sets, as a player card does", () => {
     // Dropping it was the second half of the bug: any call site sizing a
-    // card was silently ignored for moments.
-    const { container } = render(<PlayerCard3D card={momentCard} className="max-w-[20rem]" />);
+    // card was silently ignored for moments. It rides the outer shell now,
+    // exactly where the player card carries it.
+    const { container } = render(<PlayerCard3D card={momentCard} className="max-w-[18rem]" />);
 
-    expect(frame(container).className).toContain("max-w-[20rem]");
+    expect((container.firstChild as HTMLElement).className).toContain("max-w-[18rem]");
+  });
+
+  it("wraps itself in the player card's exact 20rem shell", () => {
+    // The plate alone is width-less: in a content-sized flex cell it took
+    // its width from its caption, and in a fractional grid column it
+    // overfilled. The fixed shell is what makes moments and player cards
+    // agree in EVERY container, not per-callsite.
+    const moment = render(<PlayerCard3D card={momentCard} />);
+    const player = render(<PlayerCard3D card={card} />);
+
+    expect((moment.container.firstChild as HTMLElement).style.width).toBe("20rem");
+    expect((player.container.firstChild as HTMLElement).style.width).toBe("20rem");
   });
 });
 
