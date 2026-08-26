@@ -162,7 +162,10 @@ export default function ChampionsCard({
       ) : null}
 
       {signed ? (
-        <span className="champ-ink absolute right-[5%] top-[24%] -rotate-[14deg] text-[1.75rem]" aria-label="Autographed">
+        // Up in the open sky above the spade's shoulders — the one region
+        // with neither text nor pip. Sits below the corner chip's line so a
+        // signed parallel keeps both legible.
+        <span className="champ-ink absolute right-[10%] top-[9%] -rotate-[8deg] text-[1.75rem]" aria-label="Autographed">
           {card.name}
         </span>
       ) : null}
