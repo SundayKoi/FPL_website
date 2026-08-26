@@ -76,11 +76,13 @@ describe("buildBroadcasterPlayerDetails", () => {
       playerId: "alpha-top",
       card: { slug: "alpha-card" },
       averages: { games: 3, damagePerMin: expect.closeTo(666.67, 0.01), turretsPerGame: 1 },
+      gameRecord: { games: 3, wins: 2, losses: 1, winratePct: expect.closeTo(66.7, 0.01) },
     });
     expect(details[1]).toMatchObject({
       playerId: "alpha-support",
       card: { slug: "beta-card" },
       averages: { games: 2, turretsPerGame: 0 },
+      gameRecord: { games: 2, wins: 1, losses: 1, winratePct: 50 },
     });
   });
 });

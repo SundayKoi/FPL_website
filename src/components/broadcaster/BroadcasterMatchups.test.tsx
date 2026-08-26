@@ -104,16 +104,19 @@ const playerDetails: BroadcasterPlayerDetails[] = [
     playerId: "alpha-top",
     card: card("alpha-top-card", "Alpha Top"),
     averages: { games: 4, kda: 2.5, damagePerMin: 600, visionPerMin: 1.2, turretsPerGame: 0.75, goldPerMin: 400, multiKills: 3 },
+    gameRecord: { games: 4, wins: 3, losses: 1, winratePct: 75 },
   },
   {
     playerId: "alpha-jungle",
     card: card("alpha-jungle-card", "Alpha Jungle"),
     averages: { games: 4, kda: 3.25, damagePerMin: 500, visionPerMin: 0.8, turretsPerGame: 0.25, goldPerMin: 350, multiKills: 2 },
+    gameRecord: { games: 4, wins: 2, losses: 2, winratePct: 50 },
   },
   {
     playerId: "alpha-support",
     card: card("alpha-support-card", "Alpha Support"),
     averages: { games: 4, kda: 1.5, damagePerMin: 200, visionPerMin: 1.5, turretsPerGame: 0, goldPerMin: 300, multiKills: 1 },
+    gameRecord: { games: 4, wins: 1, losses: 3, winratePct: 25 },
   },
 ];
 

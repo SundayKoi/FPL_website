@@ -3,7 +3,7 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import { deriveScoutData, scoutKey } from "@/lib/scouting/derive";
 import type { InhousePlayerStats } from "@/lib/scouting/inhouse";
 import type { ChampionCount, ScoutScope, ScoutSource } from "@/lib/scouting/types";
-import type { BroadcasterPlayerAverages, BroadcasterPlayerDetails } from "./types";
+import type { BroadcasterPlayerDetails } from "./types";
 
 export interface BroadcasterMatchupPlayer {
   id: string;
@@ -15,7 +15,8 @@ export interface BroadcasterMatchupPlayer {
   gamesSampled: number;
   inhouse: InhousePlayerStats | null;
   card: PlayerCardData | null;
-  averages: BroadcasterPlayerAverages | null;
+  averages: BroadcasterPlayerDetails["averages"];
+  gameRecord: BroadcasterPlayerDetails["gameRecord"];
 }
 
 export interface BroadcasterRoleMatchup {
@@ -44,6 +45,7 @@ function playersFor(source: ScoutSource, scope: ScoutScope, playerDetails: Broad
       inhouse: inhouse.get(player.id) ?? null,
       card: details.get(player.id)?.card ?? null,
       averages: details.get(player.id)?.averages ?? null,
+      gameRecord: details.get(player.id)?.gameRecord ?? null,
     };
   });
 }

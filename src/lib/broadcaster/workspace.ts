@@ -110,6 +110,11 @@ export async function loadBroadcasterScouting(
       : Promise.resolve([]),
   ]);
 
+  const imageForRoster = (roster: ScoutRosterPlayer[]): string | null => {
+    const rosterIds = new Set(roster.map((player) => player.id));
+    return playerDetails.find((detail) => rosterIds.has(detail.playerId) && detail.card?.teamImageUrl)?.card?.teamImageUrl ?? null;
+  };
+
   const source = (
     teamName: string,
     roster: ScoutRosterPlayer[],
@@ -118,6 +123,7 @@ export async function loadBroadcasterScouting(
     ...history,
     opponentName: teamName,
     teamName,
+    teamImageUrl: imageForRoster(roster),
     currentSeason: context.season,
     nextFixture: fixture,
     roster,

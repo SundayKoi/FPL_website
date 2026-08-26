@@ -10,8 +10,16 @@ export interface BroadcasterPlayerAverages {
   multiKills: number;
 }
 
+export interface BroadcasterPlayerRecord {
+  games: number;
+  wins: number;
+  losses: number;
+  winratePct: number;
+}
+
 export interface BroadcasterPlayerDetails {
   playerId: string;
   card: PlayerCardData | null;
   averages: BroadcasterPlayerAverages | null;
+  gameRecord: BroadcasterPlayerRecord | null;
 }

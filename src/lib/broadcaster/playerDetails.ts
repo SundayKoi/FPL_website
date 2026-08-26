@@ -102,6 +102,24 @@ function buildAverages(stats: PlayerAggRow, turretAverage: number): BroadcasterP
   };
 }
 
+function buildGameRecord(stats: PlayerAggRow): BroadcasterPlayerDetails["gameRecord"] {
+  return {
+    games: stats.games,
+    wins: stats.wins,
+    losses: Math.max(stats.games - stats.wins, 0),
+    winratePct: stats.winrate_pct,
+  };
+}
+
+function cardGameRecord(card: PlayerCardData): BroadcasterPlayerDetails["gameRecord"] {
+  return {
+    games: card.level,
+    wins: card.wins,
+    losses: card.losses,
+    winratePct: card.winratePct,
+  };
+}
+
 /** Build the compact player payload consumed by broadcaster matchup cards. */
 export function buildBroadcasterPlayerDetails(
   roster: ScoutRosterPlayer[],
@@ -139,6 +157,7 @@ export function buildBroadcasterPlayerDetails(
           playerId: player.id,
           card: playerCard,
           averages: stats ? buildAverages(stats, averageTurrets) : null,
+          gameRecord: stats ? buildGameRecord(stats) : playerCard ? cardGameRecord(playerCard) : null,
         }]
       : [];
   });

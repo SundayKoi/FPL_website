@@ -34,7 +34,20 @@ const player = (id: string, name: string, role: BroadcasterMatchupPlayer["role"]
     goldPerMin: 410,
     multiKills: 2,
   },
+  gameRecord: { games: 4, wins: 3, losses: 1, winratePct: 75 },
 });
+
+const recordFixture = {
+  id: "record-1",
+  season: "S5",
+  stage: "week_1" as const,
+  team_a: "Alpha",
+  team_b: "Beta",
+  scheduled_at: "2026-08-01T00:00:00Z",
+  best_of: 3 as const,
+  score_a: 2,
+  score_b: 1,
+};
 
 const matchups: BroadcasterRoleMatchup[] = [
   { role: "top", label: "Top", teamAPlayers: [player("alpha-top", "Alpha Top", "top")], teamBPlayers: [player("beta-top", "Beta Top", "top")] },
@@ -47,6 +60,7 @@ const matchups: BroadcasterRoleMatchup[] = [
 const teamA: ScoutSource = {
   opponentName: "Alpha",
   teamName: "Alpha",
+  teamImageUrl: "https://img.test/alpha.png",
   currentSeason: "S5",
   nextFixture: {} as ScoutSource["nextFixture"],
   roster: matchups.flatMap((matchup) => matchup.teamAPlayers.map((rosterPlayer) => ({
@@ -54,7 +68,7 @@ const teamA: ScoutSource = {
     displayName: rosterPlayer.name,
     role: rosterPlayer.role,
   }))),
-  fixtures: [],
+  fixtures: [recordFixture],
   drafts: [],
 };
 
@@ -62,6 +76,7 @@ const teamB: ScoutSource = {
   ...teamA,
   opponentName: "Beta",
   teamName: "Beta",
+  teamImageUrl: "https://img.test/beta.png",
   roster: matchups.flatMap((matchup) => matchup.teamBPlayers.map((rosterPlayer) => ({
     id: rosterPlayer.id,
     displayName: rosterPlayer.name,
@@ -83,6 +98,12 @@ describe("HeadToHeadDialog", () => {
 
     expect(screen.getByRole("dialog", { name: /head-to-head/i })).toBeTruthy();
     expect(screen.getByRole("heading", { name: /matchup overview/i })).toBeTruthy();
+    expect(screen.getAllByAltText(/team logo/i)).toHaveLength(2);
+    expect(screen.getAllByText("1–0")).toHaveLength(1);
+    expect(screen.getAllByText("0–1")).toHaveLength(1);
+    expect(screen.getAllByText("Individual game win rate")).toHaveLength(2);
+    expect(screen.queryByText("Cards ready")).toBeNull();
+    expect(screen.queryByText("Battle plan")).toBeNull();
     const sectionNav = within(screen.getByRole("navigation", { name: /head-to-head sections/i }));
     expect(sectionNav.getAllByRole("button", { name: /^(overview|top|jungle|mid|adc|support)$/i })).toHaveLength(6);
 
