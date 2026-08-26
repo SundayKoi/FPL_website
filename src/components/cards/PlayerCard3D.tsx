@@ -787,59 +787,39 @@ export default function PlayerCard3D(props: {
   // because PlayerCardFace's hooks cannot run conditionally.
   const { moment } = props.card;
   if (moment) {
-    if (props.flame) {
-      // Moments in a patron's collection burn too — the flame marks the
-      // OWNER, and a moment copy is as owned as any player card.
-      return (
-        <span className="relative block">
-          <MomentPlate
-            moment={{
-              id: moment.id,
-              weekStart: moment.weekStart,
-              slug: moment.playerSlug,
-              summonerName: moment.summonerName,
-              teamName: moment.teamName,
-              champion: moment.champion,
-              role: null,
-              triggerKey: moment.triggerKey ?? "",
-              title: moment.title,
-              headline: moment.headline,
-              gameDate: null,
-              opponent: moment.opponent ?? null,
-              durationMin: moment.durationMin ?? null,
-            }}
-            copySerial={moment.copySerial ?? null}
-            season={props.card.season}
-            className={props.className}
-          />
-          <PatronFlame flame={props.flame} radius="0.75rem" />
-        </span>
-      );
-    }
     return (
-      <MomentPlate
-        moment={{
-          id: moment.id,
-          weekStart: moment.weekStart,
-          slug: moment.playerSlug,
-          summonerName: moment.summonerName,
-          teamName: moment.teamName,
-          champion: moment.champion,
-          role: null,
-          triggerKey: moment.triggerKey ?? "",
-          title: moment.title,
-          headline: moment.headline,
-          gameDate: null,
-          opponent: moment.opponent ?? null,
-          durationMin: moment.durationMin ?? null,
-        }}
-        copySerial={moment.copySerial ?? null}
-        season={props.card.season}
-        // Forwarded, so a moment sizes exactly like the player card it sits
-        // next to. Dropping it here is why a pulled moment rendered smaller
-        // than every other card in the same grid.
-        className={props.className}
-      />
+      // The SAME 20rem shell PlayerCardFace wraps itself in, className and
+      // all. The plate alone is width-less (w-full), so in a content-sized
+      // flex cell it had no intrinsic width and took its size from its
+      // caption; in a fractional grid column it overfilled. Matching the
+      // player card's shell is what makes the two agree in every container
+      // at once, instead of per-callsite luck.
+      <div className={`relative ${props.className ?? ""}`} style={{ width: "20rem" }}>
+        <MomentPlate
+          moment={{
+            id: moment.id,
+            weekStart: moment.weekStart,
+            slug: moment.playerSlug,
+            summonerName: moment.summonerName,
+            teamName: moment.teamName,
+            champion: moment.champion,
+            role: null,
+            triggerKey: moment.triggerKey ?? "",
+            title: moment.title,
+            headline: moment.headline,
+            gameDate: null,
+            opponent: moment.opponent ?? null,
+            durationMin: moment.durationMin ?? null,
+          }}
+          copySerial={moment.copySerial ?? null}
+          season={props.card.season}
+        />
+        {props.flame ? (
+          // Moments in a patron's collection burn too — the flame marks the
+          // OWNER, and a moment copy is as owned as any player card.
+          <PatronFlame flame={props.flame} radius="0.75rem" />
+        ) : null}
+      </div>
     );
   }
   return <PlayerCardFace {...props} />;
