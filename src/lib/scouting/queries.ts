@@ -120,6 +120,12 @@ function isDrafterUrl(value: unknown): value is string {
   }
 }
 
+function drafterGameUrl(value: string, gameNumber: number): string {
+  const url = new URL(value);
+  url.searchParams.set("game", String(gameNumber));
+  return url.toString();
+}
+
 async function loadReportedDrafts(
   reports: UnknownRow[],
   reportGames: UnknownRow[],
@@ -140,37 +146,62 @@ async function loadReportedDrafts(
     const fixture = fixtureId ? fixturesById.get(fixtureId) : undefined;
     if (!reportId || !fixtureId || !fixture || !isDrafterUrl(url)) return [];
 
-    try {
-      const response = await fetch(url, {
-        cache: "no-store",
-        headers: { accept: "text/html", "user-agent": "FPL scouting history" },
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!response.ok) return [];
-      const gameSides: Record<number, { blueTeamName: string | null; redTeamName: string | null }> = {};
-      const reportTeamA = asNullableString(report.team_a_id);
-      const reportTeamB = asNullableString(report.team_b_id);
-      const reportTeamAName = (reportTeamA && teamNamesById.get(reportTeamA)) ?? fixture.team_a;
-      const reportTeamBName = (reportTeamB && teamNamesById.get(reportTeamB)) ?? fixture.team_b;
-      for (const game of gamesByReport.get(reportId) ?? []) {
-        const gameNumber = asNumber(game.game_number);
-        const blueTeamId = asNullableString(game.blue_team_id);
-        if (!gameNumber || !blueTeamId) continue;
-        gameSides[gameNumber] = blueTeamId === reportTeamB
-          ? { blueTeamName: reportTeamBName, redTeamName: reportTeamAName }
-          : blueTeamId === reportTeamA
-            ? { blueTeamName: reportTeamAName, redTeamName: reportTeamBName }
-            : { blueTeamName: fixture.team_a, redTeamName: fixture.team_b };
-      }
-      return parseDrafterPage(await response.text(), {
-        fixtureId,
-        blueTeamName: fixture.team_a,
-        redTeamName: fixture.team_b,
-        gameSides,
-      });
-    } catch {
-      return [];
+    const gameSides: Record<number, { blueTeamName: string | null; redTeamName: string | null }> = {};
+    const reportTeamA = asNullableString(report.team_a_id);
+    const reportTeamB = asNullableString(report.team_b_id);
+    const reportTeamAName = (reportTeamA && teamNamesById.get(reportTeamA)) ?? fixture.team_a;
+    const reportTeamBName = (reportTeamB && teamNamesById.get(reportTeamB)) ?? fixture.team_b;
+    for (const game of gamesByReport.get(reportId) ?? []) {
+      const gameNumber = asNumber(game.game_number);
+      const blueTeamId = asNullableString(game.blue_team_id);
+      if (!gameNumber || !blueTeamId) continue;
+      gameSides[gameNumber] = blueTeamId === reportTeamB
+        ? { blueTeamName: reportTeamBName, redTeamName: reportTeamAName }
+        : blueTeamId === reportTeamA
+          ? { blueTeamName: reportTeamAName, redTeamName: reportTeamBName }
+          : { blueTeamName: fixture.team_a, redTeamName: fixture.team_b };
     }
+
+    const loadPage = async (gameNumber?: number): Promise<ScoutDraftRow[]> => {
+      try {
+        const response = await fetch(gameNumber === undefined ? url : drafterGameUrl(url, gameNumber), {
+          cache: "no-store",
+          headers: { accept: "text/html", "user-agent": "FPL scouting history" },
+          signal: AbortSignal.timeout(4000),
+        });
+        if (!response.ok) return [];
+        const parsed = parseDrafterPage(await response.text(), {
+          fixtureId,
+          blueTeamName: fixture.team_a,
+          redTeamName: fixture.team_b,
+          gameSides,
+        });
+        if (gameNumber === undefined) return parsed;
+
+        const matching = parsed.filter((draft) => draft.game_number === gameNumber);
+        if (matching.length > 0) return matching;
+        if (parsed.length !== 1) return [];
+
+        const sideNames = gameSides[gameNumber];
+        return [{
+          ...parsed[0],
+          id: `drafter:${fixtureId}:${gameNumber}`,
+          game_number: gameNumber,
+          blue_team_name: sideNames?.blueTeamName ?? parsed[0].blue_team_name,
+          red_team_name: sideNames?.redTeamName ?? parsed[0].red_team_name,
+        }];
+      } catch {
+        return [];
+      }
+    };
+
+    const gameNumbers = [...new Set(
+      (gamesByReport.get(reportId) ?? [])
+        .map((game) => asNumber(game.game_number))
+        .filter((gameNumber): gameNumber is number => gameNumber !== null),
+    )];
+    if (gameNumbers.length === 0) return loadPage();
+    return (await Promise.all(gameNumbers.map((gameNumber) => loadPage(gameNumber)))).flat();
   }));
   return loaded.flat();
 }

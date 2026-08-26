@@ -159,6 +159,49 @@ describe("fetchScoutingHistory", () => {
     expect(history.drafts[0].actions.some((action) => action.champion === "Morgana")).toBe(true);
     vi.unstubAllGlobals();
   });
+
+  it("loads every reported game when a Drafter URL defaults to one selected game", async () => {
+    const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
+    const draftQuery = builder([]);
+    const leagueTeamsQuery = builder([
+      { id: "team-a", name: "Other" },
+      { id: "team-b", name: "Night Vale" },
+    ]);
+    const reportQuery = builder([{ id: "report-1", fixture_id: "f", draft_url: "https://drafter.lol/draft/series-1", team_a_id: "team-a", team_b_id: "team-b" }]);
+    const reportGamesQuery = builder([
+      { report_id: "report-1", game_number: 1, blue_team_id: "team-b" },
+      { report_id: "report-1", game_number: 2, blue_team_id: "team-a" },
+      { report_id: "report-1", game_number: 3, blue_team_id: "team-b" },
+    ]);
+    const from = vi.fn((table: string) => ({
+      fixtures: fixtureQuery,
+      match_drafts: draftQuery,
+      league_teams: leagueTeamsQuery,
+      match_reports: reportQuery,
+      match_report_games: reportGamesQuery,
+    }[table] ?? builder([])));
+    const fetchMock = vi.fn(async (request: string) => {
+      const game = new URL(request).searchParams.get("game") ?? "1";
+      const html = `<script>self.__next_f.push([1,"1d:[\\\"$\\\",null,{\\\"drafts\\\":[{\\\"done\\\":true,\\\"bluePick1\\\":\\\"Game ${game}\\\"}]}]"])</script>`;
+      return { ok: true, text: async () => html };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier", leagueTeamNames: ["Night Vale", "Other"],
+    });
+
+    expect(history.drafts).toHaveLength(3);
+    expect(history.drafts.map((draft) => draft.game_number)).toEqual([1, 2, 3]);
+    expect(history.drafts[1]).toMatchObject({ blue_team_name: "Other", red_team_name: "Night Vale" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.map(([request]) => request)).toEqual([
+      "https://drafter.lol/draft/series-1?game=1",
+      "https://drafter.lol/draft/series-1?game=2",
+      "https://drafter.lol/draft/series-1?game=3",
+    ]);
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("fetchInhousePlayerStats", () => {
