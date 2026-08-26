@@ -368,6 +368,7 @@ describe("a moment sits the same size as the cards beside it", () => {
         joker: false,
       },
       name: "Shanedata",
+      teamImageUrl: null,
     } as unknown as typeof card;
     const { container } = render(<PlayerCard3D card={champCard} />);
 
@@ -377,6 +378,30 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect(container.textContent).toContain("Aurelion Sol · most played");
     // The real splash rides behind the felt.
     expect(container.querySelector("img")?.getAttribute("src")).toContain("AurelionSol");
+    // No team logo on file -> the spade pip holds the center.
+    expect(container.querySelector(".champ-pipwrap")).toBeTruthy();
+  });
+
+  it("seats the team's logo in the pip's place when one exists", () => {
+    const champCard = {
+      ...card,
+      champWin: {
+        rank: "K",
+        setIndex: 1,
+        setSize: 5,
+        team: "Faceless",
+        seasonWon: "S4",
+        champion: "Cho'Gath",
+        joker: false,
+      },
+      name: "king of spades",
+      teamImageUrl: "https://cdn.example/faceless.png",
+    } as unknown as typeof card;
+    const { container } = render(<PlayerCard3D card={champCard} />);
+
+    expect(container.querySelector(".champ-logo")?.getAttribute("src")).toBe("https://cdn.example/faceless.png");
+    // The logo replaces the pip, never stacks on it.
+    expect(container.querySelector(".champ-pipwrap")).toBeNull();
   });
 
   it("wraps itself in the player card's exact 20rem shell", () => {
