@@ -118,7 +118,9 @@ export default function PackShop({
   function handleDailyRip() {
     setError(null);
     startTransition(async () => {
-      const result = await openDailyRipAction(league);
+      // The rip honours the same week picker as a bought pack — a vintage
+      // rip mints that week's prints exactly.
+      const result = await openDailyRipAction(league, week || undefined);
       if (!result.ok) {
         setError(result.error);
         // The server refused, so trust its count over ours — a rip claimed

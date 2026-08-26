@@ -20,7 +20,8 @@ import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, deferred, errMsg } from "./respond";
 import type { DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
-import type { CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { editionLabel } from "@/lib/packs/week";
 
 const GUILD_ONLY_MSG = "Use this in the server.";
 
@@ -108,6 +109,34 @@ function leagueOf(interaction: DiscordInteraction): CardLeague {
   return raw === "academy" ? "academy" : "premier";
 }
 
+/** The raw `week` option, if one was typed. */
+function weekOptionOf(interaction: DiscordInteraction): string | null {
+  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown }[];
+  const raw = options.find((option) => option.name === "week")?.value;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+/**
+ * "1" / "2" / a Monday date -> the archived edition week it names, against
+ * `weeks` as fetchCardEditionWeeks returns them (newest first). Week
+ * numbers count up from the season's first archive — how players talk
+ * about them, and how the pack shop labels its picker. A miss answers
+ * with the menu, because "isn't available" without the list is a
+ * guessing game. Exported for tests.
+ */
+export function resolveRipWeek(raw: string, weeks: string[]): { week: string } | { error: string } {
+  if (weeks.length === 0) return { error: "No weeks are archived yet — rip again after the first weekly drop." };
+  const ascending = [...weeks].sort();
+  if (/^\d{1,3}$/.test(raw)) {
+    const week = ascending[Number(raw) - 1];
+    if (week) return { week };
+  } else if (weeks.includes(raw)) {
+    return { week: raw };
+  }
+  const menu = ascending.map((week, index) => `${index + 1} (${editionLabel(week)})`).join(", ");
+  return { error: `That week isn't archived. Pick ${menu}, or its Monday as YYYY-MM-DD.` };
+}
+
 async function handleRip(interaction: DiscordInteraction): Promise<object> {
   const member = requireMember(interaction);
   if (!member) return errMsg(GUILD_ONLY_MSG);
@@ -119,10 +148,29 @@ async function handleRip(interaction: DiscordInteraction): Promise<object> {
   const username = member.global_name ?? member.username ?? "Someone";
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
 
+  const rawWeek = weekOptionOf(interaction);
+
   after(async () => {
     let body: object;
     try {
-      body = ripFollowup(await openPackFor(member.id, league, { daily: true }), username);
+      // Resolving the week option costs two reads, so only a typed option
+      // pays them; the bare ritual stays two-queries lighter and mints the
+      // newest edition as it always has.
+      let requestedWeek: string | undefined;
+      if (rawWeek) {
+        const season = await fetchCardSeason(service, league);
+        const resolved = resolveRipWeek(rawWeek, season ? await fetchCardEditionWeeks(service, season) : []);
+        if ("error" in resolved) {
+          await fetch(followupUrl, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ content: `❌ ${resolved.error}` }),
+          });
+          return;
+        }
+        requestedWeek = resolved.week;
+      }
+      body = ripFollowup(await openPackFor(member.id, league, { daily: true, requestedWeek }), username);
     } catch {
       // The deferral already showed "thinking…"; a silent stall would sit
       // there forever, so any crash still answers something.
