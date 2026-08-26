@@ -15,6 +15,8 @@ const fixture = (id: string, teamA: string | null, teamB: string | null) => ({
 function builder(data: unknown, error: unknown = null) {
   const query = {
     select: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(() => query),
     then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data, error })),
   };
   return query;
@@ -201,6 +203,84 @@ describe("fetchScoutingHistory", () => {
       "https://drafter.lol/draft/series-1?game=3",
     ]);
     vi.unstubAllGlobals();
+  });
+
+  it("matches an older report without fixture_id to its scheduled series", async () => {
+    const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
+    const draftQuery = builder([]);
+    const leagueTeamsQuery = builder([
+      { id: "team-a", name: "Other" },
+      { id: "team-b", name: "Night Vale" },
+    ]);
+    const reportQuery = builder([{
+      id: "report-1",
+      fixture_id: null,
+      season: "S5",
+      draft_url: "https://drafter.lol/draft/series-1",
+      team_a_id: "team-a",
+      team_b_id: "team-b",
+    }]);
+    const reportGamesQuery = builder([{ report_id: "report-1", game_number: 1, blue_team_id: "team-b" }]);
+    const from = vi.fn((table: string) => ({
+      fixtures: fixtureQuery,
+      match_drafts: draftQuery,
+      league_teams: leagueTeamsQuery,
+      match_reports: reportQuery,
+      match_report_games: reportGamesQuery,
+    }[table] ?? builder([])));
+    const html = `<script>self.__next_f.push([1,"1d:[\\\"$\\\",null,{\\\"drafts\\\":[{\\\"done\\\":true,\\\"bluePick1\\\":\\\"Ahri\\\"}]}]"])</script>`;
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => html })));
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier", leagueTeamNames: ["Night Vale", "Other"],
+    });
+
+    expect(history.drafts).toHaveLength(1);
+    expect(history.drafts[0]).toMatchObject({ fixture_id: "f", game_number: 1, blue_team_name: "Night Vale" });
+    vi.unstubAllGlobals();
+  });
+
+  it("loads history rows beyond the first Supabase page", async () => {
+    const targetFixture = fixture("target", "Night Vale", "Other");
+    const pages = new Map<string, unknown[]>([
+      ["fixtures:0", Array.from({ length: 1000 }, (_, index) => fixture(`unrelated-${index}`, "Nope", "Other Nope"))],
+      ["fixtures:1000", [targetFixture]],
+      ["match_drafts:0", Array.from({ length: 1000 }, (_, index) => ({
+        id: `draft-unrelated-${index}`, fixture_id: `unrelated-${index}`, game_number: 1, blue_team_name: "Nope", red_team_name: "Other Nope",
+        winner_team: null, actions: [], positions: null, created_at: "2026-08-01",
+      }))],
+      ["match_drafts:1000", [{
+        id: "draft-target", fixture_id: "target", game_number: 1, blue_team_name: "Night Vale", red_team_name: "Other",
+        winner_team: null, actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }], positions: null, created_at: "2026-08-01",
+      }]],
+      ["league_teams:0", []],
+      ["match_reports:0", []],
+      ["match_report_games:0", []],
+    ]);
+    const queries = new Map<string, ReturnType<typeof builder>>();
+    const from = vi.fn((table: string) => {
+      const query = queries.get(table) ?? (() => {
+        let offset = 0;
+        const query = {
+          select: vi.fn(() => query),
+          order: vi.fn(() => query),
+          range: vi.fn((fromOffset: number) => { offset = fromOffset; return query; }),
+          then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({
+            data: pages.get(`${table}:${offset}`) ?? [], error: null,
+          })),
+        };
+        return query;
+      })();
+      queries.set(table, query);
+      return query;
+    });
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier", leagueTeamNames: ["Night Vale", "Other"],
+    });
+
+    expect(history.fixtures.map((row) => row.id)).toEqual(["target"]);
+    expect(history.drafts.map((row) => row.id)).toEqual(["draft-target"]);
   });
 });
 

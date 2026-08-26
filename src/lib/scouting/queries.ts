@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
+import { normalizeName } from "@/lib/captain/teamNames";
 import { createLeagueFixtureScope } from "@/lib/my-team/leagueScope";
 import type { ScoutDraftRow, ScoutFixtureRow, ScoutHistory, ScoutRosterPlayer } from "./types";
 import { parseDrafterPage } from "./drafter";
@@ -19,8 +20,8 @@ export const DRAFT_COLUMNS =
 export const INGESTED_SCOUTING_COLUMNS =
   "id, match_id, game_date, season, summoner_name, tag, champion";
 const TEAM_COLUMNS = "id, name";
-const REPORT_COLUMNS = "id, fixture_id, draft_url, team_a_id, team_b_id";
-const REPORT_GAME_COLUMNS = "report_id, game_number, blue_team_id";
+const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
+const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";
 const SCOUTING_PAGE_SIZE = 1000;
 const SCOUTING_MAX_PAGES = 100;
 
@@ -126,6 +127,46 @@ function drafterGameUrl(value: string, gameNumber: number): string {
   return url.toString();
 }
 
+function teamPairKey(teamA: string | null, teamB: string | null): string | null {
+  const names = [normalizeName(teamA), normalizeName(teamB)].filter(Boolean).sort();
+  return names.length === 2 ? names.join("::") : null;
+}
+
+function resolveReportFixtureIds(
+  reports: UnknownRow[],
+  fixtures: ScoutFixtureRow[],
+  fixturesById: Map<string, ScoutFixtureRow>,
+  teamNamesById: Map<string, string>,
+): UnknownRow[] {
+  const fixturesBySeasonAndPair = new Map<string, ScoutFixtureRow[]>();
+  for (const fixture of fixtures) {
+    const pair = teamPairKey(fixture.team_a, fixture.team_b);
+    if (!pair) continue;
+    const key = `${fixture.season}::${pair}`;
+    fixturesBySeasonAndPair.set(key, [...(fixturesBySeasonAndPair.get(key) ?? []), fixture]);
+  }
+
+  return reports.flatMap((report) => {
+    const explicitFixtureId = asNullableString(report.fixture_id);
+    if (explicitFixtureId && fixturesById.has(explicitFixtureId)) {
+      return [{ ...report, fixture_id: explicitFixtureId }];
+    }
+
+    const season = asNullableString(report.season);
+    const teamA = asNullableString(report.team_a_id);
+    const teamB = asNullableString(report.team_b_id);
+    const pair = teamPairKey(
+      teamA ? teamNamesById.get(teamA) ?? null : null,
+      teamB ? teamNamesById.get(teamB) ?? null : null,
+    );
+    if (!season || !pair) return [];
+    const candidates = fixturesBySeasonAndPair.get(`${season}::${pair}`) ?? [];
+    return candidates.length === 1
+      ? [{ ...report, fixture_id: candidates[0].id }]
+      : [];
+  });
+}
+
 async function loadReportedDrafts(
   reports: UnknownRow[],
   reportGames: UnknownRow[],
@@ -211,34 +252,29 @@ export async function fetchScoutingHistory(
   supabase: SupabaseClient,
   input: FetchScoutingHistoryInput,
 ): Promise<ScoutHistory> {
-  const [fixtureResult, draftResult, teamResult, reportResult, reportGameResult] = await Promise.all([
-    supabase.from("fixtures").select(FIXTURE_COLUMNS),
-    supabase.from("match_drafts").select(DRAFT_COLUMNS),
-    supabase.from("league_teams").select(TEAM_COLUMNS),
-    supabase.from("match_reports").select(REPORT_COLUMNS),
-    supabase.from("match_report_games").select(REPORT_GAME_COLUMNS),
+  const [fixtureRows, draftRows, teamRows, reportRows, reportGameRows] = await Promise.all([
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("fixtures").select(FIXTURE_COLUMNS).order("id").range(from, to)),
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_drafts").select(DRAFT_COLUMNS).order("id").range(from, to)),
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("league_teams").select(TEAM_COLUMNS).order("id").range(from, to)),
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_reports").select(REPORT_COLUMNS).order("id").range(from, to)),
+    fetchAllScoutingRows<UnknownRow>((from, to) => supabase.from("match_report_games").select(REPORT_GAME_COLUMNS).order("id").range(from, to)),
   ]);
-  if (fixtureResult.error) throw fixtureResult.error;
-  if (draftResult.error) throw draftResult.error;
-  if (teamResult.error) throw teamResult.error;
-  if (reportResult.error) throw reportResult.error;
-  if (reportGameResult.error) throw reportGameResult.error;
 
   const scope = createLeagueFixtureScope(input.leagueTeamNames);
-  const fixtures = asRows(fixtureResult.data)
+  const fixtures = asRows(fixtureRows)
     .map(mapFixture)
     .filter((fixture): fixture is ScoutFixtureRow => Boolean(fixture && scope.includesFixture(fixture)));
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const fixtureIds = new Set(fixturesById.keys());
   const teamNamesById = new Map(
-    asRows(teamResult.data)
+    asRows(teamRows)
       .flatMap((row) => {
         const id = asNullableString(row.id);
         const name = asNullableString(row.name);
         return id && name ? [[id, name] as const] : [];
       }),
   );
-  const drafts = asRows(draftResult.data)
+  const drafts = asRows(draftRows)
     .map(mapDraft)
     .filter((draft): draft is ScoutDraftRow => Boolean(draft && fixtureIds.has(draft.fixture_id)))
     .map((draft) => {
@@ -251,8 +287,9 @@ export async function fetchScoutingHistory(
           }
         : draft;
     });
-  const reports = asRows(reportResult.data).filter((report) => fixtureIds.has(asNullableString(report.fixture_id) ?? ""));
-  const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameResult.data), fixturesById, teamNamesById);
+  const reports = resolveReportFixtureIds(asRows(reportRows), fixtures, fixturesById, teamNamesById)
+    .filter((report) => fixtureIds.has(asNullableString(report.fixture_id) ?? ""));
+  const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameRows), fixturesById, teamNamesById);
   for (const reportedDraft of reportedDrafts) {
     const current = drafts.find((draft) => draft.fixture_id === reportedDraft.fixture_id && draft.game_number === reportedDraft.game_number);
     if (!current || current.actions.length === 0) drafts.push(reportedDraft);
