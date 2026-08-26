@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fmtPoints } from "@/lib/betting/format";
+import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
+import type { MarketCardData } from "@/lib/betting/types";
 import type { CardLeague } from "@/lib/cards/queries";
 import type { PremiumHubSnapshot, PreviewResult } from "@/lib/premium/preview";
 
@@ -174,6 +176,58 @@ function CardEconomyPreview() {
   );
 }
 
+function BettingGamePreview({ market }: { market: MarketCardData | null }) {
+  if (!market) {
+    return (
+      <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-line bg-navy/50 p-5 text-center text-sm text-steel">
+        No bettable games are open right now.
+      </div>
+    );
+  }
+
+  const shareA = displayedShareA(market.pool_a, market.pool_b, market.open_line_prob_a);
+  const totalPool = market.pool_a + market.pool_b + market.pool_draw;
+  const gameTime = new Date(market.game_at).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  });
+
+  return (
+    <div className="rounded-lg border border-line bg-navy/60 p-3">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 rounded border p-3" style={{ borderColor: `${market.team_a.color}66` }}>
+          <span className="font-mono text-xs font-semibold" style={{ color: market.team_a.color }}>
+            {market.team_a.short_code}
+          </span>
+          <p className="mt-2 truncate text-sm font-semibold text-white">{market.team_a.name}</p>
+          <p className="mt-1 font-mono text-xs text-steel">{americanOdds(shareA)}</p>
+        </div>
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">vs</span>
+        <div className="min-w-0 flex-1 rounded border p-3" style={{ borderColor: `${market.team_b.color}66` }}>
+          <span className="font-mono text-xs font-semibold" style={{ color: market.team_b.color }}>
+            {market.team_b.short_code}
+          </span>
+          <p className="mt-2 truncate text-sm font-semibold text-white">{market.team_b.name}</p>
+          <p className="mt-1 font-mono text-xs text-steel">{americanOdds(1 - shareA)}</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-steel">
+        <span className={market.status === "OPEN" ? "font-semibold text-mint" : "font-semibold text-gold"}>
+          {market.status === "OPEN" ? "Betting open" : "Market locked"}
+        </span>
+        <span>{fmtPoints(totalPool)} pool</span>
+      </div>
+      <p className="mt-2 truncate text-xs text-steel">
+        {market.event_name} · {gameTime}
+      </p>
+    </div>
+  );
+}
+
 export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
@@ -241,17 +295,16 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           >
             {snapshot.betting.status === "ready" ? (
               <div className="flex h-full flex-col justify-between rounded-lg border border-gold/30 bg-gold/5 p-4">
-                <div>
-                  <span className="text-xs uppercase tracking-[0.16em] text-steel">Wallet</span>
-                  <p className="mt-2 font-display text-3xl font-bold text-gold">
-                    {snapshot.betting.data.balance === null ? "—" : fmtPoints(snapshot.betting.data.balance)}
-                  </p>
-                </div>
-                <div className="mt-6 border-t border-gold/20 pt-3 text-xs text-steel">
-                  <p className="font-semibold text-white">{snapshot.betting.data.event.name}</p>
-                  <p className="mt-1">
-                    {snapshot.betting.data.event.open_markets} open markets
-                    {snapshot.betting.data.event.next_lock_at ? ` · locks ${new Date(snapshot.betting.data.event.next_lock_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York", timeZoneName: "short" })}` : ""}
+                <BettingGamePreview market={snapshot.betting.data.market} />
+                <div className="mt-5 border-t border-gold/20 pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs uppercase tracking-[0.16em] text-steel">Wallet</span>
+                    <p className="font-display text-2xl font-bold text-gold">
+                      {snapshot.betting.data.balance === null ? "—" : fmtPoints(snapshot.betting.data.balance)}
+                    </p>
+                  </div>
+                  <p className="mt-2 text-xs text-steel">
+                    {snapshot.betting.data.event.name} · {snapshot.betting.data.event.open_markets} open markets
                   </p>
                 </div>
               </div>

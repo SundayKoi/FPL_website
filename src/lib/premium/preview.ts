@@ -2,13 +2,13 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getInfoPageData } from "@/lib/info/resources";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchEventSummaries } from "@/lib/betting/queries";
+import { fetchEventSummaries, fetchMarketCards } from "@/lib/betting/queries";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { fetchBangerPosts, fetchDailyBanger } from "@/lib/bangers/queries";
 import { rating, type BangerPost } from "@/lib/bangers/feed";
 import { createServerSupabase } from "@/lib/supabase/server";
-import type { EventSummary } from "@/lib/betting/types";
+import type { EventSummary, MarketCardData } from "@/lib/betting/types";
 
 export type PreviewResult<T> =
   | { status: "ready"; data: T }
@@ -25,6 +25,7 @@ export interface CardPreviewData {
 export interface BettingPreviewData {
   balance: number | null;
   event: EventSummary;
+  market: MarketCardData | null;
 }
 
 export interface BangerPreviewData {
@@ -87,10 +88,18 @@ async function loadCardPreview(
 }
 
 async function loadBettingPreview(): Promise<PreviewResult<BettingPreviewData>> {
-  const [user, events] = await Promise.all([getBettingUser(), fetchEventSummaries()]);
-  const event = events.find((candidate) => candidate.open_markets > 0 || candidate.has_live_pickem) ?? events[0];
+  const [user, events, markets] = await Promise.all([
+    getBettingUser(),
+    fetchEventSummaries(),
+    fetchMarketCards(),
+  ]);
+  const market = markets.find((candidate) => candidate.status === "OPEN") ?? markets[0] ?? null;
+  const event =
+    (market?.event_name ? events.find((candidate) => candidate.name === market.event_name) : undefined) ??
+    events.find((candidate) => candidate.open_markets > 0 || candidate.has_live_pickem) ??
+    events[0];
   if (!event) return { status: "empty", message: "No betting events are live right now." };
-  return { status: "ready", data: { balance: user?.balance ?? null, event } };
+  return { status: "ready", data: { balance: user?.balance ?? null, event, market } };
 }
 
 async function loadBangerPreview(): Promise<PreviewResult<BangerPreviewData>> {
