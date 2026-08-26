@@ -1030,7 +1030,12 @@ body {
   .pack-line-solo {
     --pack-slot-w: min(17rem, 78vw);
     --pack-slot-h: calc(min(17rem, 78vw) * 1.4);
-    --pack-slot-scale: calc(min(17rem, 78vw) / 320);
+    /* Divided by 320px, NOT by 320. A length over a bare number is still a
+       length, so `scale(0.85px)` — which is invalid, computes the whole
+       transform to `none`, and left the card at its full 320px inside a
+       272px slot, i.e. invisible on a phone. Length over length is the
+       unitless number scale() actually wants. */
+    --pack-slot-scale: calc(min(17rem, 78vw) / 320px);
   }
 }
 
