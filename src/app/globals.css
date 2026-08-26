@@ -663,8 +663,11 @@ body {
   display: block;
   width: 100%;
   height: auto;
-  -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
+  /* Fade only the outer rim — a fade that starts at 68% dragged the
+     mark's own edges (the diamond, the banner text) into softness and
+     read as blur on top of the upscale. */
+  -webkit-mask-image: radial-gradient(closest-side, #000 84%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 84%, transparent 100%);
   filter: saturate(0.95) contrast(1.05);
 }
 @utility champ-ink {
