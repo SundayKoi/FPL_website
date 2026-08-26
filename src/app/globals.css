@@ -431,8 +431,11 @@ body {
    ever reading as a rating. Deliberately decoration-only. */
 @utility patron-flame-layer {
   position: absolute;
-  inset: 0;
-  border-radius: var(--flame-radius, 1rem);
+  /* Floated a touch OFF the edge rather than gripping it — flush against
+     the frame it read as part of the card (which is exactly what it must
+     never be); a 6px orbit reads as something around the card. */
+  inset: -6px;
+  border-radius: calc(var(--flame-radius, 1rem) + 6px);
   pointer-events: none;
   z-index: 30;
 }
@@ -450,7 +453,7 @@ body {
   border-radius: 999px;
   background: radial-gradient(circle, #fff 0 20%, var(--flame-hot, #ffd989) 45%, var(--flame-core, #ff6d5a) 80%, transparent);
   box-shadow: 0 0 10px var(--flame-core, #ff6d5a), 0 0 3px var(--flame-hot, #ffd989);
-  offset-path: inset(1px round var(--flame-radius, 1rem));
+  offset-path: inset(1px round calc(var(--flame-radius, 1rem) + 6px));
   animation: patronLap 3.4s linear infinite;
 }
 .patron-flame-spark:nth-child(3) { width: 5px; height: 5px; animation-delay: -3.32s; opacity: 0.7; }
