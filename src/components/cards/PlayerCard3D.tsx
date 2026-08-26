@@ -646,10 +646,6 @@ function PlayerCardFace({
               </div>
             ) : null}
           </div>
-          {/* Flush with the card's outermost edge — a sibling of the inner
-              face, not a child, so the dashed ring rides the frame itself
-              with no gap. Inside the tilt layer, so it turns with the card. */}
-          {flame ? <PatronFlame flame={flame} /> : null}
         </div>
 
         {/* ── BACK ─────────────────────────────────────────────────── */}
@@ -757,6 +753,14 @@ function PlayerCardFace({
             </div>
           </div>
         </div>
+
+        {/* The Patron Flame orbits 6px OUTSIDE the card, so it cannot live
+            inside a face — both faces clip at overflow-hidden, and a ring
+            entirely beyond the clip box simply vanishes (it did). Out here
+            on the tilt layer nothing clips: it turns with the card, and
+            deliberately does not flip — the halo holds while the card
+            shows its back, like a hand holding it up. */}
+        {flame ? <PatronFlame flame={flame} /> : null}
       </div>
       </div>
     </div>

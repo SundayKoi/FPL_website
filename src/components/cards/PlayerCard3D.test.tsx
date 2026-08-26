@@ -448,6 +448,20 @@ describe("iOS motion permission", () => {
 });
 
 describe("the Patron Flame on a card", () => {
+  it("never sits inside a clipping layer — a ring outside the clip box vanishes", () => {
+    // The regression that shipped: the flame orbits 6px OUTSIDE the card,
+    // and its first home was inside a face styled overflow-hidden — which
+    // clipped the entire ring into nonexistence while every existence
+    // check here stayed green.
+    const { container } = render(<PlayerCard3D card={card} flame="ember" />);
+
+    let node = container.querySelector("[data-testid='patron-flame']")?.parentElement ?? null;
+    while (node && node !== container) {
+      expect(node.className).not.toContain("overflow-hidden");
+      node = node.parentElement;
+    }
+  });
+
   it("burns on a copy whose owner is a patron", () => {
     const { container } = render(<PlayerCard3D card={card} flame="frostfire" />);
 
