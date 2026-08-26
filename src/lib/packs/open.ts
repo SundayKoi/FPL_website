@@ -370,9 +370,13 @@ async function announceChaseClaim(
     .eq("discord_id", discordId)
     .maybeSingle();
   const who = (data as { username: string } | null)?.username ?? "Someone";
+  // The card itself rides the embed, via the share renderer the site
+  // already serves. SITE_URL missing just drops the picture, not the news.
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   await postCardsWebhook({
     title: "🏆 The chase has fallen",
     description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
     color: GOLD,
+    ...(site ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
   });
 }

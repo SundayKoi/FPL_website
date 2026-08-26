@@ -48,6 +48,28 @@ async function main() {
   if (!res.ok) {
     const body = await res.text();
     console.error(body);
+    // 20012 has exactly one cause: the bot token and DISCORD_APP_ID belong
+    // to two different Discord applications. Rather than leave that to be
+    // guessed at, ask Discord which application the TOKEN thinks it is and
+    // print both ids — the mismatch names the secret to fix.
+    if (body.includes('"code": 20012') || body.includes('"code":20012')) {
+      const who = await fetch("https://discord.com/api/v10/applications/@me", {
+        headers: { Authorization: `Bot ${botToken}` },
+      });
+      if (who.ok) {
+        const app = (await who.json()) as { id: string; name: string };
+        console.error(
+          `\nDISCORD_APP_ID is set to ${appId}, but DISCORD_BOT_TOKEN belongs to ` +
+            `application ${app.id} ("${app.name}").\n` +
+            (app.id === appId
+              ? "The ids match, so the token itself lacks rights — regenerate it in the Developer Portal."
+              : `Fix ONE of the two secrets so they name the same application — most likely set DISCORD_APP_ID=${app.id}, ` +
+                "or if the old gateway bot's app is the one in your server, use THAT app's bot token instead."),
+        );
+      } else {
+        console.error("\nCould not identify the token's application (token may be invalid entirely).");
+      }
+    }
     throw new Error(`Discord command registration failed with status ${res.status}`);
   }
 

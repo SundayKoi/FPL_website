@@ -112,10 +112,14 @@ export async function armChaseAction(input: {
     return { ok: false, error: "Could not arm the chase." };
   }
 
+  // A player-specific chase can show its target; the other presets have no
+  // single card to picture.
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   await postCardsWebhook({
     title: "★ This week's chase is live",
     description: `**${title}**\nFirst to pull it${bounty > 0 ? ` wins **${bounty}** betting dollars and` : ""} takes the CHASE stamp — ${editionLabel(week)} packs only.`,
     color: GOLD,
+    ...(site && criteria.slug ? { image: { url: `${site}/card/${criteria.slug}/card.png` } } : {}),
   });
   revalidatePath("/cards/packs");
   revalidatePath("/schedule");
