@@ -435,7 +435,7 @@ describe("MatchDraftBoard", () => {
     expect(text.indexOf("Zed")).toBeLessThan(text.indexOf("Ahri"));
   });
 
-  it("lets a lobby captain confirm roles through the open_draft RPC", async () => {
+  it("opens a post-draft role modal with draggable pick tiles and per-side ready buttons", async () => {
     rpcMock.mockClear();
     render(
       <MatchDraftBoard
@@ -450,14 +450,17 @@ describe("MatchDraftBoard", () => {
         }}
         viewerTeamName="Blue Team"
         lobby={{ lobbyId: "lobby-1", token: "tok-a" }}
+        canReset
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /confirm roles/i }));
-    // Rows reorder by pointer drag; arrow keys drive the same move (and are
-    // what jsdom can exercise).
-    fireEvent.keyDown(screen.getByLabelText(/reorder Ahri/i), { key: "ArrowDown" });
-    fireEvent.click(screen.getByRole("button", { name: /save roles/i }));
+    expect(screen.getByRole("dialog", { name: /confirm roles/i })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /^role confirmation$/i })).toBeNull();
+
+    // The role modal reuses the champion pick tiles, and keyboard movement
+    // exercises the same reorder path as pointer dragging.
+    fireEvent.keyDown(screen.getByRole("listitem", { name: /Ahri.*drag to reorder/i }), { key: "ArrowDown" });
+    fireEvent.click(screen.getByRole("button", { name: /BLU ready/i }));
 
     await waitFor(() => {
       expect(rpcMock).toHaveBeenCalledWith("set_open_draft_positions", {
@@ -466,6 +469,19 @@ describe("MatchDraftBoard", () => {
         p_side: "blue",
         p_champions: ["Zed", "Ahri", null, null, null],
       });
+    });
+
+    expect(screen.getByText(/waiting on RED/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /RED ready/i }));
+
+    await waitFor(() => {
+      expect(rpcMock).toHaveBeenCalledWith("set_open_draft_positions", {
+        p_token: "tok-a",
+        p_game: 1,
+        p_side: "red",
+        p_champions: [null, null, null, null, null],
+      });
+      expect(screen.queryByRole("dialog", { name: /confirm roles/i })).toBeNull();
     });
   });
 

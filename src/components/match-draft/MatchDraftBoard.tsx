@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEventHandler, type PointerEventHandler } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import ConnectionBanner from "@/components/system/ConnectionBanner";
@@ -121,6 +121,15 @@ function DraftSlot({
   onRequestChange = null,
   label,
   slotClassName = "",
+  emptyLabel = "Open",
+  interactive = false,
+  role,
+  ariaLabel,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+  onKeyDown,
 }: {
   side: DraftSide;
   kind: DraftActionKind;
@@ -136,6 +145,15 @@ function DraftSlot({
   /** Overrides the "pick N" header — role names once roles are confirmed. */
   label?: string;
   slotClassName?: string;
+  emptyLabel?: string;
+  interactive?: boolean;
+  role?: "listitem";
+  ariaLabel?: string;
+  onPointerDown?: PointerEventHandler<HTMLDivElement>;
+  onPointerMove?: PointerEventHandler<HTMLDivElement>;
+  onPointerUp?: PointerEventHandler<HTMLDivElement>;
+  onPointerCancel?: PointerEventHandler<HTMLDivElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
 }) {
   const champion = action?.champion ? resolve(action.champion) : null;
   const ghost = !action && intent ? resolve(intent) : null;
@@ -147,9 +165,17 @@ function DraftSlot({
   const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/centered/") : null;
   return (
     <div
+      role={role}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={ariaLabel}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onKeyDown={onKeyDown}
       className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
         active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
-      }`}
+      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral" : ""}`}
     >
       {portraitUrl ? (
         <>
@@ -185,7 +211,7 @@ function DraftSlot({
         </span>
       </div>
       <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
-        {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : "Open"}
+        {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : emptyLabel}
       </p>
       {kind === "pick" && (action?.playerName || playerName) ? (
         <p className="relative mt-1 truncate text-xs text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{action?.playerName || playerName}</p>
@@ -195,6 +221,7 @@ function DraftSlot({
 }
 
 const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support"] as const;
+type RoleOrders = Partial<Record<DraftSide, (string | null)[]>>;
 
 function SlotColumn({
   side,
@@ -543,9 +570,12 @@ export default function MatchDraftBoard({
   // room as a ghost); the Lock In button confirms. pendingPick is the
   // viewer's own selection, remoteIntents are the other clients', per game.
   const [pendingPick, setPendingPick] = useState<{ stepIndex: number; champion: string } | null>(null);
-  // Post-draft role confirmation: which side's order is being edited, and
-  // the working top→support arrangement.
-  const [roleEditor, setRoleEditor] = useState<{ gameNumber: number; side: DraftSide; order: (string | null)[] } | null>(null);
+  // Post-draft role confirmation: each side's working top→support
+  // arrangement stays local until that captain clicks Ready.
+  const [roleOrders, setRoleOrders] = useState<RoleOrders>({});
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [roleDrag, setRoleDrag] = useState<{ side: DraftSide; index: number } | null>(null);
+  const roleListsRef = useRef<Record<DraftSide, HTMLDivElement | null>>({ blue: null, red: null });
   const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
   const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -1028,33 +1058,30 @@ export default function MatchDraftBoard({
       (step) => actionForStep(state.actions, step)?.champion ?? null,
     );
 
-  // An editor left open from another game's tab just stops applying.
-  const activeRoleEditor = roleEditor && roleEditor.gameNumber === state.gameNumber ? roleEditor : null;
+  const roleOrderForSide = (side: DraftSide): (string | null)[] =>
+    roleOrders[side] ?? state.positions?.[side] ?? picksInDraftOrder(side);
 
-  const openRoleEditor = (side: DraftSide) =>
-    setRoleEditor({
-      gameNumber: state.gameNumber,
-      side,
-      order: state.positions?.[side] ?? picksInDraftOrder(side),
+  const openRoleConfirmation = () => {
+    setRoleOrders({
+      blue: state.positions?.blue ?? picksInDraftOrder("blue"),
+      red: state.positions?.red ?? picksInDraftOrder("red"),
     });
+    setRoleModalOpen(true);
+  };
 
   /** Move the entry at `from` to position `to` (others shift, drag-style). */
-  const moveRoleTo = (from: number, to: number) =>
-    setRoleEditor((current) => {
-      if (!current || from === to || from < 0 || to < 0) return current;
-      if (from >= current.order.length || to >= current.order.length) return current;
-      const order = [...current.order];
+  const moveRoleTo = (side: DraftSide, from: number, to: number) =>
+    setRoleOrders((current) => {
+      const currentOrder = current[side] ?? state.positions?.[side] ?? picksInDraftOrder(side);
+      if (from === to || from < 0 || to < 0 || from >= currentOrder.length || to >= currentOrder.length) return current;
+      const order = [...currentOrder];
       const [moved] = order.splice(from, 1);
       order.splice(to, 0, moved);
-      return { ...current, order };
+      return { ...current, [side]: order };
     });
 
-  // Live drag state: the dragged item's CURRENT index (it moves as the
-  // pointer crosses row midpoints, so the list re-orders under the finger).
-  const [dragFrom, setDragFrom] = useState<number | null>(null);
-  const roleListRef = useRef<HTMLUListElement | null>(null);
-  const roleRowAtY = (clientY: number): number | null => {
-    const list = roleListRef.current;
+  const roleRowAtY = (side: DraftSide, clientY: number): number | null => {
+    const list = roleListsRef.current[side];
     if (!list) return null;
     const rows = Array.from(list.children) as HTMLElement[];
     for (let i = 0; i < rows.length; i += 1) {
@@ -1064,22 +1091,24 @@ export default function MatchDraftBoard({
     return rows.length - 1;
   };
 
-  const saveRoles = async () => {
-    if (!supabase || !activeRoleEditor) return;
+  const saveRoles = async (side: DraftSide) => {
+    if (!supabase) return;
+    const order = roleOrderForSide(side);
     setSaving(true);
     setError(null);
     try {
       const { error: rpcError } = await draftRpc(supabase, "set_match_draft_positions", {
         p_game: state.gameNumber,
-        p_side: activeRoleEditor.side,
-        p_champions: activeRoleEditor.order,
+        p_side: side,
+        p_champions: order,
       });
       if (rpcError) throw rpcError;
+      const positions = { ...(state.positions ?? {}), [side]: order };
       setState({
         ...state,
-        positions: { ...(state.positions ?? {}), [activeRoleEditor.side]: activeRoleEditor.order },
+        positions,
       });
-      setRoleEditor(null);
+      if (positions.blue && positions.red) setRoleModalOpen(false);
     } catch (err) {
       setError(saveErrorMessage(err, "Roles could not be saved."));
     } finally {
@@ -1215,6 +1244,9 @@ export default function MatchDraftBoard({
   const switchGame = (game: MatchDraftGameTab) => {
     if (!statesByGame[game.gameNumber]) return;
     setGameNumber(game.gameNumber);
+    setRoleModalOpen(false);
+    setRoleOrders({});
+    setRoleDrag(null);
     // Keep the URL shareable/refreshable without a navigation.
     window.history.replaceState(null, "", game.href);
   };
@@ -1288,6 +1320,9 @@ export default function MatchDraftBoard({
   // The code for the game being viewed — captains-only by construction
   // (spectators receive an empty tourneyCodes object; see the prop doc).
   const currentTourneyCode = tourneyCodes[state.gameNumber] ?? null;
+  const rolesFullyReady = Boolean(state.positions?.blue && state.positions?.red);
+  const canConfirmRoles = !onSave && state.status === "complete" && Boolean(viewerSide || canReset);
+  const roleModalVisible = canConfirmRoles && (roleModalOpen || !rolesFullyReady);
 
   const completeBanner = state.status === "complete" ? (
     <section className="card-brand flex flex-wrap items-center gap-3 border-mint/40 p-3" aria-label="Draft complete">
@@ -1303,6 +1338,16 @@ export default function MatchDraftBoard({
             : ""}
       </span>
       {currentTourneyCode ? <TourneyCodeChip code={currentTourneyCode} /> : null}
+      {canConfirmRoles && rolesFullyReady ? (
+        <button
+          type="button"
+          disabled={saving}
+          onClick={openRoleConfirmation}
+          className="ml-auto rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40"
+        >
+          Adjust roles
+        </button>
+      ) : null}
     </section>
   ) : null;
 
@@ -1351,131 +1396,144 @@ export default function MatchDraftBoard({
     </section>
   ) : null;
 
-  // After the game's draft locks, each team confirms which champion goes to
-  // which role (drafterlol-style) — the pick columns then re-order to match.
-  const roleConfirm = !onSave && state.status === "complete" ? (
-    <section className="card-brand flex flex-col gap-3 p-3" aria-label="Role confirmation">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="label-dash">Role confirmation</span>
-        <span className="text-sm text-steel">
-          Captains rarely draft in position order — set which champion each role is actually playing.
-        </span>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {(["blue", "red"] as DraftSide[]).map((side) => {
-          const confirmed = state.positions?.[side] ?? null;
-          const editable = canReset || viewerSide === side;
-          const editing = activeRoleEditor?.side === side ? activeRoleEditor : null;
-          const roster = playersForSide(side);
-          return (
-            <div key={side} className={`rounded border p-3 ${sideClass[side]}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold uppercase tracking-wide">{teamForSide(side).abbreviation}</span>
-                {editing ? null : confirmed ? (
-                  <span className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-mint">Roles confirmed ✓</span>
-                    {editable ? (
-                      <button type="button" disabled={saving} onClick={() => openRoleEditor(side)} className="btn-pill px-2.5 py-1 text-[11px] disabled:opacity-40">
-                        Adjust
-                      </button>
-                    ) : null}
+  const roleModal = roleModalVisible ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Confirm roles">
+      <div className="card-brand w-full max-w-5xl p-4 shadow-[0_16px_64px_rgb(0_0_0/0.65)] sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <span className="label-dash">Post-draft role confirmation</span>
+            <h2 className="type-display mt-1 text-2xl text-white sm:text-3xl">Set your team&apos;s roles</h2>
+            <p className="mt-2 max-w-2xl text-sm text-steel">
+              Drag the champion pick tiles into Top, Jungle, Mid, ADC, and Support order. Both captains must click Ready before the roles are locked in.
+            </p>
+          </div>
+          {rolesFullyReady ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setRoleModalOpen(false)}
+              className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+            >
+              Close
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {(["blue", "red"] as DraftSide[]).map((side) => {
+            const editable = canReset || viewerSide === side;
+            const confirmed = Boolean(state.positions?.[side]);
+            const order = roleOrderForSide(side);
+            const roster = playersForSide(side);
+            return (
+              <section key={side} className={`rounded border p-3 ${sideClass[side]}`} aria-label={`${teamForSide(side).abbreviation} role confirmation`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wide">{teamForSide(side).abbreviation}</span>
+                    <p className="mt-1 text-xs text-steel">{teamForSide(side).name}</p>
+                  </div>
+                  <span className={`text-[11px] font-semibold uppercase tracking-wide ${confirmed ? "text-mint" : "text-steel"}`}>
+                    {confirmed ? "Ready ✓" : editable ? "Arrange picks" : "Waiting for captain"}
                   </span>
-                ) : editable ? (
-                  <button type="button" disabled={saving} onClick={() => openRoleEditor(side)} className="btn-coral px-3 py-1 text-[11px] disabled:opacity-40">
-                    Confirm roles
-                  </button>
-                ) : (
-                  <span className="text-[11px] uppercase tracking-wide text-steel">
-                    Waiting for {teamForSide(side).abbreviation}…
-                  </span>
-                )}
-              </div>
-              <ul ref={editing ? roleListRef : undefined} className="mt-2 grid gap-1">
-                {(editing?.order ?? confirmed ?? picksInDraftOrder(side)).map((champion, index) => (
-                  <li
-                    key={`${side}-${index}`}
-                    tabIndex={editing ? 0 : undefined}
-                    aria-label={editing ? `Reorder ${champion ?? "skipped pick"} — drag, or press the arrow keys` : undefined}
-                    onPointerDown={
-                      editing
-                        ? (event) => {
-                            event.preventDefault();
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                            setDragFrom(index);
-                          }
-                        : undefined
-                    }
-                    onPointerMove={
-                      editing
-                        ? (event) => {
-                            if (dragFrom === null) return;
-                            const target = roleRowAtY(event.clientY);
-                            if (target !== null && target !== dragFrom) {
-                              moveRoleTo(dragFrom, target);
-                              setDragFrom(target);
-                            }
-                          }
-                        : undefined
-                    }
-                    onPointerUp={editing ? () => setDragFrom(null) : undefined}
-                    onPointerCancel={editing ? () => setDragFrom(null) : undefined}
-                    onKeyDown={
-                      editing
-                        ? (event) => {
-                            if (event.key === "ArrowUp") {
-                              event.preventDefault();
-                              moveRoleTo(index, index - 1);
-                            } else if (event.key === "ArrowDown") {
-                              event.preventDefault();
-                              moveRoleTo(index, index + 1);
-                            }
-                          }
-                        : undefined
-                    }
-                    className={`flex items-center gap-2 rounded bg-navy/60 px-2 py-1.5 text-sm text-white ${
-                      editing
-                        ? `cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral ${
-                            dragFrom === index ? "cursor-grabbing shadow-[0_0_0_1px] shadow-coral" : ""
-                          }`
-                        : ""
-                    }`}
-                  >
-                    {editing ? (
-                      <span aria-hidden className="shrink-0 text-xs leading-none text-steel">
-                        ⠿
-                      </span>
-                    ) : null}
-                    <span className="w-14 shrink-0 text-[10px] font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[index]}</span>
-                    <span className="min-w-0 flex-1 truncate font-semibold">
-                      {champion ?? <span className="font-normal text-red-400/80">Skipped</span>}
-                    </span>
-                    {roster[index] ? <span className="truncate text-xs text-steel">{roster[index]}</span> : null}
-                  </li>
-                ))}
-              </ul>
-              {editing ? (
-                <p className="mt-1 text-[11px] text-steel">Drag each champion onto the role they&apos;ll play.</p>
-              ) : null}
-              {editing ? (
-                <div className="mt-2 flex gap-2">
-                  <button type="button" disabled={saving} onClick={() => void saveRoles()} className="btn-coral px-3 py-1.5 text-xs disabled:opacity-40">
-                    Save roles
-                  </button>
+                </div>
+                <div
+                  ref={(element) => {
+                    roleListsRef.current[side] = element;
+                  }}
+                  role="list"
+                  aria-label={`${teamForSide(side).abbreviation} champion picks`}
+                  className="mt-3 grid gap-2"
+                >
+                  {order.map((champion, index) => {
+                    const action = champion
+                      ? state.actions.find(
+                          (entry) =>
+                            entry.kind === "pick" &&
+                            entry.side === side &&
+                            entry.champion &&
+                            normalizeChampionName(entry.champion) === normalizeChampionName(champion),
+                        ) ?? null
+                      : null;
+                    const dragging = roleDrag?.side === side && roleDrag.index === index;
+                    const interactive = editable && (!confirmed || roleModalOpen);
+                    return (
+                      <DraftSlot
+                        key={`${side}-role-modal-${index}`}
+                        side={side}
+                        kind="pick"
+                        slot={index + 1}
+                        action={action ? { ...action, playerName: null } : null}
+                        active={false}
+                        playerName={roster[index] ?? ""}
+                        imageSize="md"
+                        resolve={resolveChampion}
+                        label={ROLE_LABELS[index]}
+                        emptyLabel="Skipped"
+                        role="listitem"
+                        interactive={interactive}
+                        ariaLabel={`${champion ?? "Skipped pick"} — ${ROLE_LABELS[index]} role${interactive ? ", drag to reorder" : ""}`}
+                        onPointerDown={
+                          interactive
+                            ? (event) => {
+                                event.preventDefault();
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                                setRoleDrag({ side, index });
+                              }
+                            : undefined
+                        }
+                        onPointerMove={
+                          interactive
+                            ? (event) => {
+                                if (roleDrag?.side !== side || roleDrag.index === null) return;
+                                const target = roleRowAtY(side, event.clientY);
+                                if (target !== null && target !== roleDrag.index) {
+                                  moveRoleTo(side, roleDrag.index, target);
+                                  setRoleDrag({ side, index: target });
+                                }
+                              }
+                            : undefined
+                        }
+                        onPointerUp={interactive ? () => setRoleDrag(null) : undefined}
+                        onPointerCancel={interactive ? () => setRoleDrag(null) : undefined}
+                        onKeyDown={
+                          interactive
+                            ? (event) => {
+                                if (event.key === "ArrowUp") {
+                                  event.preventDefault();
+                                  moveRoleTo(side, index, index - 1);
+                                } else if (event.key === "ArrowDown") {
+                                  event.preventDefault();
+                                  moveRoleTo(side, index, index + 1);
+                                }
+                              }
+                            : undefined
+                        }
+                        slotClassName={dragging ? "shadow-[0_0_0_2px] shadow-coral" : ""}
+                      />
+                    );
+                  })}
+                </div>
+                {editable ? (
                   <button
                     type="button"
                     disabled={saving}
-                    onClick={() => setRoleEditor(null)}
-                    className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+                    aria-pressed={confirmed}
+                    onClick={() => void saveRoles(side)}
+                    className={`mt-3 w-full rounded-full border-2 px-4 py-2 text-sm font-bold uppercase tracking-wide transition disabled:opacity-40 ${
+                      confirmed ? "border-mint/70 bg-mint/15 text-mint" : "border-coral/70 bg-coral/15 text-coral hover:bg-coral/25"
+                    }`}
                   >
-                    Cancel
+                    {teamForSide(side).abbreviation} {confirmed ? "ready ✓" : "ready"}
                   </button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+                ) : null}
+              </section>
+            );
+          })}
+        </div>
+        <p className="mt-4 text-center text-xs uppercase tracking-wide text-steel">
+          {rolesFullyReady ? "Both captains are ready — roles confirmed." : `Waiting on ${(["blue", "red"] as DraftSide[]).filter((side) => !state.positions?.[side]).map((side) => teamForSide(side).abbreviation).join(" and ")} to click Ready.`}
+        </p>
       </div>
-    </section>
+    </div>
   ) : null;
 
   const changeBanner = state.changeRequest ? (
@@ -1875,7 +1933,7 @@ export default function MatchDraftBoard({
 
       {completeBanner}
       {winnerPicker}
-      {roleConfirm}
+      {roleModal}
       {changeBanner}
       {sideChooser}
       {readyCheck}
