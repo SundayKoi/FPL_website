@@ -420,6 +420,31 @@ body {
 
    Dot pitch below (78px/53px) and the scale in card-art-parallax are the
    two numbers worth tuning if it wants more or less. */
+/* ── Patron flame ─────────────────────────────────────────────────────
+   The League Patron mark: an ember-gradient ring that slowly circulates.
+   Same border-gradient trick the card frames use (two background layers,
+   padding-box over border-box) so it wraps any rounded container without
+   a pseudo-element. Deliberately a FRAME and nothing else — patronage is
+   visibility, never power, so this must stay decoration. */
+@utility patron-flame {
+  border: 2px solid transparent;
+  background-image:
+    linear-gradient(#0d1729, #0d1729),
+    linear-gradient(120deg, #f5b62e, #ff6d5a 30%, #f5b62e 55%, #ffd989 75%, #f5b62e 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 300% 300%;
+  animation: patronFlame 7s linear infinite;
+  box-shadow: 0 0 18px rgb(245 182 46 / 0.18);
+}
+@keyframes patronFlame {
+  from { background-position: 0 0, 0% 50%; }
+  to { background-position: 0 0, 300% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .patron-flame { animation: none; }
+}
+
 /* ── Moment cards ─────────────────────────────────────────────────────
    A moment is not a player card: no rating, no tier, no pack to pull it
    from. So it is not printed as one. This is an engraved award plate —

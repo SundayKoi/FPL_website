@@ -20,7 +20,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { CardLeague } from "@/lib/cards/queries";
-import { openPackAction } from "@/lib/packs/actions";
+import { openDailyRipAction, openPackAction } from "@/lib/packs/actions";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
@@ -39,6 +39,8 @@ export default function PackShop({
   openCount: initialOpenCount,
   ownedSlugs = [],
   editionWeeks = [],
+  dailyRipsLeft = 0,
+  patron = false,
 }: {
   league: CardLeague;
   balance: number;
@@ -52,11 +54,19 @@ export default function PackShop({
   /** Every slug already in the collection — the overlay's NEW badges are the
    *  difference between this and what comes out of the pack. */
   ownedSlugs?: string[];
+  /** Free daily rips still unclaimed today (Eastern). Server-computed at
+   *  render; the button also survives a stale value because the RPC is the
+   *  real gate — a raced claim just shows its error. */
+  dailyRipsLeft?: number;
+  /** Active League Patron — labels the second rip for what it is. */
+  patron?: boolean;
 }) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
   const [openCount, setOpenCount] = useState(initialOpenCount);
   const [pulls, setPulls] = useState<Pull[] | null>(null);
+  const [ripsLeft, setRipsLeft] = useState(dailyRipsLeft);
+  const [ripStreak, setRipStreak] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Defaults to the newest week; picking an older one re-mints that week
@@ -93,6 +103,24 @@ export default function PackShop({
         setError(result.error);
         return;
       }
+      setPulls(result.cards);
+      banked(result.balance);
+    });
+  }
+
+  function handleDailyRip() {
+    setError(null);
+    startTransition(async () => {
+      const result = await openDailyRipAction(league);
+      if (!result.ok) {
+        setError(result.error);
+        // The server refused, so trust its count over ours — a rip claimed
+        // in another tab or over Discord already spent today's.
+        if (/already ripped/i.test(result.error)) setRipsLeft(0);
+        return;
+      }
+      setRipsLeft((n) => Math.max(0, n - 1));
+      setRipStreak(result.streak ?? null);
       setPulls(result.cards);
       banked(result.balance);
     });
@@ -149,6 +177,22 @@ export default function PackShop({
         >
           {pending ? "Opening…" : `Open pack — ${fmtPoints(packCost)}`}
         </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDailyRip}
+            disabled={pending || ripsLeft <= 0}
+            title={patron ? "Patrons rip twice a day" : "One free pack per day"}
+            className="rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {ripsLeft > 0
+              ? `Daily Rip — free${patron && ripsLeft > 1 ? ` (${ripsLeft} left)` : ""}`
+              : "Ripped today ✓"}
+          </button>
+          {ripStreak && ripStreak > 1 ? (
+            <span className="text-xs font-semibold text-gold">🔥 {ripStreak}-day streak</span>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={() => setMuted(!muted)}

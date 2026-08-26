@@ -11,6 +11,7 @@
 // Discord application-command option types
 // (https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type).
 const OPTION_TYPE = {
+  STRING: 3,
   INTEGER: 4,
   USER: 6,
 } as const;
@@ -21,6 +22,8 @@ interface CommandOption {
   type: number;
   required: boolean;
   autocomplete?: boolean;
+  /** Fixed value list Discord renders as a picker (string options only). */
+  choices?: { name: string; value: string }[];
 }
 
 export interface CommandDef {
@@ -31,6 +34,22 @@ export interface CommandDef {
 
 export const DISCORD_COMMANDS: CommandDef[] = [
   { name: "balance", description: "Your wallet + lifetime record" },
+  {
+    name: "rip",
+    description: "Rip your free daily card pack (patrons get two)",
+    options: [
+      {
+        name: "league",
+        description: "Which league's packs (default premier)",
+        type: OPTION_TYPE.STRING,
+        required: false,
+        choices: [
+          { name: "Premier", value: "premier" },
+          { name: "Academy", value: "academy" },
+        ],
+      },
+    ],
+  },
   { name: "daily", description: "Claim your daily bonus (streak escalates!)" },
   { name: "weekly", description: "Claim your weekly bonus (streak escalates!)" },
   {

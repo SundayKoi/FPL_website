@@ -14,6 +14,18 @@ async function loadBinder(token: string) {
   return fetchBinderByToken(createBettingServiceClient(), token);
 }
 
+/** Active patron? Async and off the render path — the compiler is right
+ *  that a bare Date.now() in a component body is a render impurity. */
+async function isPatron(discordId: string): Promise<boolean> {
+  const { data } = await createBettingServiceClient()
+    .from("betting_profiles")
+    .select("patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  const until = (data as { patron_until: string | null } | null)?.patron_until;
+  return Boolean(until && new Date(until).getTime() > Date.now());
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const binder = await loadBinder(token);
@@ -33,9 +45,15 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
   // would confirm the token used to be real.
   if (!binder) notFound();
 
+  // The flame on a patron's binder is most of what patronage buys — the
+  // binder is the page people actually share. Worn on the header, not the
+  // cards: the cards' frames mean tier, and muddying that would spend the
+  // merit axis on money.
+  const patron = await isPatron(binder.discordId);
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-center gap-4">
+      <header className={`flex flex-wrap items-center gap-4 ${patron ? "patron-flame rounded-2xl p-5" : ""}`}>
         {binder.ownerAvatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -50,6 +68,11 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
           <span className="label-dash">The binder</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">
             {binder.title ?? (binder.ownerName ? `${binder.ownerName}'s binder` : "Card binder")}
+            {patron ? (
+              <span className="ml-3 align-middle rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.14em] text-gold">
+                🔥 Patron
+              </span>
+            ) : null}
           </h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
         </div>
