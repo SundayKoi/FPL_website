@@ -1,0 +1,42 @@
+name: Import Faceless logo
+
+# One-shot asset importer for the champions drop. The sandbox this project
+# is developed in cannot reach Supabase storage, so a runner fetches the
+# uploaded Faceless mark, prints its REAL dimensions (the "is the blur the
+# source file" answer), normalizes it to PNG, and commits it into
+# public/ — where the champions cards can use it without depending on a
+# team row or a storage URL staying alive.
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "URL of the logo to import. Blank = the S4 Faceless upload."
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch and inspect
+        run: |
+          URL="${{ inputs.source_url }}"
+          [ -z "$URL" ] && URL="https://tyywoneobreracfnujdk.supabase.co/storage/v1/object/public/team-images/7645b3e2-5cb3-4f28-8442-a36c9367f6f6/5b379470-d7d4-47dc-8f13-df9cb5085d09/c69887ba-3a64-4076-9667-afa442fe2ab7"
+          curl -fsSL -o /tmp/faceless-src "$URL"
+          echo "── the number that answers the blur question ──"
+          identify /tmp/faceless-src
+          convert /tmp/faceless-src public/faceless-logo.png
+          identify public/faceless-logo.png
+      - name: Commit the asset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/faceless-logo.png
+          # Re-runs with an unchanged file should succeed quietly.
+          git diff --cached --quiet && echo "logo unchanged" && exit 0
+          git commit -m "assets: import the Faceless team logo for the champions drop"
+          git push

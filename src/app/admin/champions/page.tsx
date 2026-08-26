@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -20,16 +22,23 @@ export default async function ChampionsPreviewPage() {
   const { isOwner } = await fetchStaffTier(supabase);
   if (!isOwner) redirect("/admin");
 
-  // The Faceless mark, from the draft-side teams table (any season's row
-  // that carries art — S4's should). Garnish contract: a miss just leaves
+  // The Faceless mark. First choice is the asset committed into the site
+  // itself (the import-faceless-logo workflow puts it there) — a relic
+  // shouldn't depend on a team row or a storage URL staying alive. The
+  // draft-side teams table is the fallback; a miss on both just leaves
   // the spade pip in the center, never a hole.
-  const { data: teamRows } = await supabase
-    .from("teams")
-    .select("name, image_url")
-    .ilike("name", "%faceless%");
-  const logo =
-    ((teamRows as { name: string; image_url: string | null }[]) ?? []).find((row) => row.image_url)?.image_url ??
-    null;
+  let logo: string | null = existsSync(join(process.cwd(), "public", "faceless-logo.png"))
+    ? "/faceless-logo.png"
+    : null;
+  if (!logo) {
+    const { data: teamRows } = await supabase
+      .from("teams")
+      .select("name, image_url")
+      .ilike("name", "%faceless%");
+    logo =
+      ((teamRows as { name: string; image_url: string | null }[]) ?? []).find((row) => row.image_url)?.image_url ??
+      null;
+  }
 
   // Season here only labels the future copies' shelf; preview renders the
   // same either way.
