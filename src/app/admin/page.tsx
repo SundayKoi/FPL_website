@@ -125,6 +125,13 @@ export default async function AdminPage() {
       href: "/teams",
     },
     {
+      label: "Player claims",
+      stat: "Card identity queue",
+      statTone: "text-gold",
+      description: "Review player claims and approve card ownership.",
+      href: "/admin/claims",
+    },
+    {
       label: "Betting",
       stat: "Markets, pick'ems & catalog",
       statTone: "text-gold",

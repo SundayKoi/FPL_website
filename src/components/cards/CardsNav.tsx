@@ -18,8 +18,6 @@ interface NavItem {
   blurb: string;
   /** The one gold destination — moments are not a normal page. */
   accent?: boolean;
-  /** Rendered after the label, for the claims queue. */
-  badge?: number;
 }
 
 interface NavGroup {
@@ -27,15 +25,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-export function cardsNavGroups({
-  base,
-  showClaims = false,
-  pendingClaims = 0,
-}: {
-  base: string;
-  showClaims?: boolean;
-  pendingClaims?: number;
-}): NavGroup[] {
+export function cardsNavGroups({ base }: { base: string }): NavGroup[] {
   const groups: NavGroup[] = [
     {
       title: "Browse",
@@ -62,19 +52,10 @@ export function cardsNavGroups({
     },
   ];
 
-  if (showClaims) {
-    groups[2].items.push({
-      label: "Claims",
-      href: "/cards/claims",
-      blurb: "Approve players claiming their own card",
-      badge: pendingClaims > 0 ? pendingClaims : undefined,
-    });
-  }
-
   return groups;
 }
 
-export default function CardsNav(props: { base: string; showClaims?: boolean; pendingClaims?: number }) {
+export default function CardsNav(props: { base: string }) {
   const groups = cardsNavGroups(props);
 
   return (
@@ -99,11 +80,6 @@ export default function CardsNav(props: { base: string; showClaims?: boolean; pe
                     >
                       {item.label}
                     </span>
-                    {item.badge ? (
-                      <span className="rounded-full bg-coral px-1.5 py-0.5 text-[10px] font-black leading-none text-navy">
-                        {item.badge}
-                      </span>
-                    ) : null}
                     <span aria-hidden className="ml-auto text-xs text-steel transition group-hover:translate-x-0.5">
                       →
                     </span>

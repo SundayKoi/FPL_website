@@ -115,6 +115,13 @@ describe("AdminPage", () => {
     expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("academy");
   });
 
+  it("links staff to the dedicated player claims fixture", async () => {
+    render(await AdminPage());
+
+    expect(screen.getByRole("link", { name: /player claims/i }).getAttribute("href"))
+      .toBe("/admin/claims");
+  });
+
   it("uses the same unfiltered Premier schedule scope as the homepage", async () => {
     render(await AdminPage());
 

@@ -110,7 +110,7 @@ export default async function IdentityClaimsPage() {
           Approve only a player claiming their own current roster spot. Database policies limit captains to their team.
         </p>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-steel">
-          <Link href="/cards/claims" className="underline-offset-4 hover:text-coral hover:underline">Card-only claims →</Link>
+          <Link href="/admin/claims" className="underline-offset-4 hover:text-coral hover:underline">Card-only claims →</Link>
           <Link href="/teams" className="underline-offset-4 hover:text-coral hover:underline">Premier teams →</Link>
           <Link href="/academy/teams" className="underline-offset-4 hover:text-coral hover:underline">Academy teams →</Link>
         </div>

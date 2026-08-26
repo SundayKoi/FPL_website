@@ -5,7 +5,6 @@ import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CardsNav from "@/components/cards/CardsNav";
 import ClaimFinder from "@/components/cards/ClaimFinder";
 import { toClaimFinderCards } from "@/lib/cards/claimFinder";
-import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { cardSlug } from "@/lib/cards/build";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
@@ -57,22 +56,6 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const season = await fetchCardSeason(supabase, league);
   const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
-  // Whether to point at the approvals queue. Working out if THIS viewer is a
-  // captain of some roster costs a round trip per claim, so don't: admins
-  // always get the link (with the backlog on it), and everyone else gets it
-  // whenever any claim is pending. /cards/claims is the thing that knows what
-  // each viewer may actually act on, and says "nothing" when that's the answer.
-  const staffTier = await fetchStaffTier(supabase);
-  const { count: pendingClaims } = season
-    ? await supabase
-        .from("card_claims")
-        .select("season", { count: "exact", head: true })
-        .eq("season", season)
-        .eq("status", "pending")
-        .then((result) => result, () => ({ count: null }))
-    : { count: null };
-  const showClaims = staffTier.isAdmin || (pendingClaims ?? 0) > 0;
-
   // The thing a player is most likely here to do, and until now the hardest
   // to find: their own card. One read for the whole page — never one per
   // card — and every failure (signed-out edge, migration not applied, two
@@ -112,7 +95,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
 
       {/* Nine identical pills used to sit in the header, all shouting at the
           same volume. Grouped by what someone came here to do instead. */}
-      <CardsNav base={base} showClaims={showClaims} pendingClaims={pendingClaims ?? 0} />
+      <CardsNav base={base} />
       {/* Your card, before the wall of everyone else's. */}
       {myClaim && myClaim.status === "approved" && mySlug ? (
         <section className="card-brand flex flex-wrap items-center justify-between gap-4 px-5 py-4">

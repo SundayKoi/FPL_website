@@ -119,6 +119,17 @@ describe("IdentityClaimsPage", () => {
       .toBe("/login?redirect=/identity-claims");
   });
 
+  it("links reviewers to player claims in the admin fixture", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
+    const { client } = clientFor([], "admin-1", []);
+    createServerSupabase.mockResolvedValue(client);
+
+    render(await IdentityClaimsPage());
+
+    expect(screen.getByRole("link", { name: /card-only claims/i }).getAttribute("href"))
+      .toBe("/admin/claims");
+  });
+
   it("renders only the captain's own-team rows returned by identity RLS", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
     const { client, claimsQuery } = clientFor([ownClaim, otherClaim]);
