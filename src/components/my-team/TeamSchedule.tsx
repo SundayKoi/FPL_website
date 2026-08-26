@@ -68,8 +68,12 @@ export default function TeamSchedule({
   const recent = fixtures.filter(hasResult).sort(recentOrder);
 
   return (
-    <section aria-labelledby="team-schedule-heading" className="card-brand p-5">
-      <h2 id="team-schedule-heading" className="label-dash">Team schedule</h2>
+    <details className="card-brand group overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
+        <span role="heading" aria-level={2} className="label-dash">Team schedule</span>
+        <span aria-hidden className="text-xl leading-none text-coral transition group-open:rotate-45">+</span>
+      </summary>
+      <section aria-label="Team schedule" className="border-t border-line px-5 pb-5 pt-4">
       {fixtures.length === 0 ? (
         <p className="mt-3 text-sm text-steel">No team fixtures are scheduled yet.</p>
       ) : (
@@ -96,6 +100,7 @@ export default function TeamSchedule({
           </div>
         </div>
       )}
-    </section>
+      </section>
+    </details>
   );
 }

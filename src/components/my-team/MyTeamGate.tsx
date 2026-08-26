@@ -124,11 +124,14 @@ export default function MyTeamGate({
             {dashboard.nextFixture && dashboard.opponent ? (
               <Link
                 href={`${scoutingHref}${adminQuery}`}
-                className="card-brand block p-5 transition hover:border-coral/60"
+                className="card-brand group block p-5 transition hover:border-coral/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
                 aria-label={`Scout Opponent: ${dashboard.opponent.name}`}
               >
                 <span className="label-dash text-gold">Premium · Scouting</span>
-                <h2 className="type-display mt-2 text-2xl">Scout Opponent</h2>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <h2 className="type-display text-2xl">Scout Opponent</h2>
+                  <span aria-hidden className="text-2xl text-coral transition-transform group-hover:translate-x-1">→</span>
+                </div>
                 <p className="mt-2 text-sm text-steel">
                   Draft history and player pools for <span className="font-semibold text-white">{dashboard.opponent.name}</span>.
                 </p>

@@ -15,8 +15,12 @@ export default function MyResults({
   players: PlayerAggRow[];
 }) {
   return (
-    <section className="card-brand p-5">
-      <h2 className="label-dash">My results &amp; stats</h2>
+    <details className="card-brand group overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
+        <span role="heading" aria-level={2} className="label-dash">My results &amp; stats</span>
+        <span aria-hidden className="text-xl leading-none text-coral transition group-open:rotate-45">+</span>
+      </summary>
+      <section aria-label="My results &amp; stats" className="border-t border-line px-5 pb-5 pt-4">
 
       {games.length === 0 ? (
         <p className="mt-3 text-sm text-steel">No ingested games yet this season.</p>
@@ -77,6 +81,7 @@ export default function MyResults({
       {games.length === 0 && players.length === 0 && (
         <p className="mt-1 text-xs text-steel">Results show up here automatically once games are ingested.</p>
       )}
-    </section>
+      </section>
+    </details>
   );
 }

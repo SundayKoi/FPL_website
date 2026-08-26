@@ -32,9 +32,13 @@ export default function MyRoster({
   );
 
   return (
-    <section className="card-brand p-5">
+    <details className="card-brand group overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
+        <span role="heading" aria-level={2} className="label-dash">My roster</span>
+        <span aria-hidden className="text-xl leading-none text-coral transition group-open:rotate-45">+</span>
+      </summary>
+      <section aria-label="My roster" className="border-t border-line px-5 pb-5 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="label-dash">My roster</h2>
         {multiOpggUrl ? <OpggMultiLink href={multiOpggUrl} label="My Team OP.GG Multi" /> : null}
       </div>
 
@@ -94,6 +98,7 @@ export default function MyRoster({
       <p className="mt-4 text-xs text-steel">
         See something wrong here? Tell an admin — rosters and Riot IDs are edited by league admins only.
       </p>
-    </section>
+      </section>
+    </details>
   );
 }

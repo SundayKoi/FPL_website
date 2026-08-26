@@ -45,6 +45,17 @@ const ready: MyTeamDashboardResult = {
     note: null,
     created_by: null,
     created_at: "2026-08-01T00:00:00Z",
+  }, {
+    id: "code-2",
+    fixture_id: fixture.id,
+    season: "S5",
+    team_a_id: "team-1",
+    team_b_id: "team-2",
+    game_number: 2,
+    code: "TOURNEY-CODE-2",
+    note: null,
+    created_by: null,
+    created_at: "2026-08-01T00:00:00Z",
   }],
   draftGames: [],
   schedule: [fixture],
@@ -135,13 +146,27 @@ describe("MyTeamGate", () => {
       .toBe("/match-draft/fixture-1");
     expect(screen.getByRole("link", { name: /scout opponent/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
+
+    const panels = [
+      screen.getByRole("heading", { name: /tourney codes/i }).closest("details"),
+      screen.getByRole("heading", { name: /team schedule/i }).closest("details"),
+      screen.getByRole("heading", { name: /my roster/i }).closest("details"),
+      screen.getByRole("heading", { name: /my results & stats/i }).closest("details"),
+    ];
+    panels.forEach((panel) => expect(panel?.hasAttribute("open")).toBe(false));
+
+    const codesPanel = panels[0]!;
+    fireEvent.click(within(codesPanel).getByRole("heading", { name: /tourney codes/i }));
+    expect(codesPanel.hasAttribute("open")).toBe(true);
     expect(screen.getByText("TOURNEY-CODE")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /team schedule/i })).toBeTruthy();
+
+    fireEvent.click(within(codesPanel).getByRole("button", { name: "Copy all" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("TOURNEY-CODE\nTOURNEY-CODE-2"));
 
     const rosterRow = screen.getByText("Signed In Player").closest("li")!;
     expect(within(rosterRow).getByText("You")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    fireEvent.click(within(codesPanel).getAllByRole("button", { name: "Copy" })[0]);
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("TOURNEY-CODE"));
 
     expect(screen.queryByText(/report a result/i)).toBeNull();
