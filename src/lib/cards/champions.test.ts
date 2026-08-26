@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { championSplashUrl } from "@/lib/match-draft/champions";
+import { hiResLogoUrl } from "@/components/cards/ChampionsCard";
 import { CHAMPIONS_SET, CHAMPION_TIER, championToCard } from "./champions";
 
 describe("the Dealer's Hand set", () => {
@@ -45,5 +46,23 @@ describe("the Dealer's Hand set", () => {
     expect(CHAMPION_TIER).toBe("champion");
     // The copy shelves in the CURRENT season; the card names the one won.
     expect(card.season).toBe("S5");
+  });
+});
+
+describe("hiResLogoUrl", () => {
+  it("asks Discord's CDN for a 1024px render", () => {
+    expect(hiResLogoUrl("https://cdn.discordapp.com/icons/1/abc.png")).toBe(
+      "https://cdn.discordapp.com/icons/1/abc.png?size=1024",
+    );
+    // An existing size param is replaced, not stacked.
+    expect(hiResLogoUrl("https://media.discordapp.net/x/y.png?size=96")).toBe(
+      "https://media.discordapp.net/x/y.png?size=1024",
+    );
+  });
+
+  it("leaves every other host untouched — an unverified transform 404s into a blank center", () => {
+    const storage = "https://abc.supabase.co/storage/v1/object/public/teams/faceless.png";
+    expect(hiResLogoUrl(storage)).toBe(storage);
+    expect(hiResLogoUrl("not a url")).toBe("not a url");
   });
 });

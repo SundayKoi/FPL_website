@@ -23,6 +23,27 @@ const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | 
   ice: { className: "card-foil-ice", blend: "color-dodge" },
 };
 
+/**
+ * The center logo draws at ~170px CSS (340px on retina), and most stored
+ * team marks are small avatars — upscaling is why the first cut looked
+ * blurry. Discord's CDN serves any size on request, so those URLs get
+ * asked for 1024px; anything else passes through untouched (a storage
+ * transform endpoint we can't verify would 404 into a blank center).
+ * Exported for tests.
+ */
+export function hiResLogoUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "cdn.discordapp.com" || parsed.hostname === "media.discordapp.net") {
+      parsed.searchParams.set("size", "1024");
+      return parsed.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 const SPADE_PATH =
   "M50 4 C60 30 92 44 92 66 C92 84 76 94 60 88 C62 100 68 108 76 114 L24 114 C32 108 38 100 40 88 C24 94 8 84 8 66 8 44 40 30 50 4 Z";
 const GLOSS_PATH =
@@ -144,7 +165,7 @@ export default function ChampionsCard({
       {card.teamImageUrl ? (
         <span className="champ-logowrap" aria-hidden>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={card.teamImageUrl} alt="" className="champ-logo" loading="lazy" decoding="async" />
+          <img src={hiResLogoUrl(card.teamImageUrl)} alt="" className="champ-logo" loading="lazy" decoding="async" />
         </span>
       ) : (
         <SpadePip joker={print.joker} />
