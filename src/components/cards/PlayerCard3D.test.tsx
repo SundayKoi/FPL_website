@@ -395,3 +395,54 @@ describe("gyroscope tilt", () => {
     expect(() => tiltPhone()).not.toThrow();
   });
 });
+
+describe("iOS motion permission", () => {
+  const OriginalDOE = window.DeviceOrientationEvent;
+
+  afterEach(() => {
+    window.DeviceOrientationEvent = OriginalDOE;
+  });
+
+  /** Stands in for iOS's DeviceOrientationEvent, which carries a STATIC
+   *  requestPermission and rejects being called detached from it. */
+  function stubIOS(outcome: "granted" | "denied" = "granted") {
+    const calls: { boundCorrectly: boolean }[] = [];
+    function FakeDOE() {}
+    FakeDOE.requestPermission = function requestPermission(this: unknown) {
+      // Apple's implementation throws when `this` isn't the constructor.
+      calls.push({ boundCorrectly: this === FakeDOE });
+      if (this !== FakeDOE) throw new TypeError("Illegal invocation");
+      return Promise.resolve(outcome);
+    };
+    // @ts-expect-error swapping the jsdom global for the iOS-shaped one
+    window.DeviceOrientationEvent = FakeDOE;
+    return calls;
+  }
+
+  it("asks iOS for motion access without losing `this`", async () => {
+    // The bug: requestPermission was pulled off the constructor and called
+    // bare, which throws Illegal invocation on a real iPhone — and the
+    // rejection was swallowed, so no prompt ever appeared and nothing said why.
+    const calls = stubIOS("granted");
+    render(<PlayerCard3D card={card} gyro />);
+
+    fireEvent.click(screen.getByRole("button"));
+    await Promise.resolve();
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].boundCorrectly).toBe(true);
+  });
+
+  it("asks only once, however many times the card is tapped", async () => {
+    const calls = stubIOS("granted");
+    render(<PlayerCard3D card={card} gyro />);
+    const frame = screen.getByRole("button");
+
+    fireEvent.click(frame);
+    fireEvent.click(frame);
+    fireEvent.click(frame);
+    await Promise.resolve();
+
+    expect(calls).toHaveLength(1);
+  });
+});

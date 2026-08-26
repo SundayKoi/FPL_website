@@ -145,6 +145,13 @@ function PlayerCardFace({
   const rafRef = useRef(0);
   /** iOS only ever answers the permission prompt once; don't re-ask per tap. */
   const gyroAskedRef = useRef(false);
+  /** Whether the gyroscope may be listened to. Only iOS gates this — it
+   *  starts true elsewhere so Android keeps working with no prompt. */
+  const [gyroAllowed, setGyroAllowed] = useState(
+    () => typeof window === "undefined"
+      || typeof (window.DeviceOrientationEvent as unknown as { requestPermission?: unknown } | undefined)
+        ?.requestPermission !== "function",
+  );
   const style = TIER_STYLES[card.tier.key];
   const parallel = foilTypeOf(foilType);
   const foilLayer = FOIL_LAYERS[parallel];
@@ -259,6 +266,10 @@ function PlayerCardFace({
   // responding to your hand.
   useEffect(() => {
     if (!gyro || !interactive || typeof window === "undefined" || !("DeviceOrientationEvent" in window)) return;
+    // On iOS the listener must be attached AFTER permission is granted —
+    // one attached beforehand is not guaranteed to start firing. Everywhere
+    // else there is nothing to ask, so `allowed` starts true.
+    if (!gyroAllowed) return;
     const onOrientation = (event: DeviceOrientationEvent) => {
       if (event.beta === null || event.gamma === null) return;
       const x = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, event.gamma / 3));
@@ -267,7 +278,7 @@ function PlayerCardFace({
     };
     window.addEventListener("deviceorientation", onOrientation);
     return () => window.removeEventListener("deviceorientation", onOrientation);
-  }, [gyro, interactive, writeTilt]);
+  }, [gyro, gyroAllowed, interactive, writeTilt]);
 
   /**
    * iOS 13+ never delivers deviceorientation until it is asked, from inside a
@@ -277,15 +288,22 @@ function PlayerCardFace({
    * that already flips the card — costs the user nothing extra.
    */
   const askForGyro = useCallback(() => {
-    if (!gyro || typeof window === "undefined") return;
-    const request = (
-      window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined
-    )?.requestPermission;
-    if (typeof request !== "function" || gyroAskedRef.current) return;
+    if (!gyro || typeof window === "undefined" || gyroAskedRef.current) return;
+    const DOE = window.DeviceOrientationEvent as unknown as
+      | { requestPermission?: () => Promise<PermissionState | string> }
+      | undefined;
+    if (typeof DOE?.requestPermission !== "function") return;
     gyroAskedRef.current = true;
-    // A refusal is a normal answer, not an error: the card keeps its
-    // pointer/tap behaviour and simply never tilts.
-    void request().catch(() => {});
+    // CALLED ON THE CONSTRUCTOR, not as a detached reference: it is a static
+    // method, and iOS throws "Illegal invocation" when `this` is lost — which
+    // a bare `request()` did, silently, so the prompt never appeared.
+    DOE.requestPermission()
+      .then((state) => {
+        // A refusal is a normal answer: the card keeps its tap/pointer
+        // behaviour and simply never tilts.
+        if (state === "granted") setGyroAllowed(true);
+      })
+      .catch(() => {});
   }, [gyro]);
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {

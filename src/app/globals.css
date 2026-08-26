@@ -1045,6 +1045,11 @@ body {
   inset: 0;
   transform-style: preserve-3d;
   transition: transform 500ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Promote the rotating subtree to its own compositor layer. Without this
+     the browser repaints the whole card — splash art, foil, bars — on every
+     frame of the flip, which only became obvious once the phone reveal grew
+     the card from 92px to 272px and tripled the area being repainted. */
+  will-change: transform;
 }
 @utility pack-flip-face {
   position: absolute;
@@ -1057,6 +1062,20 @@ body {
 }
 /* PlayerCard3D pins its own width at 20rem, so the line scales it down from
    the corner rather than fighting that inline style. */
+/* A card mid-flip has enough to do. Its ambient loops — the tier halo, the
+   sparkles, the drifting frame gradient (which animates background-position,
+   a repaint) — are decoration that nobody can read while the card is edge-on,
+   and on a phone they were stealing frames from the motion that matters. */
+.pack-flip-turning .card-glow-diamond,
+.pack-flip-turning .card-glow-master,
+.pack-flip-turning .card-glow-challenger,
+.pack-flip-turning .card-glow-standout,
+.pack-flip-turning .card-frame-challenger,
+.pack-flip-turning .card-frame-standout,
+.pack-flip-turning .card-sparkle {
+  animation: none;
+}
+
 @utility pack-line-card {
   position: absolute;
   top: 0;

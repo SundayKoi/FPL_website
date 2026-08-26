@@ -256,6 +256,10 @@ export default function PackOpening({
   // unreadable and the flip target was a sliver. Desktop keeps the fan.
   const [narrow, setNarrow] = useState(false);
   const [cursor, setCursor] = useState(0);
+  /** True for the length of a flip. The card's ambient loops (halo, sparkles,
+   *  drifting frame) are paused while it turns — nobody can read them edge-on,
+   *  and on a phone they were competing for the same frames as the rotation. */
+  const [turning, setTurning] = useState(false);
   const [bestPull, setBestPull] = useState<Pull | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -351,6 +355,9 @@ export default function PackOpening({
       next[index] = true;
       flippedRef.current = next;
       setFlipped(next);
+
+      setTurning(true);
+      window.setTimeout(() => setTurning(false), 520);
 
       const pull = pack.pulls[index];
       if (!pull) return;
@@ -557,7 +564,10 @@ export default function PackOpening({
                         transition: "transform 420ms ease",
                       }}
                     >
-                      <div className="pack-flip" style={{ transform: face ? "rotateY(180deg)" : "rotateY(0deg)" }}>
+                      <div
+                        className={`pack-flip${turning ? " pack-flip-turning" : ""}`}
+                        style={{ transform: face ? "rotateY(180deg)" : "rotateY(0deg)" }}
+                      >
                         <div className="pack-flip-face">
                           <CardBack
                             rarity={rarity}
@@ -574,7 +584,15 @@ export default function PackOpening({
                                   the pointer like anywhere else. The rear face
                                   counter-rotates the flip container, so the tilt
                                   reads the right way round in here. */}
-                              <PlayerCard3D card={pull.card} forceFoil={pull.foil} foilType={pull.foilType} />
+                              {/* gyro on the phone reveal: this is the card
+                                  being looked at, and on a phone it is the
+                                  only one on screen. */}
+                              <PlayerCard3D
+                                card={pull.card}
+                                gyro={solo}
+                                forceFoil={pull.foil}
+                                foilType={pull.foilType}
+                              />
                             </div>
                           ) : null}
                         </div>
