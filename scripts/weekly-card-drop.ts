@@ -28,6 +28,7 @@ import { planPayouts } from "../src/lib/fantasy/payouts";
 import { fetchBettingUsernames, fetchWeekLineups, type FantasyLineupRow } from "../src/lib/fantasy/queries";
 import { scoreLineup, weeklyScoresBySlug } from "../src/lib/fantasy/scoring";
 import { lastCompletedWeek } from "../src/lib/fantasy/week";
+import { PACK_COST } from "../src/lib/packs/config";
 import { mondayOf } from "../src/lib/packs/week";
 import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 
@@ -403,6 +404,187 @@ async function scoreFantasyWeek(
   console.log(`[${label}] Posted the fantasy leaderboard (${lineups.length} entrants, ${paidLines.length} payouts).`);
 }
 
+// A free pack's worth, per member, per won match — the amount the user
+// asked for ("betting dollars or maybe a free pack"): dollars that ARE a
+// pack, spendable as one or banked.
+const MATCH_WIN_BONUS = PACK_COST;
+
+/**
+ * Pays every identified member of each winning team a pack's worth of
+ * betting dollars for the week's decided fixtures.
+ *
+ * Winners come from fixtures scores; membership comes from APPROVED
+ * player_identity_links plus the team's captains — the same canonical
+ * identity chain My Team access uses. A winner with no approved link (or
+ * no betting profile) is simply not paid: claiming your identity is what
+ * connects your match wins to your wallet.
+ *
+ * Exactly-once is the database's job, not this function's: pay_match_win
+ * claims (fixture, user) and credits in one transaction, returning false
+ * on a replay — so a re-run of the drop pays nobody twice and the embed
+ * only posts when something was newly paid.
+ */
+async function payMatchWinBonuses(
+  supabase: SupabaseClient,
+  league: CardLeague,
+  season: string,
+  webhookUrl: string | null,
+): Promise<void> {
+  const label = LEAGUE_LABELS[league];
+  // MATCH_WIN_WEEK (manual runs) points at a specific Monday — for paying
+  // out a week the drop missed. Idempotency makes re-runs safe either way.
+  const weekOverride = process.env.MATCH_WIN_WEEK?.trim() || null;
+  if (weekOverride && weekOverride !== mondayOf(new Date(`${weekOverride}T12:00:00Z`))) {
+    throw new Error(`MATCH_WIN_WEEK must be a Monday in YYYY-MM-DD form; got "${weekOverride}"`);
+  }
+  const week = weekOverride ?? lastCompletedWeek(new Date());
+
+  const { data: fixtureData, error: fixturesError } = await supabase
+    .from("fixtures")
+    .select("id, team_a, team_b, score_a, score_b, scheduled_at")
+    .eq("season", season)
+    .not("score_a", "is", null);
+  if (fixturesError) throw fixturesError;
+  type FixtureRow = {
+    id: string;
+    team_a: string | null;
+    team_b: string | null;
+    score_a: number | null;
+    score_b: number | null;
+    scheduled_at: string | null;
+  };
+  // Filtered in JS with the same mondayOf the lineups and stats use — one
+  // definition of a week, not a second one in query params. Ties (score
+  // constraint allows them) decide no winner and pay nothing.
+  const decided = ((fixtureData ?? []) as FixtureRow[]).filter(
+    (fixture) =>
+      fixture.scheduled_at !== null &&
+      mondayOf(new Date(fixture.scheduled_at)) === week &&
+      fixture.team_a !== null &&
+      fixture.team_b !== null &&
+      fixture.score_a !== null &&
+      fixture.score_b !== null &&
+      fixture.score_a !== fixture.score_b,
+  );
+  if (decided.length === 0) {
+    console.log(`[${label}] No decided fixtures in the week of ${week} — no match bonuses.`);
+    return;
+  }
+
+  // fixtures stores team NAMES; league_teams is the canonical roster
+  // anchor. Matched case-insensitively, the same normalization the
+  // identity-link roster proof uses.
+  const { data: teamData, error: teamsError } = await supabase.from("league_teams").select("id, name");
+  if (teamsError) throw teamsError;
+  const teamIdByName = new Map(
+    ((teamData ?? []) as { id: string; name: string }[]).map((team) => [team.name.trim().toLowerCase(), team.id]),
+  );
+
+  const wins = decided.map((fixture) => {
+    const aWon = (fixture.score_a ?? 0) > (fixture.score_b ?? 0);
+    const winnerName = (aWon ? fixture.team_a : fixture.team_b) as string;
+    const loserName = (aWon ? fixture.team_b : fixture.team_a) as string;
+    return {
+      fixtureId: fixture.id,
+      winnerName,
+      loserName,
+      score: aWon ? `${fixture.score_a}–${fixture.score_b}` : `${fixture.score_b}–${fixture.score_a}`,
+      teamId: teamIdByName.get(winnerName.trim().toLowerCase()) ?? null,
+    };
+  });
+  for (const win of wins.filter((w) => !w.teamId)) {
+    console.log(`[${label}] Fixture winner "${win.winnerName}" matches no league team — nobody to pay.`);
+  }
+  const teamIds = [...new Set(wins.flatMap((win) => (win.teamId ? [win.teamId] : [])))];
+  if (teamIds.length === 0) return;
+
+  const [linksRes, captainsRes] = await Promise.all([
+    supabase
+      .from("player_identity_links")
+      .select("league_team_id, profile_id")
+      .eq("league", league)
+      .eq("season", season)
+      .eq("status", "approved")
+      .in("league_team_id", teamIds),
+    supabase
+      .from("league_team_captains")
+      .select("league_team_id, profile_id")
+      .eq("season", season)
+      .in("league_team_id", teamIds),
+  ]);
+  if (linksRes.error) throw linksRes.error;
+  if (captainsRes.error) throw captainsRes.error;
+  const membership = new Map<string, Set<string>>();
+  const memberRows = [...(linksRes.data ?? []), ...(captainsRes.data ?? [])] as {
+    league_team_id: string | null;
+    profile_id: string;
+  }[];
+  for (const row of memberRows) {
+    if (!row.league_team_id) continue;
+    const set = membership.get(row.league_team_id) ?? new Set<string>();
+    set.add(row.profile_id);
+    membership.set(row.league_team_id, set);
+  }
+  const profileIds = [...new Set([...membership.values()].flatMap((set) => [...set]))];
+  if (profileIds.length === 0) {
+    console.log(`[${label}] Winning teams have no identified members — nobody to pay.`);
+    return;
+  }
+
+  const { data: profileData, error: profilesError } = await supabase
+    .from("betting_profiles")
+    .select("discord_id, username, profile_id")
+    .in("profile_id", profileIds);
+  if (profilesError) throw profilesError;
+  const bettingByProfile = new Map(
+    ((profileData ?? []) as { discord_id: string; username: string; profile_id: string | null }[])
+      .filter((row) => row.profile_id !== null)
+      .map((row) => [row.profile_id as string, row]),
+  );
+
+  const lines: string[] = [];
+  let paidCount = 0;
+  for (const win of wins) {
+    if (!win.teamId) continue;
+    const paidNames: string[] = [];
+    for (const profileId of membership.get(win.teamId) ?? []) {
+      const profile = bettingByProfile.get(profileId);
+      if (!profile) continue;
+      const { data: paid, error: payError } = await supabase.rpc("pay_match_win", {
+        p_fixture: win.fixtureId,
+        p_user: profile.discord_id,
+        p_season: season,
+        p_week: week,
+        p_amount: MATCH_WIN_BONUS,
+      });
+      if (payError) {
+        // Migration not applied is the expected shape here; the drop
+        // proper must survive it either way.
+        console.error(`[${label}] pay_match_win failed for ${profile.discord_id}: ${payError.message}`);
+        continue;
+      }
+      if (paid === true) paidNames.push(profile.username);
+    }
+    if (paidNames.length > 0) {
+      lines.push(`**${win.winnerName}** ${win.score} ${win.loserName} — +$${MATCH_WIN_BONUS} each: ${paidNames.join(", ")}`);
+      paidCount += paidNames.length;
+    }
+  }
+
+  if (paidCount === 0) {
+    console.log(`[${label}] Match bonuses for the week of ${week} were already paid — nothing new.`);
+    return;
+  }
+  console.log(`[${label}] Paid ${paidCount} match win bonus(es) of $${MATCH_WIN_BONUS} for the week of ${week}.`);
+  if (!webhookUrl) return;
+  await postEmbed(
+    webhookUrl,
+    `🏅 ${label} match win bonuses — week of ${week}`,
+    lines.join("\n"),
+    "A free pack's worth for taking your match. Claim your player identity to get yours.",
+  );
+}
+
 async function main(): Promise<void> {
   const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
@@ -422,6 +604,13 @@ async function main(): Promise<void> {
       await scoreFantasyWeek(supabase, league, season, webhookUrl, origin);
     } catch (error) {
       console.error(`[${LEAGUE_LABELS[league]}] Fantasy scoring failed — card drop unaffected:`, error);
+    }
+    // Same tolerance: an environment without the match_win_bonus migration
+    // (or a week with no fixtures) must not dent the drop or fantasy.
+    try {
+      await payMatchWinBonuses(supabase, league, season, webhookUrl);
+    } catch (error) {
+      console.error(`[${LEAGUE_LABELS[league]}] Match win bonuses failed — card drop unaffected:`, error);
     }
   }
 }
