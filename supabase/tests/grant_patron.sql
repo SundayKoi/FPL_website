@@ -9,6 +9,10 @@
 -- patron_until in the same transaction, so the books and the flame can't
 -- disagree. Needs the 20260828000003_patron_payments migration.
 --
+-- THE EVERYDAY PATH IS /admin/patrons — the owner panel does everything
+-- below in one click through the grant_patron RPC. This file remains for
+-- when the site is down or the grant needs something unusual.
+--
 -- Run the blocks one at a time in the Supabase SQL editor.
 
 
