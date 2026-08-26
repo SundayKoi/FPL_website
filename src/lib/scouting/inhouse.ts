@@ -1,5 +1,6 @@
 import { normalizeCanonicalName } from "@/lib/players/canonicalMatch";
 import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
+import { normalizeBasePlayerName } from "@/lib/players/normalize";
 import type { LolRole } from "@/lib/draft/types";
 
 export interface InhouseGameRow {
@@ -90,7 +91,8 @@ function playerMatchKeys(player: RosterPlayer): Set<string> {
 }
 
 function riotIdKey(gameName: string, tag: string): string {
-  return `${normalizeCanonicalName(gameName)}#${tag.trim().toLocaleLowerCase()}`;
+  const whitespaceInsensitiveName = normalizeBasePlayerName(gameName).replace(/\s+/g, "");
+  return `${whitespaceInsensitiveName}#${tag.trim().toLocaleLowerCase()}`;
 }
 
 function playerMatchRiotIds(player: RosterPlayer): Set<string> {
@@ -104,26 +106,34 @@ function playerMatchRiotIds(player: RosterPlayer): Set<string> {
 interface RosterPlayerMap {
   byName: Map<string, RosterPlayer | null>;
   byRiotId: Map<string, RosterPlayer | null>;
+  playerIdsWithRiotIds: Set<string>;
 }
 
 function rosterPlayerMap(roster: RosterPlayer[]): RosterPlayerMap {
   const byName = new Map<string, RosterPlayer | null>();
   const byRiotId = new Map<string, RosterPlayer | null>();
+  const playerIdsWithRiotIds = new Set<string>();
   const add = (map: Map<string, RosterPlayer | null>, key: string, player: RosterPlayer) => {
     const current = map.get(key);
     map.set(key, current === undefined || current?.id === player.id ? player : null);
   };
   for (const player of roster) {
     for (const key of playerMatchKeys(player)) add(byName, key, player);
-    for (const key of playerMatchRiotIds(player)) add(byRiotId, key, player);
+    for (const key of playerMatchRiotIds(player)) {
+      playerIdsWithRiotIds.add(player.id);
+      add(byRiotId, key, player);
+    }
   }
-  return { byName, byRiotId };
+  return { byName, byRiotId, playerIdsWithRiotIds };
 }
 
 function playerForSummoner(map: RosterPlayerMap, summonerName: string | null, tag: string | null = null): RosterPlayer | null {
   if (!summonerName) return null;
-  if (tag?.trim()) return map.byRiotId.get(riotIdKey(summonerName, tag)) ?? null;
-  return map.byName.get(normalizeCanonicalName(summonerName)) ?? null;
+  const playerByName = map.byName.get(normalizeCanonicalName(summonerName)) ?? null;
+  if (!tag?.trim()) return playerByName;
+  const playerByRiotId = map.byRiotId.get(riotIdKey(summonerName, tag));
+  if (playerByRiotId !== undefined) return playerByRiotId;
+  return playerByName && !map.playerIdsWithRiotIds.has(playerByName.id) ? playerByName : null;
 }
 
 /** Preserve the raw ingested game rows needed for scope-aware regular scouting. */

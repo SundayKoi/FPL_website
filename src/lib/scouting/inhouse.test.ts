@@ -79,4 +79,56 @@ describe("buildInhousePlayerStats", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("matches a uniquely named roster player when no Riot account metadata is available", () => {
+    const result = buildIngestedScoutingGames(
+      [{ id: "p1", displayName: "Ciivil", role: "top" }],
+      [{ summoner_name: "Ciivil", tag: "NA1", champion: "Kennen", season: "S5", match_id: "m1", game_date: null }],
+    );
+
+    expect(result).toEqual([expect.objectContaining({ playerId: "p1", champion: "Kennen" })]);
+  });
+
+  it("accepts harmless Riot game-name spacing differences when the known tag matches", () => {
+    const result = buildIngestedScoutingGames(
+      [
+        { id: "joey", displayName: "Sir Joey", role: "jungle" },
+        { id: "mitsu", displayName: "08 Mitsu Eclipse", role: "support" },
+      ],
+      [
+        { summoner_name: "Sir Joey", tag: "Valor", champion: "Xin Zhao", season: "S5", match_id: "m1", game_date: null },
+        { summoner_name: "08 Mitsu Eclipse", tag: "Chime", champion: "Rakan", season: "S5", match_id: "m2", game_date: null },
+      ],
+    );
+
+    expect(result.map((game) => game.playerId)).toEqual(["joey", "mitsu"]);
+  });
+
+  it("does not combine a display name with a tag belonging to another linked account", () => {
+    const result = buildIngestedScoutingGames(
+      [{ id: "meta", displayName: "MetaShift", role: "jungle" }],
+      [{ summoner_name: "MetaShift", tag: "PAWG", champion: "Vi", season: "S5", match_id: "m1", game_date: null }],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("keeps both weeks while preserving a substitute's lower game count", () => {
+    const result = buildIngestedScoutingGames(
+      [
+        { id: "starter", displayName: "Canny", role: "top" },
+        { id: "sub", displayName: "New Sub", role: "top" },
+      ],
+      [
+        { summoner_name: "Canny", tag: "rip", champion: "Ornn", season: "S5", match_id: "w1-g1", game_date: "2026-08-17" },
+        { summoner_name: "Canny", tag: "rip", champion: "Sion", season: "S5", match_id: "w1-g2", game_date: "2026-08-17" },
+        { summoner_name: "Canny", tag: "rip", champion: "Kennen", season: "S5", match_id: "w2-g1", game_date: "2026-08-24" },
+        { summoner_name: "New Sub", tag: "NA1", champion: "Gnar", season: "S5", match_id: "w2-g1", game_date: "2026-08-24" },
+      ],
+    );
+
+    expect(result.filter((game) => game.playerId === "starter")).toHaveLength(3);
+    expect(result.filter((game) => game.playerId === "sub")).toHaveLength(1);
+    expect(new Set(result.map((game) => game.gameDate))).toEqual(new Set(["2026-08-17", "2026-08-24"]));
+  });
 });

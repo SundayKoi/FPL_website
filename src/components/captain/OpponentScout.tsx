@@ -17,7 +17,10 @@ export default function OpponentScout({
 }) {
   const [scope, setScope] = useState<ScoutScope>("season");
   const [mode, setMode] = useState<"regular" | "inhouse">("regular");
-  const data = useMemo(() => deriveScoutData(source, scope), [source, scope]);
+  const data = useMemo(
+    () => deriveScoutData(source, scope, { playerLimit: null }),
+    [source, scope],
+  );
   const blueShare = data.gamesSampled ? Math.round((data.blueGames / data.gamesSampled) * 100) : 0;
   const hasDrafts = data.pastDrafts.length > 0;
   const subjectLabel = perspective === "team" ? "Team" : "Opponent";
@@ -32,7 +35,8 @@ export default function OpponentScout({
         ? source.nextFixture.team_a ?? source.opponentName
         : source.opponentName
     : source.opponentName;
-  const showTeamPoolsWithoutHistory = perspective === "team" && !hasDrafts;
+  const hasPlayerPoolStats = data.playerPools.some((player) => player.gamesSampled > 0);
+  const showPoolsWithoutHistory = !hasDrafts && (perspective === "team" || hasPlayerPoolStats);
 
   return <section aria-labelledby="scouting-heading" className="mt-8 space-y-4">
     <header className="card-brand p-5">
@@ -49,7 +53,7 @@ export default function OpponentScout({
         <div><span className="label-dash">Subject</span><p className="type-display mt-1 text-2xl">{source.opponentName}</p></div>
       </div> : null}
     </header>
-    {showTeamPoolsWithoutHistory ? <p className="card-brand p-5 text-sm text-steel">{emptyDraftCopy}</p> : null}
-    {mode === "inhouse" || hasDrafts || showTeamPoolsWithoutHistory ? <><ScoutPlayerPools data={data} scope={scope} unavailable={source.roster.length === 0} mode={mode} onModeChange={() => setMode((current) => current === "regular" ? "inhouse" : "regular")} inhousePlayers={source.inhousePlayerStats ?? []} />{mode === "regular" && hasDrafts ? <><ScoutPatterns data={data} /><ScoutPastDrafts drafts={data.pastDrafts} /></> : null}</> : <p className="card-brand p-5 text-sm text-steel">{emptyDraftCopy}</p>}
+    {showPoolsWithoutHistory ? <p className="card-brand p-5 text-sm text-steel">{emptyDraftCopy}</p> : null}
+    {mode === "inhouse" || hasDrafts || showPoolsWithoutHistory ? <><ScoutPlayerPools data={data} scope={scope} unavailable={source.roster.length === 0} mode={mode} onModeChange={() => setMode((current) => current === "regular" ? "inhouse" : "regular")} inhousePlayers={source.inhousePlayerStats ?? []} />{mode === "regular" && hasDrafts ? <><ScoutPatterns data={data} /><ScoutPastDrafts drafts={data.pastDrafts} /></> : null}</> : <p className="card-brand p-5 text-sm text-steel">{emptyDraftCopy}</p>}
   </section>;
 }

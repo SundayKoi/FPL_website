@@ -77,6 +77,36 @@ describe("OpponentScout", () => {
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();
     expect(screen.queryByText("Current roster unavailable")).toBeNull();
   });
+  it("shows two-week Riot pools without draft history and includes substitutes", () => {
+    const roster: ScoutSource["roster"] = [
+      { id: "top", displayName: "Top", role: "top" },
+      { id: "jungle", displayName: "Jungle", role: "jungle" },
+      { id: "mid", displayName: "Mid", role: "mid" },
+      { id: "adc", displayName: "ADC", role: "adc" },
+      { id: "support", displayName: "Support", role: "support" },
+      { id: "sub", displayName: "Substitute", role: "mid" },
+    ];
+    const ingestedGames: NonNullable<ScoutSource["ingestedGames"]> = roster.flatMap((player) => [
+      {
+        playerId: player.id, playerName: player.displayName, role: player.role,
+        champion: "Ahri", fixtureId: "1", season: "S5",
+        matchId: `${player.id}-week-1`, gameDate: "2026-08-17",
+      },
+      ...(player.id === "sub" ? [] : [{
+        playerId: player.id, playerName: player.displayName, role: player.role,
+        champion: "Orianna", fixtureId: "2", season: "S5",
+        matchId: `${player.id}-week-2`, gameDate: "2026-08-24",
+      }]),
+    ]);
+
+    renderScout({ drafts: [], roster, ingestedGames });
+
+    expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Player pools" })).toBeTruthy();
+    expect(screen.getByText("Substitute")).toBeTruthy();
+    expect(screen.getByText("1 picks · 1 champions · 1 games")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();
+  });
   it("keeps valid draft history visible when the current roster is empty", () => {
     renderScout({ roster: [] });
     expect(screen.getByText("Past drafts")).toBeTruthy();
