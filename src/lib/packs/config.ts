@@ -172,16 +172,25 @@ export const FOIL_TYPE_WEIGHTS: Record<FoilType, number> = {
 /**
  * Dust multiplier per parallel, replacing the flat FOIL_DUST_MULT.
  *
- * Kept deliberately shallow. The top of the ladder takes a legendary from
- * 150 to 750, which is a real premium and still under MOMENT_DUST (1000) —
- * moments stay the most valuable thing anyone can hold, and a lucky foil
- * roll never outranks a performance that actually happened.
+ * Steeper than the first cut (2 / 2.5 / 3 / 5), which paid Cracked Ice —
+ * twenty times rarer than a Prisma — only two and a half times as much.
+ * Still deliberately SUB-proportional to the drop odds: rarity-true
+ * pricing would put Ice past a moment, and the ceiling is the invariant
+ * that matters. The top of the ladder takes a legendary from 150 to 975,
+ * a real premium that stays under MOMENT_DUST (1000) — moments remain the
+ * most valuable thing anyone can hold, and a lucky foil roll never
+ * outranks a performance that actually happened.
+ *
+ * Prisma is pinned to FOIL_DUST_MULT: every foil minted before parallels
+ * existed is a Prisma, so moving it would silently reprice old
+ * collections. Values are read at DUST time from the copy's columns, so a
+ * ladder change reaches every copy already pulled — which is the point.
  */
 export const FOIL_TYPE_DUST_MULT: Record<FoilType, number> = {
   prisma: FOIL_DUST_MULT,
-  aurora: 2.5,
-  refractor: 3,
-  ice: 5,
+  aurora: 3,
+  refractor: 4.5,
+  ice: 6.5,
 };
 
 /** What the card calls each parallel. */
