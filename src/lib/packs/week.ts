@@ -63,3 +63,15 @@ export function editionLabel(week: string): string {
   if (Number.isNaN(date.getTime())) return week;
   return `WK ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`;
 }
+
+/**
+ * The Eastern calendar date containing `date`, as `YYYY-MM-DD`. Same
+ * projection mondayOf uses, without the snap to Monday — the daily rip's
+ * day boundary, matching open_daily_pack's
+ * `(opened_at at time zone 'America/New_York')::date` exactly.
+ */
+export function easternDateOf(date: Date): string {
+  const parts = ET_PARTS.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}

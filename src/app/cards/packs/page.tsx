@@ -8,7 +8,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
-import { fetchInventory, fetchPackOpenCount, type InventoryRow } from "@/lib/packs/queries";
+import { fetchDailyRipStatus, fetchInventory, fetchPackOpenCount, type DailyRipStatus, type InventoryRow } from "@/lib/packs/queries";
 import { BINDER_SLOTS, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
@@ -63,7 +63,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount, editionWeeks, binder]: [InventoryRow[], number, string[], Binder | null] = season
+  const [inventory, openCount, editionWeeks, binder, dailyRip]: [InventoryRow[], number, string[], Binder | null, DailyRipStatus] = season
     ? await Promise.all([
         fetchInventory(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
@@ -71,8 +71,9 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // null when the card_binders migration hasn't been applied here —
         // the section is skipped rather than 500ing the whole page.
         fetchOrCreateOwnBinder(service, user.discordId),
+        fetchDailyRipStatus(service, user.discordId),
       ])
-    : [[], 0, [], null];
+    : [[], 0, [], null, { left: 0, patron: false, flame: null }];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -120,6 +121,9 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // Every archived week stays on sale, so a card from an earlier week
         // is always still obtainable.
         editionWeeks={editionWeeks}
+        dailyRipsLeft={dailyRip.left}
+        patron={dailyRip.patron}
+        flame={dailyRip.flame}
       />
 
       <section id="collection" className="flex flex-col gap-4">
@@ -132,7 +136,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
             Your binder →
           </a>
         </div>
-        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} />
+        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} flame={dailyRip.flame} />
       </section>
 
       {binder ? (

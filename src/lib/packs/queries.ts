@@ -10,6 +10,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { backfillTeamIdentity, fetchTeamIdentity } from "@/lib/cards/queries";
+import { easternDateOf } from "./week";
+import { patronFlameOf } from "@/lib/patron/flames";
 
 /** One owned copy of a card. The flat columns mirror `card`'s contents at
  *  pull time — read them for filtering/sorting, read `card` to render. */
@@ -119,4 +121,48 @@ export async function fetchPackOpenCount(
     .eq("season", season);
   if (error) return 0;
   return count ?? 0;
+}
+
+export interface DailyRipStatus {
+  /** Rips still unclaimed today (Eastern). */
+  left: number;
+  /** Active League Patron — two rips a day instead of one. */
+  patron: boolean;
+  /** The patron's chosen flame, null for non-patrons — an inactive
+   *  patronage keeps its stored pick but stops burning. */
+  flame: string | null;
+}
+
+/**
+ * How many Daily Rips this user has left today. Display only — the RPC
+ * (open_daily_pack) re-checks server-side, so a stale answer here can never
+ * mint an extra pack.
+ *
+ * Counted across BOTH leagues, like the RPC: "your free daily pack" is one
+ * thing, not one per season. The 36-hour window plus the Eastern-date
+ * filter mirrors the RPC's day boundary without needing SQL date math
+ * through PostgREST.
+ */
+export async function fetchDailyRipStatus(supabase: SupabaseClient, discordId: string): Promise<DailyRipStatus> {
+  const since = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+  const [{ data: opens }, { data: profile }] = await Promise.all([
+    supabase
+      .from("card_pack_opens")
+      .select("opened_at")
+      .eq("discord_id", discordId)
+      .eq("cost", 0)
+      .gte("opened_at", since),
+    supabase.from("betting_profiles").select("patron_until, patron_flame").eq("discord_id", discordId).maybeSingle(),
+  ]);
+  const today = easternDateOf(new Date());
+  const used = ((opens as { opened_at: string }[]) ?? []).filter(
+    (row) => easternDateOf(new Date(row.opened_at)) === today,
+  ).length;
+  const row = profile as { patron_until: string | null; patron_flame: string | null } | null;
+  const patron = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  return {
+    left: Math.max(0, (patron ? 2 : 1) - used),
+    patron,
+    flame: patron ? patronFlameOf(row?.patron_flame) : null,
+  };
 }

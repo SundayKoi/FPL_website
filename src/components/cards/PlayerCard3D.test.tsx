@@ -446,3 +446,42 @@ describe("iOS motion permission", () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe("the Patron Flame on a card", () => {
+  it("burns on a copy whose owner is a patron", () => {
+    const { container } = render(<PlayerCard3D card={card} flame="frostfire" />);
+
+    const layer = container.querySelector("[data-testid='patron-flame']") as HTMLElement;
+    expect(layer).toBeTruthy();
+    // Three sparks lapping the ring, plus the dashed ring itself.
+    expect(layer.querySelectorAll(".patron-flame-spark")).toHaveLength(3);
+    expect(layer.style.getPropertyValue("--flame-core")).toBe("#35b5ff");
+  });
+
+  it("does not burn without a flame — shared surfaces pass nothing", () => {
+    const { container } = render(<PlayerCard3D card={card} />);
+
+    expect(container.querySelector("[data-testid='patron-flame']")).toBeNull();
+  });
+
+  it("leaves the tier frame untouched underneath", () => {
+    // A layer, never a frame swap: the card's own aria still names its tier,
+    // and the flame element carries no tier styling of its own.
+    render(<PlayerCard3D card={card} flame="ember" />);
+
+    expect(screen.getByRole("button", { name: /platinum/i })).toBeTruthy();
+  });
+
+  it("burns on a moment copy too — the flame marks the owner", () => {
+    const momentCard = {
+      ...card,
+      moment: {
+        id: 7, weekStart: "2026-08-24", playerSlug: "x", summonerName: "X",
+        teamName: null, champion: null, title: "The Steal", headline: "h",
+      },
+    } as unknown as typeof card;
+    const { container } = render(<PlayerCard3D card={momentCard} flame="royal" />);
+
+    expect(container.querySelector("[data-testid='patron-flame']")).toBeTruthy();
+  });
+});

@@ -13,6 +13,7 @@ export const RED = 0xff5063;
 const CALLBACK_TYPE = {
   PONG: 1,
   CHANNEL_MESSAGE_WITH_SOURCE: 4,
+  DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE: 5,
   MODAL: 9,
 } as const;
 
@@ -104,4 +105,11 @@ export function modal(
       })),
     },
   };
+}
+
+/** `{ type: 5 }` — "thinking…" acknowledgment for a handler whose real work
+ * runs after the response (Discord's 3-second deadline is for the ACK, not
+ * the answer; the answer follows on the interaction's webhook). */
+export function deferred(): { type: 5 } {
+  return { type: CALLBACK_TYPE.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE };
 }

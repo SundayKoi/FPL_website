@@ -420,6 +420,49 @@ body {
 
    Dot pitch below (78px/53px) and the scale in card-art-parallax are the
    two numbers worth tuning if it wants more or less. */
+/* ── Patron flame (Dash Fire) ─────────────────────────────────────────
+   The League Patron mark: a dashed ring flush with the host's edge and a
+   three-spark comet lapping it on a CSS motion path. Colours come from
+   the wardrobe (src/lib/patron/flames.ts) as CSS vars, so one set of
+   rules burns every flame.
+
+   A LAYER on top of the host, never a border swap — a card's tier frame
+   stays fully visible underneath, which is what keeps patronage from
+   ever reading as a rating. Deliberately decoration-only. */
+@utility patron-flame-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--flame-radius, 1rem);
+  pointer-events: none;
+  z-index: 30;
+}
+@utility patron-flame-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px dashed var(--flame-dash, rgb(232 193 75 / 0.55));
+}
+@utility patron-flame-spark {
+  position: absolute;
+  inset: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0 20%, var(--flame-hot, #ffd989) 45%, var(--flame-core, #ff6d5a) 80%, transparent);
+  box-shadow: 0 0 10px var(--flame-core, #ff6d5a), 0 0 3px var(--flame-hot, #ffd989);
+  offset-path: inset(1px round var(--flame-radius, 1rem));
+  animation: patronLap 3.4s linear infinite;
+}
+.patron-flame-spark:nth-child(3) { width: 5px; height: 5px; animation-delay: -3.32s; opacity: 0.7; }
+.patron-flame-spark:nth-child(4) { width: 4px; height: 4px; animation-delay: -3.25s; opacity: 0.4; }
+@keyframes patronLap {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .patron-flame-spark { animation: none; display: none; }
+}
+
 /* ── Moment cards ─────────────────────────────────────────────────────
    A moment is not a player card: no rating, no tier, no pack to pull it
    from. So it is not printed as one. This is an engraved award plate —

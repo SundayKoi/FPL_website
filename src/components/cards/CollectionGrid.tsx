@@ -137,10 +137,10 @@ function CopyCaption({
 }
 
 /** One copy on display, sized and spaced like every other card grid. */
-function CopyCell({ row, count, pinned }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number> }) {
+function CopyCell({ row, count, pinned, flame }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number>; flame?: string | null }) {
   return (
     <div className="card-cell flex flex-col items-center gap-2">
-      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} foilType={row.foilType} />
+      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} foilType={row.foilType} flame={flame} />
       <CopyCaption row={row} count={count} pinned={pinned} />
     </div>
   );
@@ -149,11 +149,15 @@ function CopyCell({ row, count, pinned }: { row: InventoryRow; count?: number; p
 export default function CollectionGrid({
   inventory,
   pinnedIds = [],
+  flame = null,
 }: {
   inventory: InventoryRow[];
   /** Copies already on display, so the shelf can show which ones are in
    *  the binder without a second round trip per card. */
   pinnedIds?: number[];
+  /** The viewer-owner's Patron Flame — this grid only ever shows their own
+   *  copies, so one flame covers every card in it. */
+  flame?: string | null;
 }) {
   const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
@@ -205,7 +209,7 @@ export default function CollectionGrid({
              much to sit where the shelf's do. */
           <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
             {shown.map((row) => (
-              <CopyCell key={row.id} row={row} pinned={pinned} />
+              <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} />
             ))}
           </div>
         )}
@@ -272,7 +276,7 @@ export default function CollectionGrid({
       <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
         {owned.map((entry) => (
           <div key={entry.best.slug} className="card-cell flex flex-col items-center gap-2">
-            <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} foilType={entry.best.foilType} />
+            <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} foilType={entry.best.foilType} flame={flame} />
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="text-sm font-semibold text-white">
                 {entry.best.playerName}
@@ -321,7 +325,7 @@ export default function CollectionGrid({
               <div className="flex w-80 gap-4 overflow-x-auto pb-2">
                 {entry.prints.map((print) => (
                   <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
-                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} foilType={print.copy.foilType} />
+                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} foilType={print.copy.foilType} flame={flame} />
                     <CopyCaption row={print.copy} count={print.count} pinned={pinned} />
                   </div>
                 ))}
