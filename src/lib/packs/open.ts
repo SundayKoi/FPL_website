@@ -5,7 +5,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { ALT_SKIN_CHANCE, FOIL_CHANCE, LIVE_FOIL_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
@@ -316,7 +316,7 @@ export async function openPackFor(
             .from("card_chases")
             .update({ claimed_inventory_id: ids[hitIndex] })
             .eq("id", chase.id);
-          await announceChaseClaim(service, discordId, chase.title, stamped, chase.bounty);
+          await announceChaseClaim(service, discordId, chase.title, prints[hitIndex], chase.bounty);
         }
       }
     }
@@ -361,7 +361,7 @@ async function announceChaseClaim(
   service: ReturnType<typeof createBettingServiceClient>,
   discordId: string,
   title: string,
-  card: PlayerCardData,
+  print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean },
   bounty: number,
 ): Promise<void> {
   const { data } = await service
@@ -370,12 +370,21 @@ async function announceChaseClaim(
     .eq("discord_id", discordId)
     .maybeSingle();
   const who = (data as { username: string } | null)?.username ?? "Someone";
+  const { card } = print;
+  // Spell out what the winning pull actually WAS. The share image can't
+  // show foil or ink, so without this line a subtle Prisma claim reads as
+  // "that card isn't even foil" to everyone watching the channel.
+  const traits = [
+    `${card.tier.label} ${card.role}`,
+    ...(print.foil ? [`✨ ${FOIL_TYPE_LABELS[foilTypeOf(print.foilType)]}`] : []),
+    ...(print.signed ? ["✍️ Signed"] : []),
+  ].join(" · ");
   // The card itself rides the embed, via the share renderer the site
   // already serves. SITE_URL missing just drops the picture, not the news.
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   await postCardsWebhook({
     title: "🏆 The chase has fallen",
-    description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
+    description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR · ${traits}${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
     color: GOLD,
     ...(site ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
   });

@@ -36,6 +36,20 @@ const TIER_EMOJI: Record<string, string> = {
   challenger: "👑",
 };
 
+/** Embed stripe per tier — the same ladder the site's tier styling walks,
+ *  so a rip reads at a glance in the channel the way it does on the shelf. */
+const TIER_COLORS: Record<string, number> = {
+  bronze: 0xb08d57,
+  silver: 0xc7ccd6,
+  gold: 0xe8c14b,
+  platinum: 0x35d0ba,
+  emerald: 0x2ecc71,
+  diamond: 0x6ea8ff,
+  master: 0xa96fe3,
+  grandmaster: 0xe04747,
+  challenger: 0x9ee7ff,
+};
+
 /** One pull as an embed line: tier glyph, name, overall, and everything
  *  worth shouting about. */
 function pullLine(pull: Extract<OpenPackResult, { ok: true }>["cards"][number]): string {
@@ -49,35 +63,42 @@ function pullLine(pull: Extract<OpenPackResult, { ok: true }>["cards"][number]):
   return `${glyph} **${card.name}** ${card.overall} OVR${suffix}`;
 }
 
-/** The followup message body for a finished rip. Exported for tests —
+/** One pull as its own embed: the line, the tier's color stripe, and the
+ *  card itself via the share renderer. Moments have no /card page, so
+ *  they keep their line and stripe but carry no picture. */
+function pullEmbed(pull: Extract<OpenPackResult, { ok: true }>["cards"][number], site: string): DiscordEmbed {
+  const { card } = pull;
+  return {
+    description: pullLine(pull),
+    color: TIER_COLORS[card.tier.key] ?? BRAND,
+    ...(site && !card.moment ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
+  };
+}
+
+/** The followup message body for a finished rip: a header embed, then
+ *  every card as its own picture. One message, ≤6 embeds — under
+ *  Discord's 10-embed cap with room to spare. Exported for tests —
  *  everything network-y stays in the handler. */
 export function ripFollowup(result: OpenPackResult, username: string): { embeds: DiscordEmbed[] } | { content: string } {
   if (!result.ok) return { content: `❌ ${result.error}` };
 
-  // Best pull fronts the embed image via the share-card renderer the site
-  // already serves. Moments have no /card page, so they fall back to the
-  // best rated PLAYER pull for the picture (the text still leads with them).
   const best = [...result.cards].sort((a, b) => b.card.overall - a.card.overall)[0];
   const site = siteUrl();
-  const imageSlug = [...result.cards]
-    .filter((pull) => !pull.card.moment)
-    .sort((a, b) => b.card.overall - a.card.overall)[0]?.card.slug;
 
   const streakNote =
     result.streak && result.streak > 1 ? ` · 🔥 ${result.streak}-day streak` : "";
   const bonusNote =
     result.streakBonus && result.streakBonus > 0
-      ? `\n🎁 Streak bonus: **+${fmtPoints(result.streakBonus)}**`
+      ? `🎁 Streak bonus: **+${fmtPoints(result.streakBonus)}**`
       : "";
 
-  const embed: DiscordEmbed = {
+  const header: DiscordEmbed = {
     title: `${username}'s Daily Rip`,
-    description: result.cards.map(pullLine).join("\n") + bonusNote,
+    ...(bonusNote ? { description: bonusNote } : {}),
     color: best && (best.foil || best.signed || best.card.moment) ? GREEN : BRAND,
     footer: { text: `Free daily pack${streakNote}` },
-    ...(site && imageSlug ? { image: { url: `${site}/card/${imageSlug}/card.png` } } : {}),
   };
-  return { embeds: [embed] };
+  return { embeds: [header, ...result.cards.map((pull) => pullEmbed(pull, site))] };
 }
 
 /** League option; defaults to premier — the daily is a ritual, not a menu. */

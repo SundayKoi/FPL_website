@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { chaseCriteriaFromPreset, matchesChase } from "./chase";
+import { chaseCriteriaFromPreset, chaseRoleOf, matchesChase } from "./chase";
 
-const pull = (over: Partial<{ slug: string; tier: string; foil: boolean; foilType: string | null; signed: boolean; moment: boolean }> = {}) => ({
+const pull = (over: Partial<{ slug: string; tier: string; role: string; foil: boolean; foilType: string | null; signed: boolean; moment: boolean }> = {}) => ({
   card: {
     slug: over.slug ?? "doug-na1",
     tier: { key: over.tier ?? "gold" },
+    role: over.role ?? "Mid",
     moment: over.moment ? { id: 1 } : undefined,
   },
   foil: over.foil ?? false,
@@ -46,6 +47,28 @@ describe("matchesChase", () => {
   it("can demand a signed pull", () => {
     expect(matchesChase(pull({ signed: false }), { signed: true })).toBe(false);
     expect(matchesChase(pull({ signed: true, foil: true }), { signed: true })).toBe(true);
+  });
+
+  it("pins the role printed on the card, case-insensitively", () => {
+    // "Any foil jungle card" is {foil, role} — BOTH must hold, which is
+    // the lesson of the chase whose title promised jungle over criteria
+    // that only said foil.
+    expect(matchesChase(pull({ foil: true, role: "Bot" }), { foil: true, role: "Jungle" })).toBe(false);
+    expect(matchesChase(pull({ foil: false, role: "Jungle" }), { foil: true, role: "Jungle" })).toBe(false);
+    expect(matchesChase(pull({ foil: true, role: "Jungle" }), { foil: true, role: "jungle" })).toBe(true);
+  });
+});
+
+describe("chaseRoleOf", () => {
+  it("normalises to the label printed on cards", () => {
+    expect(chaseRoleOf(" jungle ")).toBe("Jungle");
+    expect(chaseRoleOf("SUPPORT")).toBe("Support");
+  });
+
+  it("refuses anything not printed on a card", () => {
+    expect(chaseRoleOf("adc")).toBeNull();
+    expect(chaseRoleOf("")).toBeNull();
+    expect(chaseRoleOf(undefined)).toBeNull();
   });
 });
 
