@@ -172,6 +172,11 @@ export interface PlayerCardData {
   level: number;
   pentas: number;
   season: string;
+  /** Stamped on copies opened inside a Live Drops window — the label the
+   *  admin gave the window. Frozen at mint like everything else here. */
+  live?: { label: string } | null;
+  /** Stamped on the FIRST copy to match a week's chase. */
+  chase?: { title: string } | null;
 }
 
 // OVR maps the Power Ranking score (0-100, role-weighted blended

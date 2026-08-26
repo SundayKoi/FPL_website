@@ -260,3 +260,31 @@ describe("rollPack", () => {
     expect(rollPack([], scripted([]))).toEqual([]);
   });
 });
+
+describe("the Live Drops foil override", () => {
+  it("moves only the threshold — the rand sequence stays put", () => {
+    // 0.07 misses the normal 6% but lands inside a boosted 9%. Same
+    // scripted values both times; only the verdict differs.
+    // Hand-built: the slot() helper keys its optional 4th value off the
+    // NORMAL threshold, and this foil only exists under the boosted one.
+    const values = [
+      ...[CLASS.rare, FIRST, 0.07, 0],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+    ];
+    const boosted = rollPack(fullPool, scripted(values), 0.09);
+    expect(boosted[0].foil).toBe(true);
+
+    const normalValues = [
+      ...[CLASS.rare, FIRST, 0.07],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+      ...[CLASS.rare, FIRST, 0.5],
+    ];
+    const normal = rollPack(fullPool, scripted(normalValues));
+    expect(normal[0].foil).toBe(false);
+  });
+});

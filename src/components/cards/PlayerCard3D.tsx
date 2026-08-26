@@ -467,6 +467,26 @@ function PlayerCardFace({
                   {FOIL_TYPE_LABELS[parallel]}
                 </span>
               ) : null}
+              {/* Provenance stamps: how this copy entered the world. Frozen
+                  into the card json at mint, so they survive trades. */}
+              {card.live ? (
+                <span
+                  data-testid="live-stamp"
+                  className="rounded-full border border-red-400/60 bg-red-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-red-300"
+                  title={`Opened live — ${card.live.label}`}
+                >
+                  ● Live
+                </span>
+              ) : null}
+              {card.chase ? (
+                <span
+                  data-testid="chase-stamp"
+                  className="rounded-full border border-gold/70 bg-gold/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-gold"
+                  title={`First to the chase: ${card.chase.title}`}
+                >
+                  ★ Chase
+                </span>
+              ) : null}
               <div className="flex flex-col items-end gap-0.5">
                 <div
                   className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-navy/85 text-center"

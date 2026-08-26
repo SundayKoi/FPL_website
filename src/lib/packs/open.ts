@@ -5,7 +5,8 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { ALT_SKIN_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, FOIL_CHANCE, LIVE_FOIL_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { matchesChase, type ChaseCriteria } from "./chase";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint } from "./skins";
@@ -143,7 +144,24 @@ export async function openPackFor(
   const rand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
   // Roll the pack, then ink it: the autograph pass rides the same CSPRNG so
   // a signed pull is as unguessable as the pull itself.
-  const pulls = applyAutographs(rollPack(cards, rand), await fetchSignatures(service, season), rand);
+  // Live Drops: while the admin's window is open, foil rolls at the
+  // boosted rate and every card in the pack takes the LIVE stamp. Read
+  // once per open; a window closing mid-pack keeps whichever side of the
+  // boundary the read landed on, which is the only honest answer.
+  const { data: liveRow } = await service
+    .from("league_settings")
+    .select("live_until, live_label")
+    .eq("id", 1)
+    .maybeSingle();
+  const liveSettings = liveRow as { live_until: string | null; live_label: string | null } | null;
+  const liveNow = Boolean(liveSettings?.live_until && new Date(liveSettings.live_until).getTime() > Date.now());
+  const liveLabel = liveNow ? liveSettings?.live_label?.trim() || "Live drop" : null;
+
+  const pulls = applyAutographs(
+    rollPack(cards, rand, liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE),
+    await fetchSignatures(service, season),
+    rand,
+  );
 
   // A moment can only come out of the week it happened in — that is what
   // ties the print to the performance, and it is why an edition pack is
@@ -197,8 +215,13 @@ export async function openPackFor(
   for (const pull of pulls) {
     const champion = pull.card.signature?.champion;
     // the autograph rides inside the card too, so this copy keeps the
-    // signature it was pulled with even if the player redraws it later
-    const card: PlayerCardData = { ...pull.card, autograph: pull.autograph };
+    // signature it was pulled with even if the player redraws it later —
+    // and the LIVE stamp rides the same way, frozen at mint.
+    const card: PlayerCardData = {
+      ...pull.card,
+      autograph: pull.autograph,
+      ...(liveLabel && !pull.card.moment ? { live: { label: liveLabel } } : {}),
+    };
     if (!champion) {
       prints.push({ ...pull, card });
       continue;
@@ -253,6 +276,51 @@ export async function openPackFor(
     return { ok: false, error: "That pack didn't open — you haven't been charged." };
   }
 
+  const ids = (inserted as { id: number }[]).map((row) => row.id);
+
+  // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
+  // bounty, and claiming before the cards exist would need un-claiming on
+  // an insert failure — a compensation path with money in it. This order's
+  // worst case is benign: a crash between insert and claim leaves the
+  // chase open for the next matching pack.
+  //
+  // The database's atomic update decides who was first; this only asks
+  // "does one of these prints qualify". The loser of a same-second race
+  // keeps an unstamped card, which is exactly what second place is.
+  if (editionWeek) {
+    const { data: chaseRow } = await service
+      .from("card_chases")
+      .select("id, title, bounty, criteria")
+      .eq("season", season)
+      .eq("week", editionWeek)
+      .is("claimed_by", null)
+      .maybeSingle();
+    const chase = chaseRow as { id: number; title: string; bounty: number; criteria: ChaseCriteria } | null;
+    if (chase) {
+      const hitIndex = prints.findIndex((print) =>
+        matchesChase({ card: print.card, foil: print.foil, foilType: print.foilType, signed: print.signed }, chase.criteria ?? {}),
+      );
+      if (hitIndex !== -1) {
+        const { data: won } = await service.rpc("claim_card_chase", { p_chase: chase.id, p_user: discordId });
+        if (won === true) {
+          const stamped: PlayerCardData = { ...prints[hitIndex].card, chase: { title: chase.title } };
+          prints[hitIndex] = { ...prints[hitIndex], card: stamped };
+          // The stamp goes into the stored copy too — the returned reveal
+          // and the shelf must show the same object.
+          await service
+            .from("card_inventory")
+            .update({ card: stamped })
+            .eq("id", ids[hitIndex]);
+          await service
+            .from("card_chases")
+            .update({ claimed_inventory_id: ids[hitIndex] })
+            .eq("id", chase.id);
+          await announceChaseClaim(service, discordId, chase.title, stamped, chase.bounty);
+        }
+      }
+    }
+  }
+
   // Read the balance back rather than subtracting locally: the wallet may
   // have moved for other reasons (a bet settling) while this ran.
   const { data: profile } = await service
@@ -264,7 +332,6 @@ export async function openPackFor(
   revalidatePath("/cards/packs");
   revalidatePath("/academy/cards/packs");
 
-  const ids = (inserted as { id: number }[]).map((row) => row.id);
   return {
     ok: true,
     cards: prints.map((print, index) => ({
@@ -282,4 +349,44 @@ export async function openPackFor(
     streak,
     streakBonus,
   };
+}
+
+/**
+ * Tells the Discord cards channel a chase fell. Best-effort: the claim and
+ * the bounty are already committed, and a webhook outage must not fail a
+ * pack that someone just won something out of. Uses the same
+ * DISCORD_CARDS_WEBHOOK_URL the weekly drop posts through.
+ */
+async function announceChaseClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  title: string,
+  card: PlayerCardData,
+  bounty: number,
+): Promise<void> {
+  const webhook = process.env.DISCORD_CARDS_WEBHOOK_URL;
+  if (!webhook) return;
+  try {
+    const { data } = await service
+      .from("betting_profiles")
+      .select("username")
+      .eq("discord_id", discordId)
+      .maybeSingle();
+    const who = (data as { username: string } | null)?.username ?? "Someone";
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: "🏆 The chase has fallen",
+            description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
+            color: 0xe8c14b,
+          },
+        ],
+      }),
+    });
+  } catch {
+    // The win already happened; the announcement is garnish.
+  }
 }
