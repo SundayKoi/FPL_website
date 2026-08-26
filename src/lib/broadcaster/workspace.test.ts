@@ -14,6 +14,7 @@ const {
   fetchScoutingHistory,
   fetchIngestedScoutingGames,
   fetchInhousePlayerStats,
+  fetchBroadcasterPlayerDetails,
 } = vi.hoisted(() => ({
   fetchCaptainContext: vi.fn(),
   fetchHomepageSchedule: vi.fn(),
@@ -26,6 +27,7 @@ const {
   fetchScoutingHistory: vi.fn(),
   fetchIngestedScoutingGames: vi.fn(),
   fetchInhousePlayerStats: vi.fn(),
+  fetchBroadcasterPlayerDetails: vi.fn(),
 }));
 
 vi.mock("@/lib/captain/queries", () => ({ fetchCaptainContext, fetchMyRoster }));
@@ -35,6 +37,7 @@ vi.mock("@/lib/academy/draft", () => ({ fetchAcademyDraftData }));
 vi.mock("@/lib/academy/filtering", () => ({ filterAcademyFixtures }));
 vi.mock("@/lib/league/context", () => ({ academyTeamNames }));
 vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
+vi.mock("./playerDetails", () => ({ fetchBroadcasterPlayerDetails }));
 
 const supabase = {} as never;
 const teams = [
@@ -194,6 +197,7 @@ describe("loadBroadcasterScouting", () => {
       { playerId: "beta-player", playerName: "Beta Top", role: "top", games: 1, champions: [] },
     ]);
     fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchBroadcasterPlayerDetails.mockResolvedValue([]);
   }
 
   it("loads one shared history and in-house result while preserving each featured roster", async () => {
@@ -221,6 +225,10 @@ describe("loadBroadcasterScouting", () => {
       { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
       { id: "beta-player", displayName: "Beta Top", role: "top" },
     ], []);
+    expect(fetchBroadcasterPlayerDetails).toHaveBeenCalledWith(supabase, "S5", [
+      { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
+      { id: "beta-player", displayName: "Beta Top", role: "top" },
+    ]);
     expect(data?.teamA.opponentName).toBe("Alpha");
     expect(data?.teamB.opponentName).toBe("Beta");
     expect(data?.teamA.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["alpha-player"]);

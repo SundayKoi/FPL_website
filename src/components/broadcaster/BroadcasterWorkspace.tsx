@@ -6,6 +6,7 @@ import OpponentScout from "@/components/captain/OpponentScout";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import type { LeagueView } from "@/lib/league/context";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { BroadcasterPlayerDetails } from "@/lib/broadcaster/types";
 import type { ScoutSource } from "@/lib/scouting/types";
 import BroadcasterFixtureHeader from "./BroadcasterFixtureHeader";
 import BroadcasterMatchups from "./BroadcasterMatchups";
@@ -18,6 +19,7 @@ export interface BroadcasterWorkspaceProps {
   settings: HomepageFeaturedSettings;
   teamA: ScoutSource;
   teamB: ScoutSource;
+  playerDetails?: BroadcasterPlayerDetails[];
 }
 
 const leagueLinks: { league: LeagueView; label: string; href: string }[] = [
@@ -31,6 +33,7 @@ export default function BroadcasterWorkspace({
   settings,
   teamA,
   teamB,
+  playerDetails,
 }: BroadcasterWorkspaceProps) {
   const [tab, setTab] = useState<WorkspaceTab>("team-a");
   const teamAName = teamA.teamName ?? teamA.opponentName;
@@ -110,7 +113,7 @@ export default function BroadcasterWorkspace({
           hidden={!selected}
         >
           {selected && item.id === "team-a" ? <OpponentScout source={teamA} perspective="team" /> : null}
-          {selected && item.id === "matchups" ? <BroadcasterMatchups teamA={teamA} teamB={teamB} /> : null}
+          {selected && item.id === "matchups" ? <BroadcasterMatchups teamA={teamA} teamB={teamB} playerDetails={playerDetails} /> : null}
           {selected && item.id === "team-b" ? <OpponentScout source={teamB} perspective="team" /> : null}
         </div>;
       })}

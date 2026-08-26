@@ -1,8 +1,16 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PlayerCardData } from "@/lib/cards/build";
+import type { BroadcasterPlayerDetails } from "@/lib/broadcaster/types";
 import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import type { ScoutSource } from "@/lib/scouting/types";
 import BroadcasterMatchups from "./BroadcasterMatchups";
+
+vi.mock("@/components/cards/PlayerCard3D", () => ({
+  default: ({ card }: { card: PlayerCardData }) => (
+    <div data-testid={`premium-card-${card.slug}`}>premium card: {card.name}</div>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -89,6 +97,26 @@ const teamB: ScoutSource = {
   }],
 };
 
+const card = (slug: string, name: string): PlayerCardData => ({ slug, name } as PlayerCardData);
+
+const playerDetails: BroadcasterPlayerDetails[] = [
+  {
+    playerId: "alpha-top",
+    card: card("alpha-top-card", "Alpha Top"),
+    averages: { games: 4, kda: 2.5, damagePerMin: 600, visionPerMin: 1.2, turretsPerGame: 0.75, goldPerMin: 400, multiKills: 3 },
+  },
+  {
+    playerId: "alpha-jungle",
+    card: card("alpha-jungle-card", "Alpha Jungle"),
+    averages: { games: 4, kda: 3.25, damagePerMin: 500, visionPerMin: 0.8, turretsPerGame: 0.25, goldPerMin: 350, multiKills: 2 },
+  },
+  {
+    playerId: "alpha-support",
+    card: card("alpha-support-card", "Alpha Support"),
+    averages: { games: 4, kda: 1.5, damagePerMin: 200, visionPerMin: 1.5, turretsPerGame: 0, goldPerMin: 300, multiKills: 1 },
+  },
+];
+
 describe("BroadcasterMatchups", () => {
   it("renders every role with roster gaps, player pools, and in-house champion stats", () => {
     render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
@@ -119,6 +147,45 @@ describe("BroadcasterMatchups", () => {
     render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
 
     expect(screen.getByText("×2 · 50% WR · 3.17 KDA")).toBeTruthy();
+  });
+
+  it("renders premium cards and role-specific average stats", () => {
+    render(<BroadcasterMatchups teamA={teamA} teamB={teamB} playerDetails={playerDetails} />);
+
+    const topCard = screen.getByText("Alpha Top").closest("article");
+    expect(within(topCard!).getByTestId("premium-card-alpha-top-card")).toBeTruthy();
+    expect(within(topCard!).getByText("KDA")).toBeTruthy();
+    expect(within(topCard!).getByText("2.50")).toBeTruthy();
+    expect(within(topCard!).getByText("DMG/min")).toBeTruthy();
+    expect(within(topCard!).getByText("600")).toBeTruthy();
+    expect(within(topCard!).getByText("Turrets/game")).toBeTruthy();
+    expect(within(topCard!).getByText("0.75")).toBeTruthy();
+    expect(within(topCard!).getByText("Gold/min")).toBeTruthy();
+    expect(within(topCard!).getByText("Multi-kills")).toBeTruthy();
+    expect(within(topCard!).queryByText("Vision/min")).toBeNull();
+
+    const jungleCard = screen.getByText("Alpha Jungle").closest("article");
+    expect(within(jungleCard!).getByText("Vision/min")).toBeTruthy();
+
+    const supportCard = screen.getByText("Alpha Support").closest("article");
+    expect(within(supportCard!).getByTestId("premium-card-alpha-support-card")).toBeTruthy();
+    expect(within(supportCard!).getByText("Vision/min")).toBeTruthy();
+    expect(within(supportCard!).queryByText("Gold/min")).toBeNull();
+    expect(within(supportCard!).queryByText("Multi-kills")).toBeNull();
+  });
+
+  it("collapses in-house stats by default and toggles them open", () => {
+    render(<BroadcasterMatchups teamA={teamA} teamB={teamB} />);
+
+    const details = screen.getByText("3 in-house games").closest("details");
+    expect(details).toBeTruthy();
+    expect(details?.hasAttribute("open")).toBe(false);
+
+    fireEvent.click(screen.getByText("3 in-house games"));
+    expect(details?.hasAttribute("open")).toBe(true);
+
+    fireEvent.click(screen.getByText("3 in-house games"));
+    expect(details?.hasAttribute("open")).toBe(false);
   });
 
   it("includes prior-season picks when matchup history changes to all history", () => {

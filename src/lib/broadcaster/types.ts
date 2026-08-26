@@ -1,0 +1,17 @@
+import type { PlayerCardData } from "@/lib/cards/build";
+
+export interface BroadcasterPlayerAverages {
+  games: number;
+  kda: number;
+  damagePerMin: number;
+  visionPerMin: number;
+  turretsPerGame: number;
+  goldPerMin: number;
+  multiKills: number;
+}
+
+export interface BroadcasterPlayerDetails {
+  playerId: string;
+  card: PlayerCardData | null;
+  averages: BroadcasterPlayerAverages | null;
+}

@@ -96,6 +96,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
           settings={context.settings}
           teamA={scouting.teamA}
           teamB={scouting.teamB}
+          playerDetails={scouting.playerDetails}
         />
       </div>
     </main>

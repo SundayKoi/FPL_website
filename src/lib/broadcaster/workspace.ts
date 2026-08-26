@@ -11,6 +11,8 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
 import type { ScoutRosterPlayer, ScoutSource } from "@/lib/scouting/types";
 import type { InhousePlayerStats } from "@/lib/scouting/inhouse";
+import { fetchBroadcasterPlayerDetails } from "./playerDetails";
+import type { BroadcasterPlayerDetails } from "./types";
 
 export interface BroadcasterFixtureContext {
   league: LeagueView;
@@ -23,6 +25,7 @@ export interface BroadcasterFixtureContext {
 export interface BroadcasterScoutingData {
   teamA: ScoutSource;
   teamB: ScoutSource;
+  playerDetails: BroadcasterPlayerDetails[];
 }
 
 /** Resolve the homepage's selected fixture within its own Premier or Academy schedule. */
@@ -93,12 +96,18 @@ export async function loadBroadcasterScouting(
   const teamARoster = rosterPlayers(teamARosterData);
   const teamBRoster = rosterPlayers(teamBRosterData);
   const allRoster = [...teamARoster, ...teamBRoster];
-  const [ingestedGames, inhousePlayerStats] = await Promise.all([
+  const [ingestedGames, inhousePlayerStats, playerDetails] = await Promise.all([
     fetchIngestedScoutingGames(supabase, allRoster, history.fixtures).catch((error) => {
       console.error("Unable to load ingested scouting games; using draft attribution", error);
       return null;
     }),
     fetchInhousePlayerStats(supabase, allRoster),
+    allRoster.length > 0
+      ? fetchBroadcasterPlayerDetails(supabase, context.season, allRoster).catch((error) => {
+          console.error("Unable to load broadcaster player cards and averages; continuing without them", error);
+          return [];
+        })
+      : Promise.resolve([]),
   ]);
 
   const source = (
@@ -119,5 +128,6 @@ export async function loadBroadcasterScouting(
   return {
     teamA: source(teamAName, teamARoster, scopedInhousePlayers(teamARoster, inhousePlayerStats)),
     teamB: source(teamBName, teamBRoster, scopedInhousePlayers(teamBRoster, inhousePlayerStats)),
+    playerDetails,
   };
 }
