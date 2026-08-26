@@ -48,6 +48,16 @@ export const DISCORD_COMMANDS: CommandDef[] = [
           { name: "Academy", value: "academy" },
         ],
       },
+      {
+        // Free text rather than choices: the archived weeks grow every
+        // Monday, and command registration is a CI run, not a cron. The
+        // handler resolves "1"/"2"/a Monday date against the live archive
+        // and answers with the menu when it can't.
+        name: "week",
+        description: "Edition to rip: a week number (1, 2, …) or its Monday (YYYY-MM-DD). Default: newest",
+        type: OPTION_TYPE.STRING,
+        required: false,
+      },
     ],
   },
   { name: "daily", description: "Claim your daily bonus (streak escalates!)" },

@@ -5,7 +5,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../service-client", () => ({ createBettingServiceClient: vi.fn() }));
 vi.mock("@/lib/packs/open", () => ({ openPackFor: vi.fn() }));
 
-const { ripFollowup } = await import("./rip");
+const { ripFollowup, resolveRipWeek } = await import("./rip");
 import type { OpenPackResult } from "@/lib/packs/open";
 
 function pull(name: string, overall: number, extra: Partial<{ foil: boolean; foilType: string | null; signed: boolean; moment: boolean }> = {}) {
@@ -75,6 +75,19 @@ describe("ripFollowup", () => {
       embeds: { description: string }[];
     };
     expect(body.embeds[0].description).toContain("Streak bonus");
+  });
+
+  it("resolves week numbers, dates, and misses against the archive", () => {
+    const weeks = ["2026-08-24", "2026-08-17"]; // newest first, as fetchCardEditionWeeks returns
+    // Numbers count up from the season's first archive, like the shop picker.
+    expect(resolveRipWeek("1", weeks)).toEqual({ week: "2026-08-17" });
+    expect(resolveRipWeek("2", weeks)).toEqual({ week: "2026-08-24" });
+    expect(resolveRipWeek("2026-08-17", weeks)).toEqual({ week: "2026-08-17" });
+    // A miss answers with the menu, not a shrug.
+    const miss = resolveRipWeek("9", weeks) as { error: string };
+    expect(miss.error).toContain("1 (WK Aug 17)");
+    expect(miss.error).toContain("2 (WK Aug 24)");
+    expect(resolveRipWeek("1", [])).toHaveProperty("error");
   });
 
   it("never gives a moment an image — moments have no card page", () => {

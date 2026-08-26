@@ -30,17 +30,17 @@ export async function openPackAction(
 /**
  * The free daily pack — the Daily Rip.
  *
- * Same pool, same roll, same reveal as a bought pack; the only differences
- * are the RPC (open_daily_pack enforces the one-per-Eastern-day limit — two
- * for patrons — and pays the streak bonus) and that it always mints the
- * newest edition. "Today's rip" choosing a vintage week would make the
- * daily a discount store instead of a ritual.
+ * Same pool, same roll, same reveal as a bought pack; the only difference
+ * is the RPC (open_daily_pack enforces the one-per-Eastern-day limit — two
+ * for patrons — and pays the streak bonus). The rip follows the shop's
+ * week picker like a bought pack does: every archived edition stays
+ * rippable, defaulting to the newest.
  */
-export async function openDailyRipAction(league: CardLeague): Promise<OpenPackResult> {
+export async function openDailyRipAction(league: CardLeague, requestedWeek?: string): Promise<OpenPackResult> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return openPackFor(user.discordId, league, { daily: true, fallbackBalance: user.balance });
+  return openPackFor(user.discordId, league, { daily: true, requestedWeek, fallbackBalance: user.balance });
 }
 
 /**
