@@ -158,6 +158,7 @@ describe("loadMyTeamDashboard", () => {
     await expect(loadMyTeamDashboard(fakeClient() as never, "academy")).resolves.toMatchObject({
       kind: "unlinked",
       season: "A1",
+      availableTeams: [academyOne, academyTwo],
     });
   });
 

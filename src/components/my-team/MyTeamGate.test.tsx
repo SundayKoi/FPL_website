@@ -107,9 +107,20 @@ describe("MyTeamGate", () => {
   });
 
   it("guides an unlinked player to the public team pages", () => {
-    render(<MyTeamGate dashboard={{ kind: "unlinked", season: "S5" }} league="academy" />);
+    render(<MyTeamGate dashboard={{
+      kind: "unlinked",
+      season: "S5",
+      availableTeams: [
+        { id: "academy-team-1", name: "Academy One", abbreviation: "A1", active: true },
+        { id: "academy-team-2", name: "Academy Two", abbreviation: "A2", active: true },
+      ],
+    }} league="academy" />);
 
     expect(screen.getByText(/claim your roster spot/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /academy one/i }).getAttribute("href"))
+      .toBe("/academy/teams/academy-one");
+    expect(screen.getByRole("link", { name: /academy two/i }).getAttribute("href"))
+      .toBe("/academy/teams/academy-two");
     expect(screen.getByRole("link", { name: /browse academy teams/i }).getAttribute("href"))
       .toBe("/academy/teams");
   });

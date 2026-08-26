@@ -3,6 +3,7 @@ import MyResults from "@/components/captain/MyResults";
 import MyRoster from "@/components/captain/MyRoster";
 import NextMatchCard from "@/components/captain/NextMatchCard";
 import TourneyCodes from "@/components/captain/TourneyCodes";
+import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
 import TeamSchedule from "./TeamSchedule";
@@ -15,6 +16,10 @@ function gatePath(league: LeagueKey): string {
 
 function teamsPath(league: LeagueKey): string {
   return league === "academy" ? "/academy/teams" : "/teams";
+}
+
+function teamPath(league: LeagueKey, teamName: string): string {
+  return `${teamsPath(league)}/${teamSlug(teamName)}`;
 }
 
 function GateCard({ children }: { children: React.ReactNode }) {
@@ -62,6 +67,26 @@ export default function MyTeamGate({
         <p className="mt-3 text-sm leading-6 text-steel">
           Your signed-in account is not linked to a current player yet. Open your public team page and claim your exact roster spot.
         </p>
+        {dashboard.availableTeams.length > 0 ? (
+          <div className="mt-6">
+            <p className="label-dash text-gold">Choose your team</p>
+            <ul aria-label={`${league === "academy" ? "Academy" : "Premier"} teams available to claim`} className="mt-3 grid gap-2 sm:grid-cols-2">
+              {dashboard.availableTeams.map((team) => (
+                <li key={team.id}>
+                  <Link
+                    href={teamPath(league, team.name)}
+                    className="group flex items-center justify-between rounded border border-line bg-navy/60 px-3 py-3 text-sm font-semibold text-white transition hover:border-coral/60 hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  >
+                    <span>{team.name}</span>
+                    <span aria-hidden className="text-lg text-coral transition-transform group-hover:translate-x-1">→</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-5 text-sm text-steel">No active teams are available to claim right now.</p>
+        )}
         <Link href={teamsPath(league)} className={`${ACTION} mt-5`}>{label}</Link>
       </GateCard>
     );

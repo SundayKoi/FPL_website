@@ -16,6 +16,7 @@ export type MyTeamSignedOut = {
 export type MyTeamUnlinked = {
   kind: "unlinked";
   season: string;
+  availableTeams: LeagueTeam[];
 };
 
 export type MyTeamPending = {

@@ -93,7 +93,8 @@ export async function loadMyTeamDashboard(
 
   if (!identity.isCaptain && !identity.isAdmin) {
     if (identity.status === "unlinked") {
-      return { kind: "unlinked", season: identity.season };
+      const { activeTeams } = await loadLeagueTeams(supabase, league);
+      return { kind: "unlinked", season: identity.season, availableTeams: activeTeams };
     }
     if (identity.status === "pending") {
       if (!identity.linkId || !identity.playerPoolId) {
@@ -152,7 +153,7 @@ export async function loadMyTeamDashboard(
       };
     }
     if (identity.status === "unlinked" && !identity.isCaptain && !identity.isAdmin) {
-      return { kind: "unlinked", season: identity.season };
+      return { kind: "unlinked", season: identity.season, availableTeams: activeTeams };
     }
     return {
       kind: "unrostered",
