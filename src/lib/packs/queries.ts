@@ -197,13 +197,19 @@ export interface ChaseBanner {
  * The chase for `week` — claimed or not, because "X already took it" is as
  * much of the story as "it still stands". Errors (migration not applied)
  * return null: the banner is garnish.
+ *
+ * By WEEK alone, not season: the chase is league-wide. Premier and Academy
+ * editions share their Monday, and one bounty both shops show (and both
+ * leagues' packs can win) beats an academy page that pretends the week has
+ * no chase. The row's stored season is bookkeeping from whoever armed it.
  */
-export async function fetchChase(supabase: SupabaseClient, season: string, week: string): Promise<ChaseBanner | null> {
+export async function fetchChase(supabase: SupabaseClient, week: string): Promise<ChaseBanner | null> {
   const { data, error } = await supabase
     .from("card_chases")
     .select("title, bounty, week, claimed_by, betting_profiles(username)")
-    .eq("season", season)
     .eq("week", week)
+    .order("id", { ascending: true })
+    .limit(1)
     .maybeSingle();
   if (error || !data) return null;
   const row = data as unknown as {

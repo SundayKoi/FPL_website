@@ -193,13 +193,15 @@ async function isLiveDropsActive(row: { live_until?: string | null } | null): Pr
   return Boolean(row?.live_until && new Date(row.live_until).getTime() > Date.now());
 }
 
-/** The chase armed for the newest premier edition, or null. */
+/** The chase armed for the newest premier edition, or null. The chase is
+ *  league-wide, but the admin strip anchors on premier's newest week — the
+ *  same derivation armChaseAction uses. */
 async function fetchCurrentChase(): Promise<{ title: string; claimedBy: string | null } | null> {
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, "premier");
   if (!season) return null;
   const [week] = await fetchCardEditionWeeks(service, season);
   if (!week) return null;
-  const chase = await fetchChase(service, season, week);
+  const chase = await fetchChase(service, week);
   return chase ? { title: chase.title, claimedBy: chase.claimedBy } : null;
 }

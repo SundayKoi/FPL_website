@@ -289,12 +289,16 @@ export async function openPackFor(
   // "does one of these prints qualify". The loser of a same-second race
   // keeps an unstamped card, which is exactly what second place is.
   if (editionWeek) {
+    // By week alone — the chase is league-wide. An academy pull matching
+    // the criteria wins the same bounty a premier pull would; the atomic
+    // claim below still guarantees exactly one winner across both.
     const { data: chaseRow } = await service
       .from("card_chases")
       .select("id, title, bounty, criteria")
-      .eq("season", season)
       .eq("week", editionWeek)
       .is("claimed_by", null)
+      .order("id", { ascending: true })
+      .limit(1)
       .maybeSingle();
     const chase = chaseRow as { id: number; title: string; bounty: number; criteria: ChaseCriteria } | null;
     if (chase) {
