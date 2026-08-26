@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { matchDraftHref, matchDraftOverlayHref } from "@/lib/match-draft/rules";
+import { matchDraftOverlayHref } from "@/lib/match-draft/rules";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 
@@ -48,7 +48,7 @@ export default function BroadcasterFixtureHeader({
             : ""}
       </span>
       <a
-        href={matchDraftHref(fixture)}
+        href={matchDraftOverlayHref(fixture)}
         className="rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
       >
         Open draft

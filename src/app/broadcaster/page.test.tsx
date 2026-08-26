@@ -158,7 +158,7 @@ describe("Broadcaster page", () => {
 
     expect(screen.getByRole("heading", { name: /Alpha.*Beta/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /open draft/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1");
+      .toBe("/match-draft/fixture-1?overlay=1&bg=transparent");
     expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
     expect(consoleError).toHaveBeenCalledWith("Unable to load broadcaster scouting", error);
     consoleError.mockRestore();
@@ -173,7 +173,7 @@ describe("Broadcaster page", () => {
 
     expect(screen.getByRole("heading", { name: /Alpha.*TBD/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /open draft/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1");
+      .toBe("/match-draft/fixture-1?overlay=1&bg=transparent");
     expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
   });
 });

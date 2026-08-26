@@ -31,14 +31,14 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 }
 
 describe("BroadcasterFixtureHeader", () => {
-  it("copies the absolute OBS overlay URL and links to the draft", async () => {
+  it("copies the absolute OBS overlay URL and links Open draft to the overlay", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);
 
     render(<BroadcasterFixtureHeader fixture={fixture} twitchUrl="https://twitch.tv/fpl" />);
 
     expect(screen.getByRole("link", { name: /open draft/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1");
+      .toBe("/match-draft/fixture-1?overlay=1&bg=transparent");
     fireEvent.click(screen.getByRole("button", { name: /copy obs overlay/i }));
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(
