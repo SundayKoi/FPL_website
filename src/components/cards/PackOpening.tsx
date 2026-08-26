@@ -537,7 +537,7 @@ export default function PackOpening({
           </div>
         ) : (
           <>
-            <div className={`pack-line${solo ? " pack-line-solo" : ""}`}>
+            <div className={`pack-line ${solo ? "pack-line-solo" : ""}`}>
               {pack.pulls.map((pull, index) => {
                 // Phones show one card; the summary still lays them all out.
                 if (solo && index !== cursor) return null;
@@ -565,7 +565,7 @@ export default function PackOpening({
                       }}
                     >
                       <div
-                        className={`pack-flip${turning ? " pack-flip-turning" : ""}`}
+                        className={`pack-flip ${turning ? "pack-flip-turning" : ""}`}
                         style={{ transform: face ? "rotateY(180deg)" : "rotateY(0deg)" }}
                       >
                         <div className="pack-flip-face">
