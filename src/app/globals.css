@@ -115,6 +115,37 @@ body {
   }
 }
 
+@keyframes rivalryPulse {
+  0%, 100% {
+    box-shadow: 0 0 14px rgb(255 61 132 / 0.22), 0 0 0 rgb(255 107 53 / 0);
+  }
+  50% {
+    box-shadow: 0 0 28px rgb(255 61 132 / 0.45), 0 0 16px rgb(255 107 53 / 0.2);
+  }
+}
+
+@utility btn-rivalry {
+  border: 1px solid rgb(255 61 132 / 0.8);
+  background: linear-gradient(110deg, var(--color-coral), var(--color-pink) 58%, var(--color-purple));
+  color: white;
+  font-weight: 800;
+  animation: rivalryPulse 2.4s ease-in-out infinite;
+  &:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+    animation: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-rivalry { animation: none; }
+}
+
 /* Rectangular coral CTA (admin/draft actions) — size classes stay inline. */
 @utility btn-coral {
   border-radius: 0.25rem;

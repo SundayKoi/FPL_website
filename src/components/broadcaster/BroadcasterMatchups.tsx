@@ -8,6 +8,7 @@ import type { BroadcasterPlayerDetails } from "@/lib/broadcaster/types";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { ROLE_LABELS } from "@/lib/draft/types";
 import type { ScoutScope, ScoutSource } from "@/lib/scouting/types";
+import BroadcasterPlayerStats from "./BroadcasterPlayerStats";
 
 function PremiumCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) {
   if (!player.card) return null;
@@ -23,36 +24,6 @@ function PremiumCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) 
     </div>
     <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider text-steel">Premium card</span>
   </Link>;
-}
-
-function AverageStats({ player }: { player: BroadcasterMatchupPlayer }) {
-  if (!player.averages) return null;
-  const stats = [
-    { label: "KDA", value: player.averages.kda.toFixed(2) },
-    { label: "DMG/min", value: Math.round(player.averages.damagePerMin).toLocaleString() },
-    ...(player.role === "jungle" || player.role === "support"
-      ? [{ label: "Vision/min", value: player.averages.visionPerMin.toFixed(2) }]
-      : []),
-    ...(player.role === "top"
-      ? [{ label: "Turrets/game", value: player.averages.turretsPerGame.toFixed(2) }]
-      : []),
-    ...(player.role !== "support"
-      ? [
-          { label: "Gold/min", value: Math.round(player.averages.goldPerMin).toLocaleString() },
-          { label: "Multi-kills", value: Math.round(player.averages.multiKills).toLocaleString() },
-        ]
-      : []),
-  ];
-
-  return <div aria-label={`${player.name} average stats`} className="min-w-[12rem] flex-1">
-    <p className="label-dash">Season averages · {player.averages.games} games</p>
-    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-      {stats.map((stat) => <div key={stat.label}>
-        <dt className="text-[10px] uppercase tracking-wider text-steel">{stat.label}</dt>
-        <dd className="text-sm font-semibold text-white">{stat.value}</dd>
-      </div>)}
-    </dl>
-  </div>;
 }
 
 function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
@@ -72,7 +43,7 @@ function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
     </p>
     {player.card || player.averages ? <div className="mt-4 flex flex-wrap items-start gap-4 border-t border-line/50 pt-4">
       <PremiumCardThumbnail player={player} />
-      <AverageStats player={player} />
+      <BroadcasterPlayerStats player={player} />
     </div> : null}
     {player.inhouse ? <details className="group mt-4 border-t border-line/50 pt-3">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
@@ -103,12 +74,25 @@ export default function BroadcasterMatchups({
   teamA,
   teamB,
   playerDetails = [],
-}: { teamA: ScoutSource; teamB: ScoutSource; playerDetails?: BroadcasterPlayerDetails[] }) {
-  const [scope, setScope] = useState<ScoutScope>("season");
-  const matchups = useMemo(
+  scope: controlledScope,
+  onScopeChange,
+  matchups: controlledMatchups,
+}: {
+  teamA: ScoutSource;
+  teamB: ScoutSource;
+  playerDetails?: BroadcasterPlayerDetails[];
+  scope?: ScoutScope;
+  onScopeChange?: (scope: ScoutScope) => void;
+  matchups?: ReturnType<typeof deriveBroadcasterMatchups>;
+}) {
+  const [localScope, setLocalScope] = useState<ScoutScope>("season");
+  const scope = controlledScope ?? localScope;
+  const derivedMatchups = useMemo(
     () => deriveBroadcasterMatchups(teamA, teamB, scope, playerDetails),
     [teamA, teamB, scope, playerDetails],
   );
+  const matchups = controlledMatchups ?? derivedMatchups;
+  const setScope = onScopeChange ?? setLocalScope;
   const teamAName = teamA.teamName ?? teamA.opponentName;
   const teamBName = teamB.teamName ?? teamB.opponentName;
 

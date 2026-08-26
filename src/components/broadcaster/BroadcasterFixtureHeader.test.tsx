@@ -31,6 +31,22 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 }
 
 describe("BroadcasterFixtureHeader", () => {
+  it("exposes the head-to-head trigger when matchup data is available", () => {
+    const onOpenHeadToHead = vi.fn();
+    render(
+      <BroadcasterFixtureHeader
+        fixture={fixture}
+        twitchUrl={null}
+        onOpenHeadToHead={onOpenHeadToHead}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /head-to-head/i });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    fireEvent.click(trigger);
+    expect(onOpenHeadToHead).toHaveBeenCalledTimes(1);
+  });
+
   it("copies the absolute OBS overlay URL and links Open draft to the overlay", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);

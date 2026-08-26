@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { matchDraftOverlayHref } from "@/lib/match-draft/rules";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
@@ -8,9 +8,13 @@ import type { FixtureRow } from "@/lib/schedule/types";
 export default function BroadcasterFixtureHeader({
   fixture,
   twitchUrl,
+  onOpenHeadToHead,
+  headToHeadTriggerRef,
 }: {
   fixture: FixtureRow;
   twitchUrl: string | null;
+  onOpenHeadToHead?: () => void;
+  headToHeadTriggerRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [fallbackUrl, setFallbackUrl] = useState("");
@@ -53,6 +57,15 @@ export default function BroadcasterFixtureHeader({
       >
         Open draft
       </a>
+      {onOpenHeadToHead ? <button
+        ref={headToHeadTriggerRef}
+        type="button"
+        onClick={onOpenHeadToHead}
+        aria-haspopup="dialog"
+        className="btn-rivalry rounded-full px-3 py-1.5 text-xs uppercase tracking-wide"
+      >
+        Head-to-head
+      </button> : null}
       <button
         type="button"
         onClick={() => void copyOverlayUrl()}

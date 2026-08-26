@@ -1,15 +1,17 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import OpponentScout from "@/components/captain/OpponentScout";
 import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import type { LeagueView } from "@/lib/league/context";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { BroadcasterPlayerDetails } from "@/lib/broadcaster/types";
-import type { ScoutSource } from "@/lib/scouting/types";
+import { deriveBroadcasterMatchups } from "@/lib/broadcaster/matchups";
+import type { ScoutScope, ScoutSource } from "@/lib/scouting/types";
 import BroadcasterFixtureHeader from "./BroadcasterFixtureHeader";
 import BroadcasterMatchups from "./BroadcasterMatchups";
+import HeadToHeadDialog from "./HeadToHeadDialog";
 
 type WorkspaceTab = "team-a" | "matchups" | "team-b";
 
@@ -36,8 +38,15 @@ export default function BroadcasterWorkspace({
   playerDetails,
 }: BroadcasterWorkspaceProps) {
   const [tab, setTab] = useState<WorkspaceTab>("team-a");
+  const [scope, setScope] = useState<ScoutScope>("season");
+  const [headToHeadOpen, setHeadToHeadOpen] = useState(false);
+  const headToHeadTriggerRef = useRef<HTMLButtonElement | null>(null);
   const teamAName = teamA.teamName ?? teamA.opponentName;
   const teamBName = teamB.teamName ?? teamB.opponentName;
+  const matchups = useMemo(
+    () => deriveBroadcasterMatchups(teamA, teamB, scope, playerDetails),
+    [teamA, teamB, scope, playerDetails],
+  );
   const tabs: { id: WorkspaceTab; label: string }[] = [
     { id: "team-a", label: `${teamAName} scouting` },
     { id: "matchups", label: "Matchups" },
@@ -60,7 +69,12 @@ export default function BroadcasterWorkspace({
 
   return (
     <section className="space-y-6">
-      <BroadcasterFixtureHeader fixture={fixture} twitchUrl={settings.twitchUrl} />
+      <BroadcasterFixtureHeader
+        fixture={fixture}
+        twitchUrl={settings.twitchUrl}
+        onOpenHeadToHead={() => setHeadToHeadOpen(true)}
+        headToHeadTriggerRef={headToHeadTriggerRef}
+      />
 
       <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-line bg-navy p-1">
         {leagueLinks.map((link) => {
@@ -113,10 +127,30 @@ export default function BroadcasterWorkspace({
           hidden={!selected}
         >
           {selected && item.id === "team-a" ? <OpponentScout source={teamA} perspective="team" /> : null}
-          {selected && item.id === "matchups" ? <BroadcasterMatchups teamA={teamA} teamB={teamB} playerDetails={playerDetails} /> : null}
+          {selected && item.id === "matchups" ? (
+            <BroadcasterMatchups
+              teamA={teamA}
+              teamB={teamB}
+              playerDetails={playerDetails}
+              scope={scope}
+              onScopeChange={setScope}
+              matchups={matchups}
+            />
+          ) : null}
           {selected && item.id === "team-b" ? <OpponentScout source={teamB} perspective="team" /> : null}
         </div>;
       })}
+
+      {headToHeadOpen ? (
+        <HeadToHeadDialog
+          open
+          onClose={() => setHeadToHeadOpen(false)}
+          teamA={teamA}
+          teamB={teamB}
+          matchups={matchups}
+          returnFocusRef={headToHeadTriggerRef}
+        />
+      ) : null}
     </section>
   );
 }

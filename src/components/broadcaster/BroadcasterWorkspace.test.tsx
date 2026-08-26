@@ -6,7 +6,16 @@ import type { ScoutSource } from "@/lib/scouting/types";
 import BroadcasterWorkspace from "./BroadcasterWorkspace";
 
 vi.mock("./BroadcasterFixtureHeader", () => ({
-  default: ({ fixture }: { fixture: FixtureRow }) => <p>fixture header: {fixture.team_a} vs {fixture.team_b}</p>,
+  default: ({
+    fixture,
+    onOpenHeadToHead,
+  }: {
+    fixture: FixtureRow;
+    onOpenHeadToHead?: () => void;
+  }) => <>
+    <p>fixture header: {fixture.team_a} vs {fixture.team_b}</p>
+    {onOpenHeadToHead ? <button type="button" onClick={onOpenHeadToHead}>Head-to-head</button> : null}
+  </>,
 }));
 
 vi.mock("./BroadcasterMatchups", () => ({
@@ -74,6 +83,15 @@ describe("BroadcasterWorkspace", () => {
     expect(academy.getAttribute("href")).toBe("/broadcaster?league=academy");
     expect(premier.getAttribute("aria-current")).toBe("page");
     expect(academy.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("opens head-to-head from fixture header without changing workspace tab", () => {
+    render(<BroadcasterWorkspace league="premier" fixture={fixture} settings={settings} teamA={source("Alpha")} teamB={source("Beta")} />);
+
+    expect(screen.queryByRole("dialog", { name: /head-to-head/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /head-to-head/i }));
+    expect(screen.getByRole("dialog", { name: /head-to-head/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /matchup overview/i })).toBeTruthy();
   });
 
   it("supports roving keyboard navigation and keeps every controlled panel mounted", () => {
