@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
 import { armChaseAction } from "@/lib/packs/admin-actions";
-import { CHASE_PRESETS, type ChasePreset } from "@/lib/packs/chase";
+import { CHASE_PRESETS, CHASE_ROLES, type ChasePreset } from "@/lib/packs/chase";
 
 const PRESET_LABELS: Record<ChasePreset, string> = {
   any: "First pull of the week — anything",
@@ -34,13 +34,14 @@ export default function AdminChase({
   const [bounty, setBounty] = useState("500");
   const [preset, setPreset] = useState<ChasePreset>("foil");
   const [parameter, setParameter] = useState("");
+  const [role, setRole] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const arm = async () => {
     setBusy(true);
     setError(null);
-    const result = await armChaseAction({ title, bounty: Number(bounty) || 0, preset, parameter });
+    const result = await armChaseAction({ title, bounty: Number(bounty) || 0, preset, parameter, role });
     setBusy(false);
     if (!result.ok) {
       setError(result.error);
@@ -129,6 +130,24 @@ export default function AdminChase({
               </select>
             </div>
           ) : null}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="chase-role" className="label-dash">
+              Role
+            </label>
+            <select
+              id="chase-role"
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+              className={adminInputClass}
+            >
+              <option value="">Any role</option>
+              {CHASE_ROLES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="chase-bounty" className="label-dash">
               Bounty

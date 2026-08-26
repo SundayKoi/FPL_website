@@ -13,7 +13,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { revalidatePath } from "next/cache";
 import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
-import { chaseCriteriaFromPreset, type ChasePreset } from "./chase";
+import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
 import { editionLabel } from "./week";
 
@@ -83,6 +83,9 @@ export async function armChaseAction(input: {
   bounty: number;
   preset: ChasePreset;
   parameter?: string;
+  /** Optional role the winning card must be printed with ("Jungle").
+   *  ANDs onto the preset — "Any foil" + Jungle is a foil jungle card. */
+  role?: string;
 }): Promise<ActionResult> {
   if (!(await requireAdmin())) return { ok: false, error: "Admins only." };
 
@@ -94,6 +97,11 @@ export async function armChaseAction(input: {
   }
   const criteria = chaseCriteriaFromPreset(input.preset, input.parameter);
   if (!criteria) return { ok: false, error: "That preset needs its detail filled in." };
+  if (input.role !== undefined && input.role !== "") {
+    const role = chaseRoleOf(input.role);
+    if (!role) return { ok: false, error: "That role isn't one printed on cards." };
+    criteria.role = role;
+  }
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, "premier");

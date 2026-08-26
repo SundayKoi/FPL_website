@@ -34,11 +34,12 @@ describe("ripFollowup", () => {
     });
   });
 
-  it("names the ripper and lists every pull", () => {
+  it("gives every pull its own embed under a named header", () => {
     const body = ripFollowup(ok([pull("Doug", 82), pull("Spies", 61)]), "Doug") as { embeds: Record<string, unknown>[] };
     expect(body.embeds[0].title).toBe("Doug's Daily Rip");
-    expect(body.embeds[0].description).toContain("**Doug** 82 OVR");
-    expect(body.embeds[0].description).toContain("**Spies** 61 OVR");
+    expect(body.embeds).toHaveLength(3);
+    expect(body.embeds[1].description).toContain("**Doug** 82 OVR");
+    expect(body.embeds[2].description).toContain("**Spies** 61 OVR");
   });
 
   it("shouts the pulls worth shouting about", () => {
@@ -46,8 +47,20 @@ describe("ripFollowup", () => {
       ok([pull("Doug", 82, { foil: true, foilType: "ice" }), pull("Spies", 61, { signed: true })]),
       "Doug",
     ) as { embeds: Record<string, unknown>[] };
-    expect(body.embeds[0].description).toContain("Cracked Ice");
-    expect(body.embeds[0].description).toContain("SIGNED");
+    expect(body.embeds[1].description).toContain("Cracked Ice");
+    expect(body.embeds[2].description).toContain("SIGNED");
+  });
+
+  it("shows each card's picture with its tier's color", () => {
+    process.env.SITE_URL = "https://fpl.example";
+    const body = ripFollowup(ok([pull("Doug", 82), pull("Spies", 61)]), "Doug") as {
+      embeds: { image?: { url: string }; color: number }[];
+    };
+    expect(body.embeds[1].image?.url).toBe("https://fpl.example/card/doug/card.png");
+    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/spies/card.png");
+    // Both test pulls are gold; the stripes should say so.
+    expect(body.embeds[1].color).toBe(0xe8c14b);
+    delete process.env.SITE_URL;
   });
 
   it("mentions the streak only once it is a streak", () => {
@@ -64,13 +77,14 @@ describe("ripFollowup", () => {
     expect(body.embeds[0].description).toContain("Streak bonus");
   });
 
-  it("never fronts a moment as the image — moments have no card page", () => {
-    // Best pull is the moment, but the picture must come from a player.
+  it("never gives a moment an image — moments have no card page", () => {
     process.env.SITE_URL = "https://fpl.example";
     const body = ripFollowup(ok([pull("TheSteal", 99, { moment: true }), pull("Doug", 82)]), "Doug") as {
-      embeds: { image?: { url: string } }[];
+      embeds: { image?: { url: string }; description?: string }[];
     };
-    expect(body.embeds[0].image?.url).toBe("https://fpl.example/card/doug/card.png");
+    expect(body.embeds[1].image).toBeUndefined();
+    expect(body.embeds[1].description).toContain("MOMENT");
+    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/doug/card.png");
     delete process.env.SITE_URL;
   });
 });

@@ -10,7 +10,16 @@
 --   {"foil": true}            any foil
 --   {"foilType": "ice"}       a specific parallel (implies foil)
 --   {"signed": true}          an autographed pull
+--   {"role": "Jungle"}        the role printed on the card (Top/Jungle/Mid/Bot/Support)
 --   {}                        the first pull of the week, full stop
+--
+-- THE TITLE MUST PROMISE EXACTLY WHAT THE CRITERIA CHECK. Only the
+-- criteria decide the winner — a title that says "jungle" over criteria
+-- that only say "foil" hands the bounty to a mid laner and makes the bot
+-- look broken in front of the whole channel. (That happened. Once.)
+--
+-- Prefer the "Weekly chase" form on the schedule page's admin strip —
+-- it builds criteria from presets and can't drift from the title.
 --
 -- Run blocks one at a time in the SQL editor.
 
@@ -25,13 +34,14 @@ order by week desc limit 8;
 
 -- ── 2. Arm this week's chase ─────────────────────────────────────────
 -- week = the Monday of the newest edition (what the pack shop mints by
--- default). Adjust title/criteria/bounty to taste.
+-- default) — derived below so it can't be armed for a week nobody is
+-- opening. Adjust title/criteria/bounty to taste, keeping them in sync.
 insert into public.card_chases (season, week, title, criteria, bounty)
 values (
   'S5',
-  '2026-09-01',
+  (select max(edition_week) from public.card_editions where season = 'S5'),
   'Any foil jungle card',
-  '{"foil": true}'::jsonb,
+  '{"foil": true, "role": "Jungle"}'::jsonb,
   500
 );
 

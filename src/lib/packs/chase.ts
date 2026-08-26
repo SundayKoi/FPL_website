@@ -19,10 +19,15 @@ export interface ChaseCriteria {
    *  with no stored parallel counts as the prisma it is. */
   foilType?: string;
   signed?: boolean;
+  /** The role printed on the card ("Jungle"), matched case-insensitively.
+   *  Composes with any preset — "any foil jungle card" is {foil, role},
+   *  which is exactly the chase title that taught us titles must not
+   *  promise what criteria don't check. */
+  role?: string;
 }
 
 export interface ChaseCandidate {
-  card: { slug: string; tier: { key: string }; moment?: unknown };
+  card: { slug: string; tier: { key: string }; role?: string; moment?: unknown };
   foil: boolean;
   /** Loose string, as stored: legacy copies carry null and the matcher
    *  narrows through foilTypeOf itself. */
@@ -42,7 +47,18 @@ export function matchesChase(pull: ChaseCandidate, criteria: ChaseCriteria): boo
     if (!pull.foil || foilTypeOf(pull.foilType) !== criteria.foilType) return false;
   }
   if (criteria.signed !== undefined && Boolean(pull.signed) !== criteria.signed) return false;
+  if (criteria.role !== undefined && (pull.card.role ?? "").toLowerCase() !== criteria.role.toLowerCase()) return false;
   return true;
+}
+
+/** The role words as printed on cards — what a role criterion may pin. */
+export const CHASE_ROLES = ["Top", "Jungle", "Mid", "Bot", "Support"] as const;
+
+/** "jungle" / " JUNGLE " -> "Jungle"; anything else -> null. */
+export function chaseRoleOf(raw: string | undefined): string | null {
+  const wanted = raw?.trim().toLowerCase();
+  if (!wanted) return null;
+  return CHASE_ROLES.find((role) => role.toLowerCase() === wanted) ?? null;
 }
 
 /** The arm-the-chase form's preset list — one honest sentence per option,
