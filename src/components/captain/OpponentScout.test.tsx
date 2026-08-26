@@ -32,6 +32,9 @@ describe("OpponentScout", () => {
     expect(screen.getByText("Premium · Scouting")).toBeTruthy();
     expect(screen.getByText("Opponent")).toBeTruthy();
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
+    const record = screen.getByText("Record").parentElement;
+    expect(record?.textContent).toContain("2-0");
+    expect(record?.textContent).toContain("2 series");
     expect(screen.getAllByText(/0 picks · 0 champions · 0 games/).length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Scouting" })).toBeTruthy();
     const playerPools = screen.getByRole("heading", { name: "Player pools" }).closest("section");
@@ -63,6 +66,7 @@ describe("OpponentScout", () => {
       }],
     }} perspective="team" />);
     expect(screen.getByText("No recorded drafts for this team yet")).toBeTruthy();
+    expect(screen.getByText("2-0")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Player pools" })).toBeTruthy();
     expect(screen.getByRole("switch")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();

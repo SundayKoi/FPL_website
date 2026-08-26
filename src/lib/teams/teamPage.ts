@@ -43,12 +43,14 @@ export interface TeamRecord {
   seriesPlayed: number;
 }
 
+type TeamRecordFixture = Pick<FixtureRow, "team_a" | "team_b" | "score_a" | "score_b">;
+
 /** Series win/loss record from reported fixture scores. */
-export function teamRecord(rows: FixtureRow[], team: string): TeamRecord {
+export function teamRecord(rows: TeamRecordFixture[], team: string): TeamRecord {
   let wins = 0;
   let losses = 0;
   for (const row of rows) {
-    if (!hasResult(row)) continue;
+    if (row.score_a === null || row.score_b === null) continue;
     const isA = sameTeam(row.team_a, team);
     const isB = sameTeam(row.team_b, team);
     if (!isA && !isB) continue;
