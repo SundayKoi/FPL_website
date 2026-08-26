@@ -16,12 +16,19 @@
 alter table public.betting_profiles
   add column if not exists patron_until timestamptz;
 
+-- Which colour the patron's flame burns — their pick from the curated
+-- wardrobe (src/lib/patron/flames.ts). Free text validated in the app; an
+-- unrecognised value renders as the default Ember rather than erroring,
+-- so a wardrobe change never strands a stored pick.
+alter table public.betting_profiles
+  add column if not exists patron_flame text;
+
 -- Who is a patron, publicly. A view rather than opening betting_profiles:
 -- the profile row carries balance and streaks nobody else's business; this
 -- exposes exactly the three columns the supporters page renders. Owner
 -- rights on purpose — that is what lets it read through the deny-all RLS.
 create or replace view public.patrons_public as
-  select username, avatar_url, patron_until
+  select username, avatar_url, patron_until, patron_flame
   from public.betting_profiles
   where patron_until > now();
 

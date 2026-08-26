@@ -17,6 +17,7 @@ import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import PatronFlame from "@/components/patron/PatronFlame";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -102,6 +103,7 @@ function PlayerCardFace({
   gyro = false,
   forceFoil = false,
   foilType,
+  flame = null,
   className = "",
 }: {
   card: PlayerCardData;
@@ -124,6 +126,12 @@ function PlayerCardFace({
    *  parallels existed, which is a Prisma — exactly what it looked like
    *  then, and what it must keep looking like now. */
   foilType?: string | null;
+  /** The owner's Patron Flame — rides the card's edge wherever a copy
+   *  THEY OWN renders (collection, binder, pack reveal). Null everywhere
+   *  else: on shared surfaces a flame would claim an owner the card does
+   *  not have. A layer over the frame, never a frame swap — tier stays
+   *  visible underneath, so money never reads as a rating. */
+  flame?: string | null;
   className?: string;
 }) {
   // `hovering` is the only pointer state React still owns — it flips twice per
@@ -618,6 +626,10 @@ function PlayerCardFace({
               </div>
             ) : null}
           </div>
+          {/* Flush with the card's outermost edge — a sibling of the inner
+              face, not a child, so the dashed ring rides the frame itself
+              with no gap. Inside the tilt layer, so it turns with the card. */}
+          {flame ? <PatronFlame flame={flame} /> : null}
         </div>
 
         {/* ── BACK ─────────────────────────────────────────────────── */}
@@ -740,6 +752,7 @@ export default function PlayerCard3D(props: {
   gyro?: boolean;
   forceFoil?: boolean;
   foilType?: string | null;
+  flame?: string | null;
   className?: string;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
@@ -750,6 +763,32 @@ export default function PlayerCard3D(props: {
   // because PlayerCardFace's hooks cannot run conditionally.
   const { moment } = props.card;
   if (moment) {
+    if (props.flame) {
+      // Moments in a patron's collection burn too — the flame marks the
+      // OWNER, and a moment copy is as owned as any player card.
+      return (
+        <span className="relative block">
+          <MomentPlate
+            moment={{
+              id: moment.id,
+              weekStart: moment.weekStart,
+              slug: moment.playerSlug,
+              summonerName: moment.summonerName,
+              teamName: moment.teamName,
+              champion: moment.champion,
+              role: null,
+              triggerKey: "",
+              title: moment.title,
+              headline: moment.headline,
+              gameDate: null,
+            }}
+            season={props.card.season}
+            className={props.className}
+          />
+          <PatronFlame flame={props.flame} radius="0.75rem" />
+        </span>
+      );
+    }
     return (
       <MomentPlate
         moment={{

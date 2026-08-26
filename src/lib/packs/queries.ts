@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { backfillTeamIdentity, fetchTeamIdentity } from "@/lib/cards/queries";
 import { easternDateOf } from "./week";
+import { patronFlameOf } from "@/lib/patron/flames";
 
 /** One owned copy of a card. The flat columns mirror `card`'s contents at
  *  pull time — read them for filtering/sorting, read `card` to render. */
@@ -127,6 +128,9 @@ export interface DailyRipStatus {
   left: number;
   /** Active League Patron — two rips a day instead of one. */
   patron: boolean;
+  /** The patron's chosen flame, null for non-patrons — an inactive
+   *  patronage keeps its stored pick but stops burning. */
+  flame: string | null;
 }
 
 /**
@@ -148,13 +152,17 @@ export async function fetchDailyRipStatus(supabase: SupabaseClient, discordId: s
       .eq("discord_id", discordId)
       .eq("cost", 0)
       .gte("opened_at", since),
-    supabase.from("betting_profiles").select("patron_until").eq("discord_id", discordId).maybeSingle(),
+    supabase.from("betting_profiles").select("patron_until, patron_flame").eq("discord_id", discordId).maybeSingle(),
   ]);
   const today = easternDateOf(new Date());
   const used = ((opens as { opened_at: string }[]) ?? []).filter(
     (row) => easternDateOf(new Date(row.opened_at)) === today,
   ).length;
-  const until = (profile as { patron_until: string | null } | null)?.patron_until;
-  const patron = Boolean(until && new Date(until).getTime() > Date.now());
-  return { left: Math.max(0, (patron ? 2 : 1) - used), patron };
+  const row = profile as { patron_until: string | null; patron_flame: string | null } | null;
+  const patron = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  return {
+    left: Math.max(0, (patron ? 2 : 1) - used),
+    patron,
+    flame: patron ? patronFlameOf(row?.patron_flame) : null,
+  };
 }

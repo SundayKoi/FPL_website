@@ -420,29 +420,47 @@ body {
 
    Dot pitch below (78px/53px) and the scale in card-art-parallax are the
    two numbers worth tuning if it wants more or less. */
-/* ── Patron flame ─────────────────────────────────────────────────────
-   The League Patron mark: an ember-gradient ring that slowly circulates.
-   Same border-gradient trick the card frames use (two background layers,
-   padding-box over border-box) so it wraps any rounded container without
-   a pseudo-element. Deliberately a FRAME and nothing else — patronage is
-   visibility, never power, so this must stay decoration. */
-@utility patron-flame {
-  border: 2px solid transparent;
-  background-image:
-    linear-gradient(#0d1729, #0d1729),
-    linear-gradient(120deg, #f5b62e, #ff6d5a 30%, #f5b62e 55%, #ffd989 75%, #f5b62e 100%);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  background-size: 100% 100%, 300% 300%;
-  animation: patronFlame 7s linear infinite;
-  box-shadow: 0 0 18px rgb(245 182 46 / 0.18);
+/* ── Patron flame (Dash Fire) ─────────────────────────────────────────
+   The League Patron mark: a dashed ring flush with the host's edge and a
+   three-spark comet lapping it on a CSS motion path. Colours come from
+   the wardrobe (src/lib/patron/flames.ts) as CSS vars, so one set of
+   rules burns every flame.
+
+   A LAYER on top of the host, never a border swap — a card's tier frame
+   stays fully visible underneath, which is what keeps patronage from
+   ever reading as a rating. Deliberately decoration-only. */
+@utility patron-flame-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--flame-radius, 1rem);
+  pointer-events: none;
+  z-index: 30;
 }
-@keyframes patronFlame {
-  from { background-position: 0 0, 0% 50%; }
-  to { background-position: 0 0, 300% 50%; }
+@utility patron-flame-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px dashed var(--flame-dash, rgb(232 193 75 / 0.55));
+}
+@utility patron-flame-spark {
+  position: absolute;
+  inset: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle, #fff 0 20%, var(--flame-hot, #ffd989) 45%, var(--flame-core, #ff6d5a) 80%, transparent);
+  box-shadow: 0 0 10px var(--flame-core, #ff6d5a), 0 0 3px var(--flame-hot, #ffd989);
+  offset-path: inset(1px round var(--flame-radius, 1rem));
+  animation: patronLap 3.4s linear infinite;
+}
+.patron-flame-spark:nth-child(3) { width: 5px; height: 5px; animation-delay: -3.32s; opacity: 0.7; }
+.patron-flame-spark:nth-child(4) { width: 4px; height: 4px; animation-delay: -3.25s; opacity: 0.4; }
+@keyframes patronLap {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .patron-flame { animation: none; }
+  .patron-flame-spark { animation: none; display: none; }
 }
 
 /* ── Moment cards ─────────────────────────────────────────────────────

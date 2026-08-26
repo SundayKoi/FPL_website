@@ -214,6 +214,7 @@ export default function PackOpening({
   muted,
   onOpenAnother,
   onExit,
+  flame = null,
 }: {
   /** The pack that's just been paid for, in any order — sorted here. */
   pulls: Pull[];
@@ -227,6 +228,8 @@ export default function PackOpening({
   onOpenAnother: () => Promise<OpenResult>;
   /** Tear the stage down (and let the collection behind it catch up). */
   onExit: () => void;
+  /** The ripper's Patron Flame — they own every pull on this stage. */
+  flame?: string | null;
 }) {
   // Read once, on mount: the overlay is on screen for a minute at a time, and
   // re-deciding mid-ritual whether to have a ritual is worse than either
@@ -592,6 +595,7 @@ export default function PackOpening({
                                 gyro={solo}
                                 forceFoil={pull.foil}
                                 foilType={pull.foilType}
+                                flame={flame}
                               />
                             </div>
                           ) : null}
@@ -754,7 +758,7 @@ export default function PackOpening({
               backdrop — the walkout is dismissed by its own button or by the
               space around it. */}
           <div className="pack-walkout-card" onClick={(event) => event.stopPropagation()} role="presentation">
-            <PlayerCard3D card={walkoutPull.card} bloom gyro forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} />
+            <PlayerCard3D card={walkoutPull.card} bloom gyro forceFoil={walkoutPull.foil} foilType={walkoutPull.foilType} flame={flame} />
           </div>
           <button
             type="button"

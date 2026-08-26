@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
+import PatronFlame from "@/components/patron/PatronFlame";
 
 export const metadata: Metadata = {
   title: "League Patrons — FPL",
@@ -11,6 +12,7 @@ interface PatronRow {
   username: string;
   avatar_url: string | null;
   patron_until: string;
+  patron_flame: string | null;
 }
 
 /** "through Sep 2026" — the month the patronage runs to, not the exact
@@ -26,7 +28,7 @@ export default async function SupportersPage() {
   // point of the flame is being seen wearing it.
   const { data } = await supabase
     .from("patrons_public")
-    .select("username, avatar_url, patron_until")
+    .select("username, avatar_url, patron_until, patron_flame")
     .order("patron_until", { ascending: false });
   const patrons = (data as PatronRow[] | null) ?? [];
 
@@ -37,7 +39,7 @@ export default async function SupportersPage() {
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Flame Holders</h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-steel">
           Patrons cover what the league costs to run — hosting, the tools, the AI that helps build it. In
-          return they carry the flame: a second Daily Rip, and this page. Nothing they pay for changes a
+          return they carry the flame: a second Daily Rip, a flame in the colour of their choosing on every card they own, and this page. Nothing they pay for changes a
           card&apos;s odds or anyone&apos;s rating — patronage is visibility, never power.
         </p>
         <Link
@@ -53,7 +55,8 @@ export default async function SupportersPage() {
       ) : (
         <section aria-label="Active patrons" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {patrons.map((patron) => (
-            <div key={patron.username} className="patron-flame flex items-center gap-3 rounded-xl p-4">
+            <div key={patron.username} className="relative flex items-center gap-3 rounded-xl border border-line/60 bg-panel p-4">
+              <PatronFlame flame={patron.patron_flame} radius="0.75rem" />
               {patron.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

@@ -20,7 +20,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { CardLeague } from "@/lib/cards/queries";
-import { openDailyRipAction, openPackAction } from "@/lib/packs/actions";
+import { openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
+import { PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
@@ -41,6 +42,7 @@ export default function PackShop({
   editionWeeks = [],
   dailyRipsLeft = 0,
   patron = false,
+  flame = null,
 }: {
   league: CardLeague;
   balance: number;
@@ -60,6 +62,8 @@ export default function PackShop({
   dailyRipsLeft?: number;
   /** Active League Patron — labels the second rip for what it is. */
   patron?: boolean;
+  /** The patron's flame, for the reveal stage and the wardrobe picker. */
+  flame?: string | null;
 }) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
@@ -67,6 +71,9 @@ export default function PackShop({
   const [pulls, setPulls] = useState<Pull[] | null>(null);
   const [ripsLeft, setRipsLeft] = useState(dailyRipsLeft);
   const [ripStreak, setRipStreak] = useState<number | null>(null);
+  // Optimistic: the swatch recolours instantly and the server action
+  // confirms behind it — a paint chip is the one thing safe to trust ahead.
+  const [flameKey, setFlameKey] = useState<PatronFlameKey | null>(flame ? patronFlameOf(flame) : null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Defaults to the newest week; picking an older one re-mints that week
@@ -193,6 +200,30 @@ export default function PackShop({
             <span className="text-xs font-semibold text-gold">🔥 {ripStreak}-day streak</span>
           ) : null}
         </div>
+        {patron ? (
+          <div className="flex w-full flex-wrap items-center gap-2 border-t border-line/50 pt-3">
+            <span className="label-dash">Your flame</span>
+            {PATRON_FLAME_KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={flameKey === key}
+                title={PATRON_FLAMES[key].label}
+                onClick={() => {
+                  setFlameKey(key);
+                  void setPatronFlameAction(key);
+                }}
+                className={`h-7 w-7 rounded-full border-2 transition ${
+                  flameKey === key ? "scale-110 border-white" : "border-transparent opacity-70 hover:opacity-100"
+                }`}
+                style={{ background: `radial-gradient(circle, ${PATRON_FLAMES[key].hot} 0 35%, ${PATRON_FLAMES[key].core} 75%)` }}
+              >
+                <span className="sr-only">{PATRON_FLAMES[key].label} flame</span>
+              </button>
+            ))}
+            <span className="text-[11px] text-steel">Burns on every card you own — collection, binder, rips.</span>
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => setMuted(!muted)}
@@ -225,6 +256,7 @@ export default function PackShop({
           muted={muted}
           onOpenAnother={openAnother}
           onExit={handleExit}
+          flame={flameKey}
         />
       ) : null}
     </section>

@@ -73,7 +73,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         fetchOrCreateOwnBinder(service, user.discordId),
         fetchDailyRipStatus(service, user.discordId),
       ])
-    : [[], 0, [], null, { left: 0, patron: false }];
+    : [[], 0, [], null, { left: 0, patron: false, flame: null }];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -123,6 +123,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         editionWeeks={editionWeeks}
         dailyRipsLeft={dailyRip.left}
         patron={dailyRip.patron}
+        flame={dailyRip.flame}
       />
 
       <section id="collection" className="flex flex-col gap-4">
@@ -135,7 +136,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
             Your binder →
           </a>
         </div>
-        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} />
+        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} flame={dailyRip.flame} />
       </section>
 
       {binder ? (
