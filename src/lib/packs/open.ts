@@ -7,6 +7,7 @@ import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/momen
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { ALT_SKIN_CHANCE, FOIL_CHANCE, LIVE_FOIL_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
+import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint } from "./skins";
@@ -352,10 +353,9 @@ export async function openPackFor(
 }
 
 /**
- * Tells the Discord cards channel a chase fell. Best-effort: the claim and
- * the bounty are already committed, and a webhook outage must not fail a
- * pack that someone just won something out of. Uses the same
- * DISCORD_CARDS_WEBHOOK_URL the weekly drop posts through.
+ * Tells the Discord cards channel a chase fell. Best-effort via
+ * postCardsWebhook: the claim and the bounty are already committed, and an
+ * outage must not fail a pack someone just won something out of.
  */
 async function announceChaseClaim(
   service: ReturnType<typeof createBettingServiceClient>,
@@ -364,29 +364,15 @@ async function announceChaseClaim(
   card: PlayerCardData,
   bounty: number,
 ): Promise<void> {
-  const webhook = process.env.DISCORD_CARDS_WEBHOOK_URL;
-  if (!webhook) return;
-  try {
-    const { data } = await service
-      .from("betting_profiles")
-      .select("username")
-      .eq("discord_id", discordId)
-      .maybeSingle();
-    const who = (data as { username: string } | null)?.username ?? "Someone";
-    await fetch(webhook, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        embeds: [
-          {
-            title: "🏆 The chase has fallen",
-            description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
-            color: 0xe8c14b,
-          },
-        ],
-      }),
-    });
-  } catch {
-    // The win already happened; the announcement is garnish.
-  }
+  const { data } = await service
+    .from("betting_profiles")
+    .select("username")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  const who = (data as { username: string } | null)?.username ?? "Someone";
+  await postCardsWebhook({
+    title: "🏆 The chase has fallen",
+    description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
+    color: GOLD,
+  });
 }

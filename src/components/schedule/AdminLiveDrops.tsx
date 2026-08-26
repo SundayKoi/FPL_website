@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminInputClass } from "@/components/matches/CollapsibleAdminSection";
-import { createClient } from "@/lib/supabase/client";
+import { setLiveWindowAction } from "@/lib/packs/admin-actions";
 
 const HOURS = [2, 3, 4] as const;
 
@@ -25,19 +25,20 @@ export default function AdminLiveDrops({
    *  a status chip a refresh behind is fine for an admin control. */
   active: boolean;
 }) {
-  const supabase = createClient();
   const router = useRouter();
   const [label, setLabel] = useState(liveLabel ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const write = async (patch: { live_until: string | null; live_label: string | null }) => {
+  // A server action rather than the strip's usual client write: going live
+  // ANNOUNCES to Discord, and the webhook/bot secret only exists server-side.
+  const write = async (input: Parameters<typeof setLiveWindowAction>[0]) => {
     setBusy(true);
     setError(null);
-    const { error: updateError } = await supabase.from("league_settings").update(patch).eq("id", 1);
+    const result = await setLiveWindowAction(input);
     setBusy(false);
-    if (updateError) {
-      setError("Could not update the live window.");
+    if (!result.ok) {
+      setError(result.error);
       return;
     }
     router.refresh();
@@ -71,12 +72,7 @@ export default function AdminLiveDrops({
           key={hours}
           type="button"
           disabled={busy}
-          onClick={() =>
-            void write({
-              live_until: new Date(Date.now() + hours * 60 * 60 * 1000).toISOString(),
-              live_label: label.trim() || null,
-            })
-          }
+          onClick={() => void write({ hours, label })}
           className="rounded-full border border-red-400/60 bg-red-500/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-red-300 disabled:opacity-50"
         >
           Go live {hours}h
@@ -86,7 +82,7 @@ export default function AdminLiveDrops({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void write({ live_until: null, live_label: null })}
+          onClick={() => void write({ end: true })}
           className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel disabled:opacity-50"
         >
           End now

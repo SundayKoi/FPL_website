@@ -14,6 +14,10 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import AdminLiveDrops from "@/components/schedule/AdminLiveDrops";
+import AdminChase from "@/components/schedule/AdminChase";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
+import { fetchChase } from "@/lib/packs/queries";
 import AdminGenerateSchedule from "@/components/schedule/AdminGenerateSchedule";
 import FixtureCard from "@/components/schedule/FixtureCard";
 import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
@@ -54,6 +58,9 @@ export default async function SchedulePage({
     (fixture) => fixture.season !== leagueSeasons.academy,
   );
   const liveDropsActive = await isLiveDropsActive(settingsResult.data as { live_until?: string | null } | null);
+  // The standing chase for the newest edition, for the admin strip. Admin
+  // eyes only, so skipped entirely for everyone else.
+  const currentChase = isAdmin ? await fetchCurrentChase() : null;
   const settings = settingsResult.data as {
     current_season: string;
     current_phase: string;
@@ -132,6 +139,7 @@ export default async function SchedulePage({
                   academySeason={settings?.academy_season ?? leagueSeasons.academy}
                 />
                 <AdminLiveDrops liveUntil={settings?.live_until ?? null} liveLabel={settings?.live_label ?? null} active={liveDropsActive} />
+                <AdminChase current={currentChase} />
                 {/* season is null until fixtures exist, which is exactly when the
                     draw is needed — fall back to the league's current season. */}
                 {(season ?? settings?.current_season) && (
@@ -183,4 +191,15 @@ export default async function SchedulePage({
 /** Off the render path — the purity rule bites bare Date.now() in bodies. */
 async function isLiveDropsActive(row: { live_until?: string | null } | null): Promise<boolean> {
   return Boolean(row?.live_until && new Date(row.live_until).getTime() > Date.now());
+}
+
+/** The chase armed for the newest premier edition, or null. */
+async function fetchCurrentChase(): Promise<{ title: string; claimedBy: string | null } | null> {
+  const service = createBettingServiceClient();
+  const season = await fetchCardSeason(service, "premier");
+  if (!season) return null;
+  const [week] = await fetchCardEditionWeeks(service, season);
+  if (!week) return null;
+  const chase = await fetchChase(service, season, week);
+  return chase ? { title: chase.title, claimedBy: chase.claimedBy } : null;
 }
