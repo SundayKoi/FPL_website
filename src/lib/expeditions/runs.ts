@@ -112,7 +112,9 @@ export async function launchExpeditionFor(
   // Expeditions are league-agnostic — the run is stamped with the season
   // its cards came from rather than with whichever league's page launched
   // it. A squad straddling two of them has no one season to be stamped
-  // with, and the daily limit and the run log are both per-season reads.
+  // with, and the run log (fetchRuns) is a per-season read. The daily
+  // limit is NOT: launch_expedition counts a day's runs without a season
+  // filter, so the cap is one collector's cap across both leagues.
   const seasons = new Set(copies.map((copy) => copy.season));
   if (seasons.size !== 1) return { ok: false, error: "Squad cards must come from one league." };
   const season = [...seasons][0];
@@ -181,6 +183,18 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // the row at launch — re-deriving it here would let a card signed or
   // re-graded mid-run change a payout the player already committed to.
   const copies: CardCopy[] = await fetchInventoryByIds(service, discordId, squad);
+  // A deployed copy cannot be melted or traded away — card_inventory_
+  // expedition_guard refuses both while the run is unclaimed — so all
+  // three are still there and still this caller's, and a short read is
+  // ALWAYS a failed query (fetchInventoryByIds fails soft to []) or
+  // corruption, never a legitimate state. Rolling anyway would quietly
+  // cost a real payout its 20% brief bonus, because briefHit is a
+  // `copies.some(...)` over roles that an empty list can only answer
+  // "no". Refuse instead: nothing has been written, claimed_at is
+  // untouched, and the run stays claimable for the retry.
+  if (copies.length !== squad.length) {
+    return { ok: false, error: "Couldn't read the squad — try the claim again." };
+  }
 
   // THE LAUNCH DAY'S BRIEF, in Eastern time — the calendar the whole card
   // economy keeps (open_daily_pack, launch_expedition's daily limit). The

@@ -397,6 +397,29 @@ describe("claimExpeditionFor", () => {
     expect(board.rpc).toHaveBeenCalled();
   });
 
+  it("refuses to roll when the squad can't be read back, leaving the run claimable", async () => {
+    // A deployed copy can't be melted or traded (the trigger refuses), so a
+    // short read is always a failed query — and rolling on an empty squad
+    // would silently drop the brief bonus off a real payout.
+    const board = createBoard({ copiesError: { message: "boom" }, run: runRow() });
+
+    expect(await claimExpeditionFor("42", 9)).toEqual({
+      ok: false,
+      error: "Couldn't read the squad — try the claim again.",
+    });
+    expect(board.rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses on a squad that came back short, not just on a hard error", async () => {
+    const board = createBoard({ copies: [copyRow({ id: 1 }), copyRow({ id: 2 })], run: runRow() });
+
+    expect(await claimExpeditionFor("42", 9)).toEqual({
+      ok: false,
+      error: "Couldn't read the squad — try the claim again.",
+    });
+    expect(board.rpc).not.toHaveBeenCalled();
+  });
+
   it("rolls the outcome off the CSPRNG and banks it", async () => {
     const board = createBoard({ copies: scoutSquad, run: runRow() });
     board.rpc.mockResolvedValue({ data: [{ balance: 1519 }], error: null });
