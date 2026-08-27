@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PATRON_FLAME, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf } from "./flames";
+import { DEFAULT_PATRON_FLAME, flameUnlocked, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, SOVEREIGN_TENURE_DAYS } from "./flames";
 
 describe("the flame wardrobe", () => {
   it("narrows a stored pick to a real flame", () => {
@@ -24,5 +24,15 @@ describe("the flame wardrobe", () => {
       expect(style.hot).toMatch(/^#/);
       expect(style.core).toMatch(/^#/);
     }
+  });
+});
+
+describe("flameUnlocked", () => {
+  it("gates Sovereign behind six months and leaves the rest free", () => {
+    expect(flameUnlocked("sovereign", SOVEREIGN_TENURE_DAYS - 1)).toBe(false);
+    expect(flameUnlocked("sovereign", SOVEREIGN_TENURE_DAYS)).toBe(true);
+    expect(flameUnlocked("ember", 0)).toBe(true);
+    expect(flameUnlocked("emberdrift", 0)).toBe(true);
+    expect(flameUnlocked("crackedice", 0)).toBe(true);
   });
 });

@@ -9,7 +9,8 @@
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { PATRON_FLAME_KEYS } from "@/lib/patron/flames";
+import { flameUnlocked, PATRON_FLAME_KEYS, PATRON_FLAMES, type PatronFlameKey } from "@/lib/patron/flames";
+import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import type { CardLeague } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { PACK_COST } from "./config";
@@ -77,6 +78,14 @@ export async function setPatronFlameAction(flame: string): Promise<{ ok: true } 
   const until = (data as { patron_until: string | null } | null)?.patron_until;
   if (!until || new Date(until).getTime() <= Date.now()) {
     return { ok: false, error: "The flame wardrobe is for active patrons." };
+  }
+  // The tenure flames (Sovereign) ask for time served, not just an active
+  // month — the wardrobe shows the lock, this enforces it.
+  if ((PATRON_FLAMES[flame as PatronFlameKey].tenureDays ?? 0) > 0) {
+    const tenure = await fetchPatronTenureDays(service, user.discordId);
+    if (!flameUnlocked(flame as PatronFlameKey, tenure)) {
+      return { ok: false, error: "That flame unlocks after six months of patronage." };
+    }
   }
   const { error } = await service
     .from("betting_profiles")

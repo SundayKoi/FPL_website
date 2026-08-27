@@ -2,6 +2,21 @@
 import { useState } from "react";
 import type { LeaderboardRow } from "@/lib/betting/types";
 import { fmtPoints } from "@/lib/betting/format";
+import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
+
+/** The patron flame as a table-sized dot — the same palette the card
+ *  flame burns in, shrunk to ride beside a name. */
+function FlameDot({ flame }: { flame: string }) {
+  const style = PATRON_FLAMES[patronFlameOf(flame)];
+  return (
+    <span
+      aria-label="League Patron"
+      title={`League Patron — ${style.label} flame`}
+      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+      style={{ background: `radial-gradient(circle, ${style.hot} 0 35%, ${style.core} 75%)`, boxShadow: `0 0 6px ${style.core}` }}
+    />
+  );
+}
 
 type Mode = "balance" | "profit";
 
@@ -77,6 +92,7 @@ export function LeaderboardTable({
                         <img src={r.avatar_url} alt="" width={22} height={22} className="rounded-full" />
                       )}
                       <span className="truncate text-white">{r.username}</span>
+                      {r.flame ? <FlameDot flame={r.flame} /> : null}
                       {r.badges.map((b) => (
                         <span key={b} className="text-xs" title="streak / perfect pick'ems">
                           {b}

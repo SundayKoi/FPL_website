@@ -198,6 +198,9 @@ export interface LeaderboardRow {
   balance: number;
   profit: number;
   badges: string[];
+  /** The active patron's flame key, null for everyone else — the board
+   *  renders it as a small flame dot by the name. */
+  flame: string | null;
 }
 
 /** Player stats for the profile page — ported from c:\fpl_gambling\api\stats.py's player_stats(). */

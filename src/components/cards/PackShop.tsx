@@ -23,7 +23,7 @@ import type { CardLeague } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { openChampionsPackAction, openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
 import { dustManyAction } from "@/lib/trades/actions";
-import { PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, type PatronFlameKey } from "@/lib/patron/flames";
+import { flameUnlocked, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, SOVEREIGN_TENURE_DAYS, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
 
@@ -47,6 +47,7 @@ export default function PackShop({
   flame = null,
   championsOpen = false,
   championComps = 0,
+  patronTenureDays = 0,
 }: {
   league: CardLeague;
   balance: number;
@@ -73,6 +74,8 @@ export default function PackShop({
   championsOpen?: boolean;
   /** Free Faceless Packs this user holds (the Champion's Tribute). */
   championComps?: number;
+  /** Total days of patronage granted — unlocks the tenure flames. */
+  patronTenureDays?: number;
 }) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
@@ -271,25 +274,37 @@ export default function PackShop({
         {patron ? (
           <div className="flex w-full flex-wrap items-center gap-2 border-t border-line/50 pt-3">
             <span className="label-dash">Your flame</span>
-            {PATRON_FLAME_KEYS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={flameKey === key}
-                title={PATRON_FLAMES[key].label}
-                onClick={() => {
-                  setFlameKey(key);
-                  void setPatronFlameAction(key);
-                }}
-                className={`h-7 w-7 rounded-full border-2 transition ${
-                  flameKey === key ? "scale-110 border-white" : "border-transparent opacity-70 hover:opacity-100"
-                }`}
-                style={{ background: `radial-gradient(circle, ${PATRON_FLAMES[key].hot} 0 35%, ${PATRON_FLAMES[key].core} 75%)` }}
-              >
-                <span className="sr-only">{PATRON_FLAMES[key].label} flame</span>
-              </button>
-            ))}
-            <span className="text-[11px] text-steel">Burns on every card you own — collection, binder, rips.</span>
+            {PATRON_FLAME_KEYS.map((key) => {
+              const locked = !flameUnlocked(key, patronTenureDays);
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={flameKey === key}
+                  disabled={locked}
+                  title={
+                    locked
+                      ? `${PATRON_FLAMES[key].label} — unlocks after ${Math.round(SOVEREIGN_TENURE_DAYS / 30)} months of patronage (${patronTenureDays} days so far)`
+                      : PATRON_FLAMES[key].label
+                  }
+                  onClick={() => {
+                    setFlameKey(key);
+                    void setPatronFlameAction(key);
+                  }}
+                  className={`relative h-7 w-7 rounded-full border-2 transition ${
+                    flameKey === key ? "scale-110 border-white" : "border-transparent opacity-70 hover:opacity-100"
+                  } ${locked ? "cursor-not-allowed opacity-35 hover:opacity-35" : ""}`}
+                  style={{ background: `radial-gradient(circle, ${PATRON_FLAMES[key].hot} 0 35%, ${PATRON_FLAMES[key].core} 75%)` }}
+                >
+                  {locked ? <span className="absolute -right-1 -top-1 text-[10px]">🔒</span> : null}
+                  <span className="sr-only">{PATRON_FLAMES[key].label} flame</span>
+                </button>
+              );
+            })}
+            <span className="text-[11px] text-steel">
+              Burns on every card you own — collection, binder, rips. Sovereign (gold, ember-lit) unlocks at six
+              months of patronage.
+            </span>
           </div>
         ) : null}
         <button

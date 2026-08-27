@@ -8,15 +8,20 @@ afterEach(() => {
 });
 
 const byBalance: LeaderboardRow[] = [
-  { rank: 1, discord_id: "1", username: "Rich", avatar_url: null, balance: 9000, profit: 200, badges: ["🔥3"] },
-  { rank: 2, discord_id: "2", username: "Mid", avatar_url: null, balance: 3000, profit: -100, badges: [] },
+  { rank: 1, discord_id: "1", username: "Rich", avatar_url: null, balance: 9000, profit: 200, badges: ["🔥3"], flame: "royal" },
+  { rank: 2, discord_id: "2", username: "Mid", avatar_url: null, balance: 3000, profit: -100, badges: [], flame: null },
 ];
 const byProfit: LeaderboardRow[] = [
-  { rank: 1, discord_id: "2", username: "Mid", avatar_url: null, balance: 3000, profit: -100, badges: [] },
-  { rank: 2, discord_id: "1", username: "Rich", avatar_url: null, balance: 9000, profit: 200, badges: ["🔥3"] },
+  { rank: 1, discord_id: "2", username: "Mid", avatar_url: null, balance: 3000, profit: -100, badges: [], flame: null },
+  { rank: 2, discord_id: "1", username: "Rich", avatar_url: null, balance: 9000, profit: 200, badges: ["🔥3"], flame: "royal" },
 ];
 
 describe("LeaderboardTable", () => {
+  it("burns the patron flame dot beside a patron's name only", () => {
+    render(<LeaderboardTable byBalance={byBalance} byProfit={byProfit} meId={null} />);
+    expect(screen.getAllByLabelText("League Patron")).toHaveLength(1);
+  });
+
   it("shows the balance ranking by default, with badges", () => {
     render(<LeaderboardTable byBalance={byBalance} byProfit={byProfit} meId={null} />);
     const rows = screen.getAllByRole("row").slice(1); // skip header

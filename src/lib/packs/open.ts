@@ -390,10 +390,14 @@ async function announceChaseClaim(
 ): Promise<void> {
   const { data } = await service
     .from("betting_profiles")
-    .select("username")
+    .select("username, patron_until")
     .eq("discord_id", discordId)
     .maybeSingle();
-  const who = (data as { username: string } | null)?.username ?? "Someone";
+  const row = data as { username: string; patron_until: string | null } | null;
+  // Patrons carry the flame into the announcement too — the perk is being
+  // seen, and this embed is the most-seen line the cards channel has.
+  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
   const { card } = print;
   // Spell out what the winning pull actually WAS. The share image can't
   // show foil or ink, so without this line a subtle Prisma claim reads as
