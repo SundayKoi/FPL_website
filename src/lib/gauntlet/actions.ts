@@ -23,9 +23,10 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
 import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
+import { buildAutopsy } from "./autopsy";
 import { CROSSROADS_BY_KEY } from "./crossroads";
 import { generateOpponent } from "./opponents";
-import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "./run";
+import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -209,8 +210,8 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const effects = aggregateEffects(run.relics);
-  const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, effects, mulberry32(run.round_seed));
+  const ctx = matchContextFor(run.relics, run.next_opponent);
+  const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
   const { data: updated, error: updateError } = await service
@@ -265,17 +266,20 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const effects = aggregateEffects(run.relics);
+  const ctx = matchContextFor(run.relics, run.next_opponent);
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
     run.lineup,
     run.next_opponent.cards,
-    effects,
+    ctx,
     mulberry32(run.crossroads.seed2),
   );
-  const score = roundScore(run.round, sim, run.lineup, effects);
+  const score = roundScore(run.round, sim, run.lineup, ctx.effects);
   const result: MatchResult = { ...sim, score };
+  // The read of the match, computed from the tape it just produced —
+  // stored with it so a refresh redraws the same explanation.
+  const autopsy = buildAutopsy(sim, run.crossroads.state.lanesWon);
 
   const cleared = sim.won && run.round >= GAUNTLET_ROUNDS;
   // The offer derives from the SAME stored seed (offset stream), so a
@@ -292,7 +296,7 @@ export async function chooseGauntletPathAction(
       relic_offer: offer,
       crossroads: null,
       next_opponent: sim.won ? null : run.next_opponent,
-      last_result: { ...result, round: run.round },
+      last_result: { ...result, round: run.round, autopsy },
       updated_at: new Date().toISOString(),
     })
     .eq("id", run.id)
