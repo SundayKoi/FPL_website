@@ -48,9 +48,9 @@ declare
 begin
   if p_pot < 0 then raise exception 'negative pot'; end if;
 
-  -- Serialize concurrent draws for the same week; the second caller sees
-  -- the first's row after it commits (primary key makes the race a
-  -- unique-violation at worst, which the exists-check turns into already).
+  -- Idempotency, layer one: the week is already drawn and committed, so
+  -- report the winner on record. This is the ordinary rerun (cron retry,
+  -- or an owner running the script by hand after it already fired).
   perform 1 from weekly_draws w
     where w.season = p_season and w.week_start = p_week;
   if found then
@@ -71,14 +71,33 @@ begin
     return;
   end if;
 
-  -- Stamp the living copy, then freeze the stamped json as history.
-  v_card := jsonb_set(v_copy.card, '{drawWin}', jsonb_build_object('weekStart', to_char(p_week, 'YYYY-MM-DD')));
-  update card_inventory set card = v_card where id = v_copy.id;
+  -- Idempotency, layer two: the check above is not a lock, so a genuinely
+  -- concurrent caller (a manual run overlapping the cron) can pass it too.
+  -- Both then race to insert; the primary key lets exactly one win. The
+  -- loser blocks on the unique index until the winner commits, takes a
+  -- unique_violation, and is caught here — the sub-block rolls back its
+  -- own stamp and it answers with the winner and already = true rather
+  -- than surfacing a raw constraint error. The re-read sees the committed
+  -- row because each statement takes a fresh snapshot under read
+  -- committed; on a stricter isolation level the loser aborts with a
+  -- serialization failure instead, which is a safe retry either way.
+  begin
+    -- Stamp the living copy, then freeze the stamped json as history.
+    v_card := jsonb_set(v_copy.card, '{drawWin}', jsonb_build_object('weekStart', to_char(p_week, 'YYYY-MM-DD')));
+    update card_inventory set card = v_card where id = v_copy.id;
 
-  insert into weekly_draws (season, week_start, copy_id, discord_id, card, pot)
-  values (p_season, p_week, v_copy.id, v_copy.discord_id, v_card, p_pot);
+    insert into weekly_draws (season, week_start, copy_id, discord_id, card, pot)
+    values (p_season, p_week, v_copy.id, v_copy.discord_id, v_card, p_pot);
+  exception when unique_violation then
+    return query select w.copy_id, w.discord_id, true
+      from weekly_draws w
+      where w.season = p_season and w.week_start = p_week;
+    return;
+  end;
 
   -- Pay the pot: ledger row + balance, the vote_daily_banger pattern.
+  -- Outside the sub-block above on purpose: only the draw insert may
+  -- answer a unique_violation with already, never a payment failure.
   insert into betting_ledger (discord_id, delta, reason, ref_table, ref_id)
   values (v_copy.discord_id, p_pot, 'weekly_draw', 'weekly_draws', null);
   update betting_profiles set balance = balance + p_pot
