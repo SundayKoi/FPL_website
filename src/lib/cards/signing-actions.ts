@@ -49,6 +49,55 @@ export async function createSignatureInviteAction(input: {
 }
 
 /**
+ * Voids a signing link the owner no longer trusts — a link sent to the
+ * wrong person, or one being replaced after a botched save. Burns the
+ * token without writing any ink, so the URL dies the same way a spent one
+ * does. A link that's already used just stays used.
+ */
+export async function voidSignatureInviteAction(
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireOwner())) return { ok: false, error: "Owners only." };
+  if (typeof token !== "string" || !/^[0-9a-f]{32}$/.test(token)) {
+    return { ok: false, error: "That isn't a signing-link token." };
+  }
+  const service = createBettingServiceClient();
+  const { error } = await service
+    .from("signature_invites")
+    .update({ used_at: new Date().toISOString() })
+    .eq("token", token)
+    .is("used_at", null);
+  if (error) return { ok: false, error: "Could not void the link — try again." };
+  revalidatePath("/admin/champions");
+  return { ok: true };
+}
+
+/**
+ * Wipes the stored ink for one riot account, across EVERY season row —
+ * the pack mint's autograph lookup is cross-season, so a junk signature
+ * (a stray dot saved through a signing link) has to go everywhere to stop
+ * minting. Owner-gated for the same reason minting links is: this also
+ * deletes a signature the player drew themselves.
+ */
+export async function clearChampionInkAction(input: {
+  summonerName: string;
+  tag: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await requireOwner())) return { ok: false, error: "Owners only." };
+  if (!input.summonerName || !input.tag) return { ok: false, error: "Account is required." };
+  const service = createBettingServiceClient();
+  const { error } = await service
+    .from("card_art_prefs")
+    .update({ signature: null })
+    .ilike("summoner_name", input.summonerName)
+    .ilike("tag", input.tag)
+    .not("signature", "is", null);
+  if (error) return { ok: false, error: "Could not clear the ink — try again." };
+  revalidatePath("/admin/champions");
+  return { ok: true };
+}
+
+/**
  * Spends a signing link: validates the token (unused, unexpired), writes
  * the ink to card_art_prefs under the invite's identity, and burns the
  * token — all service-side, because the page this is called from is

@@ -24,6 +24,9 @@ export default function InviteSignaturePad({ token }: { token: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
   const [dirty, setDirty] = useState(false);
+  // The save is one-shot (it burns the link), so it takes two taps: the
+  // first arms, the second fires. Drawing or clearing disarms.
+  const [saveArmed, setSaveArmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +70,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
     ctx.stroke();
     drawing.current = true;
     setDirty(true);
+    setSaveArmed(false);
     setError(null);
   };
 
@@ -92,17 +96,23 @@ export default function InviteSignaturePad({ token }: { token: string }) {
     ctx.clearRect(0, 0, PAD_WIDTH, PAD_HEIGHT);
     ctx.beginPath();
     setDirty(false);
+    setSaveArmed(false);
     setError(null);
   };
 
   const save = async () => {
     const canvas = canvasRef.current;
     if (!canvas || saved) return;
+    if (!saveArmed) {
+      setSaveArmed(true);
+      return;
+    }
     const signature = canvas.toDataURL("image/png");
     if (signature.length > MAX_SIGNATURE_CHARS) {
       setError("That signature is too detailed — try a simpler one.");
       return;
     }
+    setSaveArmed(false);
     setSaving(true);
     setError(null);
     const result = await submitInviteSignatureAction(token, signature);
@@ -153,7 +163,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
           disabled={saving || !dirty}
           className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
         >
-          {saving ? "Saving…" : "Sign it"}
+          {saving ? "Saving…" : saveArmed ? "Happy with it? Tap again" : "Sign it"}
         </button>
       </div>
       <p className="text-[11px] text-steel">One save only — the link retires once your signature lands.</p>

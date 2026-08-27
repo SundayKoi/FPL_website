@@ -53,7 +53,8 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Already signed</h1>
           <p className="mt-2 text-sm text-steel">
-            This link was already used — the signature is on file. Nothing more to do.
+            This link was already used — a signature is on file. If that was a mistake or a stray mark, ask
+            whoever sent the link for a fresh one; signing again just replaces what&apos;s there.
           </p>
         </section>
       </main>
