@@ -47,6 +47,9 @@ export function cardsNavGroups({ base }: { base: string }): NavGroup[] {
       title: "Play",
       items: [
         { label: "Fantasy", href: `${base}/fantasy`, blurb: "Field five cards under the salary cap" },
+        ...(base === "/cards"
+          ? [{ label: "Gauntlet", href: `${base}/gauntlet`, blurb: "Draft five, climb eight rounds, lose once", accent: true }]
+          : []),
         { label: "Ledger", href: `${base}/stats`, blurb: "What the league has opened and pulled" },
       ],
     },
