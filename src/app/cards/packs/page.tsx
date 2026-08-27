@@ -6,6 +6,7 @@ import CollectionGrid from "@/components/cards/CollectionGrid";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
+import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
@@ -106,6 +107,9 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         league === "premier" ? fetchChampionComps(service, user.discordId) : Promise.resolve(0),
       ])
     : [null, null, null, 0];
+  // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
+  // read for an active patron.
+  const patronTenureDays = dailyRip.patron ? await fetchPatronTenureDays(service, user.discordId) : 0;
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -215,6 +219,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         flame={dailyRip.flame}
         championsOpen={Boolean(championsWindow)}
         championComps={championComps}
+        patronTenureDays={patronTenureDays}
       />
 
       <section id="collection" className="flex flex-col gap-4">

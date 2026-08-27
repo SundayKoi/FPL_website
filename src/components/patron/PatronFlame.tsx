@@ -41,6 +41,9 @@ export default function PatronFlame({
       <span className="patron-flame-spark" />
       <span className="patron-flame-spark" />
       <span className="patron-flame-spark" />
+      {/* LAST child on purpose: the spark nth-child sizing above counts
+          from the ring, and an early sibling would shift all three. */}
+      {style.effect === "embers" ? <span className="patron-flame-embers" data-testid="patron-flame-embers" /> : null}
     </span>
   );
 }

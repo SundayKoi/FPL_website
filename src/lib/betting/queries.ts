@@ -420,6 +420,18 @@ export async function fetchLeaderboard(by: "balance" | "profit" = "balance", lim
     .order("discord_id", { ascending: true })
     .limit(limit);
   const rows = (data as LeaderboardViewRow[] | null) ?? [];
+  // Patron flames ride the board: which of these accounts are burning,
+  // and in what colour. One .in() read; a miss (or a lapsed patronage)
+  // just renders no flame.
+  const { data: patronData } = await service
+    .from("betting_profiles")
+    .select("discord_id, patron_until, patron_flame")
+    .in("discord_id", rows.map((r) => r.discord_id));
+  const flames = new Map(
+    ((patronData as { discord_id: string; patron_until: string | null; patron_flame: string | null }[]) ?? [])
+      .filter((p) => p.patron_until && new Date(p.patron_until).getTime() > Date.now())
+      .map((p) => [p.discord_id, p.patron_flame]),
+  );
   return rows.map((r, i) => ({
     rank: i + 1,
     discord_id: r.discord_id,
@@ -428,6 +440,7 @@ export async function fetchLeaderboard(by: "balance" | "profit" = "balance", lim
     balance: r.balance,
     profit: r.profit,
     badges: badgesFor(r.current_streak, r.perfect_pickems),
+    flame: flames.has(r.discord_id) ? flames.get(r.discord_id) ?? "ember" : null,
   }));
 }
 
