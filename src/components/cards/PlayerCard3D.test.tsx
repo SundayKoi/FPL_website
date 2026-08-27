@@ -382,7 +382,7 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect(container.querySelector(".champ-pipwrap")).toBeTruthy();
   });
 
-  it("rides the team's logo beside the wordmark when one exists", () => {
+  it("seats the team's logo above the wordmark when one exists", () => {
     const champCard = {
       ...card,
       champWin: {
