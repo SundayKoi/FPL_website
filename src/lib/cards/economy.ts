@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FOIL_TYPES, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import { CHAMPION_TIER } from "@/lib/cards/champions";
 
 /**
  * Wallets left out of every number here.
@@ -59,6 +60,11 @@ export interface EconomyStats {
   altArts: number;
   /** Minted, not pulled — moments aren't in packs. */
   momentsMinted: number;
+  /** The Faceless Drop's relics in circulation. `byRank` keys are the
+   *  corner indices (K, A, Q, 7, JOKER) so the page can show how the Hand
+   *  spread; foils/signed/altArts are the drop's own shine, a SUBSET of
+   *  the global counters above, never in addition to them. */
+  champions: { total: number; byRank: Record<string, number>; foils: number; signed: number; altArts: number };
   /** Highest overall anyone has pulled, and who is on the card. */
   bestPull: { playerName: string; overall: number; tier: string } | null;
   /** The player who has been pulled the most times. */
@@ -71,6 +77,7 @@ export interface EconomyStats {
 
 interface InventoryStatRow {
   discord_id: string;
+  slug: string;
   player_name: string;
   overall: number;
   tier: string;
@@ -172,7 +179,7 @@ export async function fetchEconomyStats(
     fetchAllRows<InventoryStatRow>(
       supabase,
       "card_inventory",
-      "id, discord_id, player_name, overall, tier, foil, foil_type, signed, artSkin:card->artSkin",
+      "id, discord_id, slug, player_name, overall, tier, foil, foil_type, signed, artSkin:card->artSkin",
       season,
       pageSize,
       maxPages,
@@ -189,7 +196,9 @@ export async function fetchEconomyStats(
   const foilsByType = Object.fromEntries(FOIL_TYPES.map((type) => [type, 0])) as Record<FoilType, number>;
   let signed = 0;
   let altArts = 0;
+  const champions = { total: 0, byRank: {} as Record<string, number>, foils: 0, signed: 0, altArts: 0 };
   for (const card of cards) {
+    const isChampion = card.tier === CHAMPION_TIER;
     if (card.foil) {
       foils += 1;
       // foilTypeOf, not the raw column: a copy pulled before parallels
@@ -198,6 +207,20 @@ export async function fetchEconomyStats(
     }
     if (card.signed === true) signed += 1;
     if ((card.artSkin ?? 0) > 0) altArts += 1;
+    if (isChampion) {
+      champions.total += 1;
+      // Rank off the slug (faceless-k …) — the flat columns carry no rank.
+      const rank = (card.slug ?? "").replace(/^faceless-/, "").toUpperCase();
+      champions.byRank[rank] = (champions.byRank[rank] ?? 0) + 1;
+      if (card.foil) champions.foils += 1;
+      if (card.signed === true) champions.signed += 1;
+      if ((card.artSkin ?? 0) > 0) champions.altArts += 1;
+      // Relics stay out of the player-centric superlatives: a drop-week
+      // run on the Hand would crown "most pulled player: king of spades",
+      // which isn't what that figure means. overall 0 keeps them out of
+      // bestPull on its own.
+      continue;
+    }
     copiesByPlayer.set(card.player_name, (copiesByPlayer.get(card.player_name) ?? 0) + 1);
     if (!best || card.overall > best.overall) {
       best = { playerName: card.player_name, overall: card.overall, tier: card.tier };
@@ -219,6 +242,7 @@ export async function fetchEconomyStats(
     signed,
     altArts,
     momentsMinted: momentsResult.error ? 0 : momentsResult.count ?? 0,
+    champions,
     bestPull: best,
     mostPulled: mostPulled ? { playerName: mostPulled[0], copies: mostPulled[1] } : null,
     excludedCount: excluded.size,
