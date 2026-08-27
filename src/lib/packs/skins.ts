@@ -107,6 +107,16 @@ export async function printArtExists(championName: string, num: number): Promise
   return (await resolvePrintArtUrl(championName, num)) !== null;
 }
 
+/** The validator for surfaces that render championSplashUrl DIRECTLY —
+ *  the champions relics. Their renderer never falls back to the centered
+ *  directory, so a skin that only has centered art must not be rollable
+ *  for them, or the frozen print renders a hole. Same per-URL cache. */
+export async function splashArtExists(championName: string, num: number): Promise<boolean> {
+  const splash = championSplashUrl(championName, num);
+  if (!splash) return false;
+  return artUrlServed(splash);
+}
+
 /**
  * The print roll the pack actually uses. Two stages, both off the injected
  * rand: first a chance gate — `altChance` (ALT_SKIN_CHANCE by default,

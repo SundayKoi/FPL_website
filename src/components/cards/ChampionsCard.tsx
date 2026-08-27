@@ -129,7 +129,9 @@ export default function ChampionsCard({
 }) {
   const print = card.champWin;
   if (!print) return null;
-  const splash = championSplashUrl(print.champion, 0);
+  // The print's own skin — 0 (base) unless the mint rolled an alternate;
+  // frozen in the card json like everything else on it.
+  const splash = championSplashUrl(print.champion, card.artSkin || 0);
   const parallel = foilTypeOf(foilType);
   const foilLayer = FOIL_LAYERS[parallel];
 

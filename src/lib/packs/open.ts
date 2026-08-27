@@ -19,7 +19,7 @@ import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
 import { applyAutographs } from "./signatures";
-import { fetchChampionSkinNums, printArtExists, rollPrint } from "./skins";
+import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { mondayOf } from "./week";
 
 /** slug -> that player's inked signature, for everyone in `season` who has
@@ -512,6 +512,19 @@ export async function openChampionsPack(
   const foil = foilRolled || signed;
   const foilType = rolledType ?? (signed ? DEFAULT_FOIL_TYPE : null);
 
+  // Alt art rolls at the player-card gates (rarer on signed copies) over
+  // the most-played champion's skin catalog — validated against the
+  // REGULAR splash directory, the only one this card's renderer draws
+  // from, so a frozen print can never point at art the CDN doesn't serve.
+  const skinNums = await fetchChampionSkinNums(def.champion);
+  const artSkin = await rollPrint(
+    def.champion,
+    skinNums,
+    rand,
+    splashArtExists,
+    signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
+  );
+
   // Which mint of this rank the copy is. A plain count, same contract as
   // moment serials: a same-second tie shares a number and that's a story,
   // not a wallet bug.
@@ -525,6 +538,7 @@ export async function openChampionsPack(
     ...championToCard(def, season, (count ?? 0) + 1),
     // Pinned to the committed asset — a relic never depends on a team row.
     teamImageUrl: CHAMPIONS_LOGO_PATH,
+    artSkin,
     ...(signed && ink ? { autograph: ink } : {}),
   };
 

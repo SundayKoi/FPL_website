@@ -396,10 +396,14 @@ describe("a moment sits the same size as the cards beside it", () => {
       },
       name: "king of spades",
       teamImageUrl: "https://cdn.example/faceless.png",
+      // A rolled alternate print — the relic must wear it, not base splash.
+      artSkin: 3,
     } as unknown as typeof card;
     const { container } = render(<PlayerCard3D card={champCard} />);
 
     expect(container.querySelector(".champ-logo")?.getAttribute("src")).toBe("https://cdn.example/faceless.png");
+    const splashes = [...container.querySelectorAll("img")].map((img) => img.getAttribute("src") ?? "");
+    expect(splashes.some((src) => src.endsWith("Chogath_3.jpg"))).toBe(true);
     // The logo replaces the pip, never stacks on it.
     expect(container.querySelector(".champ-pipwrap")).toBeNull();
     // The ember layer rides every champions card, logo or not.
