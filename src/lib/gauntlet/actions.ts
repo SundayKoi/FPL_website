@@ -1,6 +1,6 @@
 "use server";
 
-// The Gauntlet's state machine: enter, fight, pick, retreat, swap.
+// The Gauntlet's state machine: enter, fight, choose, pick, reset, swap.
 //
 // Every transition is a compare-and-swap on the run row, so a double-click
 // or a refresh can never fight the same round twice or spend one relic
@@ -180,7 +180,7 @@ export async function startGauntletRunAction(
     return {
       ok: false,
       error: active
-        ? "You already have a live run — finish or retreat it first."
+        ? "You already have a live run — finish it or walk away first."
         : `The run didn't start${refundError ? " and the fee couldn't be returned — staff have been notified" : " — your fee was returned"}.`,
     };
   }
@@ -373,27 +373,31 @@ export async function pickGauntletRelicAction(
   return { ok: true, run: (updated as GauntletRunRow[])[0] };
 }
 
-/** Banks the score and ends the run — the coward's exit, available only
- *  between rounds (a staged fight must be fought). THE BANKER pays its
- *  extra percent here, on the way out. */
-export async function retreatGauntletAction(runId: number): Promise<ActionResult<{ score: number }>> {
+/**
+ * Walks away from a live run so a new one can be drafted. Pays NOTHING:
+ * no refund, no bonus, no reward of any kind — the entry fee stays in the
+ * week's pot, and the score already won stands on the board exactly as a
+ * fallen run's would. The Gauntlet's only payout is Monday's settlement.
+ */
+export async function resetGauntletRunAction(runId: number): Promise<ActionResult<{ score: number }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   const service = createBettingServiceClient();
   const run = await loadOwnRun(service, runId, user.discordId);
   if (!run) return { ok: false, error: "That run isn't yours." };
   if (run.status !== "active") return { ok: false, error: "That run is over." };
-  if (!run.relic_offer) return { ok: false, error: "The fight is staged — see it through or don't start one." };
-
-  const bankBonusPct = aggregateEffects(run.relics).bankBonusPct ?? 0;
-  const banked = Math.round(run.score * (1 + bankBonusPct / 100));
 
   const { data: updated } = await service
     .from("gauntlet_runs")
-    .update({ status: "banked", relic_offer: null, score: banked, updated_at: new Date().toISOString() })
+    .update({
+      status: "banked",
+      relic_offer: null,
+      crossroads: null,
+      round_seed: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", run.id)
     .eq("status", "active")
-    .eq("score", run.score)
     .select("score");
   if (!updated || updated.length === 0) return { ok: false, error: "That run already ended." };
 

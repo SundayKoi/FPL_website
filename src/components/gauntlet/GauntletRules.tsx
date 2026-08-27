@@ -45,12 +45,14 @@ export default function GauntletRules() {
 
       <Section title="The shape of a run">
         <p>
-          Entry is <b className="text-white">{GAUNTLET_ENTRY_FEE} betting dollars</b>. Draft one card per role
-          and climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over — score kept, nothing banked extra.
-          Between rounds you can <b className="text-white">retreat</b> and bank your score instead of fighting
-          on. The bracket scales to <i>your</i> lineup&apos;s average: round 1 starts about four points under
-          it, round {GAUNTLET_ROUNDS} ends about seven over. A stacked shelf gets a harder bracket — the run is
-          about the calls, not the collection.
+          Entry is <b className="text-white">{GAUNTLET_ENTRY_FEE} betting dollars</b>, and it&apos;s gone the
+          moment you enter — it feeds the week&apos;s pot and nothing refunds it. Draft one card per role and
+          climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over. You can{" "}
+          <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
+          walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
+          board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
+          starts about four points under it, round {GAUNTLET_ROUNDS} ends about seven over. A stacked shelf
+          gets a harder bracket — the run is about the calls, not the collection.
         </p>
       </Section>
 
@@ -150,7 +152,7 @@ export default function GauntletRules() {
           the other two burn. <b style={{ color: "#ff7a3d" }}>Ember</b> runs hot — fights and aggression, often
           at a price. <b style={{ color: "#9b6dff" }}>Void</b> owns the map — objectives, vision, the pit.{" "}
           <b style={{ color: "#a8e6ff" }}>Ice</b> plays the long game — lanes, tempo, the late hold.{" "}
-          <b style={{ color: "#e8c14b" }}>Gold</b> pays the board — score, style, the bank. Effects stack for
+          <b style={{ color: "#e8c14b" }}>Gold</b> pays the board — score and style, never the fight. Effects stack for
           the whole run, and every card states its exact numbers. Foil and ink never touch a fight — shine pays
           score only.
         </p>
@@ -158,13 +160,15 @@ export default function GauntletRules() {
 
       <Section title="Scoring and the weekly pot">
         <p>
-          A won round pays <b className="text-white">200 + 55 × round</b>, plus{" "}
+          A won round pays <b className="text-white">200 + 55 × round</b> score, plus{" "}
           <b className="text-white">2.4 × every momentum point past 50</b> at the whistle, plus the{" "}
           <b className="text-gold">daring bonus</b> for a landed crossroads gamble, plus shine (foils and
-          signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.
-          Retreating banks your score as it stands (THE BANKER adds 15% on the way out). Every entry fee feeds
-          the week&apos;s pot: Monday it pays <b className="text-white">40 / 25 / 15%</b> to the top three
-          scores, with scraps for everyone who cleared round 4. Best run per player counts.
+          signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.{" "}
+          <b className="text-white">Score is board points, never dollars</b> — nothing in a run puts money in
+          your wallet, and walking away refunds nothing. The only money the Gauntlet ever pays out is
+          Monday&apos;s settlement of the pot (every entry fee paid that week):{" "}
+          <b className="text-white">40 / 25 / 15%</b> to the week&apos;s top three scores, with scraps for
+          everyone who cleared round 4. Best run per player counts.
         </p>
       </Section>
     </section>
