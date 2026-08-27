@@ -19,7 +19,19 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { dustValueOf } from "@/lib/packs/config";
+import { patronDustValue } from "@/lib/packs/config";
+import { patronActive } from "@/lib/patron/flames";
+
+/** Whether this wallet gets the patron dust bonus, read at dust time so a
+ *  lapsed patronage stops paying the moment it ends. */
+async function dustsAsPatron(service: ReturnType<typeof createBettingServiceClient>, discordId: string): Promise<boolean> {
+  const { data } = await service
+    .from("betting_profiles")
+    .select("patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  return patronActive((data as { patron_until: string | null } | null)?.patron_until);
+}
 import { fetchInventory, type InventoryRow } from "@/lib/packs/queries";
 import { isAltArt } from "./queries";
 import { lockedInventoryIds } from "./guards";
@@ -126,12 +138,15 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
 
   // foil_type included: without it a Cracked Ice would dust for the base
   // foil rate, quietly paying out a fifth of what the copy is worth.
-  const value = dustValueOf({
-    tier: row.tier,
-    foil: row.foil,
-    foilType: row.foil_type,
-    signed: row.signed === true,
-  });
+  const value = patronDustValue(
+    {
+      tier: row.tier,
+      foil: row.foil,
+      foilType: row.foil_type,
+      signed: row.signed === true,
+    },
+    await dustsAsPatron(service, user.discordId),
+  );
   const { data: balance, error: rpcError } = await service.rpc("dust_card", {
     p_user: user.discordId,
     p_inventory: row.id,
@@ -187,17 +202,21 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
   let value = 0;
   let balance: number | null = null;
   let skipped = ids.length - owned.length;
+  const patron = await dustsAsPatron(service, user.discordId);
   for (const row of owned) {
     if (lockedBySeason.get(row.season)?.has(row.id)) {
       skipped += 1;
       continue;
     }
-    const rowValue = dustValueOf({
-      tier: row.tier,
-      foil: row.foil,
-      foilType: row.foil_type,
-      signed: row.signed === true,
-    });
+    const rowValue = patronDustValue(
+      {
+        tier: row.tier,
+        foil: row.foil,
+        foilType: row.foil_type,
+        signed: row.signed === true,
+      },
+      patron,
+    );
     const { data: nextBalance, error: rpcError } = await service.rpc("dust_card", {
       p_user: user.discordId,
       p_inventory: row.id,

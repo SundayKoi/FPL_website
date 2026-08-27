@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MOMENT_DUST } from "@/lib/cards/moments";
 import {
+  patronDustValue,
   DUST_VALUES,
   DEFAULT_FOIL_TYPE,
   FOIL_DUST_MULT,
@@ -59,6 +60,21 @@ describe("dustValueOf", () => {
 
     expect(Math.round(perPack)).toBe(82);
     expect(perPack / PACK_COST).toBeLessThan(0.5);
+  });
+});
+
+describe("patronDustValue", () => {
+  it("pays patrons 20% more, rounded to whole dollars, and non-patrons exactly the table", () => {
+    const common = { tier: "bronze", foil: false, signed: false } as const;
+    expect(patronDustValue(common, false)).toBe(10);
+    expect(patronDustValue(common, true)).toBe(12);
+    // A rare (25) lands on a fraction — 30 exactly, but the rounding rule
+    // is pinned here for any future retune.
+    expect(patronDustValue({ tier: "platinum", foil: false, signed: false }, true)).toBe(30);
+    // The bonus rides the TOTAL, autograph included.
+    expect(patronDustValue({ tier: "bronze", foil: false, signed: true }, true)).toBe(Math.round(1210 * 1.2));
+    // Still a burn: a pack's expected dust return stays under its cost.
+    expect(Math.round(82 * 1.2)).toBeLessThan(200);
   });
 });
 

@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
-import { dustValueOf } from "@/lib/packs/config";
+import { patronDustValue } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
@@ -139,7 +139,8 @@ export default function DustControls({
       {open ? (
         <ul className="flex w-full flex-col gap-1">
           {copies.map((copy) => {
-            const value = dustValueOf(copy);
+            // Patrons melt for 20% more — same helper the server credits by.
+            const value = patronDustValue(copy, patron);
             const isArmed = armed === copy.id;
             const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
             const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;

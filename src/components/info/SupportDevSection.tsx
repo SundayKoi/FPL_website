@@ -102,10 +102,15 @@ export default function SupportDevSection({ className = "" }: Props) {
                 <span className="font-semibold text-white">🎲 The weekly re-roll</span> — once a week, re-roll the
                 art on one copy you own. Skin only — never rarity, foil, or ink.
               </li>
+              <li>
+                <span className="font-semibold text-white">💎 The 20% dust bonus</span> — every copy you melt pays
+                a fifth more. Dusting still costs less than a pack returns, so it sweetens the salvage without
+                ever becoming an income.
+              </li>
             </ul>
             <p className="mt-3 text-xs leading-5 text-steel">
-              The rule behind all of it: patronage is visibility, never power. Nothing here changes a card&apos;s
-              odds, a rating, or a payout — the flame marks who keeps the lights on, not who wins.
+              The rule behind all of it: nothing a patron pays for changes a card&apos;s odds, anyone&apos;s
+              rating, or what comes out of a pack. The flame marks who keeps the lights on, not who wins.
             </p>
           </div>
           <a

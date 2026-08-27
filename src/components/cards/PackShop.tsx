@@ -341,6 +341,7 @@ export default function PackShop({
           onExit={handleExit}
           onSellPack={sellPack}
           flame={flameKey}
+          patron={patron}
         />
       ) : null}
     </section>

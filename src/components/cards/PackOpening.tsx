@@ -31,7 +31,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { dustValueOf, rarityOf, rarityRank } from "@/lib/packs/config";
+import { patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
 import type { RarityClass } from "@/lib/packs/config";
 import { flipTone, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
@@ -230,6 +230,7 @@ export default function PackOpening({
   onExit,
   onSellPack,
   flame = null,
+  patron = false,
 }: {
   /** The pack that's just been paid for, in any order — sorted here. */
   pulls: Pull[];
@@ -251,6 +252,9 @@ export default function PackOpening({
   >;
   /** The ripper's Patron Flame — they own every pull on this stage. */
   flame?: string | null;
+  /** Active patron opening this pack — the sell-all quote carries their
+   *  20% dust bonus, same helper the server credits by. */
+  patron?: boolean;
 }) {
   // Read once, on mount: the overlay is on screen for a minute at a time, and
   // re-deciding mid-ritual whether to have a ritual is worse than either
@@ -536,17 +540,20 @@ export default function PackOpening({
   const dustTotal = pack.pulls.reduce(
     (sum, pull) =>
       sum +
-      dustValueOf({
-        tier: pull.card.tier.key,
-        foil: pull.foil,
-        foilType: pull.foilType,
-        signed: pull.signed,
-        // Without the flags a pulled moment or champions relic would price
-        // as the placeholder gold tier its wrapper carries — the sell-all
-        // button then offers $10 for a $150 relic.
-        moment: Boolean(pull.card.moment),
-        champWin: Boolean(pull.card.champWin),
-      }),
+      patronDustValue(
+        {
+          tier: pull.card.tier.key,
+          foil: pull.foil,
+          foilType: pull.foilType,
+          signed: pull.signed,
+          // Without the flags a pulled moment or champions relic would price
+          // as the placeholder gold tier its wrapper carries — the sell-all
+          // button then offers $10 for a $150 relic.
+          moment: Boolean(pull.card.moment),
+          champWin: Boolean(pull.card.champWin),
+        },
+        patron,
+      ),
     0,
   );
   const newCount = pack.isNew.filter(Boolean).length;
