@@ -201,6 +201,22 @@ describe("PackShop", () => {
     expect(openPackAction).not.toHaveBeenCalled();
   });
 
+  it("labels the Faceless Pack FREE while tribute comps remain, then reprices", async () => {
+    const relic = [{ card: makeCard("faceless-k", { key: "gold", label: "Champion" }, 0), foil: false, signed: false, inventoryId: 9 }];
+    // Spending the first of two comps: the server reports one left.
+    openChampionsPackAction.mockResolvedValue({ ok: true, cards: relic, balance: 1000, compsLeft: 1 });
+    render(
+      <PackShop league="premier" balance={1000} packCost={200} openCount={0} ownedSlugs={[]} championsOpen championComps={2} />,
+    );
+    expect(screen.getByRole("button", { name: /faceless pack — free \(2 left\)/i })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /faceless pack/i }));
+    });
+    // The server said one comp remains; when it says 0, the price returns.
+    expect(screen.getByRole("button", { name: /faceless pack — free \(1 left\)/i })).toBeTruthy();
+  });
+
   it("takes the stage down when the opening is done with it", async () => {
     renderShop();
     await openPack();

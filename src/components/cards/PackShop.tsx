@@ -46,6 +46,7 @@ export default function PackShop({
   patron = false,
   flame = null,
   championsOpen = false,
+  championComps = 0,
 }: {
   league: CardLeague;
   balance: number;
@@ -70,6 +71,8 @@ export default function PackShop({
   /** The Faceless Drop window is open — shows the relic pack button.
    *  Presentation only; the timestamp on league_settings is the gate. */
   championsOpen?: boolean;
+  /** Free Faceless Packs this user holds (the Champion's Tribute). */
+  championComps?: number;
 }) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
@@ -88,6 +91,10 @@ export default function PackShop({
   // Which shelf the overlay's pack came off — "Open another" re-deals the
   // same kind, and the overlay quotes the right price for it.
   const [packKind, setPackKind] = useState<"standard" | "champions">("standard");
+  // Free Faceless Packs left. The server is the authority — every champions
+  // open reports compsLeft when a comp was spent, and this mirror keeps the
+  // button label honest between refreshes.
+  const [compsLeft, setCompsLeft] = useState(championComps);
 
   // Mute belongs to the audio module, not to this component: the rip, the
   // flips and the walkout stings are all the same setting, and it's persisted
@@ -133,6 +140,7 @@ export default function PackShop({
         setError(result.error);
         return;
       }
+      if (result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
       setPackKind("champions");
       setPulls(result.cards);
       banked(result.balance);
@@ -170,7 +178,10 @@ export default function PackShop({
   const openAnother = useCallback(async (): Promise<OpenResult> => {
     const result =
       packKind === "champions" ? await openChampionsPackAction() : await openPackAction(league, week || undefined);
-    if (result.ok) banked(result.balance);
+    if (result.ok) {
+      if (result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
+      banked(result.balance);
+    }
     return result;
   }, [league, week, banked, packKind]);
 
@@ -237,7 +248,8 @@ export default function PackShop({
             title="One card of the S4 champions' Hand per pack"
             className="rounded-full border border-[#d61f2c]/70 bg-[#d61f2c]/15 px-5 py-2.5 text-sm font-semibold text-[#ff6b76] transition hover:bg-[#d61f2c]/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            🂡 Faceless Pack — {fmtPoints(CHAMPIONS_PACK_COST)}
+            🂡 Faceless Pack —{" "}
+            {compsLeft > 0 ? `FREE (${compsLeft} left)` : fmtPoints(CHAMPIONS_PACK_COST)}
           </button>
         ) : null}
         <div className="flex items-center gap-2">

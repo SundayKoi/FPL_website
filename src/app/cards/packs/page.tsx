@@ -9,6 +9,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
+  fetchChampionComps,
   fetchChampionsWindow,
   fetchChase,
   fetchDailyRipStatus,
@@ -89,16 +90,22 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
   // shows (and academy pulls can win) the same one as premier.
-  const [liveWindow, chase, championsWindow]: [LiveWindow | null, ChaseBanner | null, { until: string } | null] =
-    season
-      ? await Promise.all([
-          fetchLiveWindow(service),
-          editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
-          // The Faceless Drop is a premier relic — the academy shop never
-          // sells it.
-          league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
-        ])
-      : [null, null, null];
+  const [liveWindow, chase, championsWindow, championComps]: [
+    LiveWindow | null,
+    ChaseBanner | null,
+    { until: string } | null,
+    number,
+  ] = season
+    ? await Promise.all([
+        fetchLiveWindow(service),
+        editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
+        // The Faceless Drop is a premier relic — the academy shop never
+        // sells it.
+        league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
+        // The Champion's Tribute — free Faceless Packs for the S4 squad.
+        league === "premier" ? fetchChampionComps(service, user.discordId) : Promise.resolve(0),
+      ])
+    : [null, null, null, 0];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -148,6 +155,20 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
           </span>
         </div>
       ) : null}
+      {championComps > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-[#ffb08a]/70 bg-gradient-to-r from-[#d61f2c]/25 to-[#d61f2c]/5 px-4 py-3">
+          <span className="text-sm font-black uppercase tracking-[0.14em] text-[#ffb08a]">🏆 Champion&apos;s Tribute</span>
+          <span className="text-sm text-white">
+            You were part of the S4 Faceless squad — {championComps} free Faceless Pack{championComps === 1 ? "" : "s"}{" "}
+            {championComps === 1 ? "is" : "are"} yours, on the house.
+          </span>
+          {championsWindow ? (
+            <span className="text-xs text-steel">The Faceless Pack button below won&apos;t charge you until they&apos;re spent.</span>
+          ) : (
+            <span className="text-xs text-steel">They unlock the moment the vault opens.</span>
+          )}
+        </div>
+      ) : null}
       {championsWindow ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#d61f2c]/60 bg-[#d61f2c]/10 px-4 py-3">
           <span className="text-sm font-bold uppercase tracking-[0.14em] text-[#ff6b76]">🂡 The Faceless Drop</span>
@@ -193,6 +214,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         patron={dailyRip.patron}
         flame={dailyRip.flame}
         championsOpen={Boolean(championsWindow)}
+        championComps={championComps}
       />
 
       <section id="collection" className="flex flex-col gap-4">

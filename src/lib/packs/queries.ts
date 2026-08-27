@@ -198,6 +198,20 @@ export async function fetchChampionsWindow(supabase: SupabaseClient): Promise<{ 
   return { until: row.champions_until };
 }
 
+/** Free Faceless Packs this user still holds (the Champion's Tribute).
+ *  0 on no row, and 0 when the comps table hasn't been migrated yet —
+ *  deploy-before-migration must render a normal shop, not crash it. */
+export async function fetchChampionComps(supabase: SupabaseClient, discordId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("card_pack_comps")
+    .select("*")
+    .eq("discord_id", discordId)
+    .eq("kind", "champions")
+    .maybeSingle();
+  if (error) return 0;
+  return (data as { remaining?: number } | null)?.remaining ?? 0;
+}
+
 export interface ChaseBanner {
   title: string;
   bounty: number;
