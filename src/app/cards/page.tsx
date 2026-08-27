@@ -7,7 +7,6 @@ import ClaimFinder from "@/components/cards/ClaimFinder";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fmtPoints } from "@/lib/betting/format";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { getBettingUser } from "@/lib/betting/wallet";
 import { toClaimFinderCards } from "@/lib/cards/claimFinder";
 import { cardSlug } from "@/lib/cards/build";
 import {
@@ -39,38 +38,42 @@ function monthDay(weekStart: string): string {
 }
 
 /**
- * Who the viewer is to the Weekly Draw: their Discord id, how many tickets
- * (card copies) they hold, and the winner's display name.
+ * The two service-client reads the Draw strip needs: the winner's display
+ * name (betting_profiles) and the viewer's ticket count (card_inventory).
+ * Neither table has a public read grant, and both are garnish on a page
+ * whose job is the wall of cards.
  *
- * All three need the service client — betting_profiles and card_inventory
- * have no public read policy — and all three are garnish on a page whose
- * job is the wall of cards. So the whole lookup fails soft: an environment
- * with no SUPABASE_SERVICE_ROLE_KEY configured (createBettingServiceClient
- * throws outright) renders the strip with the winner's id and no ticket
- * line rather than 500ing the hub.
+ * Strictly read-only, and deliberately NOT getBettingUser(): that call runs
+ * grant_signup_bonus, which would create a wallet and credit a signup bonus
+ * as a side effect of merely loading the hub, and re-sync username/avatar on
+ * every visit. A read-only page must not write. The viewer's Discord id is
+ * resolved by the caller from profiles instead, and a viewer with no betting
+ * profile simply counts zero tickets.
+ *
+ * Fails soft: an environment with no SUPABASE_SERVICE_ROLE_KEY configured
+ * (createBettingServiceClient throws outright) renders the strip with the
+ * winner's id and no ticket line rather than 500ing the hub.
  */
-async function loadDrawViewer(
+async function loadDrawExtras(
   latest: DrawRow | null,
   season: string | null,
-): Promise<{ viewerDiscordId: string | null; tickets: number; winnerName: string | null }> {
-  const fallback = { viewerDiscordId: null, tickets: 0, winnerName: latest?.discordId ?? null };
+  viewerDiscordId: string | null,
+): Promise<{ tickets: number; winnerName: string | null }> {
   try {
     const service = createBettingServiceClient();
-    // getBettingUser is how the rest of the card economy names the
-    // signed-in collector; a premium member with no betting wallet simply
-    // gets the strip without a ticket line.
-    const bettingUser = await getBettingUser();
     const [names, tickets] = await Promise.all([
       latest ? fetchBettingUsernames(service, [latest.discordId]) : Promise.resolve(new Map<string, string>()),
-      bettingUser && season ? fetchTicketCount(service, bettingUser.discordId, season) : Promise.resolve(0),
+      viewerDiscordId && season ? fetchTicketCount(service, viewerDiscordId, season) : Promise.resolve(0),
     ]);
     return {
-      viewerDiscordId: bettingUser?.discordId ?? null,
       tickets,
       winnerName: latest ? names.get(latest.discordId) ?? latest.discordId : null,
     };
-  } catch {
-    return fallback;
+  } catch (error) {
+    // Silently swallowing this leaves a misconfigured service key looking
+    // exactly like a league where nobody owns anything.
+    console.error("cards: weekly draw name/ticket lookup failed", error);
+    return { tickets: 0, winnerName: latest?.discordId ?? null };
   }
 }
 
@@ -134,12 +137,28 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const mySlug = myClaim ? cardSlug(myClaim.summoner_name, myClaim.tag) : null;
 
   // The Weekly Draw, compacted to one strip: the copy that came up last,
-  // this week's pot, and how many tickets the viewer is holding. Only
-  // weekly_draws reads publicly; the rest goes through loadDrawViewer,
-  // which owns the service client and the fail-soft.
+  // this week's pot, and how many tickets the viewer is holding.
+  //
+  // The viewer's Discord id comes from profiles (public read policy, and
+  // the same profile id the claim lookup above already resolved) on the
+  // cookie-bound client — a plain select, so loading the hub writes
+  // nothing. Only weekly_draws reads publicly; the two locked-down reads
+  // go through loadDrawExtras, which owns the service client.
   const latestDraw = season ? await fetchLatestDraw(supabase, season) : null;
-  const { viewerDiscordId: drawViewerId, tickets: ticketCount, winnerName: drawWinnerName } =
-    await loadDrawViewer(latestDraw, season);
+  const { data: viewerProfile } = viewerProfileId
+    ? await supabase
+        .from("profiles")
+        .select("discord_id")
+        .eq("id", viewerProfileId)
+        .maybeSingle()
+        .then((result) => result, () => ({ data: null }))
+    : { data: null };
+  const drawViewerId = (viewerProfile as { discord_id: string | null } | null)?.discord_id ?? null;
+  const { tickets: ticketCount, winnerName: drawWinnerName } = await loadDrawExtras(
+    latestDraw,
+    season,
+    drawViewerId,
+  );
   const drawPanel = drawPanelState(latestDraw, drawViewerId);
 
   return (

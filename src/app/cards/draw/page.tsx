@@ -41,7 +41,10 @@ async function loadWinnerNames(discordIds: string[]): Promise<Map<string, string
   if (discordIds.length === 0) return new Map();
   try {
     return await fetchBettingUsernames(createBettingServiceClient(), discordIds);
-  } catch {
+  } catch (error) {
+    // Fail soft, but never silently: without this a misconfigured service
+    // key is indistinguishable from a league of nameless winners.
+    console.error("cards/draw: winner name lookup failed", error);
     return new Map();
   }
 }
