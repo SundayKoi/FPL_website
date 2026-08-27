@@ -268,6 +268,10 @@ export function dustValueOf(row: {
    *  scale off, and the placeholder tier it carries would otherwise dust
    *  it as an ordinary card of that rarity. */
   moment?: boolean;
+  /** Same story for a champions relic: the flag covers a caller holding
+   *  the card json (whose wrapper tier is a placeholder), the flat column
+   *  covers a stored copy. */
+  champWin?: boolean;
 }): number {
   // Either signal is enough: the flat column says "moment" on a stored
   // copy, and the flag covers a caller holding the card json instead.
@@ -276,7 +280,7 @@ export function dustValueOf(row: {
   // parallel is the flex, and a one-card pack has no room for multipliers
   // before dusting beats CHAMPIONS_PACK_COST and becomes an income. The
   // autograph bonus still applies: real ink is real ink on any card.
-  if (row.tier === CHAMPION_TIER) return CHAMPION_DUST + (row.signed ? SIGNED_DUST_BASE : 0);
+  if (row.champWin || row.tier === CHAMPION_TIER) return CHAMPION_DUST + (row.signed ? SIGNED_DUST_BASE : 0);
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];
   // Rounded because the middle of the ladder is fractional (2.5) and dust

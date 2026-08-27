@@ -527,9 +527,11 @@ export default function PackOpening({
         foil: pull.foil,
         foilType: pull.foilType,
         signed: pull.signed,
-        // Without the flag a pulled moment would price as the placeholder
-        // gold tier its wrapper carries, not as the moment it is.
+        // Without the flags a pulled moment or champions relic would price
+        // as the placeholder gold tier its wrapper carries — the sell-all
+        // button then offers $10 for a $150 relic.
         moment: Boolean(pull.card.moment),
+        champWin: Boolean(pull.card.champWin),
       }),
     0,
   );
