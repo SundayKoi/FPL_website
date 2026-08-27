@@ -33,6 +33,7 @@ import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champi
 import { dustValueOf } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
+import { rerollPrintAction } from "@/lib/cards/reroll-actions";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 
 /** One owned copy: the flat fields the value table and the labels read, plus
@@ -56,10 +57,22 @@ function copyArtUrl(card: PlayerCardData): string | null {
   return card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
 }
 
-export default function DustControls({ playerName, copies }: { playerName: string; copies: DustCopy[] }) {
+export default function DustControls({
+  playerName,
+  copies,
+  patron = false,
+}: {
+  playerName: string;
+  copies: DustCopy[];
+  /** Active patron — shows the weekly art re-roll die on each copy. */
+  patron?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState<number | null>(null);
+  // The re-roll die arms separately from dusting — the two must never
+  // share a confirm state, one destroys and one redecorates.
+  const [dieArmed, setDieArmed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   // Copies whose art Riot serves from neither directory — the thumb drops
@@ -74,8 +87,27 @@ export default function DustControls({ playerName, copies }: { playerName: strin
     setError(null);
   }
 
+  function handleReroll(copy: DustCopy) {
+    setError(null);
+    setArmed(null);
+    if (dieArmed !== copy.id) {
+      setDieArmed(copy.id); // first click arms — the die is weekly, don't waste it
+      return;
+    }
+    setDieArmed(null);
+    startTransition(async () => {
+      const result = await rerollPrintAction(copy.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   function handleDust(copy: DustCopy) {
     setError(null);
+    setDieArmed(null);
     if (armed !== copy.id) {
       setArmed(copy.id); // first click only arms — nothing is destroyed yet
       return;
@@ -155,6 +187,19 @@ export default function DustControls({ playerName, copies }: { playerName: strin
                     </span>
                   ) : null}
                 </span>
+                {patron && !copy.card.moment ? (
+                  <button
+                    type="button"
+                    onClick={() => handleReroll(copy)}
+                    disabled={pending}
+                    title="Patron perk: re-roll this copy's art (one per week, skin only — never rarity, foil or ink)"
+                    className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold transition disabled:opacity-40 ${
+                      dieArmed === copy.id ? "bg-gold text-navy" : "text-steel hover:text-gold"
+                    }`}
+                  >
+                    {dieArmed === copy.id ? "Roll it?" : "🎲"}
+                  </button>
+                ) : null}
                 <CardCopyPreview
                   card={copy.card}
                   foil={copy.foil}

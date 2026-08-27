@@ -79,9 +79,11 @@ export default function BinderEditor({
         <span className="text-xs uppercase tracking-[0.16em] text-steel">Public by link</span>
       </div>
       <p className="max-w-2xl text-sm text-steel">
-        Up to six copies on display. Anyone with the link can see them — the rest of your collection
-        stays private. Add cards with the ☆ Binder button on your shelf above; the slots here are for
-        arranging what&apos;s already in.
+        {slots.length > 6
+          ? "Nine copies on display — the patron shelf, and slot 1 gets the pedestal glow on your public page."
+          : "Up to six copies on display (patrons shelve nine, with a pedestal on slot 1)."}{" "}
+        Anyone with the link can see them — the rest of your collection stays private. Add cards with the ☆
+        Binder button on your shelf above; the slots here are for arranging what&apos;s already in.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">

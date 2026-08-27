@@ -89,7 +89,15 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         <section aria-label="Cards on display" className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {binder.cards.map((entry) => (
             <figure key={entry.slot} className="flex flex-col items-center gap-3">
-              <PlayerCard3D card={entry.card} forceFoil={entry.foil} foilType={entry.foilType} flame={flame} />
+              {/* Slot 1 is a patron's pedestal: the featured card floats on
+                  the tier-coloured bloom the share pages use. */}
+              <PlayerCard3D
+                card={entry.card}
+                forceFoil={entry.foil}
+                foilType={entry.foilType}
+                flame={flame}
+                bloom={Boolean(flame) && entry.slot === 1}
+              />
               <figcaption className="text-center text-xs text-steel">
                 {entry.playerName} · {tierLabel(entry.tier)}
                 {entry.editionWeek ? ` · ${editionLabel(entry.editionWeek)}` : ""}

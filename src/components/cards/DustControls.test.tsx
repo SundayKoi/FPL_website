@@ -5,6 +5,8 @@ import DustControls, { type DustCopy } from "./DustControls";
 
 const { dustCardAction } = vi.hoisted(() => ({ dustCardAction: vi.fn() }));
 vi.mock("@/lib/trades/actions", () => ({ dustCardAction }));
+// server-only transitively, same as trades/actions — mocked so jsdom can load.
+vi.mock("@/lib/cards/reroll-actions", () => ({ rerollPrintAction: vi.fn() }));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
