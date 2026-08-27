@@ -6,6 +6,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { mondayOf } from "@/lib/packs/week";
 import type { GauntletRunRow } from "./run";
+import { rankGauntletWeek } from "./settle";
+import { patronActive } from "@/lib/patron/flames";
 import { GAUNTLET_ROLES, type GauntletRole } from "./sim";
 
 /** One pickable card in the draft — the slice the client needs, WITHOUT
@@ -94,4 +96,52 @@ export async function fetchGauntletWeekStats(
     attempts: runs.length,
     lastFinished: finished[0] ?? null,
   };
+}
+
+export interface GauntletBoardRow {
+  discordId: string;
+  username: string;
+  score: number;
+  round: number;
+  cleared: boolean;
+  /** Active patron's flame key, for the board's flame dot. */
+  flame: string | null;
+}
+
+/** The week's board: best run per user, ranked — the same ranking the
+ *  Monday settlement pays, so what the page shows is what the pot reads. */
+export async function fetchGauntletBoard(
+  supabase: SupabaseClient,
+  season: string,
+  week: string,
+  limit = 10,
+): Promise<GauntletBoardRow[]> {
+  const { data, error } = await supabase
+    .from("gauntlet_runs")
+    .select("discord_id, score, round, status")
+    .eq("season", season)
+    .eq("week_start", week);
+  if (error) return [];
+  const ranked = rankGauntletWeek((data as { discord_id: string; score: number; round: number; status: string }[]) ?? []).slice(0, limit);
+  if (ranked.length === 0) return [];
+  const { data: profiles } = await supabase
+    .from("betting_profiles")
+    .select("discord_id, username, patron_until, patron_flame")
+    .in("discord_id", ranked.map((row) => row.discordId));
+  const byId = new Map(
+    ((profiles as { discord_id: string; username: string | null; patron_until: string | null; patron_flame: string | null }[]) ?? []).map(
+      (row) => [row.discord_id, row],
+    ),
+  );
+  return ranked.map((row) => {
+    const profile = byId.get(row.discordId);
+    return {
+      discordId: row.discordId,
+      username: profile?.username ?? "Unknown",
+      score: row.score,
+      round: row.round,
+      cleared: row.cleared,
+      flame: profile && patronActive(profile.patron_until) ? profile.patron_flame ?? "ember" : null,
+    };
+  });
 }

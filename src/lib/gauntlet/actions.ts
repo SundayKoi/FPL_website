@@ -16,6 +16,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
+import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason } from "@/lib/cards/queries";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -238,6 +239,26 @@ export async function fightGauntletRoundAction(
     if (!current) return { ok: false, error: "That run isn't yours." };
     revalidateGauntlet();
     return { ok: true, result, run: current };
+  }
+
+  // A full clear is the mode's rarest event — the channel hears about it.
+  // Best-effort: a webhook hiccup must never turn a won run into an error.
+  if (cleared) {
+    try {
+      const { data: profile } = await service
+        .from("betting_profiles")
+        .select("username")
+        .eq("discord_id", user.discordId)
+        .maybeSingle();
+      const who = (profile as { username: string | null } | null)?.username ?? "Someone";
+      await postCardsWebhook({
+        title: "⚔🏆 THE GAUNTLET FALLS",
+        description: `**${who}** cleared all eight rounds — final score **${(run.score + score).toLocaleString()}**.\nThe bracket is undefeated no more.`,
+        color: GOLD,
+      });
+    } catch (error) {
+      console.error("gauntlet: full-clear announce failed", error);
+    }
   }
 
   revalidateGauntlet();
