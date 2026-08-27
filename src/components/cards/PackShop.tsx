@@ -182,7 +182,11 @@ export default function PackShop({
     const result =
       packKind === "champions" ? await openChampionsPackAction() : await openPackAction(league, week || undefined);
     if (result.ok) {
-      if (result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
+      // Only a champions open moves this counter. A normal pack reports its
+      // own compsLeft now too (the Weekly Draw pays out standard comps), and
+      // banking that here would relabel the Faceless button with somebody
+      // else's count.
+      if (packKind === "champions" && result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
       banked(result.balance);
     }
     return result;

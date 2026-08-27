@@ -217,6 +217,23 @@ describe("PackShop", () => {
     expect(screen.getByRole("button", { name: /faceless pack — free \(1 left\)/i })).toBeTruthy();
   });
 
+  it("never lets a normal pack's comp count relabel the Faceless button", async () => {
+    // A normal open reports compsLeft too now — the Weekly Draw pays out
+    // standard pack comps. That count belongs to the shop's own shelf, and
+    // banking it here would claim the tribute had been spent.
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800, compsLeft: 0 });
+    render(
+      <PackShop league="premier" balance={1000} packCost={200} openCount={0} ownedSlugs={[]} championsOpen championComps={2} />,
+    );
+    await openPack();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "overlay open another" }));
+    });
+
+    expect(openPackAction).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: /faceless pack — free \(2 left\)/i })).toBeTruthy();
+  });
+
   it("takes the stage down when the opening is done with it", async () => {
     renderShop();
     await openPack();
