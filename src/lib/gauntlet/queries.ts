@@ -3,12 +3,17 @@
 // discord id at the caller.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { MeasureKey } from "@/lib/cards/measures";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { mondayOf } from "@/lib/packs/week";
 import type { GauntletRunRow } from "./run";
 import { rankGauntletWeek } from "./settle";
 import { patronActive } from "@/lib/patron/flames";
 import { GAUNTLET_ROLES, type GauntletRole } from "./sim";
+
+/** The bars the draft screen reads: the three comp identities
+ *  (compProfileOf) plus every lane key — small enough to ship per option. */
+export const DRAFT_STAT_KEYS: MeasureKey[] = ["combat", "damage", "laning", "presence", "survival", "vision"];
 
 /** One pickable card in the draft — the slice the client needs, WITHOUT
  *  the frozen card json (a shelf of 200 copies must not ship 200 cards). */
@@ -20,6 +25,9 @@ export interface GauntletOption {
   signed: boolean;
   fresh: boolean;
   editionWeek: string;
+  /** The DRAFT_STAT_KEYS bars only — enough for the comp readout and the
+   *  per-card chips; missing bars fall back the way statOf falls back. */
+  stats: Partial<Record<MeasureKey, number>>;
 }
 
 /** The Monday key of the running week — module-level so components call
@@ -47,6 +55,11 @@ export function buildGauntletOptions(rows: InventoryRow[], week: string): Record
       signed: row.signed,
       fresh: row.editionWeek === week,
       editionWeek: row.editionWeek,
+      stats: Object.fromEntries(
+        (row.card.subStats ?? [])
+          .filter((bar) => (DRAFT_STAT_KEYS as string[]).includes(bar.key))
+          .map((bar) => [bar.key, bar.value]),
+      ),
     });
   }
   for (const role of GAUNTLET_ROLES) {

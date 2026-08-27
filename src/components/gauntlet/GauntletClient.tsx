@@ -2,32 +2,43 @@
 
 // The Gauntlet, played. One client component owning the whole run loop:
 //
-//   draft → fight (timeline) → relic pick → fight → … → fallen/banked/cleared
+//   draft → fight (first half) → THE CROSSROADS (your call) → tape →
+//   relic pick → fight → … → fallen/banked/cleared
 //
 // The server owns every outcome — this component renders the run row the
-// actions hand back and never computes a fight itself. The timeline it
-// shows IS the stored result, so a refresh mid-run redraws the same game.
+// actions hand back and never computes a fight itself. The one math it
+// does run (previewCrossroadsChoice, compProfileOf) is the sim's own
+// exported functions over the sim's own stored inputs, so what the choice
+// cards print is exactly what the resolver will roll.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import {
   benchSwapGauntletAction,
+  chooseGauntletPathAction,
   fightGauntletRoundAction,
   pickGauntletRelicAction,
   retreatGauntletAction,
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
+import { CROSSROADS_BY_KEY, safeChoiceOf } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "@/lib/gauntlet/run";
 import type { GauntletOption } from "@/lib/gauntlet/queries";
-import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
+import { aggregateEffects, RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
 import {
+  compProfileOf,
+  type CompStyle,
   FRESH_LEGS_BONUS,
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
+  type GauntletCard,
   type GauntletRole,
+  LANE_KEY,
+  makeTrialist,
   type MatchEvent,
   type MatchResult,
+  previewCrossroadsChoice,
 } from "@/lib/gauntlet/sim";
 
 const FAMILY_COLOR: Record<RelicFamily, string> = {
@@ -43,17 +54,20 @@ const TONE_DOT: Record<MatchEvent["tone"], string> = {
   neutral: "bg-steel",
 };
 
+/** What each identity beats — the sim's triangle, for the readout line. */
+const BEATS: Record<CompStyle, CompStyle> = { poke: "dive", dive: "protect", protect: "poke" };
+
 function clock(minutes: number | null): string {
   if (minutes === null) return "—";
   return `${minutes}:00`;
 }
 
-/** The fight, narrated — the stored MatchResult drawn as the mockup's
- *  timeline: tone dots, the numbers in monospace, the call in display. */
-function Timeline({ result }: { result: MatchResult & { round?: number } }) {
+/** A fight narrated — stored events drawn as the mockup's timeline:
+ *  tone dots, the numbers in monospace, the call in display. */
+function Timeline({ events }: { events: MatchEvent[] }) {
   return (
     <div className="flex flex-col border-l-2 border-line pl-4">
-      {result.events.map((event, index) => (
+      {events.map((event, index) => (
         <div key={index} className="relative flex flex-wrap items-baseline gap-x-3 py-1.5">
           <span
             aria-hidden
@@ -123,6 +137,33 @@ function RelicChip({ relicKey }: { relicKey: string }) {
   );
 }
 
+/** The draft's identity readout — the SAME three numbers compStyleOf
+ *  reads, so "what does my comp read as" is never a guess. */
+function CompReadout({ cards }: { cards: GauntletCard[] }) {
+  const profile = compProfileOf(cards);
+  const style = (Object.keys(profile) as CompStyle[]).reduce((best, key) =>
+    profile[key] > profile[best] ? key : best,
+  );
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-line/60 bg-panel/40 p-3">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="text-[10px] uppercase tracking-[0.18em] text-steel">Comp readout</span>
+        {(["poke", "dive", "protect"] as CompStyle[]).map((key) => (
+          <span key={key} className={`font-mono text-xs ${key === style ? "font-bold text-mint" : "text-steel"}`}>
+            {key} {profile[key]}
+          </span>
+        ))}
+      </div>
+      <p className="text-xs text-steel">
+        Reads as <b className="uppercase text-white">{style}</b> — wins the draft read into{" "}
+        <b className="uppercase">{BEATS[style]}</b>, loses it to{" "}
+        <b className="uppercase">{BEATS[BEATS[style]]}</b>. The rulebook below has every check this comp will
+        roll.
+      </p>
+    </div>
+  );
+}
+
 export default function GauntletClient({
   initialRun,
   options,
@@ -146,14 +187,31 @@ export default function GauntletClient({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /** The would-be lineup as sim cards — overall AND bars, so the readout
+   *  runs the sim's own functions on the sim's own inputs. */
+  const draftCards = useMemo<GauntletCard[]>(
+    () =>
+      GAUNTLET_ROLES.map((role) => {
+        const id = picks[role];
+        const option = typeof id === "number" ? options[role].find((o) => o.inventoryId === id) : null;
+        if (!option) return makeTrialist(role);
+        return {
+          inventoryId: option.inventoryId,
+          name: option.name,
+          role,
+          overall: option.overall,
+          stats: option.stats,
+          foil: option.foil,
+          signed: option.signed,
+          fresh: option.fresh,
+        };
+      }),
+    [picks, options],
+  );
   const draftAvg = useMemo(() => {
-    const overalls = GAUNTLET_ROLES.map((role) => {
-      const id = picks[role];
-      const option = typeof id === "number" ? options[role].find((o) => o.inventoryId === id) : null;
-      return option ? option.overall : 55;
-    });
+    const overalls = draftCards.map((card) => card.overall);
     return Math.round((overalls.reduce((a, b) => a + b, 0) / overalls.length) * 10) / 10;
-  }, [picks, options]);
+  }, [draftCards]);
 
   function start() {
     setError(null);
@@ -175,6 +233,21 @@ export default function GauntletClient({
     setError(null);
     startTransition(async () => {
       const result = await fightGauntletRoundAction(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      // The game is now paused at the crossroads — the old tape comes down.
+      setLastFight(null);
+      setRun(result.run);
+    });
+  }
+
+  function choose(choiceKey: string) {
+    if (!run) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await chooseGauntletPathAction(run.id, choiceKey);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -207,7 +280,7 @@ export default function GauntletClient({
         setError(result.error);
         return;
       }
-      setRun({ ...run, status: "banked", relic_offer: null });
+      setRun({ ...run, status: "banked", relic_offer: null, score: result.score });
       router.refresh();
     });
   }
@@ -237,39 +310,48 @@ export default function GauntletClient({
           <p className="mt-2 max-w-2xl text-sm text-steel">
             One per role, from your shelf. 🌱 marks this week&apos;s prints — they fight at +{FRESH_LEGS_BONUS}. A
             role you can&apos;t cover fields a 55-rated trialist (and taxes your score). The bracket scales to
-            your average, so the run is about drafting and relic calls, not raw numbers.
+            your average, so the run is about drafting a shape and making the calls, not raw numbers.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {GAUNTLET_ROLES.map((role) => (
-            <label key={role} className="flex flex-col gap-1 text-xs text-steel">
-              <span className="label-dash">{role}</span>
-              <select
-                className="input-brand px-2 py-2 text-sm"
-                value={picks[role] ?? ""}
-                onChange={(event) =>
-                  setPicks((prev) => ({ ...prev, [role]: event.target.value === "" ? null : Number(event.target.value) }))
-                }
-              >
-                <option value="">Trialist (55)</option>
-                {options[role].map((option) => (
-                  <option key={option.inventoryId} value={option.inventoryId}>
-                    {option.name} · {option.overall}
-                    {option.fresh ? " 🌱" : ""}
-                    {option.foil ? " ✦" : ""}
-                    {option.signed ? " ✍" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
+          {GAUNTLET_ROLES.map((role, index) => {
+            const card = draftCards[index];
+            return (
+              <label key={role} className="flex flex-col gap-1 text-xs text-steel">
+                <span className="label-dash">{role}</span>
+                <select
+                  className="input-brand px-2 py-2 text-sm"
+                  value={picks[role] ?? ""}
+                  onChange={(event) =>
+                    setPicks((prev) => ({ ...prev, [role]: event.target.value === "" ? null : Number(event.target.value) }))
+                  }
+                >
+                  <option value="">Trialist (55)</option>
+                  {options[role].map((option) => (
+                    <option key={option.inventoryId} value={option.inventoryId}>
+                      {option.name} · {option.overall}
+                      {option.fresh ? " 🌱" : ""}
+                      {option.foil ? " ✦" : ""}
+                      {option.signed ? " ✍" : ""}
+                    </option>
+                  ))}
+                </select>
+                <span className="font-mono text-[10px] text-steel">
+                  {card.trialist
+                    ? "warm body · −40 score/round"
+                    : `${LANE_KEY[role]} ${card.stats[LANE_KEY[role]] ?? "~" + Math.max(30, card.overall - 5)} · combat ${card.stats.combat ?? "~" + Math.max(30, card.overall - 5)} · damage ${card.stats.damage ?? "~" + Math.max(30, card.overall - 5)}`}
+                </span>
+              </label>
+            );
+          })}
         </div>
+        <CompReadout cards={draftCards} />
         <div className="flex flex-wrap items-center gap-4">
           <button type="button" onClick={start} disabled={pending || short} className="btn-coral px-5 py-2.5 text-sm disabled:opacity-50">
             {pending ? "Entering…" : `Enter the Gauntlet — ${fmtPoints(GAUNTLET_ENTRY_FEE)}`}
           </button>
           <span className="text-xs text-steel">
-            Lineup average {draftAvg} · bracket starts just under it, ends just over
+            Lineup average {draftAvg} · bracket starts just under it, ends well over
             {short ? ` · your wallet is short (${fmtPoints(balance)})` : ""}
           </span>
         </div>
@@ -283,9 +365,12 @@ export default function GauntletClient({
 
   const over = run.status !== "active";
   const offering = run.status === "active" && run.relic_offer;
+  const atCrossroads = run.status === "active" && run.crossroads && run.next_opponent;
   const canSwap =
     offering && run.relics.includes("sixth_man") && !run.bench_swap_used;
   const swapRole = run.lineup.find((card) => card.inventoryId === Number(swapOut))?.role;
+  const situation = atCrossroads ? CROSSROADS_BY_KEY.get(run.crossroads!.state.situationKey) ?? null : null;
+  const runEffects = aggregateEffects(run.relics);
 
   return (
     <section className="flex flex-col gap-6">
@@ -311,10 +396,13 @@ export default function GauntletClient({
         <div className="card-brand flex flex-col gap-4 p-6">
           <span className="label-dash">Round {lastFight.round} — the tape</span>
           <MomentumBar value={lastFight.momentum} />
-          <Timeline result={lastFight} />
+          <Timeline events={lastFight.events} />
           {lastFight.won ? (
             <p className="text-xs text-steel">
               MVP <b className="text-white">{lastFight.mvp}</b> · +{lastFight.score.toLocaleString()} score
+              {lastFight.daring > 0 ? (
+                <span className="text-gold"> (of which {lastFight.daring} daring — the call landed)</span>
+              ) : null}
             </p>
           ) : null}
         </div>
@@ -344,6 +432,53 @@ export default function GauntletClient({
           >
             Draft a new run — {fmtPoints(GAUNTLET_ENTRY_FEE)}
           </button>
+        </div>
+      ) : atCrossroads && situation ? (
+        <div className="card-brand flex flex-col gap-4 border-gold/40 p-6" style={{ boxShadow: "0 0 30px -14px #e8c14b" }}>
+          <div>
+            <span className="label-dash text-gold">⏸ 20:00 · {situation.title}</span>
+            <p className="mt-1 text-sm text-white">{situation.narration}</p>
+          </div>
+          <MomentumBar value={run.crossroads!.state.momentum} />
+          <Timeline events={run.crossroads!.state.events} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            {situation.choices.map((choice) => {
+              const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runEffects);
+              const safe = safeChoiceOf(situation).key === choice.key && !preview;
+              return (
+                <button
+                  key={choice.key}
+                  type="button"
+                  onClick={() => choose(choice.key)}
+                  disabled={pending}
+                  className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-line bg-panel/60"}`}
+                >
+                  <span className="type-display text-lg text-white">{choice.label}</span>
+                  <span className="mt-1.5 text-xs leading-5 text-[#cfc9d6]">{choice.description}</span>
+                  {preview ? (
+                    <>
+                      <span className="mt-3 font-mono text-[11px] text-white">
+                        your {choice.yourKeys.join("+")} <b className="text-mint">{preview.yourVal}</b> vs their{" "}
+                        {choice.theirKeys.join("+")} <b className="text-coral">{preview.theirVal}</b>
+                      </span>
+                      <span className="mt-1 font-mono text-[10px] text-steel">
+                        lands <span className="text-mint">+{choice.win}</span> · fails{" "}
+                        <span className="text-coral">{choice.lose}</span> momentum
+                      </span>
+                      <span className="mt-1 font-mono text-[10px] text-gold">+{choice.scoreBonus} daring if it lands</span>
+                    </>
+                  ) : (
+                    <span className="mt-3 font-mono text-[10px] text-steel">
+                      no roll · a sure +{choice.win} momentum{safe ? " · the safe play" : ""}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
+            The second half is already sealed — only the call is yours. No take-backs.
+          </p>
         </div>
       ) : offering ? (
         <div className="card-brand flex flex-col gap-4 p-6">
@@ -402,9 +537,12 @@ export default function GauntletClient({
           ) : null}
           <div className="flex items-center gap-3 border-t border-line/60 pt-3">
             <button type="button" onClick={retreat} disabled={pending} className="rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold disabled:opacity-50">
-              Retreat — bank {run.score.toLocaleString()}
+              Retreat — bank {Math.round(run.score * (1 + (runEffects.bankBonusPct ?? 0) / 100)).toLocaleString()}
             </button>
-            <span className="text-xs text-steel">Retreating ends the run; the score stands on the board.</span>
+            <span className="text-xs text-steel">
+              Retreating ends the run; the score stands on the board.
+              {runEffects.bankBonusPct ? ` THE BANKER pays +${runEffects.bankBonusPct}% on the way out.` : ""}
+            </span>
           </div>
         </div>
       ) : (
@@ -426,10 +564,11 @@ export default function GauntletClient({
               ))}
             </div>
           ) : null}
-          <div>
+          <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={fight} disabled={pending} className="btn-coral px-6 py-2.5 text-sm disabled:opacity-50">
               {pending ? "The game is live…" : `FIGHT ROUND ${run.round}`}
             </button>
+            <span className="text-xs text-steel">The game pauses at 20:00 for your call.</span>
           </div>
         </div>
       )}

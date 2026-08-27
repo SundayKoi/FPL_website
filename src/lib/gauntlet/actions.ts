@@ -23,6 +23,7 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
 import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
+import { CROSSROADS_BY_KEY } from "./crossroads";
 import { generateOpponent } from "./opponents";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "./run";
 import {
@@ -34,7 +35,8 @@ import {
   type MatchResult,
   mulberry32,
   roundScore,
-  simulateMatch,
+  simulateFirstHalf,
+  simulateSecondHalf,
 } from "./sim";
 
 
@@ -188,13 +190,15 @@ export async function startGauntletRunAction(
 }
 
 /**
- * Resolves the pending fight. Pure given the row (stored seed, stored
- * opponent), so a retry recomputes the same fight; the CAS update means
+ * Resolves the FIRST HALF of the pending fight and pauses the game at the
+ * crossroads. Pure given the row (stored seed, stored opponent), so a
+ * retry recomputes the same half; the second half's seed is rolled and
+ * STORED here, before anything it decides resolves. The CAS update means
  * exactly one write lands.
  */
 export async function fightGauntletRoundAction(
   runId: number,
-): Promise<ActionResult<{ result: MatchResult; run: GauntletRunRow }>> {
+): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   const service = createBettingServiceClient();
@@ -202,17 +206,82 @@ export async function fightGauntletRoundAction(
   if (!run) return { ok: false, error: "That run isn't yours." };
   if (run.status !== "active") return { ok: false, error: "That run is over." };
   if (run.relic_offer) return { ok: false, error: "Pick your relic first." };
+  if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
   const effects = aggregateEffects(run.relics);
-  const sim = simulateMatch(run.lineup, run.next_opponent.cards, effects, mulberry32(run.round_seed));
+  const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, effects, mulberry32(run.round_seed));
+  const seed2 = seed32();
+
+  const { data: updated, error: updateError } = await service
+    .from("gauntlet_runs")
+    .update({
+      crossroads: { state, seed2 },
+      round_seed: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("round", run.round)
+    .is("relic_offer", null)
+    .is("crossroads", null)
+    .select("*");
+
+  if (updateError) {
+    return { ok: false, error: "Couldn't pause the game — is the gauntlet crossroads migration applied?" };
+  }
+  if (!updated || updated.length === 0) {
+    // Raced by our own double-click: the row already moved (the winner's
+    // seed2 stands — the first half itself is identical by construction).
+    const current = await loadOwnRun(service, runId, user.discordId);
+    if (!current) return { ok: false, error: "That run isn't yours." };
+    revalidateGauntlet();
+    return { ok: true, run: current };
+  }
+
+  revalidateGauntlet();
+  return { ok: true, run: (updated as GauntletRunRow[])[0] };
+}
+
+/**
+ * The call at the crossroads: resolves the second half with the seed the
+ * first half stored. The choice must be on the situation's table; the
+ * whole win/offer/cleared/fallen transition of v1's fight lives here now.
+ */
+export async function chooseGauntletPathAction(
+  runId: number,
+  choiceKey: string,
+): Promise<ActionResult<{ result: MatchResult; run: GauntletRunRow }>> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  const service = createBettingServiceClient();
+  const run = await loadOwnRun(service, runId, user.discordId);
+  if (!run) return { ok: false, error: "That run isn't yours." };
+  if (run.status !== "active") return { ok: false, error: "That run is over." };
+  if (!run.crossroads || !run.next_opponent) return { ok: false, error: "No call is pending — reload." };
+
+  const situation = CROSSROADS_BY_KEY.get(run.crossroads.state.situationKey);
+  if (!situation || !situation.choices.some((choice) => choice.key === choiceKey)) {
+    return { ok: false, error: "That call isn't on the table." };
+  }
+
+  const effects = aggregateEffects(run.relics);
+  const sim = simulateSecondHalf(
+    run.crossroads.state,
+    choiceKey,
+    run.lineup,
+    run.next_opponent.cards,
+    effects,
+    mulberry32(run.crossroads.seed2),
+  );
   const score = roundScore(run.round, sim, run.lineup, effects);
   const result: MatchResult = { ...sim, score };
 
   const cleared = sim.won && run.round >= GAUNTLET_ROUNDS;
   // The offer derives from the SAME stored seed (offset stream), so a
   // raced retry offers the same three relics.
-  const offer = sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.round_seed + 1)).map((r) => r.key) : null;
+  const offer =
+    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1)).map((r) => r.key) : null;
 
   const { data: updated } = await service
     .from("gauntlet_runs")
@@ -221,7 +290,7 @@ export async function fightGauntletRoundAction(
       status: cleared ? "cleared" : sim.won ? "active" : "fallen",
       round: sim.won && !cleared ? run.round + 1 : run.round,
       relic_offer: offer,
-      round_seed: null,
+      crossroads: null,
       next_opponent: sim.won ? null : run.next_opponent,
       last_result: { ...result, round: run.round },
       updated_at: new Date().toISOString(),
@@ -230,11 +299,13 @@ export async function fightGauntletRoundAction(
     .eq("status", "active")
     .eq("round", run.round)
     .is("relic_offer", null)
+    .not("crossroads", "is", null)
     .select("*");
 
   if (!updated || updated.length === 0) {
     // Raced by our own double-click: the row already moved. Hand back what
-    // it moved TO — the recomputed result is identical by construction.
+    // it moved TO — the recomputed result is identical by construction
+    // when the same choice raced; a different choice lost the CAS.
     const current = await loadOwnRun(service, runId, user.discordId);
     if (!current) return { ok: false, error: "That run isn't yours." };
     revalidateGauntlet();
@@ -303,7 +374,8 @@ export async function pickGauntletRelicAction(
 }
 
 /** Banks the score and ends the run — the coward's exit, available only
- *  between rounds (a staged fight must be fought). */
+ *  between rounds (a staged fight must be fought). THE BANKER pays its
+ *  extra percent here, on the way out. */
 export async function retreatGauntletAction(runId: number): Promise<ActionResult<{ score: number }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
@@ -313,11 +385,15 @@ export async function retreatGauntletAction(runId: number): Promise<ActionResult
   if (run.status !== "active") return { ok: false, error: "That run is over." };
   if (!run.relic_offer) return { ok: false, error: "The fight is staged — see it through or don't start one." };
 
+  const bankBonusPct = aggregateEffects(run.relics).bankBonusPct ?? 0;
+  const banked = Math.round(run.score * (1 + bankBonusPct / 100));
+
   const { data: updated } = await service
     .from("gauntlet_runs")
-    .update({ status: "banked", relic_offer: null, updated_at: new Date().toISOString() })
+    .update({ status: "banked", relic_offer: null, score: banked, updated_at: new Date().toISOString() })
     .eq("id", run.id)
     .eq("status", "active")
+    .eq("score", run.score)
     .select("score");
   if (!updated || updated.length === 0) return { ok: false, error: "That run already ended." };
 
