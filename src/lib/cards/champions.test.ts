@@ -64,6 +64,10 @@ describe("the Dealer's Hand set", () => {
 describe("the drop's numbers", () => {
   it("keeps the relic under a moment, with real ink still worth its bonus", () => {
     expect(dustValueOf({ tier: CHAMPION_TIER, foil: false, signed: false })).toBe(CHAMPION_DUST);
+    // A caller holding the card JSON sees the placeholder gold tier — the
+    // champWin flag must price it as the relic (the pack overlay's sell-all
+    // offered $10 for a $150 relic without it).
+    expect(dustValueOf({ tier: "gold", champWin: true, foil: false, signed: false })).toBe(CHAMPION_DUST);
     // Foil is the flex, not the price — champion × ice under the normal
     // ladder would outrank a moment.
     expect(dustValueOf({ tier: CHAMPION_TIER, foil: true, foilType: "ice", signed: false })).toBe(CHAMPION_DUST);

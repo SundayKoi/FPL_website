@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PackShop from "./PackShop";
 
-const { openPackAction, sounds } = vi.hoisted(() => {
+const { openPackAction, openChampionsPackAction, sounds } = vi.hoisted(() => {
   // The real sounds module needs WebAudio, which jsdom doesn't have — and the
   // shop's job isn't to prove the synth works. The mute store is kept real (a
   // flag and a listener set) because the shop reads it through
@@ -12,6 +12,7 @@ const { openPackAction, sounds } = vi.hoisted(() => {
   const listeners = new Set<() => void>();
   return {
     openPackAction: vi.fn(),
+    openChampionsPackAction: vi.fn(),
     sounds: {
       reset: () => {
         muted = false;
@@ -30,7 +31,7 @@ const { openPackAction, sounds } = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/packs/actions", () => ({ openPackAction }));
+vi.mock("@/lib/packs/actions", () => ({ openPackAction, openChampionsPackAction }));
 // server-only transitively — the shop only hands it to the overlay.
 vi.mock("@/lib/trades/actions", () => ({ dustManyAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -55,6 +56,7 @@ vi.mock("./PackOpening", () => ({
       <span data-testid="opening-balance">{props.balance}</span>
       <span data-testid="opening-owned">{props.ownedSlugs.join(",")}</span>
       <span data-testid="opening-muted">{String(props.muted)}</span>
+      <span data-testid="opening-cost">{props.packCost}</span>
       <button type="button" onClick={() => void props.onOpenAnother()}>
         overlay open another
       </button>
@@ -125,6 +127,7 @@ afterEach(() => {
   sounds.reset();
   sounds.setMuted.mockClear();
   openPackAction.mockReset();
+  openChampionsPackAction.mockReset();
 });
 
 describe("PackShop", () => {
@@ -174,6 +177,28 @@ describe("PackShop", () => {
     expect(screen.getByTestId("opening")).toBeTruthy();
     expect(screen.getByText("$600")).toBeTruthy();
     expect(screen.getByText("5 packs opened")).toBeTruthy();
+  });
+
+  it("re-deals a Faceless Pack from the overlay, at the Faceless price", async () => {
+    // The bug this pins down: "Open another" after a champions pack fell
+    // back to a normal pack (and quoted the normal price).
+    const relic = [{ card: makeCard("faceless-k", { key: "gold", label: "Champion" }, 0), foil: false, signed: false, inventoryId: 9 }];
+    openChampionsPackAction.mockResolvedValue({ ok: true, cards: relic, balance: 750 });
+    render(
+      <PackShop league="premier" balance={1000} packCost={200} openCount={3} ownedSlugs={[]} championsOpen />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /faceless pack/i }));
+    });
+    expect(screen.getByTestId("opening-cost").textContent).toBe("250");
+
+    openChampionsPackAction.mockResolvedValue({ ok: true, cards: relic, balance: 500 });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "overlay open another" }));
+    });
+    expect(openChampionsPackAction).toHaveBeenCalledTimes(2);
+    // The normal-pack action never fires from a champions overlay.
+    expect(openPackAction).not.toHaveBeenCalled();
   });
 
   it("takes the stage down when the opening is done with it", async () => {

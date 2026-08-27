@@ -85,6 +85,9 @@ export default function PackShop({
   // Defaults to the newest week; picking an older one re-mints that week
   // exactly, ratings and all.
   const [week, setWeek] = useState(editionWeeks[0] ?? "");
+  // Which shelf the overlay's pack came off — "Open another" re-deals the
+  // same kind, and the overlay quotes the right price for it.
+  const [packKind, setPackKind] = useState<"standard" | "champions">("standard");
 
   // Mute belongs to the audio module, not to this component: the rip, the
   // flips and the walkout stings are all the same setting, and it's persisted
@@ -116,6 +119,7 @@ export default function PackShop({
         setError(result.error);
         return;
       }
+      setPackKind("standard");
       setPulls(result.cards);
       banked(result.balance);
     });
@@ -129,6 +133,7 @@ export default function PackShop({
         setError(result.error);
         return;
       }
+      setPackKind("champions");
       setPulls(result.cards);
       banked(result.balance);
     });
@@ -149,6 +154,7 @@ export default function PackShop({
       }
       setRipsLeft((n) => Math.max(0, n - 1));
       setRipStreak(result.streak ?? null);
+      setPackKind("standard");
       setPulls(result.cards);
       banked(result.balance);
     });
@@ -159,11 +165,14 @@ export default function PackShop({
   // returned intact for the summary bar to show — the stage stays up.
   // `week` is a dependency for real: without it, "Open another" would keep
   // minting whichever edition was selected when the overlay first mounted.
+  // `packKind` the same: "Open another" after a Faceless Pack must deal
+  // another Faceless Pack, not quietly fall back to a normal one.
   const openAnother = useCallback(async (): Promise<OpenResult> => {
-    const result = await openPackAction(league, week || undefined);
+    const result =
+      packKind === "champions" ? await openChampionsPackAction() : await openPackAction(league, week || undefined);
     if (result.ok) banked(result.balance);
     return result;
-  }, [league, week, banked]);
+  }, [league, week, banked, packKind]);
 
   const handleExit = useCallback(() => {
     setPulls(null);
@@ -298,7 +307,7 @@ export default function PackShop({
         <PackOpening
           pulls={pulls}
           balance={balance}
-          packCost={packCost}
+          packCost={packKind === "champions" ? CHAMPIONS_PACK_COST : packCost}
           ownedSlugs={ownedSlugs}
           muted={muted}
           onOpenAnother={openAnother}
