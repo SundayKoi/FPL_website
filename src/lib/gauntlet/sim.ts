@@ -437,7 +437,7 @@ export function roundScore(
   const margin = Math.round((result.momentum - 50) * 2.4);
   const trialistTax = lineup.filter((card) => card.trialist).length * 40;
   const flex = lineup.filter((card) => card.foil || card.signed).length * (effects.styleScorePerShiny ?? 5);
-  return Math.max(25, base + margin - trialistTax + flex + result.daring);
+  return Math.max(25, base + margin - trialistTax + flex + result.daring + (effects.scoreFlat ?? 0));
 }
 
 /** The stand-in for an uncovered role — a warm body with flat 50s. */

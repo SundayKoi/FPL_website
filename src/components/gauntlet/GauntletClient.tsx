@@ -19,7 +19,7 @@ import {
   chooseGauntletPathAction,
   fightGauntletRoundAction,
   pickGauntletRelicAction,
-  retreatGauntletAction,
+  resetGauntletRunAction,
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
 import { CROSSROADS_BY_KEY, safeChoiceOf } from "@/lib/gauntlet/crossroads";
@@ -271,16 +271,24 @@ export default function GauntletClient({
     });
   }
 
-  function retreat() {
+  function reset() {
     if (!run) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Walk away from this run? You get NOTHING back — no refund, no reward. The entry fee stays in the week's pot; the score you've already won stands on the board.",
+      )
+    ) {
+      return;
+    }
     setError(null);
     startTransition(async () => {
-      const result = await retreatGauntletAction(run.id);
+      const result = await resetGauntletRunAction(run.id);
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      setRun({ ...run, status: "banked", relic_offer: null, score: result.score });
+      setRun({ ...run, status: "banked", relic_offer: null, crossroads: null, score: result.score });
       router.refresh();
     });
   }
@@ -377,7 +385,9 @@ export default function GauntletClient({
       <div className="card-brand flex flex-col gap-4 p-6">
         <div className="flex flex-wrap items-baseline gap-4">
           <span className="label-dash">
-            {over ? `RUN ${run.status.toUpperCase()}` : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
+            {over
+              ? `RUN ${run.status === "banked" ? "ABANDONED" : run.status.toUpperCase()}`
+              : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
           <span className="text-xs text-steel">run score</span>
@@ -390,6 +400,22 @@ export default function GauntletClient({
           ) : null}
         </div>
         <LineupRow lineup={run.lineup} />
+        {!over ? (
+          <div className="flex flex-wrap items-center gap-3 border-t border-line/40 pt-3">
+            <button
+              type="button"
+              onClick={reset}
+              disabled={pending}
+              className="rounded-full border border-line bg-panel px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
+            >
+              Walk away — keep nothing
+            </button>
+            <span className="text-[11px] text-steel">
+              Ends the run for no reward — the fee stays in the pot. Score is board points, never dollars;
+              the only money the Gauntlet pays is Monday&apos;s pot, to the top of the board.
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {lastFight ? (
@@ -411,13 +437,13 @@ export default function GauntletClient({
       {over ? (
         <div className="card-brand flex flex-col items-start gap-3 p-6">
           <span className="label-dash">
-            {run.status === "cleared" ? "🏆 FULL CLEAR" : run.status === "banked" ? "Score banked" : "The run ends here"}
+            {run.status === "cleared" ? "🏆 FULL CLEAR" : run.status === "banked" ? "You walked away" : "The run ends here"}
           </span>
           <p className="text-sm text-steel">
             {run.status === "cleared"
               ? "Eight rounds, no falls. The board will remember."
               : run.status === "banked"
-                ? "A living score beats a dead legend. Sometimes."
+                ? "Nothing paid, nothing owed — the score you'd already won stands on the board."
                 : `The Gauntlet keeps what it takes. Best this week: ${Math.max(weekBest, run.score).toLocaleString()}.`}
           </p>
           <button
@@ -535,15 +561,6 @@ export default function GauntletClient({
               </button>
             </div>
           ) : null}
-          <div className="flex items-center gap-3 border-t border-line/60 pt-3">
-            <button type="button" onClick={retreat} disabled={pending} className="rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold disabled:opacity-50">
-              Retreat — bank {Math.round(run.score * (1 + (runEffects.bankBonusPct ?? 0) / 100)).toLocaleString()}
-            </button>
-            <span className="text-xs text-steel">
-              Retreating ends the run; the score stands on the board.
-              {runEffects.bankBonusPct ? ` THE BANKER pays +${runEffects.bankBonusPct}% on the way out.` : ""}
-            </span>
-          </div>
         </div>
       ) : (
         <div className="card-brand flex flex-col gap-4 p-6">

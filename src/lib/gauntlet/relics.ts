@@ -33,8 +33,9 @@ export interface RelicEffects {
   holdFlat?: number;
   /** Flat help on every crossroads check — the shot-caller's dial. */
   crossroadsBonus?: number;
-  /** Extra percent banked when retreating (consumed by the run state). */
-  bankBonusPct?: number;
+  /** Flat extra score on every cleared round — pays the board, never the
+   *  fight. */
+  scoreFlat?: number;
 }
 
 export type RelicFamily = "ember" | "void" | "ice" | "gold";
@@ -165,12 +166,12 @@ export const RELIC_CATALOG: RelicDef[] = [
     effects: { lanesFlat: -4, fightFlat: 4, holdFlat: 6 },
   },
   {
-    key: "the_banker",
+    key: "the_promoter",
     family: "gold",
-    title: "THE BANKER",
-    effect: "Retreating banks 15% extra score. The coward's exit, gilded.",
-    flavor: "A living score beats a dead legend.",
-    effects: { bankBonusPct: 15 },
+    title: "THE PROMOTER",
+    effect: "Every cleared round pays +60 extra score. Winning sells tickets.",
+    flavor: "The gate splits after the show.",
+    effects: { scoreFlat: 60 },
   },
 ];
 
@@ -195,7 +196,7 @@ export function aggregateEffects(relicKeys: string[]): RelicEffects {
     if (fx.lanesFlat) total.lanesFlat = (total.lanesFlat ?? 0) + fx.lanesFlat;
     if (fx.holdFlat) total.holdFlat = (total.holdFlat ?? 0) + fx.holdFlat;
     if (fx.crossroadsBonus) total.crossroadsBonus = (total.crossroadsBonus ?? 0) + fx.crossroadsBonus;
-    if (fx.bankBonusPct) total.bankBonusPct = (total.bankBonusPct ?? 0) + fx.bankBonusPct;
+    if (fx.scoreFlat) total.scoreFlat = (total.scoreFlat ?? 0) + fx.scoreFlat;
     if (fx.benchSwap) total.benchSwap = true;
   }
   return total;

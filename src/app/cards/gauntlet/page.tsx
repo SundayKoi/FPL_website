@@ -78,7 +78,8 @@ export default async function GauntletPage() {
             Draft five from your shelf — one per role — and climb an eight-round bracket scaled to your
             lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
             Win, pick a relic, go again; lose once and the run ends. Entry is {GAUNTLET_ENTRY_FEE} betting
-            dollars; retreat between rounds to bank your score. Every roll is in the rulebook below.
+            dollars, and the only money out is Monday&apos;s pot to the top of the board. Every roll is in
+            the rulebook below.
           </p>
           <Link
             href="/cards/packs"

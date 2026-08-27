@@ -246,6 +246,9 @@ describe("roundScore", () => {
 
     const shinyLineup = team(70).map((card, index) => (index === 0 ? { ...card, foil: true } : card));
     expect(roundScore(1, won, shinyLineup, { styleScorePerShiny: 15 })).toBe(early + 15);
+
+    // THE PROMOTER's dial: flat score per cleared round, never the fight.
+    expect(roundScore(1, won, lineup, { scoreFlat: 60 })).toBe(early + 60);
   });
 
   it("folds a landed call's daring bonus straight into the round", () => {
@@ -264,12 +267,12 @@ describe("relics", () => {
     expect(fx.objectivesFlat).toBe(10);
     expect(fx.earlyFightBonus).toBe(8 + 3);
 
-    const flats = aggregateEffects(["overtime", "glass_cannon", "shot_caller", "deep_wards", "the_banker"]);
+    const flats = aggregateEffects(["overtime", "glass_cannon", "shot_caller", "deep_wards", "the_promoter"]);
     expect(flats.fightFlat).toBe(6 + 8);
     expect(flats.lanesFlat).toBe(-3);
     expect(flats.holdFlat).toBe(-8 + 8);
     expect(flats.crossroadsBonus).toBe(8);
-    expect(flats.bankBonusPct).toBe(15);
+    expect(flats.scoreFlat).toBe(60);
   });
 
   it("offers three unheld relics, seeded, without duplicates", () => {
@@ -285,7 +288,7 @@ describe("relics", () => {
     const known = new Set([
       "laneMomentumMult", "objectivesFlat", "earlyFightBonus", "snowballMult",
       "freshLegsExtra", "styleScorePerShiny", "benchSwap",
-      "fightFlat", "lanesFlat", "holdFlat", "crossroadsBonus", "bankBonusPct",
+      "fightFlat", "lanesFlat", "holdFlat", "crossroadsBonus", "scoreFlat",
     ]);
     for (const relic of RELIC_CATALOG) {
       for (const key of Object.keys(relic.effects)) expect(known.has(key), `${relic.key}.${key}`).toBe(true);
