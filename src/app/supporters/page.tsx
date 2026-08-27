@@ -39,8 +39,11 @@ export default async function SupportersPage() {
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Flame Holders</h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-steel">
           Patrons cover what the league costs to run — hosting, the tools, the AI that helps build it. In
-          return they carry the flame: a second Daily Rip, a flame in the colour of their choosing on every card they own, and this page. Nothing they pay for changes a
-          card&apos;s odds or anyone&apos;s rating — patronage is visibility, never power.
+          return they carry the flame: a colour of their choosing burning on every card they own and beside
+          their name on the leaderboards, card backs dealt in that flame, gold and crimson signing ink, a
+          second Daily Rip, the nine-slot binder with a pedestal for their featured card, a weekly art
+          re-roll, and this page. Nothing they pay for changes a card&apos;s odds or anyone&apos;s rating —
+          patronage is visibility, never power.
         </p>
         <Link
           href="/support-devs"

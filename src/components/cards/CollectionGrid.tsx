@@ -317,7 +317,7 @@ export default function CollectionGrid({
                 pinned={pinned.has(entry.best.id)}
                 playerName={entry.best.playerName}
               />
-              <DustControls playerName={entry.best.playerName} copies={entry.copies} />
+              <DustControls playerName={entry.best.playerName} copies={entry.copies} patron={Boolean(flame)} />
             </div>
             {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (
               // Pinned to the card's own width so the strip can't stretch the

@@ -10,7 +10,20 @@
 import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { BINDER_SLOTS } from "./queries";
+import { patronActive } from "@/lib/patron/flames";
+import { binderSlotsFor } from "./queries";
+
+/** Which cap this user's binder has right now — 9 while their patronage
+ *  burns, 6 otherwise. A lapsed patron keeps what's pinned (display only
+ *  re-checks ownership); they just can't pin past 6 again. */
+async function slotCapFor(service: ReturnType<typeof createBettingServiceClient>, discordId: string): Promise<number> {
+  const { data } = await service
+    .from("betting_profiles")
+    .select("patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  return binderSlotsFor(patronActive((data as { patron_until: string | null } | null)?.patron_until));
+}
 
 /**
  * Puts one owned copy in one slot, or clears the slot when inventoryId is
@@ -24,11 +37,12 @@ export async function setBinderSlotAction(
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  if (!Number.isInteger(slot) || slot < 1 || slot > BINDER_SLOTS) {
-    return { ok: false, error: "That isn't a binder slot." };
-  }
 
   const service = createBettingServiceClient();
+  const cap = await slotCapFor(service, user.discordId);
+  if (!Number.isInteger(slot) || slot < 1 || slot > cap) {
+    return { ok: false, error: "That isn't a binder slot." };
+  }
 
   // The binder row is the FK target for a slot, so it has to exist before
   // the pin lands — and it is what mints the share token.
@@ -137,9 +151,10 @@ export async function toggleBinderCardAction(
   if (!owned) return { ok: false, error: "That card isn't in your collection." };
 
   const taken = new Set(slots.map((row) => row.slot));
-  const free = Array.from({ length: BINDER_SLOTS }, (_, index) => index + 1).find((slot) => !taken.has(slot));
+  const cap = await slotCapFor(service, user.discordId);
+  const free = Array.from({ length: cap }, (_, index) => index + 1).find((slot) => !taken.has(slot));
   // Full is a normal state, not a failure — say what to do about it.
-  if (!free) return { ok: false, error: `Your binder is full (${BINDER_SLOTS} cards). Take one out first.` };
+  if (!free) return { ok: false, error: `Your binder is full (${cap} cards). Take one out first.` };
 
   const { error } = await service
     .from("card_binder_slots")

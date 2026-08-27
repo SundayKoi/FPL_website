@@ -22,7 +22,7 @@ import {
   type InventoryRow,
   type LiveWindow,
 } from "@/lib/packs/queries";
-import { BINDER_SLOTS, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
+import { binderSlotsFor, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
   title: "Card Packs — FPL",
@@ -112,7 +112,8 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   const patronTenureDays = dailyRip.patron ? await fetchPatronTenureDays(service, user.discordId) : 0;
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
-  const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
+  // Patrons shelve nine; everyone else six (binderSlotsFor).
+  const binderSlots: (number | null)[] = Array.from({ length: binderSlotsFor(dailyRip.patron) }, (_, index) => {
     return binder?.cards.find((entry) => entry.slot === index + 1)?.inventoryId ?? null;
   });
   const binderOptions: BinderOption[] = inventory.map((row) => ({

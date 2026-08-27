@@ -11,6 +11,15 @@ import type { PlayerCardData } from "@/lib/cards/build";
 /** Six slots: enough to say something, few enough that choosing matters. */
 export const BINDER_SLOTS = 6;
 
+/** The patron shelf: three more slots, because a patron's binder is also
+ *  their showcase. The table's check allows 9 for everyone; which cap a
+ *  user gets is decided here and enforced in the actions. */
+export const PATRON_BINDER_SLOTS = 9;
+
+export function binderSlotsFor(patron: boolean): number {
+  return patron ? PATRON_BINDER_SLOTS : BINDER_SLOTS;
+}
+
 export interface BinderCard {
   slot: number;
   inventoryId: number;
