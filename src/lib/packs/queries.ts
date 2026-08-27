@@ -185,6 +185,19 @@ export async function fetchLiveWindow(supabase: SupabaseClient): Promise<LiveWin
   return { until: row.live_until, label: row.live_label?.trim() || "Live drop" };
 }
 
+/** The open Faceless Drop window, or null. select("*") so a deploy that
+ *  beat the champions migration reads null instead of erroring. */
+export async function fetchChampionsWindow(supabase: SupabaseClient): Promise<{ until: string } | null> {
+  const { data } = await supabase
+    .from("league_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+  const row = data as { champions_until?: string | null } | null;
+  if (!row?.champions_until || new Date(row.champions_until).getTime() <= Date.now()) return null;
+  return { until: row.champions_until };
+}
+
 export interface ChaseBanner {
   title: string;
   bounty: number;

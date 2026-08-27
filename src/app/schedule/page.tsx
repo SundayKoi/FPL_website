@@ -14,6 +14,7 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import AdminFixturesEditor from "@/components/schedule/AdminFixturesEditor";
 import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import AdminLiveDrops from "@/components/schedule/AdminLiveDrops";
+import AdminChampionsDrop from "@/components/schedule/AdminChampionsDrop";
 import AdminChase from "@/components/schedule/AdminChase";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
@@ -67,7 +68,10 @@ export default async function SchedulePage({
     academy_season: string;
     live_until: string | null;
     live_label: string | null;
+    champions_until?: string | null;
   } | null;
+  // Same off-the-render-path now-check the live window uses.
+  const championsActive = await isChampionsActive(settings);
 
   const requestedRaw = (await searchParams).season;
   const requested = Array.isArray(requestedRaw) ? requestedRaw[0] : requestedRaw;
@@ -139,6 +143,7 @@ export default async function SchedulePage({
                   academySeason={settings?.academy_season ?? leagueSeasons.academy}
                 />
                 <AdminLiveDrops liveUntil={settings?.live_until ?? null} liveLabel={settings?.live_label ?? null} active={liveDropsActive} />
+                <AdminChampionsDrop until={settings?.champions_until ?? null} active={championsActive} />
                 <AdminChase current={currentChase} />
                 {/* season is null until fixtures exist, which is exactly when the
                     draw is needed — fall back to the league's current season. */}
@@ -191,6 +196,11 @@ export default async function SchedulePage({
 /** Off the render path — the purity rule bites bare Date.now() in bodies. */
 async function isLiveDropsActive(row: { live_until?: string | null } | null): Promise<boolean> {
   return Boolean(row?.live_until && new Date(row.live_until).getTime() > Date.now());
+}
+
+/** Same contract for the Faceless Drop window. */
+async function isChampionsActive(row: { champions_until?: string | null } | null): Promise<boolean> {
+  return Boolean(row?.champions_until && new Date(row.champions_until).getTime() > Date.now());
 }
 
 /** The chase armed for the newest premier edition, or null. The chase is

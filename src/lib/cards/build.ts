@@ -143,6 +143,8 @@ export interface PlayerCardData {
     seasonWon: string;
     champion: string;
     joker: boolean;
+    /** Which mint of this rank the copy is (1 = first pulled). */
+    copySerial?: number | null;
   } | null;
   slug: string;
   name: string;

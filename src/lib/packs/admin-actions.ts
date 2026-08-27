@@ -13,6 +13,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { revalidatePath } from "next/cache";
 import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
+import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
 import { editionLabel } from "./week";
@@ -23,6 +24,12 @@ async function requireAdmin(): Promise<boolean> {
   const supabase = await createServerSupabase();
   const { isAdmin } = await fetchStaffTier(supabase);
   return isAdmin;
+}
+
+async function requireOwner(): Promise<boolean> {
+  const supabase = await createServerSupabase();
+  const { isOwner } = await fetchStaffTier(supabase);
+  return isOwner;
 }
 
 const LIVE_HOURS = [2, 3, 4] as const;
@@ -63,6 +70,53 @@ export async function setLiveWindowAction(
   await postCardsWebhook({
     title: "🔴 LIVE DROPS are open",
     description: `**${label}** — for the next ${input.hours} hours every pack rolls boosted foil odds and every card is stamped LIVE.\nRip while the games run.`,
+    color: LIVE_RED,
+  });
+  revalidatePath("/schedule");
+  revalidatePath("/cards/packs");
+  return { ok: true };
+}
+
+const CHAMPIONS_DAYS = [3, 5, 7] as const;
+
+/**
+ * Opens (or closes) the Faceless Drop window, and tells the channel.
+ * OWNER-gated, not admin: a commemorative set is a league-history call,
+ * and once the window closes the scarcity is meant to be permanent.
+ */
+export async function setChampionsWindowAction(
+  input: { days: number } | { end: true },
+): Promise<ActionResult> {
+  if (!(await requireOwner())) return { ok: false, error: "Owners only." };
+  const service = createBettingServiceClient();
+
+  if ("end" in input) {
+    const { error } = await service
+      .from("league_settings")
+      .update({ champions_until: null })
+      .eq("id", 1);
+    if (error) return { ok: false, error: "Could not close the drop." };
+    revalidatePath("/schedule");
+    revalidatePath("/cards/packs");
+    return { ok: true };
+  }
+
+  if (!CHAMPIONS_DAYS.includes(input.days as (typeof CHAMPIONS_DAYS)[number])) {
+    return { ok: false, error: "Pick 3, 5 or 7 days." };
+  }
+  const until = new Date(Date.now() + input.days * 24 * 60 * 60 * 1000);
+  const { error } = await service
+    .from("league_settings")
+    .update({ champions_until: until.toISOString() })
+    .eq("id", 1);
+  if (error) return { ok: false, error: "Could not open the drop — is the champions migration applied?" };
+
+  await postCardsWebhook({
+    title: "🂡 THE FACELESS DROP IS LIVE",
+    description:
+      `Season Four's champions, printed as **The Hand** — K, A, Q, 7 and the Joker of spades, one card per pack. ` +
+      `Boosted foil odds, real-ink autographs for the champions who can still sign, every copy serial-numbered.\n` +
+      `**${CHAMPIONS_PACK_COST}** a pack, for **${input.days} days** — then the vault shuts and what was pulled is all there will ever be.`,
     color: LIVE_RED,
   });
   revalidatePath("/schedule");

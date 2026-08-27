@@ -3,9 +3,18 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import {
+  CHAMPIONS_LOGO_PATH,
+  CHAMPIONS_PACK_COST,
+  CHAMPION_FOIL_CHANCE,
+  CHAMPION_SIGNED_CHANCE,
+  CHAMPION_TIER,
+  championToCard,
+  rollChampionCard,
+} from "@/lib/cards/champions";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { ALT_SKIN_CHANCE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
@@ -400,4 +409,134 @@ async function announceChaseClaim(
     color: GOLD,
     ...(site ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
   });
+}
+
+/**
+ * The Faceless Drop: buys ONE card of the S4 champions' Dealer's Hand.
+ *
+ * Same skeleton as openPackFor — charge through open_card_pack, fulfill,
+ * refund on a failed write — but the pool is the five-card set and the
+ * window on league_settings is the whole gate. Premier only: the Hand is
+ * a premier title.
+ *
+ * Autographs are REAL INK ONLY: the roll happens solely when the
+ * champion's drawn signature exists under the account the title was won
+ * on (any season — same account is the site's own definition of the same
+ * person). Two of the five can't currently sign, and a printed script
+ * signature for someone who never held the pen isn't an autograph.
+ */
+export async function openChampionsPack(
+  discordId: string,
+  opts: { fallbackBalance?: number } = {},
+): Promise<OpenPackResult> {
+  const service = createBettingServiceClient();
+
+  // select("*") for deploy-before-migration tolerance, same as the shop's
+  // settings reads.
+  const { data: settingsRow } = await service
+    .from("league_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+  const until = (settingsRow as { champions_until?: string | null } | null)?.champions_until ?? null;
+  if (!until || new Date(until).getTime() <= Date.now()) {
+    return { ok: false, error: "The Faceless Drop isn't open." };
+  }
+
+  const season = await fetchCardSeason(service, "premier");
+  if (!season) return { ok: false, error: "No season is set up for packs yet." };
+
+  const { data: openData, error: openError } = await service.rpc("open_card_pack", {
+    p_user: discordId,
+    p_season: season,
+    p_cost: CHAMPIONS_PACK_COST,
+  });
+  if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
+  const openId = openData as number;
+
+  // Same CSPRNG discipline as the shop: pack contents gate real value.
+  const rand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
+  const def = rollChampionCard(rand);
+  const foil = rand() < CHAMPION_FOIL_CHANCE;
+  // Rolled only when foil hit, preserving the conditional-consumption
+  // pattern rng.ts established.
+  const foilType = foil ? rollFoilType(rand) : null;
+
+  const { data: inkRows } = await service
+    .from("card_art_prefs")
+    .select("signature, season")
+    .eq("summoner_name", def.riot.summoner)
+    .eq("tag", def.riot.tag)
+    .not("signature", "is", null)
+    .order("season", { ascending: false })
+    .limit(1);
+  const ink = ((inkRows as { signature: string | null }[] | null) ?? [])[0]?.signature ?? null;
+  const signed = Boolean(ink) && rand() < CHAMPION_SIGNED_CHANCE;
+
+  // Which mint of this rank the copy is. A plain count, same contract as
+  // moment serials: a same-second tie shares a number and that's a story,
+  // not a wallet bug.
+  const { count } = await service
+    .from("card_inventory")
+    .select("id", { count: "exact", head: true })
+    .eq("season", season)
+    .eq("slug", `faceless-${def.rank.toLowerCase()}`);
+
+  const card: PlayerCardData = {
+    ...championToCard(def, season, (count ?? 0) + 1),
+    // Pinned to the committed asset — a relic never depends on a team row.
+    teamImageUrl: CHAMPIONS_LOGO_PATH,
+    ...(signed && ink ? { autograph: ink } : {}),
+  };
+
+  const { data: inserted, error: insertError } = await service
+    .from("card_inventory")
+    .insert({
+      discord_id: discordId,
+      season,
+      slug: card.slug,
+      player_name: card.name,
+      role: card.role,
+      edition_week: mondayOf(new Date()),
+      overall: 0,
+      tier: CHAMPION_TIER,
+      foil,
+      foil_type: foilType,
+      signed,
+      card,
+      pack_open_id: openId,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !inserted) {
+    const { error: refundError } = await service.rpc("refund_card_pack", { p_open: openId });
+    if (refundError) {
+      console.error("packs: refund_card_pack failed (champions)", { openId, refundError, insertError });
+      return { ok: false, error: "That pack didn't open and we couldn't reverse the charge — staff have been notified." };
+    }
+    return { ok: false, error: "That pack didn't open — you haven't been charged." };
+  }
+
+  const { data: profile } = await service
+    .from("betting_profiles")
+    .select("balance")
+    .eq("discord_id", discordId)
+    .single();
+
+  revalidatePath("/cards/packs");
+
+  return {
+    ok: true,
+    cards: [
+      {
+        card,
+        foil,
+        foilType,
+        signed,
+        inventoryId: (inserted as { id: number }).id,
+      },
+    ],
+    balance: (profile as { balance: number } | null)?.balance ?? opts.fallbackBalance ?? 0,
+  };
 }

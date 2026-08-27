@@ -38,19 +38,53 @@ export const CHAMPIONS_TEAM = "Faceless";
 export const CHAMPIONS_SEASON = "S4";
 export const CHAMPIONS_SET_NAME = "The Hand";
 
+/** The committed full-res mark (imported by the import-faceless-logo
+ *  workflow) — pinned so a minted relic never depends on a team row. */
+export const CHAMPIONS_LOGO_PATH = "/faceless-logo.png";
+
 /** K · A · Q · 7 · Joker — the order the set is spoken in. */
 export const CHAMPIONS_SET: ChampionCardDef[] = [
   { rank: "K", setIndex: 1, name: "king of spades", riot: { summoner: "KingOfSpades", tag: "205" }, champion: "Cho'Gath" },
   { rank: "A", setIndex: 2, name: "i am atomic", riot: { summoner: "I am ATOMIC", tag: "4782" }, champion: "Rell" },
-  { rank: "Q", setIndex: 3, name: "Shanedata", riot: { summoner: "Feral Eevee", tag: "133" }, champion: "Aurelion Sol" },
+  // Prints the summoner name, per the league owner — Shanedata is the
+  // human, Feral Eevee is the account the S4 title was won on.
+  { rank: "Q", setIndex: 3, name: "Feral Eevee", riot: { summoner: "Feral Eevee", tag: "133" }, champion: "Aurelion Sol" },
   { rank: "7", setIndex: 4, name: "7gen", riot: { summoner: "7gen", tag: "4444" }, champion: "Jhin" },
   { rank: "JOKER", setIndex: 5, name: "the fool", riot: { summoner: "The Fool", tag: "URMAM" }, champion: "Xin Zhao", joker: true },
 ];
 
-/** card_inventory's flat `tier` for a champions card, when the drop
- *  ships — same trick as MOMENT_TIER: not a rating tier, just what dust
- *  pricing will read. Defined with the set so every later piece agrees. */
+/** card_inventory's flat `tier` for a champions card — same trick as
+ *  MOMENT_TIER: not a rating tier, just what dust pricing reads. */
 export const CHAMPION_TIER = "champion";
+
+/**
+ * Dust for a champions card. Flat, and FOIL DOES NOT MULTIPLY IT — the
+ * parallel is the flex, not the price, because champion × ice under the
+ * normal ladder would blow past MOMENT_DUST and break the invariant that
+ * a performance outranks any lucky roll. The autograph bonus still adds
+ * on top (dustValueOf owns that composition).
+ */
+export const CHAMPION_DUST = 750;
+
+/** What one Faceless Pack costs — ONE card from the Hand. Priced above
+ *  the five-card pack on purpose: this is a relic run, not a bundle. */
+export const CHAMPIONS_PACK_COST = 250;
+
+/** Foil odds inside the drop. Boosted over the everyday 6%: a one-card
+ *  pack at base odds would foil a handful of times league-wide in a
+ *  one-week window, and the story deserves better. Parallels roll the
+ *  normal ladder. */
+export const CHAMPION_FOIL_CHANCE = 0.12;
+
+/** Autograph odds — rolled ONLY for champions whose real drawn ink is on
+ *  file. Two of the five can't currently sign, and a printed script
+ *  signature for someone who never held the pen isn't an autograph. */
+export const CHAMPION_SIGNED_CHANCE = 0.05;
+
+/** Uniform draw from the Hand — every rank equally likely, every pack. */
+export function rollChampionCard(rand: () => number): ChampionCardDef {
+  return CHAMPIONS_SET[Math.min(CHAMPIONS_SET.length - 1, Math.floor(rand() * CHAMPIONS_SET.length))];
+}
 
 /**
  * The card-shaped wrapper a champions card is stored and rendered as —
@@ -59,7 +93,7 @@ export const CHAMPION_TIER = "champion";
  * on the collector's present-day shelf, while the card itself names the
  * season it commemorates.
  */
-export function championToCard(def: ChampionCardDef, season: string): PlayerCardData {
+export function championToCard(def: ChampionCardDef, season: string, copySerial?: number): PlayerCardData {
   return {
     champWin: {
       rank: def.rank,
@@ -69,6 +103,9 @@ export function championToCard(def: ChampionCardDef, season: string): PlayerCard
       seasonWon: CHAMPIONS_SEASON,
       champion: def.champion,
       joker: def.joker === true,
+      // Which mint of this rank the copy is (1 = first pulled). Frozen
+      // like everything else; absent on preview renders.
+      ...(copySerial ? { copySerial } : {}),
     },
     // Slug of its own per rank, so a shelf keeps five entries and "do I
     // own this player" never answers yes because of a relic.

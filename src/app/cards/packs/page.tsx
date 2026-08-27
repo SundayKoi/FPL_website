@@ -9,6 +9,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
+  fetchChampionsWindow,
   fetchChase,
   fetchDailyRipStatus,
   fetchInventory,
@@ -88,12 +89,16 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
   // shows (and academy pulls can win) the same one as premier.
-  const [liveWindow, chase]: [LiveWindow | null, ChaseBanner | null] = season
-    ? await Promise.all([
-        fetchLiveWindow(service),
-        editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
-      ])
-    : [null, null];
+  const [liveWindow, chase, championsWindow]: [LiveWindow | null, ChaseBanner | null, { until: string } | null] =
+    season
+      ? await Promise.all([
+          fetchLiveWindow(service),
+          editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
+          // The Faceless Drop is a premier relic — the academy shop never
+          // sells it.
+          league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
+        ])
+      : [null, null, null];
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   const binderSlots: (number | null)[] = Array.from({ length: BINDER_SLOTS }, (_, index) => {
@@ -143,6 +148,19 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
           </span>
         </div>
       ) : null}
+      {championsWindow ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#d61f2c]/60 bg-[#d61f2c]/10 px-4 py-3">
+          <span className="text-sm font-bold uppercase tracking-[0.14em] text-[#ff6b76]">🂡 The Faceless Drop</span>
+          <span className="text-sm text-white">
+            Season Four&apos;s champions as The Hand — K, A, Q, 7 and the Joker, one card per pack.
+          </span>
+          <span className="text-xs text-steel">
+            Vault shuts{" "}
+            {new Date(championsWindow.until).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}{" "}
+            — then what was pulled is all there will ever be.
+          </span>
+        </div>
+      ) : null}
       {chase ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-gold/10 px-4 py-3">
           <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">★ This week&apos;s chase</span>
@@ -174,6 +192,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         dailyRipsLeft={dailyRip.left}
         patron={dailyRip.patron}
         flame={dailyRip.flame}
+        championsOpen={Boolean(championsWindow)}
       />
 
       <section id="collection" className="flex flex-col gap-4">
