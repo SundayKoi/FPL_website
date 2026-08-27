@@ -159,8 +159,11 @@ export const MOMENT_TRIGGERS: MomentTrigger[] = [
       `+${Math.round(num(row.max_cs_advantage_on_lane_opponent))} CS and ${num(row.max_level_lead_on_lane_opponent)} levels on lane`,
   },
   {
+    // Renamed from "THE WHOLE TEAM" (2026-08, owner's call) — the key
+    // stays so frozen copies keep their colorway and identity; only new
+    // mints print the new title.
     key: "damage_monster",
-    title: "THE WHOLE TEAM",
+    title: "ONE MAN ARMY",
     rarity: 50,
     qualifies: (row) => num(row.damage_share_pct) >= 40 && row.win === true,
     headline: (row) => `${Math.round(num(row.damage_share_pct))}% of the team's damage · ${kda(row)}`,
