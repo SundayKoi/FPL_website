@@ -86,7 +86,7 @@ const season5Sections: RoleSection[] = [
       { name: "Humble#btc", rank: "E3", min: 15, opggUrl: "https://op.gg/lol/summoners/na/Humble-btc" },
       { name: "the grip reaper #meow", rank: "D4", min: 15, opggUrl: "https://op.gg/lol/summoners/na/the%20grip%20reaper-meow" },
       { name: "Nickle#2537", rank: "E3", min: 10, opggUrl: "https://op.gg/lol/summoners/na/Nickle-2537" },
-      { name: "Imperialarcher#ezpz", rank: "E3", min: 10, opggUrl: "https://op.gg/lol/summoners/na/Imperialarcher-ezpz" },
+      { name: "Archêr#ezpz", rank: "E3", min: 10, opggUrl: "https://op.gg/lol/summoners/na/Arch%C3%AAr-ezpz" },
       { name: "Lolcavan#NA1", rank: "E3", min: 10, opggUrl: "https://op.gg/lol/summoners/na/Lolcavan-NA1" },
       { name: "SeeU#Xiyue", rank: "E2", min: 10, opggUrl: "https://op.gg/lol/multisearch/na?summoners=SeeU%23Xiyue%2CBad+AppIe%23NA1" },
     ],

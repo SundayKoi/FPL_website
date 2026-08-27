@@ -35,7 +35,7 @@ const LINKED_ACCOUNTS: Record<string, string[]> = {
   "humble": ["https://op.gg/fr/lol/multisearch/na?summoners=Humble%23btc%2CHumble%23Legit%2CBaldwinWode%23woke%2Csxlbf%2CTommy2Quick%232quik"],
   "i am atomic": ["https://op.gg/fr/lol/summoners/na/I%20am%20ATOMIC-4782"],
   "ienders": ["https://op.gg/fr/lol/summoners/na/iEnders-jett"],
-  "imperialarcher": ["https://op.gg/lol/multisearch/na?summoners=Imperialarcher%23ezpz%2CRidgeway%23NA1"],
+  "archêr": ["https://op.gg/lol/multisearch/na?summoners=Arch%C3%AAr%23ezpz%2CRidgeway%23NA1"],
   "kingofspades": ["https://op.gg/lol/summoners/na/KingOfSpades-205"],
   "lizzo mukkbang": ["https://op.gg/lol/summoners/na/Lizzo%20Mukkbang-Mukk"],
   "lotusb5": [

@@ -232,9 +232,14 @@ export function tierFor(overall: number): CardTier {
 }
 
 /** URL identity for a card page — unique per real player (name collides,
- *  name#tag doesn't; see stats_records' tag column). */
+ *  name#tag doesn't; see stats_records' tag column). Latin diacritics fold
+ *  to their base letter (Archêr → archer-ezpz) instead of vanishing into a
+ *  hyphen; scripts with no Latin base (Greek, kana) still strip, exactly as
+ *  before, so no pre-fold slug in the wild changes. */
 export function cardSlug(summonerName: string, tag: string): string {
   return `${summonerName}-${tag}`
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");

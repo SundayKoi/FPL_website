@@ -19,7 +19,7 @@ export const FREE_AGENCY_BID_BOARD: FreeAgencyBidBoardRow[] = [
   },
   {
     captain: "Flyinq Squirtle",
-    bids: ["Canny", "Killer Python", "Aura", "Matrix", "VIP Peekaboo", "Pinei nessa poha", "Superbeans", "i fear nobody", "TheMooseRules", "08 Mitsu Eclipse", "Imperialarcher", "Pr1mus"],
+    bids: ["Canny", "Killer Python", "Aura", "Matrix", "VIP Peekaboo", "Pinei nessa poha", "Superbeans", "i fear nobody", "TheMooseRules", "08 Mitsu Eclipse", "Archêr", "Pr1mus"],
   },
   {
     captain: "KingOfSpades",
@@ -31,7 +31,7 @@ export const FREE_AGENCY_BID_BOARD: FreeAgencyBidBoardRow[] = [
   },
   {
     captain: "Lizzo Mukkbang",
-    bids: ["Doug", "Canny", "Lolcavan", "VIP Peekaboo", "FeralEevee", "Matrix", "Chief", "Rutledge", "Cherrie", "YWGI", "Imperialarcher", "Pr1mus"],
+    bids: ["Doug", "Canny", "Lolcavan", "VIP Peekaboo", "FeralEevee", "Matrix", "Chief", "Rutledge", "Cherrie", "YWGI", "Archêr", "Pr1mus"],
   },
   {
     captain: "Metashift",
