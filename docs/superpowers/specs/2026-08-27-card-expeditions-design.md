@@ -40,9 +40,9 @@ like `packs/config.ts`.
 
 | Tier | Entry requirement | Duration | Reward band |
 | --- | --- | --- | --- |
-| Scouting Run | any 3 cards | 8h | small dollars |
-| Deep Raid | ≥1 foil in squad AND squad shine ≥ 12 | 24h | mid dollars, small chance of a pack comp |
-| Legend Hunt | ≥2 foils AND ≥1 signed card AND squad shine ≥ 20 | 48h | big dollars, real chance of a pack comp |
+| Scouting Run | any 3 cards | 8h | small dollars; slim chance of a Trailmark |
+| Deep Raid | ≥1 foil in squad AND squad shine ≥ 12 | 24h | mid dollars, small chance of a pack comp, chance of a Raid Sigil |
+| Legend Hunt | ≥2 foils AND ≥1 signed card AND squad shine ≥ 20 | 48h | big dollars, real chance of a pack comp; jackpot carries the Legend Finish |
 
 - "Dollars" are the existing betting wallet (`betting_profiles.balance`),
   credited through the existing ledgered grant path — never a raw update.
@@ -61,6 +61,33 @@ in config), then scales the dollar payout by:
 
 - squad shine above the tier's threshold (small linear bonus, capped), and
 - the daily brief bonus (below) when satisfied.
+
+### Expedition marks — the cards come back changed
+
+The exclusive cosmetic is not a skin you buy; it is a mark the copy
+**earned by going**. When a mark is rolled, it lands on one random squad
+member — "the expedition chooses" — and is written into that copy's
+`card` json (`expedition: { mark, tier, date }`). Renderers add the
+treatment as overlay/frame layers (the foil-layer technique), so the
+mark shows everywhere the card renders: shelf, binder, trades, share.
+
+| Mark | Source | Treatment |
+| --- | --- | --- |
+| Trailmark | Scouting Run (slim) | small compass stamp near the serial |
+| Raid Sigil | Deep Raid (on solid/jackpot rolls) | engraved sigil + weathered corner accents |
+| Legend Finish | Legend Hunt jackpot only | animated relic frame — gilded ember edges (the champions-ember technique in gold) |
+
+Rules:
+
+- One mark per copy. A higher-tier mark replaces a lower one; rolling an
+  equal-or-lower mark for a copy that already holds one yields nothing
+  extra (the dollars still pay out).
+- Marks are permanent, purely cosmetic, and economically inert: dust
+  pricing reads existing columns and never the mark. They compose with
+  foils, signatures, flames, and the Draw's laurel — a signed Ice foil
+  with the Legend Finish is the grail this system exists to create.
+- Marked cards trade like anything else — provenance travels with the
+  copy, which is what makes it worth trading for.
 
 ### Daily briefs
 
@@ -112,7 +139,9 @@ create table public.expedition_runs (
   `now() >= resolves_at` and unclaimed; roll the outcome (weights passed
   from app config, guarded like `open_card_pack`'s `p_cost`); write
   `outcome`/`claimed_at`; credit dollars via the existing ledger
-  function; upsert the pack comp when rolled. One transaction.
+  function; upsert the pack comp when rolled; when a mark is rolled,
+  pick the bearer among the squad and stamp its `card` json (respecting
+  the replace-only-upward rule). One transaction.
 
 ### Locking melts and trades
 
@@ -148,8 +177,9 @@ quiet.
 
 ## Non-goals (v1)
 
-- No expedition-exclusive art skins or cosmetic drops (future work; the
-  reward pool is dollars + pack comps only).
+- No player choice of mark bearer (the expedition chooses; agency here
+  is future work if the random pick frustrates).
+- No mark removal or transfer between copies.
 - No multi-user co-op expeditions.
 - No card loss, damage, durability, or any destructive mechanic — ever.
 
@@ -158,9 +188,10 @@ quiet.
 - pgTAP: RLS (owner-only reads, no anon), launch validation (ownership,
   double-deploy, requirement failures, daily limit, patron second slot),
   claim validation (early claim, double claim, payout ledger row exists,
-  comp upsert), melt/trade triggers.
+  comp upsert), mark stamping (bearer in squad, replace-only-upward),
+  melt/trade triggers.
 - Vitest: shine math, requirement checks, brief determinism, reward
-  scaling bounds.
+  scaling bounds, mark overlay rendering per mark type.
 - The narrow suites plus the README's broader checks before completion.
 
 ## Rollout
