@@ -66,6 +66,13 @@ export const PATRON_FLAME_KEYS = Object.keys(PATRON_FLAMES) as PatronFlameKey[];
 
 export const DEFAULT_PATRON_FLAME: PatronFlameKey = "ember";
 
+/** Whether a patronage window is still open — the one check every flame
+ *  surface makes, kept here (reads the wall clock) so server components
+ *  call it instead of Date.now() in render. */
+export function patronActive(until: string | null | undefined): boolean {
+  return Boolean(until && new Date(until).getTime() > Date.now());
+}
+
 /** Whether `tenureDays` of granted patronage unlocks the flame. Most of
  *  the wardrobe has no gate; Sovereign asks for six months. */
 export function flameUnlocked(key: PatronFlameKey, tenureDays: number): boolean {

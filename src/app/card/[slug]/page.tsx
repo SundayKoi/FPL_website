@@ -8,6 +8,8 @@ import SkinPicker from "@/components/cards/SkinPicker";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
 import { fetchChampionSkinNums } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { patronActive } from "@/lib/patron/flames";
 
 /** The card's recorded weekly readings — the season arc. Tier changes get a
  *  highlighted marker. Hidden until two points exist.
@@ -125,6 +127,7 @@ export default async function CardSharePage({
   let claim: CardClaimState | null = null;
   let canModerate = false;
   let viewerProfileId: string | null = null;
+  let patronInks = false;
   // The saved autograph, for the signature pad's preview only. It is
   // deliberately NOT part of the live card: ink belongs on pulled copies
   // that rolled signed (src/lib/packs/signatures.ts), never on the card
@@ -158,6 +161,27 @@ export default async function CardSharePage({
 
     const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
     viewerProfileId = viewer.user?.id ?? null;
+
+    // Patron inks: the signature pad offers gold and crimson to an active
+    // patron editing their own card. Two narrow service reads, editor-only.
+    if (canEditArt && viewerProfileId) {
+      const service = createBettingServiceClient();
+      const { data: prof } = await service
+        .from("profiles")
+        .select("discord_id")
+        .eq("id", viewerProfileId)
+        .maybeSingle();
+      const discordId = (prof as { discord_id: string | null } | null)?.discord_id;
+      if (discordId) {
+        const { data: bp } = await service
+          .from("betting_profiles")
+          .select("patron_until")
+          .eq("discord_id", discordId)
+          .maybeSingle();
+        const until = (bp as { patron_until: string | null } | null)?.patron_until;
+        patronInks = patronActive(until);
+      }
+    }
 
     const { data: moderates } = await supabase
       .rpc("can_moderate_card", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
@@ -237,6 +261,7 @@ export default async function CardSharePage({
           currentMotto={card.motto}
           currentSignature={signature}
           initialOpen={openCustomizer}
+          patronInks={patronInks}
         />
       ) : null}
       <p className="max-w-md text-center text-xs text-steel">

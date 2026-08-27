@@ -29,16 +29,29 @@ const MAX_SIGNATURE_CHARS = 80000;
 
 const INK_WIDTH = 3;
 
+/** The pad's inks. White is everyone's; gold and crimson are the patron
+ *  pen case — a purely cosmetic flex, so the gate is the UI offering them
+ *  (the stored PNG simply carries whatever colour was drawn). */
+const INKS = {
+  white: { label: "White", color: "#ffffff" },
+  gold: { label: "Gold", color: "#f0c96a" },
+  crimson: { label: "Crimson", color: "#ff5063" },
+} as const;
+type InkKey = keyof typeof INKS;
+
 export default function SignaturePad({
   season,
   summonerName,
   tag,
   currentSignature = null,
+  patronInks = false,
 }: {
   season: string;
   summonerName: string;
   tag: string;
   currentSignature?: string | null;
+  /** Active patron — unlocks the gold and crimson inks. */
+  patronInks?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -46,6 +59,7 @@ export default function SignaturePad({
   const drawing = useRef(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ink, setInk] = useState<InkKey>("white");
   const [error, setError] = useState<string | null>(null);
 
   // Size the backing store once, then keep the drawing context configured —
@@ -62,8 +76,15 @@ export default function SignaturePad({
     ctx.lineWidth = INK_WIDTH;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#ffffff";
+    ctx.strokeStyle = INKS.white.color;
   }, []);
+
+  // Ink swaps recolour strokes from here on — no resize, so nothing drawn
+  // is lost. Mixing colours mid-signature is allowed on purpose.
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) ctx.strokeStyle = INKS[ink].color;
+  }, [ink]);
 
   /** Pointer position in canvas (CSS-pixel) coordinates. */
   const pointAt = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -155,6 +176,27 @@ export default function SignaturePad({
             alt={`${summonerName}'s signature`}
             className="h-16 w-auto max-w-full rounded bg-navy object-contain px-2"
           />
+        </div>
+      ) : null}
+      {patronInks ? (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-steel">Ink</span>
+          {(Object.keys(INKS) as InkKey[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={ink === key}
+              title={`${INKS[key].label} ink`}
+              onClick={() => setInk(key)}
+              className={`h-5 w-5 rounded-full border-2 transition ${
+                ink === key ? "scale-110 border-white" : "border-line opacity-70 hover:opacity-100"
+              }`}
+              style={{ background: INKS[key].color }}
+            >
+              <span className="sr-only">{INKS[key].label} ink</span>
+            </button>
+          ))}
+          <span className="text-[10px] text-steel">Patron pen case — gold &amp; crimson</span>
         </div>
       ) : null}
       <canvas
