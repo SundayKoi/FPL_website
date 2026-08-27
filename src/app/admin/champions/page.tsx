@@ -3,10 +3,13 @@ import { join } from "node:path";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { CHAMPIONS_SEASON, CHAMPIONS_SET, CHAMPIONS_TEAM, championToCard } from "@/lib/cards/champions";
+import { inviteExpired } from "@/lib/cards/signing";
 import ChampionsCard from "@/components/cards/ChampionsCard";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import ChampionsSigningDesk, { type SigningDeskRow } from "@/components/admin/ChampionsSigningDesk";
 
 export const metadata: Metadata = {
   title: "The Faceless Drop — FPL Admin",
@@ -45,6 +48,41 @@ export default async function ChampionsPreviewPage() {
   const cards = CHAMPIONS_SET.map((def) => ({ ...championToCard(def, "S5"), teamImageUrl: logo }));
   const queen = cards.find((card) => card.champWin?.rank === "Q") ?? cards[0];
 
+  // The signing desk's ledger: whose real ink is already on file (any
+  // season — same cross-season lookup the mint uses), and which live
+  // links are already out. Both on the service client: card_art_prefs
+  // rows for non-members aren't visible any other way, and
+  // signature_invites has no PostgREST surface at all. Errors collapse to
+  // empty — the desk still renders before the invites migration lands.
+  const service = createBettingServiceClient();
+  const { data: inkData } = await service
+    .from("card_art_prefs")
+    .select("summoner_name, tag")
+    .in("summoner_name", CHAMPIONS_SET.map((def) => def.riot.summoner))
+    .not("signature", "is", null);
+  const inked = new Set(
+    ((inkData as { summoner_name: string; tag: string }[]) ?? []).map((row) => `${row.summoner_name}#${row.tag}`),
+  );
+  const { data: inviteData } = await service
+    .from("signature_invites")
+    .select("token, summoner_name, tag, expires_at, used_at")
+    .is("used_at", null)
+    .order("created_at", { ascending: false });
+  const liveInvites = ((inviteData as { token: string; summoner_name: string; tag: string; expires_at: string }[]) ?? []).filter(
+    (row) => !inviteExpired(row.expires_at),
+  );
+  const deskRows: SigningDeskRow[] = CHAMPIONS_SET.map((def) => {
+    const invite = liveInvites.find((row) => row.summoner_name === def.riot.summoner && row.tag === def.riot.tag);
+    return {
+      rank: def.rank,
+      name: def.name,
+      summoner: def.riot.summoner,
+      tag: def.riot.tag,
+      hasInk: inked.has(`${def.riot.summoner}#${def.riot.tag}`),
+      invite: invite ? { token: invite.token, expiresAt: invite.expires_at } : null,
+    };
+  });
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
       <header>
@@ -82,6 +120,16 @@ export default async function ChampionsPreviewPage() {
             <figcaption className="text-xs uppercase tracking-[0.16em] text-steel">autographed</figcaption>
           </figure>
         </div>
+      </section>
+
+      <section aria-label="Signing links" className="flex flex-col gap-4">
+        <h2 className="type-display text-2xl">Signing links</h2>
+        <p className="max-w-[62ch] text-sm text-steel">
+          For champions who aren&apos;t site members: mint a one-time link, DM it, and they draw their signature
+          on their phone — no account needed. The ink lands under their {CHAMPIONS_SEASON} riot account, and
+          from then on their card can roll autographed.
+        </p>
+        <ChampionsSigningDesk rows={deskRows} season={CHAMPIONS_SEASON} />
       </section>
     </main>
   );

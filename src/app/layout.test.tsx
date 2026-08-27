@@ -4,6 +4,8 @@ vi.mock("next/font/google", () => ({
   Chakra_Petch: () => ({ variable: "--font-chakra" }),
   Saira: () => ({ variable: "--font-saira" }),
   Cinzel: () => ({ variable: "--font-cinzel" }),
+  Bangers: () => ({ variable: "--font-bangers" }),
+  Pinyon_Script: () => ({ variable: "--font-pinyon" }),
 }));
 
 vi.mock("@/components/AuthButton", () => ({
