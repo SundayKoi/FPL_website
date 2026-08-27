@@ -2,9 +2,9 @@
 //
 // Not a PlayerCard3D and not a MomentPlate: a champions card is a playing
 // card from the winners' own deck. Black felt with embers rising off it,
-// the champion's real splash carrying the open center, corner rank
-// indices, and the team's mark riding beside the wordmark (the obsidian
-// spade pip stands in when no logo exists). The Joker inverts to bone.
+// the champion's real splash dimmed beneath, corner rank indices, and the
+// team's mark seated above the wordmark (the obsidian spade pip stands in
+// when no logo exists). The Joker inverts to bone.
 //
 // Server-renderable — no hooks, no handlers. Foil parallels reuse the
 // exact overlay layers player cards wear (FOIL_LAYERS), held at a fixed
@@ -26,12 +26,12 @@ const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | 
 };
 
 /**
- * The logo draws small now (~42px CSS beside the wordmark), but retina
- * still doubles that and most stored team marks are tiny avatars —
- * upscaling is why the first center-seated cut looked blurry. Discord's
- * CDN serves any size on request, so those URLs get asked for 1024px;
- * anything else passes through untouched (a storage transform endpoint we
- * can't verify would 404 into a blank mark). Exported for tests.
+ * The center logo draws at ~145px CSS (290px on retina), and most stored
+ * team marks are small avatars — upscaling is why the first cut looked
+ * blurry. Discord's CDN serves any size on request, so those URLs get
+ * asked for 1024px; anything else passes through untouched (a storage
+ * transform endpoint we can't verify would 404 into a blank mark).
+ * Exported for tests.
  */
 export function hiResLogoUrl(url: string): string {
   try {
@@ -166,21 +166,22 @@ export default function ChampionsCard({
       <CornerIndex rank={print.rank} />
       <CornerIndex rank={print.rank} flipped />
 
-      {/* The banner row: the team's own mark riding small beside the
-          wordmark (edge-fade mask so no square boundary reads as a
-          sticker, the pip's red under-glow), the spade pip as fallback —
-          never a hole. The center stays open so the champion's splash
-          carries the card. */}
-      <span className="absolute inset-x-0 top-[57.5%] flex items-center justify-center gap-2.5">
-        {card.teamImageUrl ? (
-          <span className="champ-logowrap" aria-hidden>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={hiResLogoUrl(card.teamImageUrl)} alt="" className="champ-logo" loading="lazy" decoding="async" />
-          </span>
-        ) : (
-          <SpadePip joker={print.joker} />
-        )}
-        <span className="champ-wordmark text-[1.7rem] leading-none">{print.team.toUpperCase()}</span>
+      {/* The center mark, seated directly above the wordmark: the team's
+          own logo when we hold one (edge-fade mask so no square boundary
+          reads as a sticker, the pip's red under-glow), the spade pip as
+          the fallback — never a hole. A notch smaller than the first
+          center cut so the champion's splash still breathes around it. */}
+      {card.teamImageUrl ? (
+        <span className="champ-logowrap" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={hiResLogoUrl(card.teamImageUrl)} alt="" className="champ-logo" loading="lazy" decoding="async" />
+        </span>
+      ) : (
+        <SpadePip joker={print.joker} />
+      )}
+
+      <span className="champ-wordmark absolute inset-x-0 top-[58.5%] text-center text-[1.7rem] leading-none">
+        {print.team.toUpperCase()}
       </span>
 
       <div className="absolute inset-x-0 bottom-[21%] text-center">

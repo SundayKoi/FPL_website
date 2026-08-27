@@ -627,16 +627,17 @@ body {
   color: #d61f2c;
   text-shadow: 0 2px 0 #5c0a12, 0 4px 10px rgb(0 0 0 / 0.6);
 }
-/* The pip's under-glow lives on the wrap so the SVG stays plain paint.
-   Pip and logo both ride SMALL beside the wordmark now — the center of
-   the card belongs to the champion's splash. */
+/* The pip's under-glow lives on the wrap so the SVG stays plain paint. */
 @utility champ-pipwrap {
-  flex: none;
-  width: 1.7rem;
-  filter: drop-shadow(0 0 8px rgb(214 31 44 / 0.55)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  width: 35%;
+  filter: drop-shadow(0 0 18px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
 }
 @utility champ-pipwrap-joker {
-  filter: drop-shadow(0 0 10px rgb(214 31 44 / 0.7)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
+  filter: drop-shadow(0 0 22px rgb(214 31 44 / 0.65)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
 }
 @utility champ-idx-joker {
   writing-mode: vertical-rl;
@@ -647,13 +648,17 @@ body {
   width: 100%;
   height: auto;
 }
-/* The team logo in the pip's seat beside the wordmark. Same glow; the
-   radial mask fades the artwork's edges into the felt so any background
-   the file carries dissolves instead of reading as a sticker. */
+/* The team logo in the pip's place, seated directly above the wordmark —
+   a notch under the original 52% so the splash breathes around it. Same
+   glow; the radial mask fades the artwork's edges into the felt so any
+   background the file carries dissolves instead of reading as a sticker. */
 @utility champ-logowrap {
-  flex: none;
-  width: 2.6rem;
-  filter: drop-shadow(0 0 9px rgb(214 31 44 / 0.55)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
+  position: absolute;
+  left: 50%;
+  top: 42.5%;
+  transform: translate(-50%, -50%);
+  width: 45%;
+  filter: drop-shadow(0 0 20px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
 }
 @utility champ-logo {
   display: block;
