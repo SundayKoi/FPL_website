@@ -57,12 +57,18 @@ export default async function ChampionsPreviewPage() {
   const service = createBettingServiceClient();
   const { data: inkData } = await service
     .from("card_art_prefs")
-    .select("summoner_name, tag")
+    .select("summoner_name, tag, season, signature")
     .in("summoner_name", CHAMPIONS_SET.map((def) => def.riot.summoner))
-    .not("signature", "is", null);
-  const inked = new Set(
-    ((inkData as { summoner_name: string; tag: string }[]) ?? []).map((row) => `${row.summoner_name}#${row.tag}`),
-  );
+    .not("signature", "is", null)
+    .order("season", { ascending: false });
+  // Newest season's ink per account — the same row the pack mint would
+  // print, carried whole so the desk can SHOW the owner what got captured
+  // (a stray-dot save looks like ink in a boolean and like a dot here).
+  const inkByAccount = new Map<string, string>();
+  for (const row of (inkData as { summoner_name: string; tag: string; signature: string }[]) ?? []) {
+    const key = `${row.summoner_name}#${row.tag}`.toLowerCase();
+    if (!inkByAccount.has(key)) inkByAccount.set(key, row.signature);
+  }
   const { data: inviteData } = await service
     .from("signature_invites")
     .select("token, summoner_name, tag, expires_at, used_at")
@@ -78,7 +84,7 @@ export default async function ChampionsPreviewPage() {
       name: def.name,
       summoner: def.riot.summoner,
       tag: def.riot.tag,
-      hasInk: inked.has(`${def.riot.summoner}#${def.riot.tag}`),
+      ink: inkByAccount.get(`${def.riot.summoner}#${def.riot.tag}`.toLowerCase()) ?? null,
       invite: invite ? { token: invite.token, expiresAt: invite.expires_at } : null,
     };
   });
