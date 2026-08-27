@@ -10,8 +10,11 @@ import {
   buildGauntletOptions,
   currentWeek,
   fetchActiveGauntletRun,
+  fetchGauntletBoard,
   fetchGauntletWeekStats,
+  type GauntletBoardRow,
 } from "@/lib/gauntlet/queries";
+import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
 
 export const metadata: Metadata = {
   title: "The Gauntlet — FPL",
@@ -49,13 +52,19 @@ export default async function GauntletPage() {
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, "premier");
   const week = currentWeek();
-  const [inventory, activeRun, weekStats] = season
+  const [inventory, activeRun, weekStats, board]: [
+    Awaited<ReturnType<typeof fetchInventory>>,
+    Awaited<ReturnType<typeof fetchActiveGauntletRun>>,
+    Awaited<ReturnType<typeof fetchGauntletWeekStats>>,
+    GauntletBoardRow[],
+  ] = season
     ? await Promise.all([
         fetchInventory(service, user.discordId, season),
         fetchActiveGauntletRun(service, user.discordId),
         fetchGauntletWeekStats(service, user.discordId, week),
+        fetchGauntletBoard(service, season, week),
       ])
-    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }];
+    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, []];
   const options = buildGauntletOptions(inventory, week);
 
   return (
@@ -92,6 +101,54 @@ export default async function GauntletPage() {
         balance={user.balance}
         weekBest={weekStats.bestScore}
       />
+
+      <section aria-label="This week's board" className="card-brand flex flex-col gap-3 p-6">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <span className="label-dash">This week&apos;s board</span>
+          <span className="text-xs text-steel">
+            Best run per player · the pot (every entry fee paid) settles Monday — 40/25/15% to the top three,
+            scraps for everyone who cleared round 4.
+          </span>
+        </div>
+        {board.length === 0 ? (
+          <p className="text-sm text-steel">Nobody has run yet this week. The board is yours to open.</p>
+        ) : (
+          <ol className="flex flex-col">
+            {board.map((row, index) => {
+              const flameStyle = row.flame ? PATRON_FLAMES[patronFlameOf(row.flame)] : null;
+              return (
+                <li
+                  key={row.discordId}
+                  className={`flex items-baseline gap-3 border-b border-line/50 py-2 last:border-0 ${row.discordId === user.discordId ? "bg-coral/5" : ""}`}
+                >
+                  <span className={`w-8 font-mono text-sm font-bold ${index === 0 ? "text-gold" : "text-steel"}`}>
+                    #{index + 1}
+                  </span>
+                  <span className="flex items-center gap-2 text-sm text-white">
+                    {row.username}
+                    {flameStyle ? (
+                      <span
+                        aria-label="League Patron"
+                        title={`League Patron — ${flameStyle.label} flame`}
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{
+                          background: `radial-gradient(circle, ${flameStyle.hot} 0 35%, ${flameStyle.core} 75%)`,
+                          boxShadow: `0 0 6px ${flameStyle.core}`,
+                        }}
+                      />
+                    ) : null}
+                    {row.cleared ? <span title="Full clear">🏆</span> : null}
+                  </span>
+                  <span className="ml-auto font-mono text-sm font-semibold">{row.score.toLocaleString()}</span>
+                  <span className="w-24 text-right text-xs text-steel">
+                    {row.cleared ? "cleared" : `round ${row.round}`}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
     </main>
   );
 }

@@ -23,6 +23,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllCardSeasons, fetchSeasonCards, fetchWeekCards, type CardLeague } from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
+import { settleGauntletWeek } from "../src/lib/gauntlet/settle";
 import { archiveEdition } from "../src/lib/cards/editions";
 import { planPayouts } from "../src/lib/fantasy/payouts";
 import { fetchBettingUsernames, fetchWeekLineups, type FantasyLineupRow } from "../src/lib/fantasy/queries";
@@ -585,6 +586,35 @@ async function payMatchWinBonuses(
   );
 }
 
+/** Pays out last week's Gauntlet pot and posts the podium. The settle
+ *  helper is burn-first idempotent, so a re-run of this job is a no-op. */
+async function settleLastGauntletWeek(
+  supabase: SupabaseClient,
+  season: string,
+  webhookUrl: string | null,
+): Promise<void> {
+  const thisMonday = new Date(`${mondayOf(new Date())}T00:00:00.000Z`);
+  const lastMonday = new Date(thisMonday.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const result = await settleGauntletWeek(supabase, season, lastMonday);
+  if (!result.settled) {
+    console.log(`[Premier] Gauntlet week ${lastMonday}: ${result.reason ?? "not settled"}`);
+    return;
+  }
+  console.log(`[Premier] Gauntlet week ${lastMonday}: pot ${result.pot}, paid ${result.paid}`);
+  if (!webhookUrl || result.standings.length === 0) return;
+  const medals = ["🥇", "🥈", "🥉"];
+  const lines = result.standings.slice(0, 3).map((standing, index) =>
+    `${medals[index]} **${standing.username ?? "Unknown"}** — ${standing.score.toLocaleString()}${standing.cleared ? " · FULL CLEAR 🏆" : ""}${standing.prize > 0 ? ` · +$${standing.prize}` : ""}`,
+  );
+  const clears = result.standings.filter((standing) => standing.cleared).length;
+  await postEmbed(
+    webhookUrl,
+    "⚔ The Gauntlet — the week's board",
+    `${lines.join("\n")}\n\nPot: **$${result.pot}** across ${result.standings.length} runner${result.standings.length === 1 ? "" : "s"}${clears > 0 ? ` · ${clears} full clear${clears === 1 ? "" : "s"}` : " · the eighth round went unbeaten"}`,
+    "New week, new bracket — /cards/gauntlet",
+  );
+}
+
 async function main(): Promise<void> {
   const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false },
@@ -611,6 +641,15 @@ async function main(): Promise<void> {
       await payMatchWinBonuses(supabase, league, season, webhookUrl);
     } catch (error) {
       console.error(`[${LEAGUE_LABELS[league]}] Match win bonuses failed — card drop unaffected:`, error);
+    }
+    // The Gauntlet settles the week that just ENDED — premier only, and
+    // with the same tolerance as everything above.
+    if (league === "premier") {
+      try {
+        await settleLastGauntletWeek(supabase, season, webhookUrl);
+      } catch (error) {
+        console.error(`[${LEAGUE_LABELS[league]}] Gauntlet settlement failed — card drop unaffected:`, error);
+      }
     }
   }
 }
