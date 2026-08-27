@@ -10,12 +10,12 @@ import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
-  fetchChampionComps,
   fetchChampionsWindow,
   fetchChase,
   fetchDailyRipStatus,
   fetchInventory,
   fetchLiveWindow,
+  fetchPackComps,
   fetchPackOpenCount,
   type ChaseBanner,
   type DailyRipStatus,
@@ -91,10 +91,11 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
   // shows (and academy pulls can win) the same one as premier.
-  const [liveWindow, chase, championsWindow, championComps]: [
+  const [liveWindow, chase, championsWindow, championComps, standardComps]: [
     LiveWindow | null,
     ChaseBanner | null,
     { until: string } | null,
+    number,
     number,
   ] = season
     ? await Promise.all([
@@ -104,9 +105,12 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         // sells it.
         league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
         // The Champion's Tribute — free Faceless Packs for the S4 squad.
-        league === "premier" ? fetchChampionComps(service, user.discordId) : Promise.resolve(0),
+        league === "premier" ? fetchPackComps(service, user.discordId, "champions") : Promise.resolve(0),
+        // Free shop packs — the Weekly Draw's prize. Not league-gated: the
+        // comp is held per person, and either shop's pack spends it.
+        fetchPackComps(service, user.discordId, "standard"),
       ])
-    : [null, null, null, 0];
+    : [null, null, null, 0, 0];
   // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
   // read for an active patron.
   const patronTenureDays = dailyRip.patron ? await fetchPatronTenureDays(service, user.discordId) : 0;
@@ -220,6 +224,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         flame={dailyRip.flame}
         championsOpen={Boolean(championsWindow)}
         championComps={championComps}
+        standardComps={standardComps}
         patronTenureDays={patronTenureDays}
       />
 

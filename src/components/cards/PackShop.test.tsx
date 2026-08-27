@@ -234,6 +234,44 @@ describe("PackShop", () => {
     expect(screen.getByRole("button", { name: /faceless pack — free \(2 left\)/i })).toBeTruthy();
   });
 
+  it("labels the shop pack FREE while draw comps remain, then reprices", async () => {
+    // The Weekly Draw's prize is spent by the open flow before it charges,
+    // so a winner must never be shown a price they aren't about to pay.
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 1000, compsLeft: 1 });
+    render(
+      <PackShop league="premier" balance={1000} packCost={200} openCount={0} ownedSlugs={[]} standardComps={2} />,
+    );
+    expect(screen.getByRole("button", { name: /open pack — free \(2 left\)/i })).toBeTruthy();
+
+    await openPack();
+    // The server said one comp remains; when it says 0, the price returns.
+    expect(screen.getByRole("button", { name: /open pack — free \(1 left\)/i })).toBeTruthy();
+  });
+
+  it("never lets the Faceless comp count relabel the shop pack button", async () => {
+    // The mirror image of the guard above: the two shelves are separate,
+    // and spending the tribute must not spend the draw prize on screen.
+    const relic = [{ card: makeCard("faceless-k", { key: "gold", label: "Champion" }, 0), foil: false, signed: false, inventoryId: 9 }];
+    openChampionsPackAction.mockResolvedValue({ ok: true, cards: relic, balance: 1000, compsLeft: 0 });
+    render(
+      <PackShop
+        league="premier"
+        balance={1000}
+        packCost={200}
+        openCount={0}
+        ownedSlugs={[]}
+        championsOpen
+        championComps={1}
+        standardComps={1}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /faceless pack/i }));
+    });
+
+    expect(screen.getByRole("button", { name: /open pack — free \(1 left\)/i })).toBeTruthy();
+  });
+
   it("takes the stage down when the opening is done with it", async () => {
     renderShop();
     await openPack();

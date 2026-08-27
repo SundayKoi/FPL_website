@@ -47,6 +47,7 @@ export default function PackShop({
   flame = null,
   championsOpen = false,
   championComps = 0,
+  standardComps = 0,
   patronTenureDays = 0,
 }: {
   league: CardLeague;
@@ -74,6 +75,9 @@ export default function PackShop({
   championsOpen?: boolean;
   /** Free Faceless Packs this user holds (the Champion's Tribute). */
   championComps?: number;
+  /** Free shop packs this user holds — the Weekly Draw's prize. The open
+   *  flow spends these before it charges, so the button has to say so. */
+  standardComps?: number;
   /** Total days of patronage granted — unlocks the tenure flames. */
   patronTenureDays?: number;
 }) {
@@ -94,10 +98,12 @@ export default function PackShop({
   // Which shelf the overlay's pack came off — "Open another" re-deals the
   // same kind, and the overlay quotes the right price for it.
   const [packKind, setPackKind] = useState<"standard" | "champions">("standard");
-  // Free Faceless Packs left. The server is the authority — every champions
-  // open reports compsLeft when a comp was spent, and this mirror keeps the
-  // button label honest between refreshes.
+  // Free packs left, per shelf. The server is the authority — an open
+  // reports compsLeft when a comp was spent, and these mirrors keep the two
+  // button labels honest between refreshes. Kept apart because the shelves
+  // are: spending a draw prize must not relabel the tribute button.
   const [compsLeft, setCompsLeft] = useState(championComps);
+  const [freePacksLeft, setFreePacksLeft] = useState(standardComps);
 
   // Mute belongs to the audio module, not to this component: the rip, the
   // flips and the walkout stings are all the same setting, and it's persisted
@@ -129,6 +135,7 @@ export default function PackShop({
         setError(result.error);
         return;
       }
+      if (result.compsLeft !== undefined) setFreePacksLeft(result.compsLeft);
       setPackKind("standard");
       setPulls(result.cards);
       banked(result.balance);
@@ -181,14 +188,14 @@ export default function PackShop({
   const openAnother = useCallback(async (): Promise<OpenResult> => {
     const result =
       packKind === "champions" ? await openChampionsPackAction() : await openPackAction(league, week || undefined);
-    if (result.ok) {
-      // Only a champions open moves this counter. A normal pack reports its
-      // own compsLeft now too (the Weekly Draw pays out standard comps), and
-      // banking that here would relabel the Faceless button with somebody
-      // else's count.
-      if (packKind === "champions" && result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
-      banked(result.balance);
+    if (result.ok && result.compsLeft !== undefined) {
+      // Each shelf banks its own count. A normal pack reports compsLeft too
+      // (the Weekly Draw pays out standard comps), and banking that on the
+      // Faceless button would relabel it with somebody else's count.
+      if (packKind === "champions") setCompsLeft(result.compsLeft);
+      else setFreePacksLeft(result.compsLeft);
     }
+    if (result.ok) banked(result.balance);
     return result;
   }, [league, week, banked, packKind]);
 
@@ -245,7 +252,9 @@ export default function PackShop({
           disabled={pending}
           className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "Opening…" : `Open pack — ${fmtPoints(packCost)}`}
+          {pending
+            ? "Opening…"
+            : `Open pack — ${freePacksLeft > 0 ? `FREE (${freePacksLeft} left)` : fmtPoints(packCost)}`}
         </button>
         {championsOpen ? (
           <button

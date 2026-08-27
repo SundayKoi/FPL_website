@@ -1,6 +1,6 @@
 begin;
 set local search_path = public, extensions;
-select plan(13);
+select plan(17);
 
 insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values ('00000000-0000-0000-0000-00000000d4a1'::uuid, 'authenticated', 'authenticated',
@@ -53,9 +53,21 @@ select results_eq(
   'rerun reports already');
 select is((select balance from public.betting_profiles where discord_id = 'draw-winner-0068'), 750::bigint, 'rerun does not pay twice');
 
--- 11-12. Anon can read history; anon cannot write.
+-- 11-13. The draw credits betting dollars, so only the service role may
+-- run it — a security-definer function is exactly as safe as its ACL.
+select ok(not has_function_privilege('anon', 'public.run_weekly_draw(text,date,bigint)', 'execute'),
+  'anon cannot run the draw');
+select ok(not has_function_privilege('authenticated', 'public.run_weekly_draw(text,date,bigint)', 'execute'),
+  'authenticated cannot run the draw');
+select ok(has_function_privilege('service_role', 'public.run_weekly_draw(text,date,bigint)', 'execute'),
+  'service_role can run the draw');
+
+-- 14-17. Anon can read history; anon cannot write. lives_ok alone would
+-- pass under a `using (false)` policy, so the row is counted as well.
 set local role anon;
 select lives_ok($$ select * from public.weekly_draws $$, 'anon reads draw history');
+select is((select count(*) from public.weekly_draws where season = 'S_TEST_DRAW')::int, 1,
+  'anon sees the draw history');
 select throws_ok(
   $$ insert into public.weekly_draws (season, week_start, copy_id, discord_id, card, pot)
      values ('S_TEST_DRAW', date '2026-08-31', 1, 'x', '{}'::jsonb, 1) $$,
