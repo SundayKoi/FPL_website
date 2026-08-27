@@ -26,6 +26,7 @@ function row(overrides: Partial<MomentStatRow> = {}): MomentStatRow {
     deaths: 2,
     assists: 4,
     solo_kills: 0,
+    baron_kills: 0,
     penta_kills: 0,
     quadra_kills: 0,
     largest_killing_spree: 3,
@@ -56,6 +57,14 @@ describe("findMomentCandidates", () => {
     expect(found[0].title).toBe("PENTAKILL");
   });
 
+  it("only counts a steal when the baron came with it", () => {
+    // A stolen herald or camp dragon isn't THE STEAL — the steal has to
+    // arrive alongside a baron last-hit.
+    expect(findMomentCandidates([row({ objectives_stolen: 1 })], slugOf)).toHaveLength(0);
+    const found = findMomentCandidates([row({ objectives_stolen: 1, baron_kills: 1 })], slugOf);
+    expect(found[0].title).toBe("THE STEAL");
+  });
+
   it("keeps only the rarest trigger for one performance", () => {
     // A penta that was also flawless is one moment, not two.
     const found = findMomentCandidates(
@@ -83,8 +92,11 @@ describe("findMomentCandidates", () => {
   });
 
   it("builds the headline out of the real numbers", () => {
-    const found = findMomentCandidates([row({ objectives_stolen: 1, kills: 7, deaths: 1, assists: 3 })], slugOf);
-    expect(found[0].headline).toBe("1 objective stolen · 7/1/3");
+    const found = findMomentCandidates(
+      [row({ objectives_stolen: 1, baron_kills: 1, kills: 7, deaths: 1, assists: 3 })],
+      slugOf,
+    );
+    expect(found[0].headline).toBe("Baron stolen from under them · 7/1/3");
   });
 
   it("names the opponent from the match's own rows", () => {
@@ -160,7 +172,7 @@ describe("selectMoments", () => {
     const candidates = findMomentCandidates(
       [
         row({ summoner_name: "A", penta_kills: 1 }),
-        row({ summoner_name: "B", objectives_stolen: 1 }),
+        row({ summoner_name: "B", objectives_stolen: 1, baron_kills: 1 }),
         row({ summoner_name: "C", largest_killing_spree: 9 }),
         row({ summoner_name: "D", quadra_kills: 1 }),
       ],
@@ -185,7 +197,7 @@ describe("selectMoments", () => {
     const candidates = findMomentCandidates(
       [
         row({ match_id: "m1", penta_kills: 1 }),
-        row({ match_id: "m2", objectives_stolen: 1 }),
+        row({ match_id: "m2", objectives_stolen: 1, baron_kills: 1 }),
         row({ match_id: "m3", quadra_kills: 1 }),
       ],
       slugOf,

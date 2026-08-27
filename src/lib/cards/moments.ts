@@ -36,6 +36,7 @@ export interface MomentStatRow {
   deaths: number | null;
   assists: number | null;
   solo_kills: number | null;
+  baron_kills: number | null;
   penta_kills: number | null;
   quadra_kills: number | null;
   largest_killing_spree: number | null;
@@ -83,8 +84,15 @@ export const MOMENT_TRIGGERS: MomentTrigger[] = [
     key: "baron_steal",
     title: "THE STEAL",
     rarity: 85,
-    qualifies: (row) => num(row.objectives_stolen) >= 1,
-    headline: (row) => `${num(row.objectives_stolen)} objective${num(row.objectives_stolen) === 1 ? "" : "s"} stolen · ${kda(row)}`,
+    // Baron steals only (2026-08, owner's call — a stolen herald or camp
+    // dragon isn't THE STEAL). Riot's objectivesStolen never says which
+    // monster went, but a steal credits the stealer with the kill, so a
+    // steal alongside a baron last-hit is the baron leaving over the wall.
+    // An elder steal is indistinguishable from a regular dragon steal in
+    // this data (both are just dragon_kills), so elder can't be gated in
+    // without letting every dragon steal through.
+    qualifies: (row) => num(row.objectives_stolen) >= 1 && num(row.baron_kills) >= 1,
+    headline: (row) => `Baron stolen from under them · ${kda(row)}`,
   },
   {
     key: "godlike",

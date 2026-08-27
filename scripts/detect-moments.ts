@@ -43,6 +43,7 @@ const MOMENT_COLUMNS = [
   "deaths",
   "assists",
   "solo_kills",
+  "baron_kills",
   "penta_kills",
   "quadra_kills",
   "largest_killing_spree",
