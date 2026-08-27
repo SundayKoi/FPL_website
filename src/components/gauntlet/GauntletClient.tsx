@@ -23,7 +23,15 @@ import {
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
 import { CROSSROADS_BY_KEY, safeChoiceOf } from "@/lib/gauntlet/crossroads";
-import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "@/lib/gauntlet/run";
+import MatchTheatre from "./MatchTheatre";
+import { AutopsyPanel, Scoreboard } from "./MatchAutopsy";
+import ScoutingReport from "./ScoutingReport";
+import {
+  GAUNTLET_ENTRY_FEE,
+  type GauntletRunRow,
+  matchContextFor,
+  type StoredMatchResult,
+} from "@/lib/gauntlet/run";
 import type { GauntletOption } from "@/lib/gauntlet/queries";
 import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
 import {
@@ -36,8 +44,6 @@ import {
   type GauntletRole,
   LANE_KEY,
   makeTrialist,
-  type MatchEvent,
-  type MatchResult,
   previewCrossroadsChoice,
 } from "@/lib/gauntlet/sim";
 
@@ -48,41 +54,8 @@ const FAMILY_COLOR: Record<RelicFamily, string> = {
   gold: "#e8c14b",
 };
 
-const TONE_DOT: Record<MatchEvent["tone"], string> = {
-  win: "bg-mint shadow-[0_0_8px_#3fdc7f]",
-  loss: "bg-coral shadow-[0_0_8px_#ff5063]",
-  neutral: "bg-steel",
-};
-
 /** What each identity beats — the sim's triangle, for the readout line. */
 const BEATS: Record<CompStyle, CompStyle> = { poke: "dive", dive: "protect", protect: "poke" };
-
-function clock(minutes: number | null): string {
-  if (minutes === null) return "—";
-  return `${minutes}:00`;
-}
-
-/** A fight narrated — stored events drawn as the mockup's timeline:
- *  tone dots, the numbers in monospace, the call in display. */
-function Timeline({ events }: { events: MatchEvent[] }) {
-  return (
-    <div className="flex flex-col border-l-2 border-line pl-4">
-      {events.map((event, index) => (
-        <div key={index} className="relative flex flex-wrap items-baseline gap-x-3 py-1.5">
-          <span
-            aria-hidden
-            className={`absolute -left-[21px] top-2.5 h-2.5 w-2.5 rounded-full ${TONE_DOT[event.tone]}`}
-          />
-          <span className="w-11 shrink-0 font-mono text-[11px] text-steel">{clock(event.clock)}</span>
-          <span className={`text-sm ${event.kind === "nexus" ? "type-display text-xl" : ""} ${event.kind === "nexus" ? (event.tone === "win" ? "text-mint" : "text-coral") : ""}`}>
-            {event.text}
-          </span>
-          {event.detail ? <span className="font-mono text-[10px] text-steel">{event.detail}</span> : null}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function MomentumBar({ value }: { value: number }) {
   return (
@@ -178,9 +151,10 @@ export default function GauntletClient({
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
   // The fight just resolved this visit — shown above whatever comes next.
-  const [lastFight, setLastFight] = useState<(MatchResult & { round: number }) | null>(
-    initialRun?.last_result ?? null,
-  );
+  const [lastFight, setLastFight] = useState<StoredMatchResult | null>(initialRun?.last_result ?? null);
+  // The autopsy waits for the tape to finish — a verdict on screen before
+  // the game that earned it has played is a spoiler.
+  const [tapeDone, setTapeDone] = useState(false);
   const [picks, setPicks] = useState<Partial<Record<GauntletRole, number | null>>>({});
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
@@ -252,6 +226,7 @@ export default function GauntletClient({
         setError(result.error);
         return;
       }
+      setTapeDone(false);
       setLastFight(result.run.last_result ?? { ...result.result, round: run.round });
       setRun(result.run);
       router.refresh();
@@ -421,17 +396,34 @@ export default function GauntletClient({
       </div>
 
       {lastFight ? (
-        <div className="card-brand flex flex-col gap-4 p-6">
-          <span className="label-dash">Round {lastFight.round} — the tape</span>
-          <MomentumBar value={lastFight.momentum} />
-          <Timeline events={lastFight.events} />
-          {lastFight.won ? (
-            <p className="text-xs text-steel">
-              MVP <b className="text-white">{lastFight.mvp}</b> · +{lastFight.score.toLocaleString()} score
-              {lastFight.daring > 0 ? (
-                <span className="text-gold"> (of which {lastFight.daring} daring — the call landed)</span>
+        <div className="flex flex-col gap-4">
+          <MatchTheatre
+            key={`tape-${lastFight.round}-${lastFight.momentum}`}
+            title={`Round ${lastFight.round} — the tape`}
+            tape={{
+              events: lastFight.events,
+              contests: lastFight.contests ?? [],
+              goldSeries: lastFight.goldSeries ?? [{ clock: 0, diff: 0 }],
+              baron: lastFight.baron,
+              endClock: 31,
+            }}
+            onFinish={() => setTapeDone(true)}
+          />
+          {tapeDone ? (
+            <div className="flex flex-col gap-4">
+              {lastFight.won ? (
+                <p className="text-xs text-steel">
+                  MVP <b className="text-white">{lastFight.mvp}</b> · +{lastFight.score.toLocaleString()} score
+                  {lastFight.daring > 0 ? (
+                    <span className="text-gold"> (of which {lastFight.daring} daring — the call landed)</span>
+                  ) : null}
+                </p>
               ) : null}
-            </p>
+              {lastFight.players?.length ? (
+                <Scoreboard players={lastFight.players} mvp={lastFight.mvp} />
+              ) : null}
+              {lastFight.autopsy ? <AutopsyPanel autopsy={lastFight.autopsy} won={lastFight.won} /> : null}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -467,8 +459,18 @@ export default function GauntletClient({
             <span className="label-dash text-gold">⏸ 20:00 · {situation.title}</span>
             <p className="mt-1 text-sm text-white">{situation.narration}</p>
           </div>
+          <MatchTheatre
+            key={`half-${run.id}-${run.round}`}
+            title="First half"
+            tape={{
+              events: run.crossroads!.state.events,
+              contests: run.crossroads!.state.ledger?.contests ?? [],
+              goldSeries: run.crossroads!.state.ledger?.goldSeries ?? [{ clock: 0, diff: 0 }],
+              baron: null,
+              endClock: 20,
+            }}
+          />
           <MomentumBar value={run.crossroads!.state.momentum} />
-          <Timeline events={run.crossroads!.state.events} />
           <div className="grid gap-4 sm:grid-cols-3">
             {situation.choices.map((choice) => {
               const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runCtx);
@@ -572,22 +574,12 @@ export default function GauntletClient({
               <span className="text-sm text-white">⚠ {run.next_opponent.label}</span>
             ) : null}
           </div>
-          {run.next_opponent ? (
-            <div className="flex flex-wrap gap-2">
-              {run.next_opponent.cards.map((card) => (
-                <div key={card.name} className="w-[104px] rounded-lg border border-[#6b3d47] bg-[#221016] px-2.5 py-2">
-                  <p className="text-[8px] uppercase tracking-[0.2em] text-steel">{card.role}</p>
-                  <p className="truncate text-[12px] font-bold text-white">{card.name}</p>
-                  <p className="font-mono text-sm font-extrabold text-[#ff8896]">{card.overall}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {run.next_opponent ? <ScoutingReport opponent={run.next_opponent} /> : null}
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={fight} disabled={pending} className="btn-coral px-6 py-2.5 text-sm disabled:opacity-50">
               {pending ? "The game is live…" : `FIGHT ROUND ${run.round}`}
             </button>
-            <span className="text-xs text-steel">The game pauses at 20:00 for your call.</span>
+            <span className="text-xs text-steel">The game pauses at 20:00 for your call — scout them first.</span>
           </div>
         </div>
       )}

@@ -7,19 +7,22 @@
 
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
+import { CONDITION_CATALOG, TRAIT_CATALOG } from "@/lib/gauntlet/traits";
 import { FRESH_LEGS_BONUS, GAUNTLET_ROUNDS, TRIALIST_OVERALL } from "@/lib/gauntlet/sim";
 
 /** clock · what happens · what's rolled · what moves. */
 const BEATS: { clock: string; beat: string; check: string; swing: string }[] = [
   { clock: "0:00", beat: "Draft read", check: "Comp triangle: poke beats dive beats protect beats poke", swing: "±6 momentum" },
-  { clock: "8:00", beat: "Lane phase", check: "Role vs role — Top/Mid/Bot roll laning, Jungle rolls presence, Support rolls vision", swing: "±2 momentum per lane off even (LANE KINGDOM amplifies)" },
-  { clock: "14:00", beat: "First dragon", check: "Your objectives + presence vs theirs", swing: "±5 momentum" },
-  { clock: "18:00", beat: "The skirmish", check: "Your combat + damage vs theirs", swing: "±8 momentum" },
-  { clock: "20:00", beat: "THE CROSSROADS", check: "Your call — the exact stats and stakes are printed on each choice below", swing: "as staked" },
-  { clock: "23:00", beat: "Soul dragon", check: "Your objectives + presence vs theirs", swing: "±5 momentum" },
-  { clock: "26:00", beat: "Baron pit fight", check: "Your combat + damage vs theirs", swing: "±8 momentum" },
-  { clock: "28:00", beat: "The hold (close games only)", check: "Your survival + turrets vs their damage + objectives", swing: "+6 held / −8 cracked" },
-  { clock: "30:00", beat: "Nexus", check: "Momentum + your impact edge — snowballed if you won 3+ lanes", swing: "the game" },
+  { clock: "8:00", beat: "Lane phase", check: "Role vs role — Top/Mid/Bot roll laning, Jungle rolls presence, Support rolls vision", swing: "±2 momentum per lane, and up to ±680 gold per lane by margin" },
+  { clock: "11:00", beat: "Rift Herald", check: "Your objectives + turrets vs their objectives + presence", swing: "±4 momentum · ±520 gold · first turret" },
+  { clock: "14:00", beat: "First dragon", check: "Your objectives + presence vs theirs", swing: "±5 momentum · ±320 gold" },
+  { clock: "18:00", beat: "The skirmish", check: "Your combat + damage vs theirs", swing: "±8 momentum · ±900 gold" },
+  { clock: "20:00", beat: "THE CROSSROADS", check: "Your call — the exact stats and stakes are printed on each choice below", swing: "as staked · ±400 gold" },
+  { clock: "23:00", beat: "Soul dragon", check: "Your objectives + presence vs theirs", swing: "±5 momentum · ±450 gold" },
+  { clock: "25:00", beat: "THE BARON PIT", check: "A damage race, then a smite check: your objectives + vision vs their objectives + combat", swing: "±9 momentum · ±1,500 gold" },
+  { clock: "27:00", beat: "Fight at the pit", check: "Your combat + damage vs theirs, plus your gold lead and the Baron buff", swing: "±8 momentum · ±1,300 gold" },
+  { clock: "29:00", beat: "The hold (close games only)", check: "Your survival + turrets vs their damage + objectives", swing: "+6 held / −8 cracked" },
+  { clock: "31:00", beat: "Nexus", check: "Momentum + your impact edge + your gold lead — snowballed if you won 3+ lanes", swing: "the game" },
 ];
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -51,8 +54,9 @@ export default function GauntletRules() {
           <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
           walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
           board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
-          starts about four points under it, round {GAUNTLET_ROUNDS} ends about seven over. A stacked shelf
-          gets a harder bracket — the run is about the calls, not the collection.
+          starts about eight points under it and round {GAUNTLET_ROUNDS} ends about seven over. Roughly 95% of
+          runs clear round 1, half reach round 4, and about 4% clear all eight. A stacked shelf gets a harder
+          bracket — the run is about the calls, not the collection.
         </p>
       </Section>
 
@@ -81,8 +85,10 @@ export default function GauntletRules() {
         </div>
         <p>
           Every contest reads the <b className="text-white">team average</b> of the named bars (a card missing
-          a bar counts a little under its overall), adds any relic help, and rolls fair noise both ways. Fights
-          are symmetric — there is no hidden home-field edge.
+          a bar counts a little under its overall), adds relic help and their trait bonuses, then rolls fair
+          noise both ways. Fights are symmetric — there is no hidden home-field edge. The tape prints{" "}
+          <b className="text-white">your number, their number, the roll and the margin</b> for every one, so a
+          loss always says by how much.
         </p>
       </Section>
 
@@ -134,6 +140,85 @@ export default function GauntletRules() {
             </ul>
           </div>
         ))}
+      </Section>
+
+      <Section title="Gold — the line that decides the late game">
+        <p>
+          Every beat moves gold, and the graph above the tape is your lead over the clock. Lanes pay by{" "}
+          <b className="text-white">margin</b> (a lane won by 20 pays far more than one won by 2), objectives
+          and fights pay flat, and the Baron is worth 1,500 on its own. From 20:00 on, your gold lead is worth{" "}
+          <b className="text-white">one point of stat per 280 gold</b> — capped at 14 — in the pit fight, the
+          hold, and the final call. Winning the lane phase isn&apos;t flavour: it&apos;s the reason the late
+          game goes your way.
+        </p>
+      </Section>
+
+      <Section title="The Baron pit — how close is a real number">
+        <p>
+          At 25:00 someone starts Baron: you, if you called it at the crossroads or you&apos;re ahead;
+          otherwise them, and you&apos;re contesting. It resolves as a race, not a coin flip:
+        </p>
+        <p>
+          Your <b className="text-white">damage and combat</b> set how fast it burns. Your{" "}
+          <b className="text-white">vision</b> against their <b className="text-white">presence</b> sets how
+          long you get before they arrive — plus a few seconds of luck, because a pit that ran the same
+          length every game would be a lookup table. Whatever health is left when they arrive is what the
+          smite check is fought over: your <b className="text-white">objectives + vision</b> against their{" "}
+          <b className="text-white">objectives + combat</b>, with a +4 edge to whoever started it.
+        </p>
+        <p>
+          Kill it before they get there and it&apos;s a clean take. Otherwise you get the honest answer:{" "}
+          <span className="font-mono text-white">&ldquo;their smite lands at 12% — you were 340 damage
+          short&rdquo;</span>.
+        </p>
+      </Section>
+
+      <Section title="Enemy traits — every one is a shape, not a stat stick">
+        <p>
+          Each enemy team wears traits (one early, three by round 6), rolled with the round and printed on
+          the scouting screen before you fight. Every trait pays for its strength somewhere else, so scouting
+          changes <em>what you do</em>, not how doomed you are — difficulty lives in the bracket ramp and
+          nowhere else.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {TRAIT_CATALOG.map((trait) => (
+            <div key={trait.key} className="rounded-lg border border-line/60 bg-panel/40 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple">{trait.title}</p>
+              <p className="mt-1 text-xs leading-4 text-white">{trait.blurb}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">↳ {trait.counter}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Round conditions — the patch you play under">
+        <p>
+          Round 1 is always the standard patch. Every round after rolls a condition that rewrites one rule
+          for both sides, so the same lineup wants different relics and different calls round to round.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {CONDITION_CATALOG.filter((condition) => condition.key !== "standard").map((condition) => (
+            <div key={condition.key} className="rounded-lg border border-line/60 bg-panel/40 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">{condition.title}</p>
+              <p className="mt-1 text-xs leading-4 text-white">{condition.blurb}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">↳ {condition.tip}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Reading the tape and the autopsy">
+        <p>
+          The match plays out at its own pace — pause, speed it up, or skip it. Underneath, the{" "}
+          <b className="text-white">gold graph</b> draws as the clock runs, and each beat shows a{" "}
+          <b className="text-white">margin bar</b>: how far the check landed either side of even.
+        </p>
+        <p>
+          When it ends you get the scoreboard — kills, gold, damage share and checks decided per card — and
+          the <b className="text-white">read</b>: the verdict, the closest call you lost (with the relic that
+          would have flipped it), the biggest gold swing of the match, and your weak link. All of it is
+          computed from the tape you just watched. Nothing is invented after the fact.
+        </p>
       </Section>
 
       <Section title="Fresh Legs, trialists, and the bench">
