@@ -4,10 +4,23 @@ import CardsGallery from "@/components/cards/CardsGallery";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CardsNav from "@/components/cards/CardsNav";
 import ClaimFinder from "@/components/cards/ClaimFinder";
+import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import { fmtPoints } from "@/lib/betting/format";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { getBettingUser } from "@/lib/betting/wallet";
 import { toClaimFinderCards } from "@/lib/cards/claimFinder";
 import { cardSlug } from "@/lib/cards/build";
+import {
+  DRAW_TAGLINE,
+  drawPanelState,
+  fetchLatestDraw,
+  fetchTicketCount,
+  type DrawRow,
+} from "@/lib/cards/draw-queries";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
+import { WEEKLY_DRAW_POT } from "@/lib/packs/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -16,6 +29,50 @@ export const metadata: Metadata = {
 };
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
+
+/** "Aug 24" — the draw week is a plain calendar date, printed as UTC so no
+ *  reader's timezone slides it back onto the wrong Sunday. */
+function monthDay(weekStart: string): string {
+  const date = new Date(`${weekStart}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return weekStart;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * Who the viewer is to the Weekly Draw: their Discord id, how many tickets
+ * (card copies) they hold, and the winner's display name.
+ *
+ * All three need the service client — betting_profiles and card_inventory
+ * have no public read policy — and all three are garnish on a page whose
+ * job is the wall of cards. So the whole lookup fails soft: an environment
+ * with no SUPABASE_SERVICE_ROLE_KEY configured (createBettingServiceClient
+ * throws outright) renders the strip with the winner's id and no ticket
+ * line rather than 500ing the hub.
+ */
+async function loadDrawViewer(
+  latest: DrawRow | null,
+  season: string | null,
+): Promise<{ viewerDiscordId: string | null; tickets: number; winnerName: string | null }> {
+  const fallback = { viewerDiscordId: null, tickets: 0, winnerName: latest?.discordId ?? null };
+  try {
+    const service = createBettingServiceClient();
+    // getBettingUser is how the rest of the card economy names the
+    // signed-in collector; a premium member with no betting wallet simply
+    // gets the strip without a ticket line.
+    const bettingUser = await getBettingUser();
+    const [names, tickets] = await Promise.all([
+      latest ? fetchBettingUsernames(service, [latest.discordId]) : Promise.resolve(new Map<string, string>()),
+      bettingUser && season ? fetchTicketCount(service, bettingUser.discordId, season) : Promise.resolve(0),
+    ]);
+    return {
+      viewerDiscordId: bettingUser?.discordId ?? null,
+      tickets,
+      winnerName: latest ? names.get(latest.discordId) ?? latest.discordId : null,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 /** The premium hub: every player's card for a league's current season.
  *  Gated by the same Discord premium role as the drafter; the per-card
@@ -76,6 +133,15 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const myClaim = claimRow as { summoner_name: string; tag: string; status: "pending" | "approved" } | null;
   const mySlug = myClaim ? cardSlug(myClaim.summoner_name, myClaim.tag) : null;
 
+  // The Weekly Draw, compacted to one strip: the copy that came up last,
+  // this week's pot, and how many tickets the viewer is holding. Only
+  // weekly_draws reads publicly; the rest goes through loadDrawViewer,
+  // which owns the service client and the fail-soft.
+  const latestDraw = season ? await fetchLatestDraw(supabase, season) : null;
+  const { viewerDiscordId: drawViewerId, tickets: ticketCount, winnerName: drawWinnerName } =
+    await loadDrawViewer(latestDraw, season);
+  const drawPanel = drawPanelState(latestDraw, drawViewerId);
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -130,6 +196,48 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           </Link>
         </section>
       ) : null}
+      {/* The Weekly Draw. Every copy in a collection is a ticket, so this
+          strip is as much about the viewer's shelf as about last week. */}
+      <section className="card-brand flex flex-wrap items-center gap-5 px-5 py-4">
+        {latestDraw ? (
+          // The frozen snapshot with its laurel — never the living copy,
+          // which its holder may have dusted since.
+          <div className="w-28 shrink-0 sm:w-36">
+            <PlayerCard3D card={latestDraw.card} interactive={false} className="!w-full" />
+          </div>
+        ) : null}
+        <div className="min-w-[16rem] flex-1">
+          <span className="label-dash">The Weekly Draw</span>
+          <p className="type-display mt-1 text-xl sm:text-2xl">{drawPanel.headline}</p>
+          <p className="mt-1 max-w-xl text-sm text-steel">
+            {DRAW_TAGLINE} This week&apos;s pot is {fmtPoints(WEEKLY_DRAW_POT)} betting dollars and a free
+            pack.
+            {latestDraw
+              ? drawPanel.isWinner
+                ? ` Drawn ${monthDay(latestDraw.weekStart)} — that one was yours.`
+                : ` Drawn ${monthDay(latestDraw.weekStart)} — ${drawWinnerName} held the ticket.`
+              : ""}
+          </p>
+          {drawViewerId ? (
+            <p className="mt-2 text-sm text-white">
+              {ticketCount > 0 ? (
+                <>
+                  You hold <b className="font-semibold">{ticketCount.toLocaleString()}</b> ticket
+                  {ticketCount === 1 ? "" : "s"}.
+                </>
+              ) : (
+                <>You hold no tickets yet — every card you open is one.</>
+              )}
+            </p>
+          ) : null}
+        </div>
+        <Link
+          href={`${base}/draw`}
+          className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+        >
+          Every winner →
+        </Link>
+      </section>
       {!myClaim && viewerProfileId && cards.length > 0 ? (
         <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-line bg-panel px-5 py-4">
           <div>
