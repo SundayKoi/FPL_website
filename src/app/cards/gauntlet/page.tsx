@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import GauntletClient from "@/components/gauntlet/GauntletClient";
+import GauntletRules from "@/components/gauntlet/GauntletRules";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardSeason } from "@/lib/cards/queries";
@@ -75,9 +76,9 @@ export default async function GauntletPage() {
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Gauntlet</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Draft five from your shelf — one per role — and climb an eight-round bracket scaled to your
-            lineup. Win, pick a relic, go again; lose once and the run ends. Cards printed this week carry
-            Fresh Legs. Entry is {GAUNTLET_ENTRY_FEE} betting dollars; retreat between rounds to bank your
-            score.
+            lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
+            Win, pick a relic, go again; lose once and the run ends. Entry is {GAUNTLET_ENTRY_FEE} betting
+            dollars; retreat between rounds to bank your score. Every roll is in the rulebook below.
           </p>
           <Link
             href="/cards/packs"
@@ -101,6 +102,8 @@ export default async function GauntletPage() {
         balance={user.balance}
         weekBest={weekStats.bestScore}
       />
+
+      <GauntletRules />
 
       <section aria-label="This week's board" className="card-brand flex flex-col gap-3 p-6">
         <div className="flex flex-wrap items-baseline gap-3">
