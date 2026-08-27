@@ -1,9 +1,11 @@
 "use server";
 
-// Admin-only card actions: opening a Live Drops window and arming the
-// Weekly Chase. Server actions rather than the client-write pattern the
-// rest of the admin strip uses, for one reason — both ANNOUNCE to Discord,
-// and the webhook URL is a server secret a browser write can never touch.
+// Admin-only card actions: opening a Live Drops window, arming the Weekly
+// Chase, and running the Weekly Draw by hand. Server actions rather than
+// the client-write pattern the rest of the admin strip uses, because each
+// needs something a browser must never hold — the window and the chase
+// ANNOUNCE to Discord with a secret webhook URL, and the draw calls an RPC
+// granted to service_role alone.
 //
 // Authorization is fetchStaffTier against the caller's own session; the
 // service client only comes out after that says admin.
@@ -12,11 +14,12 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { revalidatePath } from "next/cache";
-import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
+import { WEEKLY_DRAW_POT } from "./config";
 import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
-import { editionLabel } from "./week";
+import { editionLabel, lastCompletedWeekMonday } from "./week";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -185,5 +188,37 @@ export async function armChaseAction(input: {
   });
   revalidatePath("/cards/packs");
   revalidatePath("/schedule");
+  return { ok: true };
+}
+
+/**
+ * Runs the Weekly Draw for the last completed week — the manual fallback
+ * for a cron that didn't fire (.github/workflows/weekly-draw.yml is the
+ * everyday path). Same idempotent RPC, so pressing it after the workflow
+ * already ran reports the recorded winner and changes nothing.
+ *
+ * The week is derived, never typed: the draw grid is the Monday-start
+ * Eastern one the whole card system rides, and a hand-typed date is how
+ * you end up with a draw nothing else can address. A season with no cards
+ * minted yet returns no row — not an error, just nothing to raffle.
+ */
+export async function runWeeklyDrawAction(): Promise<ActionResult> {
+  if (!(await requireAdmin())) return { ok: false, error: "Admins only." };
+
+  const service = createBettingServiceClient();
+  const week = lastCompletedWeekMonday(new Date());
+  const seasons = await fetchAllCardSeasons(service);
+  if (seasons.length === 0) return { ok: false, error: "No season is set up." };
+
+  for (const { season } of seasons) {
+    const { error } = await service.rpc("run_weekly_draw", {
+      p_season: season,
+      p_week: week,
+      p_pot: WEEKLY_DRAW_POT,
+    });
+    if (error) return { ok: false, error: `Could not run the draw for ${season} — is the weekly draw migration applied?` };
+  }
+
+  revalidatePath("/cards");
   return { ok: true };
 }

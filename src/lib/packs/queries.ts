@@ -198,15 +198,23 @@ export async function fetchChampionsWindow(supabase: SupabaseClient): Promise<{ 
   return { until: row.champions_until };
 }
 
-/** Free Faceless Packs this user still holds (the Champion's Tribute).
+/** Free packs of one shelf this user still holds — "champions" for the
+ *  Champion's Tribute, "standard" for the shop pack the Weekly Draw pays
+ *  out. Same `kind` vocabulary spendPackComp spends against, so what the
+ *  shop shows and what the open flow charges agree.
+ *
  *  0 on no row, and 0 when the comps table hasn't been migrated yet —
  *  deploy-before-migration must render a normal shop, not crash it. */
-export async function fetchChampionComps(supabase: SupabaseClient, discordId: string): Promise<number> {
+export async function fetchPackComps(
+  supabase: SupabaseClient,
+  discordId: string,
+  kind: "standard" | "champions",
+): Promise<number> {
   const { data, error } = await supabase
     .from("card_pack_comps")
     .select("*")
     .eq("discord_id", discordId)
-    .eq("kind", "champions")
+    .eq("kind", kind)
     .maybeSingle();
   if (error) return 0;
   return (data as { remaining?: number } | null)?.remaining ?? 0;

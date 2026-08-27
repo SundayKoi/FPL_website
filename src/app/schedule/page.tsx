@@ -16,6 +16,7 @@ import AdminSeasonSettings from "@/components/schedule/AdminSeasonSettings";
 import AdminLiveDrops from "@/components/schedule/AdminLiveDrops";
 import AdminChampionsDrop from "@/components/schedule/AdminChampionsDrop";
 import AdminChase from "@/components/schedule/AdminChase";
+import AdminWeeklyDraw from "@/components/schedule/AdminWeeklyDraw";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { fetchChase } from "@/lib/packs/queries";
@@ -145,6 +146,7 @@ export default async function SchedulePage({
                 <AdminLiveDrops liveUntil={settings?.live_until ?? null} liveLabel={settings?.live_label ?? null} active={liveDropsActive} />
                 <AdminChampionsDrop until={settings?.champions_until ?? null} active={championsActive} />
                 <AdminChase current={currentChase} />
+                <AdminWeeklyDraw />
                 {/* season is null until fixtures exist, which is exactly when the
                     draw is needed — fall back to the league's current season. */}
                 {(season ?? settings?.current_season) && (

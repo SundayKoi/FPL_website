@@ -51,6 +51,24 @@ export function mondayOf(date: Date): string {
 }
 
 /**
+ * The Monday of the most recent COMPLETED Eastern week — one week behind
+ * `mondayOf(now)`, which is the week still running.
+ *
+ * The Weekly Draw's week. It runs Tuesday morning, when this week's Monday
+ * is a day old and only the week before it is a finished week of pulls; a
+ * draw over the week in progress would raffle tickets people can still buy.
+ *
+ * Built by stepping back from the ET Monday's UTC noon, the same DST-proof
+ * anchor mondayOf uses, then re-projecting — never by arithmetic on a
+ * local-time Date, which would answer differently on a machine east of
+ * Greenwich.
+ */
+export function lastCompletedWeekMonday(now: Date): string {
+  const thisWeek = mondayOf(now);
+  return mondayOf(new Date(new Date(`${thisWeek}T12:00:00.000Z`).getTime() - 7 * DAY_MS));
+}
+
+/**
  * An edition week as a chip label: "2026-08-17" → "WK Aug 17".
  *
  * The stored week is a plain calendar date, so it is read back as UTC

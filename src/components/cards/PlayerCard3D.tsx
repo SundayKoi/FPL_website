@@ -19,6 +19,7 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
+import DrawLaurel from "./DrawLaurel";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -763,6 +764,17 @@ function PlayerCardFace({
             shows its back, like a hand holding it up. */}
         {flame ? <PatronFlame flame={flame} /> : null}
       </div>
+      {/* Weekly Draw provenance. On the tilt layer rather than inside a
+          face, for the flame's reasons: it turns with the card and holds
+          while the card shows its back, instead of flipping into a mirror
+          image of itself.
+          Top-left, not the bottom-left the other two renderers use — a
+          player card's front is a stat rail from roughly its midpoint
+          down, and the laurel sat straight on top of the bar labels. This
+          pocket, under the tier pill and left of the OVR ring, is the one
+          the front keeps empty (the standout and Signed pills are
+          centered). */}
+      {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} position="left-[6%] top-[10%]" /> : null}
       </div>
     </div>
   );
@@ -968,6 +980,12 @@ export default function PlayerCard3D(props: {
           // OWNER, and a moment copy is as owned as any player card.
           <PatronFlame flame={props.flame} radius="0.75rem" />
         ) : null}
+        {/* Rendered here rather than inside MomentPlate: the plate takes a
+            LeagueMoment, not the copy's card json, and the draw win belongs
+            to the copy. Same 20rem shell, so bottom-left lands on the plate
+            exactly where it lands on a relic — below its centered footer
+            stack. */}
+        {props.card.drawWin ? <DrawLaurel weekStart={props.card.drawWin.weekStart} /> : null}
       </div>
     );
   }

@@ -1,0 +1,36 @@
+name: Weekly card draw
+
+on:
+  schedule:
+    # 15:30 UTC Tuesday — after the weekly card drop (15:00), so the
+    # drawn week's story is complete when the winner posts.
+    - cron: "30 15 * * 2"
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Monday of the week to draw (YYYY-MM-DD). Blank = last completed week."
+        type: string
+        default: ""
+
+concurrency:
+  group: weekly-draw
+  cancel-in-progress: false
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/weekly-draw.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_CARDS_WEBHOOK_URL: ${{ secrets.DISCORD_CARDS_WEBHOOK_URL }}
+          # Scheduled runs get no inputs -> empty -> the last completed week.
+          DRAW_WEEK: ${{ inputs.week }}

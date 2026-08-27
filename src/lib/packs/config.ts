@@ -26,6 +26,13 @@ export const PACK_COST = 200;
 /** Cards per pack. */
 export const PACK_SIZE = 5;
 
+/**
+ * The Weekly Draw pot, in betting dollars — paid with one standard pack
+ * comp on top. Sized against PACK_COST deliberately: winning feels real
+ * but never dwarfs playing the actual games.
+ */
+export const WEEKLY_DRAW_POT = 250;
+
 /** Worst-to-best. The roller walks this when a rolled class has no cards in
  *  the league and it has to fall back to a neighbouring one. */
 export const RARITY_ORDER: RarityClass[] = ["common", "rare", "epic", "legendary"];

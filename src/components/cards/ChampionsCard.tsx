@@ -16,6 +16,7 @@ import { championSplashUrl } from "@/lib/match-draft/champions";
 import { mintOrdinal } from "@/lib/cards/moments";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { PlayerCardData } from "@/lib/cards/build";
+import DrawLaurel from "./DrawLaurel";
 
 /** Same layer classes PlayerCard3D composes for each parallel. */
 const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
@@ -235,6 +236,12 @@ export default function ChampionsCard({
           <div className="card-foil-cosmos" style={{ mixBlendMode: "screen" }} />
         </div>
       ) : null}
+
+      {/* Weekly Draw provenance, over the foil so a parallel never washes
+          it out. The bottom-left pocket is empty on a relic: the corner
+          indices sit top-left and bottom-right, and the footer rail is
+          inset to the middle 68%. */}
+      {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} /> : null}
     </article>
   );
 }

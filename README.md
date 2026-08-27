@@ -459,3 +459,36 @@ any report ends `failed`.
 > outside of git. Treat that key as compromised regardless — regenerate a
 > new key at the [Riot Developer Portal](https://developer.riotgames.com/)
 > and put it only in `.env` (gitignored), never in a script.
+
+## Weekly card draw
+
+Every card copy in circulation is one raffle ticket. A GitHub Actions
+workflow — [`.github/workflows/weekly-draw.yml`](.github/workflows/weekly-draw.yml)
+— runs `npx tsx scripts/weekly-draw.ts` Tuesdays at 15:30 UTC
+(`cron: "30 15 * * 2"`, GitHub cron is UTC-only), half an hour after the
+weekly card drop, so the week it draws is finished. For each card season
+it calls the `run_weekly_draw` RPC, which picks one copy uniformly at
+random, stamps it with a winner's laurel, pays the pot into the owner's
+betting balance, and comps them a standard pack — then posts the winner to
+the cards Discord. The week's winner shows on `/cards` (`/academy/cards`),
+and every past week on `/cards/draw` (`/academy/cards/draw`).
+
+**Manual trigger**: GitHub → Actions tab → "Weekly card draw" → **Run
+workflow**. Leave **week** blank to draw the last completed week; set it to a
+Monday (`YYYY-MM-DD`) to draw a week the cron missed. A non-Monday is
+rejected rather than opening an off-grid week.
+
+**Environment secrets** (Settings → Environments → `Production`, the same
+place the card drop reads them):
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DISCORD_CARDS_WEBHOOK_URL` — only the announcement needs it; without it
+  the draw still records, pays, and comps, it just says nothing.
+
+**Admin fallback**: `/schedule` has a **Run the draw** button for the Tuesday
+the cron doesn't fire. It draws the last completed week (the date isn't
+typeable there) and posts nothing to Discord. The RPC is idempotent, so a
+workflow run and a button press — in either order, or overlapping — still
+leave exactly one winner per week; the later one just reports who already
+won.
