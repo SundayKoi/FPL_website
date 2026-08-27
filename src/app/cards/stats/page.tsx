@@ -7,6 +7,7 @@ import { fmtPoints } from "@/lib/betting/format";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchEconomyStats, type EconomyStats } from "@/lib/cards/economy";
 import { tierLabel } from "@/lib/cards/tier";
+import { CHAMPIONS_SEASON, CHAMPIONS_SET } from "@/lib/cards/champions";
 
 export const metadata: Metadata = {
   title: "Card Ledger — FPL",
@@ -111,6 +112,32 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               />
             ))}
           </section>
+
+          {/* The Faceless Drop's own shelf — only once something has minted.
+              Counts here are a subset of the totals above, and per-rank is
+              the number collectors trade on ("only four Jokers exist"). */}
+          {stats.champions.total > 0 ? (
+            <section aria-label="The Faceless Drop" className="flex flex-col gap-4">
+              <div>
+                <span className="label-dash text-[#ff6b76]">🂡 The Faceless Drop · {CHAMPIONS_SEASON} champions</span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Figure value={stats.champions.total.toLocaleString()} label="Relics in circulation" note="Dusted copies leave the count" />
+                <Figure value={stats.champions.foils.toLocaleString()} label="Foiled relics" note={rate(stats.champions.foils, stats.champions.total)} />
+                <Figure value={stats.champions.signed.toLocaleString()} label="Autographed relics" note="Real ink only" />
+                <Figure value={stats.champions.altArts.toLocaleString()} label="Alternate prints" note={rate(stats.champions.altArts, stats.champions.total)} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                {CHAMPIONS_SET.map((def) => (
+                  <Figure
+                    key={def.rank}
+                    value={(stats.champions.byRank[def.rank] ?? 0).toLocaleString()}
+                    label={`${def.rank}♠ · ${def.name}`}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section aria-label="Standouts" className="grid gap-4 sm:grid-cols-2">
             {stats.bestPull ? (

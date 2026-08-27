@@ -110,6 +110,37 @@ describe("fetchEconomyStats", () => {
     expect((await fetchEconomyStats(supabase, "S5")).packsOpened).toBe(0);
   });
 
+  it("shelves the Faceless relics apart from the player figures", async () => {
+    const stats = await fetchEconomyStats(
+      client({
+        betting_profiles: PROFILES,
+        card_pack_opens: { data: [], error: null },
+        card_inventory: {
+          data: [
+            card("u1", { slug: "faceless-k", player_name: "king of spades", tier: "champion", overall: 0, foil: true, foil_type: "ice" }),
+            card("u1", { slug: "faceless-k", player_name: "king of spades", tier: "champion", overall: 0, signed: true, artSkin: 3 }),
+            card("u2", { slug: "faceless-joker", player_name: "the fool", tier: "champion", overall: 0 }),
+            card("u2", { slug: "ari-na1" }),
+          ],
+          error: null,
+        },
+        card_moments: { count: 0, error: null },
+      }),
+      "S5",
+    );
+    expect(stats.champions.total).toBe(3);
+    expect(stats.champions.byRank).toEqual({ K: 2, JOKER: 1 });
+    expect(stats.champions.foils).toBe(1);
+    expect(stats.champions.signed).toBe(1);
+    expect(stats.champions.altArts).toBe(1);
+    // Relics count in the global totals but never in the player
+    // superlatives — a drop week must not crown "most pulled: king of
+    // spades".
+    expect(stats.cardsPulled).toBe(4);
+    expect(stats.foils).toBe(1);
+    expect(stats.mostPulled?.playerName).toBe("Ari");
+  });
+
   it("counts alternate prints off the frozen json", async () => {
     const supabase = client({
       betting_profiles: PROFILES,
