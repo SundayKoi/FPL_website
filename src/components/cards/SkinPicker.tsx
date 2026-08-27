@@ -32,6 +32,7 @@ export default function SkinPicker({
   currentMotto = null,
   currentSignature = null,
   initialOpen = false,
+  patronInks = false,
 }: {
   season: string;
   summonerName: string;
@@ -48,6 +49,9 @@ export default function SkinPicker({
    *  "Customize your card →" (?customize=1) came here to do exactly that,
    *  and shouldn't have to find a second toggle. */
   initialOpen?: boolean;
+  /** Active patron editing their own card — the pad offers gold and
+   *  crimson ink alongside white. */
+  patronInks?: boolean;
 }) {
   const supabase = createClient();
   const router = useRouter();
@@ -126,7 +130,7 @@ export default function SkinPicker({
             <p className="text-center text-xs text-steel">
               Sign your card — roughly 1 in 100 of your pulls comes out autographed.
             </p>
-            <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} />
+            <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} patronInks={patronInks} />
           </div>
 
           <div className="flex flex-col items-center gap-2">

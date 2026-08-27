@@ -34,6 +34,8 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import { dustValueOf, rarityOf, rarityRank } from "@/lib/packs/config";
 import type { RarityClass } from "@/lib/packs/config";
 import { flipTone, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
+import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
+import PatronFlame from "@/components/patron/PatronFlame";
 import PackRip, { prefersReducedMotion } from "./PackRip";
 import PlayerCard3D from "./PlayerCard3D";
 
@@ -159,12 +161,14 @@ function buzz(pattern: number[]): void {
 }
 
 /** The back of a card in the line: FPL-branded, and glowing in the rarity of
- *  the card behind it. */
+ *  the card behind it. A patron's packs deal from their own deck — the back
+ *  borders and marks itself in their flame, with the flame riding it. */
 function CardBack({
   rarity,
   signed,
   label,
   revealed,
+  flame = null,
   onFlip,
 }: {
   rarity: RarityClass;
@@ -173,8 +177,11 @@ function CardBack({
   /** Already turned — the back is still in the DOM for the flip to rotate
    *  away, but it must stop being a button the moment it faces backwards. */
   revealed: boolean;
+  /** The opener's flame — patrons flip their own card backs. */
+  flame?: string | null;
   onFlip: () => void;
 }) {
+  const flameStyle = flame ? PATRON_FLAMES[patronFlameOf(flame)] : null;
   return (
     <button
       type="button"
@@ -184,6 +191,7 @@ function CardBack({
       tabIndex={revealed ? -1 : undefined}
       aria-label={label}
       className={`pack-card-back ${RARITY_GLOW[rarity]}`}
+      style={flameStyle ? { borderColor: flameStyle.dash } : undefined}
     >
       <span className="pack-back-glow" aria-hidden />
       {signed
@@ -199,9 +207,15 @@ function CardBack({
           ))
         : null}
       <span className="pack-back-mark">
-        <span className="type-display pack-back-fpl">FPL</span>
-        <span className="pack-back-rule" aria-hidden />
+        <span
+          className="type-display pack-back-fpl"
+          style={flameStyle ? { color: flameStyle.hot, textShadow: `0 0 16px ${flameStyle.core}` } : undefined}
+        >
+          FPL
+        </span>
+        <span className="pack-back-rule" aria-hidden style={flameStyle ? { background: flameStyle.core } : undefined} />
       </span>
+      {flameStyle ? <PatronFlame flame={flame} radius="0.8rem" /> : null}
     </button>
   );
 }
@@ -633,6 +647,7 @@ export default function PackOpening({
                             rarity={rarity}
                             signed={pull.signed}
                             revealed={face}
+                            flame={flame}
                             label={`Reveal card ${index + 1} of ${count}`}
                             onFlip={() => flipCard(index)}
                           />
