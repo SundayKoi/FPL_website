@@ -45,13 +45,15 @@ export interface OpponentTeam {
 }
 
 /** The bracket's target average for a round, off the player's raw lineup
- *  average. Round 1 starts five below (a warm-up, not a coin flip) and
- *  round 8 ends only two above — the wall is the CHAIN, not any single
- *  fight: eight straight wins compounds ~75% per round into a few-percent
- *  full clear, which is where a roguelike's full clears belong. Tuned by
- *  simulation (see sim.test's calibration band); steepen with care. */
+ *  average. Round 1 starts a shade below (a warm-up, not a coin flip) and
+ *  round 8 ends about seven above — the wall is the CHAIN, not any single
+ *  fight: eight straight wins compounds into a few-percent full clear on
+ *  safe play, which is where a roguelike's full clears belong. v2
+ *  steepened the ramp (1.0 → 1.6/round) after the v1 curve fell on the
+ *  second try; crossroads play is where the difference comes back. Tuned
+ *  by simulation (see sim.test's calibration band); steepen with care. */
 export function bracketTarget(lineupAvg: number, round: number): number {
-  return clamp(Math.round(lineupAvg - 6 + round * 1.0), 45, 92);
+  return clamp(Math.round(lineupAvg - 6 + round * 1.6), 45, 92);
 }
 
 /**
