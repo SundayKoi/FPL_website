@@ -89,7 +89,15 @@ export async function fetchInventory(
       ? await fetchTeamIdentity(supabase, season)
       : { badges: new Map<string, string>(), abbrs: new Map<string, string>() },
   );
-  return rows.map((row, index) => ({
+  return rows.map((row, index) => mapInventoryRow(row, repaired[index]));
+}
+
+/** One db row as the app reads it. Split out of fetchInventory so the
+ *  by-ids read below can't drift from the collection read — `signed` being
+ *  a nullable column and `foil_type` being null on a matte card are the
+ *  two places every caller would otherwise re-derive. */
+function mapInventoryRow(row: InventoryDbRow, card: PlayerCardData): InventoryRow {
+  return {
     id: row.id,
     season: row.season,
     slug: row.slug,
@@ -101,10 +109,40 @@ export async function fetchInventory(
     foil: row.foil,
     foilType: row.foil_type ?? null,
     signed: row.signed === true,
-    card: repaired[index],
+    card,
     packOpenId: row.pack_open_id,
     acquiredAt: row.acquired_at,
-  }));
+  };
+}
+
+/**
+ * Specific owned copies, by inventory id — the read a squad picker's
+ * server side makes once it has three ids and needs to know what they
+ * actually are (tier, parallel, ink, role) before letting them do
+ * anything.
+ *
+ * Scoped to `discordId` in the query rather than filtered afterwards: a
+ * caller handing in somebody else's id gets nothing back, so a short
+ * result is always "you don't own all of these" and never "you own these,
+ * plus one of theirs".
+ *
+ * No team-badge repair, unlike fetchInventory: this read feeds rules and
+ * rolls, not a card front, and the repair needs one season while a set of
+ * ids can straddle two. Render from fetchInventory.
+ */
+export async function fetchInventoryByIds(
+  supabase: SupabaseClient,
+  discordId: string,
+  ids: number[],
+): Promise<InventoryRow[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("card_inventory")
+    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at")
+    .eq("discord_id", discordId)
+    .in("id", ids);
+  if (error) return [];
+  return ((data as InventoryDbRow[]) ?? []).map((row) => mapInventoryRow(row, row.card));
 }
 
 /** How many packs this user has opened in `season` — the collector stat
