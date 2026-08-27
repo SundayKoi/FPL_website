@@ -769,6 +769,69 @@ body {
   }
 }
 
+/* The Legend Finish: expedition gold burning at the card's edges. The
+   champ-embers technique with gilded paints, masked to a frame band so
+   the card face stays legible — the mark is a frame, not a veil.
+   Two masks, one per axis: left/right bands from the horizontal gradient,
+   top/bottom bands from the vertical one, UNIONED (mask-composite: add,
+   the standard spelling of the legacy -webkit- source-over) into a single
+   band that runs the whole way round. Reuses the champ-ember-rise-a/b
+   keyframes above rather than declaring its own. */
+@utility legend-embers {
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to right, #000 8%, transparent 20%, transparent 80%, #000 92%),
+    linear-gradient(to bottom, #000 8%, transparent 20%, transparent 80%, #000 92%);
+  mask-image: linear-gradient(to right, #000 8%, transparent 20%, transparent 80%, #000 92%),
+    linear-gradient(to bottom, #000 8%, transparent 20%, transparent 80%, #000 92%);
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
+}
+.legend-embers::before,
+.legend-embers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+/* Big slow sparks. */
+.legend-embers::before {
+  background-image:
+    radial-gradient(circle 2.2px at 18% 12%, rgb(255 243 196 / 0.95), rgb(232 193 75 / 0.5) 55%, transparent 100%),
+    radial-gradient(circle 1.7px at 72% 26%, rgb(240 185 60 / 0.9), transparent 100%),
+    radial-gradient(circle 2px at 44% 47%, rgb(255 231 160 / 0.9), rgb(232 193 75 / 0.4) 60%, transparent 100%),
+    radial-gradient(circle 1.5px at 88% 62%, rgb(232 193 75 / 0.85), transparent 100%),
+    radial-gradient(circle 2.1px at 8% 74%, rgb(255 243 196 / 0.9), transparent 100%),
+    radial-gradient(circle 1.6px at 58% 88%, rgb(240 185 60 / 0.85), transparent 100%);
+  background-size: 160px 340px;
+  animation: champ-ember-rise-a 11s linear infinite;
+  opacity: 0.85;
+}
+/* Small fast sparks, dimmer — the parallax depth. */
+.legend-embers::after {
+  background-image:
+    radial-gradient(circle 1.2px at 30% 8%, rgb(255 231 160 / 0.8), transparent 100%),
+    radial-gradient(circle 1px at 80% 32%, rgb(232 193 75 / 0.75), transparent 100%),
+    radial-gradient(circle 1.3px at 12% 44%, rgb(255 243 196 / 0.75), transparent 100%),
+    radial-gradient(circle 1px at 52% 64%, rgb(240 185 60 / 0.7), transparent 100%),
+    radial-gradient(circle 1.1px at 92% 82%, rgb(232 193 75 / 0.7), transparent 100%),
+    radial-gradient(circle 1px at 38% 94%, rgb(255 231 160 / 0.7), transparent 100%);
+  background-size: 120px 250px;
+  animation: champ-ember-rise-b 7s linear infinite;
+  opacity: 0.6;
+}
+/* Stills the embers, and must sit AFTER the two rules above rather than
+   up beside the champ-embers entry: both blocks are unlayered, so at equal
+   specificity the later one wins — from up there this lost to the
+   animation and reduced-motion users still got rising sparks. */
+@media (prefers-reduced-motion: reduce) {
+  .legend-embers::before,
+  .legend-embers::after {
+    animation: none;
+  }
+}
+
 @utility card-foil-holo {
   position: absolute;
   inset: 0;

@@ -20,6 +20,7 @@ import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config"
 import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
+import ExpeditionMark from "./ExpeditionMark";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -775,6 +776,16 @@ function PlayerCardFace({
           the front keeps empty (the standout and Signed pills are
           centered). */}
       {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} position="left-[6%] top-[10%]" /> : null}
+      {/* Expedition provenance, on the tilt layer for the laurel's
+          reasons. The right edge at a third of the way down is the one
+          strip a player card front leaves empty top to bottom: below
+          the OVR ring and its serial, above the autograph and the team
+          watermark, and right of a left-aligned name. Bottom-right,
+          which the other two renderers can use, is the stat rail here.
+          The laurel is top-LEFT on this face, so the two never meet. */}
+      {card.expedition ? (
+        <ExpeditionMark mark={card.expedition.mark} date={card.expedition.date} position="right-[6%] top-[33%]" />
+      ) : null}
       </div>
     </div>
   );
@@ -986,6 +997,18 @@ export default function PlayerCard3D(props: {
             exactly where it lands on a relic — below its centered footer
             stack. */}
         {props.card.drawWin ? <DrawLaurel weekStart={props.card.drawWin.weekStart} /> : null}
+        {/* Same shell, and the plate's bottom-right is as clear as its
+            bottom-left (the footer stack is centered), so the mark takes
+            the default pocket opposite the laurel. rounded-xl, not the
+            player card's rounded-2xl: the ember frame has to follow the
+            plate's own corner. */}
+        {props.card.expedition ? (
+          <ExpeditionMark
+            mark={props.card.expedition.mark}
+            date={props.card.expedition.date}
+            frame="inset-0 rounded-xl"
+          />
+        ) : null}
       </div>
     );
   }
