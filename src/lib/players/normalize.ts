@@ -7,6 +7,8 @@ export const PLAYER_NAME_ALIASES: Record<string, string> = {
   "conguitos0": "conguitos",
   begfourmercy: "beg",
   "08 mitsu eclipse": "chime",
+  // Riot rename, 2026-08: same player, same #ezpz tag, same discord.
+  imperialarcher: "archêr",
 };
 
 /**

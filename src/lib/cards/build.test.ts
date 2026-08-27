@@ -82,6 +82,20 @@ describe("cardSlug", () => {
     expect(cardSlug("7gen", "NA1")).toBe("7gen-na1");
     expect(cardSlug("Nunu & Willump Fan", "EUW")).toBe("nunu-willump-fan-euw");
   });
+
+  it("folds Latin diacritics instead of swallowing the letter", () => {
+    // The 2026-08 rename: Imperialarcher#ezpz became Archêr#ezpz, and the
+    // rename script wrote archer-ezpz everywhere — this is the contract
+    // that keeps fantasy scoring and pack minting matching those rows.
+    expect(cardSlug("Archêr", "ezpz")).toBe("archer-ezpz");
+  });
+
+  it("leaves non-Latin scripts stripping exactly as before the fold", () => {
+    // Pre-fold slugs exist in prod inventory for these players; the fold
+    // must not move them.
+    expect(cardSlug("ΣΠΑΡΤΙΑΤΗΣ ", "Sprtn")).toBe("sprtn");
+    expect(cardSlug("Zoodiac", "すべて同じ")).toBe("zoodiac");
+  });
 });
 
 describe("tierFor", () => {
