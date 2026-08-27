@@ -42,8 +42,8 @@ export default async function SupportersPage() {
           return they carry the flame: a colour of their choosing burning on every card they own and beside
           their name on the leaderboards, card backs dealt in that flame, gold and crimson signing ink, a
           second Daily Rip, the nine-slot binder with a pedestal for their featured card, a weekly art
-          re-roll, and this page. Nothing they pay for changes a card&apos;s odds or anyone&apos;s rating —
-          patronage is visibility, never power.
+          re-roll, a 20% dust bonus on everything they melt, and this page. Nothing they pay for changes a
+          card&apos;s odds, anyone&apos;s rating, or what comes out of a pack.
         </p>
         <Link
           href="/support-devs"

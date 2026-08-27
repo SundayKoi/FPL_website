@@ -290,6 +290,27 @@ export function dustValueOf(row: {
   return value;
 }
 
+/**
+ * The patron dust bonus: every copy a patron melts pays 20% more.
+ *
+ * The one patron perk that touches money, sized against the same
+ * money-printer guardrail as everything in this file: at ×1.2 a pack's
+ * expected dust return moves from ~41% to ~49% of its cost — a smaller
+ * loss, never an income. Applied at DUST time off patron status, so a
+ * lapsed patronage stops paying immediately and nothing is stamped on
+ * the copies themselves.
+ */
+export const PATRON_DUST_MULT = 1.2;
+
+/** dustValueOf with the patron bonus applied — the ONE function every
+ *  dust surface (actions and displayed prices alike) goes through, so the
+ *  button can never quote a different number than the ledger credits.
+ *  Rounded because dust is a whole-dollar currency. */
+export function patronDustValue(row: Parameters<typeof dustValueOf>[0], patron: boolean): number {
+  const value = dustValueOf(row);
+  return patron ? Math.round(value * PATRON_DUST_MULT) : value;
+}
+
 /** Position in RARITY_ORDER — higher is better. */
 export function rarityRank(rarity: RarityClass): number {
   return RARITY_ORDER.indexOf(rarity);
