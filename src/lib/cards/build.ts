@@ -132,6 +132,9 @@ export interface MomentPrint {
 export interface PlayerCardData {
   /** Set only on a pulled moment — see MomentPrint. */
   moment?: MomentPrint | null;
+  /** Set on a copy that won a Weekly Draw — cosmetic provenance only;
+   *  dust pricing never reads it. weekStart is the drawn week's Monday. */
+  drawWin?: { weekStart: string } | null;
   /** Set only on a champions-drop card (the Dealer's Hand) — see
    *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
    *  this before reading any rating field. */
