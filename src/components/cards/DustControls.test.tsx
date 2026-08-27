@@ -168,6 +168,22 @@ describe("DustControls", () => {
     expect(dustCardAction).not.toHaveBeenCalled();
   });
 
+  it("won't melt a copy that's out on an expedition", () => {
+    render(<DustControls playerName="Chaseworthy" copies={copies} deployedIds={new Set([2])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
+
+    const away = screen.getByRole("button", { name: "Dust the WK Aug 24 Diamond copy of Chaseworthy" });
+    expect((away as HTMLButtonElement).disabled).toBe(true);
+    expect(away.getAttribute("title")).toBe("On expedition — back soon.");
+    // The row says why instead of quoting a price it can't honour.
+    expect(away.textContent).toBe("On expedition");
+    expect(screen.queryByText("Dust · $120")).toBeNull();
+
+    // Only that copy — the two at home still melt.
+    expect(screen.getByText("Dust · $10")).toBeTruthy();
+    expect(screen.getByText("Dust · $1,350")).toBeTruthy();
+  });
+
   it("surfaces the action's error and doesn't refresh", async () => {
     dustCardAction.mockResolvedValue({ ok: false, error: "That card is fielded in this week's lineup." });
     open();

@@ -150,6 +150,7 @@ export default function CollectionGrid({
   inventory,
   pinnedIds = [],
   flame = null,
+  deployedIds,
 }: {
   inventory: InventoryRow[];
   /** Copies already on display, so the shelf can show which ones are in
@@ -158,6 +159,11 @@ export default function CollectionGrid({
   /** The viewer-owner's Patron Flame — this grid only ever shows their own
    *  copies, so one flame covers every card in it. */
   flame?: string | null;
+  /** Copies away on an expedition, forwarded to DustControls so a melt
+   *  button that the database would refuse is disabled instead of failing.
+   *  Passed straight through rather than flattened to an array: the shelf
+   *  itself has no use for it. */
+  deployedIds?: ReadonlySet<number>;
 }) {
   const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
@@ -317,7 +323,12 @@ export default function CollectionGrid({
                 pinned={pinned.has(entry.best.id)}
                 playerName={entry.best.playerName}
               />
-              <DustControls playerName={entry.best.playerName} copies={entry.copies} patron={Boolean(flame)} />
+              <DustControls
+                playerName={entry.best.playerName}
+                copies={entry.copies}
+                patron={Boolean(flame)}
+                deployedIds={deployedIds}
+              />
             </div>
             {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (
               // Pinned to the card's own width so the strip can't stretch the
