@@ -22,7 +22,8 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
 import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
-import { generateOpponent, type OpponentTeam } from "./opponents";
+import { generateOpponent } from "./opponents";
+import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "./run";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -35,27 +36,6 @@ import {
   simulateMatch,
 } from "./sim";
 
-/** What a run costs to start. A sink by design: prizes (PR 4) stay under
- *  the fees paid league-wide, same guardrail as pack dust. */
-export const GAUNTLET_ENTRY_FEE = 50;
-
-export interface GauntletRunRow {
-  id: number;
-  discord_id: string;
-  season: string;
-  week_start: string;
-  lineup: GauntletCard[];
-  lineup_avg: number;
-  round: number;
-  score: number;
-  relics: string[];
-  relic_offer: string[] | null;
-  bench_swap_used: boolean;
-  status: "active" | "fallen" | "banked" | "cleared";
-  round_seed: number | null;
-  next_opponent: OpponentTeam | null;
-  last_result: (MatchResult & { round: number }) | null;
-}
 
 type ActionResult<T = Record<string, never>> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -84,7 +64,7 @@ function revalidateGauntlet(): void {
  */
 export async function startGauntletRunAction(
   picks: Partial<Record<GauntletRole, number | null>>,
-): Promise<ActionResult<{ runId: number }>> {
+): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
@@ -183,7 +163,7 @@ export async function startGauntletRunAction(
       round_seed: seed,
       next_opponent: opponent,
     })
-    .select("id")
+    .select("*")
     .single();
 
   if (insertError || !inserted) {
@@ -203,7 +183,7 @@ export async function startGauntletRunAction(
   }
 
   revalidateGauntlet();
-  return { ok: true, runId: (inserted as { id: number }).id };
+  return { ok: true, run: inserted as GauntletRunRow };
 }
 
 /**
