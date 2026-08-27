@@ -627,17 +627,16 @@ body {
   color: #d61f2c;
   text-shadow: 0 2px 0 #5c0a12, 0 4px 10px rgb(0 0 0 / 0.6);
 }
-/* The pip's under-glow lives on the wrap so the SVG stays plain paint. */
+/* The pip's under-glow lives on the wrap so the SVG stays plain paint.
+   Pip and logo both ride SMALL beside the wordmark now — the center of
+   the card belongs to the champion's splash. */
 @utility champ-pipwrap {
-  position: absolute;
-  left: 50%;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  width: 35%;
-  filter: drop-shadow(0 0 18px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+  flex: none;
+  width: 1.7rem;
+  filter: drop-shadow(0 0 8px rgb(214 31 44 / 0.55)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
 }
 @utility champ-pipwrap-joker {
-  filter: drop-shadow(0 0 22px rgb(214 31 44 / 0.65)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+  filter: drop-shadow(0 0 10px rgb(214 31 44 / 0.7)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
 }
 @utility champ-idx-joker {
   writing-mode: vertical-rl;
@@ -648,16 +647,13 @@ body {
   width: 100%;
   height: auto;
 }
-/* The team logo in the pip's place. Same seat and glow as the pip; the
+/* The team logo in the pip's seat beside the wordmark. Same glow; the
    radial mask fades the artwork's edges into the felt so any background
    the file carries dissolves instead of reading as a sticker. */
 @utility champ-logowrap {
-  position: absolute;
-  left: 50%;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  width: 52%;
-  filter: drop-shadow(0 0 20px rgb(214 31 44 / 0.5)) drop-shadow(0 8px 12px rgb(0 0 0 / 0.6));
+  flex: none;
+  width: 2.6rem;
+  filter: drop-shadow(0 0 9px rgb(214 31 44 / 0.55)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.6));
 }
 @utility champ-logo {
   display: block;
@@ -674,6 +670,65 @@ body {
   font-family: var(--font-pinyon), cursive;
   color: #efe6ff;
   text-shadow: 0 0 10px rgb(190 150 255 / 0.75), 0 1px 2px rgb(0 0 0 / 0.5);
+}
+/* Embers rising the full face of a champions card. Two parallax layers
+   (the pseudos), each one seamless vertical tile of hand-placed sparks
+   animated by exactly one tile height, so the loop never pops. Screen
+   blend keeps them light-on-felt; the mask births them just above the
+   bottom rail's red glow and lets them die out below the sky. */
+@utility champ-embers {
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: screen;
+  -webkit-mask-image: linear-gradient(to top, transparent 1%, #000 15%, #000 56%, transparent 93%);
+  mask-image: linear-gradient(to top, transparent 1%, #000 15%, #000 56%, transparent 93%);
+}
+.champ-embers::before,
+.champ-embers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+/* Big slow sparks. */
+.champ-embers::before {
+  background-image:
+    radial-gradient(circle 2.5px at 18% 12%, rgb(255 214 165 / 0.95), rgb(255 122 61 / 0.5) 55%, transparent 100%),
+    radial-gradient(circle 1.8px at 72% 26%, rgb(255 170 110 / 0.9), rgb(214 31 44 / 0.4) 60%, transparent 100%),
+    radial-gradient(circle 2.2px at 44% 47%, rgb(255 200 150 / 0.9), rgb(255 100 50 / 0.45) 55%, transparent 100%),
+    radial-gradient(circle 1.6px at 88% 62%, rgb(255 160 100 / 0.85), transparent 100%),
+    radial-gradient(circle 2.4px at 8% 74%, rgb(255 214 165 / 0.9), rgb(214 31 44 / 0.4) 60%, transparent 100%),
+    radial-gradient(circle 1.7px at 58% 88%, rgb(255 180 120 / 0.85), transparent 100%);
+  background-size: 160px 340px;
+  animation: champ-ember-rise-a 11s linear infinite;
+  opacity: 0.85;
+}
+/* Small fast sparks, dimmer — the parallax depth. */
+.champ-embers::after {
+  background-image:
+    radial-gradient(circle 1.3px at 30% 8%, rgb(255 190 140 / 0.8), transparent 100%),
+    radial-gradient(circle 1px at 80% 32%, rgb(255 140 90 / 0.75), transparent 100%),
+    radial-gradient(circle 1.4px at 12% 44%, rgb(255 200 160 / 0.75), transparent 100%),
+    radial-gradient(circle 1px at 52% 64%, rgb(214 31 44 / 0.7), transparent 100%),
+    radial-gradient(circle 1.2px at 92% 82%, rgb(255 170 120 / 0.7), transparent 100%),
+    radial-gradient(circle 1px at 38% 94%, rgb(255 150 100 / 0.7), transparent 100%);
+  background-size: 120px 250px;
+  animation: champ-ember-rise-b 7s linear infinite;
+  opacity: 0.6;
+}
+@keyframes champ-ember-rise-a {
+  from { background-position: 0 0; }
+  to { background-position: 0 -340px; }
+}
+@keyframes champ-ember-rise-b {
+  from { background-position: 0 0; }
+  to { background-position: 0 -250px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .champ-embers::before,
+  .champ-embers::after {
+    animation: none;
+  }
 }
 
 @utility card-foil-holo {

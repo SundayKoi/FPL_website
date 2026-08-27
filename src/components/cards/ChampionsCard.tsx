@@ -1,9 +1,10 @@
 // One card of the Dealer's Hand — the Faceless S4 champions print.
 //
 // Not a PlayerCard3D and not a MomentPlate: a champions card is a playing
-// card from the winners' own deck. Black felt, the champion's real splash
-// dimmed beneath it, corner rank indices, and the obsidian spade pip —
-// razor-edged, red under-glow, no face. The Joker inverts to bone.
+// card from the winners' own deck. Black felt with embers rising off it,
+// the champion's real splash carrying the open center, corner rank
+// indices, and the team's mark riding beside the wordmark (the obsidian
+// spade pip stands in when no logo exists). The Joker inverts to bone.
 //
 // Server-renderable — no hooks, no handlers. Foil parallels reuse the
 // exact overlay layers player cards wear (FOIL_LAYERS), held at a fixed
@@ -25,12 +26,12 @@ const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | 
 };
 
 /**
- * The center logo draws at ~170px CSS (340px on retina), and most stored
- * team marks are small avatars — upscaling is why the first cut looked
- * blurry. Discord's CDN serves any size on request, so those URLs get
- * asked for 1024px; anything else passes through untouched (a storage
- * transform endpoint we can't verify would 404 into a blank center).
- * Exported for tests.
+ * The logo draws small now (~42px CSS beside the wordmark), but retina
+ * still doubles that and most stored team marks are tiny avatars —
+ * upscaling is why the first center-seated cut looked blurry. Discord's
+ * CDN serves any size on request, so those URLs get asked for 1024px;
+ * anything else passes through untouched (a storage transform endpoint we
+ * can't verify would 404 into a blank mark). Exported for tests.
  */
 export function hiResLogoUrl(url: string): string {
   try {
@@ -151,6 +152,12 @@ export default function ChampionsCard({
       ) : null}
       <span className="champ-scrim absolute inset-[10px] rounded-lg" aria-hidden />
 
+      {/* Embers off the felt: two parallax layers of sparks rising the
+          full face, pure CSS (champ-embers), masked to be born above the
+          bottom rail's red glow and die out below the sky. Under every
+          index, name and autograph so nothing legible ever burns. */}
+      <span className="champ-embers absolute inset-[10px] rounded-lg" aria-hidden data-testid="champ-embers" />
+
       {/* Double card edge: bone outer, red inner. */}
       <span className="pointer-events-none absolute inset-[9px] rounded-lg border-[1.5px] border-[#ece7e8]/85" aria-hidden>
         <span className="absolute inset-[3px] rounded-md border border-[#d61f2c]/70" />
@@ -159,21 +166,21 @@ export default function ChampionsCard({
       <CornerIndex rank={print.rank} />
       <CornerIndex rank={print.rank} flipped />
 
-      {/* The center mark: the team's own logo when we hold one, seated
-          into the felt — edge-fade mask so no square boundary reads as a
-          sticker, the same red under-glow the pip wears. The spade pip is
-          the fallback, never a hole. */}
-      {card.teamImageUrl ? (
-        <span className="champ-logowrap" aria-hidden>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hiResLogoUrl(card.teamImageUrl)} alt="" className="champ-logo" loading="lazy" decoding="async" />
-        </span>
-      ) : (
-        <SpadePip joker={print.joker} />
-      )}
-
-      <span className="champ-wordmark absolute inset-x-0 top-[58.5%] text-center text-[1.7rem] leading-none">
-        {print.team.toUpperCase()}
+      {/* The banner row: the team's own mark riding small beside the
+          wordmark (edge-fade mask so no square boundary reads as a
+          sticker, the pip's red under-glow), the spade pip as fallback —
+          never a hole. The center stays open so the champion's splash
+          carries the card. */}
+      <span className="absolute inset-x-0 top-[57.5%] flex items-center justify-center gap-2.5">
+        {card.teamImageUrl ? (
+          <span className="champ-logowrap" aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={hiResLogoUrl(card.teamImageUrl)} alt="" className="champ-logo" loading="lazy" decoding="async" />
+          </span>
+        ) : (
+          <SpadePip joker={print.joker} />
+        )}
+        <span className="champ-wordmark text-[1.7rem] leading-none">{print.team.toUpperCase()}</span>
       </span>
 
       <div className="absolute inset-x-0 bottom-[21%] text-center">

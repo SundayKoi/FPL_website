@@ -382,7 +382,7 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect(container.querySelector(".champ-pipwrap")).toBeTruthy();
   });
 
-  it("seats the team's logo in the pip's place when one exists", () => {
+  it("rides the team's logo beside the wordmark when one exists", () => {
     const champCard = {
       ...card,
       champWin: {
@@ -402,6 +402,8 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect(container.querySelector(".champ-logo")?.getAttribute("src")).toBe("https://cdn.example/faceless.png");
     // The logo replaces the pip, never stacks on it.
     expect(container.querySelector(".champ-pipwrap")).toBeNull();
+    // The ember layer rides every champions card, logo or not.
+    expect(container.querySelector('[data-testid="champ-embers"]')).not.toBeNull();
   });
 
   it("wraps itself in the player card's exact 20rem shell", () => {
