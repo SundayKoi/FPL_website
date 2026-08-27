@@ -273,9 +273,9 @@ export function dustValueOf(row: {
   // copy, and the flag covers a caller holding the card json instead.
   if (row.moment || row.tier === MOMENT_TIER) return MOMENT_DUST;
   // Champions relics price flat and their foil does NOT multiply — the
-  // parallel is the flex, and champion × ice under the ladder would blow
-  // past MOMENT_DUST. The autograph bonus still applies: real ink is real
-  // ink on any card.
+  // parallel is the flex, and a one-card pack has no room for multipliers
+  // before dusting beats CHAMPIONS_PACK_COST and becomes an income. The
+  // autograph bonus still applies: real ink is real ink on any card.
   if (row.tier === CHAMPION_TIER) return CHAMPION_DUST + (row.signed ? SIGNED_DUST_BASE : 0);
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];

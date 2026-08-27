@@ -59,12 +59,17 @@ export const CHAMPION_TIER = "champion";
 
 /**
  * Dust for a champions card. Flat, and FOIL DOES NOT MULTIPLY IT — the
- * parallel is the flex, not the price, because champion × ice under the
- * normal ladder would blow past MOMENT_DUST and break the invariant that
- * a performance outranks any lucky roll. The autograph bonus still adds
- * on top (dustValueOf owns that composition).
+ * parallel is the flex, not the price. The autograph bonus still adds on
+ * top (dustValueOf owns that composition).
+ *
+ * MUST stay below CHAMPIONS_PACK_COST: a Faceless pack is one guaranteed
+ * card, so any dust value at or above the pack price is a money printer,
+ * not a salvage floor (the first cut of 750 against a 250 pack paid $500
+ * per click). Legendary's base (150) is the ceiling that feels right —
+ * the relic's worth is the shelf, not the shredder. Expected return per
+ * pack, signed jackpot included, stays near 84% of cost at worst.
  */
-export const CHAMPION_DUST = 750;
+export const CHAMPION_DUST = 150;
 
 /** What one Faceless Pack costs — ONE card from the Hand. Priced above
  *  the five-card pack on purpose: this is a relic run, not a bundle. */

@@ -3,7 +3,16 @@ import { championSplashUrl } from "@/lib/match-draft/champions";
 import { hiResLogoUrl } from "@/components/cards/ChampionsCard";
 import { dustValueOf, SIGNED_DUST_BASE } from "@/lib/packs/config";
 import { MOMENT_DUST } from "./moments";
-import { CHAMPION_DUST, CHAMPIONS_SET, CHAMPION_TIER, championToCard, rollChampionCard } from "./champions";
+import {
+  CHAMPION_DUST,
+  CHAMPION_FOIL_CHANCE,
+  CHAMPION_SIGNED_CHANCE,
+  CHAMPIONS_PACK_COST,
+  CHAMPIONS_SET,
+  CHAMPION_TIER,
+  championToCard,
+  rollChampionCard,
+} from "./champions";
 
 describe("the Dealer's Hand set", () => {
   it("is exactly five cards with unique ranks, slugs and positions", () => {
@@ -62,6 +71,22 @@ describe("the drop's numbers", () => {
       CHAMPION_DUST + SIGNED_DUST_BASE,
     );
     expect(CHAMPION_DUST).toBeLessThan(MOMENT_DUST);
+  });
+
+  it("never pays more in dust than the pack costs — a one-card pack must not be a printer", () => {
+    // The pack always yields exactly one card, so the flat dust value is a
+    // guaranteed floor, not an average. At or above cost, buy-dust-repeat
+    // is free money (the first cut, 750 vs 250, paid $500 a click).
+    expect(CHAMPION_DUST).toBeLessThan(CHAMPIONS_PACK_COST);
+    // Expected return per pack — foil inert, signed jackpot at full ink
+    // coverage — still burns money.
+    const expectedReturn = CHAMPION_DUST + CHAMPION_SIGNED_CHANCE * SIGNED_DUST_BASE;
+    expect(expectedReturn).toBeLessThan(CHAMPIONS_PACK_COST);
+    // Foil truly is inert at every rung, so the floor holds for parallels.
+    expect(CHAMPION_FOIL_CHANCE).toBeGreaterThan(0);
+    for (const foilType of ["prisma", "aurora", "refractor", "ice"] as const) {
+      expect(dustValueOf({ tier: CHAMPION_TIER, foil: true, foilType, signed: false })).toBe(CHAMPION_DUST);
+    }
   });
 
   it("deals every rank uniformly and in bounds", () => {
