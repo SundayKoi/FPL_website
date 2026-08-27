@@ -587,6 +587,9 @@ export default function PackOpening({
               key={pack.index}
               bestRarity={bestRarity}
               hasSigned={hasSigned}
+              // The wrapper knows what it holds: a Faceless Pack prints the
+              // drop's markings instead of the five-cards-one-rare promise.
+              champions={pack.pulls.some((pull) => Boolean(pull.card.champWin))}
               muted={muted}
               onOpened={handleOpened}
               onProgress={handleProgress}

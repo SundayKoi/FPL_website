@@ -109,6 +109,7 @@ export function prefersReducedMotion(): boolean {
 export default function PackRip({
   bestRarity,
   hasSigned,
+  champions = false,
   muted,
   onOpened,
   onProgress,
@@ -117,6 +118,9 @@ export default function PackRip({
   bestRarity: RarityClass;
   /** Anything in the pack autographed, which earns sparkles at any rarity. */
   hasSigned: boolean;
+  /** A Faceless Pack — the wrapper prints the drop's own markings, not the
+   *  player-pack promise (this is one relic, not five cards and a rare). */
+  champions?: boolean;
   muted: boolean;
   /** The wrapper is gone; start the card reveal. */
   onOpened: () => void;
@@ -320,10 +324,12 @@ export default function PackRip({
           <div className="pack-foil">
             <div className="pack-sheen" />
             <div className="pack-mark">
-              <span className="type-display pack-mark-fpl">FPL</span>
-              <span className="pack-mark-sub">Player Cards</span>
+              <span className="type-display pack-mark-fpl">{champions ? "🂡" : "FPL"}</span>
+              <span className="pack-mark-sub">{champions ? "The Faceless Drop" : "Player Cards"}</span>
               <span className="pack-mark-rule" />
-              <span className="pack-mark-count">5 cards · 1 guaranteed rare</span>
+              <span className="pack-mark-count">
+                {champions ? "1 card · The Hand of five" : "5 cards · 1 guaranteed rare"}
+              </span>
             </div>
           </div>
         </div>
