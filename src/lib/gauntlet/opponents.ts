@@ -12,6 +12,7 @@ import {
   type GauntletRole,
   GAUNTLET_ROLES,
 } from "./sim";
+import { rollCondition, rollTraits } from "./traits";
 import type { MeasureKey } from "@/lib/cards/measures";
 
 const clamp = (value: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, value));
@@ -42,18 +43,26 @@ export interface OpponentTeam {
   avg: number;
   /** "DIVE COMP · 74 AVG" — the scouting line. */
   label: string;
+  /** Trait keys this team wears — read them before you commit. */
+  traits?: string[];
+  /** The round's condition key — the rules both sides play under. */
+  condition?: string;
 }
 
 /** The bracket's target average for a round, off the player's raw lineup
- *  average. Round 1 starts a shade below (a warm-up, not a coin flip) and
- *  round 8 ends about seven above — the wall is the CHAIN, not any single
- *  fight: eight straight wins compounds into a few-percent full clear on
- *  safe play, which is where a roguelike's full clears belong. v2
- *  steepened the ramp (1.0 → 1.6/round) after the v1 curve fell on the
- *  second try; crossroads play is where the difference comes back. Tuned
- *  by simulation (see sim.test's calibration band); steepen with care. */
+ *  average — the ONLY place difficulty lives (traits are shapes, not stat
+ *  sticks). Round 1 sits eight under, a warm-up you clear ~95% of the
+ *  time; round 8 sits seven over and is reached by under a tenth of runs.
+ *  The wall is the CHAIN, not any single fight.
+ *
+ *  v3 re-tuned this from scratch: gold now compounds, so a lost lane
+ *  phase snowballs the way it should, and the curve had to start gentler
+ *  and end steeper to stay a roguelike instead of a gauntlet of coin
+ *  flips. Monte-Carlo: 95/84/68/48/30/15/8/4% reach by round, ~4% full
+ *  clears on safe play (see sim.test's calibration band). Anything that
+ *  moves those numbers is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
-  return clamp(Math.round(lineupAvg - 6 + round * 1.6), 45, 92);
+  return clamp(Math.round(lineupAvg - 10 + round * 2.15), 45, 92);
 }
 
 /**
@@ -82,5 +91,9 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   });
 
   const avg = Math.round(cards.reduce((sum, card) => sum + card.overall, 0) / cards.length);
-  return { cards, style, avg, label: `${style.toUpperCase()} COMP · ${avg} AVG` };
+  // Traits and the round's condition come off the SAME seeded stream, so
+  // the scouting screen and the fight always agree.
+  const traits = rollTraits(round, rand);
+  const condition = rollCondition(round, rand);
+  return { cards, style, avg, label: `${style.toUpperCase()} COMP · ${avg} AVG`, traits, condition };
 }

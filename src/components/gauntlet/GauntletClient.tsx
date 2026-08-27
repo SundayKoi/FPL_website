@@ -23,9 +23,9 @@ import {
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
 import { CROSSROADS_BY_KEY, safeChoiceOf } from "@/lib/gauntlet/crossroads";
-import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "@/lib/gauntlet/run";
+import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "@/lib/gauntlet/run";
 import type { GauntletOption } from "@/lib/gauntlet/queries";
-import { aggregateEffects, RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
+import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
 import {
   compProfileOf,
   type CompStyle,
@@ -378,7 +378,9 @@ export default function GauntletClient({
     offering && run.relics.includes("sixth_man") && !run.bench_swap_used;
   const swapRole = run.lineup.find((card) => card.inventoryId === Number(swapOut))?.role;
   const situation = atCrossroads ? CROSSROADS_BY_KEY.get(run.crossroads!.state.situationKey) ?? null : null;
-  const runEffects = aggregateEffects(run.relics);
+  // The same context the server fights under — relics, their traits, the
+  // round's condition — so the odds printed on a choice are the odds.
+  const runCtx = matchContextFor(run.relics, run.next_opponent);
 
   return (
     <section className="flex flex-col gap-6">
@@ -469,7 +471,7 @@ export default function GauntletClient({
           <Timeline events={run.crossroads!.state.events} />
           <div className="grid gap-4 sm:grid-cols-3">
             {situation.choices.map((choice) => {
-              const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runEffects);
+              const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runCtx);
               const safe = safeChoiceOf(situation).key === choice.key && !preview;
               return (
                 <button

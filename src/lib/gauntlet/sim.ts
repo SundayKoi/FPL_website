@@ -1,20 +1,29 @@
 // The Gauntlet's match engine — a league game as a pure function.
 //
-// Everything here is deterministic given (lineup, opponent, relics, seed):
-// no Date, no Math.random, no I/O. The server rolls CSPRNG seeds and
-// stores them BEFORE anything resolves, so a run can be replayed, audited,
-// and re-rendered forever — the same discipline as pack rolls.
+// Everything here is deterministic given (lineup, opponent, relics,
+// traits, condition, seed): no Date, no Math.random, no I/O. The server
+// rolls CSPRNG seeds and stores them BEFORE anything resolves, so a run
+// can be replayed, audited, and re-rendered forever.
 //
-// v2 shape: a match is TWO HALVES around a crossroads. The first half
-// (draft read, lanes, an objective, a skirmish) sets the scoreboard; the
-// scoreboard summons a situation (crossroads.ts) and the PLAYER makes the
-// call; the second half (the call, a second objective, the big fight, the
-// hold, the nexus) resolves it. Fights are symmetric — no home cushion:
-// v1's survival discount on your losses compounded into an edge strong
-// lineups farmed. Cosmetics never touch a stat (pinned by test).
+// v3 shape — the match keeps a LEDGER, not just a verdict:
+//   · every check runs through runContest and records its MARGIN, so a
+//     loss can say "by 2" instead of just "lost";
+//   · gold is a real resource, sampled over the clock (the graph IS the
+//     story of the match) and feeding late-game strength, so winning
+//     lanes compounds mechanically rather than symbolically;
+//   · the Baron is a damage race with a smite check, so "how close was
+//     I" has an actual answer in health and damage;
+//   · every card carries kills, deaths, assists, gold and damage share,
+//     so "my team lost" becomes "my bot lane lost".
+//
+// A match is still TWO HALVES around a crossroads (crossroads.ts) — the
+// first half sets the board, the player makes the call, the second half
+// resolves it. Cosmetics never touch a stat (pinned by test).
 
 import type { MeasureKey } from "@/lib/cards/measures";
 import type { RelicEffects } from "./relics";
+import { type Contest, contestDetail, runContest } from "./contest";
+import type { ConditionEffects, TraitEffects } from "./traits";
 import {
   type CrossroadsChoice,
   CROSSROADS_BY_KEY,
@@ -44,9 +53,7 @@ export interface GauntletCard {
 export type GauntletRole = "Top" | "Jungle" | "Mid" | "Bot" | "Support";
 export const GAUNTLET_ROLES: GauntletRole[] = ["Top", "Jungle", "Mid", "Bot", "Support"];
 
-/** The stat edge a card printed this week carries — the reason the weekly
- *  drop rotates the meta. Small on a 0–99 scale, and stated on the draft
- *  screen rather than hidden. */
+/** The stat edge a card printed this week carries. */
 export const FRESH_LEGS_BONUS = 3;
 
 /** What a trialist plays like: a warm body, not a carry. */
@@ -54,6 +61,9 @@ export const TRIALIST_OVERALL = 55;
 
 /** Rounds in a full run. */
 export const GAUNTLET_ROUNDS = 8;
+
+/** When the early game ends — the clock traits split their bonuses on. */
+const MIDGAME_CLOCK = 15;
 
 /** Comp identities, read from a team's stat shape. The triangle:
  *  poke > dive > protect > poke. */
@@ -63,12 +73,16 @@ const COUNTERS: Record<CompStyle, CompStyle> = { poke: "dive", dive: "protect", 
 export interface MatchEvent {
   /** Minutes into the game, or null for pre-game lines. */
   clock: number | null;
-  kind: "draft" | "lanes" | "objective" | "fight" | "crossroads" | "hold" | "nexus";
+  kind: "draft" | "lanes" | "objective" | "fight" | "crossroads" | "baron" | "hold" | "nexus";
   /** Good/bad for YOUR side, for the timeline's dot colors. */
   tone: "win" | "loss" | "neutral";
   text: string;
   /** The numbers behind the line, monospace on the timeline. */
   detail: string | null;
+  /** The contest this line resolved, when it resolved one. */
+  contestKey?: string;
+  /** Gold this beat moved, signed for your side. */
+  gold?: number;
 }
 
 export interface LaneResult {
@@ -76,6 +90,64 @@ export interface LaneResult {
   won: boolean;
   yours: number;
   theirs: number;
+  /** How much this lane missed by — the reason a 700g lane loss reads. */
+  margin: number;
+  gold: number;
+}
+
+/** One sample of the gold line — the match's story in one array. */
+export interface GoldSample {
+  clock: number;
+  /** Your gold minus theirs. */
+  diff: number;
+}
+
+/** A card's match, as a scoreboard row. */
+export interface PlayerLine {
+  inventoryId: number | null;
+  name: string;
+  role: GauntletRole;
+  kills: number;
+  deaths: number;
+  assists: number;
+  gold: number;
+  /** Percent of your team's damage, rounded so the five sum to 100. */
+  damageShare: number;
+  contestsWon: number;
+  contestsLost: number;
+}
+
+/** The pit, in detail — the answer to "how close was I to the Baron". */
+export interface BaronDance {
+  attempted: boolean;
+  /** True when YOU started it; false when you were contesting theirs. */
+  yours: boolean;
+  clock: number;
+  /** Baron health (0–100) when the smite check resolved. */
+  hpAtResolve: number;
+  /** Raw damage you were short by. 0 on a clean take. */
+  shortBy: number;
+  taken: boolean;
+  stolen: boolean;
+  note: string;
+}
+
+/** The run-scoped modifiers a match resolves under. */
+export interface MatchContext {
+  /** Your relics. */
+  effects: RelicEffects;
+  /** Their traits. */
+  foe: TraitEffects;
+  /** The round's condition — the rules, for both sides. */
+  arena: ConditionEffects;
+}
+
+/** Everything the ledger accumulates across the two halves. */
+export interface LedgerState {
+  contests: Contest[];
+  gold: number;
+  goldSeries: GoldSample[];
+  players: PlayerLine[];
 }
 
 /** Where a match stands at the crossroads — everything the second half
@@ -88,6 +160,7 @@ export interface HalfState {
   yourStyle: CompStyle;
   theirStyle: CompStyle;
   situationKey: string;
+  ledger: LedgerState;
 }
 
 export interface MatchResult {
@@ -99,11 +172,18 @@ export interface MatchResult {
   mvp: string;
   /** Round score earned (0 on a loss). */
   score: number;
-  /** Crossroads score landed by a daring call — folded into `score` by
-   *  roundScore; kept for the tape's own line. */
+  /** Crossroads score landed by a daring call. */
   daring: number;
   yourStyle: CompStyle;
   theirStyle: CompStyle;
+  /** Every check the match made, with its margin. */
+  contests: Contest[];
+  /** The gold line, for the graph. */
+  goldSeries: GoldSample[];
+  /** Final gold difference, signed for your side. */
+  gold: number;
+  players: PlayerLine[];
+  baron: BaronDance;
 }
 
 /** Deterministic PRNG — mulberry32. Small, seedable, good enough for a
@@ -140,9 +220,7 @@ export function teamAvg(team: GauntletCard[], keys: MeasureKey[], effects?: Reli
 
 /**
  * A team's comp identity, from its stat shape: heavy damage+laning reads
- * poke, combat+presence reads dive, survival+vision reads protect. Derived
- * rather than declared, so the lineup you drafted IS your identity and
- * re-drafting changes it — the layer of the game above the numbers.
+ * poke, combat+presence reads dive, survival+vision reads protect.
  */
 export function compStyleOf(team: GauntletCard[]): CompStyle {
   const poke = teamAvg(team, ["damage", "laning"]);
@@ -153,8 +231,7 @@ export function compStyleOf(team: GauntletCard[]): CompStyle {
   return "protect";
 }
 
-/** The three identity scores behind compStyleOf, for the draft screen's
- *  readout — the player deserves the same numbers the sim reads. */
+/** The three identity scores behind compStyleOf, for the draft screen. */
 export function compProfileOf(team: GauntletCard[]): Record<CompStyle, number> {
   return {
     poke: Math.round(teamAvg(team, ["damage", "laning"])),
@@ -164,7 +241,7 @@ export function compProfileOf(team: GauntletCard[]): Record<CompStyle, number> {
 }
 
 /** Which bar decides each role's lane. Junglers don't lane — their early
- *  game is pathing and presence. Exported for the draft screen's table. */
+ *  game is pathing and presence. */
 export const LANE_KEY: Record<GauntletRole, MeasureKey> = {
   Top: "laning",
   Jungle: "presence",
@@ -176,20 +253,121 @@ export const LANE_KEY: Record<GauntletRole, MeasureKey> = {
 const byRole = (team: GauntletCard[], role: GauntletRole): GauntletCard | undefined =>
   team.find((card) => card.role === role);
 
+/** The enemy's clock-dependent flat — traits that key off the game phase. */
+function foeClockFlat(ctx: MatchContext, clock: number): number {
+  return clock < MIDGAME_CLOCK ? (ctx.foe.earlyFlat ?? 0) : (ctx.foe.lateFlat ?? 0);
+}
+
+/** How much a gold lead is worth as raw stat in a late-game check. A
+ *  2,000g lead is about 7 points — real, but never the whole game. */
+export function goldEdge(gold: number, arena: ConditionEffects): number {
+  return clamp(gold / 280, -14, 14) * (arena.goldEdgeMult ?? 1);
+}
+
+const noise = (base: number, ctx: MatchContext): number => base * (ctx.arena.noiseMult ?? 1);
+
+// ── Ledger helpers ──────────────────────────────────────────────────────
+
+function freshPlayers(yours: GauntletCard[], effects: RelicEffects): PlayerLine[] {
+  const weights = yours.map((card) => statOf(card, "damage", effects) + statOf(card, "combat", effects));
+  const total = weights.reduce((a, b) => a + b, 0) || 1;
+  const raw = weights.map((weight) => (weight / total) * 100);
+  const shares = raw.map((value) => Math.floor(value));
+  // Hand the rounding remainder to the biggest carries, so the five sum
+  // to exactly 100 and the scoreboard never reads 99%.
+  let left = 100 - shares.reduce((a, b) => a + b, 0);
+  const order = raw
+    .map((value, index) => ({ index, frac: value - Math.floor(value) }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const entry of order) {
+    if (left <= 0) break;
+    shares[entry.index] += 1;
+    left -= 1;
+  }
+  return yours.map((card, index) => ({
+    inventoryId: card.inventoryId,
+    name: card.name,
+    role: card.role,
+    kills: 0,
+    deaths: 0,
+    assists: 0,
+    gold: 0,
+    damageShare: shares[index],
+    contestsWon: 0,
+    contestsLost: 0,
+  }));
+}
+
+/** Books a contest: records it, moves the gold line, credits the card. */
+function book(
+  ledger: LedgerState,
+  contest: Contest,
+  goldSwing: number,
+  ctx: MatchContext,
+): Contest {
+  // A trait like VULTURES pays THEM more for every beat they take.
+  const scaled = goldSwing < 0 ? goldSwing * (ctx.foe.goldMult ?? 1) : goldSwing;
+  contest.goldSwing = Math.round(scaled);
+  ledger.contests.push(contest);
+  ledger.gold += contest.goldSwing;
+  ledger.goldSeries.push({ clock: contest.clock, diff: Math.round(ledger.gold) });
+  const line = contest.role
+    ? ledger.players.find((player) => player.role === contest.role)
+    : ledger.players.find((player) => player.name === contest.decidedBy);
+  if (line) {
+    if (contest.won) line.contestsWon += 1;
+    else line.contestsLost += 1;
+    line.gold += Math.round(contest.goldSwing * 0.35);
+  }
+  return contest;
+}
+
+/** Spreads a fight's kills, deaths and assists over your five. */
+function bookFight(ledger: LedgerState, yours: GauntletCard[], won: boolean, effects: RelicEffects): void {
+  const order = [...yours].sort(
+    (a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects),
+  );
+  const killers = won ? order.slice(0, 3) : order.slice(0, 1);
+  const dying = won
+    ? [...yours].sort((a, b) => statOf(a, "survival", effects) - statOf(b, "survival", effects)).slice(0, 1)
+    : [...yours].sort((a, b) => statOf(a, "survival", effects) - statOf(b, "survival", effects)).slice(0, 3);
+  for (const card of killers) {
+    const line = ledger.players.find((player) => player.role === card.role);
+    if (line) {
+      line.kills += 1;
+      line.gold += 300;
+    }
+  }
+  for (const card of dying) {
+    const line = ledger.players.find((player) => player.role === card.role);
+    if (line) line.deaths += 1;
+  }
+  for (const line of ledger.players) {
+    if (!killers.some((card) => card.role === line.role) && won) line.assists += 1;
+  }
+}
+
 /**
- * The first half: draft read, lanes, the first objective, the skirmish —
+ * The first half: draft read, lanes, herald, dragon, the skirmish —
  * everything before the game asks a question. `rand` MUST come from
  * mulberry32(seed); the caller owns the seed's provenance.
  */
 export function simulateFirstHalf(
   yours: GauntletCard[],
   theirs: GauntletCard[],
-  effects: RelicEffects,
+  ctx: MatchContext,
   rand: () => number,
 ): HalfState {
+  const { effects } = ctx;
   const events: MatchEvent[] = [];
   const yourStyle = compStyleOf(yours);
   const theirStyle = compStyleOf(theirs);
+  const ledger: LedgerState = {
+    contests: [],
+    gold: 0,
+    goldSeries: [{ clock: 0, diff: 0 }],
+    players: freshPlayers(yours, effects),
+  };
 
   // ── Draft read: the counter triangle sets the opening momentum.
   let momentum = 50;
@@ -198,32 +376,56 @@ export function simulateFirstHalf(
     events.push({
       clock: 0, kind: "draft", tone: "win",
       text: `Draft read: your ${yourStyle} comp counters their ${theirStyle} · edge YOU`,
-      detail: null,
+      detail: `${yourStyle} beats ${theirStyle} · +6 momentum`,
     });
   } else if (COUNTERS[theirStyle] === yourStyle) {
     momentum -= 6;
     events.push({
       clock: 0, kind: "draft", tone: "loss",
       text: `Draft read: their ${theirStyle} comp counters your ${yourStyle} · edge THEM`,
-      detail: null,
+      detail: `${theirStyle} beats ${yourStyle} · −6 momentum`,
     });
   } else {
     events.push({
       clock: 0, kind: "draft", tone: "neutral",
       text: `Draft read: ${yourStyle} into ${theirStyle} — even on paper`,
-      detail: null,
+      detail: "no triangle edge",
     });
   }
 
-  // ── Lane phase: role vs role on the bar that decides that lane.
+  // ── Lane phase: role vs role on the bar that decides that lane. Each
+  //   lane pays gold by its margin, so "lost bot by 700g" is literal.
   const lanesFlat = effects.lanesFlat ?? 0;
   const lanes: LaneResult[] = GAUNTLET_ROLES.map((role) => {
     const mine = byRole(yours, role);
     const foe = byRole(theirs, role);
-    const yoursVal = (mine ? statOf(mine, LANE_KEY[role], effects) : TRIALIST_OVERALL - 10) + lanesFlat;
-    const theirsVal = foe ? statOf(foe, LANE_KEY[role], effects) : TRIALIST_OVERALL - 10;
-    const noise = (rand() - 0.5) * 24;
-    return { role, won: yoursVal + noise >= theirsVal, yours: Math.round(yoursVal), theirs: Math.round(theirsVal) };
+    const key = LANE_KEY[role];
+    const yoursVal = (mine ? statOf(mine, key, effects) : TRIALIST_OVERALL - 10) + lanesFlat;
+    const theirsVal =
+      (foe ? statOf(foe, key) : TRIALIST_OVERALL - 10) + (ctx.foe.lanesFlat ?? 0) + foeClockFlat(ctx, 8);
+    const contest = runContest(
+      {
+        key: `lane-${role}`, kind: "lane", label: `${role} lane`, clock: 8,
+        yourKeys: [key], theirKeys: [key],
+        yourVal: yoursVal, theirVal: theirsVal, spread: noise(24, ctx),
+        decidedBy: mine?.name ?? null, role,
+      },
+      rand,
+    );
+    const gold = Math.round(clamp(contest.margin * 26, -680, 680));
+    book(ledger, contest, gold, ctx);
+    if (!contest.won && contest.margin < -12) {
+      const line = ledger.players.find((player) => player.role === role);
+      if (line) line.deaths += 1;
+    }
+    return {
+      role,
+      won: contest.won,
+      yours: Math.round(yoursVal),
+      theirs: Math.round(theirsVal),
+      margin: contest.margin,
+      gold: contest.goldSwing,
+    };
   });
   const lanesWon = lanes.filter((lane) => lane.won).length;
   const laneSwing = (lanesWon - 2.5) * (4 * (effects.laneMomentumMult ?? 1));
@@ -231,33 +433,77 @@ export function simulateFirstHalf(
   events.push({
     clock: 8, kind: "lanes", tone: lanesWon >= 3 ? "win" : "loss",
     text: `Lane phase — ${lanesWon} of 5 lanes won`,
-    detail: `laning ${lanes.map((l) => l.yours).join("·")} vs ${lanes.map((l) => l.theirs).join("·")}`,
+    detail: lanes
+      .map((lane) => `${lane.role.slice(0, 3)} ${lane.gold >= 0 ? "+" : ""}${lane.gold}g`)
+      .join(" · "),
+    gold: lanes.reduce((sum, lane) => sum + lane.gold, 0),
   });
 
-  // ── First objective: the jungler's war with the team behind it.
-  const yourObj = teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0);
-  const theirObj = teamAvg(theirs, ["objectives", "presence"]);
-  const objWon = yourObj + (rand() - 0.5) * 30 >= theirObj;
-  momentum = clamp(momentum + (objWon ? 5 : -5), 5, 95);
+  // ── Herald: the first map objective, and the first turret.
+  const heraldContest = runContest(
+    {
+      key: "herald-11", kind: "objective", label: "🐚 Rift Herald", clock: 11,
+      yourKeys: ["objectives", "turrets"], theirKeys: ["objectives", "presence"],
+      yourVal: teamAvg(yours, ["objectives", "turrets"], effects) + (effects.objectivesFlat ?? 0),
+      theirVal:
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 11),
+      spread: noise(28, ctx),
+      decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
+    },
+    rand,
+  );
+  book(ledger, heraldContest, (heraldContest.won ? 520 : -520) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
+  momentum = clamp(momentum + (heraldContest.won ? 4 : -4), 5, 95);
   events.push({
-    clock: 14, kind: "objective", tone: objWon ? "win" : "loss",
-    text: objWon ? "🐉 Dragon — taken clean" : "🐉 Dragon — conceded",
-    detail: `objectives ${Math.round(yourObj)} vs ${Math.round(theirObj)}`,
+    clock: 11, kind: "objective", tone: heraldContest.won ? "win" : "loss",
+    text: heraldContest.won ? "🐚 Rift Herald — taken, first turret falls" : "🐚 Rift Herald — theirs, your top turret goes",
+    detail: contestDetail(heraldContest), contestKey: heraldContest.key, gold: heraldContest.goldSwing,
   });
 
-  // ── The skirmish. Symmetric: ±8 either way, no home cushion.
+  // ── First dragon.
+  const dragonContest = runContest(
+    {
+      key: "dragon-14", kind: "objective", label: "🐉 Dragon", clock: 14,
+      yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
+      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0),
+      theirVal:
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 14),
+      spread: noise(30, ctx),
+      decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
+    },
+    rand,
+  );
+  book(ledger, dragonContest, (dragonContest.won ? 320 : -320) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
+  momentum = clamp(momentum + (dragonContest.won ? 5 : -5), 5, 95);
+  events.push({
+    clock: 14, kind: "objective", tone: dragonContest.won ? "win" : "loss",
+    text: dragonContest.won ? "🐉 Dragon — taken clean" : "🐉 Dragon — conceded",
+    detail: contestDetail(dragonContest), contestKey: dragonContest.key, gold: dragonContest.goldSwing,
+  });
+
+  // ── The skirmish. Symmetric: no home cushion.
   const fightFlat = (effects.fightFlat ?? 0) + (effects.earlyFightBonus ?? 0);
-  const yourFight = teamAvg(yours, ["combat", "damage"], effects) + fightFlat;
-  const theirFight = teamAvg(theirs, ["combat", "damage"]);
   const carry = [...yours].sort((a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects))[0];
-  const fightWon = yourFight + (rand() - 0.5) * 28 >= theirFight;
-  momentum = clamp(momentum + (fightWon ? 8 : -8), 5, 95);
+  const skirmish = runContest(
+    {
+      key: "skirmish-18", kind: "fight", label: "⚔ Skirmish in river", clock: 18,
+      yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
+      yourVal: teamAvg(yours, ["combat", "damage"], effects) + fightFlat,
+      theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 18),
+      spread: noise(28, ctx),
+      decidedBy: carry?.name ?? null, role: carry?.role ?? null,
+    },
+    rand,
+  );
+  book(ledger, skirmish, skirmish.won ? 900 : -900, ctx);
+  bookFight(ledger, yours, skirmish.won, effects);
+  momentum = clamp(momentum + (skirmish.won ? 8 : -8) * (ctx.arena.fightSwingMult ?? 1), 5, 95);
   events.push({
-    clock: 18, kind: "fight", tone: fightWon ? "win" : "loss",
-    text: fightWon
+    clock: 18, kind: "fight", tone: skirmish.won ? "win" : "loss",
+    text: skirmish.won
       ? `⚔ Skirmish in river — won, ${carry?.name ?? "your carry"} leads`
       : "⚔ Skirmish in river — lost",
-    detail: `damage ${Math.round(yourFight)} vs ${Math.round(theirFight)}`,
+    detail: contestDetail(skirmish), contestKey: skirmish.key, gold: skirmish.goldSwing,
   });
 
   return {
@@ -268,136 +514,283 @@ export function simulateFirstHalf(
     yourStyle,
     theirStyle,
     situationKey: situationFor(momentum).key,
+    ledger,
   };
 }
 
 /** The two sides of one crossroads check, for the choice screen — the
- *  EXACT numbers resolveCrossroads will roll. An empty-keyed (safe)
- *  choice previews as null: there is nothing to roll. */
+ *  EXACT numbers the resolver will roll. A safe choice previews as null. */
 export function previewCrossroadsChoice(
   choice: CrossroadsChoice,
   yours: GauntletCard[],
   theirs: GauntletCard[],
-  effects: RelicEffects,
+  ctx: MatchContext,
 ): { yourVal: number; theirVal: number } | null {
   if (choice.yourKeys.length === 0) return null;
   return {
-    yourVal: Math.round(teamAvg(yours, choice.yourKeys, effects) + choice.bonus + (effects.crossroadsBonus ?? 0)),
-    theirVal: Math.round(teamAvg(theirs, choice.theirKeys)),
+    yourVal: Math.round(
+      teamAvg(yours, choice.yourKeys, ctx.effects) + choice.bonus + (ctx.effects.crossroadsBonus ?? 0),
+    ),
+    theirVal: Math.round(teamAvg(theirs, choice.theirKeys) + foeClockFlat(ctx, 20)),
   };
 }
 
 /**
- * The second half: the call, the second objective, the big fight, the
- * hold, the nexus. `choiceKey` must belong to the state's situation; an
- * unknown key resolves as the safe play (an abandoned run still ends).
+ * The Baron pit as a damage race. You burn it at a rate set by your
+ * damage; they arrive on a clock set by your vision against their
+ * pathing; whatever health is left when they get there is what the smite
+ * check is fought over — which is why a loss can report "12% left, 340
+ * damage short" instead of a shrug.
+ */
+function baronDance(
+  yours: GauntletCard[],
+  theirs: GauntletCard[],
+  ctx: MatchContext,
+  yoursToStart: boolean,
+  rand: () => number,
+): { dance: BaronDance; contest: Contest } {
+  const { effects } = ctx;
+  const clock = 25;
+  const dps = teamAvg(yours, ["damage", "combat"], effects) + (effects.fightFlat ?? 0);
+  // Damage burns it down; a genuinely scary comp can finish before
+  // anyone arrives, an average one leaves a sliver for the smite war.
+  const burn = clamp((dps - 40) * 0.115, 1.0, 6.5) * (ctx.arena.baronSpeedMult ?? 1);
+  // Their arrival: your vision buys seconds, their pathing spends them,
+  // and the last few are luck — a pit that always ran the same length
+  // would make the whole beat a lookup table.
+  const window = clamp(
+    20 + (teamAvg(yours, ["vision"], effects) - teamAvg(theirs, ["presence"])) * 0.45 + (rand() - 0.5) * 10,
+    9,
+    34,
+  );
+  const hpLeft = yoursToStart ? clamp(100 - burn * window, 0, 100) : 100;
+
+  // Whoever started it holds the pit — the advantage follows the start,
+  // not the home side. (v2 handed it to the player unconditionally, which
+  // is exactly the kind of quiet edge a strong lineup farms.)
+  const startEdge = 4;
+  const yourVal =
+    teamAvg(yours, ["objectives", "vision"], effects) + (effects.objectivesFlat ?? 0) + (yoursToStart ? startEdge : 0);
+  const theirVal =
+    teamAvg(theirs, ["objectives", "combat"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, clock) +
+    (yoursToStart ? 0 : startEdge);
+
+  const contest = runContest(
+    {
+      key: "baron-25", kind: "baron", label: yoursToStart ? "🟣 Baron — your call" : "🟣 Baron — contested",
+      clock,
+      yourKeys: ["objectives", "vision"], theirKeys: ["objectives", "combat"],
+      yourVal, theirVal, spread: noise(26, ctx),
+      decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
+    },
+    rand,
+  );
+
+  // A clean take: it died before anyone could contest it.
+  const clean = yoursToStart && hpLeft <= 0;
+  const taken = clean || contest.won;
+  const hpAtResolve = clean ? 0 : Math.round(hpLeft * 10) / 10;
+  const shortBy = taken ? 0 : Math.round(hpAtResolve * 28);
+
+  let note: string;
+  if (clean) {
+    note = `Burned it in ${Math.round(window)}s — nobody arrived in time.`;
+  } else if (taken) {
+    note = `Smite war at ${hpAtResolve}% — you won it by ${Math.abs(contest.margin)}.`;
+  } else if (yoursToStart) {
+    note = `Their smite lands at ${hpAtResolve}% — you were ${shortBy} damage short.`;
+  } else {
+    note = `Their Baron, uncontested by ${Math.abs(contest.margin)}.`;
+  }
+
+  return {
+    dance: { attempted: true, yours: yoursToStart, clock, hpAtResolve, shortBy, taken, stolen: !taken && yoursToStart, note },
+    contest,
+  };
+}
+
+/**
+ * The second half: the call, the soul dragon, the Baron pit, the hold,
+ * the nexus. `choiceKey` must belong to the state's situation; an unknown
+ * key resolves as the safe play (an abandoned run still ends).
  */
 export function simulateSecondHalf(
   state: HalfState,
   choiceKey: string,
   yours: GauntletCard[],
   theirs: GauntletCard[],
-  effects: RelicEffects,
+  ctx: MatchContext,
   rand: () => number,
 ): Omit<MatchResult, "score"> {
+  const { effects } = ctx;
   const situation: CrossroadsSituation = CROSSROADS_BY_KEY.get(state.situationKey) ?? {
-    key: state.situationKey,
-    title: "THE CALL",
-    band: [0, 100],
-    narration: "",
-    choices: [],
+    key: state.situationKey, title: "THE CALL", band: [0, 100], narration: "", choices: [],
   };
-  const choice =
-    situation.choices.find((entry) => entry.key === choiceKey) ?? safeChoiceOf(situation);
+  const choice = situation.choices.find((entry) => entry.key === choiceKey) ?? safeChoiceOf(situation);
 
   const events = [...state.events];
+  const ledger: LedgerState = {
+    contests: [...state.ledger.contests],
+    gold: state.ledger.gold,
+    goldSeries: [...state.ledger.goldSeries],
+    players: state.ledger.players.map((player) => ({ ...player })),
+  };
   let momentum = state.momentum;
   let daring = 0;
+  const stakes = ctx.arena.crossroadsStakesMult ?? 1;
 
   // ── The call.
-  const preview = previewCrossroadsChoice(choice, yours, theirs, effects);
-  let called: boolean;
+  const preview = previewCrossroadsChoice(choice, yours, theirs, ctx);
+  let calledBaron = false;
   if (!preview) {
-    called = true;
-    momentum = clamp(momentum + choice.win, 5, 95);
+    momentum = clamp(momentum + choice.win * stakes, 5, 95);
     events.push({
       clock: 20, kind: "crossroads", tone: "neutral",
-      text: `📣 ${situation.title}: ${choice.label} — no dice rolled, the map is conceded quietly`,
-      detail: null,
+      text: `📣 ${situation.title}: ${choice.label} — no dice rolled, the lead is farmed out`,
+      detail: `sure +${Math.round(choice.win * stakes)} momentum`,
     });
   } else {
-    called = preview.yourVal + (rand() - 0.5) * 26 >= preview.theirVal;
-    momentum = clamp(momentum + (called ? choice.win : choice.lose), 5, 95);
-    if (called) daring = choice.scoreBonus;
+    const call = runContest(
+      {
+        key: "crossroads-20", kind: "crossroads", label: `📣 ${choice.label}`, clock: 20,
+        yourKeys: choice.yourKeys, theirKeys: choice.theirKeys,
+        yourVal: preview.yourVal, theirVal: preview.theirVal, spread: noise(26, ctx),
+        decidedBy: null, role: null,
+      },
+      rand,
+    );
+    book(ledger, call, call.won ? 400 : -400, ctx);
+    momentum = clamp(momentum + (call.won ? choice.win : choice.lose) * stakes, 5, 95);
+    if (call.won) daring = choice.scoreBonus;
+    calledBaron = choice.key === "call_baron" || choice.key === "contest";
     events.push({
-      clock: 20, kind: "crossroads", tone: called ? "win" : "loss",
-      text: `📣 ${situation.title}: ${choice.label} — ${called ? "IT LANDS" : "it fails"}`,
-      detail: `your ${choice.yourKeys.join("+")} ${preview.yourVal} vs their ${choice.theirKeys.join("+")} ${preview.theirVal}`,
+      clock: 20, kind: "crossroads", tone: call.won ? "win" : "loss",
+      text: `📣 ${situation.title}: ${choice.label} — ${call.won ? "IT LANDS" : "it fails"}`,
+      detail: contestDetail(call), contestKey: call.key, gold: call.goldSwing,
     });
   }
 
-  // ── Second objective.
-  const yourObj = teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0);
-  const theirObj = teamAvg(theirs, ["objectives", "presence"]);
-  const objWon = yourObj + (rand() - 0.5) * 30 >= theirObj;
-  momentum = clamp(momentum + (objWon ? 5 : -5), 5, 95);
+  // ── Soul point dragon.
+  const soul = runContest(
+    {
+      key: "soul-23", kind: "objective", label: "🐲 Soul point dragon", clock: 23,
+      yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
+      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0),
+      theirVal:
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 23),
+      spread: noise(30, ctx),
+      decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
+    },
+    rand,
+  );
+  book(ledger, soul, (soul.won ? 450 : -450) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
+  momentum = clamp(momentum + (soul.won ? 5 : -5), 5, 95);
   events.push({
-    clock: 23, kind: "objective", tone: objWon ? "win" : "loss",
-    text: objWon ? "🐲 Soul point dragon — secured" : "🐲 Soul point dragon — lost",
-    detail: `objectives ${Math.round(yourObj)} vs ${Math.round(theirObj)}`,
+    clock: 23, kind: "objective", tone: soul.won ? "win" : "loss",
+    text: soul.won ? "🐲 Soul point dragon — secured" : "🐲 Soul point dragon — lost",
+    detail: contestDetail(soul), contestKey: soul.key, gold: soul.goldSwing,
   });
 
-  // ── The big fight. Symmetric ±8, same as the skirmish.
-  const fightFlat = effects.fightFlat ?? 0;
-  const yourFight = teamAvg(yours, ["combat", "damage"], effects) + fightFlat;
-  const theirFight = teamAvg(theirs, ["combat", "damage"]);
-  const carry = [...yours].sort((a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects))[0];
-  const fightWon = yourFight + (rand() - 0.5) * 28 >= theirFight;
-  momentum = clamp(momentum + (fightWon ? 8 : -8), 5, 95);
+  // ── The Baron pit. You start it when you called it or you're ahead.
+  const yoursToStart = calledBaron || momentum >= 48;
+  const { dance, contest: baronContest } = baronDance(yours, theirs, ctx, yoursToStart, rand);
+  book(ledger, baronContest, (dance.taken ? 1500 : -1500) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
+  momentum = clamp(momentum + (dance.taken ? 9 : -9), 5, 95);
   events.push({
-    clock: 26, kind: "fight", tone: fightWon ? "win" : "loss",
-    text: fightWon
+    clock: dance.clock, kind: "baron", tone: dance.taken ? "win" : "loss",
+    text: dance.taken
+      ? `🟣 BARON — ${dance.hpAtResolve <= 0 ? "burned down clean" : "won the smite war"}`
+      : `🟣 BARON — ${dance.stolen ? `STOLEN at ${dance.hpAtResolve}%` : "theirs"}`,
+    detail: `${dance.note} · ${contestDetail(baronContest)}`,
+    contestKey: baronContest.key, gold: baronContest.goldSwing,
+  });
+
+  // ── The fight that Baron buys — now weighted by the gold on the board.
+  const edge = goldEdge(ledger.gold, ctx.arena);
+  const carry = [...yours].sort((a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects))[0];
+  const pitFight = runContest(
+    {
+      key: "fight-27", kind: "fight", label: "⚔ Fight at Baron pit", clock: 27,
+      yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
+      yourVal: teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + edge + (dance.taken ? 6 : -6),
+      theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 27),
+      spread: noise(28, ctx),
+      decidedBy: carry?.name ?? null, role: carry?.role ?? null,
+    },
+    rand,
+  );
+  book(ledger, pitFight, pitFight.won ? 1300 : -1300, ctx);
+  bookFight(ledger, yours, pitFight.won, effects);
+  momentum = clamp(momentum + (pitFight.won ? 8 : -8) * (ctx.arena.fightSwingMult ?? 1), 5, 95);
+  events.push({
+    clock: 27, kind: "fight", tone: pitFight.won ? "win" : "loss",
+    text: pitFight.won
       ? `⚔ Fight at Baron pit — won, ${carry?.name ?? "your carry"} cleans it up`
       : "⚔ Fight at Baron pit — lost",
-    detail: `damage ${Math.round(yourFight)} vs ${Math.round(theirFight)}`,
+    detail: `${contestDetail(pitFight)} · gold edge ${edge >= 0 ? "+" : ""}${Math.round(edge)}`,
+    contestKey: pitFight.key, gold: pitFight.goldSwing,
   });
 
   // ── A close game earns a hold: a real contest against their closers.
   if (momentum >= 35 && momentum <= 65) {
     const holder = [...yours].sort((a, b) => statOf(b, "survival", effects) - statOf(a, "survival", effects))[0];
-    const held =
-      teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + (rand() - 0.5) * 20 >=
-      teamAvg(theirs, ["damage", "objectives"]);
-    momentum = clamp(momentum + (held ? 6 : -8), 5, 95);
+    const hold = runContest(
+      {
+        key: "hold-29", kind: "hold", label: "🏰 The base hold", clock: 29,
+        yourKeys: ["survival", "turrets"], theirKeys: ["damage", "objectives"],
+        yourVal: teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + edge * 0.5,
+        theirVal:
+          teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29),
+        spread: noise(20, ctx),
+        decidedBy: holder?.name ?? null, role: holder?.role ?? null,
+      },
+      rand,
+    );
+    book(ledger, hold, hold.won ? 500 : -800, ctx);
+    momentum = clamp(momentum + (hold.won ? 6 : -8), 5, 95);
     events.push({
-      clock: 28, kind: "hold", tone: held ? "win" : "loss",
-      text: held ? `🏰 They backdoor — ${holder?.name ?? "the base"} holds alone` : "🏰 They backdoor — the base cracks",
-      detail: `survival ${Math.round(statOf(holder ?? yours[0], "survival", effects))}`,
+      clock: 29, kind: "hold", tone: hold.won ? "win" : "loss",
+      text: hold.won ? `🏰 They siege — ${holder?.name ?? "the base"} holds it` : "🏰 They siege — the base cracks",
+      detail: contestDetail(hold), contestKey: hold.key, gold: hold.goldSwing,
     });
   }
 
-  // ── The call home: momentum plus the closers' impact, snowballed if
-  //   the lanes earned it.
+  // ── The call home: momentum, the closers' impact, and the gold on the
+  //   board — snowballed if the lanes earned it.
   const impact = teamAvg(yours, ["impact"], effects) - teamAvg(theirs, ["impact"]);
   const snowball = state.lanesWon >= 3 ? (effects.snowballMult ?? 1) : 1;
-  const finalScore = (momentum - 50) * snowball + impact * 0.6 + (rand() - 0.5) * 10;
+  const finalEdge = goldEdge(ledger.gold, ctx.arena);
+  const finalScore = (momentum - 50) * snowball + impact * 0.6 + finalEdge * 1.1 + (rand() - 0.5) * noise(10, ctx);
   const won = finalScore >= 0;
   momentum = clamp(Math.round(50 + finalScore), 2, 98);
+  ledger.goldSeries.push({ clock: 31, diff: Math.round(ledger.gold) });
   events.push({
-    clock: 30, kind: "nexus", tone: won ? "win" : "loss",
+    clock: 31, kind: "nexus", tone: won ? "win" : "loss",
     text: won ? "VICTORY — NEXUS FALLS" : "DEFEAT — the run ends here",
-    detail: null,
+    detail: `momentum ${Math.round(momentum)} · gold ${ledger.gold >= 0 ? "+" : ""}${Math.round(ledger.gold)} · impact ${impact >= 0 ? "+" : ""}${Math.round(impact)}`,
+    gold: 0,
   });
+
+  // MVP: the card that carried the most weight, not just the most damage.
+  const mvpLine = [...ledger.players].sort(
+    (a, b) =>
+      b.kills * 3 + b.assists + b.contestsWon * 2 - b.deaths - (a.kills * 3 + a.assists + a.contestsWon * 2 - a.deaths),
+  )[0];
 
   return {
     won,
     events,
     lanes: state.lanes,
     momentum,
-    mvp: carry?.name ?? yours[0]?.name ?? "—",
+    mvp: mvpLine?.name ?? carry?.name ?? yours[0]?.name ?? "—",
     daring: won ? daring : 0,
     yourStyle: state.yourStyle,
     theirStyle: state.theirStyle,
+    contests: ledger.contests,
+    goldSeries: ledger.goldSeries,
+    gold: Math.round(ledger.gold),
+    players: ledger.players,
+    baron: dance,
   };
 }
 
@@ -409,15 +802,15 @@ export function simulateSecondHalf(
 export function simulateMatch(
   yours: GauntletCard[],
   theirs: GauntletCard[],
-  effects: RelicEffects,
+  ctx: MatchContext,
   rand: () => number,
   choose: (situation: CrossroadsSituation, state: HalfState) => string = (situation) =>
     safeChoiceOf(situation).key,
 ): Omit<MatchResult, "score"> {
-  const half = simulateFirstHalf(yours, theirs, effects, rand);
+  const half = simulateFirstHalf(yours, theirs, ctx, rand);
   const situation = CROSSROADS_BY_KEY.get(half.situationKey);
   const choiceKey = situation ? choose(situation, half) : "";
-  return simulateSecondHalf(half, choiceKey, yours, theirs, effects, rand);
+  return simulateSecondHalf(half, choiceKey, yours, theirs, ctx, rand);
 }
 
 /**
