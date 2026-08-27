@@ -163,6 +163,7 @@ Postgres database and public schema:
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
+| Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
 
@@ -193,6 +194,14 @@ Important RPC families include:
   records it in `weekly_draws`, pays the pot through `betting_ledger`, and
   comps a standard pack. It is idempotent: a second call for the same season
   and week returns the recorded winner and changes nothing.
+- Card expeditions: `launch_expedition` validates the squad, confirms the
+  caller owns all three copies, enforces the per-day launch limit under the
+  wallet lock, and refuses a copy that is already deployed. `claim_expedition`
+  writes the app-rolled outcome exactly once — `claimed_at` is the reroll
+  lock — pays the dollars through `betting_ledger`, adds the pack comp, and
+  replaces the bearer's mark only when the new one outranks the mark it
+  already wears. Both are service-role only; the shine, gates, odds, and
+  payouts they are handed come from `src/lib/expeditions/config.ts`.
 
 ## Player identity and My Team
 
@@ -331,6 +340,11 @@ flows when Docker/Supabase is available.
   `npx tsx scripts/archive-card-edition.ts all`, or the "Archive card
   edition" workflow with "Rebuild every week" ticked. Cards already pulled
   live in `card_inventory` and stay frozen by design.
+- A copy in an unclaimed expedition cannot leave its collection. The
+  `card_inventory_expedition_guard` trigger raises `card is on expedition` on
+  any delete or owner change, so melt and trade fail at the database no
+  matter what the UI offers. Hide deployed copies from those screens for the
+  explanation, not for the enforcement.
 - When a stats row has no `team_name`, the stats views intentionally handle it
   as unknown rather than inventing a team. Use the report-side resolution or
   the documented `--team-map`/backfill path.
