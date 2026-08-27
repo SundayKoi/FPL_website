@@ -122,8 +122,10 @@ export default async function ChampionsPreviewPage() {
             </figure>
           ))}
           <figure className="flex w-60 flex-col items-center gap-2">
-            <ChampionsCard card={queen} signed />
-            <figcaption className="text-xs uppercase tracking-[0.16em] text-steel">autographed</figcaption>
+            {/* Signed always prints foil (base Prisma when the parallel
+                didn't roll on its own) — same rule as player cards. */}
+            <ChampionsCard card={queen} foil foilType="prisma" signed />
+            <figcaption className="text-xs uppercase tracking-[0.16em] text-steel">autographed · always foil</figcaption>
           </figure>
         </div>
       </section>

@@ -14,7 +14,7 @@ import {
 } from "@/lib/cards/champions";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { ALT_SKIN_CHANCE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
@@ -490,10 +490,10 @@ export async function openChampionsPack(
   // Same CSPRNG discipline as the shop: pack contents gate real value.
   const rand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
   const def = rollChampionCard(rand);
-  const foil = rand() < CHAMPION_FOIL_CHANCE;
+  const foilRolled = rand() < CHAMPION_FOIL_CHANCE;
   // Rolled only when foil hit, preserving the conditional-consumption
   // pattern rng.ts established.
-  const foilType = foil ? rollFoilType(rand) : null;
+  const rolledType = foilRolled ? rollFoilType(rand) : null;
 
   const { data: inkRows } = await service
     .from("card_art_prefs")
@@ -505,6 +505,12 @@ export async function openChampionsPack(
     .limit(1);
   const ink = ((inkRows as { signature: string | null }[] | null) ?? [])[0]?.signature ?? null;
   const signed = Boolean(ink) && rand() < CHAMPION_SIGNED_CHANCE;
+  // A signed relic always prints foil, same rule as player cards
+  // (signatures.ts): real ink on a matte card reads as a downgrade. A
+  // signed copy that didn't roll its own parallel gets the base Prisma;
+  // dust is unaffected either way — champions foil is inert.
+  const foil = foilRolled || signed;
+  const foilType = rolledType ?? (signed ? DEFAULT_FOIL_TYPE : null);
 
   // Which mint of this rank the copy is. A plain count, same contract as
   // moment serials: a same-second tie shares a number and that's a story,
