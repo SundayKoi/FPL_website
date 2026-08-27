@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { hiResLogoUrl } from "@/components/cards/ChampionsCard";
-import { CHAMPIONS_SET, CHAMPION_TIER, championToCard } from "./champions";
+import { dustValueOf, SIGNED_DUST_BASE } from "@/lib/packs/config";
+import { MOMENT_DUST } from "./moments";
+import { CHAMPION_DUST, CHAMPIONS_SET, CHAMPION_TIER, championToCard, rollChampionCard } from "./champions";
 
 describe("the Dealer's Hand set", () => {
   it("is exactly five cards with unique ranks, slugs and positions", () => {
@@ -16,8 +18,9 @@ describe("the Dealer's Hand set", () => {
     const byRank = new Map(CHAMPIONS_SET.map((def) => [def.rank, def]));
     expect(byRank.get("K")?.name).toBe("king of spades");
     expect(byRank.get("A")?.name).toBe("i am atomic");
-    // Shanedata took the Queen (dealer's call), stats under Feral Eevee.
-    expect(byRank.get("Q")?.name).toBe("Shanedata");
+    // The Queen prints the summoner name (Shanedata is the human, Feral
+    // Eevee the account the title was won on — owner's call).
+    expect(byRank.get("Q")?.name).toBe("Feral Eevee");
     expect(byRank.get("Q")?.riot).toEqual({ summoner: "Feral Eevee", tag: "133" });
     expect(byRank.get("7")?.name).toBe("7gen");
     expect(byRank.get("JOKER")?.name).toBe("the fool");
@@ -46,6 +49,33 @@ describe("the Dealer's Hand set", () => {
     expect(CHAMPION_TIER).toBe("champion");
     // The copy shelves in the CURRENT season; the card names the one won.
     expect(card.season).toBe("S5");
+  });
+});
+
+describe("the drop's numbers", () => {
+  it("keeps the relic under a moment, with real ink still worth its bonus", () => {
+    expect(dustValueOf({ tier: CHAMPION_TIER, foil: false, signed: false })).toBe(CHAMPION_DUST);
+    // Foil is the flex, not the price — champion × ice under the normal
+    // ladder would outrank a moment.
+    expect(dustValueOf({ tier: CHAMPION_TIER, foil: true, foilType: "ice", signed: false })).toBe(CHAMPION_DUST);
+    expect(dustValueOf({ tier: CHAMPION_TIER, foil: true, foilType: "ice", signed: true })).toBe(
+      CHAMPION_DUST + SIGNED_DUST_BASE,
+    );
+    expect(CHAMPION_DUST).toBeLessThan(MOMENT_DUST);
+  });
+
+  it("deals every rank uniformly and in bounds", () => {
+    // Deterministic rands hitting each fifth of [0,1).
+    for (let i = 0; i < 5; i += 1) {
+      expect(rollChampionCard(() => i / 5 + 0.01)).toBe(CHAMPIONS_SET[i]);
+    }
+    // The edge of the interval never falls off the set.
+    expect(rollChampionCard(() => 0.999999)).toBe(CHAMPIONS_SET[4]);
+  });
+
+  it("stamps the mint serial into the frozen wrapper", () => {
+    expect(championToCard(CHAMPIONS_SET[0], "S5", 3).champWin?.copySerial).toBe(3);
+    expect(championToCard(CHAMPIONS_SET[0], "S5").champWin?.copySerial).toBeUndefined();
   });
 });
 

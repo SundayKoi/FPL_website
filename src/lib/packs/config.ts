@@ -4,6 +4,7 @@
 // rather than hardcoding their own.
 
 import type { CardTier } from "@/lib/cards/build";
+import { CHAMPION_DUST, CHAMPION_TIER } from "@/lib/cards/champions";
 import { MOMENT_DUST, MOMENT_TIER } from "@/lib/cards/moments";
 
 /** A card tier key, as produced by the rating engine's `tierFor`. */
@@ -271,6 +272,11 @@ export function dustValueOf(row: {
   // Either signal is enough: the flat column says "moment" on a stored
   // copy, and the flag covers a caller holding the card json instead.
   if (row.moment || row.tier === MOMENT_TIER) return MOMENT_DUST;
+  // Champions relics price flat and their foil does NOT multiply — the
+  // parallel is the flex, and champion × ice under the ladder would blow
+  // past MOMENT_DUST. The autograph bonus still applies: real ink is real
+  // ink on any card.
+  if (row.tier === CHAMPION_TIER) return CHAMPION_DUST + (row.signed ? SIGNED_DUST_BASE : 0);
   const rarity = RARITY_BY_TIER[row.tier as CardTierKey] ?? "common";
   let value = DUST_VALUES[rarity];
   // Rounded because the middle of the ladder is fractional (2.5) and dust

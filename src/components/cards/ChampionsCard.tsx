@@ -12,6 +12,7 @@
 // autograph should read like a signing-day sharpie anyway.
 
 import { championSplashUrl } from "@/lib/match-draft/champions";
+import { mintOrdinal } from "@/lib/cards/moments";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { PlayerCardData } from "@/lib/cards/build";
 
@@ -183,6 +184,7 @@ export default function ChampionsCard({
       </p>
       <p className="absolute inset-x-[16%] bottom-[4.5%] text-center text-[0.54rem] font-semibold uppercase tracking-[0.16em] text-[#8d8388]">
         {print.seasonWon} Champions · The Hand · {print.setIndex} of {print.setSize}
+        {print.copySerial ? ` · ${mintOrdinal(print.copySerial)} mint` : ""}
       </p>
 
       {/* Which parallel, said out loud — same rule as player cards: Prisma
@@ -194,12 +196,27 @@ export default function ChampionsCard({
       ) : null}
 
       {signed ? (
-        // Up in the open sky above the spade's shoulders — the one region
-        // with neither text nor pip. Sits below the corner chip's line so a
-        // signed parallel keeps both legible.
-        <span className="champ-ink absolute right-[10%] top-[9%] -rotate-[8deg] text-[1.75rem]" aria-label="Autographed">
-          {card.name}
-        </span>
+        // Up in the open sky above the center mark — the one region with
+        // neither text nor art. REAL INK ONLY in production: the mint
+        // rolls autographs solely for champions whose drawn signature is
+        // on file, and that PNG renders here exactly as it does on player
+        // cards. The script fallback exists for the owner preview, where
+        // no mint has happened.
+        card.autograph ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={card.autograph}
+            alt={`${card.name}'s autograph`}
+            data-testid="champ-autograph"
+            decoding="async"
+            className="pointer-events-none absolute right-[8%] top-[7%] w-[45%] -rotate-[8deg] object-contain"
+            style={{ filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))" }}
+          />
+        ) : (
+          <span className="champ-ink absolute right-[10%] top-[9%] -rotate-[8deg] text-[1.75rem]" aria-label="Autographed">
+            {card.name}
+          </span>
+        )
       ) : null}
 
       {foil ? (

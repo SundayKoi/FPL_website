@@ -20,7 +20,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { CardLeague } from "@/lib/cards/queries";
-import { openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
+import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
+import { openChampionsPackAction, openDailyRipAction, openPackAction, setPatronFlameAction } from "@/lib/packs/actions";
 import { dustManyAction } from "@/lib/trades/actions";
 import { PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
@@ -44,6 +45,7 @@ export default function PackShop({
   dailyRipsLeft = 0,
   patron = false,
   flame = null,
+  championsOpen = false,
 }: {
   league: CardLeague;
   balance: number;
@@ -65,6 +67,9 @@ export default function PackShop({
   patron?: boolean;
   /** The patron's flame, for the reveal stage and the wardrobe picker. */
   flame?: string | null;
+  /** The Faceless Drop window is open — shows the relic pack button.
+   *  Presentation only; the timestamp on league_settings is the gate. */
+  championsOpen?: boolean;
 }) {
   const router = useRouter();
   const [balance, setBalance] = useState(initialBalance);
@@ -107,6 +112,19 @@ export default function PackShop({
     setError(null);
     startTransition(async () => {
       const result = await openPackAction(league, week || undefined);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPulls(result.cards);
+      banked(result.balance);
+    });
+  }
+
+  function handleChampionsPack() {
+    setError(null);
+    startTransition(async () => {
+      const result = await openChampionsPackAction();
       if (!result.ok) {
         setError(result.error);
         return;
@@ -202,6 +220,17 @@ export default function PackShop({
         >
           {pending ? "Opening…" : `Open pack — ${fmtPoints(packCost)}`}
         </button>
+        {championsOpen ? (
+          <button
+            type="button"
+            onClick={handleChampionsPack}
+            disabled={pending}
+            title="One card of the S4 champions' Hand per pack"
+            className="rounded-full border border-[#d61f2c]/70 bg-[#d61f2c]/15 px-5 py-2.5 text-sm font-semibold text-[#ff6b76] transition hover:bg-[#d61f2c]/25 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            🂡 Faceless Pack — {fmtPoints(CHAMPIONS_PACK_COST)}
+          </button>
+        ) : null}
         <div className="flex items-center gap-2">
           <button
             type="button"

@@ -11,8 +11,9 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { PATRON_FLAME_KEYS } from "@/lib/patron/flames";
 import type { CardLeague } from "@/lib/cards/queries";
+import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { PACK_COST } from "./config";
-import { openPackFor, type OpenPackResult } from "./open";
+import { openChampionsPack, openPackFor, type OpenPackResult } from "./open";
 
 export async function openPackAction(
   league: CardLeague,
@@ -41,6 +42,18 @@ export async function openDailyRipAction(league: CardLeague, requestedWeek?: str
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
   return openPackFor(user.discordId, league, { daily: true, requestedWeek, fallbackBalance: user.balance });
+}
+
+/**
+ * The Faceless Drop — one card of the S4 champions' Hand. The window
+ * check lives in the core (the shop button disappearing is presentation;
+ * the timestamp is the gate).
+ */
+export async function openChampionsPackAction(): Promise<OpenPackResult> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  return openChampionsPack(user.discordId, { fallbackBalance: user.balance - CHAMPIONS_PACK_COST });
 }
 
 /**

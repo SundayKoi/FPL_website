@@ -66,8 +66,9 @@ export default async function ChampionsPreviewPage() {
       <section aria-label="Luck rolls" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Foiled &amp; signed</h2>
         <p className="max-w-[62ch] text-sm text-steel">
-          The Q♠ through every parallel, plus the autograph — the same overlays and odds machinery player cards
-          use will apply when the drop goes live.
+          The Q♠ through every parallel, plus the autograph. Ink is REAL only: the mint rolls signatures solely
+          for champions whose drawn ink is on file (the script shown here is the preview stand-in). Champions who
+          can&apos;t currently sign simply never come signed — until they do.
         </p>
         <div className="flex flex-wrap gap-6">
           {(["prisma", "aurora", "refractor", "ice"] as const).map((type) => (
