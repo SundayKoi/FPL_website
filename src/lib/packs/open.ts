@@ -78,6 +78,9 @@ export type OpenPackResult =
        *  betting-dollar bonus this rip paid (0 except every 7th day). */
       streak?: number;
       streakBonus?: number;
+      /** Set when this open spent a comp (a free pack): how many the
+       *  holder has left afterwards. */
+      compsLeft?: number;
     }
   | { ok: false; error: string };
 
@@ -446,13 +449,43 @@ export async function openChampionsPack(
   const season = await fetchCardSeason(service, "premier");
   if (!season) return { ok: false, error: "No season is set up for packs yet." };
 
-  const { data: openData, error: openError } = await service.rpc("open_card_pack", {
-    p_user: discordId,
-    p_season: season,
-    p_cost: CHAMPIONS_PACK_COST,
-  });
-  if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
-  const openId = openData as number;
+  // The Champion's Tribute: squad members hold free packs. Spent by
+  // compare-and-swap (PostgREST can't decrement in place): read the
+  // count, then update only if it still holds — a lost race just retries
+  // against the new count, and two clicks can never spend one comp twice
+  // or the same comp for two packs. On exhausted comps this falls
+  // through to the normal charge.
+  let compRemaining: number | null = null;
+  for (let attempt = 0; attempt < 2 && compRemaining === null; attempt += 1) {
+    const { data: compRow } = await service
+      .from("card_pack_comps")
+      .select("*")
+      .eq("discord_id", discordId)
+      .eq("kind", "champions")
+      .maybeSingle();
+    const held = (compRow as { remaining?: number } | null)?.remaining ?? 0;
+    if (held <= 0) break;
+    const { data: spent } = await service
+      .from("card_pack_comps")
+      .update({ remaining: held - 1 })
+      .eq("discord_id", discordId)
+      .eq("kind", "champions")
+      .eq("remaining", held)
+      .select("remaining");
+    if (spent && spent.length > 0) compRemaining = held - 1;
+  }
+  const usedComp = compRemaining !== null;
+
+  let openId: number | null = null;
+  if (!usedComp) {
+    const { data: openData, error: openError } = await service.rpc("open_card_pack", {
+      p_user: discordId,
+      p_season: season,
+      p_cost: CHAMPIONS_PACK_COST,
+    });
+    if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
+    openId = openData as number;
+  }
 
   // Same CSPRNG discipline as the shop: pack contents gate real value.
   const rand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
@@ -510,6 +543,32 @@ export async function openChampionsPack(
     .single();
 
   if (insertError || !inserted) {
+    if (usedComp) {
+      // Hand the comp back the same CAS way it was spent — best effort,
+      // and loud when it fails, because a lost comp is a support ticket.
+      const { data: compRow } = await service
+        .from("card_pack_comps")
+        .select("*")
+        .eq("discord_id", discordId)
+        .eq("kind", "champions")
+        .maybeSingle();
+      const held = (compRow as { remaining?: number } | null)?.remaining;
+      const { data: restored } =
+        held === undefined
+          ? { data: null }
+          : await service
+              .from("card_pack_comps")
+              .update({ remaining: held + 1 })
+              .eq("discord_id", discordId)
+              .eq("kind", "champions")
+              .eq("remaining", held)
+              .select("remaining");
+      if (!restored || restored.length === 0) {
+        console.error("packs: comp restore failed (champions)", { discordId, insertError });
+        return { ok: false, error: "That pack didn't open and the free pack couldn't be returned — staff have been notified." };
+      }
+      return { ok: false, error: "That pack didn't open — your free pack wasn't spent." };
+    }
     const { error: refundError } = await service.rpc("refund_card_pack", { p_open: openId });
     if (refundError) {
       console.error("packs: refund_card_pack failed (champions)", { openId, refundError, insertError });
@@ -538,5 +597,8 @@ export async function openChampionsPack(
       },
     ],
     balance: (profile as { balance: number } | null)?.balance ?? opts.fallbackBalance ?? 0,
+    // Free packs left after this open, when the holder has any — the shop
+    // keeps its tribute banner honest with it.
+    ...(usedComp ? { compsLeft: compRemaining ?? 0 } : {}),
   };
 }
