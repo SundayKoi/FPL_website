@@ -25,6 +25,16 @@ export interface RelicEffects {
   styleScorePerShiny?: number;
   /** One mid-run lineup swap (consumed by the run state, not the sim). */
   benchSwap?: boolean;
+  /** Flat bonus to BOTH fights — the brawler's dial. */
+  fightFlat?: number;
+  /** Flat shift on every lane matchup. Negative on tradeoff relics. */
+  lanesFlat?: number;
+  /** Flat bonus to the backdoor hold. Negative on glass builds. */
+  holdFlat?: number;
+  /** Flat help on every crossroads check — the shot-caller's dial. */
+  crossroadsBonus?: number;
+  /** Extra percent banked when retreating (consumed by the run state). */
+  bankBonusPct?: number;
 }
 
 export type RelicFamily = "ember" | "void" | "ice" | "gold";
@@ -106,6 +116,62 @@ export const RELIC_CATALOG: RelicDef[] = [
     // engine stays the only thing that touches numbers.
     effects: { earlyFightBonus: 3, laneMomentumMult: 1.1 },
   },
+  {
+    key: "overtime",
+    family: "ember",
+    title: "OVERTIME",
+    effect: "Both fights at +6 — but every lane at −3. You skipped scrims for this.",
+    flavor: "Practice is for teams that lose.",
+    effects: { fightFlat: 6, lanesFlat: -3 },
+  },
+  {
+    key: "glass_cannon",
+    family: "ember",
+    title: "GLASS CANNON",
+    effect: "Fights at +8; the base hold at −8. Nobody's home.",
+    flavor: "The best defense is their fountain.",
+    effects: { fightFlat: 8, holdFlat: -8 },
+  },
+  {
+    key: "shot_caller",
+    family: "gold",
+    title: "THE SHOT CALLER",
+    effect: "Every crossroads check at +8. The call was right before the fight started.",
+    flavor: "Mid says go. You go.",
+    effects: { crossroadsBonus: 8 },
+  },
+  {
+    key: "deep_wards",
+    family: "void",
+    title: "DEEP WARDS",
+    effect: "The base hold at +8 and objectives at +4 — you see everything coming.",
+    flavor: "They walked past three of them.",
+    effects: { holdFlat: 8, objectivesFlat: 4 },
+  },
+  {
+    key: "pit_boss",
+    family: "void",
+    title: "PIT BOSS",
+    effect: "Objectives at +6 and crossroads checks at +4 — the pit belongs to you.",
+    flavor: "House rules.",
+    effects: { objectivesFlat: 6, crossroadsBonus: 4 },
+  },
+  {
+    key: "late_bloomer",
+    family: "ice",
+    title: "LATE BLOOMER",
+    effect: "Lanes at −4; fights at +4 and the hold at +6. The game you want starts at 20 minutes.",
+    flavor: "Ask again after three items.",
+    effects: { lanesFlat: -4, fightFlat: 4, holdFlat: 6 },
+  },
+  {
+    key: "the_banker",
+    family: "gold",
+    title: "THE BANKER",
+    effect: "Retreating banks 15% extra score. The coward's exit, gilded.",
+    flavor: "A living score beats a dead legend.",
+    effects: { bankBonusPct: 15 },
+  },
 ];
 
 export const RELIC_BY_KEY = new Map(RELIC_CATALOG.map((relic) => [relic.key, relic]));
@@ -125,6 +191,11 @@ export function aggregateEffects(relicKeys: string[]): RelicEffects {
     if (fx.earlyFightBonus) total.earlyFightBonus = (total.earlyFightBonus ?? 0) + fx.earlyFightBonus;
     if (fx.freshLegsExtra) total.freshLegsExtra = (total.freshLegsExtra ?? 0) + fx.freshLegsExtra;
     if (fx.styleScorePerShiny) total.styleScorePerShiny = (total.styleScorePerShiny ?? 0) + fx.styleScorePerShiny;
+    if (fx.fightFlat) total.fightFlat = (total.fightFlat ?? 0) + fx.fightFlat;
+    if (fx.lanesFlat) total.lanesFlat = (total.lanesFlat ?? 0) + fx.lanesFlat;
+    if (fx.holdFlat) total.holdFlat = (total.holdFlat ?? 0) + fx.holdFlat;
+    if (fx.crossroadsBonus) total.crossroadsBonus = (total.crossroadsBonus ?? 0) + fx.crossroadsBonus;
+    if (fx.bankBonusPct) total.bankBonusPct = (total.bankBonusPct ?? 0) + fx.bankBonusPct;
     if (fx.benchSwap) total.benchSwap = true;
   }
   return total;
