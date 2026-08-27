@@ -82,8 +82,8 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
           <p className="mt-3 max-w-2xl text-sm text-steel">
             {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the
             same — a Bronze common has exactly the odds a Challenger foil does. Every Tuesday one copy
-            comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} betting dollars and a free pack, and
-            the winning card is stamped with a laurel it wears forever.
+            comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and the winning
+            card is stamped with a laurel it wears forever.
           </p>
           <Link
             href={base}

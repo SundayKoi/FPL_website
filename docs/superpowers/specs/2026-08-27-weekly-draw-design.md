@@ -76,7 +76,15 @@ create table public.weekly_draws (
 4. Stamp the copy's `card` json with `drawWin`.
 5. Credit the pot via the existing ledgered wallet grant; upsert the
    pack comp (`card_pack_comps`).
-6. Queue an `announcements` row — the Discord poster does the rest.
+
+Announcing is *not* part of the transaction. There is no queue-and-post
+pipeline for the cards domain — `announcements` is the captain page's
+board, and nothing drains it into #cards. Cards announce themselves the
+way every other card event does: a Discord embed posted straight to the
+cards webhook (`postCardsWebhook` in `src/lib/packs/announce.ts`, or the
+same embed inlined when the caller is a plain node script, since that
+module is `server-only`). So the runner posts the winner after the RPC
+returns — and a webhook outage never fails a draw that already paid.
 
 ## Scheduling
 

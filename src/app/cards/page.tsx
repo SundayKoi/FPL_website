@@ -229,12 +229,11 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
           <span className="label-dash">The Weekly Draw</span>
           <p className="type-display mt-1 text-xl sm:text-2xl">{drawPanel.headline}</p>
           <p className="mt-1 max-w-xl text-sm text-steel">
-            {DRAW_TAGLINE} This week&apos;s pot is {fmtPoints(WEEKLY_DRAW_POT)} betting dollars and a free
-            pack.
+            {DRAW_TAGLINE} This week&apos;s pot is {fmtPoints(WEEKLY_DRAW_POT)} and a free pack.
             {latestDraw
               ? drawPanel.isWinner
-                ? ` Drawn ${monthDay(latestDraw.weekStart)} — that one was yours.`
-                : ` Drawn ${monthDay(latestDraw.weekStart)} — ${drawWinnerName} held the ticket.`
+                ? ` Week of ${monthDay(latestDraw.weekStart)} — that one was yours.`
+                : ` Week of ${monthDay(latestDraw.weekStart)} — ${drawWinnerName} held the ticket.`
               : ""}
           </p>
           {drawViewerId ? (
