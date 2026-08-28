@@ -54,6 +54,14 @@ describe("PremiumHub betting preview", () => {
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
   });
 
+  it("keeps card-specific deep links out of the hub", () => {
+    render(<PremiumHub snapshot={snapshot} />);
+
+    expect(screen.queryByRole("heading", { name: "Your card economy" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Go deeper" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Open Packs/i })).toBeNull();
+  });
+
   it("offers detailed patron support from the premium edge heading", () => {
     render(<PremiumHub snapshot={snapshot} />);
 

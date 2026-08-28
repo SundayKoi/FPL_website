@@ -20,20 +20,6 @@ const PREMIUM_LINKS = [
   { label: "Match Drafter", href: "/drafter", note: "Run a private pick / ban lobby" },
 ] as const;
 
-const CARD_TOOLS = [
-  { label: "Team Cards", href: "teams", note: "Every roster as one composite card", mark: "▦" },
-  { label: "Card vs Card", href: "compare", note: "Put two players head to head", mark: "⚔" },
-  { label: "Moments", href: "moments", note: "Rare single-game performances", mark: "✦" },
-] as const;
-
-const CARD_ECONOMY = [
-  { label: "Open Packs", href: "packs", note: "Build a collection from weekly drops", mark: "▣" },
-  { label: "Your Binder", href: "packs#binder", note: "Put six favorites on display", mark: "▤" },
-  { label: "Trading Post", href: "trades", note: "Swap cards and betting dollars", mark: "⇄" },
-  { label: "Fantasy", href: "fantasy", note: "Field five cards under the cap", mark: "★" },
-  { label: "Card Ledger", href: "stats", note: "See what the league has pulled", mark: "⌁" },
-] as const;
-
 type PreviewFailure<T> = Extract<PreviewResult<T>, { status: "empty" | "unavailable" }>;
 
 function resultMessage<T>(result: PreviewFailure<T>) {
@@ -135,28 +121,6 @@ function FeatureCard({
   );
 }
 
-function MiniLinkGrid({ items, base }: { items: readonly { label: string; href: string; note: string; mark: string }[]; base: string }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={`${base}/${item.href}`}
-          className="group rounded-lg border border-line bg-navy/60 p-4 transition hover:border-coral/60 hover:bg-navy"
-        >
-          <div className="flex items-start gap-3">
-            <span aria-hidden="true" className="text-xl text-gold">{item.mark}</span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-white group-hover:text-coral">{item.label}</span>
-              <span className="mt-1 block text-xs leading-5 text-steel">{item.note}</span>
-            </span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 function DraftLeaguePreview() {
   return (
     <div className="flex min-h-28 flex-col justify-between rounded-lg border border-line bg-gradient-to-br from-coral/15 via-navy/70 to-gold/10 p-5">
@@ -165,29 +129,6 @@ function DraftLeaguePreview() {
         <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">External</span>
       </div>
       <p className="mt-5 text-sm leading-6 text-steel">The companion league experience, linked from your Premium HQ.</p>
-    </div>
-  );
-}
-
-function CardEconomyPreview() {
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      <div className="rounded-lg border border-gold/40 bg-gold/10 p-4 text-center">
-        <div className="mx-auto h-20 w-14 rounded-md border-2 border-gold/70 bg-gradient-to-br from-gold/30 to-navy shadow-lg shadow-gold/10" />
-        <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-gold">Weekly packs</span>
-      </div>
-      <div className="rounded-lg border border-line bg-navy/60 p-4">
-        <div className="grid grid-cols-3 gap-1.5">
-          {Array.from({ length: 6 }, (_, index) => <span key={index} className="aspect-[5/7] rounded border border-line bg-panel" />)}
-        </div>
-        <span className="mt-3 block text-xs font-semibold uppercase tracking-wide text-white">Binder shelf</span>
-      </div>
-      <div className="rounded-lg border border-line bg-navy/60 p-4">
-        <div className="flex items-center justify-center gap-2 py-5 text-2xl text-coral">
-          <span>▣</span><span>⇄</span><span>▣</span>
-        </div>
-        <span className="block text-center text-xs font-semibold uppercase tracking-wide text-white">Trade, field, collect</span>
-      </div>
     </div>
   );
 }
@@ -406,19 +347,6 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             </div>
           </FeatureCard>
         </div>
-      </section>
-
-      <section aria-labelledby="card-economy-heading" className="flex flex-col gap-5">
-        <SectionHeading eyebrow="Collect and play" title="Your card economy" description="Every card action, visible before you open another page." />
-        <h2 id="card-economy-heading" className="sr-only">Card economy</h2>
-        <CardEconomyPreview />
-        <MiniLinkGrid items={CARD_ECONOMY} base={base} />
-      </section>
-
-      <section aria-labelledby="card-tools-heading" className="flex flex-col gap-5">
-        <SectionHeading eyebrow="More card tools" title="Go deeper" />
-        <h2 id="card-tools-heading" className="sr-only">More card tools</h2>
-        <MiniLinkGrid items={CARD_TOOLS} base={base} />
       </section>
 
       <div className="accent-rule" aria-hidden="true" />
