@@ -22,6 +22,7 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import MomentPlate from "./MomentPlate";
+import TeamCard from "./TeamCard";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
  *  glint layer — deterministic so SSR and client agree. */
@@ -952,6 +953,19 @@ export default function PlayerCard3D(props: {
   // because PlayerCardFace's hooks cannot run conditionally.
   // A champions-drop card is a relic, not a rating — same wrapper-branch
   // reasoning as moments below, same 20rem shell as everything.
+  // A roster plate is five players and a crest, not a rating — same
+  // wrapper-branch reasoning as the two relics below it.
+  if (props.card.team) {
+    return (
+      <div className={`w-full max-w-[20rem] ${props.className ?? ""}`}>
+        <TeamCard
+          team={props.card.team}
+          foil={props.forceFoil === true}
+          foilType={props.foilType ?? null}
+        />
+      </div>
+    );
+  }
   if (props.card.champWin) {
     return (
       <ChampionsCard3D

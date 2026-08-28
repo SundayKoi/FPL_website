@@ -3,7 +3,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards, fetchTeamIdentity, fetchWeekMoments, type CardLeague } from "@/lib/cards/queries";
 import {
   CHAMPIONS_LOGO_PATH,
   CHAMPIONS_PACK_COST,
@@ -14,6 +14,7 @@ import {
   rollChampionCard,
 } from "@/lib/cards/champions";
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
+import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
@@ -293,6 +294,37 @@ export async function openPackFor(
     }
   }
 
+  // A roster plate, from the SAME edition the pack mints. The live team
+  // page rebuilds every week off the newest ratings; a pulled copy is a
+  // snapshot of this week's champions, overalls and roster, which is what
+  // makes an edition pack worth opening for a particular week.
+  //
+  // Rolled once per pack like the moment above, and only when the moment
+  // roll didn't already claim the slot — two relics in one pack would make
+  // the rarer one feel cheap.
+  if (editionWeek && !pulls[pulls.length - 1].card.moment && rand() < TEAM_PULL_CHANCE) {
+    const identity = await fetchTeamIdentity(service, season);
+    const teams = buildTeamCards(cards, identity.colors, editionWeek);
+    if (teams.length > 0) {
+      const entry = teams[Math.floor(rand() * teams.length)];
+      const { count } = await service
+        .from("card_inventory")
+        .select("id", { count: "exact", head: true })
+        .eq("season", season)
+        .eq("slug", teamCardSlug(entry.teamName, editionWeek));
+      // A plate shines like any other card — same foil odds, same
+      // parallels — so a foiled roster is a real chase.
+      const plateFoil = rand() < (liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE);
+      pulls[pulls.length - 1] = {
+        card: teamToCard(entry, season, (count ?? 0) + 1),
+        foil: plateFoil,
+        foilType: plateFoil ? rollFoilType(rand) : null,
+        signed: false,
+        autograph: null,
+      };
+    }
+  }
+
   // Pack prints roll their own art: every copy freezes a random skin of the
   // player's signature champion, so opening the same player twice gives you
   // two different prints. The player's chosen skin still drives their live
@@ -357,7 +389,7 @@ export async function openPackFor(
         // "moment" rather than the placeholder tier the wrapper carries:
         // this column is what dust pricing and the ledger read, and a
         // moment filed as gold would dust as an ordinary gold card.
-        tier: print.card.moment ? MOMENT_TIER : print.card.tier.key,
+        tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.tier.key,
         foil: print.foil,
         foil_type: print.foilType,
         signed: print.signed,
