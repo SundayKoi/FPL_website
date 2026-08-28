@@ -97,6 +97,21 @@ describe("buildTeamCards", () => {
     expect(team.slots.find((slot) => slot.role === "Support")?.autograph).toBeNull();
   });
 
+  it("takes the team's tag off its own cards, and falls back to initials", () => {
+    // The plate prints the tag, not the name — "Iron Wolves Gaming" is
+    // three words too many for five panels and truncates to nonsense.
+    const tagged = buildTeamCards([
+      card({ name: "Star", role: "Mid", teamName: "Iron Wolves Gaming", teamAbbr: "IWG" } as Partial<PlayerCardData>),
+      card({ name: "Sub", role: "Top", teamName: "Iron Wolves Gaming" }),
+    ])[0];
+    expect(tagged.abbr).toBe("IWG");
+    // A league that has set no abbreviation still prints something: the
+    // monogram, which is what the card showed before tags existed.
+    const untagged = buildTeamCards([card({ name: "Star", teamName: "Iron Wolves Gaming" })])[0];
+    expect(untagged.abbr).toBeNull();
+    expect(untagged.monogram).toBe("IWG");
+  });
+
   it("carries the monogram and the Card of the Week star", () => {
     const team = buildTeamCards([
       card({ name: "Star", role: "Mid", teamName: "Iron Wolves Gaming", standout: true }),
