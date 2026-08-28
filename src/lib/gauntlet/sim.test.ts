@@ -17,7 +17,16 @@ import {
   statOf,
 } from "./sim";
 import { contestDetail, runContest } from "./contest";
-import { CROSSROADS_BY_KEY, CROSSROADS_CATALOG, safeChoiceOf, situationFor } from "./crossroads";
+import {
+  CROSSROADS_BY_KEY,
+  CROSSROADS_CATALOG,
+  CROSSROADS_SPREAD,
+  crossroadsSpread,
+  daringAt,
+  safeChoiceOf,
+  situationFor,
+  winChanceOf,
+} from "./crossroads";
 import { aggregateEffects, offerRelics, RELIC_CATALOG } from "./relics";
 import {
   aggregateTraits,
@@ -195,12 +204,14 @@ describe("crossroads catalog", () => {
     }
   });
 
-  it("gives every situation a safe floor and honest stakes", () => {
+  it("gives every situation a safe floor, honest stakes, and a consequence", () => {
     for (const situation of CROSSROADS_CATALOG) {
       expect(situation.choices.length).toBeGreaterThanOrEqual(2);
       const safe = safeChoiceOf(situation);
       for (const choice of situation.choices) {
         expect(choice.lose).toBeLessThanOrEqual(safe.lose);
+        // Every call has to SHAPE the second half, or it's just a number.
+        expect(choice.consequence.note.length).toBeGreaterThan(10);
         if (choice.yourKeys.length === 0) {
           expect(choice.win).toBe(choice.lose);
           expect(choice.scoreBonus).toBe(0);
@@ -209,10 +220,37 @@ describe("crossroads catalog", () => {
           expect(choice.win).toBeGreaterThan(0);
           expect(choice.scoreBonus).toBeGreaterThan(0);
           expect(choice.theirKeys.length).toBeGreaterThan(0);
+          // A gamble that costs nothing when it misses is not a gamble.
+          expect(choice.consequence.onFail, `${choice.key} has no downside`).toBeTruthy();
         }
       }
       expect(CROSSROADS_BY_KEY.get(situation.key)).toBe(situation);
     }
+  });
+
+  it("prices daring by risk, so the call you are best at is the cheap one", () => {
+    // The rule that kills "just pick what I'm good at": a landed call pays
+    // the catalog number at even odds, half at 75%, and up to double on a
+    // long shot.
+    expect(daringAt(100, 0.5)).toBe(100);
+    expect(daringAt(100, 0.75)).toBe(50);
+    expect(daringAt(100, 0.25)).toBe(150);
+    expect(daringAt(100, 1)).toBe(0);
+    for (let chance = 0; chance <= 1.001; chance += 0.05) {
+      const next = daringAt(100, Math.min(1, chance + 0.05));
+      expect(next).toBeLessThanOrEqual(daringAt(100, chance));
+    }
+  });
+
+  it("reads odds off the engine's own noise band", () => {
+    // A dead-even call is a coin flip; half the spread of edge is a lock.
+    expect(winChanceOf(70, 70)).toBeCloseTo(0.5);
+    expect(winChanceOf(70 + CROSSROADS_SPREAD / 2, 70)).toBe(1);
+    expect(winChanceOf(70 - CROSSROADS_SPREAD / 2, 70)).toBe(0);
+    expect(winChanceOf(75, 70)).toBeCloseTo(0.5 + 5 / CROSSROADS_SPREAD);
+    // The COIN-FLIP patch widens the band, pulling every call toward even.
+    const wide = crossroadsSpread({ noiseMult: 1.5 });
+    expect(winChanceOf(80, 70, wide)).toBeLessThan(winChanceOf(80, 70, CROSSROADS_SPREAD));
   });
 
   it("previews the exact check, relics and enemy traits included", () => {
@@ -270,7 +308,10 @@ describe("simulateMatch", () => {
     expect(kinds).toContain("lanes");
     expect(kinds.filter((kind) => kind === "objective")).toHaveLength(3); // herald, dragon, soul
     expect(kinds.filter((kind) => kind === "fight")).toHaveLength(2);
-    expect(kinds.filter((kind) => kind === "crossroads")).toHaveLength(1);
+    // The call, plus a second line when it bought (or cost) something.
+    const calls = kinds.filter((kind) => kind === "crossroads");
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+    expect(calls.length).toBeLessThanOrEqual(2);
     expect(kinds.filter((kind) => kind === "baron")).toHaveLength(1);
     expect(kinds[kinds.length - 1]).toBe("nexus");
     expect(result.lanes).toHaveLength(5);
@@ -321,6 +362,51 @@ describe("simulateMatch", () => {
     }
     expect(stolen).toBeGreaterThan(0);
     expect(clean).toBeGreaterThan(0);
+  });
+
+  it("hands the pit to the call's OUTCOME, not to the gamble itself", () => {
+    // Calling the Baron and missing must give THEM the pit — otherwise
+    // gambling is free and "always gamble" replaces "always play safe".
+    const situation = CROSSROADS_BY_KEY.get("the_baron_question")!;
+    const contest = situation.choices.find((choice) => choice.key === "contest")!;
+    expect(contest.consequence.onWin?.pit).toBe("yours");
+    expect(contest.consequence.onFail?.pit).toBe("theirs");
+
+    let landedYours = 0;
+    let missedTheirs = 0;
+    for (let seed = 0; seed < 160; seed += 1) {
+      const rand = mulberry32(seed);
+      const half = simulateFirstHalf(team(74), team(74), bare(), rand);
+      if (half.situationKey !== "the_baron_question") continue;
+      const result = simulateSecondHalf(half, "contest", team(74), team(74), bare(), rand);
+      const call = result.contests.find((entry) => entry.kind === "crossroads");
+      if (!call) continue;
+      if (call.won && result.baron.yours) landedYours += 1;
+      if (!call.won && !result.baron.yours) missedTheirs += 1;
+    }
+    expect(landedYours).toBeGreaterThan(0);
+    expect(missedTheirs).toBeGreaterThan(0);
+  });
+
+  it("carries the call's spoils into the beats that follow it", () => {
+    // HUNT A PICK pays +8 to later fights when it lands and −4 when it
+    // misses — the tape has to show the difference.
+    const landedFightVals: number[] = [];
+    const missedFightVals: number[] = [];
+    for (let seed = 0; seed < 200; seed += 1) {
+      const rand = mulberry32(seed);
+      const half = simulateFirstHalf(team(74), team(74), bare(), rand);
+      if (half.situationKey !== "the_baron_question") continue;
+      const result = simulateSecondHalf(half, "hunt_a_pick", team(74), team(74), bare(), rand);
+      const call = result.contests.find((entry) => entry.kind === "crossroads");
+      const pit = result.contests.find((entry) => entry.key === "fight-27");
+      if (!call || !pit) continue;
+      (call.won ? landedFightVals : missedFightVals).push(pit.yourVal);
+    }
+    expect(landedFightVals.length).toBeGreaterThan(0);
+    expect(missedFightVals.length).toBeGreaterThan(0);
+    const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+    expect(mean(landedFightVals)).toBeGreaterThan(mean(missedFightVals) + 6);
   });
 
   it("lets a gold lead pay for itself, bounded", () => {
@@ -465,10 +551,11 @@ describe("calibration — the run curve itself", () => {
   it("keeps full clears rare but real: 2–7% over a thousand naive runs", () => {
     // The contract the whole mode balances against, measured the way a
     // cautious run plays (safe crossroads call every time, relics
-    // accumulate, first offer taken). v3 measures ~3.9%, with round-by-
-    // round reach near 95/84/68/48/30/15/8/4%. Crossroads play adds a
-    // point or two on top; a real lineup with uneven bars adds more. If a
-    // change moves this band, that's a deliberate rebalance.
+    // accumulate, first offer taken). v3.1 measures ~3.8%, with round-by-
+    // round reach near 94/81/62/44/29/17/9/4%. Playing the odds nudges it
+    // up, playing for score nudges it down and the board score up — no
+    // line dominates. If a change moves this band, that's a deliberate
+    // rebalance.
     let full = 0;
     let reachedFour = 0;
     for (let run = 0; run < 1000; run += 1) {

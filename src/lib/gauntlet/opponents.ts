@@ -58,11 +58,11 @@ export interface OpponentTeam {
  *  v3 re-tuned this from scratch: gold now compounds, so a lost lane
  *  phase snowballs the way it should, and the curve had to start gentler
  *  and end steeper to stay a roguelike instead of a gauntlet of coin
- *  flips. Monte-Carlo: 95/84/68/48/30/15/8/4% reach by round, ~4% full
+ *  flips. Monte-Carlo: 94/81/62/44/29/17/9/4% reach by round, ~4% full
  *  clears on safe play (see sim.test's calibration band). Anything that
  *  moves those numbers is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
-  return clamp(Math.round(lineupAvg - 10 + round * 2.15), 45, 92);
+  return clamp(Math.round(lineupAvg - 10 + round * 2.0), 45, 92);
 }
 
 /**
