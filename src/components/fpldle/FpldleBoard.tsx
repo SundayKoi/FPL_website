@@ -361,6 +361,9 @@ export default function FpldleBoard({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <p role="note" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
+        <span className="font-semibold text-gold">Reminder:</span> Possible players include substitutes (subs).
+      </p>
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">Premium daily puzzle · {league === "academy" ? "Academy" : "Premier"}</span>

@@ -61,6 +61,14 @@ afterEach(() => {
 });
 
 describe("FpldleBoard", () => {
+  it("shows the substitute reminder at the top of the page", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const main = screen.getByRole("main");
+    expect(main.firstElementChild?.getAttribute("role")).toBe("note");
+    expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
+  });
+
   it("places the player chooser above guess history", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
