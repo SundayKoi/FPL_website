@@ -55,6 +55,12 @@ export function friendlyExpeditionError(message: string): string {
   if (/unknown tier/i.test(message)) return "That expedition doesn't exist.";
   if (/bad duration/i.test(message)) return "That expedition's length isn't valid.";
   if (/squad must be three distinct cards/i.test(message)) return "An expedition takes exactly three different cards.";
+  // The tier slot, ahead of the daily limit the same way the RPC checks
+  // them: "your Legend Hunt is still out" sends someone to the raid,
+  // "you're done for today" sends them to bed.
+  if (/tier already out/i.test(message)) {
+    return "That expedition is already out — bring it home before you send another.";
+  }
   if (/daily expedition limit/i.test(message)) {
     return "You've sent out every expedition you get today — come back tomorrow.";
   }

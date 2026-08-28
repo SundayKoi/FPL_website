@@ -11,7 +11,7 @@ begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(49);
+select plan(51);
 
 grant usage on schema tests to anon, authenticated;
 
@@ -143,21 +143,33 @@ select is(
   array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')],
   'the squad is stored as launched');
 
--- === 16-19. the Eastern-day limit and the patron slot ========================
+-- === 16-20. the tier slot, the Eastern-day limit and the patron slot =========
 
+-- One of each tier at a time. The scouting run already in the field blocks
+-- another scouting run whatever cards it is sent with — this is what stops
+-- a two-day Legend Hunt being relaunched daily and paying like a one-day
+-- run, so it is checked with fresh copies to prove it is the TIER and not
+-- the deploy lock doing the refusing.
 select throws_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
     array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 9, 8) $$,
+  'P0001', 'tier already out', 'a tier already in the field cannot be sent out again');
+
+-- A tier whose slot IS free still meets the day limit: one of each at a
+-- time is a ceiling on concurrency, not a licence to launch three a day.
+select throws_ok($$
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'raid',
+    array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 14, 24) $$,
   'P0001', 'daily expedition limit', 'a free collector gets one run a day');
 
 update public.betting_profiles set patron_until = now() + interval '30 days'
   where discord_id = 'exped-0069';
 
--- With the patron slot open, the deploy check is now the thing that
--- refuses a squad holding a copy that is already out.
+-- With the patron slot open and the raid slot free, the deploy check is
+-- now the thing that refuses a squad holding a copy that is already out.
 select throws_ok($$
-  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
-    array[tests.exp_card('exp-1'), tests.exp_card('exp-4'), tests.exp_card('exp-5')], 9, 8) $$,
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'raid',
+    array[tests.exp_card('exp-1'), tests.exp_card('exp-4'), tests.exp_card('exp-5')], 14, 24) $$,
   'P0001', 'card already deployed', 'a copy already out cannot be sent again');
 
 select lives_ok($$
@@ -166,8 +178,8 @@ select lives_ok($$
   'a patron may launch a second run the same day');
 
 select throws_ok($$
-  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
-    array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 9, 8) $$,
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'legend',
+    array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 20, 48) $$,
   'P0001', 'daily expedition limit', 'the patron slot is a second run, not unlimited runs');
 
 -- === 20-22. the deploy lock ==================================================
@@ -286,13 +298,22 @@ select is(
   (select card -> 'expedition' ->> 'mark' from public.card_inventory where id = tests.exp_card('exp-7')),
   'sigil', 'a better mark replaces the one the copy wears');
 
--- === 38. the lock lifts with the claim =======================================
+-- === 38-39. the lock and the tier slot both lift with the claim ==============
 
 select lives_ok(
   $$ select public.dust_card('exped-0069', tests.exp_card('exp-1'), 10) $$,
   'a claimed copy is free to melt again');
 
--- === 39. a claim cannot reach across owners ==================================
+-- And the tier is sendable again. Proven by the error CHANGING: the
+-- scouting run claimed above no longer holds its slot, so what refuses
+-- this launch is the day limit rather than 'tier already out'. Without the
+-- claim freeing the slot, this would still be the tier check.
+select throws_ok($$
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
+    array[tests.exp_card('exp-4'), tests.exp_card('exp-5'), tests.exp_card('exp-6')], 9, 8) $$,
+  'P0001', 'daily expedition limit', 'claiming a run frees its tier slot');
+
+-- === 40. a claim cannot reach across owners ==================================
 -- claim_expedition matches on (id, discord_id), and the discord_id half is
 -- the only thing between one collector and another's payout — it credits a
 -- wallet, so the predicate needs a test that goes red when it goes.
@@ -307,7 +328,7 @@ select throws_ok($$
     'jackpot', 400, true, 'legend', null) $$,
   'P0001', 'unknown run', 'another collector''s finished run is not yours to claim');
 
--- === 40-45. execute grants ===================================================
+-- === 41-46. execute grants ===================================================
 -- Both RPCs move betting dollars on an unverified discord id, so the app
 -- layer is the authorization and PostgREST must never reach them.
 
@@ -331,7 +352,7 @@ select ok(has_function_privilege('service_role',
   'public.claim_expedition(text,bigint,text,bigint,boolean,text,bigint)', 'execute'),
   'service_role can claim expeditions');
 
--- === 46-49. row-level security ===============================================
+-- === 47-51. row-level security ===============================================
 -- A run belonging to somebody else is the non-vacuous half: a `using (true)`
 -- policy would pass a bare count, so the other collector's run (inserted
 -- for the cross-owner claim above) must be invisible while the owner's
