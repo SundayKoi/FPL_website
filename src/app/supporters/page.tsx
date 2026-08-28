@@ -41,7 +41,7 @@ export default async function SupportersPage() {
           Patrons cover what the league costs to run — hosting, the tools, the AI that helps build it. In
           return they carry the flame: a colour of their choosing burning on every card they own and beside
           their name on the betting leaderboards and the Gauntlet&apos;s weekly board, card backs dealt in that
-          flame, gold and crimson signing ink, a second Daily Rip, the nine-slot binder with a pedestal for
+          flame, gold and crimson signing ink, a second Daily Rip, a second expedition each day, the nine-slot binder with a pedestal for
           their featured card, a weekly art re-roll, a 20% dust bonus on everything they melt, and this page.
           Nothing they pay for changes a card&apos;s odds, anyone&apos;s rating, or what comes out of a pack.
         </p>

@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
 import { PATRON_DUST_MULT } from "@/lib/packs/config";
 import { SOVEREIGN_TENURE_DAYS } from "./flames";
-import { HEADLINE_PATRON_PERKS, PATRON_FAIRNESS_NOTE, PATRON_PERKS } from "./perks";
+import {
+  BASE_EXPEDITION_LAUNCHES,
+  HEADLINE_PATRON_PERKS,
+  PATRON_EXPEDITION_LAUNCHES,
+  PATRON_FAIRNESS_NOTE,
+  PATRON_PERKS,
+} from "./perks";
 
 describe("PATRON_PERKS", () => {
   it("is a complete, unique, well-formed list", () => {
-    expect(PATRON_PERKS.length).toBeGreaterThanOrEqual(8);
+    expect(PATRON_PERKS.length).toBeGreaterThanOrEqual(9);
     expect(new Set(PATRON_PERKS.map((perk) => perk.key)).size).toBe(PATRON_PERKS.length);
     for (const perk of PATRON_PERKS) {
       expect(perk.icon.length, perk.key).toBeGreaterThan(0);
@@ -27,6 +33,15 @@ describe("PATRON_PERKS", () => {
 
     const dust = PATRON_PERKS.find((perk) => perk.key === "dust")!;
     expect(dust.title).toContain(String(Math.round((PATRON_DUST_MULT - 1) * 100)));
+
+    // The expedition limit is enforced in SQL (launch_expedition), so the
+    // constants here are pinned by hand — this asserts the copy quotes
+    // them, and the values match the migration's case-when.
+    const expeditions = PATRON_PERKS.find((perk) => perk.key === "expeditions")!;
+    expect(PATRON_EXPEDITION_LAUNCHES).toBe(2);
+    expect(BASE_EXPEDITION_LAUNCHES).toBe(1);
+    expect(expeditions.blurb).toContain(String(PATRON_EXPEDITION_LAUNCHES));
+    expect(expeditions.blurb).toContain(String(BASE_EXPEDITION_LAUNCHES));
 
     const flame = PATRON_PERKS.find((perk) => perk.key === "flame")!;
     expect(flame.blurb).toContain(String(Math.round(SOVEREIGN_TENURE_DAYS / 30)));
