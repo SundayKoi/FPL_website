@@ -35,8 +35,8 @@ import {
 import type { GauntletOption } from "@/lib/gauntlet/queries";
 import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
 import {
-  compProfileOf,
   type CompStyle,
+  lineupShapeOf,
   FRESH_LEGS_BONUS,
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -110,15 +110,21 @@ function RelicChip({ relicKey }: { relicKey: string }) {
   );
 }
 
-/** The draft's identity readout — the SAME three numbers compStyleOf
- *  reads, so "what does my comp read as" is never a guess. */
+/** Which beats each identity is paid on — mirrors FOCUS_BEATS in the sim. */
+const FOCUS_LABEL: Record<CompStyle, string> = {
+  poke: "lanes & objectives",
+  dive: "fights & the crossroads",
+  protect: "the hold & the Baron",
+};
+
+/** The draft's readout — the SAME numbers the sim reads, including what
+ *  the lineup's SHAPE is worth. This is the whole reason to draft a five
+ *  instead of sorting by overall, so it can't be hidden. */
 function CompReadout({ cards }: { cards: GauntletCard[] }) {
-  const profile = compProfileOf(cards);
-  const style = (Object.keys(profile) as CompStyle[]).reduce((best, key) =>
-    profile[key] > profile[best] ? key : best,
-  );
+  const shape = lineupShapeOf(cards);
+  const { profile, style } = shape;
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-line/60 bg-panel/40 p-3">
+    <div className="flex flex-col gap-2.5 rounded-lg border border-line/60 bg-panel/40 p-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-[10px] uppercase tracking-[0.18em] text-steel">Comp readout</span>
         {(["poke", "dive", "protect"] as CompStyle[]).map((key) => (
@@ -129,10 +135,39 @@ function CompReadout({ cards }: { cards: GauntletCard[] }) {
       </div>
       <p className="text-xs text-steel">
         Reads as <b className="uppercase text-white">{style}</b> — wins the draft read into{" "}
-        <b className="uppercase">{BEATS[style]}</b>, loses it to{" "}
-        <b className="uppercase">{BEATS[BEATS[style]]}</b>. The rulebook below has every check this comp will
-        roll.
+        <b className="uppercase">{BEATS[style]}</b>, loses it to <b className="uppercase">{BEATS[BEATS[style]]}</b>.
       </p>
+
+      <div className="grid gap-2 border-t border-line/50 pt-2.5 sm:grid-cols-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
+            Commitment <span className="font-mono text-white">{shape.commitment}</span>
+          </p>
+          <p className="mt-0.5 text-xs">
+            {shape.focusBonus > 0 ? (
+              <span className="text-mint">
+                +{shape.focusBonus.toFixed(1)} on {FOCUS_LABEL[style]}
+              </span>
+            ) : (
+              <span className="text-steel">
+                Nothing yet — five bests with nothing in common commit to nothing. Lean the shape.
+              </span>
+            )}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
+            Chemistry <span className="font-mono text-white">{shape.chemistry}/5</span>
+          </p>
+          <p className="mt-0.5 text-xs">
+            {shape.chemistryBonus > 0 ? (
+              <span className="text-mint">+{shape.chemistryBonus.toFixed(1)} on every check</span>
+            ) : (
+              <span className="text-steel">No real-life teammates fielded.</span>
+            )}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -194,6 +229,7 @@ export default function GauntletClient({
           foil: option.foil,
           signed: option.signed,
           fresh: option.fresh,
+          team: option.team,
         };
       }),
     [picks, options],
@@ -313,8 +349,10 @@ export default function GauntletClient({
           <span className="label-dash">Draft your five</span>
           <p className="mt-2 max-w-2xl text-sm text-steel">
             One per role, from your shelf. 🌱 marks this week&apos;s prints — they fight at +{FRESH_LEGS_BONUS}. A
-            role you can&apos;t cover fields a 55-rated trialist (and taxes your score). The bracket scales to
-            your average, so the run is about drafting a shape and making the calls, not raw numbers.
+            role you can&apos;t cover fields a 55-rated trialist (and taxes your score). The bracket mostly
+            scales to your average, so a stronger shelf helps a little — but <b className="text-white">a
+            committed shape and real-life teammates help more</b>. Five bests with nothing in common commit
+            to nothing.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -345,6 +383,7 @@ export default function GauntletClient({
                     ? "warm body · −40 score/round"
                     : `${LANE_KEY[role]} ${card.stats[LANE_KEY[role]] ?? "~" + Math.max(30, card.overall - 5)} · combat ${card.stats.combat ?? "~" + Math.max(30, card.overall - 5)} · damage ${card.stats.damage ?? "~" + Math.max(30, card.overall - 5)}`}
                 </span>
+                {card.team ? <span className="truncate text-[10px] text-steel/80">{card.team}</span> : null}
               </label>
             );
           })}

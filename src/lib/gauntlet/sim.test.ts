@@ -5,7 +5,9 @@ import {
   FRESH_LEGS_BONUS,
   GAUNTLET_ROLES,
   type GauntletCard,
+  daringForRound,
   goldEdge,
+  lineupShapeOf,
   makeTrialist,
   type MatchContext,
   mulberry32,
@@ -38,7 +40,7 @@ import {
   traitCountFor,
 } from "./traits";
 import { buildAutopsy } from "./autopsy";
-import { bracketTarget, generateOpponent } from "./opponents";
+import { bracketTarget, generateOpponent, LEAGUE_BASELINE } from "./opponents";
 
 /** A five-card team at one flat rating, stats shaped by `shape`. */
 function team(overall: number, shape: Partial<Record<string, number>> = {}): GauntletCard[] {
@@ -55,6 +57,18 @@ function team(overall: number, shape: Partial<Record<string, number>> = {}): Gau
     foil: false,
     signed: false,
     fresh: false,
+  }));
+}
+
+/** A five committed to one identity: the hot bars up, the rest down, so
+ *  the AVERAGE is unchanged and only the shape differs. */
+function shapedTeam(overall: number, hot: string[], org?: string): GauntletCard[] {
+  return team(overall).map((card) => ({
+    ...card,
+    team: org ?? null,
+    stats: Object.fromEntries(
+      Object.keys(card.stats).map((key) => [key, hot.includes(key) ? overall + 10 : overall - 4]),
+    ),
   }));
 }
 
@@ -193,6 +207,74 @@ describe("traits and conditions", () => {
   });
 });
 
+describe("lineupShapeOf", () => {
+  it("reads commitment as how far the identity outruns the runner-up", () => {
+    const flat = lineupShapeOf(team(74));
+    expect(flat.commitment).toBe(0);
+    expect(flat.focusBonus).toBe(0);
+
+    const committed = lineupShapeOf(shapedTeam(74, ["combat", "presence"]));
+    expect(committed.style).toBe("dive");
+    expect(committed.commitment).toBeGreaterThan(10);
+    expect(committed.focusBonus).toBeGreaterThan(0);
+  });
+
+  it("counts chemistry only where cards actually share a team", () => {
+    expect(lineupShapeOf(team(74)).chemistry).toBe(0);
+    const solo = team(74).map((card, index) => ({ ...card, team: `Org ${index}` }));
+    expect(lineupShapeOf(solo).chemistry).toBe(0);
+    const pair = team(74).map((card, index) => ({ ...card, team: index < 2 ? "One Org" : `Org ${index}` }));
+    expect(lineupShapeOf(pair).chemistry).toBe(2);
+    const whole = team(74).map((card) => ({ ...card, team: "One Org" }));
+    expect(lineupShapeOf(whole).chemistry).toBe(5);
+    expect(lineupShapeOf(whole).chemistryBonus).toBeGreaterThan(0);
+    // Blank team names are not a team.
+    const blanks = team(74).map((card) => ({ ...card, team: "   " }));
+    expect(lineupShapeOf(blanks).chemistry).toBe(0);
+  });
+
+  it("keeps the three identities worth about the same", () => {
+    const bonuses = (["damage", "laning"] as const, [
+      lineupShapeOf(shapedTeam(74, ["damage", "laning"])),
+      lineupShapeOf(shapedTeam(74, ["combat", "presence"])),
+      lineupShapeOf(shapedTeam(74, ["survival", "vision"])),
+    ]);
+    // Each style owns a different NUMBER of beats, so per-beat bonuses
+    // differ on purpose — but none may run away from the others.
+    const values = bonuses.map((shape) => shape.focusBonus);
+    expect(Math.max(...values) / Math.min(...values)).toBeLessThan(2.2);
+  });
+
+  it("makes a well-built five beat a scattered stronger one", () => {
+    // The point of the whole mechanic. Each lineup faces ITS OWN bracket
+    // — that's the mechanism: the bracket mostly follows your average, so
+    // six points of raw overall buys less than a committed shape and a
+    // roster who actually played together. Measured at round 5, the
+    // built 74 wins ~64% of its matches against the scattered 80's ~55%.
+    const built = shapedTeam(74, ["combat", "presence"], "One Org");
+    const scattered = team(80);
+    let builtWins = 0;
+    let scatteredWins = 0;
+    for (let seed = 0; seed < 400; seed += 1) {
+      const ownFoe = generateOpponent(74, 5, mulberry32(seed));
+      const theirFoe = generateOpponent(80, 5, mulberry32(seed));
+      if (simulateMatch(built, ownFoe.cards, bare(), mulberry32(seed * 7)).won) builtWins += 1;
+      if (simulateMatch(scattered, theirFoe.cards, bare(), mulberry32(seed * 7)).won) scatteredWins += 1;
+    }
+    expect(builtWins).toBeGreaterThan(scatteredWins);
+    // ...and raw overall still counts for something on its own.
+    let flatStrong = 0;
+    let flatWeak = 0;
+    for (let seed = 0; seed < 400; seed += 1) {
+      if (simulateMatch(team(84), generateOpponent(84, 5, mulberry32(seed)).cards, bare(), mulberry32(seed * 7)).won)
+        flatStrong += 1;
+      if (simulateMatch(team(66), generateOpponent(66, 5, mulberry32(seed)).cards, bare(), mulberry32(seed * 7)).won)
+        flatWeak += 1;
+    }
+    expect(flatStrong).toBeGreaterThan(flatWeak);
+  });
+});
+
 describe("crossroads catalog", () => {
   it("covers every momentum from 0 to 100 with exactly one situation", () => {
     for (let momentum = 0; momentum <= 100; momentum += 1) {
@@ -313,6 +395,8 @@ describe("simulateMatch", () => {
     expect(calls.length).toBeGreaterThanOrEqual(1);
     expect(calls.length).toBeLessThanOrEqual(2);
     expect(kinds.filter((kind) => kind === "baron")).toHaveLength(1);
+    // The siege always happens now — only its weight varies.
+    expect(kinds.filter((kind) => kind === "hold")).toHaveLength(1);
     expect(kinds[kinds.length - 1]).toBe("nexus");
     expect(result.lanes).toHaveLength(5);
 
@@ -503,11 +587,18 @@ describe("roundScore", () => {
     expect(roundScore(1, won, lineup, { scoreFlat: 60 })).toBe(early + 60);
   });
 
-  it("folds a landed call's daring bonus straight into the round", () => {
+  it("pays a landed call more the deeper the run got", () => {
+    // Depth dominates a run's score (200 + 55/round), so an unscaled
+    // daring bonus could never compete with simply surviving.
+    expect(daringForRound(100, 1)).toBe(100);
+    expect(daringForRound(100, 8)).toBe(226);
     const lineup = team(70);
     const quiet = roundScore(3, { won: true, momentum: 60, daring: 0 }, lineup, {});
     const bold = roundScore(3, { won: true, momentum: 60, daring: 90 }, lineup, {});
-    expect(bold).toBe(quiet + 90);
+    expect(bold).toBe(quiet + daringForRound(90, 3));
+    const later = roundScore(7, { won: true, momentum: 60, daring: 90 }, lineup, {});
+    const laterQuiet = roundScore(7, { won: true, momentum: 60, daring: 0 }, lineup, {});
+    expect(later - laterQuiet).toBeGreaterThan(bold - quiet);
   });
 });
 
@@ -592,6 +683,18 @@ describe("opponents", () => {
     expect(bracketTarget(70, 8)).toBeGreaterThan(bracketTarget(70, 4));
     expect(bracketTarget(99, 8)).toBeLessThanOrEqual(92);
     expect(bracketTarget(30, 1)).toBeGreaterThanOrEqual(45);
+  });
+
+  it("tracks your lineup SUB-linearly, so a better shelf is worth something", () => {
+    // v3 tracked 1:1, which made a 65-average lineup and an 82-average
+    // lineup measure identical curves. The bracket must rise by LESS than
+    // the lineup does, or the collection is decorative.
+    const weak = bracketTarget(64, 4);
+    const strong = bracketTarget(84, 4);
+    expect(strong - weak).toBeGreaterThan(0);
+    expect(strong - weak).toBeLessThan(20);
+    // A lineup sitting exactly on the baseline is priced as itself.
+    expect(bracketTarget(LEAGUE_BASELINE, 4)).toBe(Math.round(LEAGUE_BASELINE - 10 + 8));
   });
 
   it("generates a scoutable five: names, style, traits and a condition", () => {

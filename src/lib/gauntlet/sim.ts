@@ -22,7 +22,7 @@
 
 import type { MeasureKey } from "@/lib/cards/measures";
 import type { RelicEffects } from "./relics";
-import { type Contest, contestDetail, runContest } from "./contest";
+import { type Contest, type ContestKind, contestDetail, runContest } from "./contest";
 import type { ConditionEffects, TraitEffects } from "./traits";
 import {
   type CrossroadsChoice,
@@ -50,6 +50,8 @@ export interface GauntletCard {
   signed: boolean;
   /** Printed in the CURRENT week's edition — wears the Fresh Legs bonus. */
   fresh: boolean;
+  /** The real-life team this card played for — what chemistry reads. */
+  team?: string | null;
   /** A stand-in for a role the collection can't cover. Costs score. */
   trialist?: boolean;
 }
@@ -244,6 +246,84 @@ export function compProfileOf(team: GauntletCard[]): Record<CompStyle, number> {
   };
 }
 
+/** Which beats an identity is ACTUALLY about — where a committed comp
+ *  gets paid for committing. */
+const FOCUS_BEATS: Record<CompStyle, ContestKind[]> = {
+  poke: ["lane"],
+  dive: ["fight", "crossroads"],
+  protect: ["hold", "baron", "objective"],
+};
+
+/** The styles own different NUMBERS of beats (poke's five lanes against
+ *  dive's three fights), so the per-beat bonus is weighted to keep the
+ *  three identities worth about the same over a whole match. */
+const FOCUS_WEIGHT: Record<CompStyle, number> = { poke: 0.55, dive: 1, protect: 0.7 };
+
+/** Where chemistry shows up. Playing together buys COORDINATION — fights,
+ *  objectives, the pit, the call — not lane mechanics or base defence. A
+ *  blanket bonus on every check was worth three times a full shelf
+ *  upgrade, which is not what a nice-to-have should cost. */
+const CHEMISTRY_BEATS: ContestKind[] = ["fight", "objective", "baron", "crossroads"];
+
+/** What a lineup IS, beyond the sum of its overalls. */
+export interface LineupShape {
+  style: CompStyle;
+  profile: Record<CompStyle, number>;
+  /** How sharply the comp reads: top identity minus the runner-up. Five
+   *  great cards with nothing in common commit to nothing. */
+  commitment: number;
+  /** How many of the five share a real-life team with another. */
+  chemistry: number;
+  /** What commitment buys on this style's two signature beats. */
+  focusBonus: number;
+  /** What chemistry buys on every contest. */
+  chemistryBonus: number;
+}
+
+/**
+ * The reason to draft a LINEUP instead of five high numbers.
+ *
+ * Two bonuses, both earned by the shape of the five rather than their
+ * ratings: COMMITMENT (how far your top identity outruns the runner-up)
+ * pays on the two beats that identity is about, and CHEMISTRY (cards who
+ * actually played together) pays a little everywhere. The bracket scales
+ * off raw overall, so these are the levers that make a well-built 74
+ * beat a scattered 80.
+ */
+export function lineupShapeOf(team: GauntletCard[]): LineupShape {
+  const profile = compProfileOf(team);
+  const ranked = (Object.keys(profile) as CompStyle[]).sort((a, b) => profile[b] - profile[a]);
+  const style = ranked[0];
+  const commitment = Math.round(profile[ranked[0]] - profile[ranked[1]]);
+
+  const counts = new Map<string, number>();
+  for (const card of team) {
+    const key = (card.team ?? "").trim().toLowerCase();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let chemistry = 0;
+  for (const count of counts.values()) if (count >= 2) chemistry += count;
+
+  return {
+    style,
+    profile,
+    commitment,
+    chemistry,
+    focusBonus: clamp((commitment - 3) * 0.7, 0, 9) * FOCUS_WEIGHT[style],
+    chemistryBonus: clamp((chemistry - 1) * 0.3, 0, 1.2),
+  };
+}
+
+/** What the shape is worth on one beat — signature beats get commitment,
+ *  everything gets chemistry. */
+function shapeBonus(shape: LineupShape, kind: ContestKind): number {
+  return (
+    (CHEMISTRY_BEATS.includes(kind) ? shape.chemistryBonus : 0) +
+    (FOCUS_BEATS[shape.style].includes(kind) ? shape.focusBonus : 0)
+  );
+}
+
 /** Which bar decides each role's lane. Junglers don't lane — their early
  *  game is pathing and presence. */
 export const LANE_KEY: Record<GauntletRole, MeasureKey> = {
@@ -364,7 +444,8 @@ export function simulateFirstHalf(
 ): HalfState {
   const { effects } = ctx;
   const events: MatchEvent[] = [];
-  const yourStyle = compStyleOf(yours);
+  const shape = lineupShapeOf(yours);
+  const yourStyle = shape.style;
   const theirStyle = compStyleOf(theirs);
   const ledger: LedgerState = {
     contests: [],
@@ -373,8 +454,19 @@ export function simulateFirstHalf(
     players: freshPlayers(yours, effects),
   };
 
-  // ── Draft read: the counter triangle sets the opening momentum.
+  // ── Draft read: the counter triangle sets the opening momentum, and
+  //   the lineup's own shape is stated before a wave spawns.
   let momentum = 50;
+  if (shape.focusBonus > 0 || shape.chemistryBonus > 0) {
+    events.push({
+      clock: 0, kind: "draft", tone: "win",
+      text: `Lineup shape: a committed ${shape.style} five${shape.chemistry >= 2 ? ` with ${shape.chemistry} teammates` : ""}`,
+      detail: [
+        shape.focusBonus > 0 ? `commitment ${shape.commitment} → +${shape.focusBonus.toFixed(1)} on ${FOCUS_BEATS[shape.style].join(" & ")}` : null,
+        shape.chemistryBonus > 0 ? `chemistry → +${shape.chemistryBonus.toFixed(1)} everywhere` : null,
+      ].filter(Boolean).join(" · "),
+    });
+  }
   if (COUNTERS[yourStyle] === theirStyle) {
     momentum += 6;
     events.push({
@@ -404,7 +496,8 @@ export function simulateFirstHalf(
     const mine = byRole(yours, role);
     const foe = byRole(theirs, role);
     const key = LANE_KEY[role];
-    const yoursVal = (mine ? statOf(mine, key, effects) : TRIALIST_OVERALL - 10) + lanesFlat;
+    const yoursVal =
+      (mine ? statOf(mine, key, effects) : TRIALIST_OVERALL - 10) + lanesFlat + shapeBonus(shape, "lane");
     const theirsVal =
       (foe ? statOf(foe, key) : TRIALIST_OVERALL - 10) + (ctx.foe.lanesFlat ?? 0) + foeClockFlat(ctx, 8);
     const contest = runContest(
@@ -448,7 +541,9 @@ export function simulateFirstHalf(
     {
       key: "herald-11", kind: "objective", label: "🐚 Rift Herald", clock: 11,
       yourKeys: ["objectives", "turrets"], theirKeys: ["objectives", "presence"],
-      yourVal: teamAvg(yours, ["objectives", "turrets"], effects) + (effects.objectivesFlat ?? 0),
+      yourVal:
+        teamAvg(yours, ["objectives", "turrets"], effects) + (effects.objectivesFlat ?? 0) +
+        shapeBonus(shape, "objective"),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 11),
       spread: noise(28, ctx),
@@ -469,7 +564,9 @@ export function simulateFirstHalf(
     {
       key: "dragon-14", kind: "objective", label: "🐉 Dragon", clock: 14,
       yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
-      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0),
+      yourVal:
+        teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) +
+        shapeBonus(shape, "objective"),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 14),
       spread: noise(30, ctx),
@@ -492,7 +589,7 @@ export function simulateFirstHalf(
     {
       key: "skirmish-18", kind: "fight", label: "⚔ Skirmish in river", clock: 18,
       yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
-      yourVal: teamAvg(yours, ["combat", "damage"], effects) + fightFlat,
+      yourVal: teamAvg(yours, ["combat", "damage"], effects) + fightFlat + shapeBonus(shape, "fight"),
       theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 18),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -533,7 +630,8 @@ export function previewCrossroadsChoice(
   if (choice.yourKeys.length === 0) return null;
   return {
     yourVal: Math.round(
-      teamAvg(yours, choice.yourKeys, ctx.effects) + choice.bonus + (ctx.effects.crossroadsBonus ?? 0),
+      teamAvg(yours, choice.yourKeys, ctx.effects) + choice.bonus + (ctx.effects.crossroadsBonus ?? 0) +
+        shapeBonus(lineupShapeOf(yours), "crossroads"),
     ),
     theirVal: Math.round(teamAvg(theirs, choice.theirKeys) + foeClockFlat(ctx, 20)),
   };
@@ -629,6 +727,7 @@ export function simulateSecondHalf(
   rand: () => number,
 ): Omit<MatchResult, "score"> {
   const { effects } = ctx;
+  const shape = lineupShapeOf(yours);
   const situation: CrossroadsSituation = CROSSROADS_BY_KEY.get(state.situationKey) ?? {
     key: state.situationKey, title: "THE CALL", band: [0, 100], narration: "", choices: [],
   };
@@ -703,7 +802,9 @@ export function simulateSecondHalf(
     {
       key: "soul-23", kind: "objective", label: "🐲 Soul point dragon", clock: 23,
       yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
-      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) + callObjectives,
+      yourVal:
+        teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) + callObjectives +
+        shapeBonus(shape, "objective"),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 23),
       spread: noise(30, ctx),
@@ -722,7 +823,9 @@ export function simulateSecondHalf(
   // ── The Baron pit. The call's OUTCOME decides who holds it when it
   //   says so; otherwise the scoreboard does.
   const yoursToStart = spoils?.pit === "yours" ? true : spoils?.pit === "theirs" ? false : momentum >= 48;
-  const { dance, contest: baronContest } = baronDance(yours, theirs, ctx, yoursToStart, rand, callObjectives);
+  const { dance, contest: baronContest } = baronDance(
+    yours, theirs, ctx, yoursToStart, rand, callObjectives + shapeBonus(shape, "baron"),
+  );
   book(ledger, baronContest, (dance.taken ? 1500 : -1500) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
   momentum = clamp(momentum + (dance.taken ? 9 : -9), 5, 95);
   events.push({
@@ -743,7 +846,7 @@ export function simulateSecondHalf(
       yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
       yourVal:
         teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + callFight + edge +
-        (dance.taken ? 6 : -6),
+        shapeBonus(shape, "fight") + (dance.taken ? 6 : -6),
       theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 27),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -762,30 +865,36 @@ export function simulateSecondHalf(
     contestKey: pitFight.key, gold: pitFight.goldSwing,
   });
 
-  // ── A close game earns a hold: a real contest against their closers.
-  if (momentum >= 35 && momentum <= 65) {
-    const holder = [...yours].sort((a, b) => statOf(b, "survival", effects) - statOf(a, "survival", effects))[0];
-    const hold = runContest(
-      {
-        key: "hold-29", kind: "hold", label: "🏰 The base hold", clock: 29,
-        yourKeys: ["survival", "turrets"], theirKeys: ["damage", "objectives"],
-        yourVal:
-          teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + callHold + edge * 0.5,
-        theirVal:
-          teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29),
-        spread: noise(20, ctx),
-        decidedBy: holder?.name ?? null, role: holder?.role ?? null,
-      },
-      rand,
-    );
-    book(ledger, hold, hold.won ? 500 : -800, ctx);
-    momentum = clamp(momentum + (hold.won ? 6 : -8), 5, 95);
-    events.push({
-      clock: 29, kind: "hold", tone: hold.won ? "win" : "loss",
-      text: hold.won ? `🏰 They siege — ${holder?.name ?? "the base"} holds it` : "🏰 They siege — the base cracks",
-      detail: contestDetail(hold), contestKey: hold.key, gold: hold.goldSwing,
-    });
-  }
+  // ── The siege always happens; what it's WORTH scales with how close
+  //   the game still is. (v3 fired it only between 35 and 65 momentum,
+  //   which left every holdFlat relic dead in half of all matches.)
+  const holder = [...yours].sort((a, b) => statOf(b, "survival", effects) - statOf(a, "survival", effects))[0];
+  const closeness = 1 - Math.abs(momentum - 50) / 50;
+  const holdWeight = 0.35 + 0.65 * closeness;
+  const hold = runContest(
+    {
+      key: "hold-29", kind: "hold", label: "🏰 The base hold", clock: 29,
+      yourKeys: ["survival", "turrets"], theirKeys: ["damage", "objectives"],
+      yourVal:
+        teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + callHold +
+        shapeBonus(shape, "hold") + edge * 0.5,
+      theirVal:
+        teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29),
+      spread: noise(20, ctx),
+      decidedBy: holder?.name ?? null, role: holder?.role ?? null,
+    },
+    rand,
+  );
+  book(ledger, hold, Math.round((hold.won ? 500 : -800) * holdWeight), ctx);
+  momentum = clamp(momentum + (hold.won ? 6 : -8) * holdWeight, 5, 95);
+  events.push({
+    clock: 29, kind: "hold", tone: hold.won ? "win" : "loss",
+    text: hold.won
+      ? `🏰 They siege — ${holder?.name ?? "the base"} holds it`
+      : "🏰 They siege — the base cracks",
+    detail: `${contestDetail(hold)}${holdWeight < 0.75 ? " · the game was already decided" : ""}`,
+    contestKey: hold.key, gold: hold.goldSwing,
+  });
 
   // ── The call home: momentum, the closers' impact, and the gold on the
   //   board — snowballed if the lanes earned it.
@@ -845,6 +954,14 @@ export function simulateMatch(
   return simulateSecondHalf(half, choiceKey, yours, theirs, ctx, rand);
 }
 
+/** What a landed call is worth in the round it was landed in. Depth is
+ *  the dominant term in a run's score (200 + 55/round), so an unscaled
+ *  daring bonus could never compete with just surviving — this makes a
+ *  bold call late worth more than twice the same call in round 1. */
+export function daringForRound(daring: number, round: number): number {
+  return Math.round(daring * (1 + (round - 1) * 0.18));
+}
+
 /**
  * What a cleared round pays. Base by round with a difficulty ramp, style
  * points for margin, the daring bonus for a landed crossroads call, a tax
@@ -862,7 +979,10 @@ export function roundScore(
   const margin = Math.round((result.momentum - 50) * 2.4);
   const trialistTax = lineup.filter((card) => card.trialist).length * 40;
   const flex = lineup.filter((card) => card.foil || card.signed).length * (effects.styleScorePerShiny ?? 5);
-  return Math.max(25, base + margin - trialistTax + flex + result.daring + (effects.scoreFlat ?? 0));
+  return Math.max(
+    25,
+    base + margin - trialistTax + flex + daringForRound(result.daring, round) + (effects.scoreFlat ?? 0),
+  );
 }
 
 /** The stand-in for an uncovered role — a warm body with flat 50s. */

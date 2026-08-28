@@ -49,20 +49,31 @@ export interface OpponentTeam {
   condition?: string;
 }
 
-/** The bracket's target average for a round, off the player's raw lineup
- *  average — the ONLY place difficulty lives (traits are shapes, not stat
- *  sticks). Round 1 sits eight under, a warm-up you clear ~95% of the
- *  time; round 8 sits seven over and is reached by under a tenth of runs.
- *  The wall is the CHAIN, not any single fight.
+/** The reference lineup the bracket is priced against — roughly what a
+ *  season's shelf produces once a player owns a card per role. */
+export const LEAGUE_BASELINE = 74;
+
+/** How much of the bracket follows YOUR five rather than the league's
+ *  baseline. At 1.0 the bracket tracks you exactly and your collection is
+ *  worth literally nothing (v3 shipped this way: a 65-average lineup and
+ *  an 82-average lineup measured identical curves, which is a strange
+ *  thing for a card game). At 0 a thin shelf is unplayable. 0.88 leaves a
+ *  ten-point lineup edge worth about a point and a bit — felt, never
+ *  decisive, and small enough that SHAPE (commitment and chemistry, see
+ *  lineupShapeOf) still out-earns raw overall. */
+const LINEUP_TRACKING = 0.88;
+
+/** The bracket's target average for a round. Round 1 sits well under a
+ *  typical five, a warm-up you clear most of the time; round 8 sits over
+ *  it and is reached by under a tenth of runs. The wall is the CHAIN, not
+ *  any single fight.
  *
- *  v3 re-tuned this from scratch: gold now compounds, so a lost lane
- *  phase snowballs the way it should, and the curve had to start gentler
- *  and end steeper to stay a roguelike instead of a gauntlet of coin
- *  flips. Monte-Carlo: 94/81/62/44/29/17/9/4% reach by round, ~4% full
- *  clears on safe play (see sim.test's calibration band). Anything that
- *  moves those numbers is a rebalance, not a refactor. */
+ *  Difficulty lives here and nowhere else — traits are shapes, conditions
+ *  are rules. Monte-Carlo pins the curve (see sim.test's calibration
+ *  band); anything that moves it is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
-  return clamp(Math.round(lineupAvg - 10 + round * 2.0), 45, 92);
+  const priced = LINEUP_TRACKING * lineupAvg + (1 - LINEUP_TRACKING) * LEAGUE_BASELINE;
+  return clamp(Math.round(priced - 10 + round * 2.0), 45, 92);
 }
 
 /**
