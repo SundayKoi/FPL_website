@@ -126,7 +126,7 @@ export async function loadPremiumHubSnapshot(league: CardLeague): Promise<Premiu
   const [cards, betting, banger] = await Promise.all([
     safePreview(() => loadCardPreview(supabase, league), "Card preview is temporarily unavailable."),
     safePreview(loadBettingPreview, "Betting preview is temporarily unavailable."),
-    safePreview(loadBangerPreview, "Banger Board preview is temporarily unavailable."),
+    safePreview(loadBangerPreview, "The Daily Stu preview is temporarily unavailable."),
   ]);
   return { league, cards, betting, banger };
 }

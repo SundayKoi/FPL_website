@@ -10,7 +10,7 @@ export type BangerBoardSettings = {
 };
 
 export const DEFAULT_BANGER_BOARD_SETTINGS: BangerBoardSettings = {
-  heroTitle: "Stu’s Banger Board",
+  heroTitle: "The Daily Stu",
   dailyTitle: "Banger check",
   podiumTitle: "Top 3 all-time",
   stinkerTitle: "Top stinkers",

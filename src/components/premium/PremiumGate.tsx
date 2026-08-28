@@ -7,7 +7,7 @@ export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boole
         <span className="label-dash">FPL Premium</span>
         <h1 className="type-display text-4xl sm:text-5xl">Premium HQ is locked</h1>
         <p className="max-w-xl text-sm leading-7 text-steel sm:text-base">
-          FPL Premium is only $10. Unlock the live card collection, betting exchange, Banger Board, Match
+          FPL Premium is only $10. Unlock the live card collection, betting exchange, The Daily Stu, Match
           Drafter, card economy, and more in one member hub.
         </p>
         <div className="flex flex-wrap justify-center gap-3">

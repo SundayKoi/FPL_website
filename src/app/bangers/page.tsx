@@ -4,7 +4,7 @@ import { fetchBangerPosts, fetchBangerViewerVotes, fetchDailyBanger } from "@/li
 import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
 
 export const metadata: Metadata = {
-  title: "Banger Board | FPL Draft League",
+  title: "The Daily Stu | FPL Draft League",
   description: "Rate the recent and greatest takes from Stuart69Davis.",
 };
 

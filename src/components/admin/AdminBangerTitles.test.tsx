@@ -36,7 +36,7 @@ describe("AdminBangerTitles", () => {
   it("starts collapsed and reveals title fields when opened", () => {
     render(<AdminBangerTitles initial={initial} />);
 
-    const heading = screen.getByText("Banger Board titles");
+    const heading = screen.getByText("The Daily Stu titles");
     const disclosure = heading.closest("details");
     expect(disclosure).not.toBeNull();
     expect(disclosure?.open).toBe(false);

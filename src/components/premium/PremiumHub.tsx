@@ -15,7 +15,7 @@ const LEAGUES: { key: CardLeague; label: string }[] = [
 const PREMIUM_LINKS = [
   { label: "Player Cards", href: "/cards", note: "Living ratings for every player" },
   { label: "Betting Exchange", href: "/betting", note: "Markets, pick'em, and wallet" },
-  { label: "Banger Board", href: "/bangers", note: "Judge the league's hottest takes" },
+  { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
   { label: "Match Drafter", href: "/drafter", note: "Run a private pick / ban lobby" },
 ] as const;
 
@@ -313,7 +313,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
 
           <FeatureCard
             eyebrow="Community read"
-            title="Banger Board"
+            title="The Daily Stu"
             description="Rate the latest take and watch the league decide if it bangs."
             href="/bangers"
             className="lg:col-span-3"

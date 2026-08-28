@@ -37,8 +37,8 @@ The header provides five direct links for the active league: **Players**,
   league.
 - **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
 
-**Premium** is a direct link to the gated Premium HQ for Betting, Banger
-Board, Player Cards, Draft League, Match Drafter, and the card economy.
+**Premium** is a direct link to the gated Premium HQ for Betting, The Daily
+Stu, Player Cards, Draft League, Match Drafter, and the card economy.
 
 Admin and Broadcaster appear as conditional Staff entries inside Info. Their
 visibility is only a presentation hint: `/admin` and `/broadcaster` retain

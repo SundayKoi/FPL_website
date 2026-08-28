@@ -20,7 +20,10 @@ beforeEach(() => {
   voteDailyBanger.mockReset();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const post: BangerPost = {
   id: "post-1",
@@ -33,6 +36,39 @@ const post: BangerPost = {
 };
 
 describe("BangerBoard saved votes", () => {
+  it("names The Daily Stu and explains the daily $200 reward", async () => {
+    render(
+      <BangerBoard
+        posts={[]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "The Daily Stu" })).toBeTruthy();
+    expect(screen.getByText("Vote once a day → get $200")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/^Resets (?!at your local time)/)).toBeTruthy());
+  });
+
+  it("formats the reset with the browser's local timezone", async () => {
+    const NativeDateTimeFormat = Intl.DateTimeFormat;
+    const dateTimeFormat = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(
+      function (locales, options) {
+        return Reflect.construct(NativeDateTimeFormat, [locales, options]);
+      },
+    );
+    render(
+      <BangerBoard
+        posts={[]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText(/^Resets (?!at your local time)/)).toBeTruthy());
+    expect(dateTimeFormat.mock.calls.some(([locale, options]) => locale === undefined && options?.timeZoneName === "short")).toBe(true);
+  });
+
   it("renders the viewer's saved vote as selected after hydration", () => {
     render(
       <BangerBoard
@@ -58,7 +94,7 @@ describe("BangerBoard saved votes", () => {
       />,
     );
 
-    expect(screen.getByText("✓ Bonus claimed")).toBeTruthy();
+    expect(screen.getByText("✓ $200 bonus claimed")).toBeTruthy();
   });
 
   it("renders the daily tweet's banger meter", () => {

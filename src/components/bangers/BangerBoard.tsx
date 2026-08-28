@@ -105,6 +105,24 @@ function TweetCard({ post, currentVote, onVote, votePending = false, voteMessage
   );
 }
 
+function LocalResetTime({ endsAt }: { endsAt: string }) {
+  const [resetLabel, setResetLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Client-only formatting keeps server HTML and hydrated HTML identical.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setResetLabel(
+      new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      }).format(new Date(endsAt)),
+    );
+  }, [endsAt]);
+
+  return <p className="mt-3 text-xs text-white/45">{resetLabel ? `Resets ${resetLabel}` : "Resets at your local time"}</p>;
+}
+
 export default function BangerBoard({ posts, dailyBanger, settings, initialVotes = {}, initialDailyVote }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote }) {
   const [votes, setVotes] = useState<Record<string, Vote | undefined>>(initialVotes);
   const [randomPostId, setRandomPostId] = useState<string | undefined>(undefined);
@@ -198,7 +216,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
       <section className="relative border-b border-banana/20 px-5 pb-14 pt-14 sm:px-10 sm:pt-20">
         <div className="pointer-events-none absolute -right-8 -top-8 text-[10rem] opacity-[0.08] sm:text-[16rem]" aria-hidden="true">🐒</div>
         <div className="mx-auto max-w-6xl">
-          <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-banana"><span className="text-lg">🍌</span> Premium dispatch · the banger board</div>
+          <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-banana"><span className="text-lg">🍌</span> Premium dispatch · The Daily Stu</div>
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div>
               <h1 className="max-w-3xl font-display text-5xl font-bold uppercase italic leading-[0.9] tracking-[-0.05em] text-white sm:text-7xl">{settings.heroTitle}</h1>
@@ -216,8 +234,8 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
 
       <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
         <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · rotates every 24h UTC</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
-          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once today · get $200</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} /><p className="mt-3 text-xs text-white/45" role={dailyMessage ? "status" : undefined} aria-live="polite">{dailyMessage || `Refreshes ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(new Date(dailyBanger.endsAt))} UTC`}</p></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · vote once a day for $200</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
+          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : "✓ $200 bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once a day → get $200</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />{dailyMessage ? <p className="mt-3 text-xs text-white/45" role="status" aria-live="polite">{dailyMessage}</p> : null}<LocalResetTime endsAt={dailyBanger.endsAt} /></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
         </div>
       </section>
 

@@ -166,7 +166,7 @@ describe("AdminPage", () => {
     expect(screen.getByTestId("premier-featured-editor")).not.toBeNull();
     expect(screen.getByTestId("academy-featured-editor")).not.toBeNull();
     expect(screen.queryByRole("region", { name: "League controls" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Banger Board" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "The Daily Stu" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Drafts" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Staff" })).toBeNull();
   });

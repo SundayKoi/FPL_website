@@ -43,14 +43,14 @@ export default function AdminBangerTitles({ initial }: { initial: BangerBoardSet
       setMessage("Could not save titles. Please try again.");
       return;
     }
-    setMessage("Banger Board titles saved.");
+    setMessage("The Daily Stu titles saved.");
     router.refresh();
   }
 
   return (
     <details className="card-brand flex flex-col gap-5 p-5">
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <span className="label-dash">Banger Board titles</span>
+        <span className="label-dash">The Daily Stu titles</span>
         <p className="mt-1 text-sm text-steel">Customize the headings shown to every visitor.</p>
       </summary>
       <div className="grid gap-4 sm:grid-cols-2">

@@ -200,7 +200,7 @@ export default async function AdminPage() {
       </section>
 
       {canUseFullAdmin && <section aria-labelledby="banger-control-title" className="flex flex-col gap-3">
-        <h2 id="banger-control-title" className="type-display text-2xl">Banger Board</h2>
+        <h2 id="banger-control-title" className="type-display text-2xl">The Daily Stu</h2>
         <AdminBangerTitles initial={bangerTitles} />
       </section>}
 
