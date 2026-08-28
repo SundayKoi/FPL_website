@@ -1,4 +1,14 @@
 name: Ingest match reports
+
+# The downstream workflows listen for this one finishing, and a workflow_run
+# payload carries no inputs — but it does carry the run's display title. So
+# a hand-run ingest that opts out of the cascade says so in its own name,
+# and the two workflows that listen read it back. Hand-run with the box
+# ticked (the default) and the whole of Tuesday follows, which is how a
+# missed week is caught up in one click.
+run-name: >-
+  Ingest match reports${{ github.event_name == 'workflow_dispatch' && !inputs.cascade && ' — no cascade' || '' }}
+
 on:
   schedule:
     # Tuesday only: the league plays Monday night, so one pass the next
@@ -10,13 +20,17 @@ on:
     # anybody writes by hand lands; their own guidance is to pick another
     # minute. This job used to sit at :00 and drifted hours late.
     #
-    # This is the FIRST link in Tuesday's chain and everything downstream
-    # reads what it wrote: the briefs at 14:00, the moment detector at
-    # 14:30, the card drop (and the Gauntlet settlement) at 15:00, the
-    # weekly draw at 15:30. Seven hours of headroom, which matters because
-    # GitHub queues scheduled runs and can delay them by hours under load.
+    # This is the only clock left in Tuesday's chain. Everything downstream
+    # — the briefs, the moment detector, the card drop with the Gauntlet
+    # settlement, the weekly draw — now runs when this one finishes rather
+    # than at a time it is usually done by.
     - cron: "23 7 * * 2"
   workflow_dispatch:
+    inputs:
+      cascade:
+        description: "Also run the rest of Tuesday (moments, briefs, card drop, draw)"
+        type: boolean
+        default: true
 concurrency:
   group: ingest-stats
   cancel-in-progress: false
