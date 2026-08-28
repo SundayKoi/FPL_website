@@ -6,6 +6,7 @@ import TourneyCodes from "@/components/captain/TourneyCodes";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
+import TeamAccentPanel from "./TeamAccentPanel";
 import TeamSchedule from "./TeamSchedule";
 
 const ACTION = "inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy";
@@ -158,45 +159,65 @@ export default function MyTeamGate({
             Your next match, private tournament codes, team schedule, roster, and scouting.
           </p>
         </header>
+        <div
+          aria-hidden="true"
+          className="mt-5 h-1.5 rounded-full"
+          style={{
+            background: `linear-gradient(90deg, ${teamBrand.bannerColor}, ${teamBrand.bannerColor}99 28%, transparent 82%)`,
+            boxShadow: `0 0 18px ${teamBrand.bannerColor}66`,
+          }}
+        />
 
         <div className="mt-8 flex flex-col gap-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <NextMatchCard
-              fixture={dashboard.nextFixture}
-              myTeamName={dashboard.team.name}
-              opponentMultiOpggUrl={dashboard.opponent?.multiOpggUrl ?? null}
-              draftGames={dashboard.draftGames}
-            />
+            <TeamAccentPanel color={teamBrand.bannerColor}>
+              <NextMatchCard
+                fixture={dashboard.nextFixture}
+                myTeamName={dashboard.team.name}
+                opponentMultiOpggUrl={dashboard.opponent?.multiOpggUrl ?? null}
+                draftGames={dashboard.draftGames}
+              />
+            </TeamAccentPanel>
             {dashboard.nextFixture && dashboard.opponent ? (
-              <Link
-                href={`${scoutingHref}${adminQuery}`}
-                className="card-brand group block p-5 transition hover:border-coral/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
-                aria-label={`Scout Opponent: ${dashboard.opponent.name}`}
-              >
-                <span className="label-dash text-gold">Premium · Scouting</span>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <h2 className="type-display text-2xl">Scout Opponent</h2>
-                  <span aria-hidden className="text-2xl text-coral transition-transform group-hover:translate-x-1">→</span>
-                </div>
-                <p className="mt-2 text-sm text-steel">
-                  Draft history and player pools for <span className="font-semibold text-white">{dashboard.opponent.name}</span>.
-                </p>
-              </Link>
+              <TeamAccentPanel color={teamBrand.bannerColor}>
+                <Link
+                  href={`${scoutingHref}${adminQuery}`}
+                  className="card-brand group block p-5 transition hover:border-coral/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  aria-label={`Scout Opponent: ${dashboard.opponent.name}`}
+                >
+                  <span className="label-dash text-gold">Premium · Scouting</span>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <h2 className="type-display text-2xl">Scout Opponent</h2>
+                    <span aria-hidden className="text-2xl text-coral transition-transform group-hover:translate-x-1">→</span>
+                  </div>
+                  <p className="mt-2 text-sm text-steel">
+                    Draft history and player pools for <span className="font-semibold text-white">{dashboard.opponent.name}</span>.
+                  </p>
+                </Link>
+              </TeamAccentPanel>
             ) : null}
           </div>
-          <TourneyCodes codes={dashboard.codes} />
-          <TeamSchedule teamName={dashboard.team.name} fixtures={dashboard.schedule} />
-          <MyRoster
-            draftPlayers={dashboard.roster.draftPlayers}
-            riotAccounts={dashboard.roster.riotAccounts}
-            multiOpggUrl={dashboard.roster.multiOpggUrl}
-            playerPoolId={dashboard.playerPoolId}
-          />
-          <MyResults
-            teamName={dashboard.team.name}
-            games={dashboard.results.games}
-            players={dashboard.results.players}
-          />
+          <TeamAccentPanel color={teamBrand.bannerColor}>
+            <TourneyCodes codes={dashboard.codes} />
+          </TeamAccentPanel>
+          <TeamAccentPanel color={teamBrand.bannerColor}>
+            <TeamSchedule teamName={dashboard.team.name} fixtures={dashboard.schedule} />
+          </TeamAccentPanel>
+          <TeamAccentPanel color={teamBrand.bannerColor}>
+            <MyRoster
+              draftPlayers={dashboard.roster.draftPlayers}
+              riotAccounts={dashboard.roster.riotAccounts}
+              multiOpggUrl={dashboard.roster.multiOpggUrl}
+              playerPoolId={dashboard.playerPoolId}
+            />
+          </TeamAccentPanel>
+          <TeamAccentPanel color={teamBrand.bannerColor}>
+            <MyResults
+              teamName={dashboard.team.name}
+              games={dashboard.results.games}
+              players={dashboard.results.players}
+            />
+          </TeamAccentPanel>
         </div>
       </div>
     </main>

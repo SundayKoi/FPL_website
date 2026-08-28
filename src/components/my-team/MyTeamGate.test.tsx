@@ -164,6 +164,9 @@ describe("MyTeamGate", () => {
     expect(teamHeader?.getAttribute("style")).toContain("border-top-color: rgb(18, 52, 86)");
     expect(screen.getByRole("img", { name: "My Team logo" }).getAttribute("src"))
       .toBe("https://img.test/my-team.png");
+    const accentRails = Array.from(document.querySelectorAll("[data-team-accent-rail]"));
+    expect(accentRails).toHaveLength(6);
+    expect(accentRails.every((rail) => rail.getAttribute("style")?.includes("rgb(18, 52, 86)"))).toBe(true);
     expect(screen.getAllByText("vs Enemy Team")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=board");

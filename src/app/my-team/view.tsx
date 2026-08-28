@@ -16,6 +16,7 @@ import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import TeamAccentPanel from "@/components/my-team/TeamAccentPanel";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -126,28 +127,32 @@ export async function MyTeamPageView({
   }
 
   const captainTools = captainData ? (
-    <section className="card-brand p-5" aria-labelledby="captain-tools-heading">
-      <span className="label-dash">Captain tools</span>
-      <h2 id="captain-tools-heading" className="type-display mt-2 text-3xl">Report a result</h2>
-      <div className="mt-5">
-        <ReportBox
-          key={dashboard.team.id}
-          teams={dashboard.activeTeams}
-          defaultSeason={dashboard.season}
-          defaultPhase={captainData.defaultPhase}
-          fixtureId={dashboard.nextFixture?.id ?? null}
-          prefillTeamAId={captainData.prefill.prefillTeamAId}
-          prefillTeamBId={captainData.prefill.prefillTeamBId}
-          draftPrefill={captainData.prefill.draftPrefill}
-          myReports={captainData.myReports}
-        />
-      </div>
-    </section>
+    <TeamAccentPanel color={dashboard.team.bannerColor}>
+      <section className="card-brand p-5" aria-labelledby="captain-tools-heading">
+        <span className="label-dash">Captain tools</span>
+        <h2 id="captain-tools-heading" className="type-display mt-2 text-3xl">Report a result</h2>
+        <div className="mt-5">
+          <ReportBox
+            key={dashboard.team.id}
+            teams={dashboard.activeTeams}
+            defaultSeason={dashboard.season}
+            defaultPhase={captainData.defaultPhase}
+            fixtureId={dashboard.nextFixture?.id ?? null}
+            prefillTeamAId={captainData.prefill.prefillTeamAId}
+            prefillTeamBId={captainData.prefill.prefillTeamBId}
+            draftPrefill={captainData.prefill.draftPrefill}
+            myReports={captainData.myReports}
+          />
+        </div>
+      </section>
+    </TeamAccentPanel>
   ) : captainToolsError ? (
-    <section className="card-brand p-5" aria-label="Captain tools unavailable">
-      <span className="label-dash">Captain tools</span>
-      <p className="mt-3 text-sm text-steel">Captain tools are temporarily unavailable.</p>
-    </section>
+    <TeamAccentPanel color={dashboard.team.bannerColor}>
+      <section className="card-brand p-5" aria-label="Captain tools unavailable">
+        <span className="label-dash">Captain tools</span>
+        <p className="mt-3 text-sm text-steel">Captain tools are temporarily unavailable.</p>
+      </section>
+    </TeamAccentPanel>
   ) : null;
 
   let adminData: {
@@ -194,29 +199,33 @@ export async function MyTeamPageView({
   }
 
   const adminTools = adminData ? (
-    <section className="mt-4 flex flex-col gap-6 border-t border-line pt-8" aria-labelledby="admin-tools-heading">
-      <div>
-        <span className="label-dash">Admin</span>
-        <h2 id="admin-tools-heading" className="type-display mt-2 text-3xl">League admin</h2>
-      </div>
-      <AdminCodeEditor fixtures={adminData.fixtures} teams={dashboard.teams} codes={adminData.codes} enableBulkImporter />
-      <AdminReportsQueue reports={adminData.reports} games={adminData.games} teams={dashboard.teams} />
-      {adminData.isOwner ? (
-        <LeagueTeamsEditor teams={dashboard.teams} />
-      ) : (
-        <p className="text-sm text-steel">Some league configuration is owner-only.</p>
-      )}
-      <RosterEditor
-        teams={dashboard.activeTeams}
-        defaultSeason={dashboard.season}
-        memberships={adminData.memberships}
-      />
-    </section>
+    <TeamAccentPanel color={dashboard.team.bannerColor}>
+      <section className="mt-4 flex flex-col gap-6 border-t border-line pt-8" aria-labelledby="admin-tools-heading">
+        <div>
+          <span className="label-dash">Admin</span>
+          <h2 id="admin-tools-heading" className="type-display mt-2 text-3xl">League admin</h2>
+        </div>
+        <AdminCodeEditor fixtures={adminData.fixtures} teams={dashboard.teams} codes={adminData.codes} enableBulkImporter />
+        <AdminReportsQueue reports={adminData.reports} games={adminData.games} teams={dashboard.teams} />
+        {adminData.isOwner ? (
+          <LeagueTeamsEditor teams={dashboard.teams} />
+        ) : (
+          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+        )}
+        <RosterEditor
+          teams={dashboard.activeTeams}
+          defaultSeason={dashboard.season}
+          memberships={adminData.memberships}
+        />
+      </section>
+    </TeamAccentPanel>
   ) : adminToolsError ? (
-    <section className="card-brand p-5" aria-label="Admin tools unavailable">
-      <span className="label-dash">Admin</span>
-      <p className="mt-3 text-sm text-steel">Admin tools are temporarily unavailable.</p>
-    </section>
+    <TeamAccentPanel color={dashboard.team.bannerColor}>
+      <section className="card-brand p-5" aria-label="Admin tools unavailable">
+        <span className="label-dash">Admin</span>
+        <p className="mt-3 text-sm text-steel">Admin tools are temporarily unavailable.</p>
+      </section>
+    </TeamAccentPanel>
   ) : null;
 
   return (
