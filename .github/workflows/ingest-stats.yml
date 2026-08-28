@@ -1,7 +1,16 @@
 name: Ingest match reports
 on:
   schedule:
-    - cron: "0 7 * * *"   # 02:00 EST / 03:00 EDT — GitHub cron is UTC only
+    # Tuesday only: the league plays Monday night, so one pass the next
+    # morning is every game there is to read. 02:00 EST / 03:00 EDT —
+    # GitHub cron is UTC only.
+    #
+    # This is the FIRST link in Tuesday's chain and everything downstream
+    # reads what it wrote: the briefs at 14:00, the moment detector at
+    # 14:30, the card drop (and the Gauntlet settlement) at 15:00, the
+    # weekly draw at 15:30. Seven hours of headroom, which matters because
+    # GitHub queues scheduled runs and can delay them by hours under load.
+    - cron: "0 7 * * 2"
   workflow_dispatch:
 concurrency:
   group: ingest-stats
