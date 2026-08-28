@@ -117,10 +117,12 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
   };
 }
 
-function renderBoard(over: { runs?: ExpeditionRun[]; deployedIds?: Set<number> } = {}) {
+function renderBoard(
+  over: { runs?: ExpeditionRun[]; deployedIds?: Set<number>; copies?: InventoryRow[] } = {},
+) {
   return render(
     <ExpeditionBoard
-      copies={COPIES}
+      copies={over.copies ?? COPIES}
       runs={over.runs ?? []}
       deployedIds={over.deployedIds ?? new Set([5])}
       today={TODAY}
@@ -316,6 +318,61 @@ describe("ExpeditionBoard — runs in the field", () => {
     for (const name of ["Eve", "Alba", "Bex"]) {
       expect(within(run).getByText(name)).toBeTruthy();
     }
+  });
+
+  it("shows art for every kind of print that can march, not just player cards", () => {
+    // A champions relic names its champion on champWin and a moment names
+    // it on moment — neither carries a `signature`. Reading only the
+    // signature rendered both as a "?" box in the squad strip.
+    const marching: InventoryRow[] = [
+      makeCopy(1, "Alba", "gold", {
+        card: { ...makeCard("Alba", "Mid"), signature: { champion: "Ahri", games: 9 } },
+      }),
+      makeCopy(2, "the fool", "challenger", {
+        card: {
+          ...makeCard("the fool", "Mid"),
+          champWin: {
+            rank: "JOKER",
+            setIndex: 5,
+            setSize: 6,
+            team: "Faceless",
+            seasonWon: "S4",
+            champion: "Xin Zhao",
+            joker: true,
+          },
+        },
+      }),
+      makeCopy(3, "Cyn", "diamond", {
+        card: {
+          ...makeCard("Cyn", "Jungle"),
+          moment: {
+            id: 7,
+            title: "ONE MAN ARMY",
+            headline: "40% of the damage",
+            summonerName: "Cyn",
+            champion: "Yasuo",
+            teamName: null,
+            weekStart: "2026-08-24",
+            playerSlug: "cyn",
+          },
+        },
+      }),
+    ];
+
+    renderBoard({
+      copies: marching,
+      runs: [makeRun({ id: 22, squad: [1, 2, 3] })],
+      deployedIds: new Set([1, 2, 3]),
+    });
+
+    const run = screen.getByTestId("run-22");
+    const art = run.querySelectorAll("img");
+    expect(art).toHaveLength(3);
+    expect(within(run).queryByText("?")).toBeNull();
+    const sources = [...art].map((image) => image.getAttribute("src") ?? "");
+    expect(sources.some((src) => /XinZhao/i.test(src))).toBe(true);
+    expect(sources.some((src) => /Ahri/i.test(src))).toBe(true);
+    expect(sources.some((src) => /Yasuo/i.test(src))).toBe(true);
   });
 });
 

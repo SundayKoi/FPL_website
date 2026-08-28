@@ -188,9 +188,16 @@ function RunStatus({
 
 /** The art this copy printed in, same chain DustControls' row thumbnail
  *  takes — and the same refusal to fall back to base art, which would show
- *  the wrong skin for a card the player is about to commit for two days. */
+ *  the wrong skin for a card the player is about to commit for two days.
+ *
+ *  Three kinds of copy can march, and only ONE of them carries a
+ *  `signature`: a player card names its champion there, a champions relic
+ *  names it on champWin, a moment on moment. Reading only the first left
+ *  every relic and moment in a squad rendering as a "?" box. */
 function copyArtUrl(copy: CardCopy): string | null {
-  return copy.card?.signature ? championCenteredUrl(copy.card.signature.champion, copy.card.artSkin) : null;
+  const champion =
+    copy.card?.signature?.champion ?? copy.card?.champWin?.champion ?? copy.card?.moment?.champion ?? null;
+  return champion ? championCenteredUrl(champion, copy.card?.artSkin ?? 0) : null;
 }
 
 /** One card in a run's squad strip — small, because the decision has
