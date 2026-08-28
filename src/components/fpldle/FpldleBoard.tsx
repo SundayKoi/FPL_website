@@ -58,10 +58,13 @@ function positionText(position: string): string {
     jungle: "JG",
     jg: "JG",
     mid: "MID",
+    middle: "MID",
     adc: "ADC",
     bot: "ADC",
+    bottom: "ADC",
     support: "SUP",
     sup: "SUP",
+    utility: "SUP",
   };
   return labels[position.trim().toLocaleLowerCase()] ?? position;
 }
@@ -69,8 +72,11 @@ function positionText(position: string): string {
 function roleGroupKey(position: string): string {
   const normalized = position.trim().toLocaleLowerCase();
   if (normalized === "jg") return "jungle";
+  if (normalized === "middle") return "mid";
   if (normalized === "bot") return "adc";
+  if (normalized === "bottom") return "adc";
   if (normalized === "sup") return "support";
+  if (normalized === "utility") return "support";
   return normalized;
 }
 
@@ -186,6 +192,7 @@ export default function FpldleBoard({
 }) {
   const storageKey = `fpldle:${league}:${game.date}`;
   const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<FpldlePlayerPreview | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [guesses, setGuesses] = useState<FpldleFeedback[]>([]);
@@ -247,14 +254,14 @@ export default function FpldleBoard({
     const normalized = query.trim().toLocaleLowerCase();
     return game.candidates
       .filter((candidate) => !guessedSlugs.has(candidate.slug))
+      .filter((candidate) => !roleFilter || roleGroupKey(candidate.position) === roleFilter)
       .filter((candidate) => {
         if (!normalized) return true;
         return `${candidate.name}#${candidate.tag}`
           .toLocaleLowerCase()
           .includes(normalized);
-      })
-      .slice(0, 8);
-  }, [game.candidates, guessedSlugs, query]);
+      });
+  }, [game.candidates, guessedSlugs, query, roleFilter]);
   const candidateGroups = useMemo(() => ROLE_GROUPS
     .map((group) => ({
       ...group,
@@ -378,6 +385,24 @@ export default function FpldleBoard({
         {!finished ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <label htmlFor="fpldle-player" className="label-dash">Choose player</label>
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter players by role">
+              {ROLE_GROUPS.map((group) => {
+                const active = roleFilter === group.key;
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setRoleFilter((current) => (current === group.key ? null : group.key))}
+                    className={active
+                      ? "rounded-full bg-coral px-3 py-1 text-xs font-semibold text-navy"
+                      : "rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold text-steel hover:text-white"}
+                  >
+                    {group.label}
+                  </button>
+                );
+              })}
+            </div>
             <div className="relative">
               <input
                 id="fpldle-player"
@@ -388,7 +413,7 @@ export default function FpldleBoard({
                 aria-expanded={listOpen}
                 autoComplete="off"
                 className="input-brand w-full px-4 py-3"
-                placeholder="Search name, team, position, or champion"
+                placeholder="Search player name or tag"
                 value={query}
                 onFocus={() => setListOpen(true)}
                 onChange={(event) => {

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FpldleCandidate, FpldleFeedback, FpldleGame, FpldleSubmission } from "@/lib/fpldle/server";
 import FpldleBoard from "./FpldleBoard";
@@ -98,6 +98,25 @@ describe("FpldleBoard", () => {
     expect(screen.getByRole("group", { name: "MID" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "ADC" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "SUP" })).toBeTruthy();
+  });
+
+  it("filters by role and shows every available player in that role", () => {
+    const candidates = [
+      ...Array.from({ length: 12 }, (_, index) => ({ ...candidate(index + 1), position: "Mid" })),
+      { ...candidate(13), position: "Top" },
+    ];
+    render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const input = screen.getByRole("combobox", { name: "Search players" });
+    fireEvent.focus(input);
+    const roleFilters = screen.getByRole("group", { name: "Filter players by role" });
+    expect(within(roleFilters).getAllByRole("button")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "MID" }));
+
+    expect(screen.getByRole("button", { name: "MID" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getAllByRole("option")).toHaveLength(12);
+    expect(screen.getByRole("option", { name: /Player 12#NA1/ })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /Player 13#NA1/ })).toBeNull();
   });
 
   it("searches, submits, and exposes text plus accessible clue labels", async () => {
