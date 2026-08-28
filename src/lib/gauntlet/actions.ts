@@ -286,7 +286,7 @@ export async function chooseGauntletPathAction(
   // The offer derives from the SAME stored seed (offset stream), so a
   // raced retry offers the same three relics.
   const offer =
-    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1)).map((r) => r.key) : null;
+    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1), run.round).map((r) => r.key) : null;
 
   const { data: updated } = await service
     .from("gauntlet_runs")

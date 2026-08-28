@@ -73,7 +73,7 @@ const LINEUP_TRACKING = 0.88;
  *  band); anything that moves it is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
   const priced = LINEUP_TRACKING * lineupAvg + (1 - LINEUP_TRACKING) * LEAGUE_BASELINE;
-  return clamp(Math.round(priced - 10 + round * 2.0), 45, 92);
+  return clamp(Math.round(priced - 10 + round * 2.2), 45, 92);
 }
 
 /**

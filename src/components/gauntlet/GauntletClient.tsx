@@ -33,7 +33,7 @@ import {
   type StoredMatchResult,
 } from "@/lib/gauntlet/run";
 import type { GauntletOption } from "@/lib/gauntlet/queries";
-import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily } from "@/lib/gauntlet/relics";
+import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily, type RelicRarity } from "@/lib/gauntlet/relics";
 import {
   type CompStyle,
   lineupShapeOf,
@@ -46,6 +46,13 @@ import {
   makeTrialist,
   previewCrossroadsChoice,
 } from "@/lib/gauntlet/sim";
+
+/** Rarity reads at a glance on the pick screen — steel, cyan, gold. */
+const RARITY_COLOR: Record<RelicRarity, string> = {
+  common: "#a7c0d8",
+  uncommon: "#35e6ff",
+  rare: "#f5b62e",
+};
 
 const FAMILY_COLOR: Record<RelicFamily, string> = {
   ember: "#ff7a3d",
@@ -102,8 +109,12 @@ function RelicChip({ relicKey }: { relicKey: string }) {
   return (
     <span
       className="rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-wide"
-      style={{ color, borderColor: `${color}80`, background: `${color}14` }}
-      title={relic.effect}
+      style={{
+        color,
+        borderColor: relic.rarity === "rare" ? "#f5b62e" : `${color}80`,
+        background: `${color}14`,
+      }}
+      title={`${relic.rarity.toUpperCase()} · ${relic.effect}`}
     >
       {relic.title}
     </span>
@@ -539,7 +550,9 @@ export default function GauntletClient({
           <MomentumBar value={run.crossroads!.state.momentum} />
           <div className="grid gap-4 sm:grid-cols-3">
             {situation.choices.map((choice) => {
-              const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runCtx);
+              const preview = previewCrossroadsChoice(
+                choice, run.lineup, run.next_opponent!.cards, runCtx, run.crossroads!.state.momentum,
+              );
               const chance = preview
                 ? winChanceOf(preview.yourVal, preview.theirVal, crossroadsSpread(runCtx.arena))
                 : 1;
@@ -601,7 +614,10 @@ export default function GauntletClient({
         <div className="card-brand flex flex-col gap-4 p-6">
           <div>
             <span className="label-dash text-coral">ROUND {run.round - 1} CLEARED · CHOOSE YOUR RELIC</span>
-            <p className="mt-1 text-xs text-steel">One of three, run-scoped. The other two are burned — choosing is the game.</p>
+            <p className="mt-1 text-xs text-steel">
+              One of three, run-scoped. The other two are burned — choosing is the game. Rares get likelier
+              the deeper you go.
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {(run.relic_offer ?? []).map((key) => {
@@ -616,8 +632,16 @@ export default function GauntletClient({
                   className="flex flex-col rounded-xl border bg-[#120f18] p-4 text-left transition hover:-translate-y-1 disabled:opacity-50"
                   style={{ borderColor: `${color}70`, boxShadow: `0 0 22px -10px ${color}` }}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-[0.22em]" style={{ color }}>
-                    {relic.family}
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="text-[9px] font-bold uppercase tracking-[0.22em]" style={{ color }}>
+                      {relic.family}
+                    </span>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-[0.18em]"
+                      style={{ color: RARITY_COLOR[relic.rarity] }}
+                    >
+                      {relic.rarity}
+                    </span>
                   </span>
                   <span className="type-display mt-1 text-xl text-white">{relic.title}</span>
                   <span className="mt-2 text-xs leading-5 text-[#cfc9d6]">{relic.effect}</span>
