@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MeasureKey } from "@/lib/cards/measures";
 import type { InventoryRow } from "@/lib/packs/queries";
+import type { CardLeague } from "@/lib/cards/queries";
 import { mondayOf } from "@/lib/packs/week";
 import type { GauntletRunRow } from "./run";
 import { rankGauntletWeek } from "./settle";
@@ -27,6 +28,10 @@ export interface GauntletOption {
   editionWeek: string;
   /** The real-life team — what the draft screen's chemistry reads. */
   team: string | null;
+  /** Which shelf the copy came off. Both field, and the bracket scales to
+   *  whatever you pick — but a draft screen mixing two leagues has to say
+   *  which is which, or an academy 80 reads as a premier one. */
+  league: CardLeague;
   /** The DRAFT_STAT_KEYS bars only — enough for the comp readout and the
    *  per-card chips; missing bars fall back the way statOf falls back. */
   stats: Partial<Record<MeasureKey, number>>;
@@ -40,7 +45,13 @@ export function currentWeek(): string {
 
 /** The collection as draft options, by role, best copies first. Moments
  *  and champions relics don't field — they watch from the shelf. */
-export function buildGauntletOptions(rows: InventoryRow[], week: string): Record<GauntletRole, GauntletOption[]> {
+export function buildGauntletOptions(
+  rows: InventoryRow[],
+  week: string,
+  /** season -> league, for the shelf tag. A season missing from the map
+   *  reads as premier, which is what a single-league environment has. */
+  leagueOf: ReadonlyMap<string, CardLeague> = new Map(),
+): Record<GauntletRole, GauntletOption[]> {
   const byRole = Object.fromEntries(GAUNTLET_ROLES.map((role) => [role, [] as GauntletOption[]])) as Record<
     GauntletRole,
     GauntletOption[]
@@ -58,6 +69,7 @@ export function buildGauntletOptions(rows: InventoryRow[], week: string): Record
       fresh: row.editionWeek === week,
       editionWeek: row.editionWeek,
       team: row.card.teamName ?? null,
+      league: leagueOf.get(row.season) ?? "premier",
       stats: Object.fromEntries(
         (row.card.subStats ?? [])
           .filter((bar) => (DRAFT_STAT_KEYS as string[]).includes(bar.key))

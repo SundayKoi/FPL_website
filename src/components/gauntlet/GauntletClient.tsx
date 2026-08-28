@@ -383,6 +383,10 @@ export default function GauntletClient({
                   {options[role].map((option) => (
                     <option key={option.inventoryId} value={option.inventoryId}>
                       {option.name} · {option.overall}
+                      {/* Both shelves field, so the option has to say which
+                          one it came off — an academy 80 and a premier 80
+                          are rated against different fields. */}
+                      {option.league === "academy" ? " · ACA" : ""}
                       {option.fresh ? " 🌱" : ""}
                       {option.foil ? " ✦" : ""}
                       {option.signed ? " ✍" : ""}
@@ -666,7 +670,9 @@ export default function GauntletClient({
                       .filter((option) => !run.lineup.some((card) => card.inventoryId === option.inventoryId))
                       .map((option) => (
                         <option key={option.inventoryId} value={option.inventoryId}>
-                          {option.name} · {option.overall}{option.fresh ? " 🌱" : ""}
+                          {option.name} · {option.overall}
+                          {option.league === "academy" ? " · ACA" : ""}
+                          {option.fresh ? " 🌱" : ""}
                         </option>
                       ))
                   : null}
