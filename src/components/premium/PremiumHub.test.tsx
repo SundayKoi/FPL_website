@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import PremiumHub from "./PremiumHub";
 
@@ -41,6 +41,33 @@ const snapshot = {
 };
 
 describe("PremiumHub betting preview", () => {
+  it("offers detailed patron support from the premium edge heading", () => {
+    render(<PremiumHub snapshot={snapshot} />);
+
+    const trigger = screen.getByRole("button", { name: /become a patron/i });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: /become a patron/i });
+    expect(dialog.textContent).toContain("$3–$5 per month");
+    expect(dialog.textContent).toContain("The Patron Flame");
+    expect(dialog.textContent).toContain("The weekly re-roll");
+    expect(within(dialog).getByRole("link", { name: /paypal/i }).getAttribute("href")).toBe(
+      "https://www.paypal.com/paypalme/ZBultman",
+    );
+    expect(within(dialog).getByRole("link", { name: /venmo.*zachari/i }).getAttribute("href")).toBe(
+      "https://venmo.com/u/Zachari-Bultman",
+    );
+    expect(within(dialog).getByRole("link", { name: /venmo.*matthew/i }).getAttribute("href")).toBe(
+      "https://venmo.com/u/Mwolanski1",
+    );
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /close patron details/i }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("shows a live bettable game and the member wallet", () => {
     render(<PremiumHub snapshot={snapshot} />);
 

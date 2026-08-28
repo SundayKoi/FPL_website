@@ -1,5 +1,6 @@
 import Image from "next/image";
 import PatronPerks from "@/components/patron/PatronPerks";
+import { PATRON_PAYPAL_HREF, PATRON_VENMO_LINKS } from "@/lib/patron/links";
 
 type Props = {
   className?: string;
@@ -10,15 +11,15 @@ const devs = [
     name: "Dribb",
     handle: "@dribb",
     avatar: "/dribb-avatar.jpg",
-    venmoLabel: "Venmo Zachari Bultman",
-    venmoUrl: "https://venmo.com/u/Zachari-Bultman",
+    venmoLabel: `Venmo ${PATRON_VENMO_LINKS[0].name}`,
+    venmoUrl: PATRON_VENMO_LINKS[0].href,
   },
   {
     name: "Spies",
     handle: "@spiesss",
     avatar: "/spies-avatar.jpg",
-    venmoLabel: "Venmo Matthew Wolanski",
-    venmoUrl: "https://venmo.com/u/Mwolanski1",
+    venmoLabel: `Venmo ${PATRON_VENMO_LINKS[1].name}`,
+    venmoUrl: PATRON_VENMO_LINKS[1].href,
   },
 ] as const;
 
@@ -77,7 +78,7 @@ export default function SupportDevSection({ className = "" }: Props) {
 
           <PatronPerks className="mt-6" />
           <a
-            href="https://www.paypal.com/paypalme/ZBultman"
+            href={PATRON_PAYPAL_HREF}
             target="_blank"
             rel="noopener noreferrer"
             className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"

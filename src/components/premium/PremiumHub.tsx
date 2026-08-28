@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import PatronSupportModal from "@/components/premium/PatronSupportModal";
 import { fmtPoints } from "@/lib/betting/format";
 import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
 import type { MarketCardData } from "@/lib/betting/types";
@@ -66,11 +67,26 @@ function PreviewFallback({ result }: { result: PreviewFailure<unknown> }) {
   );
 }
 
-function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description?: string }) {
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
   return (
     <div>
-      <span className="label-dash">{eyebrow}</span>
-      <h2 className="type-display mt-2 text-2xl sm:text-3xl">{title}</h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <span className="label-dash">{eyebrow}</span>
+          <h2 className="type-display mt-2 text-2xl sm:text-3xl">{title}</h2>
+        </div>
+        {action}
+      </div>
       {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">{description}</p> : null}
     </div>
   );
@@ -258,6 +274,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           eyebrow="Live tools"
           title="Your premium edge"
           description="Quick reads from the same live systems behind each full feature."
+          action={<PatronSupportModal />}
         />
         <h2 id="premium-featured-heading" className="sr-only">Featured Premium tools</h2>
         <div className="mt-5 grid gap-5 lg:grid-cols-12">
