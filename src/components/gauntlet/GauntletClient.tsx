@@ -11,7 +11,7 @@
 // exported functions over the sim's own stored inputs, so what the choice
 // cards print is exactly what the resolver will roll.
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import {
@@ -22,7 +22,7 @@ import {
   resetGauntletRunAction,
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
-import { CROSSROADS_BY_KEY, safeChoiceOf } from "@/lib/gauntlet/crossroads";
+import { CROSSROADS_BY_KEY, crossroadsSpread, daringAt, winChanceOf } from "@/lib/gauntlet/crossroads";
 import MatchTheatre from "./MatchTheatre";
 import { AutopsyPanel, Scoreboard } from "./MatchAutopsy";
 import ScoutingReport from "./ScoutingReport";
@@ -154,7 +154,23 @@ export default function GauntletClient({
   const [lastFight, setLastFight] = useState<StoredMatchResult | null>(initialRun?.last_result ?? null);
   // The autopsy waits for the tape to finish — a verdict on screen before
   // the game that earned it has played is a spoiler.
-  const [tapeDone, setTapeDone] = useState(false);
+  // A run loaded from the server has nothing to watch — its post-match
+  // screens show immediately. A round resolved in THIS session holds them
+  // back until the tape has played out.
+  const [tapeDone, setTapeDone] = useState(true);
+  const [justPlayed, setJustPlayed] = useState(false);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  /** Bring the stage back into view — a new screen rendered below the
+   *  fold is a screen the player never sees. */
+  const showStage = useCallback(() => {
+    requestAnimationFrame(() => {
+      stageRef.current?.scrollIntoView({
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    });
+  }, []);
   const [picks, setPicks] = useState<Partial<Record<GauntletRole, number | null>>>({});
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
@@ -213,7 +229,10 @@ export default function GauntletClient({
       }
       // The game is now paused at the crossroads — the old tape comes down.
       setLastFight(null);
+      setJustPlayed(false);
+      setTapeDone(true);
       setRun(result.run);
+      showStage();
     });
   }
 
@@ -227,8 +246,10 @@ export default function GauntletClient({
         return;
       }
       setTapeDone(false);
+      setJustPlayed(true);
       setLastFight(result.run.last_result ?? { ...result.result, round: run.round });
       setRun(result.run);
+      showStage();
       router.refresh();
     });
   }
@@ -358,7 +379,7 @@ export default function GauntletClient({
   const runCtx = matchContextFor(run.relics, run.next_opponent);
 
   return (
-    <section className="flex flex-col gap-6">
+    <section ref={stageRef} className="flex scroll-mt-6 flex-col gap-6">
       <div className="card-brand flex flex-col gap-4 p-6">
         <div className="flex flex-wrap items-baseline gap-4">
           <span className="label-dash">
@@ -407,8 +428,14 @@ export default function GauntletClient({
               baron: lastFight.baron,
               endClock: 31,
             }}
+            autoPlay={justPlayed}
             onFinish={() => setTapeDone(true)}
           />
+          {!tapeDone ? (
+            <p className="text-xs text-steel">
+              The scoreboard, the read, and what comes next unlock when the tape ends — or hit Skip.
+            </p>
+          ) : null}
           {tapeDone ? (
             <div className="flex flex-col gap-4">
               {lastFight.won ? (
@@ -428,7 +455,7 @@ export default function GauntletClient({
         </div>
       ) : null}
 
-      {over ? (
+      {!tapeDone ? null : over ? (
         <div className="card-brand flex flex-col items-start gap-3 p-6">
           <span className="label-dash">
             {run.status === "cleared" ? "🏆 FULL CLEAR" : run.status === "banked" ? "You walked away" : "The run ends here"}
@@ -474,7 +501,11 @@ export default function GauntletClient({
           <div className="grid gap-4 sm:grid-cols-3">
             {situation.choices.map((choice) => {
               const preview = previewCrossroadsChoice(choice, run.lineup, run.next_opponent!.cards, runCtx);
-              const safe = safeChoiceOf(situation).key === choice.key && !preview;
+              const chance = preview
+                ? winChanceOf(preview.yourVal, preview.theirVal, crossroadsSpread(runCtx.arena))
+                : 1;
+              const pays = preview ? daringAt(choice.scoreBonus, chance) : 0;
+              const odds = Math.round(chance * 100);
               return (
                 <button
                   key={choice.key}
@@ -483,7 +514,15 @@ export default function GauntletClient({
                   disabled={pending}
                   className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-line bg-panel/60"}`}
                 >
-                  <span className="type-display text-lg text-white">{choice.label}</span>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="type-display text-lg text-white">{choice.label}</span>
+                    <span
+                      className="font-mono text-lg font-bold tabular-nums"
+                      style={{ color: odds >= 60 ? "#2ee6a8" : odds >= 40 ? "#f5b62e" : "#ff6b35" }}
+                    >
+                      {preview ? `${odds}%` : "sure"}
+                    </span>
+                  </span>
                   <span className="mt-1.5 text-xs leading-5 text-[#cfc9d6]">{choice.description}</span>
                   {preview ? (
                     <>
@@ -495,19 +534,28 @@ export default function GauntletClient({
                         lands <span className="text-mint">+{choice.win}</span> · fails{" "}
                         <span className="text-coral">{choice.lose}</span> momentum
                       </span>
-                      <span className="mt-1 font-mono text-[10px] text-gold">+{choice.scoreBonus} daring if it lands</span>
+                      <span className="mt-1 font-mono text-[10px] text-gold">
+                        pays <b>+{pays}</b> score at {odds}%
+                        {pays > choice.scoreBonus ? " — long odds pay more" : pays < choice.scoreBonus ? " — safe odds pay less" : ""}
+                      </span>
                     </>
                   ) : (
                     <span className="mt-3 font-mono text-[10px] text-steel">
-                      no roll · a sure +{choice.win} momentum{safe ? " · the safe play" : ""}
+                      no roll · a sure +{choice.win} momentum · no daring
                     </span>
                   )}
+                  <span className="mt-2.5 border-t border-line/60 pt-2 text-[11px] leading-4 text-steel">
+                    ↳ {choice.consequence.note}
+                  </span>
                 </button>
               );
             })}
           </div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
-            The second half is already sealed — only the call is yours. No take-backs.
+          <p className="text-[11px] leading-4 text-steel">
+            <b className="text-white">Daring pays by risk, not by stat.</b> A call you&apos;re favoured to land
+            pays a fraction of its listed score; a coin flip pays it in full; a long shot pays up to double. The
+            safe play never pays daring at all — so the call you&apos;re best at is the cheap one. The second
+            half is already sealed; only the call is yours.
           </p>
         </div>
       ) : offering ? (

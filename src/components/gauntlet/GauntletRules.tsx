@@ -107,9 +107,20 @@ export default function GauntletRules() {
       <Section title="The crossroads — every call on the table">
         <p>
           At 20:00 the scoreboard summons a situation and pauses the game for your call. Every choice is an
-          open-book check: which of your bars roll, which of theirs they roll against, what momentum is staked
-          either way, and the <b className="text-gold">daring bonus</b> a landed gamble pays your run score.
-          The safe play never rolls dice — and never pays daring.
+          open-book check: the odds are printed, the momentum staked either way is printed, and so is what
+          the call sets up for the rest of the match.
+        </p>
+        <p>
+          <b className="text-white">Daring pays by risk, not by stat.</b> A landed call pays its listed score
+          at even odds, <b className="text-white">half</b> of it at 75%, and up to <b className="text-white">
+          double</b> on a long shot — so taking the call you&apos;re best at is a fine way to survive and a
+          poor way to score. The safe play rolls no dice and pays no daring at all.
+        </p>
+        <p>
+          <b className="text-white">And every call shapes a different second half.</b> Calling the Baron and
+          landing it hands you the pit at 25:00; missing it hands the pit to <i>them</i>, and you fight on at
+          −5. Hunting a pick pays +8 to every fight after it, or −4 with your carry on the floor. The question
+          is which second half you want, not which number is biggest.
         </p>
         {CROSSROADS_CATALOG.map((situation) => (
           <div key={situation.key} className="rounded-lg border border-line/60 bg-panel/40 p-3">
@@ -132,9 +143,10 @@ export default function GauntletRules() {
                       {choice.bonus > 0 ? ` (+${choice.bonus})` : ""} vs their {choice.theirKeys.join(" + ")} ·{" "}
                       <span className="text-mint">+{choice.win}</span> /{" "}
                       <span className="text-coral">{choice.lose}</span> momentum ·{" "}
-                      <span className="text-gold">+{choice.scoreBonus} daring</span>
+                      <span className="text-gold">{choice.scoreBonus} daring at even odds</span>
                     </>
                   )}
+                  <span className="mt-0.5 block text-steel">↳ {choice.consequence.note}</span>
                 </li>
               ))}
             </ul>

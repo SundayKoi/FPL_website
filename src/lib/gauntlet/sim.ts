@@ -28,8 +28,12 @@ import {
   type CrossroadsChoice,
   CROSSROADS_BY_KEY,
   type CrossroadsSituation,
+  type CrossroadsSpoils,
+  crossroadsSpread,
+  daringAt,
   safeChoiceOf,
   situationFor,
+  winChanceOf,
 } from "./crossroads";
 
 /** One card in a Gauntlet lineup — the slice of PlayerCardData the sim
@@ -548,6 +552,7 @@ function baronDance(
   ctx: MatchContext,
   yoursToStart: boolean,
   rand: () => number,
+  callObjectives = 0,
 ): { dance: BaronDance; contest: Contest } {
   const { effects } = ctx;
   const clock = 25;
@@ -570,7 +575,8 @@ function baronDance(
   // is exactly the kind of quiet edge a strong lineup farms.)
   const startEdge = 4;
   const yourVal =
-    teamAvg(yours, ["objectives", "vision"], effects) + (effects.objectivesFlat ?? 0) + (yoursToStart ? startEdge : 0);
+    teamAvg(yours, ["objectives", "vision"], effects) + (effects.objectivesFlat ?? 0) + callObjectives +
+    (yoursToStart ? startEdge : 0);
   const theirVal =
     teamAvg(theirs, ["objectives", "combat"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, clock) +
     (yoursToStart ? 0 : startEdge);
@@ -639,34 +645,56 @@ export function simulateSecondHalf(
   let daring = 0;
   const stakes = ctx.arena.crossroadsStakesMult ?? 1;
 
-  // ── The call.
+  // ── The call. Its consequence shapes everything after it, and what a
+  //   landed call PAYS is priced by the odds it was taken at — so the
+  //   call you're best at is the cheap one.
   const preview = previewCrossroadsChoice(choice, yours, theirs, ctx);
-  let calledBaron = false;
+  let spoils: CrossroadsSpoils | undefined;
   if (!preview) {
+    // A no-roll call always "lands": it just takes its small sure gain.
+    spoils = choice.consequence.onWin;
     momentum = clamp(momentum + choice.win * stakes, 5, 95);
     events.push({
       clock: 20, kind: "crossroads", tone: "neutral",
       text: `📣 ${situation.title}: ${choice.label} — no dice rolled, the lead is farmed out`,
-      detail: `sure +${Math.round(choice.win * stakes)} momentum`,
+      detail: `sure +${Math.round(choice.win * stakes)} momentum · no daring`,
     });
   } else {
+    const spread = crossroadsSpread(ctx.arena);
+    const chance = winChanceOf(preview.yourVal, preview.theirVal, spread);
     const call = runContest(
       {
         key: "crossroads-20", kind: "crossroads", label: `📣 ${choice.label}`, clock: 20,
         yourKeys: choice.yourKeys, theirKeys: choice.theirKeys,
-        yourVal: preview.yourVal, theirVal: preview.theirVal, spread: noise(26, ctx),
+        yourVal: preview.yourVal, theirVal: preview.theirVal, spread,
         decidedBy: null, role: null,
       },
       rand,
     );
-    book(ledger, call, call.won ? 400 : -400, ctx);
+    spoils = call.won ? choice.consequence.onWin : choice.consequence.onFail;
+    book(ledger, call, (call.won ? 400 : -400) + (spoils?.gold ?? 0), ctx);
     momentum = clamp(momentum + (call.won ? choice.win : choice.lose) * stakes, 5, 95);
-    if (call.won) daring = choice.scoreBonus;
-    calledBaron = choice.key === "call_baron" || choice.key === "contest";
+    if (call.won) daring = daringAt(choice.scoreBonus, chance);
     events.push({
       clock: 20, kind: "crossroads", tone: call.won ? "win" : "loss",
       text: `📣 ${situation.title}: ${choice.label} — ${call.won ? "IT LANDS" : "it fails"}`,
-      detail: contestDetail(call), contestKey: call.key, gold: call.goldSwing,
+      detail: `${contestDetail(call)} · ${Math.round(chance * 100)}% call${call.won && daring > 0 ? ` · +${daring} daring` : ""}`,
+      contestKey: call.key, gold: call.goldSwing,
+    });
+  }
+  // What the call bought (or cost) for the rest of the match.
+  const callFight = spoils?.fightFlat ?? 0;
+  const callHold = spoils?.holdFlat ?? 0;
+  const callObjectives = spoils?.objectivesFlat ?? 0;
+  if (callFight || callHold || callObjectives) {
+    events.push({
+      clock: 21, kind: "crossroads", tone: callFight + callHold + callObjectives >= 0 ? "win" : "loss",
+      text: `↳ ${choice.consequence.note}`,
+      detail: [
+        callFight ? `fights ${callFight >= 0 ? "+" : ""}${callFight}` : null,
+        callObjectives ? `objectives ${callObjectives >= 0 ? "+" : ""}${callObjectives}` : null,
+        callHold ? `hold ${callHold >= 0 ? "+" : ""}${callHold}` : null,
+      ].filter(Boolean).join(" · "),
     });
   }
 
@@ -675,7 +703,7 @@ export function simulateSecondHalf(
     {
       key: "soul-23", kind: "objective", label: "🐲 Soul point dragon", clock: 23,
       yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
-      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0),
+      yourVal: teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) + callObjectives,
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 23),
       spread: noise(30, ctx),
@@ -691,9 +719,10 @@ export function simulateSecondHalf(
     detail: contestDetail(soul), contestKey: soul.key, gold: soul.goldSwing,
   });
 
-  // ── The Baron pit. You start it when you called it or you're ahead.
-  const yoursToStart = calledBaron || momentum >= 48;
-  const { dance, contest: baronContest } = baronDance(yours, theirs, ctx, yoursToStart, rand);
+  // ── The Baron pit. The call's OUTCOME decides who holds it when it
+  //   says so; otherwise the scoreboard does.
+  const yoursToStart = spoils?.pit === "yours" ? true : spoils?.pit === "theirs" ? false : momentum >= 48;
+  const { dance, contest: baronContest } = baronDance(yours, theirs, ctx, yoursToStart, rand, callObjectives);
   book(ledger, baronContest, (dance.taken ? 1500 : -1500) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
   momentum = clamp(momentum + (dance.taken ? 9 : -9), 5, 95);
   events.push({
@@ -712,7 +741,9 @@ export function simulateSecondHalf(
     {
       key: "fight-27", kind: "fight", label: "⚔ Fight at Baron pit", clock: 27,
       yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
-      yourVal: teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + edge + (dance.taken ? 6 : -6),
+      yourVal:
+        teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + callFight + edge +
+        (dance.taken ? 6 : -6),
       theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 27),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -738,7 +769,8 @@ export function simulateSecondHalf(
       {
         key: "hold-29", kind: "hold", label: "🏰 The base hold", clock: 29,
         yourKeys: ["survival", "turrets"], theirKeys: ["damage", "objectives"],
-        yourVal: teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + edge * 0.5,
+        yourVal:
+          teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + callHold + edge * 0.5,
         theirVal:
           teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29),
         spread: noise(20, ctx),
