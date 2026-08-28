@@ -203,7 +203,9 @@ Important RPC families include:
   Burn-first: both inserts land before a dollar is credited. Who the five
   are is roster truth from `src/lib/cards/sets.ts` (built off the same
   `buildTeamCards` the team card prints); Postgres checks ownership, the
-  edition week, and the payout range.
+  edition week, and the payout range. The browser sends only a week and a
+  team — the five copies to spend are recomputed server-side in
+  `setClaim.ts`, so a tampered request cannot name cards it does not own.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the

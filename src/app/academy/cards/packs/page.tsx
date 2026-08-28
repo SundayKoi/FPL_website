@@ -6,6 +6,11 @@ export const metadata: Metadata = {
   description: "Spend betting dollars on packs of Academy player cards and build a collection.",
 };
 
-export default async function AcademyPacksPage() {
-  return PacksPageView({ league: "academy" });
+export default async function AcademyPacksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setWeek?: string }>;
+}) {
+  const { setWeek } = await searchParams;
+  return PacksPageView({ league: "academy", setWeek });
 }
