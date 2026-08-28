@@ -6,7 +6,7 @@ import TourneyCodes from "@/components/captain/TourneyCodes";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
-import TeamAccentPanel from "./TeamAccentPanel";
+import TeamAccentPanel, { teamAccentFadeStyle } from "./TeamAccentPanel";
 import TeamSchedule from "./TeamSchedule";
 
 const ACTION = "inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy";
@@ -162,10 +162,7 @@ export default function MyTeamGate({
         <div
           aria-hidden="true"
           className="mt-5 h-1.5 rounded-full"
-          style={{
-            background: `linear-gradient(90deg, ${teamBrand.bannerColor}, ${teamBrand.bannerColor}99 28%, transparent 82%)`,
-            boxShadow: `0 0 18px ${teamBrand.bannerColor}66`,
-          }}
+          style={teamAccentFadeStyle(teamBrand.bannerColor)}
         />
 
         <div className="mt-8 flex flex-col gap-6">
