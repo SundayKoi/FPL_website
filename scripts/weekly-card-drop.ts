@@ -21,10 +21,17 @@
  * games have been ingested, mirroring the weekly-brief jobs.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { fetchAllCardSeasons, fetchSeasonCards, fetchWeekCards, type CardLeague } from "../src/lib/cards/queries";
+import {
+  fetchAllCardSeasons,
+  fetchLatestGameWeek,
+  fetchSeasonCards,
+  fetchWeekCards,
+  type CardLeague,
+} from "../src/lib/cards/queries";
 import type { PlayerCardData } from "../src/lib/cards/build";
 import { settleGauntletWeek } from "../src/lib/gauntlet/settle";
 import { archiveEdition } from "../src/lib/cards/editions";
+import { ingestVerdict } from "../src/lib/cards/ingestFreshness";
 import { planPayouts } from "../src/lib/fantasy/payouts";
 import { fetchBettingUsernames, fetchWeekLineups, type FantasyLineupRow } from "../src/lib/fantasy/queries";
 import { scoreLineup, weeklyScoresBySlug } from "../src/lib/fantasy/scoring";
@@ -83,6 +90,10 @@ async function processSeason(
   // read) so the archive read below can be scoped to this week instead of
   // the whole season.
   const editionWeek = mondayOf(new Date());
+
+  // Before anything is written or posted: is the data this drop reports on
+  // actually here? See assertIngestIsFresh.
+  await assertIngestIsFresh(supabase, label, season, editionWeek);
 
   // TWO rating bases, on purpose — DO NOT collapse them back into one:
   //
@@ -613,6 +624,49 @@ async function settleLastGauntletWeek(
     `${lines.join("\n")}\n\nPot: **$${result.pot}** across ${result.standings.length} runner${result.standings.length === 1 ? "" : "s"}${clears > 0 ? ` · ${clears} full clear${clears === 1 ? "" : "s"}` : " · the eighth round went unbeaten"}`,
     "New week, new bracket — /cards/gauntlet",
   );
+}
+
+/**
+ * Refuses the drop when the week's games were played but never ingested.
+ *
+ * The rule itself lives in src/lib/cards/ingestFreshness.ts so it can be
+ * tested without a database; this does the two reads it needs and turns a
+ * refusal into a failed job.
+ */
+async function assertIngestIsFresh(
+  supabase: SupabaseClient,
+  label: string,
+  season: string,
+  editionWeek: string,
+): Promise<void> {
+  if (process.env.SKIP_INGEST_CHECK === "true") {
+    console.warn(`[${label}] SKIP_INGEST_CHECK set — proceeding without checking the ingest.`);
+    return;
+  }
+  const latest = await fetchLatestGameWeek(supabase, season);
+  const { data, error } = await supabase
+    .from("fixtures")
+    .select("id, scheduled_at, score_a")
+    .eq("season", season)
+    .not("score_a", "is", null);
+  // A read that failed says nothing either way, and refusing on it would
+  // turn a blip in the fixtures table into a missed drop.
+  if (error) {
+    console.warn(`[${label}] Could not check fixtures for the ingest freshness gate: ${error.message}`);
+    return;
+  }
+  const played = ((data ?? []) as { scheduled_at: string | null }[]).filter(
+    (fixture) => fixture.scheduled_at && mondayOf(new Date(fixture.scheduled_at)) === editionWeek,
+  ).length;
+
+  const verdict = ingestVerdict(editionWeek, latest, played);
+  if (verdict.ok) {
+    if (verdict.reason === "no-games-played") {
+      console.log(`[${label}] No fixtures played in the week of ${editionWeek} — nothing for the ingest to have missed.`);
+    }
+    return;
+  }
+  throw new Error(`[${label}] Refusing to drop: ${verdict.message}`);
 }
 
 async function main(): Promise<void> {

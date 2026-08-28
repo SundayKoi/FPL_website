@@ -1,10 +1,13 @@
 name: Mint moment cards
 
 on:
-  schedule:
-    # 14:30 UTC Tuesday — after the ingest (07:00) and before the card drop
-    # (15:00), so a week's moments exist by the time the drop posts.
-    - cron: "30 14 * * 2"
+  # Chained, not clocked. A cron said 14:30 and hoped the 07:00 ingest
+  # had landed; GitHub queues scheduled runs and can delay them by
+  # hours, so 'hoped' was the whole guarantee. Now a week's moments
+  # are detected because its games arrived, not because it is 14:30.
+  workflow_run:
+    workflows: ["Ingest match reports"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       week:
@@ -23,6 +26,15 @@ concurrency:
 jobs:
   mint:
     runs-on: ubuntu-latest
+    # A workflow_run fires on every completion, success or not, so the
+    # conclusion is checked here rather than assumed. The upstream's OWN
+    # trigger is checked too: a scheduled ingest and a hand-run one both
+    # drive the chain, which is what makes `workflow_dispatch` the way to
+    # catch a missed week up end to end.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event))
     environment: Production
     steps:
       - uses: actions/checkout@v4
