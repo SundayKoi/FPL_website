@@ -49,6 +49,7 @@ describe("PremiumHub betting preview", () => {
     expect(screen.getByText("Betting open")).toBeTruthy();
     expect(screen.getByText("$7,980 pool")).toBeTruthy();
     expect(screen.getByText("$1,250")).toBeTruthy();
+    expect(screen.getByText("Rate the latest take and vote once a day for $200.")).toBeTruthy();
   });
 
   it("shows an explicit empty state when no market is available", () => {

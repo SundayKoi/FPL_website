@@ -314,7 +314,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           <FeatureCard
             eyebrow="Community read"
             title="The Daily Stu"
-            description="Rate the latest take and watch the league decide if it bangs."
+            description="Rate the latest take and vote once a day for $200."
             href="/bangers"
             className="lg:col-span-3"
           >
