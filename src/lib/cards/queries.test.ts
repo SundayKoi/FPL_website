@@ -29,6 +29,7 @@ function frozen(overrides: Partial<PlayerCardData> = {}): PlayerCardData {
 const identity = {
   badges: new Map([["theoriginalmochahouse", "https://cdn.example/tom.png"]]),
   abbrs: new Map([["theoriginalmochahouse", "TOM9"]]),
+  colors: new Map([["theoriginalmochahouse", "#c8102e"]]),
 };
 
 describe("backfillTeamIdentity", () => {

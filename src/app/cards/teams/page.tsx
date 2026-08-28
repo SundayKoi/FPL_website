@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import TeamCardsSection from "@/components/cards/TeamCardsSection";
-import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, fetchCurrentWeekCards, fetchTeamIdentity, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -36,7 +36,9 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
 
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
-  const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
+  const [cards, identity] = season
+    ? await Promise.all([fetchCurrentWeekCards(supabase, season), fetchTeamIdentity(supabase, season)])
+    : [[], null];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -47,8 +49,10 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team Cards</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Every roster as one card — Team OVR is the average of its five best player cards, so the
-            frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s Card of the Week.
+            Every roster as one card: five panels, one per role, each wearing that player&apos;s most-played
+            champion and washed in the team&apos;s own colours. Team OVR is the average of its five best
+            cards, so the frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s
+            Card of the Week.
           </p>
           <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
             ← Back to player cards
@@ -59,7 +63,7 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — team cards appear once this season&apos;s first games are ingested.</p>
       ) : (
-        <TeamCardsSection cards={cards} showHeading={false} />
+        <TeamCardsSection cards={cards} colors={identity?.colors} showHeading={false} />
       )}
     </main>
   );

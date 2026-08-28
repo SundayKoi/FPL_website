@@ -107,6 +107,9 @@ export interface TeamIdentity {
   badges: Map<string, string>;
   /** normalized team name/abbreviation -> the short code the card prints. */
   abbrs: Map<string, string>;
+  /** normalized team name/abbreviation -> the roster's banner colour. What
+   *  the team card washes its five champion panels with. */
+  colors: Map<string, string>;
 }
 
 export async function fetchTeamIdentity(supabase: SupabaseClient, season: string): Promise<TeamIdentity> {
@@ -115,7 +118,7 @@ export async function fetchTeamIdentity(supabase: SupabaseClient, season: string
     // teams below — team names get reused season to season, and an
     // unscoped lookup would hand a card whichever era's logo Postgres
     // happened to return first.
-    supabase.from("teams").select("name, abbreviation, image_url, draft_id"),
+    supabase.from("teams").select("name, abbreviation, image_url, banner_color, draft_id"),
     // The bridge between the two team tables: raw_stats carries
     // league_teams.name, the badge lives on teams.image_url, and nothing
     // enforces that the two spell a team identically.
@@ -134,6 +137,7 @@ export async function fetchTeamIdentity(supabase: SupabaseClient, season: string
         name: string;
         abbreviation: string | null;
         image_url: string | null;
+        banner_color: string | null;
         draft_id: string | null;
       }[]) ?? []);
   const leagueTeamRows = leagueTeamsResult.error
@@ -201,7 +205,21 @@ export async function fetchTeamIdentity(supabase: SupabaseClient, season: string
     addAbbr(leagueTeam.abbreviation, leagueTeam.abbreviation);
   }
 
-  return { badges: teamImages, abbrs };
+  // Banner colours file exactly like badges — name and abbreviation, both
+  // normalized — so a card whose team_name matches either spelling still
+  // finds the colour its team card is meant to wear.
+  const colors = new Map<string, string>();
+  const addColor = (key: string | null | undefined, color: string | null | undefined) => {
+    if (!key || !color?.trim()) return;
+    const normalized = teamBadgeKey(key);
+    if (normalized && !colors.has(normalized)) colors.set(normalized, color.trim());
+  };
+  for (const team of scopedTeams) {
+    addColor(team.name, team.banner_color);
+    addColor(team.abbreviation, team.banner_color);
+  }
+
+  return { badges: teamImages, abbrs, colors };
 }
 
 /**
