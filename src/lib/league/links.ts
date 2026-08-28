@@ -1,6 +1,15 @@
 import type { LeagueView } from "./context";
 
-export type LeaguePage = "home" | "players" | "stats" | "schedule" | "teams" | "captain" | "my-team" | "scouting";
+export type LeaguePage =
+  | "home"
+  | "players"
+  | "stats"
+  | "schedule"
+  | "teams"
+  | "captain"
+  | "my-team"
+  | "scouting"
+  | "fpldle";
 
 const PREMIER_PATHS: Record<Exclude<LeaguePage, "home">, string> = {
   players: "/players",
@@ -10,6 +19,7 @@ const PREMIER_PATHS: Record<Exclude<LeaguePage, "home">, string> = {
   captain: "/captain",
   "my-team": "/my-team",
   scouting: "/my-team/scouting",
+  fpldle: "/fpldle",
 };
 
 export function leaguePath(page: LeaguePage, view: LeagueView): string {
@@ -34,6 +44,7 @@ export function leaguePageLinks(
 }
 
 const PAIRED_PREFIXES = [
+  ["/fpldle", "/academy/fpldle"],
   ["/my-team/scouting", "/academy/my-team/scouting"],
   ["/my-team", "/academy/my-team"],
   ["/players", "/academy/players"],

@@ -14,6 +14,15 @@ describe("league page links", () => {
     expect(leaguePath("my-team", "academy")).toBe("/academy/my-team");
   });
 
+  it("maps FPL'dle to paired daily puzzle routes", () => {
+    expect(leaguePageLinks("fpldle", "premier")).toEqual({
+      premier: "/fpldle",
+      academy: "/academy/fpldle",
+    });
+    expect(pairedLeagueHref("/fpldle", "academy")).toBe("/academy/fpldle");
+    expect(pairedLeagueHref("/academy/fpldle", "premier")).toBe("/fpldle");
+  });
+
   it("keeps the canonical Scouting route and selected admin team", () => {
     expect(leaguePageLinks("scouting", "academy", { team: "team-2" })).toEqual({
       premier: "/my-team/scouting?team=team-2",

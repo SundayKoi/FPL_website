@@ -65,6 +65,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           authSlot={<AuthButton />}
           showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
           showBroadcaster={canAccessBroadcaster(tier)}
+          showFpldle={tier.isAdmin}
         />
         {children}
         <SupportDevButton />
