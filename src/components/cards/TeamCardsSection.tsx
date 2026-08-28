@@ -12,15 +12,18 @@ import TeamCard from "./TeamCard";
 export default function TeamCardsSection({
   cards,
   colors,
+  weekStart = "",
   showHeading = true,
 }: {
   cards: PlayerCardData[];
   /** normalized team key -> banner colour, from fetchTeamIdentity. */
   colors?: Map<string, string>;
+  /** The edition these plates read from — stamped onto any pulled copy. */
+  weekStart?: string;
   /** false when the hosting page provides its own header (/cards/teams). */
   showHeading?: boolean;
 }) {
-  const teams = buildTeamCards(cards, colors);
+  const teams = buildTeamCards(cards, colors, weekStart);
   if (teams.length === 0) return null;
   return (
     <section className="flex flex-col gap-4" aria-label="Team cards">

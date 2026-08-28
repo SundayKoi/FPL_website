@@ -104,7 +104,7 @@ const RELIC_SHINE = 6;
 export function shineOf(copy: CardCopy): number {
   // Relics and moments price flat, exactly as they dust flat — see
   // dustValueOf in packs/config.ts for the same branch.
-  if (copy.card?.champWin || copy.card?.moment) return RELIC_SHINE;
+  if (copy.card?.champWin || copy.card?.moment || copy.card?.team) return RELIC_SHINE;
   const index = TIER_LADDER.indexOf(copy.tier as (typeof TIER_LADDER)[number]);
   let shine = (index < 0 ? 0 : index) + 1;
   // foilTypeOf() rather than a raw read: foil_type is plain text and every

@@ -46,7 +46,7 @@ export function buildGauntletOptions(rows: InventoryRow[], week: string): Record
     GauntletOption[]
   >;
   for (const row of rows) {
-    if (row.card.moment || row.card.champWin) continue;
+    if (row.card.moment || row.card.champWin || row.card.team) continue;
     const role = row.role as GauntletRole;
     if (!byRole[role]) continue;
     byRole[role].push({

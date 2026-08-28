@@ -17,8 +17,18 @@
 // Server-renderable: no interactivity, no client bundle.
 
 import { championCenteredUrl } from "@/lib/match-draft/champions";
-import type { TeamCardEntry } from "@/lib/cards/teamCards";
+import { foilTypeOf, type FoilType } from "@/lib/packs/config";
+import type { TeamCardEntry, TeamPrint } from "@/lib/cards/teamCards";
 import { hiResLogoUrl } from "./ChampionsCard";
+
+/** The same overlays player cards wear, held at a fixed opacity — there
+ *  is no pointer to chase on a server-rendered plate. */
+const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
+  prisma: { className: "card-foil-holo", blend: "color-dodge" },
+  aurora: { className: "card-foil-aurora", blend: "screen" },
+  refractor: { className: "card-foil-refractor", blend: "color-dodge" },
+  ice: { className: "card-foil-ice", blend: "screen" },
+};
 
 /** Frame treatments by roster tier — the same ladder the player cards
  *  climb, so a team's frame says what its five are worth at a glance. */
@@ -73,17 +83,40 @@ function Panel({ slot, color }: { slot: TeamCardEntry["slots"][number]; color: s
         </span>
         <span className="block truncate text-[8.5px] text-steel">{slot.champion ?? "—"}</span>
       </span>
+      {/* A signed player signs their OWN panel. A roster where four of the
+          five have inked is a different object from one where nobody has,
+          and this is the only place that difference can show. */}
+      {slot.autograph ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={slot.autograph}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          className="pointer-events-none absolute inset-x-[6%] bottom-[15%] z-[4] max-h-[22%] w-[88%] object-contain opacity-90 mix-blend-screen drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+        />
+      ) : null}
     </div>
   );
 }
 
-export default function TeamCard({ team }: { team: TeamCardEntry }) {
+export default function TeamCard({
+  team,
+  foil = false,
+  foilType = null,
+}: {
+  team: TeamCardEntry | TeamPrint;
+  foil?: boolean;
+  foilType?: string | null;
+}) {
   const color = team.bannerColor;
+  const foilLayer = foil ? FOIL_LAYERS[foilTypeOf(foilType)] : null;
+  const signed = team.slots.filter((slot) => slot.autograph).length;
   return (
     <article
-      aria-label={`${team.teamName} — ${team.tier.label} roster, team overall ${team.overall}`}
+      aria-label={`${team.teamName} — ${team.tierLabel} roster, team overall ${team.overall}`}
       className="relative aspect-[5/7] w-full overflow-hidden rounded-2xl bg-navy p-[4px]"
-      style={{ background: TIER_FRAME[team.tier.key] ?? TIER_FRAME.gold }}
+      style={{ background: TIER_FRAME[team.tierKey] ?? TIER_FRAME.gold }}
     >
       <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#00172a]">
         <div className="absolute inset-0 grid grid-cols-5">
@@ -138,9 +171,30 @@ export default function TeamCard({ team }: { team: TeamCardEntry }) {
             className="mt-1 block text-[8px] font-semibold uppercase tracking-[0.28em]"
             style={{ color: `color-mix(in srgb, ${color} 55%, #a7c0d8)` }}
           >
-            {team.tier.label} roster
+            {team.tierLabel} roster
           </span>
         </div>
+
+        {/* Foil rides above the art and under the frame, so the plate
+            shines without washing out a name. */}
+        {foilLayer ? (
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 z-[5] ${foilLayer.className}`}
+            style={{ mixBlendMode: foilLayer.blend, opacity: 0.55 }}
+          />
+        ) : null}
+
+        {/* How much of this roster actually signed — the one number that
+            separates two copies of the same team-week. */}
+        {signed > 0 ? (
+          <span className="absolute right-3 top-2.5 z-[7] flex flex-col items-end leading-none">
+            <span className="font-display text-sm font-black text-gold drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
+              {signed}/5
+            </span>
+            <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-steel">signed</span>
+          </span>
+        ) : null}
 
         {/* Double edge, the champions-card treatment in the team's colour. */}
         <span aria-hidden className="pointer-events-none absolute inset-[7px] z-[6] rounded-lg border-[1.5px] border-[#ece7e8]/80">

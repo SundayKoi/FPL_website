@@ -132,6 +132,9 @@ export interface MomentPrint {
 export interface PlayerCardData {
   /** Set only on a pulled moment — see MomentPrint. */
   moment?: MomentPrint | null;
+  /** Set only on a pulled roster plate — see TeamPrint. Like `moment` and
+   *  `champWin`, the renderer branches on this before reading a rating. */
+  team?: import("./teamCards").TeamPrint | null;
   /** Set on a copy that won a Weekly Draw — cosmetic provenance only;
    *  dust pricing never reads it. weekStart is the drawn week's Monday. */
   drawWin?: { weekStart: string } | null;

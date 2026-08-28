@@ -119,7 +119,7 @@ export async function startGauntletRunAction(
       return { ok: false, error: "One of those cards isn't in your collection." };
     }
     if (row.season !== season) return { ok: false, error: `${row.player_name} is from another season's shelf.` };
-    if (row.card.moment || row.card.champWin) {
+    if (row.card.moment || row.card.champWin || row.card.team) {
       return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
     }
     if (row.role !== role) return { ok: false, error: `${row.player_name} doesn't play ${role}.` };
@@ -448,7 +448,7 @@ export async function benchSwapGauntletAction(
   } | null;
   if (!row || row.discord_id !== user.discordId) return { ok: false, error: "That card isn't in your collection." };
   if (row.season !== run.season) return { ok: false, error: `${row.player_name} is from another season's shelf.` };
-  if (row.card.moment || row.card.champWin) return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
+  if (row.card.moment || row.card.champWin || row.card.team) return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
   if (row.role !== run.lineup[slot].role) return { ok: false, error: `${row.player_name} doesn't play ${run.lineup[slot].role}.` };
   if (run.lineup.some((card) => card.inventoryId === row.id)) return { ok: false, error: "That card is already fielded." };
 
