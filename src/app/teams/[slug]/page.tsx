@@ -199,22 +199,24 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         </Link>
 
         <header
-          className="card-brand mt-6 flex flex-wrap items-end justify-between gap-6 overflow-hidden p-6 sm:p-8"
-          style={{ backgroundColor: team.bannerColor }}
+          className="card-brand mt-6 flex flex-wrap items-end justify-between gap-6 overflow-hidden border-t-4 p-6 sm:p-8"
+          style={{ borderTopColor: team.bannerColor }}
         >
           <div className="flex min-w-0 items-center gap-4">
-            {team.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={team.imageUrl}
-                alt={`${team.name} logo`}
-                className="h-20 w-20 shrink-0 rounded object-contain"
-              />
-            ) : (
-              <span className="type-display shrink-0 text-5xl text-white/90" aria-hidden="true">
-                {team.abbreviation}
-              </span>
-            )}
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-navy/60 p-2 shadow-lg">
+              {team.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={team.imageUrl}
+                  alt={`${team.name} logo`}
+                  className="h-full w-full rounded object-contain"
+                />
+              ) : (
+                <span className="type-display text-3xl text-white/90" aria-hidden="true">
+                  {team.abbreviation}
+                </span>
+              )}
+            </div>
             <div className="min-w-0">
               <h1 className="type-display text-4xl text-white sm:text-5xl">{team.name}</h1>
               <p className="mt-1 text-sm text-white/80">
@@ -224,7 +226,10 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div
+            className="border-l-2 pl-4 text-right"
+            style={{ borderLeftColor: team.bannerColor }}
+          >
             <p className="type-display text-4xl text-white">
               {record.wins}–{record.losses}
             </p>
@@ -247,7 +252,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* No overflow-hidden: the last player's account menu opens past
               the card's bottom edge and must stay clickable. */}
-          <section aria-labelledby="roster-heading" className="card-brand">
+          <section
+            aria-labelledby="roster-heading"
+            className="card-brand border-t-2"
+            style={{ borderTopColor: team.bannerColor }}
+          >
             <h2 id="roster-heading" className="border-b border-line px-4 py-3 type-display text-xl">
               Roster
             </h2>
@@ -319,7 +328,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
           </section>
 
           <div className="flex flex-col gap-6">
-            <section aria-labelledby="upcoming-heading" className="card-brand overflow-hidden">
+            <section
+              aria-labelledby="upcoming-heading"
+              className="card-brand overflow-hidden border-t-2"
+              style={{ borderTopColor: team.bannerColor }}
+            >
               <h2
                 id="upcoming-heading"
                 className="border-b border-line px-4 py-3 type-display text-xl"
@@ -347,7 +360,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
               )}
             </section>
 
-            <section aria-labelledby="results-heading" className="card-brand overflow-hidden">
+            <section
+              aria-labelledby="results-heading"
+              className="card-brand overflow-hidden border-t-2"
+              style={{ borderTopColor: team.bannerColor }}
+            >
               <h2
                 id="results-heading"
                 className="border-b border-line px-4 py-3 type-display text-xl"
