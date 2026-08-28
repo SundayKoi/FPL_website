@@ -13,10 +13,8 @@ import "server-only";
 
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
-import { fetchInventory } from "@/lib/packs/queries";
-import { fetchEditionCards } from "./queries";
 import { buildWeekSets, TEAM_SET_BONUS } from "./sets";
-import { fetchSetClaimState, setKey } from "./setQueries";
+import { fetchSetClaimState, fetchSetEditionCards, fetchWeekCopyIds, setKey } from "./setQueries";
 
 export type ClaimSetResult =
   | { ok: true; teamName: string; weekStart: string; amount: number; balance: number }
@@ -43,18 +41,22 @@ export async function claimTeamSetFor(
   teamName: string,
 ): Promise<ClaimSetResult> {
   const service = createBettingServiceClient();
-  const [inventory, editionCards] = await Promise.all([
-    fetchInventory(service, discordId, season),
-    fetchEditionCards(service, season, weekStart),
+  // Both reads are scoped to the ONE week being claimed. This used to pull
+  // the whole collection and the whole edition — every copy of every week
+  // with its frozen card json — to end up naming five ids, which put the
+  // slowest query in the feature between the click and the money.
+  const [copies, editionCards] = await Promise.all([
+    fetchWeekCopyIds(service, discordId, season, weekStart),
+    fetchSetEditionCards(service, season, [weekStart]),
   ]);
   if (editionCards.length === 0) return { ok: false, error: "That week hasn't been archived yet." };
 
-  const state = await fetchSetClaimState(service, discordId, season, inventory.map((copy) => copy.id));
+  const state = await fetchSetClaimState(service, discordId, season, copies.map((copy) => copy.id));
   if (state.claimed.has(setKey(weekStart, teamName))) {
     return { ok: false, error: "You've already been paid for that set." };
   }
 
-  const set = buildWeekSets(editionCards, inventory, weekStart, state.spent).find(
+  const set = buildWeekSets(editionCards, copies, weekStart, state.spent).find(
     (candidate) => candidate.teamName === teamName,
   );
   if (!set) return { ok: false, error: "No set for that team in that week." };

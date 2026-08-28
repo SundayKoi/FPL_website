@@ -13,7 +13,7 @@
 // tampered request cannot name cards it doesn't own.
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { claimTeamSetAction } from "@/lib/cards/setActions";
 import { TEAM_SET_BONUS, type WeekTeamSet } from "@/lib/cards/sets";
@@ -24,50 +24,65 @@ function weekLabel(week: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-export default function TeamSetsSection({
-  season,
-  week,
-  weeks,
-  sets,
-  claimed,
-  base,
-}: {
-  season: string;
-  /** The edition week these sets are asked of. */
+/** One week's worth of sets, as the page computed them. */
+export interface WeekSets {
   week: string;
-  /** Every week the collector holds copies from, newest first. */
-  weeks: string[];
   sets: WeekTeamSet[];
   /** Team names in `week` this collector has already been paid for. */
   claimed: string[];
-  /** "/cards" or "/academy/cards" — the week switch links stay in league. */
-  base: string;
+}
+
+export default function TeamSetsSection({
+  season,
+  initialWeek,
+  weeks,
+}: {
+  season: string;
+  /** Which week to open on — the newest held, or ?setWeek= if it names one. */
+  initialWeek: string;
+  /** EVERY held week, computed server-side in one read. Switching between
+   *  them is local state: it used to be a link, and changing which five
+   *  names a small section listed re-ran the whole collection page. */
+  weeks: WeekSets[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paid, setPaid] = useState<ReadonlySet<string>>(new Set());
+  const [week, setWeek] = useState(initialWeek);
 
-  const paidFor = new Set([...claimed, ...paid]);
-  if (sets.length === 0) return null;
+  const current = useMemo(
+    () => weeks.find((entry) => entry.week === week) ?? weeks[0],
+    [weeks, week],
+  );
+  const sets = current?.sets ?? [];
+  // Keyed by week as well as team: paying for one week's Wolves must not
+  // grey out another week's.
+  const paidFor = new Set([
+    ...(current?.claimed ?? []).map((team) => `${current?.week}|${team}`),
+    ...paid,
+  ]);
+  if (!current || sets.length === 0) return null;
 
-  function claim(teamName: string) {
+  async function claim(teamName: string) {
     setBusy(teamName);
     setError(null);
-    startTransition(async () => {
-      const result = await claimTeamSetAction(season, week, teamName);
-      setBusy(null);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      // Marked here as well as revalidated: the refresh re-reads the
-      // server, but the row must not sit there offering the money again
-      // while that is in flight.
-      setPaid((current) => new Set([...current, teamName]));
-      router.refresh();
-    });
+    const result = await claimTeamSetAction(season, week, teamName);
+    setBusy(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    // Marked here as well as revalidated: the refresh re-reads the server,
+    // but the row must not sit there offering the money again while that
+    // is in flight.
+    setPaid((already) => new Set([...already, `${week}|${teamName}`]));
+    // The refresh gets its own transition, and the claim is NOT inside it.
+    // Held together, `pending` stayed true until the whole collection page
+    // had re-rendered — so every button on the section sat disabled long
+    // after the money had landed, which read as the claim being slow.
+    startTransition(() => router.refresh());
   }
 
   return (
@@ -77,7 +92,7 @@ export default function TeamSetsSection({
           Roster sets
         </h2>
         <span className="text-xs uppercase tracking-[0.16em] text-steel">
-          {sets.filter((set) => set.complete && !paidFor.has(set.teamName)).length} ready to claim
+          {sets.filter((set) => set.complete && !paidFor.has(`${week}|${set.teamName}`)).length} ready to claim
         </span>
       </div>
       <p className="max-w-2xl text-sm text-steel">
@@ -92,25 +107,36 @@ export default function TeamSetsSection({
         <div className="flex flex-wrap items-center gap-2">
           <span className="label-dash mr-1">Week</span>
           {weeks.map((option) => (
-            <Link
-              key={option}
-              href={`${base}/packs?setWeek=${option}#team-sets`}
-              aria-current={option === week ? "page" : undefined}
+            <button
+              key={option.week}
+              type="button"
+              onClick={() => setWeek(option.week)}
+              aria-current={option.week === week ? "true" : undefined}
+              aria-label={`Show the week of ${weekLabel(option.week)}`}
               className={`rounded-full border px-3 py-1 text-xs transition ${
-                option === week
+                option.week === week
                   ? "border-coral bg-coral/15 font-semibold text-white"
                   : "border-line text-steel hover:border-coral hover:text-white"
               }`}
             >
-              {weekLabel(option)}
-            </Link>
+              {weekLabel(option.week)}
+              {option.sets.some(
+                (set) => set.complete && !option.claimed.includes(set.teamName) && !paid.has(`${option.week}|${set.teamName}`),
+              ) ? (
+                // A week with money sitting in it says so, or the only way
+                // to find one is to click through every chip.
+                <span className="ml-1 text-mint" aria-label="has a set ready to claim">
+                  •
+                </span>
+              ) : null}
+            </button>
           ))}
         </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {sets.map((set) => {
-          const done = paidFor.has(set.teamName);
+          const done = paidFor.has(`${week}|${set.teamName}`);
           const missing = set.members.filter((member) => member.copyId === null);
           return (
             <article
@@ -163,8 +189,8 @@ export default function TeamSetsSection({
               ) : set.complete ? (
                 <button
                   type="button"
-                  onClick={() => claim(set.teamName)}
-                  disabled={pending}
+                  onClick={() => void claim(set.teamName)}
+                  disabled={busy !== null}
                   aria-label={`Claim the ${set.teamName} set`}
                   className="btn-coral mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >

@@ -8,9 +8,9 @@ import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
-import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { buildWeekSets } from "@/lib/cards/sets";
-import { fetchSetClaimState, setKey } from "@/lib/cards/setQueries";
+import { fetchSetClaimState, fetchSetEditionCards, setKey } from "@/lib/cards/setQueries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
   fetchChampionsWindow,
@@ -148,27 +148,39 @@ export async function PacksPageView({
   }));
 
   // Roster sets. Asked of a frozen edition, so the weeks on offer are the
-  // ones this collector actually holds copies from — newest first, and the
-  // newest is the default. A collector with no cards has no sets and the
-  // section renders nothing.
+  // ones this collector actually holds copies from — newest first.
+  //
+  // EVERY held week is computed here, not just the one being viewed. The
+  // week switch used to be a link, which re-ran this entire page — the
+  // collection, the shop, the binder, the drop banners — to change which
+  // five names a small section listed. One slim read covers them all and
+  // the switch becomes local state.
   const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
-  const activeSetWeek = setWeek && heldWeeks.includes(setWeek) ? setWeek : heldWeeks[0];
-  const [setEditionCards, setClaims] = season && activeSetWeek
+  const [setEditionCards, setClaims] = season && heldWeeks.length > 0
     ? await Promise.all([
-        fetchEditionCards(service, season, activeSetWeek),
+        fetchSetEditionCards(service, season, heldWeeks),
         fetchSetClaimState(service, user.discordId, season, inventory.map((copy) => copy.id)),
       ])
     : [[], { claimed: new Set<string>(), spent: new Set<number>() }];
-  const teamSets = activeSetWeek
-    ? buildWeekSets(setEditionCards, inventory, activeSetWeek, setClaims.spent)
-    : [];
+  const editionsByWeek = new Map<string, typeof setEditionCards>();
+  for (const card of setEditionCards) {
+    const list = editionsByWeek.get(card.editionWeek) ?? [];
+    list.push(card);
+    editionsByWeek.set(card.editionWeek, list);
+  }
   // A set already paid for has had its five copies spent, so buildWeekSets
-  // no longer reads it as complete — the claimed names are passed through
-  // separately so the row can say "Claimed" rather than quietly reverting
-  // to 0/5 and looking like the cards went missing.
-  const claimedTeams = activeSetWeek
-    ? teamSets.filter((set) => setClaims.claimed.has(setKey(activeSetWeek, set.teamName))).map((set) => set.teamName)
-    : [];
+  // no longer reads it as complete — the claimed names travel separately so
+  // the row can say "Claimed" rather than quietly reverting to 0/5 and
+  // looking like the cards went missing.
+  const setsByWeek = heldWeeks.map((held) => {
+    const sets = buildWeekSets(editionsByWeek.get(held) ?? [], inventory, held, setClaims.spent);
+    return {
+      week: held,
+      sets,
+      claimed: sets.filter((set) => setClaims.claimed.has(setKey(held, set.teamName))).map((set) => set.teamName),
+    };
+  });
+  const activeSetWeek = setWeek && heldWeeks.includes(setWeek) ? setWeek : heldWeeks[0];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -291,14 +303,7 @@ export async function PacksPageView({
       </section>
 
       {season && activeSetWeek ? (
-        <TeamSetsSection
-          season={season}
-          week={activeSetWeek}
-          weeks={heldWeeks}
-          sets={teamSets}
-          claimed={claimedTeams}
-          base={base}
-        />
+        <TeamSetsSection season={season} initialWeek={activeSetWeek} weeks={setsByWeek} />
       ) : null}
 
       {binder ? (
