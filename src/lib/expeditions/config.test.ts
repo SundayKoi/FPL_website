@@ -1,16 +1,25 @@
 import { describe, expect, it } from "vitest";
 import type { CardCopy } from "./config";
+import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP, MAXED_DAILY_STREAK } from "@/lib/betting/daily";
 import { PACK_COST } from "@/lib/packs/config";
 import {
   briefFor,
   EXPEDITION_TIERS,
   expectedDailyDollars,
+  DAILY_LAUNCHES,
   MARK_RANK,
   rollOutcome,
   shineOf,
   squadMeets,
   squadShine,
 } from "./config";
+
+/** What one run of a tier is expected to pay — expectedDailyDollars with
+ *  the per-day scaling taken back out, so a test can talk about a run. */
+function perRunDollars(tier: "scout" | "raid" | "legend"): number {
+  const perDay = expectedDailyDollars(tier);
+  return perDay / Math.min(24 / EXPEDITION_TIERS[tier].durationHours, DAILY_LAUNCHES);
+}
 
 // A fixture, not a real row: shineOf reads seven of card_inventory's columns
 // and a test that had to build a whole PlayerCardData to say "a gold card"
@@ -88,12 +97,38 @@ describe("EXPEDITION_TIERS", () => {
   it("pays under a pack a day at every tier, comps included", () => {
     // The balance guardrail: expeditions supplement the economy, never
     // replace it. See the arithmetic on REWARDS.
-    expect(expectedDailyDollars("scout")).toBeCloseTo(90, 2);
-    expect(expectedDailyDollars("raid")).toBeCloseTo(93.5, 2);
-    expect(expectedDailyDollars("legend")).toBeCloseTo(128.75, 2);
+    expect(expectedDailyDollars("scout")).toBeCloseTo(77.5, 2);
+    expect(expectedDailyDollars("raid")).toBeCloseTo(271, 2);
+    expect(expectedDailyDollars("legend")).toBeCloseTo(543.75, 2);
+    // The guardrail: a click of /daily must never be the worse option, and
+    // an expedition must never be the better one. Nothing on the board
+    // out-earns a maxed daily streak on base rates.
     for (const tier of ["scout", "raid", "legend"] as const) {
-      expect(expectedDailyDollars(tier)).toBeLessThan(PACK_COST);
+      expect(expectedDailyDollars(tier)).toBeLessThan(MAXED_DAILY_STREAK);
     }
+    // The scouting run is the one anybody can field with any three cards,
+    // so it keeps the stricter original rule as well: an ungated loop must
+    // never pay for a pack a day.
+    expect(expectedDailyDollars("scout")).toBeLessThan(PACK_COST);
+    // And the ladder has to climb, or the gates ask for foils and signatures
+    // in exchange for nothing.
+    expect(expectedDailyDollars("scout")).toBeLessThan(expectedDailyDollars("raid"));
+    expect(expectedDailyDollars("raid")).toBeLessThan(expectedDailyDollars("legend"));
+  });
+
+  it("measures itself against what /daily actually pays", () => {
+    // Not a restated number: the guardrail imports the same constant the
+    // handler pays out, so retuning /daily moves the ceiling with it.
+    expect(MAXED_DAILY_STREAK).toBe(DAILY_AMOUNT + DAILY_STREAK_STEP * (DAILY_STREAK_MAX - 1));
+    expect(MAXED_DAILY_STREAK).toBe(550);
+  });
+
+  it("prices a day by launches allowed, not only by run length", () => {
+    // The bug in the first pass: three eight-hour runs fit in a day, but
+    // launch_expedition permits one. A scouting day is one scouting run.
+    expect(expectedDailyDollars("scout")).toBeCloseTo(perRunDollars("scout"), 2);
+    // A 48h run still lands every other day, so it counts as half of one.
+    expect(expectedDailyDollars("legend")).toBeCloseTo(perRunDollars("legend") / 2, 2);
   });
   it("ranks marks worst to best", () => {
     expect(MARK_RANK.trail).toBeLessThan(MARK_RANK.sigil);
@@ -140,8 +175,10 @@ describe("rollOutcome", () => {
     const shiny = rollOutcome("raid", 40, squad, "2026-08-27", () => 0);
     expect(flat.grade).toBe("poor");
     expect(shiny.dollars).toBeGreaterThan(flat.dollars);
-    // The shine bonus caps at +50%, so a monster squad cannot run away with it.
-    expect(shiny.dollars).toBe(Math.round(40 * 1.5));
+    // The shine bonus caps at +50%, so a monster squad cannot run away with
+    // it. Measured against the un-bonused roll rather than a copy of the
+    // table's number, so a balance pass can't quietly break the cap.
+    expect(shiny.dollars).toBe(Math.round(flat.dollars * 1.5));
   });
   it("consumes rand in a fixed order: grade, comp, mark", () => {
     const queue = [0.999, 0.5, 0.99];

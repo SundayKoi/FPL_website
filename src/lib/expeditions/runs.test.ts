@@ -429,10 +429,10 @@ describe("claimExpeditionFor", () => {
 
     const result = await claimExpeditionFor("42", 9);
 
-    // 15 base x (1 + 0.03 x 9 shine over a zero gate) = 19.05 -> 19.
+    // 40 base x (1 + 0.03 x 9 shine over a zero gate) = 50.8 -> 51.
     expect(result).toEqual({
       ok: true,
-      outcome: { grade: "poor", dollars: 19, comp: false, mark: null, briefHit: false },
+      outcome: { grade: "poor", dollars: 51, comp: false, mark: null, briefHit: false },
       bearerId: null,
       balance: 1519,
     });
@@ -440,7 +440,7 @@ describe("claimExpeditionFor", () => {
       p_user: "42",
       p_run: 9,
       p_grade: "poor",
-      p_dollars: 19,
+      p_dollars: 51,
       p_comp: false,
       p_mark: null,
       p_bearer: null,
@@ -456,15 +456,15 @@ describe("claimExpeditionFor", () => {
     board.rpc.mockResolvedValue({ data: [{ balance: 100 }], error: null });
     scriptRand(0);
 
-    expect(await claimExpeditionFor("42", 9)).toMatchObject({ outcome: { briefHit: false, dollars: 19 } });
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ outcome: { briefHit: false, dollars: 51 } });
 
     // The same squad launched on a day that DOES brief the middle keeps the
-    // bonus: 15 x 1.27 x 1.2 = 22.86 -> 23.
+    // bonus: 40 x 1.27 x 1.2 = 60.96 -> 61.
     const later = createBoard({ copies: scoutSquad, run: runRow({ startedAt: "2026-08-28T14:00:00.000Z" }) });
     later.rpc.mockResolvedValue({ data: [{ balance: 100 }], error: null });
     scriptRand(0);
 
-    expect(await claimExpeditionFor("42", 9)).toMatchObject({ outcome: { briefHit: true, dollars: 23 } });
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ outcome: { briefHit: true, dollars: 61 } });
   });
 
   it("reads the launch day in Eastern time, not UTC", async () => {
@@ -488,27 +488,27 @@ describe("claimExpeditionFor", () => {
       run: runRow({ tier: "legend", squad: [11, 12, 13], shine: 30 }),
     });
     board.rpc.mockResolvedValue({ data: [{ balance: 5000 }], error: null });
-    // grade -> jackpot; comp -> hit (0.6); the legend mark is certain, so
+    // grade -> jackpot; comp -> hit (0.75); the legend mark is certain, so
     // it never draws; then the bearer pick lands on the middle card.
     scriptRand(0.9, 0.1, 0.5);
 
     const result = await claimExpeditionFor("42", 9);
 
-    // 400 base x (1 + 0.03 x 10 shine over legend's gate of 20) = 520.
+    // 2000 base x (1 + 0.03 x 10 shine over legend's gate of 20) = 2600.
     expect(result).toEqual({
       ok: true,
-      outcome: { grade: "jackpot", dollars: 520, comp: true, mark: "legend", briefHit: false },
+      outcome: { grade: "jackpot", dollars: 2600, comp: true, mark: "legend", briefHit: false },
       bearerId: 12,
       balance: 5000,
     });
     expect(board.rpc).toHaveBeenCalledWith(
       "claim_expedition",
-      expect.objectContaining({ p_mark: "legend", p_bearer: 12, p_comp: true, p_dollars: 520 }),
+      expect.objectContaining({ p_mark: "legend", p_bearer: 12, p_comp: true, p_dollars: 2600 }),
     );
     expect(postCardsWebhook).toHaveBeenCalledWith({
       title: "Legend Hunt — jackpot",
       description:
-        "<@42>'s Legend Hunt struck gold: 520 dollars, a free pack, and a card came back wearing the Legend Finish.",
+        "<@42>'s Legend Hunt struck gold: 2600 dollars, a free pack, and a card came back wearing the Legend Finish.",
       color: 0xe8c14b,
     });
   });
@@ -533,7 +533,7 @@ describe("claimExpeditionFor", () => {
   it("keeps quiet about a legend run that didn't jackpot", async () => {
     const board = createBoard({ copies: scoutSquad, run: runRow({ tier: "legend", shine: 20 }) });
     board.rpc.mockResolvedValue({ data: [{ balance: 400 }], error: null });
-    // grade -> solid; comp (0.15) -> missed; a legend solid can't mark.
+    // grade -> solid; comp (0.25) -> missed; a legend solid can't mark.
     scriptRand(0.5, 0.9);
 
     const result = await claimExpeditionFor("42", 9);

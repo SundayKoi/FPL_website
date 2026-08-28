@@ -9,6 +9,11 @@
 // the odds are unit-testable and a server-seeded roll is a drop-in.
 
 import { PACK_COST, foilTypeOf, type FoilType } from "@/lib/packs/config";
+// The guardrail below is measured against a click of /daily, so it reads
+// the same constant the handler pays out rather than restating it, and
+// re-exports it: this module is where the balance rule lives, so the rule
+// and the number it is measured against should arrive together.
+export { MAXED_DAILY_STREAK } from "@/lib/betting/daily";
 import type { InventoryRow } from "@/lib/packs/queries";
 
 /**
@@ -169,7 +174,7 @@ export interface DailyBrief {
 
 /** What fielding the day's role is worth. Twenty percent is a reason to
  *  swap one card, never a reason to hold a run back for a better day. */
-const BRIEF_BONUS = 0.2;
+export const BRIEF_BONUS = 0.2;
 
 /**
  * One brief per role the league actually prints.
@@ -240,32 +245,56 @@ interface TierRewards {
 }
 
 /**
+ * How many runs one person may LAUNCH in an Eastern day — the real ceiling
+ * on this feature, and the thing the first pass of these tables missed.
+ *
+ * Restated from launch_expedition (20260901000001_card_expeditions.sql),
+ * which counts today's rows under a wallet lock and raises `daily
+ * expedition limit` past it. Patrons get two; see PATRON_DAILY_LAUNCHES.
+ *
+ * This is why the original arithmetic here was wrong. It priced a scouting
+ * run as "three a day" because three eight-hour runs fit in a day — but
+ * the RPC never let anyone launch the second one. Every tier was tuned
+ * against income nobody could actually earn, and the top of the ladder
+ * paid $257 for a two-day wait while /daily paid $250 for a click.
+ */
+export const DAILY_LAUNCHES = 1;
+export const PATRON_DAILY_LAUNCHES = 2;
+
+/**
  * The payout tables — the whole economy of the feature.
  *
  * GUARDRAIL: an expedition supplements the economy, it never replaces
  * playing. Cards are locked for the run, not spent, so a run is free money
- * over time and the number that matters is dollars per DAY against
- * PACK_COST ($200, packs/config.ts):
+ * over time, and with one launch a day the number that matters is what a
+ * single squad earns per day against a maxed /daily streak
+ * (MAXED_DAILY_STREAK, $550 — imported, not restated): the thing a player
+ * can get for a click, no cards and no wait.
  *
- *   scout   8h: 0.50x15 + 0.45x40 + 0.05x90                    = $30.00
- *               three runs a day                               → $90.00/day
- *   raid   24h: 0.35x40 + 0.50x90 + 0.15x180                   = $86.00
- *               + comp 0.15x0.25 = 3.75% x $200 = $7.50        → $93.50/day
- *   legend 48h: 0.25x90 + 0.50x180 + 0.25x400                  = $212.50
- *               + comp (0.50x0.15 + 0.25x0.60) = 22.5% x $200 = $45.00
- *               $257.50 over two days                          → $128.75/day
+ *   scout   8h: 0.50x40 + 0.45x100 + 0.05x250          = $77.50
+ *               one launch a day                       → $77.50/day
+ *   raid   24h: 0.35x120 + 0.50x260 + 0.15x600         = $262.00
+ *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $271.00/day
+ *   legend 48h: 0.25x400 + 0.50x850 + 0.25x2000        = $1,025.00
+ *               + comp (0.50x0.25 + 0.25x0.75)
+ *                 = 31.25% x $200 = $62.50
+ *               $1,087.50 over two days                → $543.75/day
  *
- * Every line lands under PACK_COST per day: a full day of the best run
- * anyone can field does not buy one pack. The ceiling — a maxed squad
- * (+50% shine) that also fields the brief (+20%) — takes legend to
- * ($212.50 x 1.8 + $45) / 2 = $213.75 a day, about one pack, and getting
- * there needs three signed Cracked Ice challengers. Raise anything here
- * and redo that arithmetic; past it, expeditions become an income.
+ * So the ladder now says something: a walk pays pocket money, a day out
+ * pays about a base daily, and two days with a gated squad pays about what
+ * a seven-day daily streak pays — in lumps, with a jackpot worth four of
+ * them. Every line still lands under MAXED_DAILY_STREAK, which is the rule
+ * to keep: past it, the correct play stops being to show up.
+ *
+ * The ceiling — a maxed squad (+50% shine) that also fields the brief
+ * (+20%) — takes legend to ($1,025 x 1.8 + $62.50) / 2 = $953.75 a day,
+ * and getting there needs three signed Cracked Ice challengers locked
+ * permanently. Raise anything here and redo that arithmetic.
  */
 const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
   scout: {
     weights: { poor: 0.5, solid: 0.45, jackpot: 0.05 },
-    dollars: { poor: 15, solid: 40, jackpot: 90 },
+    dollars: { poor: 40, solid: 100, jackpot: 250 },
     // A scouting run never comps: it is the tier with no gate at all, and
     // free packs off an ungated run is the loop that prints money.
     comp: { poor: 0, solid: 0, jackpot: 0 },
@@ -273,14 +302,17 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
   },
   raid: {
     weights: { poor: 0.35, solid: 0.5, jackpot: 0.15 },
-    dollars: { poor: 40, solid: 90, jackpot: 180 },
-    comp: { poor: 0, solid: 0, jackpot: 0.25 },
+    dollars: { poor: 120, solid: 260, jackpot: 600 },
+    comp: { poor: 0, solid: 0, jackpot: 0.3 },
     mark: { kind: "sigil", chance: { poor: 0, solid: 0.1, jackpot: 0.3 } },
   },
   legend: {
     weights: { poor: 0.25, solid: 0.5, jackpot: 0.25 },
-    dollars: { poor: 90, solid: 180, jackpot: 400 },
-    comp: { poor: 0, solid: 0.15, jackpot: 0.6 },
+    // The whole point of the tier: two days and a collection nobody can
+    // fake, for a number worth telling the server about. A jackpot here is
+    // four maxed dailies in one hit.
+    dollars: { poor: 400, solid: 850, jackpot: 2000 },
+    comp: { poor: 0, solid: 0.25, jackpot: 0.75 },
     // A legend jackpot ALWAYS marks. Fielding a Legend Hunt at all is the
     // rarest thing in the feature; a second roll on top would leave the
     // players who hit it with nothing to show for it.
@@ -288,12 +320,25 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
   },
 };
 
+/**
+ * What a tier pays at worst and at best, before shine and the brief — the
+ * numbers the board prints so nobody has to run a tier to find out whether
+ * it is worth the wait. Read off REWARDS rather than written out again,
+ * because a payout table and a printed range that disagree is worse than
+ * printing nothing.
+ */
+export function payoutRange(tier: ExpeditionTierKey): { min: number; max: number } {
+  const { dollars } = REWARDS[tier];
+  const all = GRADES.map((grade) => dollars[grade]);
+  return { min: Math.min(...all), max: Math.max(...all) };
+}
+
 /** How much each point of shine ABOVE the tier's gate adds to the payout,
  *  and the cap it stops at. Measured against the gate so a Legend Hunt's
  *  mandatory 20 shine is not paid for twice; capped so the ceiling in the
  *  guardrail above stays true. */
 const SHINE_BONUS_PER_POINT = 0.03;
-const SHINE_BONUS_CAP = 0.5;
+export const SHINE_BONUS_CAP = 0.5;
 
 /** A chance that isn't one. Zero and one are settled without touching the
  *  stream — see rollOutcome's note on consumption order. */
@@ -366,9 +411,17 @@ export function rollOutcome(
  * arithmetic rather than prose, so a balance pass that pushes a number too
  * far turns a test red instead of quietly minting an income.
  *
+ * Runs per day is bounded by DAILY_LAUNCHES, not only by duration. That
+ * bound is the correction: the first version of this divided the day by
+ * the run length alone and priced a scouting run at three a day, which the
+ * RPC has never permitted. A tier longer than a day still contributes its
+ * fraction (a 48h run is half a run a day), because one squad genuinely
+ * does land every other day.
+ *
  * Base rates only: no shine bonus, no brief bonus, and it assumes the
  * player relaunches the moment a run lands (the honest worst case for the
- * economy).
+ * economy). A patron may launch PATRON_DAILY_LAUNCHES a day and so earns
+ * up to double this — a perk priced deliberately, not an oversight.
  */
 export function expectedDailyDollars(tier: ExpeditionTierKey): number {
   const { weights, dollars, comp } = REWARDS[tier];
@@ -377,5 +430,6 @@ export function expectedDailyDollars(tier: ExpeditionTierKey): number {
     (sum, grade) => sum + (weights[grade] / total) * (dollars[grade] + comp[grade] * PACK_COST),
     0,
   );
-  return (perRun * 24) / EXPEDITION_TIERS[tier].durationHours;
+  const runsPerDay = Math.min(24 / EXPEDITION_TIERS[tier].durationHours, DAILY_LAUNCHES);
+  return perRun * runsPerDay;
 }

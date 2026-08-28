@@ -18,14 +18,12 @@ import { BRAND, GREEN, embed, errMsg, msg } from "./respond";
 import type { DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
 import type { DiscordUser } from "./shared";
+import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP } from "../daily";
 
-// Escalating daily-bonus tuning — ports bot/config.py's BotSettings defaults
-// (DAILY_AMOUNT/DAILY_STREAK_STEP/DAILY_STREAK_MAX env vars in the source).
-// No other task wired env-driven tuning for the betting economy, so these
-// are hardcoded the same way shared.ts's SIGNUP_BONUS is.
-const DAILY_AMOUNT = 250;
-const DAILY_STREAK_STEP = 50;
-const DAILY_STREAK_MAX = 7;
+// Escalating daily-bonus tuning lives in ../daily.ts — this file is
+// server-only, and the expedition guardrail has to be able to read what a
+// click of /daily pays.
+
 
 // Weekly twin — bigger, slower, same escalation shape. No source-bot
 // counterpart to port; tuned so a maxed week (1750) roughly matches a maxed
