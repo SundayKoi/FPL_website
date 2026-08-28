@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DrawPageView } from "@/app/cards/draw/page";
+import { DrawPageView } from "@/components/cards/DrawPageView";
 
 export const metadata: Metadata = {
   title: "The Academy Weekly Draw — FPL",

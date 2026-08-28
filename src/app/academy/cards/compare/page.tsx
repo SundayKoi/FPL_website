@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CompareCardsPageView } from "@/app/cards/compare/page";
+import { CompareCardsPageView } from "@/components/cards/CompareCardsPageView";
 
 export const metadata: Metadata = {
   title: "Compare Academy Cards — FPL",
