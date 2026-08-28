@@ -37,6 +37,9 @@ import {
   type ExpeditionMark as ExpeditionMarkKind,
   type ExpeditionOutcome,
   type ExpeditionTierDef,
+  payoutRange,
+  BRIEF_BONUS,
+  SHINE_BONUS_CAP,
   type ExpeditionTierKey,
   type OutcomeGrade,
 } from "@/lib/expeditions/config";
@@ -54,7 +57,8 @@ const TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
 const TIER_FLAVOR: Record<ExpeditionTierKey, string> = {
   scout: "A short walk for pocket money. No gate, no comps, and back before the evening.",
   raid: "A day out. Pays properly, and a good one can come home with a free pack and a Sigil.",
-  legend: "Two days, and only a real collection can field it. Every jackpot marks a card forever.",
+  legend:
+    "Two days, and only a real collection can field it. The best money on the board, and every jackpot marks a card forever.",
 };
 
 /** How a claim reads before you get to the numbers. */
@@ -426,6 +430,18 @@ export default function ExpeditionBoard({
                 <p className="text-sm font-semibold text-white">
                   <span className="label-dash mr-2 inline-block">Entry</span>
                   <span>{requirementLine(def)}</span>
+                </p>
+                {/* What it pays, before shine and the brief. Printed because
+                    a two-day wait is a bet, and nobody should have to make
+                    it blind. */}
+                <p className="text-sm font-semibold text-white">
+                  <span className="label-dash mr-2 inline-block">Pays</span>
+                  <span className="font-mono text-mint">
+                    {fmtPoints(payoutRange(key).min)}–{fmtPoints(payoutRange(key).max)}
+                  </span>
+                  <span className="ml-2 text-xs font-normal text-steel">
+                    +{Math.round(SHINE_BONUS_CAP * 100)}% at most from shine, +{Math.round(BRIEF_BONUS * 100)}% for the brief
+                  </span>
                 </p>
                 {gate.ok ? null : (
                   <ul className="flex flex-col gap-1">
