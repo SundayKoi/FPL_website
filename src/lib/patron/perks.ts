@@ -27,6 +27,13 @@ export interface PatronPerk {
   headline: boolean;
 }
 
+/** Launches per Eastern day, patron vs not. These two live in SQL, not
+ *  TS — `launch_expedition` in 20260901000001_card_expeditions.sql sets
+ *  `v_limit := case when patron then 2 else 1` — so they can't be
+ *  imported; the perks test pins this copy to those numbers instead. */
+export const PATRON_EXPEDITION_LAUNCHES = 2;
+export const BASE_EXPEDITION_LAUNCHES = 1;
+
 const EXTRA_SLOTS = PATRON_BINDER_SLOTS - BINDER_SLOTS;
 const DUST_BONUS_PCT = Math.round((PATRON_DUST_MULT - 1) * 100);
 const SOVEREIGN_MONTHS = Math.round(SOVEREIGN_TENURE_DAYS / 30);
@@ -62,6 +69,15 @@ export const PATRON_PERKS: PatronPerk[] = [
     icon: "🃏",
     title: "A second Daily Rip",
     blurb: "Patrons rip twice a day instead of once. Same odds on both — just another go at them.",
+    headline: true,
+  },
+  {
+    key: "expeditions",
+    icon: "🧭",
+    title: "A second expedition",
+    blurb:
+      `Launch ${PATRON_EXPEDITION_LAUNCHES} expeditions a day instead of ${BASE_EXPEDITION_LAUNCHES} — two ` +
+      `squads of three out in the field at once, earning while you sleep.`,
     headline: true,
   },
   {
