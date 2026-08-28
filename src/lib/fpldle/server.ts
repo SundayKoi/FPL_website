@@ -7,12 +7,13 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import {
   compareFpldleGuess,
   type FpldleCandidate,
+  type FpldleDivision,
   type FpldleFeedback,
   type FpldleLeague,
   type FpldlePlayerLabel,
 } from "./comparison";
 
-export type { FpldleCandidate, FpldleFeedback, FpldleLeague, FpldlePlayerLabel } from "./comparison";
+export type { FpldleCandidate, FpldleDivision, FpldleFeedback, FpldleLeague, FpldlePlayerLabel } from "./comparison";
 
 export interface FpldleGame {
   date: string;
@@ -31,6 +32,11 @@ export interface FpldleAnswerReveal {
   tag: string;
 }
 
+export interface FpldlePuzzleReset {
+  date: string;
+  league: FpldleLeague;
+}
+
 type FpldleCandidateRow = {
   puzzle_date: string;
   league: FpldleLeague;
@@ -40,9 +46,11 @@ type FpldleCandidateRow = {
   player_name: string;
   player_tag: string;
   team: string;
+  team_logo_url: string | null;
   position: string;
   champion: string;
   overall: number;
+  division: FpldleDivision | null;
 };
 
 type PuzzleRow = {
@@ -112,9 +120,11 @@ function rowToCandidate(row: FpldleCandidateRow): FpldleCandidate {
     name: row.player_name,
     tag: row.player_tag,
     team: row.team,
+    teamLogoUrl: row.team_logo_url ?? null,
     position: row.position,
     champion: row.champion,
     overall: Number(row.overall),
+    division: row.division ?? null,
   };
 }
 
@@ -122,7 +132,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function cardToCandidate(value: unknown): FpldleCandidate | null {
+function cardToCandidate(
+  value: unknown,
+  divisionByTeam: Map<string, FpldleDivision>,
+  league: FpldleLeague,
+): FpldleCandidate | null {
   if (!isRecord(value)) return null;
   const signature = isRecord(value.signature) ? value.signature : null;
   const fields = {
@@ -130,6 +144,7 @@ function cardToCandidate(value: unknown): FpldleCandidate | null {
     name: value.name,
     tag: value.tag,
     team: value.teamName,
+    teamLogoUrl: typeof value.teamImageUrl === "string" ? value.teamImageUrl : null,
     position: value.role,
     champion: signature?.champion,
     overall: value.overall,
@@ -159,10 +174,47 @@ function cardToCandidate(value: unknown): FpldleCandidate | null {
     name: fields.name,
     tag: fields.tag,
     team: fields.team,
+    teamLogoUrl: fields.teamLogoUrl,
     position: fields.position,
     champion: fields.champion,
     overall: fields.overall,
+    division: league === "premier" ? divisionByTeam.get(teamKey(fields.team)) ?? null : null,
   };
+}
+
+function teamKey(value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+async function fpldleDivisions(
+  service: FpldleServiceClient,
+  league: FpldleLeague,
+  season: string,
+): Promise<Map<string, FpldleDivision>> {
+  const divisions = new Map<string, FpldleDivision>();
+  if (league === "academy") return divisions;
+
+  const { data: settings, error: settingsError } = await service
+    .from("league_settings")
+    .select("current_season, featured_draft_id")
+    .eq("id", 1)
+    .maybeSingle();
+  if (settingsError) throw settingsError;
+  const row = settings as { current_season: string | null; featured_draft_id: string | null } | null;
+  if (!row?.featured_draft_id || row.current_season !== season) return divisions;
+
+  const { data: teamRows, error: teamsError } = await service
+    .from("teams")
+    .select("name, division")
+    .eq("draft_id", row.featured_draft_id);
+  if (teamsError) throw teamsError;
+
+  for (const team of (teamRows as { name: string; division: string | null }[]) ?? []) {
+    if (team.division === "Solari" || team.division === "Lunari") {
+      divisions.set(teamKey(team.name), team.division);
+    }
+  }
+  return divisions;
 }
 
 async function latestEdition(
@@ -194,6 +246,8 @@ async function ensurePuzzle(
     throw new FpldleError("NO_EDITION", "No frozen card edition is available yet.");
   }
 
+  const divisionByTeam = await fpldleDivisions(service, league, season);
+
   const { data: cardRows, error: cardsError } = await service
     .from("card_editions")
     .select("slug, card")
@@ -202,16 +256,18 @@ async function ensurePuzzle(
   if (cardsError) throw cardsError;
 
   const candidates = ((cardRows as { slug: string; card: unknown }[]) ?? [])
-    .map((row) => cardToCandidate(row.card))
+    .map((row) => cardToCandidate(row.card, divisionByTeam, league))
     .filter((candidate): candidate is FpldleCandidate => candidate !== null)
     .map((candidate) => ({
       player_slug: candidate.slug,
       player_name: candidate.name,
       player_tag: candidate.tag,
       team: candidate.team,
+      team_logo_url: candidate.teamLogoUrl,
       position: candidate.position,
       champion: candidate.champion,
       overall: candidate.overall,
+      division: candidate.division,
     }));
 
   if (candidates.length === 0) {
@@ -272,6 +328,17 @@ export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   };
 }
 
+function parsePuzzleReference(input: unknown): { league: FpldleLeague; puzzleDate: string } {
+  if (!isRecord(input)) {
+    throw new FpldleError("INVALID_INPUT", "Invalid FPL'dle puzzle.");
+  }
+  const league = parseLeague(input.league);
+  if (!isIsoDate(input.puzzleDate)) {
+    throw new FpldleError("INVALID_INPUT", "Invalid FPL'dle puzzle date.");
+  }
+  return { league, puzzleDate: input.puzzleDate };
+}
+
 function parseSubmission(input: unknown): {
   league: FpldleLeague;
   puzzleDate: string;
@@ -324,7 +391,7 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
 
   const { data: guessRow, error: guessError } = await service
     .from("fpldle_daily_candidates")
-    .select("puzzle_date, league, season, edition_week, player_slug, player_name, player_tag, team, position, champion, overall")
+    .select("puzzle_date, league, season, edition_week, player_slug, player_name, player_tag, team, team_logo_url, position, champion, overall, division")
     .eq("puzzle_date", puzzleDate)
     .eq("league", league)
     .eq("player_slug", playerSlug)
@@ -344,7 +411,7 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
 
   const { data: targetRow, error: targetError } = await service
     .from("fpldle_daily_candidates")
-    .select("puzzle_date, league, season, edition_week, player_slug, player_name, player_tag, team, position, champion, overall")
+    .select("puzzle_date, league, season, edition_week, player_slug, player_name, player_tag, team, team_logo_url, position, champion, overall, division")
     .eq("puzzle_date", puzzleDate)
     .eq("league", league)
     .eq("player_slug", answerSlug)
@@ -355,6 +422,24 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
   return {
     feedback: compareFpldleGuess(rowToCandidate(guessRow as FpldleCandidateRow), rowToCandidate(targetRow as FpldleCandidateRow)),
   };
+}
+
+/** Admin-only testing reset: remove today's snapshot and immediately choose a new stable answer. */
+export async function resetFpldlePuzzle(input: unknown): Promise<FpldlePuzzleReset> {
+  const { league, puzzleDate } = parsePuzzleReference(input);
+  if (puzzleDate !== utcDate()) {
+    throw new FpldleError("STALE_PUZZLE", "Only today's puzzle can be reset.");
+  }
+
+  const server = await requireFpldleAdmin();
+  const service = createBettingServiceClient();
+  const { error } = await service.rpc("reset_fpldle_daily_puzzle", {
+    p_puzzle_date: puzzleDate,
+    p_league: league,
+  });
+  if (error) throw error;
+  await ensurePuzzle(server, service, league, puzzleDate);
+  return { date: puzzleDate, league };
 }
 
 /** Reveal answer only after six distinct, current-puzzle guesses. */

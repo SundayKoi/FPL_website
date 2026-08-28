@@ -15,7 +15,7 @@ vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 
 import { getFpldleGame, FpldleError } from "./server";
-import { submitFpldleGuessAction } from "./actions";
+import { resetFpldlePuzzleAction, submitFpldleGuessAction } from "./actions";
 
 const today = "2026-08-28";
 
@@ -24,6 +24,7 @@ const card = {
   name: "Academy Player",
   tag: "NA1",
   teamName: "Academy",
+  teamImageUrl: "https://example.com/academy.png",
   role: "Mid",
   overall: 82,
   signature: { champion: "Ahri", games: 10 },
@@ -42,6 +43,12 @@ function createQueryClient(options: { candidateRows?: unknown[] | null; guessRow
       }
       if (table === "card_editions") {
         return { data: [{ slug: card.slug, card }], error: null };
+      }
+      if (table === "league_settings") {
+        return { data: { current_season: "A99", featured_draft_id: "draft-1" }, error: null };
+      }
+      if (table === "teams") {
+        return { data: [{ name: "Academy", division: "Solari" }], error: null };
       }
       if (table === "fpldle_daily_puzzles" && call.columns.includes("created_at")) {
         return {
@@ -173,6 +180,25 @@ describe("FPL'dle server adapter", () => {
       }],
     });
     expect(service.selections.find((selection) => selection.table === "fpldle_daily_puzzles")?.columns).not.toContain("answer_slug");
+  });
+
+  it("resets only the current admin puzzle and recreates it", async () => {
+    const service = createQueryClient();
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(resetFpldlePuzzleAction({ league: "premier", puzzleDate: today })).resolves.toEqual({
+      date: today,
+      league: "premier",
+    });
+    expect(service.rpc).toHaveBeenCalledWith("reset_fpldle_daily_puzzle", {
+      p_puzzle_date: today,
+      p_league: "premier",
+    });
+    const ensureCall = service.rpc.mock.calls.find(([name]) => name === "ensure_fpldle_daily_puzzle");
+    expect(ensureCall?.[1]).toMatchObject({
+      p_candidates: [{ team_logo_url: "https://example.com/academy.png", division: "Solari" }],
+    });
   });
 });
 

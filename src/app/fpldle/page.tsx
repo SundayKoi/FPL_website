@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import FpldleBoard from "@/components/fpldle/FpldleBoard";
 import FpldleUnavailable from "@/components/fpldle/FpldleUnavailable";
-import { submitFpldleGuessAction, revealFpldleAnswerAction } from "@/lib/fpldle/actions";
+import { resetFpldlePuzzleAction, submitFpldleGuessAction, revealFpldleAnswerAction } from "@/lib/fpldle/actions";
 import { FpldleError, getFpldleGame } from "@/lib/fpldle/server";
 
 export const metadata: Metadata = {
@@ -18,5 +18,5 @@ export default async function FpldlePage() {
     if (error instanceof FpldleError && error.code === "FORBIDDEN") redirect("/");
     return <FpldleUnavailable league="Premier" />;
   }
-  return <FpldleBoard game={game} league="premier" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} />;
+  return <FpldleBoard game={game} league="premier" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;
 }

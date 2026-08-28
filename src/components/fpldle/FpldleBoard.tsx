@@ -13,6 +13,7 @@ const MAX_GUESSES = 6;
 
 type SubmitGuess = (input: unknown) => Promise<FpldleSubmission>;
 type RevealAnswer = (input: unknown) => Promise<{ name: string; tag: string }>;
+type ResetPuzzle = (input: unknown) => Promise<{ date: string; league: FpldleLeague }>;
 type GameStatus = "playing" | "won" | "lost";
 
 type StoredProgress = {
@@ -22,27 +23,55 @@ type StoredProgress = {
   answer?: { name: string; tag: string } | null;
 };
 
-function clueText(value: FpldleFeedback["team"] | FpldleFeedback["overall"], kind: "exact" | "overall") {
-  if (kind === "exact") return value === "match" ? "Match" : "Miss";
-  if (value === "equal") return "Equal";
-  return value === "higher" ? "↑ Higher" : "↓ Lower";
+function hasCurrentFeedbackShape(value: unknown): value is FpldleFeedback {
+  if (typeof value !== "object" || value === null) return false;
+  const feedback = value as Partial<FpldleFeedback>;
+  return (
+    typeof feedback.teamName === "string" &&
+    typeof feedback.positionName === "string" &&
+    typeof feedback.championName === "string" &&
+    typeof feedback.overallValue === "number" &&
+    (feedback.teamLogoUrl === null || typeof feedback.teamLogoUrl === "string") &&
+    (feedback.divisionName === null || feedback.divisionName === "Solari" || feedback.divisionName === "Lunari")
+  );
 }
 
-function clueLabel(
-  label: string,
-  value: FpldleFeedback["team"] | FpldleFeedback["overall"],
-  kind: "exact" | "overall",
-) {
-  if (kind === "exact") return `${label}: ${value === "match" ? "exact match" : "miss"}`;
-  if (value === "equal") return `${label}: equal`;
-  return `${label}: target overall ${value === "higher" ? "higher" : "lower"}`;
-}
+type ClueStatus = FpldleFeedback["team"] | FpldleFeedback["overall"] | FpldleFeedback["division"];
 
-function clueClass(value: FpldleFeedback["team"] | FpldleFeedback["overall"], kind: "exact" | "overall") {
-  const isMatch = kind === "exact" ? value === "match" : value === "equal";
+function clueClass(value: ClueStatus) {
+  const isMatch = value === "match" || value === "equal";
   return isMatch
     ? "border-mint/60 bg-mint/15 text-mint"
     : "border-line bg-navy/60 text-steel";
+}
+
+function positionText(position: string): string {
+  const labels: Record<string, string> = {
+    top: "TOP",
+    jungle: "JG",
+    jg: "JG",
+    mid: "MID",
+    adc: "ADC",
+    bot: "ADC",
+    support: "SUP",
+    sup: "SUP",
+  };
+  return labels[position.trim().toLocaleLowerCase()] ?? position;
+}
+
+function exactLabel(value: "match" | "miss"): string {
+  return value === "match" ? "exact match" : "miss";
+}
+
+function clueLabel(label: string, feedback: FpldleFeedback): string {
+  if (label === "Team") return `${label}: ${feedback.teamName}; ${exactLabel(feedback.team)}`;
+  if (label === "Role") return `${label}: ${feedback.positionName}; ${exactLabel(feedback.position)}`;
+  if (label === "Best champion") return `${label}: ${feedback.championName}; ${exactLabel(feedback.champion)}`;
+  if (label === "Overall") {
+    return `${label}: ${feedback.overallValue}; ${feedback.overall === "equal" ? "equal" : `target overall ${feedback.overall}`}`;
+  }
+  if (feedback.division === "unavailable") return `${label}: unavailable for this league`;
+  return `${label}: ${feedback.divisionName ?? "unassigned"}; ${exactLabel(feedback.division)}`;
 }
 
 function formatCountdown(milliseconds: number): string {
@@ -53,19 +82,24 @@ function formatCountdown(milliseconds: number): string {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function shareSquare(value: FpldleFeedback["team"] | FpldleFeedback["overall"], kind: "exact" | "overall") {
-  const isMatch = kind === "exact" ? value === "match" : value === "equal";
+function shareSquare(value: ClueStatus) {
+  if (value === "unavailable") return "⬛";
+  const isMatch = value === "match" || value === "equal";
   if (isMatch) return "🟩";
-  if (kind === "overall") return value === "higher" ? "⬆️" : "⬇️";
+  if (value === "higher") return "⬆️";
+  if (value === "lower") return "⬇️";
   return "⬜";
 }
 
-function GuessRow({ feedback }: { feedback: FpldleFeedback | null }) {
+function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null; showDivision: boolean }) {
+  const gridClass = showDivision
+    ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))] gap-2"
+    : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))] gap-2";
   if (!feedback) {
     return (
-      <div className="grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))] gap-2 rounded border border-line/60 bg-navy/30 p-2 text-sm text-steel">
+      <div className={`${gridClass} rounded border border-line/60 bg-navy/30 p-2 text-sm text-steel`}>
         <span className="flex items-center px-2">—</span>
-        {Array.from({ length: 4 }, (_, index) => (
+        {Array.from({ length: showDivision ? 5 : 4 }, (_, index) => (
           <span key={index} className="flex min-h-12 items-center justify-center rounded border border-line/40 px-1">
             —
           </span>
@@ -75,13 +109,14 @@ function GuessRow({ feedback }: { feedback: FpldleFeedback | null }) {
   }
 
   const cells = [
-    { label: "Team", value: feedback.team, kind: "exact" as const },
-    { label: "Position", value: feedback.position, kind: "exact" as const },
-    { label: "Best champion", value: feedback.champion, kind: "exact" as const },
-    { label: "Overall", value: feedback.overall, kind: "overall" as const },
+    { label: "Team", status: feedback.team },
+    { label: "Role", status: feedback.position },
+    { label: "Best champion", status: feedback.champion },
+    { label: "Overall", status: feedback.overall },
+    ...(showDivision ? [{ label: "Division", status: feedback.division }] : []),
   ];
   return (
-    <div className="grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))] gap-2 rounded border border-line bg-panel p-2 text-sm">
+    <div className={`${gridClass} rounded border border-line bg-panel p-2 text-sm`}>
       <span className="flex min-h-12 items-center px-2 font-semibold text-white">
         <span>{feedback.player.name}</span>
         <span className="ml-1 text-xs font-normal text-steel">#{feedback.player.tag}</span>
@@ -89,10 +124,27 @@ function GuessRow({ feedback }: { feedback: FpldleFeedback | null }) {
       {cells.map((cell) => (
         <span
           key={cell.label}
-          aria-label={clueLabel(cell.label, cell.value, cell.kind)}
-          className={`flex min-h-12 items-center justify-center rounded border px-1 text-center text-xs font-semibold sm:text-sm ${clueClass(cell.value, cell.kind)}`}
+          aria-label={clueLabel(cell.label, feedback)}
+          className={`flex min-h-12 items-center justify-center rounded border px-1 text-center text-xs font-semibold sm:text-sm ${clueClass(cell.status)}`}
         >
-          {clueText(cell.value, cell.kind)}
+          {cell.label === "Team" ? (
+            <span className="flex min-w-0 items-center justify-center gap-1.5">
+              {feedback.teamLogoUrl ? (
+                // Team logos come from the frozen card snapshot and may be hosted outside next/image remotePatterns.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={feedback.teamLogoUrl} alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded object-contain" />
+              ) : null}
+              <span className="truncate">{feedback.teamName}</span>
+            </span>
+          ) : cell.label === "Role" ? (
+            positionText(feedback.positionName)
+          ) : cell.label === "Best champion" ? (
+            feedback.championName
+          ) : cell.label === "Overall" ? (
+            <span>{feedback.overallValue} {feedback.overall === "equal" ? "· Equal" : feedback.overall === "higher" ? "· ↑ Higher" : "· ↓ Lower"}</span>
+          ) : (
+            feedback.divisionName ?? "Unassigned"
+          )}
         </span>
       ))}
     </div>
@@ -104,11 +156,13 @@ export default function FpldleBoard({
   league,
   submitGuess,
   revealAnswer,
+  resetPuzzle,
 }: {
   game: FpldleGame;
   league: FpldleLeague;
   submitGuess: SubmitGuess;
   revealAnswer: RevealAnswer;
+  resetPuzzle: ResetPuzzle;
 }) {
   const storageKey = `fpldle:${league}:${game.date}`;
   const [query, setQuery] = useState("");
@@ -122,6 +176,8 @@ export default function FpldleBoard({
   const [loaded, setLoaded] = useState(false);
   const [remaining, setRemaining] = useState(() => new Date(game.expiresAt).getTime() - Date.now());
   const [pending, startTransition] = useTransition();
+  const [resetting, startResetTransition] = useTransition();
+  const showDivision = league === "premier";
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -133,6 +189,7 @@ export default function FpldleBoard({
             progress.date === game.date &&
             Array.isArray(progress.guesses) &&
             progress.guesses.length <= MAX_GUESSES &&
+            progress.guesses.every(hasCurrentFeedbackShape) &&
             (progress.status === "playing" || progress.status === "won" || progress.status === "lost")
           ) {
             setGuesses(progress.guesses);
@@ -228,16 +285,16 @@ export default function FpldleBoard({
   };
 
   const copyShareGrid = async () => {
-    const grid = guesses
-      .map((guess) =>
-        [
-          shareSquare(guess.team, "exact"),
-          shareSquare(guess.position, "exact"),
-          shareSquare(guess.champion, "exact"),
-          shareSquare(guess.overall, "overall"),
-        ].join(""),
-      )
-      .join("\n");
+    const grid = guesses.map((guess) => {
+      const squares = [
+        shareSquare(guess.team),
+        shareSquare(guess.position),
+        shareSquare(guess.champion),
+        shareSquare(guess.overall),
+      ];
+      if (showDivision) squares.push(shareSquare(guess.division));
+      return squares.join("");
+    }).join("\n");
     const text = `FPL'dle ${league === "academy" ? "Academy" : "Premier"} ${game.date}\n${grid}`;
     try {
       await navigator.clipboard.writeText(text);
@@ -246,6 +303,24 @@ export default function FpldleBoard({
     } catch {
       setError("Share grid could not be copied.");
     }
+  };
+
+  const handleReset = () => {
+    if (resetting || pending) return;
+    setError(null);
+    startResetTransition(async () => {
+      try {
+        await resetPuzzle({ league, puzzleDate: game.date });
+        try {
+          window.localStorage.removeItem(storageKey);
+        } catch {
+          // Storage is a recovery aid, not a reason to block an admin reset.
+        }
+        window.location.reload();
+      } catch (resetError) {
+        setError(resetError instanceof Error ? resetError.message : "Puzzle could not be reset.");
+      }
+    });
   };
 
   const boardRows = Array.from({ length: MAX_GUESSES }, (_, index) => guesses[index] ?? null);
@@ -261,23 +336,31 @@ export default function FpldleBoard({
             Find today&apos;s player in six guesses. Team, position, best champion, and card overall give you the trail.
           </p>
         </div>
-        <div className="rounded border border-line bg-panel px-4 py-3 text-right">
-          <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-steel">Next puzzle</span>
-          <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
-          <span className="block text-xs text-steel">UTC reset</span>
+        <div className="flex flex-wrap items-end justify-end gap-3">
+          <div className="rounded border border-line bg-panel px-4 py-3 text-right">
+            <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-steel">Next puzzle</span>
+            <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
+            <span className="block text-xs text-steel">UTC reset</span>
+          </div>
+          <button type="button" onClick={handleReset} disabled={resetting || pending} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60">
+            {resetting ? "Resetting…" : "Reset puzzle"}
+          </button>
         </div>
       </header>
 
       <section className="card-brand p-4 sm:p-6">
-        <div className="mb-3 grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))] gap-2 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel">
-          <span>Guess</span>
-          <span className="text-center">Team</span>
-          <span className="text-center">Position</span>
-          <span className="text-center">Best champion</span>
-          <span className="text-center">Overall</span>
-        </div>
-        <div className="flex flex-col gap-2" aria-label="FPL'dle guesses">
-          {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} />)}
+        <div className="overflow-x-auto">
+          <div className={`${showDivision ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))]" : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))]"} mb-3 min-w-max gap-2 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel`}>
+            <span>Guess</span>
+            <span className="text-center">Team</span>
+            <span className="text-center">Role</span>
+            <span className="text-center">Best champion</span>
+            <span className="text-center">Overall</span>
+            {showDivision ? <span className="text-center">Division</span> : null}
+          </div>
+          <div className="flex min-w-max flex-col gap-2" aria-label="FPL'dle guesses">
+            {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
+          </div>
         </div>
       </section>
 
@@ -352,7 +435,7 @@ export default function FpldleBoard({
         )}
       </section>
 
-      <p className="text-center text-xs text-steel">Green means exact. Misses stay neutral. Overall arrows point toward the target.</p>
+      <p className="text-center text-xs text-steel">Values show each guessed player. Green means exact; misses stay neutral. Overall arrows point toward the target.</p>
     </main>
   );
 }

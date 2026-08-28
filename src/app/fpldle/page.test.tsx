@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/components/fpldle/FpldleBoard", () => ({ default: () => <div data-testid="fpldle-board" /> }));
 vi.mock("@/components/fpldle/FpldleUnavailable", () => ({ default: () => <div data-testid="fpldle-unavailable" /> }));
 vi.mock("@/lib/fpldle/actions", () => ({
+  resetFpldlePuzzleAction: vi.fn(),
   submitFpldleGuessAction: vi.fn(),
   revealFpldleAnswerAction: vi.fn(),
 }));

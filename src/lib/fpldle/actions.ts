@@ -1,6 +1,6 @@
 "use server";
 
-import { revealFpldleAnswer, submitFpldleGuess } from "./server";
+import { resetFpldlePuzzle, revealFpldleAnswer, submitFpldleGuess } from "./server";
 
 /** Thin Next adapter; validation and hidden-answer handling stay in the module. */
 export async function submitFpldleGuessAction(input: unknown) {
@@ -9,4 +9,8 @@ export async function submitFpldleGuessAction(input: unknown) {
 
 export async function revealFpldleAnswerAction(input: unknown) {
   return revealFpldleAnswer(input);
+}
+
+export async function resetFpldlePuzzleAction(input: unknown) {
+  return resetFpldlePuzzle(input);
 }
