@@ -21,6 +21,7 @@ import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { WEEKLY_DRAW_POT } from "@/lib/packs/config";
 import { createServerSupabase } from "@/lib/supabase/server";
+import PatronPerks from "@/components/patron/PatronPerks";
 
 export const metadata: Metadata = {
   title: "Player Cards — FPL",
@@ -273,6 +274,10 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
       ) : (
         <CardsGallery cards={cards} />
       )}
+      {/* Most of what patronage buys is a CARD perk, so the short list
+          belongs here, under the collection it decorates — not only on the
+          support desk, where collectors never go. */}
+      <PatronPerks variant="compact" />
     </main>
   );
 }
