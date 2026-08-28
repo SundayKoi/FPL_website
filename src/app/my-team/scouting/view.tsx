@@ -69,7 +69,7 @@ export async function MyTeamScoutingPageView({
       }));
       let ingestedGames: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
       try {
-        ingestedGames = await fetchIngestedScoutingGames(supabase, roster, history.fixtures);
+        ingestedGames = await fetchIngestedScoutingGames(supabase, roster, history.fixtures, league);
       } catch (error) {
         console.error("Unable to load ingested scouting games; using draft attribution", error);
       }

@@ -224,7 +224,7 @@ describe("loadBroadcasterScouting", () => {
     expect(fetchIngestedScoutingGames).toHaveBeenCalledWith(supabase, [
       { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
       { id: "beta-player", displayName: "Beta Top", role: "top" },
-    ], []);
+    ], [], "premier");
     expect(fetchBroadcasterPlayerDetails).toHaveBeenCalledWith(supabase, "S5", [
       { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
       { id: "beta-player", displayName: "Beta Top", role: "top" },
@@ -235,6 +235,25 @@ describe("loadBroadcasterScouting", () => {
     expect(data?.teamB.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["beta-player"]);
     expect(data?.teamA.ingestedGames?.map((row) => row.playerId)).toEqual(["alpha-player"]);
     expect(data?.teamB.ingestedGames?.map((row) => row.playerId)).toEqual(["beta-player"]);
+  });
+
+  it("passes the Academy league boundary to shared scouting enrichment", async () => {
+    arrangeScouting();
+
+    await loadBroadcasterScouting(supabase, context({
+      league: "academy",
+      season: "A1",
+      fixture: fixture({ season: "A1" }),
+    }));
+
+    expect(fetchIngestedScoutingGames).toHaveBeenCalledWith(supabase, [
+      { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
+      { id: "beta-player", displayName: "Beta Top", role: "top" },
+    ], [], "academy");
+    expect(fetchBroadcasterPlayerDetails).toHaveBeenCalledWith(supabase, "A1", [
+      { id: "alpha-player", displayName: "Alpha Mid", role: "mid" },
+      { id: "beta-player", displayName: "Beta Top", role: "top" },
+    ]);
   });
 
   it("returns null without loading scouting when no featured fixture exists", async () => {

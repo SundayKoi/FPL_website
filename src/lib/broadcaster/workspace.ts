@@ -97,7 +97,7 @@ export async function loadBroadcasterScouting(
   const teamBRoster = rosterPlayers(teamBRosterData);
   const allRoster = [...teamARoster, ...teamBRoster];
   const [ingestedGames, inhousePlayerStats, playerDetails] = await Promise.all([
-    fetchIngestedScoutingGames(supabase, allRoster, history.fixtures).catch((error) => {
+    fetchIngestedScoutingGames(supabase, allRoster, history.fixtures, context.league).catch((error) => {
       console.error("Unable to load ingested scouting games; using draft attribution", error);
       return null;
     }),

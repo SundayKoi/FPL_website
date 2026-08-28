@@ -66,20 +66,25 @@ function groupByName<T>(rows: T[], getName: (row: T) => string): Map<string, T[]
 }
 
 function selectStats(
-  rows: PlayerAggRow[] | undefined,
+  namedRows: PlayerAggRow[] | undefined,
+  allRows: PlayerAggRow[],
   roleMode: string,
   player: ScoutRosterPlayer,
 ): PlayerAggRow | null {
-  if (!rows?.length) return null;
-  const roleRows = rows.filter((row) => row.role_mode === roleMode);
-  const exactRows = roleRows.filter((row) => playerMatchRiotIds(player).has(riotIdKey(row.summoner_name, row.tag)));
+  const exactRiotIds = playerMatchRiotIds(player);
+  const exactRows = allRows.filter((row) =>
+    row.role_mode === roleMode && exactRiotIds.has(riotIdKey(row.summoner_name, row.tag)),
+  );
   if (exactRows.length > 0) return exactRows[0];
+  if (!namedRows?.length) return null;
+  const roleRows = namedRows.filter((row) => row.role_mode === roleMode);
   if (roleRows.length === 1) return roleRows[0];
-  return rows.length === 1 ? rows[0] : null;
+  return namedRows.length === 1 ? namedRows[0] : null;
 }
 
 function selectCard(
   cards: PlayerCardData[] | undefined,
+  namedCards: PlayerCardData[] | undefined,
   stats: PlayerAggRow | null,
 ): PlayerCardData | null {
   if (!cards?.length) return null;
@@ -87,7 +92,7 @@ function selectCard(
     const exact = cards.find((card) => cardPlayerKey(card.name, card.tag) === cardPlayerKey(stats.summoner_name, stats.tag));
     if (exact) return exact;
   }
-  return cards.length === 1 ? cards[0] : null;
+  return namedCards?.length === 1 ? namedCards[0] : null;
 }
 
 function buildAverages(stats: PlayerAggRow, turretAverage: number): BroadcasterPlayerDetails["averages"] {
@@ -128,14 +133,12 @@ export function buildBroadcasterPlayerDetails(
   turretRows: BroadcasterTurretRow[],
   season: string,
 ): BroadcasterPlayerDetails[] {
-  const statsByName = groupByName(
-    mergeRows(
-      statsRows,
-      (row) => cardPlayerKey(row.summoner_name, row.tag),
-      (group) => combineSeasonRows(group, season),
-    ),
-    (row) => row.summoner_name,
+  const mergedStats = mergeRows(
+    statsRows,
+    (row) => cardPlayerKey(row.summoner_name, row.tag),
+    (group) => combineSeasonRows(group, season),
   );
+  const statsByName = groupByName(mergedStats, (row) => row.summoner_name);
   const cardsByName = groupByName(cards, (card) => card.name);
   const turretTotals = new Map<string, { total: number; games: number }>();
   for (const row of turretRows) {
@@ -147,11 +150,11 @@ export function buildBroadcasterPlayerDetails(
   }
 
   return roster.flatMap((player) => {
-    const stats = selectStats(statsByName.get(nameKey(player.displayName)), roleModeFor(player.role), player);
+    const stats = selectStats(statsByName.get(nameKey(player.displayName)), mergedStats, roleModeFor(player.role), player);
     const exactKey = stats ? cardPlayerKey(stats.summoner_name, stats.tag) : null;
     const turretSummary = exactKey ? turretTotals.get(exactKey) : null;
     const averageTurrets = turretSummary ? turretSummary.total / turretSummary.games : 0;
-    const playerCard = selectCard(cardsByName.get(nameKey(player.displayName)), stats);
+    const playerCard = selectCard(cards, cardsByName.get(nameKey(player.displayName)), stats);
     return playerCard || stats
       ? [{
           playerId: player.id,

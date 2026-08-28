@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { seasonBelongsToLeague } from "@/lib/league/season";
 import type { MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 import { normalizeName } from "@/lib/captain/teamNames";
 import { createLeagueFixtureScope } from "@/lib/my-team/leagueScope";
@@ -264,7 +265,11 @@ export async function fetchScoutingHistory(
   const scope = createLeagueFixtureScope(input.leagueTeamNames);
   const fixtures = asRows(fixtureRows)
     .map(mapFixture)
-    .filter((fixture): fixture is ScoutFixtureRow => Boolean(fixture && scope.includesFixture(fixture)));
+    .filter((fixture): fixture is ScoutFixtureRow => Boolean(
+      fixture &&
+      seasonBelongsToLeague(fixture.season, input.league) &&
+      scope.includesFixture(fixture),
+    ));
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const fixtureIds = new Set(fixturesById.keys());
   const teamNamesById = new Map(
@@ -299,17 +304,20 @@ export async function fetchScoutingHistory(
 }
 
 /** Load Riot-ingested game rows used to identify champions when a draft did
- * not record player names or post-draft role confirmation. */
+ * not record player names or post-draft role confirmation. The league
+ * boundary is applied before roster matching because player identities can
+ * recur across the two shared stats histories. */
 export async function fetchIngestedScoutingGames(
   supabase: SupabaseClient,
   roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"]; opggUrl?: string | null }>,
   fixtures: ScoutFixtureRow[] = [],
+  league: FetchScoutingHistoryInput["league"] = "premier",
 ): Promise<IngestedScoutingGame[]> {
-  const rows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
+  const rows = (await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
       .from("raw_stats")
       .select(INGESTED_SCOUTING_COLUMNS)
       .order("id")
-      .range(from, to));
+      .range(from, to))).filter((row) => seasonBelongsToLeague(row.season, league));
   if (rows.length === 0) return buildIngestedScoutingGames(roster, rows);
 
   const [reportGames, reports] = await Promise.all([

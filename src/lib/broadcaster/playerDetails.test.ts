@@ -85,4 +85,26 @@ describe("buildBroadcasterPlayerDetails", () => {
       gameRecord: { games: 2, wins: 1, losses: 1, winratePct: 50 },
     });
   });
+
+  it("uses the linked Riot ID when an Academy roster label differs from the game name", () => {
+    const details = buildBroadcasterPlayerDetails(
+      [{
+        id: "iffyxo",
+        displayName: "Iffyxo",
+        role: "mid",
+        opggUrl: "https://op.gg/lol/multisearch/na?summoners=Iffy%23ACT",
+      }],
+      [{ slug: "iffy-card", name: "Iffy", tag: "ACT" } as PlayerCardData],
+      [statRow({ summoner_name: "Iffy", tag: "ACT", role_mode: "MIDDLE" })],
+      [],
+      "A1",
+    );
+
+    expect(details).toHaveLength(1);
+    expect(details[0]).toMatchObject({
+      playerId: "iffyxo",
+      card: { slug: "iffy-card" },
+      averages: { games: 2 },
+    });
+  });
 });

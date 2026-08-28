@@ -7,8 +7,8 @@ import {
 } from "./queries";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const fixture = (id: string, teamA: string | null, teamB: string | null) => ({
-  id, season: "S5", stage: "week_1", team_a: teamA, team_b: teamB,
+const fixture = (id: string, teamA: string | null, teamB: string | null, season = "S5") => ({
+  id, season, stage: "week_1", team_a: teamA, team_b: teamB,
   scheduled_at: "2026-08-01T00:00:00Z", best_of: 3, score_a: 2, score_b: 1,
 });
 
@@ -50,7 +50,7 @@ describe("fetchScoutingHistory", () => {
 
   it("excludes mixed-league fixtures from Academy history and throws either PostgREST error", async () => {
     const rows = [
-      fixture("academy", "Academy Wolves", "Academy Owls"),
+      fixture("academy", "Academy Wolves", "Academy Owls", "A1"),
       fixture("mixed", "Academy Wolves", "Premier Lions"),
       fixture("none", "Premier Lions", "Other"),
     ];
@@ -65,6 +65,22 @@ describe("fetchScoutingHistory", () => {
     await expect(fetchScoutingHistory({ from: vi.fn((table: string) => table === "fixtures" ? builder([], fixtureError) : builder([])) } as unknown as SupabaseClient, { league: "premier", leagueTeamNames: [] })).rejects.toThrow("fixture failed");
     const draftError = new Error("draft failed");
     await expect(fetchScoutingHistory({ from: vi.fn((table: string) => table === "fixtures" ? builder([], null) : builder([], draftError)) } as unknown as SupabaseClient, { league: "premier", leagueTeamNames: [] })).rejects.toThrow("draft failed");
+  });
+
+  it("keeps reused team names in the selected league's history", async () => {
+    const from = vi.fn((table: string) => table === "fixtures"
+      ? builder([
+          fixture("academy-fixture", "Astronauts", "Divine Ascension", "A1"),
+          fixture("premier-fixture", "Astronauts", "Divine Ascension", "S4"),
+        ])
+      : builder([]));
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "academy",
+      leagueTeamNames: ["Astronauts", "Divine Ascension"],
+    });
+
+    expect(history.fixtures.map((row) => row.id)).toEqual(["academy-fixture"]);
   });
 
   it("drops malformed nested actions and normalizes invalid position sides", async () => {
@@ -380,5 +396,22 @@ describe("fetchIngestedScoutingGames", () => {
     );
 
     expect(result[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 1, teamSide: "blue", win: true });
+  });
+
+  it("keeps Academy ingested scouting rows out of Premier history when identities are reused", async () => {
+    const rawStatsQuery = builder([
+      { id: 1, match_id: "academy-match", game_date: "2026-08-01T00:00:00Z", season: "A1", summoner_name: "Northstar", tag: "NA1", champion: "Orianna" },
+      { id: 2, match_id: "premier-match", game_date: "2026-07-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Ahri" },
+    ]);
+    const from = vi.fn((table: string) => table === "raw_stats" ? rawStatsQuery : builder([]));
+
+    const result = await fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid", opggUrl: "https://op.gg/lol/summoners/na/Northstar-NA1" }],
+      [],
+      "academy",
+    );
+
+    expect(result.map((row) => row.champion)).toEqual(["Orianna"]);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ACADEMY_SEASON, fetchLeagueSeasons } from "./season";
+import { DEFAULT_ACADEMY_SEASON, fetchLeagueSeasons, seasonBelongsToLeague } from "./season";
 
 function client(data: Record<string, unknown> | null) {
   return {
@@ -29,5 +29,14 @@ describe("fetchLeagueSeasons", () => {
       premier: "",
       academy: DEFAULT_ACADEMY_SEASON,
     });
+  });
+});
+
+describe("seasonBelongsToLeague", () => {
+  it("uses the season-code boundary shared by stats tables", () => {
+    expect(seasonBelongsToLeague("A1", "academy")).toBe(true);
+    expect(seasonBelongsToLeague("A2", "premier")).toBe(false);
+    expect(seasonBelongsToLeague("S5", "premier")).toBe(true);
+    expect(seasonBelongsToLeague(null, "academy")).toBe(false);
   });
 });
