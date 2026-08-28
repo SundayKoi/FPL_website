@@ -140,6 +140,19 @@ describe("FpldleBoard", () => {
     expect(screen.getByRole("group", { name: "SUP" })).toBeTruthy();
   });
 
+  it("closes player recommendations when clicking outside the search bar", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const input = screen.getByRole("combobox", { name: "Search players" });
+    fireEvent.focus(input);
+    expect(screen.getByRole("listbox")).toBeTruthy();
+
+    fireEvent.pointerDown(screen.getByLabelText("FPL'dle guesses"));
+
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("filters by role and shows every available player in that role", () => {
     const candidates = [
       ...Array.from({ length: 12 }, (_, index) => ({ ...candidate(index + 1), position: "Mid" })),

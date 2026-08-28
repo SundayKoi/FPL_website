@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import type {
   FpldleFeedback,
   FpldleGame,
@@ -252,6 +252,7 @@ export default function FpldleBoard({
   const [remaining, setRemaining] = useState(() => new Date(game.expiresAt).getTime() - Date.now());
   const [pending, startTransition] = useTransition();
   const [resetting, startResetTransition] = useTransition();
+  const playerPickerRef = useRef<HTMLDivElement | null>(null);
   const showDivision = league === "premier";
 
   useEffect(() => {
@@ -304,6 +305,15 @@ export default function FpldleBoard({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [game.expiresAt]);
+
+  useEffect(() => {
+    if (!listOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!playerPickerRef.current?.contains(event.target as Node)) setListOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [listOpen]);
 
   const guessedSlugs = useMemo(() => new Set(guesses.map((guess) => guess.player.slug)), [guesses]);
   const filteredCandidates = useMemo(() => {
@@ -472,7 +482,7 @@ export default function FpldleBoard({
                 );
               })}
             </div>
-            <div className="relative">
+            <div ref={playerPickerRef} className="relative">
               <input
                 id="fpldle-player"
                 role="combobox"
