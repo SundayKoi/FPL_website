@@ -22,6 +22,22 @@
 import { buildTeamCards } from "./teamCards";
 import type { PlayerCardData } from "./build";
 
+/**
+ * The slice of a card a set reads: who they are, where they played, how
+ * good they were. PlayerCardData satisfies this, and so does the slim
+ * edition read behind the section — a set has never needed sub-stats,
+ * champions, form or an autograph, and asking for them made a week switch
+ * a page-sized query.
+ */
+export interface SetPlayer {
+  slug: string;
+  name: string;
+  role: string;
+  overall: number;
+  teamName?: string | null;
+  teamImageUrl?: string | null;
+}
+
 /** What one completed set pays, once, in betting dollars. */
 export const TEAM_SET_BONUS = 100;
 
@@ -73,7 +89,7 @@ export interface SetCopy {
  * list of chases is just noise.
  */
 export function buildWeekSets(
-  editionCards: PlayerCardData[],
+  editionCards: readonly SetPlayer[],
   copies: readonly SetCopy[],
   weekStart: string,
   spent: ReadonlySet<number> = new Set(),
@@ -90,7 +106,10 @@ export function buildWeekSets(
   }
   for (const list of bySlug.values()) list.sort((a, b) => a - b);
 
-  return buildTeamCards(editionCards, undefined, weekStart)
+  // buildTeamCards reads exactly the fields SetPlayer carries plus three
+  // optional ones (signature, standout, autograph) a set does not use, so
+  // the slim rows go through it unchanged.
+  return buildTeamCards(editionCards as PlayerCardData[], undefined, weekStart)
     .filter((team) => team.slots.every((slot) => slot.slug))
     .map((team) => {
       const members = team.slots.map((slot) => ({
