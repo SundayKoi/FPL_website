@@ -87,7 +87,7 @@ export async function fetchInventory(
     rows.map((row) => row.card),
     needsRepair
       ? await fetchTeamIdentity(supabase, season)
-      : { badges: new Map<string, string>(), abbrs: new Map<string, string>() },
+      : { badges: new Map<string, string>(), abbrs: new Map<string, string>(), colors: new Map<string, string>() },
   );
   return rows.map((row, index) => mapInventoryRow(row, repaired[index]));
 }
