@@ -21,7 +21,7 @@ const BEATS: { clock: string; beat: string; check: string; swing: string }[] = [
   { clock: "23:00", beat: "Soul dragon", check: "Your objectives + presence vs theirs", swing: "±5 momentum · ±450 gold" },
   { clock: "25:00", beat: "THE BARON PIT", check: "A damage race, then a smite check: your objectives + vision vs their objectives + combat", swing: "±9 momentum · ±1,500 gold" },
   { clock: "27:00", beat: "Fight at the pit", check: "Your combat + damage vs theirs, plus your gold lead and the Baron buff", swing: "±8 momentum · ±1,300 gold" },
-  { clock: "29:00", beat: "The hold (close games only)", check: "Your survival + turrets vs their damage + objectives", swing: "+6 held / −8 cracked" },
+  { clock: "29:00", beat: "The base hold", check: "Your survival + turrets vs their damage + objectives", swing: "+6 held / −8 cracked, scaled by how close the game still is" },
   { clock: "31:00", beat: "Nexus", check: "Momentum + your impact edge + your gold lead — snowballed if you won 3+ lanes", swing: "the game" },
 ];
 
@@ -54,9 +54,9 @@ export default function GauntletRules() {
           <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
           walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
           board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
-          starts about eight points under it and round {GAUNTLET_ROUNDS} ends about seven over. Roughly 95% of
-          runs clear round 1, half reach round 4, and about 4% clear all eight. A stacked shelf gets a harder
-          bracket — the run is about the calls, not the collection.
+          starts well under it and round {GAUNTLET_ROUNDS} ends over it. Roughly 94% of runs clear round 1, four in
+          ten reach round 4, and about 4% clear all eight. A stacked shelf gets a harder bracket — but not a
+          proportionally harder one, so your cards do count. See below.
         </p>
       </Section>
 
@@ -89,6 +89,33 @@ export default function GauntletRules() {
           noise both ways. Fights are symmetric — there is no hidden home-field edge. The tape prints{" "}
           <b className="text-white">your number, their number, the roll and the margin</b> for every one, so a
           loss always says by how much.
+        </p>
+      </Section>
+
+      <Section title="Why the LINEUP matters, not just your best five">
+        <p>
+          The bracket scales to your lineup&apos;s average, but it scales{" "}
+          <b className="text-white">slower than you do</b> — about 0.88 to 1. So a stronger shelf is a real
+          edge, roughly a point of effective stat for every eight points of lineup average. It just
+          isn&apos;t the biggest edge available.
+        </p>
+        <p>
+          <b className="text-white">Commitment</b> is. Your comp identity is read from your stats, and
+          commitment is how far the top identity outruns the runner-up. Five brilliant cards with nothing in
+          common commit to nothing and get nothing; a five that leans hard into one identity gets paid on the
+          beats that identity is about — poke on the <b className="text-white">lane phase</b>, dive on{" "}
+          <b className="text-white">fights and the crossroads</b>, protect on{" "}
+          <b className="text-white">the hold, the Baron and objectives</b>.
+        </p>
+        <p>
+          <b className="text-white">Chemistry</b> is the other one: cards who actually played on the same
+          real-life team coordinate better, worth up to +1.2 on fights, objectives, the pit and the call. Not
+          on lanes — laning is a solo problem.
+        </p>
+        <p>
+          Both are printed live on the draft screen as you pick. Between them, a well-built 74-average five
+          clears the Gauntlet <b className="text-white">more often than a scattered 84</b> — which is the
+          whole point of drafting instead of sorting by overall.
         </p>
       </Section>
 
@@ -259,8 +286,9 @@ export default function GauntletRules() {
         <p>
           A won round pays <b className="text-white">200 + 55 × round</b> score, plus{" "}
           <b className="text-white">2.4 × every momentum point past 50</b> at the whistle, plus the{" "}
-          <b className="text-gold">daring bonus</b> for a landed crossroads gamble, plus shine (foils and
-          signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.{" "}
+          <b className="text-gold">daring bonus</b> for a landed crossroads gamble (worth more the deeper
+          the run got — a call landed in round 8 pays more than twice the same call in round 1), plus shine
+          (foils and signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.{" "}
           <b className="text-white">Score is board points, never dollars</b> — nothing in a run puts money in
           your wallet, and walking away refunds nothing. The only money the Gauntlet ever pays out is
           Monday&apos;s settlement of the pot (every entry fee paid that week):{" "}

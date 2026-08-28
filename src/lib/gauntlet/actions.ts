@@ -135,6 +135,7 @@ export async function startGauntletRunAction(
       foil: row.foil,
       signed: row.signed === true,
       fresh: row.edition_week === thisWeek,
+      team: row.card.teamName ?? null,
     });
   }
 
@@ -458,6 +459,7 @@ export async function benchSwapGauntletAction(
     foil: row.foil,
     signed: row.signed === true,
     fresh: row.edition_week === mondayOf(new Date()),
+    team: row.card.teamName ?? null,
   };
 
   const { data: updated } = await service

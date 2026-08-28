@@ -25,6 +25,8 @@ export interface GauntletOption {
   signed: boolean;
   fresh: boolean;
   editionWeek: string;
+  /** The real-life team — what the draft screen's chemistry reads. */
+  team: string | null;
   /** The DRAFT_STAT_KEYS bars only — enough for the comp readout and the
    *  per-card chips; missing bars fall back the way statOf falls back. */
   stats: Partial<Record<MeasureKey, number>>;
@@ -55,6 +57,7 @@ export function buildGauntletOptions(rows: InventoryRow[], week: string): Record
       signed: row.signed,
       fresh: row.editionWeek === week,
       editionWeek: row.editionWeek,
+      team: row.card.teamName ?? null,
       stats: Object.fromEntries(
         (row.card.subStats ?? [])
           .filter((bar) => (DRAFT_STAT_KEYS as string[]).includes(bar.key))
