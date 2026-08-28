@@ -278,6 +278,9 @@ export async function PacksPageView({
           <a href="#binder" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
             Your binder →
           </a>
+          <a href="#team-sets" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+            Roster sets →
+          </a>
         </div>
         <CollectionGrid
           inventory={inventory}

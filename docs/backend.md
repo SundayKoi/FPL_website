@@ -206,6 +206,13 @@ Important RPC families include:
   edition week, and the payout range. The browser sends only a week and a
   team — the five copies to spend are recomputed server-side in
   `setClaim.ts`, so a tampered request cannot name cards it does not own.
+  Sets are per league: each collection page asks its own league's season,
+  so premier and academy shelves have their own sets and their own claims.
+- The Gauntlet fields cards from EVERY current shelf, premier and academy
+  alike (`fetchAllCardSeasons`), while the run itself is still filed and
+  ranked under the premier season. A copy from a past season is refused.
+  The bracket scales to the lineup average, so a bigger pool does not make
+  the mode easier — the opponents rise with whatever gets picked.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the

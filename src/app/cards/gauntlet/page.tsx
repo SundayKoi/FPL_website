@@ -4,7 +4,7 @@ import GauntletClient from "@/components/gauntlet/GauntletClient";
 import GauntletRules from "@/components/gauntlet/GauntletRules";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fetchCardSeason } from "@/lib/cards/queries";
+import { fetchAllCardSeasons } from "@/lib/cards/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import {
@@ -51,7 +51,16 @@ export default async function GauntletPage() {
   }
 
   const service = createBettingServiceClient();
-  const season = await fetchCardSeason(service, "premier");
+  // Both shelves field. The run is scored on the premier board — that is
+  // where the pot and the ranking live — but which cards you may bring is
+  // a question about your collection, not about where the run is filed.
+  // The bracket scales to your lineup average, so a squad of academy cards
+  // faces a bracket built from those numbers; nothing is unbalanced by
+  // letting the pool be bigger, and a collector with both is no longer
+  // told half of what they own is ineligible.
+  const seasons = await fetchAllCardSeasons(service);
+  const season = seasons.find((entry) => entry.league === "premier")?.season ?? null;
+  const leagueOf = new Map(seasons.map((entry) => [entry.season, entry.league]));
   const week = currentWeek();
   const [inventory, activeRun, weekStats, board]: [
     Awaited<ReturnType<typeof fetchInventory>>,
@@ -60,13 +69,17 @@ export default async function GauntletPage() {
     GauntletBoardRow[],
   ] = season
     ? await Promise.all([
-        fetchInventory(service, user.discordId, season),
+        // Every shelf, flattened — buildGauntletOptions tags each copy with
+        // the league it came off so the draft screen can say so.
+        Promise.all(seasons.map((entry) => fetchInventory(service, user.discordId, entry.season))).then((shelves) =>
+          shelves.flat(),
+        ),
         fetchActiveGauntletRun(service, user.discordId),
         fetchGauntletWeekStats(service, user.discordId, week),
         fetchGauntletBoard(service, season, week),
       ])
     : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, []];
-  const options = buildGauntletOptions(inventory, week);
+  const options = buildGauntletOptions(inventory, week, leagueOf);
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -75,7 +88,7 @@ export default async function GauntletPage() {
           <span className="label-dash">Premium · Premier · The Gauntlet</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Gauntlet</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Draft five from your shelf — one per role — and climb an eight-round bracket scaled to your
+            Draft five from your shelf — one per role, premier or academy — and climb an eight-round bracket scaled to your
             lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
             Win, pick a relic, go again; lose once and the run ends. Entry is {GAUNTLET_ENTRY_FEE} betting
             dollars, and the only money out is Monday&apos;s pot to the top of the board. Every roll is in

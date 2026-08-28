@@ -12,22 +12,26 @@ import TeamSetsSection from "./TeamSetsSection";
 const WEEK = "2026-08-24";
 const ROLES = ["Top", "Jungle", "Mid", "Bot", "Support"];
 
-function set(over: Partial<WeekTeamSet> & { teamName: string; ownedCount: number }): WeekTeamSet {
+function set({
+  teamName,
+  ownedCount,
+  ...over
+}: Partial<WeekTeamSet> & { teamName: string; ownedCount: number }): WeekTeamSet {
   const members = ROLES.map((role, i) => ({
-    slug: `${over.teamName}-${role}`.toLowerCase(),
-    name: `${over.teamName} ${role}`,
+    slug: `${teamName}-${role}`.toLowerCase(),
+    name: `${teamName} ${role}`,
     role,
     overall: 70,
-    copyId: i < over.ownedCount ? i + 1 : null,
+    copyId: i < ownedCount ? i + 1 : null,
   }));
   return {
-    teamName: over.teamName,
+    teamName,
     imageUrl: null,
     weekStart: WEEK,
     members,
-    ownedCount: over.ownedCount,
-    complete: over.ownedCount === 5,
-    copyIds: over.ownedCount === 5 ? members.map((m) => m.copyId as number) : [],
+    ownedCount,
+    complete: ownedCount === 5,
+    copyIds: ownedCount === 5 ? members.map((m) => m.copyId as number) : [],
     ...over,
   };
 }

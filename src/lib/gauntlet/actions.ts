@@ -18,7 +18,7 @@ import { revalidatePath } from "next/cache";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardSeason } from "@/lib/cards/queries";
+import { fetchAllCardSeasons } from "@/lib/cards/queries";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
@@ -74,8 +74,14 @@ export async function startGauntletRunAction(
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
 
   const service = createBettingServiceClient();
-  const season = await fetchCardSeason(service, "premier");
+  // The run is filed under the premier season — that is the board it ranks
+  // on — but a card may come from EITHER shelf. A collection is a
+  // collection; refusing an academy card was a rule about where the run is
+  // scored leaking into a question about who you own.
+  const seasons = await fetchAllCardSeasons(service);
+  const season = seasons.find((entry) => entry.league === "premier")?.season;
   if (!season) return { ok: false, error: "No season is set up for cards yet." };
+  const fieldable = new Set(seasons.map((entry) => entry.season));
 
   const wantedIds = GAUNTLET_ROLES.map((role) => picks[role]).filter(
     (id): id is number => typeof id === "number",
@@ -118,7 +124,11 @@ export async function startGauntletRunAction(
     if (!row || row.discord_id !== user.discordId) {
       return { ok: false, error: "One of those cards isn't in your collection." };
     }
-    if (row.season !== season) return { ok: false, error: `${row.player_name} is from another season's shelf.` };
+    // Any of the league's current shelves, premier or academy — but not a
+    // PAST season's, which is a different set of ratings entirely.
+    if (!fieldable.has(row.season)) {
+      return { ok: false, error: `${row.player_name} is from an old season's shelf.` };
+    }
     if (row.card.moment || row.card.champWin || row.card.team) {
       return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
     }
