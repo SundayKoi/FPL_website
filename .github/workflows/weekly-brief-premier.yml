@@ -1,10 +1,11 @@
 name: Weekly homepage brief (Premier)
 
 on:
-  schedule:
-    # 14:00 UTC Tuesday = 9am EST / 10am EDT, after Monday night's games have
-    # been ingested by the nightly stats job.
-    - cron: "0 14 * * 2"
+  # Chained to the ingest rather than clocked an hour after it — see
+  # the note in ingest-stats.yml on how late GitHub's scheduler runs.
+  workflow_run:
+    workflows: ["Ingest match reports"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -14,6 +15,15 @@ concurrency:
 jobs:
   write:
     runs-on: ubuntu-latest
+    # A workflow_run fires on every completion, success or not, so the
+    # conclusion is checked here rather than assumed. The upstream's OWN
+    # trigger is checked too: a scheduled ingest and a hand-run one both
+    # drive the chain, which is what makes `workflow_dispatch` the way to
+    # catch a missed week up end to end.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event))
     # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are environment secrets, and a
     # job only sees those when it declares the environment. ANTHROPIC_API_KEY is
     # a repository secret, which is visible either way.

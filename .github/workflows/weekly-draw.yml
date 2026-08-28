@@ -1,10 +1,11 @@
 name: Weekly card draw
 
 on:
-  schedule:
-    # 15:30 UTC Tuesday — after the weekly card drop (15:00), so the
-    # drawn week's story is complete when the winner posts.
-    - cron: "30 15 * * 2"
+  # Last in Tuesday's chain, so the drawn week's story is complete
+  # before the winner posts.
+  workflow_run:
+    workflows: ["Weekly card drop"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       week:
@@ -19,6 +20,14 @@ concurrency:
 jobs:
   draw:
     runs-on: ubuntu-latest
+    # Only the automated chain continues past here: the upstream must have
+    # been triggered by a workflow_run of its own. Running the workflow
+    # ahead of this one by hand — a dry run, a re-check — must never
+    # cascade into a real drop that posts to Discord and pays fantasy.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_run')
     environment: Production
     steps:
       - uses: actions/checkout@v4

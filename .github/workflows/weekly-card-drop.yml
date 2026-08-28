@@ -1,10 +1,13 @@
 name: Weekly card drop
 
 on:
-  schedule:
-    # 15:00 UTC Tuesday — an hour after the weekly briefs, so Monday night's
-    # games are ingested and the ratings the drop reports are current.
-    - cron: "0 15 * * 2"
+  # Last but one in Tuesday's chain: ingest -> moments -> HERE -> draw.
+  # The drop reads what the ingest wrote and posts the week's moments,
+  # so it runs when both are done rather than at a time they usually
+  # are.
+  workflow_run:
+    workflows: ["Mint moment cards"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       showcase:
@@ -27,6 +30,14 @@ concurrency:
 jobs:
   drop:
     runs-on: ubuntu-latest
+    # Only the automated chain continues past here: the upstream must have
+    # been triggered by a workflow_run of its own. Running the workflow
+    # ahead of this one by hand — a dry run, a re-check — must never
+    # cascade into a real drop that posts to Discord and pays fantasy.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_run')
     environment: Production
     steps:
       - uses: actions/checkout@v4

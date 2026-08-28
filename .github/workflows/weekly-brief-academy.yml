@@ -1,11 +1,12 @@
 name: Weekly homepage brief (Academy)
 
 on:
-  schedule:
-    # 14:30 UTC Tuesday, half an hour behind the Premier brief so the two
-    # never contend for the same Anthropic key, and still after Monday
-    # night's games have been ingested by the nightly stats job.
-    - cron: "30 14 * * 2"
+  # Behind the Premier brief, which is behind the ingest. Chaining the
+  # two keeps them from contending for the same Anthropic key without
+  # needing the half-hour gap to be enough.
+  workflow_run:
+    workflows: ["Weekly homepage brief (Premier)"]
+    types: [completed]
   workflow_dispatch:
 
 # Its own group, so a stuck Academy run never blocks the Premier brief.
@@ -16,6 +17,14 @@ concurrency:
 jobs:
   write:
     runs-on: ubuntu-latest
+    # Only the automated chain continues past here: the upstream must have
+    # been triggered by a workflow_run of its own. Running the workflow
+    # ahead of this one by hand — a dry run, a re-check — must never
+    # cascade into a real brief that posts to the homepage.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_run')
     # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are environment secrets, and a
     # job only sees those when it declares the environment. ANTHROPIC_API_KEY is
     # a repository secret, which is visible either way — the same key the
