@@ -7,6 +7,7 @@
 
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
+import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { CONDITION_CATALOG, TRAIT_CATALOG } from "@/lib/gauntlet/traits";
 import { FRESH_LEGS_BONUS, GAUNTLET_ROUNDS, TRIALIST_OVERALL } from "@/lib/gauntlet/sim";
 
@@ -272,13 +273,26 @@ export default function GauntletRules() {
 
       <Section title="Relics — the four families">
         <p>
-          After every won round (except the last) you pick <b className="text-white">one of three</b> relics;
-          the other two burn. <b style={{ color: "#ff7a3d" }}>Ember</b> runs hot — fights and aggression, often
-          at a price. <b style={{ color: "#9b6dff" }}>Void</b> owns the map — objectives, vision, the pit.{" "}
+          After every won round (except the last) you pick <b className="text-white">one of three</b> relics
+          from a catalog of {RELIC_CATALOG.length}; the other two burn.{" "}
+          <b style={{ color: "#ff7a3d" }}>Ember</b> runs hot — fights and aggression, often at a price.{" "}
+          <b style={{ color: "#9b6dff" }}>Void</b> owns the map — objectives, vision, the pit.{" "}
           <b style={{ color: "#a8e6ff" }}>Ice</b> plays the long game — lanes, tempo, the late hold.{" "}
-          <b style={{ color: "#e8c14b" }}>Gold</b> pays the board — score and style, never the fight. Effects stack for
-          the whole run, and every card states its exact numbers. Foil and ink never touch a fight — shine pays
-          score only.
+          <b style={{ color: "#e8c14b" }}>Gold</b> pays the board — score and style, never the fight. Effects
+          stack for the whole run, and every card states its exact numbers. Foil and ink never touch a fight —
+          shine pays score only.
+        </p>
+        <p>
+          Relics come in three rarities — <span style={{ color: "#a7c0d8" }}>common</span>,{" "}
+          <span style={{ color: "#35e6ff" }}>uncommon</span>, <span style={{ color: "#f5b62e" }}>rare</span> —
+          drawn at roughly 50/33/17, with <b className="text-white">rares getting likelier every round</b>, so
+          a round-7 offer can still change the ending. Commons are one dial and no strings. Uncommons buy a
+          real edge for a real price. Rares define a run and ask for something back — and a few of them
+          (THE ANALYST, THE DYNASTY) are worth <i>nothing</i> unless your lineup earned them.
+        </p>
+        <p>
+          Reading the card matters: over a thousand simulated runs, a player who takes whatever is offered
+          first clears about 1% of the time, and one who reads what&apos;s on offer clears about 6%.
         </p>
       </Section>
 

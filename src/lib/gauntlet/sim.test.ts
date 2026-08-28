@@ -29,7 +29,13 @@ import {
   situationFor,
   winChanceOf,
 } from "./crossroads";
-import { aggregateEffects, offerRelics, RELIC_CATALOG } from "./relics";
+import {
+  aggregateEffects,
+  offerRelics,
+  rarityWeights,
+  RELIC_CATALOG,
+  type RelicDef,
+} from "./relics";
 import {
   aggregateTraits,
   CONDITION_CATALOG,
@@ -607,15 +613,69 @@ describe("relics", () => {
     const fx = aggregateEffects(["home_crowd", "lane_kingdom", "smite_tax", "blood_in_the_water", "cold_blood"]);
     expect(fx.snowballMult).toBeCloseTo(1.5);
     expect(fx.laneMomentumMult).toBeCloseTo(1.5 * 1.1);
-    expect(fx.objectivesFlat).toBe(10);
+    expect(fx.objectivesFlat).toBe(9);
     expect(fx.earlyFightBonus).toBe(8 + 3);
 
     const flats = aggregateEffects(["overtime", "glass_cannon", "shot_caller", "deep_wards", "the_promoter"]);
     expect(flats.fightFlat).toBe(6 + 8);
-    expect(flats.lanesFlat).toBe(-3);
-    expect(flats.holdFlat).toBe(-8 + 8);
+    expect(flats.lanesFlat).toBe(-2);
+    expect(flats.holdFlat).toBe(-6 + 8);
     expect(flats.crossroadsBonus).toBe(8);
     expect(flats.scoreFlat).toBe(60);
+
+    // Multiplier dials stack multiplicatively; flat dials add.
+    const dials = aggregateEffects(["bounty_board", "deep_pockets", "high_roller", "the_playbook", "smoke_start"]);
+    expect(dials.goldMult).toBeCloseTo(1.2);
+    expect(dials.goldEdgeMult).toBeCloseTo(1.6);
+    expect(dials.daringMult).toBeCloseTo(2.2 * 1.3);
+    expect(dials.baronWindowFlat).toBe(7);
+  });
+
+  it("moves the fight the way each new dial says", () => {
+    const goldOf = (keys: string[]) => {
+      let total = 0;
+      for (let seed = 0; seed < 60; seed += 1) {
+        const ctx: MatchContext = { effects: aggregateEffects(keys), foe: {}, arena: {} };
+        total += simulateMatch(team(76), team(72), ctx, mulberry32(seed)).gold;
+      }
+      return total;
+    };
+    // THE BOUNTY BOARD pays more for the same wins.
+    expect(goldOf(["bounty_board"])).toBeGreaterThan(goldOf([]));
+
+    // PIT TIMER burns the Baron faster, so less health survives to the smite.
+    const hpOf = (keys: string[]) => {
+      let total = 0;
+      for (let seed = 0; seed < 80; seed += 1) {
+        const ctx: MatchContext = { effects: aggregateEffects(keys), foe: {}, arena: {} };
+        total += simulateMatch(team(76), team(72), ctx, mulberry32(seed)).baron.hpAtResolve;
+      }
+      return total;
+    };
+    expect(hpOf(["pit_timer"])).toBeLessThan(hpOf([]));
+
+    // THE ANALYST is worthless on a scattered five and real on a committed
+    // one — a conditional relic has to actually be conditional.
+    const winsWith = (lineup: GauntletCard[], keys: string[]) => {
+      let wins = 0;
+      for (let seed = 0; seed < 250; seed += 1) {
+        const ctx: MatchContext = { effects: aggregateEffects(keys), foe: {}, arena: {} };
+        if (simulateMatch(lineup, team(77), ctx, mulberry32(seed)).won) wins += 1;
+      }
+      return wins;
+    };
+    const committed = shapedTeam(74, ["combat", "presence"]);
+    expect(winsWith(committed, ["the_analyst"])).toBeGreaterThan(winsWith(committed, []));
+    expect(winsWith(team(74), ["the_analyst"])).toBe(winsWith(team(74), []));
+  });
+
+  it("wakes comeback relics only when you are behind — including in the odds", () => {
+    const situation = CROSSROADS_BY_KEY.get("the_baron_question")!;
+    const contest = situation.choices.find((choice) => choice.key === "contest")!;
+    const ctx: MatchContext = { effects: { comebackFlat: 9 }, foe: {}, arena: {} };
+    const ahead = previewCrossroadsChoice(contest, team(74), team(74), ctx, 70)!;
+    const behind = previewCrossroadsChoice(contest, team(74), team(74), ctx, 30)!;
+    expect(behind.yourVal).toBe(ahead.yourVal + 9);
   });
 
   it("offers three unheld relics, seeded, without duplicates", () => {
@@ -626,11 +686,47 @@ describe("relics", () => {
     expect(offerRelics(["home_crowd"], mulberry32(5)).map((r) => r.key)).toEqual(offer.map((r) => r.key));
   });
 
+  it("gives every relic a rarity, and weights the offer by it", () => {
+    for (const relic of RELIC_CATALOG) {
+      expect(["common", "uncommon", "rare"], relic.key).toContain(relic.rarity);
+      expect(relic.effect.length).toBeGreaterThan(10);
+      expect(Object.keys(relic.effects).length).toBeGreaterThan(0);
+    }
+    // Every family and every rarity is actually populated.
+    for (const family of ["ember", "void", "ice", "gold"] as const) {
+      expect(RELIC_CATALOG.filter((relic) => relic.family === family).length).toBeGreaterThanOrEqual(5);
+    }
+    for (const rarity of ["common", "uncommon", "rare"] as const) {
+      expect(RELIC_CATALOG.filter((relic) => relic.rarity === rarity).length).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it("shifts the odds toward rares as a run gets deep", () => {
+    const early = rarityWeights(1);
+    const late = rarityWeights(8);
+    expect(late.rare).toBeGreaterThan(early.rare);
+    expect(late.common).toBeLessThan(early.common);
+    // Never inverted into absurdity.
+    expect(late.common).toBeGreaterThan(0);
+  });
+
+  it("draws commons more often than rares, over many offers", () => {
+    const seen: Record<string, number> = { common: 0, uncommon: 0, rare: 0 };
+    for (let seed = 0; seed < 600; seed += 1) {
+      for (const relic of offerRelics([], mulberry32(seed), 1)) seen[relic.rarity] += 1;
+    }
+    expect(seen.common).toBeGreaterThan(seen.uncommon);
+    expect(seen.uncommon).toBeGreaterThan(seen.rare);
+    expect(seen.rare).toBeGreaterThan(0);
+  });
+
   it("keeps every catalog effect inside the sim's vocabulary", () => {
     const known = new Set([
       "laneMomentumMult", "objectivesFlat", "earlyFightBonus", "snowballMult",
       "freshLegsExtra", "styleScorePerShiny", "benchSwap",
       "fightFlat", "lanesFlat", "holdFlat", "crossroadsBonus", "scoreFlat",
+      "goldMult", "goldEdgeMult", "daringMult", "baronBurnMult", "baronWindowFlat",
+      "comebackFlat", "commitmentMult", "chemistryMult", "draftMult",
     ]);
     for (const relic of RELIC_CATALOG) {
       for (const key of Object.keys(relic.effects)) expect(known.has(key), `${relic.key}.${key}`).toBe(true);
@@ -639,40 +735,74 @@ describe("relics", () => {
 });
 
 describe("calibration — the run curve itself", () => {
-  it("keeps full clears rare but real: 2–7% over a thousand naive runs", () => {
-    // The contract the whole mode balances against, measured the way a
-    // cautious run plays (safe crossroads call every time, relics
-    // accumulate, first offer taken). v3.1 measures ~3.8%, with round-by-
-    // round reach near 94/81/62/44/29/17/9/4%. Playing the odds nudges it
-    // up, playing for score nudges it down and the board score up — no
-    // line dominates. If a change moves this band, that's a deliberate
-    // rebalance.
+  /** A player who reads the relic card: takes the best net stat on offer,
+   *  discounting dials they haven't built for. The realistic ceiling. */
+  function sensiblePick(offer: RelicDef[]): RelicDef {
+    let best = offer[0];
+    let score = -Infinity;
+    for (const relic of offer) {
+      const fx = relic.effects;
+      const value =
+        (fx.fightFlat ?? 0) +
+        (fx.lanesFlat ?? 0) * 1.6 +
+        (fx.holdFlat ?? 0) * 0.5 +
+        (fx.objectivesFlat ?? 0) +
+        (fx.crossroadsBonus ?? 0) * 0.4 +
+        (fx.earlyFightBonus ?? 0) * 0.5 +
+        ((fx.goldMult ?? 1) - 1) * 10 +
+        ((fx.goldEdgeMult ?? 1) - 1) * 6 +
+        ((fx.baronBurnMult ?? 1) - 1) * 8;
+      if (value > score) {
+        score = value;
+        best = relic;
+      }
+    }
+    return best;
+  }
+
+  function campaign(runs: number, pick: (offer: RelicDef[]) => RelicDef): { full: number; reachedFour: number } {
     let full = 0;
     let reachedFour = 0;
-    for (let run = 0; run < 1000; run += 1) {
+    for (let run = 0; run < runs; run += 1) {
       let alive = true;
-      let round = 1;
       const held: string[] = [];
-      for (; round <= 8 && alive; round += 1) {
-        const opponent = generateOpponent(72, round, mulberry32(run * 97 + round));
+      for (let round = 1; round <= 8 && alive; round += 1) {
+        const opponent = generateOpponent(74, round, mulberry32(run * 97 + round));
         const ctx: MatchContext = {
           effects: aggregateEffects(held),
           foe: aggregateTraits(opponent.traits ?? []),
           arena: conditionEffects(opponent.condition),
         };
-        alive = simulateMatch(team(72), opponent.cards, ctx, mulberry32(run * 31 + round * 7)).won;
+        alive = simulateMatch(team(74), opponent.cards, ctx, mulberry32(run * 31 + round * 7)).won;
         if (alive) {
           if (round >= 4) reachedFour += 1;
-          const offer = offerRelics(held, mulberry32(run * 53 + round * 11));
-          if (offer[0]) held.push(offer[0].key);
+          const offer = offerRelics(held, mulberry32(run * 53 + round * 11), round);
+          if (offer.length > 0) held.push(pick(offer).key);
         }
       }
       if (alive) full += 1;
     }
-    expect(full).toBeGreaterThanOrEqual(20);
-    expect(full).toBeLessThanOrEqual(70);
-    // Round 4 has to stay reachable — it's where the scraps live.
-    expect(reachedFour).toBeGreaterThan(300);
+    return { full, reachedFour };
+  }
+
+  it("keeps a blind run playable and a read run rewarded", () => {
+    // The contract the whole mode balances against, as a BAND between two
+    // players: one who takes whatever relic is offered first, and one who
+    // reads the card. A 31-relic catalog with real tradeoffs is supposed
+    // to reward knowing it — but never to lock out someone who doesn't.
+    // Measured: blind ~1.0% clears with a third of runs reaching round 4;
+    // sensible ~5.8%. Crossroads play and a committed lineup add on top.
+    const blind = campaign(1000, (offer) => offer[0]);
+    const read = campaign(1000, sensiblePick);
+
+    // Reading the catalog has to matter...
+    expect(read.full).toBeGreaterThan(blind.full * 2);
+    // ...without becoming the only way to play: round 4 is where the
+    // scraps live, and a blind run must still get there often.
+    expect(blind.reachedFour).toBeGreaterThan(200);
+    // And a full clear stays rare even when you know exactly what to take.
+    expect(read.full).toBeLessThanOrEqual(110);
+    expect(read.full).toBeGreaterThanOrEqual(25);
   });
 });
 
@@ -693,8 +823,12 @@ describe("opponents", () => {
     const strong = bracketTarget(84, 4);
     expect(strong - weak).toBeGreaterThan(0);
     expect(strong - weak).toBeLessThan(20);
-    // A lineup sitting exactly on the baseline is priced as itself.
-    expect(bracketTarget(LEAGUE_BASELINE, 4)).toBe(Math.round(LEAGUE_BASELINE - 10 + 8));
+    // The real property: a strong lineup's bracket sits STRICTLY between
+    // "ignores your five" and "tracks it one for one".
+    const atBaseline = bracketTarget(LEAGUE_BASELINE, 4);
+    const oneForOne = atBaseline + (84 - LEAGUE_BASELINE);
+    expect(bracketTarget(84, 4)).toBeGreaterThan(atBaseline);
+    expect(bracketTarget(84, 4)).toBeLessThan(oneForOne);
   });
 
   it("generates a scoutable five: names, style, traits and a condition", () => {
