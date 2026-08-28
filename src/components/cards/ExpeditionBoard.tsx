@@ -291,6 +291,10 @@ export default function ExpeditionBoard({
   const full = picked.size >= SQUAD_SIZE;
 
   const active = runs.filter((run) => run.claimedAt === null && !claimed.has(run.id));
+  // One of each tier at a time — launch_expedition enforces it, this only
+  // says so before the click. A tier whose run is still in the field can't
+  // be sent again until it is claimed.
+  const tiersOut = new Set(active.map((run) => run.tier));
   const finished = runs.filter((run) => run.claimedAt !== null || claimed.has(run.id));
 
   function toggle(id: number) {
@@ -414,12 +418,13 @@ export default function ExpeditionBoard({
           {TIER_ORDER.map((key) => {
             const def = EXPEDITION_TIERS[key];
             const gate = squadMeets(key, squad);
+            const isOut = tiersOut.has(key);
             return (
               <article
                 key={key}
                 data-testid={`tier-${key}`}
                 className={`card-brand flex flex-col gap-3 p-5 transition ${
-                  gate.ok ? "border-mint/50" : ""
+                  gate.ok && !isOut ? "border-mint/50" : ""
                 }`}
               >
                 <div>
@@ -443,7 +448,11 @@ export default function ExpeditionBoard({
                     +{Math.round(SHINE_BONUS_CAP * 100)}% at most from shine, +{Math.round(BRIEF_BONUS * 100)}% for the brief
                   </span>
                 </p>
-                {gate.ok ? null : (
+                {isOut ? (
+                  <p data-testid={`tier-${key}-out`} className="text-xs text-gold">
+                    Already in the field. One {def.label} at a time — bring this one home first.
+                  </p>
+                ) : gate.ok ? null : (
                   <ul className="flex flex-col gap-1">
                     {gate.reasons.map((reason) => (
                       <li key={reason} className="text-xs text-coral">
@@ -455,11 +464,11 @@ export default function ExpeditionBoard({
                 <button
                   type="button"
                   onClick={() => launch(key)}
-                  disabled={!gate.ok || pending}
+                  disabled={!gate.ok || isOut || pending}
                   aria-label={`Launch ${def.label}`}
                   className="btn-coral mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {busyTier === key ? "Sending…" : "Send them out"}
+                  {busyTier === key ? "Sending…" : isOut ? "Still out there" : "Send them out"}
                 </button>
               </article>
             );

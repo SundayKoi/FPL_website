@@ -195,8 +195,9 @@ Important RPC families include:
   comps a standard pack. It is idempotent: a second call for the same season
   and week returns the recorded winner and changes nothing.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
-  caller owns all three copies, enforces the per-day launch limit under the
-  wallet lock, and refuses a copy that is already deployed. `claim_expedition`
+  caller owns all three copies, enforces the tier slot (one unclaimed run
+  per tier — `tier already out`) and the per-day launch limit under the
+  same wallet lock, and refuses a copy that is already deployed. `claim_expedition`
   writes the app-rolled outcome exactly once — `claimed_at` is the reroll
   lock — pays the dollars through `betting_ledger`, adds the pack comp, and
   replaces the bearer's mark only when the new one outranks the mark it

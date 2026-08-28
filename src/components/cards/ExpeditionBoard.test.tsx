@@ -212,6 +212,31 @@ describe("ExpeditionBoard — tier cards", () => {
     expect(within(screen.getByTestId("tier-raid")).queryByRole("listitem")).toBeNull();
   });
 
+  it("shuts a tier whose run is still in the field, and leaves the others open", () => {
+    // One of each at a time: launch_expedition raises `tier already out`,
+    // and the board has to say so before the click rather than after it.
+    renderBoard({ runs: [makeRun({ id: 30, tier: "legend", squad: [9, 8, 7] })] });
+    pickTwelveShineSquad();
+
+    const legend = screen.getByTestId("tier-legend");
+    expect(within(legend).getByText(/One Legend Hunt at a time/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // The raid slot is untouched — a tier is a slot, not a lock on the board.
+    expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId("tier-raid-out")).toBeNull();
+  });
+
+  it("reopens a tier once its run has been claimed", () => {
+    renderBoard({
+      runs: [makeRun({ id: 31, tier: "raid", squad: [9, 8, 7], claimedAt: new Date().toISOString() })],
+    });
+    pickTwelveShineSquad();
+
+    expect(screen.queryByTestId("tier-raid-out")).toBeNull();
+    expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("holds every tier shut until three cards are picked", () => {
     renderBoard();
     pick("Alba", 3);
@@ -296,7 +321,11 @@ describe("ExpeditionBoard — runs in the field", () => {
     renderBoard({ runs: [makeRun({ id: 20 })], deployedIds: new Set([5, 1, 2]) });
 
     const run = screen.getByTestId("run-20");
-    expect(within(run).getByText(/Back in 1h 2[89]m/)).toBeTruthy();
+    // The fixture resolves at exactly +1h30m, so whether this reads 30m or
+    // 29m depends on how many microseconds passed between building the run
+    // and rendering it. The assertion is "it counts down from about an hour
+    // and a half", not "the machine was slow".
+    expect(within(run).getByText(/Back in 1h (28|29|30)m/)).toBeTruthy();
     expect(within(run).queryByRole("button", { name: /^Claim/ })).toBeNull();
     expect(within(run).getByText("Deep Raid")).toBeTruthy();
   });
