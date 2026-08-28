@@ -3,6 +3,7 @@
 // and the fee live here.
 
 import type { Autopsy } from "./autopsy";
+import { bossEffects } from "./bosses";
 import type { OpponentTeam } from "./opponents";
 import { aggregateEffects } from "./relics";
 import { aggregateTraits, conditionEffects } from "./traits";
@@ -22,12 +23,14 @@ export interface GauntletCrossroads {
 
 /** The modifiers a round resolves under, assembled in one place so the
  *  server's fight and the client's odds preview can never disagree: your
- *  relics, their traits, and the round's condition. */
+ *  relics, their traits, the round's condition, and the wall's rule on a
+ *  boss round. */
 export function matchContextFor(relicKeys: string[], opponent: OpponentTeam | null): MatchContext {
   return {
     effects: aggregateEffects(relicKeys),
     foe: aggregateTraits(opponent?.traits ?? []),
     arena: conditionEffects(opponent?.condition),
+    boss: bossEffects(opponent?.boss),
   };
 }
 
