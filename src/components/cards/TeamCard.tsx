@@ -10,9 +10,17 @@
 // The other two decisions:
 //   · the crest sits ON the seams, so the eye lands somewhere before it
 //     starts reading names, and the card stops reading as five strips;
-//   · the team name is engraved in Cinzel — the face the champions cards
-//     use for their rank indices — so a team card reads as a sibling of
-//     the Dealer's Hand rather than an oversized player card.
+//   · the TAG is engraved in Cinzel — the face the champions cards use for
+//     their rank indices — so a team card reads as a sibling of the
+//     Dealer's Hand rather than an oversized player card. The tag, not the
+//     name: five panels wide is not enough room for "The Faceless Legion",
+//     and a truncated name is worse than no name. The full name is still
+//     announced on the card's label.
+//
+// The plate is laid out rather than floated: it is the last row of a flex
+// column, so it takes its own height off the panels instead of sitting on
+// top of them. A translucent bar over the five names is exactly how the
+// names became unreadable.
 //
 // Server-renderable: no interactivity, no client bundle.
 
@@ -93,7 +101,7 @@ function Panel({ slot, color }: { slot: TeamCardEntry["slots"][number]; color: s
           alt=""
           aria-hidden
           loading="lazy"
-          className="pointer-events-none absolute inset-x-[6%] bottom-[15%] z-[4] max-h-[22%] w-[88%] object-contain opacity-90 mix-blend-screen drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+          className="pointer-events-none absolute inset-x-[6%] bottom-[30%] z-[4] max-h-[18%] w-[88%] object-contain opacity-90 mix-blend-screen drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
         />
       ) : null}
     </div>
@@ -112,14 +120,17 @@ export default function TeamCard({
   const color = team.bannerColor;
   const foilLayer = foil ? FOIL_LAYERS[foilTypeOf(foilType)] : null;
   const signed = team.slots.filter((slot) => slot.autograph).length;
+  // A copy frozen before tags were printed has no abbr — those already
+  // showed initials, so falling back to the monogram changes nothing.
+  const tag = team.abbr || team.monogram;
   return (
     <article
       aria-label={`${team.teamName} — ${team.tierLabel} roster, team overall ${team.overall}`}
       className="relative aspect-[5/7] w-full overflow-hidden rounded-2xl bg-navy p-[4px]"
       style={{ background: TIER_FRAME[team.tierKey] ?? TIER_FRAME.gold }}
     >
-      <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#00172a]">
-        <div className="absolute inset-0 grid grid-cols-5">
+      <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-[#00172a]">
+        <div className="relative grid min-h-0 flex-1 grid-cols-5">
           {team.slots.map((slot) => (
             <Panel key={slot.role} slot={slot} color={color} />
           ))}
@@ -156,23 +167,35 @@ export default function TeamCard({
           <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-steel">Team OVR</span>
         </span>
 
-        {/* The engraved plate. */}
+        {/* The engraved plate — a row of the column, not a lid on it. */}
         <div
-          className="absolute inset-x-0 bottom-0 z-[5] px-3 pb-3 pt-3 text-center"
+          className="relative z-[5] flex shrink-0 items-center gap-2 px-3 pb-2 pt-1.5"
           style={{
-            background: "linear-gradient(180deg, transparent, rgba(0,8,16,.88) 42%)",
+            background: `linear-gradient(180deg, color-mix(in srgb, ${color} 16%, rgba(0,8,16,.94)), rgba(0,8,16,.97))`,
             borderTop: `1px solid color-mix(in srgb, ${color} 60%, transparent)`,
           }}
         >
-          <span className="block truncate font-engrave text-lg font-black uppercase leading-none tracking-[0.14em] text-white sm:text-xl">
-            {team.teamName}
+          <span
+            aria-hidden
+            className="h-px flex-1"
+            style={{ background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${color} 75%, transparent))` }}
+          />
+          <span className="flex min-w-0 flex-col items-center leading-none">
+            <span className="block truncate font-engrave text-xl font-black uppercase leading-none tracking-[0.2em] text-white [text-indent:0.2em] sm:text-2xl">
+              {tag}
+            </span>
+            <span
+              className="mt-1 block text-[7.5px] font-semibold uppercase tracking-[0.24em] [text-indent:0.24em]"
+              style={{ color: `color-mix(in srgb, ${color} 55%, #a7c0d8)` }}
+            >
+              {team.tierLabel} roster
+            </span>
           </span>
           <span
-            className="mt-1 block text-[8px] font-semibold uppercase tracking-[0.28em]"
-            style={{ color: `color-mix(in srgb, ${color} 55%, #a7c0d8)` }}
-          >
-            {team.tierLabel} roster
-          </span>
+            aria-hidden
+            className="h-px flex-1"
+            style={{ background: `linear-gradient(270deg, transparent, color-mix(in srgb, ${color} 75%, transparent))` }}
+          />
         </div>
 
         {/* Foil rides above the art and under the frame, so the plate

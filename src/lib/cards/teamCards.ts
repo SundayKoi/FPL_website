@@ -43,6 +43,12 @@ export interface TeamPrint {
   imageUrl: string | null;
   /** Initials, for a team we hold no logo for. */
   monogram: string;
+  /** The team's own tag — FLS, not "The Faceless". A full name is too
+   *  long to print across a five-panel plate and truncates to nonsense,
+   *  and the tag is what the league calls the team anyway. Optional so a
+   *  copy frozen before tags were printed still renders (it falls back to
+   *  the monogram, which is what those copies already showed). */
+  abbr?: string | null;
   bannerColor: string;
   overall: number;
   tierKey: string;
@@ -150,6 +156,9 @@ export function buildTeamCards(
         teamName,
         imageUrl: rated.find((player) => player.teamImageUrl)?.teamImageUrl ?? null,
         monogram: monogramOf(teamName),
+        // The tag off the roster's own cards — the same abbreviation the
+        // player cards wear, so a plate and its five agree.
+        abbr: rated.find((player) => player.teamAbbr)?.teamAbbr ?? null,
         bannerColor: colors?.get(colorKey(teamName)) ?? DEFAULT_TEAM_COLOR,
         overall,
         tierKey: tier.key,
@@ -178,7 +187,7 @@ export function teamToCard(print: TeamPrint, season: string, copySerial: number)
     tag: print.monogram,
     teamName: print.teamName,
     teamImageUrl: print.imageUrl,
-    teamAbbr: print.monogram,
+    teamAbbr: print.abbr ?? print.monogram,
     role: "Team",
     overall: print.overall,
     tier: { key: TEAM_TIER, label: "Roster" },
