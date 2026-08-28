@@ -15,7 +15,7 @@ vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 
 import { getFpldleGame, FpldleError } from "./server";
-import { resetFpldlePuzzleAction, submitFpldleGuessAction } from "./actions";
+import { resetFpldlePuzzleAction, revealFpldleAnswerAction, submitFpldleGuessAction } from "./actions";
 
 const today = "2026-08-28";
 
@@ -119,6 +119,14 @@ describe("FPL'dle server adapter", () => {
     });
     await expect(submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: "not a slug" })).rejects.toMatchObject({
       code: "INVALID_INPUT",
+    });
+    await expect(revealFpldleAnswerAction({
+      league: "academy",
+      puzzleDate: today,
+      guesses: ["one", "two", "three", "four", "five", "six"],
+    })).rejects.toMatchObject({
+      code: "INVALID_INPUT",
+      message: "Answer reveal requires five guesses.",
     });
     expect(createServerSupabase).not.toHaveBeenCalled();
     expect(createBettingServiceClient).not.toHaveBeenCalled();

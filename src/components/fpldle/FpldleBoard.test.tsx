@@ -149,17 +149,17 @@ describe("FpldleBoard", () => {
     expect(screen.queryByRole("option", { name: /Player 1#NA1/ })).toBeNull();
   });
 
-  it("stops after six guesses and reveals the answer", async () => {
-    const candidates = Array.from({ length: 7 }, (_, index) => candidate(index + 1));
+  it("stops after five guesses and reveals the answer", async () => {
+    const candidates = Array.from({ length: 6 }, (_, index) => candidate(index + 1));
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
     }));
-    const revealAnswer = vi.fn(async () => ({ name: "Player 7", tag: "NA1" }));
+    const revealAnswer = vi.fn(async () => ({ name: "Player 6", tag: "NA1" }));
     render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={submitGuess} revealAnswer={revealAnswer} resetPuzzle={resetPuzzle()} />);
 
     const input = screen.getByRole("combobox", { name: "Search players" });
     const submit = screen.getByRole("button", { name: "Submit guess" });
-    for (let index = 1; index <= 6; index += 1) {
+    for (let index = 1; index <= 5; index += 1) {
       fireEvent.change(input, { target: { value: `Player ${index}` } });
       fireEvent.click(screen.getByRole("option", { name: new RegExp(`Player ${index}#NA1`) }));
       await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
@@ -169,7 +169,7 @@ describe("FpldleBoard", () => {
 
     await waitFor(() => expect(revealAnswer).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Out of guesses")).toBeTruthy();
-    expect(screen.getByText("Answer: Player 7#NA1")).toBeTruthy();
+    expect(screen.getByText("Answer: Player 6#NA1")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Submit guess" })).toBeNull();
   });
 

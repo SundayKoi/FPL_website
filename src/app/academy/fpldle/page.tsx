@@ -7,7 +7,7 @@ import { FpldleError, getFpldleGame } from "@/lib/fpldle/server";
 
 export const metadata: Metadata = {
   title: "Academy FPL'dle — FPL",
-  description: "Find today's Academy league player in six guesses.",
+  description: "Find today's Academy league player in five guesses.",
 };
 
 export default async function AcademyFpldlePage() {

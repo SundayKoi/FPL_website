@@ -9,7 +9,7 @@ import type {
   FpldleSubmission,
 } from "@/lib/fpldle/server";
 
-const MAX_GUESSES = 6;
+const MAX_GUESSES = 5;
 const ROLE_GROUPS = [
   { key: "top", label: "TOP" },
   { key: "jungle", label: "JG" },
@@ -359,7 +359,7 @@ export default function FpldleBoard({
           <span className="label-dash">Premium daily puzzle · {league === "academy" ? "Academy" : "Premier"}</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">FPL&apos;dle</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Find today&apos;s player in six guesses. Team, position, best champion, and card overall give you the trail.
+            Find today&apos;s player in five guesses. Team, position, best champion, and card overall give you the trail.
           </p>
         </div>
         <div className="flex flex-wrap items-end justify-end gap-3">

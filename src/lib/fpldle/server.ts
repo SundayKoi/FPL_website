@@ -10,7 +10,6 @@ import {
   type FpldleDivision,
   type FpldleFeedback,
   type FpldleLeague,
-  type FpldlePlayerLabel,
   type FpldlePlayerPreview,
 } from "./comparison";
 
@@ -63,7 +62,7 @@ type PuzzleRow = {
 
 type FpldleServiceClient = ReturnType<typeof createBettingServiceClient>;
 
-const MAX_GUESSES = 6;
+const MAX_GUESSES = 5;
 
 async function requireFpldleAdmin(): Promise<SupabaseClient> {
   const server = await createServerSupabase();
@@ -368,14 +367,14 @@ function parseReveal(input: unknown): { league: FpldleLeague; puzzleDate: string
     throw new FpldleError("INVALID_INPUT", "Invalid FPL'dle answer reveal.");
   }
   if (!Array.isArray(input.guesses) || input.guesses.length !== MAX_GUESSES) {
-    throw new FpldleError("INVALID_INPUT", "Answer reveal requires six guesses.");
+    throw new FpldleError("INVALID_INPUT", "Answer reveal requires five guesses.");
   }
   const guesses = input.guesses.filter(
     (guess): guess is string =>
       typeof guess === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(guess) && guess.length <= 180,
   );
   if (guesses.length !== input.guesses.length || new Set(guesses).size !== guesses.length) {
-    throw new FpldleError("INVALID_INPUT", "Answer reveal requires six distinct players.");
+    throw new FpldleError("INVALID_INPUT", "Answer reveal requires five distinct players.");
   }
   return { league: input.league, puzzleDate: input.puzzleDate, guesses };
 }
@@ -444,7 +443,7 @@ export async function resetFpldlePuzzle(input: unknown): Promise<FpldlePuzzleRes
   return { date: puzzleDate, league };
 }
 
-/** Reveal answer only after six distinct, current-puzzle guesses. */
+/** Reveal answer only after five distinct, current-puzzle guesses. */
 export async function revealFpldleAnswer(input: unknown): Promise<FpldleAnswerReveal> {
   const { league, puzzleDate, guesses } = parseReveal(input);
   if (puzzleDate !== utcDate()) {
