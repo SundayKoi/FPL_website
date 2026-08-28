@@ -71,6 +71,22 @@ describe("FpldleBoard", () => {
     });
   });
 
+  it("offers a Premier and Academy puzzle toggle", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const toggle = screen.getByRole("group", { name: "FPL'dle league" });
+    expect(within(toggle).getByRole("link", { name: "Premier" }).getAttribute("href")).toBe("/fpldle");
+    expect(within(toggle).getByRole("link", { name: "Academy" }).getAttribute("href")).toBe("/academy/fpldle");
+    expect(within(toggle).getByRole("link", { name: "Premier" }).getAttribute("aria-current")).toBe("page");
+    expect(within(toggle).getByRole("link", { name: "Academy" }).getAttribute("aria-current")).toBeNull();
+
+    cleanup();
+    render(<FpldleBoard game={game()} league="academy" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+    const academyToggle = screen.getByRole("group", { name: "FPL'dle league" });
+    expect(within(academyToggle).getByRole("link", { name: "Academy" }).getAttribute("aria-current")).toBe("page");
+    expect(within(academyToggle).getByRole("link", { name: "Premier" }).getAttribute("aria-current")).toBeNull();
+  });
+
   it("hides the testing reset control from regular Premium members", () => {
     render(<FpldleBoard game={{ ...game(), canReset: false }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 

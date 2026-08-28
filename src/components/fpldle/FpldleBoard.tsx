@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import type {
   FpldleFeedback,
@@ -113,6 +114,31 @@ function formatLocalResetTime(iso: string): string | null {
     minute: "2-digit",
     timeZoneName: "short",
   }).format(date);
+}
+
+function FpldleLeagueToggle({ league }: { league: FpldleLeague }) {
+  return (
+    <div className="flex items-center gap-1.5" role="group" aria-label="FPL'dle league">
+      <Link
+        href="/fpldle"
+        aria-current={league === "premier" ? "page" : undefined}
+        className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+          league === "premier" ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+        }`}
+      >
+        Premier
+      </Link>
+      <Link
+        href="/academy/fpldle"
+        aria-current={league === "academy" ? "page" : undefined}
+        className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+          league === "academy" ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+        }`}
+      >
+        Academy
+      </Link>
+    </div>
+  );
 }
 
 function shareSquare(value: ClueStatus) {
@@ -393,6 +419,7 @@ export default function FpldleBoard({
           </p>
         </div>
         <div className="flex flex-wrap items-end justify-end gap-3">
+          <FpldleLeagueToggle league={league} />
           <div className="rounded border border-line bg-panel px-4 py-3 text-right">
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-steel">Next puzzle</span>
             <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
