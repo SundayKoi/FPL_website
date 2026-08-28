@@ -61,6 +61,14 @@ afterEach(() => {
 });
 
 describe("FpldleBoard", () => {
+  it("places the player chooser above guess history", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const sections = Array.from(screen.getByRole("main").querySelectorAll("section"));
+    expect(sections[0]?.querySelector('[role="combobox"]')).toBeTruthy();
+    expect(sections[1]?.querySelector('[aria-label="FPL\'dle guesses"]')).toBeTruthy();
+  });
+
   it("searches, submits, and exposes text plus accessible clue labels", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({

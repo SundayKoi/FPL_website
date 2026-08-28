@@ -349,22 +349,6 @@ export default function FpldleBoard({
       </header>
 
       <section className="card-brand p-4 sm:p-6">
-        <div className="overflow-x-auto">
-          <div className={`${showDivision ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))]" : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))]"} mb-3 min-w-max gap-2 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel`}>
-            <span>Guess</span>
-            <span className="text-center">Team</span>
-            <span className="text-center">Role</span>
-            <span className="text-center">Best champion</span>
-            <span className="text-center">Overall</span>
-            {showDivision ? <span className="text-center">Division</span> : null}
-          </div>
-          <div className="flex min-w-max flex-col gap-2" aria-label="FPL'dle guesses">
-            {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
-          </div>
-        </div>
-      </section>
-
-      <section className="card-brand p-4 sm:p-6">
         {!finished ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <label htmlFor="fpldle-player" className="label-dash">Choose player</label>
@@ -433,6 +417,22 @@ export default function FpldleBoard({
             {guesses.length > 0 ? <button type="button" onClick={() => void copyShareGrid()} className="rounded border border-line px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel hover:border-coral hover:text-white">{shared ? "Copied" : "Copy share grid"}</button> : null}
           </div>
         )}
+      </section>
+
+      <section className="card-brand p-4 sm:p-6">
+        <div className="overflow-x-auto">
+          <div className={`${showDivision ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))]" : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))]"} mb-3 min-w-max gap-2 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel`}>
+            <span>Guess</span>
+            <span className="text-center">Team</span>
+            <span className="text-center">Role</span>
+            <span className="text-center">Best champion</span>
+            <span className="text-center">Overall</span>
+            {showDivision ? <span className="text-center">Division</span> : null}
+          </div>
+          <div className="flex min-w-max flex-col gap-2" aria-label="FPL'dle guesses">
+            {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
+          </div>
+        </div>
       </section>
 
       <p className="text-center text-xs text-steel">Values show each guessed player. Green means exact; misses stay neutral. Overall arrows point toward the target.</p>
