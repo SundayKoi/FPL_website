@@ -91,16 +91,21 @@ function shareSquare(value: ClueStatus) {
   return "⬜";
 }
 
+function boardGridClass(showDivision: boolean): string {
+  const columns = showDivision
+    ? "grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]"
+    : "grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]";
+  return `grid min-w-0 ${columns} gap-2`;
+}
+
 function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null; showDivision: boolean }) {
-  const gridClass = showDivision
-    ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))] gap-2"
-    : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))] gap-2";
+  const gridClass = boardGridClass(showDivision);
   if (!feedback) {
     return (
       <div className={`${gridClass} rounded border border-line/60 bg-navy/30 p-2 text-sm text-steel`}>
-        <span className="flex items-center px-2">—</span>
+        <span className="flex min-w-0 items-center px-2">—</span>
         {Array.from({ length: showDivision ? 5 : 4 }, (_, index) => (
-          <span key={index} className="flex min-h-12 items-center justify-center rounded border border-line/40 px-1">
+          <span key={index} className="flex min-w-0 min-h-12 items-center justify-center rounded border border-line/40 px-1">
             —
           </span>
         ))}
@@ -116,16 +121,16 @@ function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null;
     ...(showDivision ? [{ label: "Division", status: feedback.division }] : []),
   ];
   return (
-    <div className={`${gridClass} rounded border border-line bg-panel p-2 text-sm`}>
-      <span className="flex min-h-12 items-center px-2 font-semibold text-white">
-        <span>{feedback.player.name}</span>
-        <span className="ml-1 text-xs font-normal text-steel">#{feedback.player.tag}</span>
+    <div className={`${gridClass} overflow-hidden rounded border border-line bg-panel p-2 text-sm`}>
+      <span className="flex min-w-0 min-h-12 items-center px-2 font-semibold text-white">
+        <span className="min-w-0 truncate">{feedback.player.name}</span>
+        <span className="ml-1 shrink-0 text-xs font-normal text-steel">#{feedback.player.tag}</span>
       </span>
       {cells.map((cell) => (
         <span
           key={cell.label}
           aria-label={clueLabel(cell.label, feedback)}
-          className={`flex min-h-12 items-center justify-center rounded border px-1 text-center text-xs font-semibold sm:text-sm ${clueClass(cell.status)}`}
+          className={`flex min-w-0 min-h-12 items-center justify-center overflow-hidden rounded border px-1 text-center text-xs font-semibold sm:text-sm ${clueClass(cell.status)}`}
         >
           {cell.label === "Team" ? (
             <span className="flex min-w-0 items-center justify-center gap-1.5">
@@ -134,14 +139,14 @@ function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null;
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={feedback.teamLogoUrl} alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded object-contain" />
               ) : null}
-              <span className="truncate">{feedback.teamName}</span>
+            <span className="min-w-0 truncate">{feedback.teamName}</span>
             </span>
           ) : cell.label === "Role" ? (
             positionText(feedback.positionName)
           ) : cell.label === "Best champion" ? (
-            feedback.championName
+            <span className="min-w-0 truncate">{feedback.championName}</span>
           ) : cell.label === "Overall" ? (
-            <span>{feedback.overallValue} {feedback.overall === "equal" ? "· Equal" : feedback.overall === "higher" ? "· ↑ Higher" : "· ↓ Lower"}</span>
+            <span className="min-w-0 break-words">{feedback.overallValue} {feedback.overall === "equal" ? "· Equal" : feedback.overall === "higher" ? "· ↑ Higher" : "· ↓ Lower"}</span>
           ) : (
             feedback.divisionName ?? "Unassigned"
           )}
@@ -327,7 +332,7 @@ export default function FpldleBoard({
   const finished = status !== "playing";
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">Premium daily puzzle · {league === "academy" ? "Academy" : "Premier"}</span>
@@ -420,18 +425,16 @@ export default function FpldleBoard({
       </section>
 
       <section className="card-brand p-4 sm:p-6">
-        <div className="overflow-x-auto">
-          <div className={`${showDivision ? "grid grid-cols-[minmax(10rem,1.4fr)_repeat(5,minmax(5.25rem,1fr))]" : "grid grid-cols-[minmax(10rem,1.4fr)_repeat(4,minmax(5.25rem,1fr))]"} mb-3 min-w-max gap-2 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel`}>
-            <span>Guess</span>
-            <span className="text-center">Team</span>
-            <span className="text-center">Role</span>
-            <span className="text-center">Best champion</span>
-            <span className="text-center">Overall</span>
-            {showDivision ? <span className="text-center">Division</span> : null}
-          </div>
-          <div className="flex min-w-max flex-col gap-2" aria-label="FPL'dle guesses">
-            {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
-          </div>
+        <div className={`${boardGridClass(showDivision)} mb-3 px-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-steel`}>
+          <span className="min-w-0 break-words">Guess</span>
+          <span className="min-w-0 break-words text-center">Team</span>
+          <span className="min-w-0 break-words text-center">Role</span>
+          <span className="min-w-0 break-words text-center">Best champion</span>
+          <span className="min-w-0 break-words text-center">Overall</span>
+          {showDivision ? <span className="min-w-0 break-words text-center">Division</span> : null}
+        </div>
+        <div className="flex min-w-0 flex-col gap-2" aria-label="FPL'dle guesses">
+          {boardRows.map((feedback, index) => <GuessRow key={feedback?.player.slug ?? `empty-${index}`} feedback={feedback} showDivision={showDivision} />)}
         </div>
       </section>
 

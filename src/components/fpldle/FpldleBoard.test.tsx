@@ -69,6 +69,18 @@ describe("FpldleBoard", () => {
     expect(sections[1]?.querySelector('[aria-label="FPL\'dle guesses"]')).toBeTruthy();
   });
 
+  it("uses a wide aligned board without horizontal overflow", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const main = screen.getByRole("main");
+    const header = screen.getByText("Team").parentElement;
+    const firstRow = screen.getByLabelText("FPL'dle guesses").firstElementChild;
+    expect(main.className).toContain("max-w-[1800px]");
+    expect(main.querySelector(".overflow-x-auto")).toBeNull();
+    expect(header?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
+    expect(firstRow?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
+  });
+
   it("searches, submits, and exposes text plus accessible clue labels", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
