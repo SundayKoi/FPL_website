@@ -37,6 +37,11 @@ export type MyTeamRoster = MyRosterData & {
   multiOpggUrl: string | null;
 };
 
+export type MyTeamBrand = {
+  imageUrl: string | null;
+  bannerColor: string;
+};
+
 export type MyTeamOpponent = {
   team: LeagueTeam | null;
   name: string;
@@ -52,7 +57,7 @@ export type MyTeamReadyDashboard = {
   profileId: string;
   playerPoolId: string | null;
   season: string;
-  team: LeagueTeam;
+  team: LeagueTeam & MyTeamBrand;
   /** League-scoped teams, including inactive rows needed for historical name resolution. */
   teams: LeagueTeam[];
   /** Human-selectable teams. Admin overrides are validated only against this list. */

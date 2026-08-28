@@ -47,8 +47,22 @@ const fixture = {
 
 function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashboard {
   const teams = [
-    { id: "team-1", name: "My Team", abbreviation: "MY", active: true },
-    { id: "team-2", name: "Enemy Team", abbreviation: "EN", active: true },
+    {
+      id: "team-1",
+      name: "My Team",
+      abbreviation: "MY",
+      active: true,
+      imageUrl: "https://img.test/my-team.png",
+      bannerColor: "#123456",
+    },
+    {
+      id: "team-2",
+      name: "Enemy Team",
+      abbreviation: "EN",
+      active: true,
+      imageUrl: null,
+      bannerColor: "#083344",
+    },
   ];
   return {
     kind: "ready",

@@ -24,7 +24,14 @@ const ready: MyTeamDashboardResult = {
   profileId: "profile-1",
   playerPoolId: "pool-1",
   season: "S5",
-  team: { id: "team-1", name: "My Team", abbreviation: "MY", active: true },
+  team: {
+    id: "team-1",
+    name: "My Team",
+    abbreviation: "MY",
+    active: true,
+    imageUrl: "https://img.test/my-team.png",
+    bannerColor: "#123456",
+  },
   teams: [
     { id: "team-1", name: "My Team", abbreviation: "MY", active: true },
     { id: "team-2", name: "Enemy Team", abbreviation: "EN", active: true },
@@ -152,6 +159,11 @@ describe("MyTeamGate", () => {
   it("renders the complete ordinary-player dashboard with spectator-safe actions only", async () => {
     render(<MyTeamGate dashboard={ready} league="premier" />);
 
+    const teamHeading = screen.getByRole("heading", { name: "My Team" });
+    const teamHeader = teamHeading.closest("header");
+    expect(teamHeader?.getAttribute("style")).toContain("border-top-color: rgb(18, 52, 86)");
+    expect(screen.getByRole("img", { name: "My Team logo" }).getAttribute("src"))
+      .toBe("https://img.test/my-team.png");
     expect(screen.getAllByText("vs Enemy Team")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=board");

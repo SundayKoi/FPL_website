@@ -15,8 +15,9 @@ import {
 } from "@/lib/opgg/multiSearch";
 import { resolvePlayerIdentity, type LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { DEFAULT_TEAM_BANNER_COLOR, normalizeBannerColor } from "@/lib/teams/bannerColor";
 import { createLeagueTeamScope } from "./leagueScope";
-import type { MyTeamDashboardResult, MyTeamOpponent } from "./types";
+import type { MyTeamBrand, MyTeamDashboardResult, MyTeamOpponent } from "./types";
 
 type LeagueSettingsRow = {
   featured_draft_id: string | null;
@@ -35,7 +36,11 @@ function multiOpggUrl(roster: Awaited<ReturnType<typeof fetchMyRoster>>): string
 async function loadLeagueTeams(
   supabase: SupabaseClient,
   league: LeagueKey,
-): Promise<{ teams: LeagueTeam[]; activeTeams: LeagueTeam[] }> {
+): Promise<{
+  teams: LeagueTeam[];
+  activeTeams: LeagueTeam[];
+  brands: Map<string, MyTeamBrand>;
+}> {
   const settingsResult = await supabase
     .from("league_settings")
     .select("featured_draft_id, academy_draft_id")
@@ -45,21 +50,29 @@ async function loadLeagueTeams(
 
   const settings = settingsResult.data as LeagueSettingsRow | null;
   const draftId = league === "academy" ? settings?.academy_draft_id : settings?.featured_draft_id;
-  if (!draftId) return { teams: [], activeTeams: [] };
+  if (!draftId) return { teams: [], activeTeams: [], brands: new Map() };
 
   const [leagueTeamsResult, draftTeamsResult] = await Promise.all([
     supabase.from("league_teams").select("*").order("name"),
-    supabase.from("teams").select("name").eq("draft_id", draftId),
+    supabase.from("teams").select("name, image_url, banner_color").eq("draft_id", draftId),
   ]);
   throwIfError(leagueTeamsResult.error);
   throwIfError(draftTeamsResult.error);
 
-  const draftTeamNames = new Set(
-    (((draftTeamsResult.data as { name: string }[] | null) ?? []).map((team) => normalizeName(team.name))),
+  const brands = new Map(
+    (((draftTeamsResult.data as { name: string; image_url: string | null; banner_color: string | null }[] | null) ?? [])
+      .map((team) => [
+        normalizeName(team.name),
+        {
+          imageUrl: team.image_url,
+          bannerColor: normalizeBannerColor(team.banner_color),
+        },
+      ] as const)),
   );
+  const draftTeamNames = new Set(brands.keys());
   const teams = ((leagueTeamsResult.data as LeagueTeam[] | null) ?? [])
     .filter((team) => draftTeamNames.has(normalizeName(team.name)));
-  return { teams, activeTeams: activeOnly(teams) };
+  return { teams, activeTeams: activeOnly(teams), brands };
 }
 
 function leagueFixtures(
@@ -117,7 +130,7 @@ export async function loadMyTeamDashboard(
     }
   }
 
-  const { teams, activeTeams } = await loadLeagueTeams(supabase, league);
+  const { teams, activeTeams, brands } = await loadLeagueTeams(supabase, league);
   const activeIds = new Set(activeTeams.map((team) => team.id));
 
   let captainTeamIds: string[] = [];
@@ -161,6 +174,14 @@ export async function loadMyTeamDashboard(
       playerPoolId: identity.playerPoolId,
     };
   }
+
+  const teamWithBrand = {
+    ...team,
+    ...(brands.get(normalizeName(team.name)) ?? {
+      imageUrl: null,
+      bannerColor: DEFAULT_TEAM_BANNER_COLOR,
+    }),
+  };
 
   const fixturesResult = await supabase
     .from("fixtures")
@@ -230,7 +251,7 @@ export async function loadMyTeamDashboard(
     profileId: identity.profileId,
     playerPoolId: identity.playerPoolId,
     season: identity.season,
-    team,
+    team: teamWithBrand,
     teams,
     activeTeams,
     nextFixture,

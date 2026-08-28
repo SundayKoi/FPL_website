@@ -126,14 +126,35 @@ export default function MyTeamGate({
 
   const scoutingHref = league === "academy" ? "/academy/my-team/scouting" : "/my-team/scouting";
   const adminQuery = dashboard.isAdmin ? `?team=${encodeURIComponent(dashboard.team.id)}` : "";
+  const teamBrand = dashboard.team;
 
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
-          <span className="label-dash">My Team · {dashboard.season}</span>
-          <h1 className="type-display mt-3 text-5xl sm:text-6xl">{dashboard.team.name}</h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+        <header
+          className="card-brand flex flex-wrap items-center gap-5 overflow-hidden border-t-4 p-6 sm:p-8"
+          style={{ borderTopColor: teamBrand.bannerColor }}
+        >
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-navy/60 p-2 shadow-lg">
+            {teamBrand.imageUrl ? (
+              // Deployment-specific Supabase Storage hosts make next/image remotePatterns brittle here.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={teamBrand.imageUrl}
+                alt={`${teamBrand.name} logo`}
+                className="h-full w-full rounded object-contain"
+              />
+            ) : (
+              <span className="type-display text-3xl text-white/90" aria-hidden="true">
+                {teamBrand.abbreviation}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <span className="label-dash">My Team · {dashboard.season}</span>
+            <h1 className="type-display mt-2 text-5xl sm:text-6xl">{teamBrand.name}</h1>
+          </div>
+          <p className="basis-full max-w-2xl text-lg leading-8 text-steel">
             Your next match, private tournament codes, team schedule, roster, and scouting.
           </p>
         </header>

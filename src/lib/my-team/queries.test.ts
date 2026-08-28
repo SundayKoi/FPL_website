@@ -93,7 +93,13 @@ function fakeClient({
     league_settings: [{ id: 1, featured_draft_id: "premier-draft", academy_draft_id: "academy-draft" }],
     league_teams: [academyOne, academyTwo, premierOne],
     teams: [
-      { id: "draft-academy-1", draft_id: "academy-draft", name: academyOne.name },
+      {
+        id: "draft-academy-1",
+        draft_id: "academy-draft",
+        name: academyOne.name,
+        image_url: "https://img.test/academy-one.png",
+        banner_color: "#123456",
+      },
       { id: "draft-academy-2", draft_id: "academy-draft", name: academyTwo.name },
       { id: "draft-premier-1", draft_id: "premier-draft", name: premierOne.name },
     ],
@@ -200,7 +206,11 @@ describe("loadMyTeamDashboard", () => {
     expect(result).toMatchObject({
       kind: "ready",
       season: "A1",
-      team: academyOne,
+      team: {
+        ...academyOne,
+        imageUrl: "https://img.test/academy-one.png",
+        bannerColor: "#123456",
+      },
       schedule: [{ id: upcoming.id }],
       nextFixture: { id: upcoming.id },
       opponent: { name: academyTwo.name },
