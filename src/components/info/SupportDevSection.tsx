@@ -1,4 +1,5 @@
 import Image from "next/image";
+import PatronPerks from "@/components/patron/PatronPerks";
 
 type Props = {
   className?: string;
@@ -74,45 +75,7 @@ export default function SupportDevSection({ className = "" }: Props) {
             Donations will be used to cover website costs.
           </p>
 
-          <div className="mt-6 rounded-xl border border-line bg-black/10 p-4">
-            <span className="label-dash">WHAT PATRONS CARRY</span>
-            <ul className="mt-3 grid gap-2 text-sm leading-6 text-steel sm:grid-cols-2">
-              <li>
-                <span className="font-semibold text-white">🔥 The Patron Flame</span> — pick its colour from the
-                wardrobe on the packs page; it burns on every card you own, beside your name on the betting
-                leaderboards, and on your chase claims in Discord. The gold, ember-lit{" "}
-                <span className="text-gold">Sovereign</span> unlocks at six months.
-              </li>
-              <li>
-                <span className="font-semibold text-white">🎴 Your own card backs</span> — your packs deal
-                face-down in your flame&apos;s colours, for everyone watching the flip.
-              </li>
-              <li>
-                <span className="font-semibold text-white">🖋 The patron pen case</span> — sign your claimed card
-                in gold or crimson ink; every signed copy of you that ever mints carries it.
-              </li>
-              <li>
-                <span className="font-semibold text-white">🃏 A second Daily Rip</span> — patrons rip twice a day.
-              </li>
-              <li>
-                <span className="font-semibold text-white">📚 The nine-slot binder</span> — three extra display
-                slots, and your slot-one card floats on a pedestal glow on your public binder page.
-              </li>
-              <li>
-                <span className="font-semibold text-white">🎲 The weekly re-roll</span> — once a week, re-roll the
-                art on one copy you own. Skin only — never rarity, foil, or ink.
-              </li>
-              <li>
-                <span className="font-semibold text-white">💎 The 20% dust bonus</span> — every copy you melt pays
-                a fifth more. Dusting still costs less than a pack returns, so it sweetens the salvage without
-                ever becoming an income.
-              </li>
-            </ul>
-            <p className="mt-3 text-xs leading-5 text-steel">
-              The rule behind all of it: nothing a patron pays for changes a card&apos;s odds, anyone&apos;s
-              rating, or what comes out of a pack. The flame marks who keeps the lights on, not who wins.
-            </p>
-          </div>
+          <PatronPerks className="mt-6" />
           <a
             href="https://www.paypal.com/paypalme/ZBultman"
             target="_blank"
