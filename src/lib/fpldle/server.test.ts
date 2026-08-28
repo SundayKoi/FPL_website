@@ -9,12 +9,14 @@ const { createServerSupabase, fetchStaffTier } = vi.hoisted(() => ({
 const { createBettingServiceClient } = vi.hoisted(() => ({ createBettingServiceClient: vi.fn() }));
 const { fetchCardSeason } = vi.hoisted(() => ({ fetchCardSeason: vi.fn() }));
 const { premiumAccess } = vi.hoisted(() => ({ premiumAccess: vi.fn() }));
+const { getBettingUser } = vi.hoisted(() => ({ getBettingUser: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
+vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
 
 import { getFpldleGame, FpldleError } from "./server";
 import { resetFpldlePuzzleAction, revealFpldleAnswerAction, submitFpldleGuessAction } from "./actions";
@@ -97,7 +99,9 @@ function createQueryClient(options: { candidateRows?: unknown[] | null; guessRow
     };
     return builder;
   });
-  const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+  const rpc = vi.fn<(name: string, args: unknown) => Promise<QueryResult>>((name) => name === "record_fpldle_guess"
+    ? Promise.resolve({ data: [{ accepted: true, guess_count: 1, reward_amount: 200, balance: 1200, already_rewarded: false }], error: null })
+    : Promise.resolve({ data: null, error: null }));
   return { client: { from, rpc }, selections, rpc };
 }
 
@@ -109,9 +113,18 @@ beforeEach(() => {
   fetchCardSeason.mockReset();
   fetchStaffTier.mockReset();
   premiumAccess.mockReset();
+  getBettingUser.mockReset();
   fetchCardSeason.mockResolvedValue("A99");
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
   premiumAccess.mockResolvedValue({ signedIn: true, allowed: true, inconclusive: false });
+  getBettingUser.mockResolvedValue({
+    discordId: "discord-1",
+    profileId: "profile-1",
+    username: "Tester",
+    balance: 1000,
+    allowed: true,
+    staff: false,
+  });
 });
 
 afterEach(() => vi.useRealTimers());
@@ -169,6 +182,40 @@ describe("FPL'dle server adapter", () => {
       date: today,
       canReset: false,
       candidates: [{ slug: card.slug, name: card.name, tag: card.tag, position: card.role }],
+    });
+  });
+
+  it("credits the wallet after a server-compared correct guess", async () => {
+    const candidateRow = {
+      puzzle_date: today,
+      league: "academy",
+      season: "A99",
+      edition_week: "2026-08-24",
+      player_slug: card.slug,
+      player_name: card.name,
+      player_tag: card.tag,
+      team: card.teamName,
+      team_logo_url: card.teamImageUrl,
+      position: card.role,
+      champion: card.signature.champion,
+      overall: card.overall,
+      division: null,
+    };
+    const service = createQueryClient({ candidateRows: [candidateRow] });
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: card.slug })).resolves.toMatchObject({
+      feedback: { isCorrect: true },
+      reward: { amount: 200, balance: 1200, alreadyClaimed: false },
+    });
+    expect(service.rpc).toHaveBeenCalledWith("record_fpldle_guess", {
+      p_puzzle_date: today,
+      p_league: "academy",
+      p_profile_id: "profile-1",
+      p_discord_id: "discord-1",
+      p_player_slug: card.slug,
+      p_is_correct: true,
     });
   });
 

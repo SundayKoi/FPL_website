@@ -7,6 +7,7 @@ import type {
   FpldleGame,
   FpldleLeague,
   FpldlePlayerPreview,
+  FpldleReward,
   FpldleSubmission,
 } from "@/lib/fpldle/server";
 
@@ -29,6 +30,7 @@ type StoredProgress = {
   guesses: FpldleFeedback[];
   status: GameStatus;
   answer?: { name: string; tag: string } | null;
+  reward?: FpldleReward | null;
 };
 
 function hasCurrentFeedbackShape(value: unknown): value is FpldleFeedback {
@@ -42,6 +44,12 @@ function hasCurrentFeedbackShape(value: unknown): value is FpldleFeedback {
     (feedback.teamLogoUrl === null || typeof feedback.teamLogoUrl === "string") &&
     (feedback.divisionName === null || feedback.divisionName === "Solari" || feedback.divisionName === "Lunari")
   );
+}
+
+function hasCurrentRewardShape(value: unknown): value is FpldleReward {
+  if (typeof value !== "object" || value === null) return false;
+  const reward = value as Partial<FpldleReward>;
+  return typeof reward.amount === "number" && typeof reward.balance === "number" && typeof reward.alreadyClaimed === "boolean";
 }
 
 type ClueStatus = FpldleFeedback["team"] | FpldleFeedback["overall"] | FpldleFeedback["division"];
@@ -236,6 +244,7 @@ export default function FpldleBoard({
   const [guesses, setGuesses] = useState<FpldleFeedback[]>([]);
   const [status, setStatus] = useState<GameStatus>("playing");
   const [answer, setAnswer] = useState<{ name: string; tag: string } | null>(null);
+  const [reward, setReward] = useState<FpldleReward | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -261,6 +270,7 @@ export default function FpldleBoard({
             setGuesses(progress.guesses);
             setStatus(progress.status);
             if (progress.answer) setAnswer(progress.answer);
+            if (hasCurrentRewardShape(progress.reward)) setReward(progress.reward);
           }
         }
       } catch {
@@ -274,12 +284,12 @@ export default function FpldleBoard({
   useEffect(() => {
     if (!loaded) return;
     try {
-      const progress: StoredProgress = { date: game.date, guesses, status, answer };
+      const progress: StoredProgress = { date: game.date, guesses, status, answer, reward };
       window.localStorage.setItem(storageKey, JSON.stringify(progress));
     } catch {
       // Storage is a recovery aid, not a reason to block a live puzzle.
     }
-  }, [answer, game.date, guesses, loaded, status, storageKey]);
+  }, [answer, game.date, guesses, loaded, reward, status, storageKey]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -340,6 +350,7 @@ export default function FpldleBoard({
         const result = await submitGuess({ league, puzzleDate: game.date, playerSlug: selected.slug });
         const nextGuesses = [...guesses, result.feedback];
         setGuesses(nextGuesses);
+        setReward(result.reward);
         setSelected(null);
         setQuery("");
         if (result.feedback.isCorrect) {
@@ -407,6 +418,16 @@ export default function FpldleBoard({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      {league === "premier" ? (
+        <aside aria-label="New feature announcement" className="rounded border border-coral/50 bg-coral/10 px-4 py-3 text-sm text-steel">
+          <span className="label-dash">New feature announcement</span>
+          <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s Premier player puzzle within five guesses to earn $200 betting dollars.</p>
+        </aside>
+      ) : null}
+      <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
+        <span className="label-dash">Daily reward</span>
+        <p className="mt-2 text-white">Complete the puzzle within five guesses for $200 betting dollars, credited automatically once per league puzzle.</p>
+      </aside>
       <p role="note" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
         <span className="font-semibold text-gold">Reminder:</span> Possible players include substitutes (subs).
       </p>
@@ -522,7 +543,9 @@ export default function FpldleBoard({
             <div>
               <span className="label-dash">Puzzle complete</span>
               <p className="type-display mt-1 text-2xl">{status === "won" ? `Solved in ${guesses.length}` : "Out of guesses"}</p>
-              {status === "lost" ? (
+              {status === "won" && reward ? (
+                <p className="mt-1 text-sm text-mint">+${reward.amount} betting dollars credited{reward.alreadyClaimed ? " previously" : ""}.</p>
+              ) : status === "lost" ? (
                 <p className="mt-1 text-sm text-steel">Answer: {answer ? `${answer.name}#${answer.tag}` : "answer reveal unavailable"}</p>
               ) : <p className="mt-1 text-sm text-steel">New puzzle at 00:00 UTC.</p>}
             </div>

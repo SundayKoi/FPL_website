@@ -96,9 +96,19 @@ describe("FpldleBoard", () => {
   it("shows the substitute reminder at the top of the page", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
-    const main = screen.getByRole("main");
-    expect(main.firstElementChild?.getAttribute("role")).toBe("note");
     expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
+  });
+
+  it("announces FPL'dle on Premier and shows the completion reward", () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    expect(screen.getByRole("complementary", { name: "New feature announcement" }).textContent).toContain("FPL'dle is here");
+    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$200 betting dollars");
+
+    cleanup();
+    render(<FpldleBoard game={game()} league="academy" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+    expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
+    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$200 betting dollars");
   });
 
   it("places the player chooser above guess history", () => {
@@ -163,6 +173,7 @@ describe("FpldleBoard", () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0], true),
+      reward: { amount: 200, balance: 1200, alreadyClaimed: false },
     }));
     const revealAnswer = vi.fn(async () => ({ name: "Answer", tag: "NA1" }));
     render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={submitGuess} revealAnswer={revealAnswer} resetPuzzle={resetPuzzle()} />);
@@ -185,6 +196,7 @@ describe("FpldleBoard", () => {
     expect(screen.getByLabelText("Best champion: Ahri; exact match")).toBeTruthy();
     expect(screen.getByLabelText("Overall: 82; equal")).toBeTruthy();
     expect(screen.getByLabelText("Division: Lunari; exact match")).toBeTruthy();
+    expect(screen.getByText("+$200 betting dollars credited.")).toBeTruthy();
     expect(document.querySelector('img[src="https://example.com/team-2.png"]')).toBeTruthy();
   });
 
@@ -192,6 +204,7 @@ describe("FpldleBoard", () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
+      reward: null,
     }));
     render(<FpldleBoard game={game(candidates)} league="academy" submitGuess={submitGuess} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
@@ -212,6 +225,7 @@ describe("FpldleBoard", () => {
     const candidates = Array.from({ length: 6 }, (_, index) => candidate(index + 1));
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
+      reward: null,
     }));
     const revealAnswer = vi.fn(async () => ({ name: "Player 6", tag: "NA1" }));
     render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={submitGuess} revealAnswer={revealAnswer} resetPuzzle={resetPuzzle()} />);

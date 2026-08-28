@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { getBettingUser } from "@/lib/betting/wallet";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
@@ -27,6 +28,13 @@ export interface FpldleGame {
 
 export interface FpldleSubmission {
   feedback: FpldleFeedback;
+  reward: FpldleReward | null;
+}
+
+export interface FpldleReward {
+  amount: number;
+  balance: number;
+  alreadyClaimed: boolean;
 }
 
 export interface FpldleAnswerReveal {
@@ -63,6 +71,13 @@ type PuzzleRow = {
 };
 
 type FpldleServiceClient = ReturnType<typeof createBettingServiceClient>;
+type FpldleProgressRpcRow = {
+  accepted: boolean;
+  guess_count: number;
+  reward_amount: number;
+  balance: number;
+  already_rewarded: boolean;
+};
 
 const MAX_GUESSES = 5;
 
@@ -135,6 +150,36 @@ function rowToCandidate(row: FpldleCandidateRow): FpldleCandidate {
     champion: row.champion,
     overall: Number(row.overall),
     division: row.division ?? null,
+  };
+}
+
+async function recordFpldleGuess(
+  service: FpldleServiceClient,
+  league: FpldleLeague,
+  puzzleDate: string,
+  playerSlug: string,
+  isCorrect: boolean,
+): Promise<FpldleReward | null> {
+  const user = await getBettingUser();
+  if (!user?.allowed) return null;
+
+  const { data, error } = await service.rpc("record_fpldle_guess", {
+    p_puzzle_date: puzzleDate,
+    p_league: league,
+    p_profile_id: user.profileId,
+    p_discord_id: user.discordId,
+    p_player_slug: playerSlug,
+    p_is_correct: isCorrect,
+  });
+  if (error) throw error;
+  const row = (data as FpldleProgressRpcRow[] | null)?.[0];
+  if (!row) throw new FpldleError("PUZZLE_UNAVAILABLE", "FPL'dle progress could not be saved.");
+  if (Number(row.reward_amount) <= 0) return null;
+
+  return {
+    amount: Number(row.reward_amount),
+    balance: Number(row.balance),
+    alreadyClaimed: row.already_rewarded,
   };
 }
 
@@ -432,8 +477,10 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
   if (targetError) throw targetError;
   if (!targetRow) throw new FpldleError("PUZZLE_UNAVAILABLE", "Daily puzzle target is unavailable.");
 
+  const feedback = compareFpldleGuess(rowToCandidate(guessRow as FpldleCandidateRow), rowToCandidate(targetRow as FpldleCandidateRow));
   return {
-    feedback: compareFpldleGuess(rowToCandidate(guessRow as FpldleCandidateRow), rowToCandidate(targetRow as FpldleCandidateRow)),
+    feedback,
+    reward: await recordFpldleGuess(service, league, puzzleDate, playerSlug, feedback.isCorrect),
   };
 }
 
