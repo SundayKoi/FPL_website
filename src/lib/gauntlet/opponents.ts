@@ -12,6 +12,7 @@ import {
   type GauntletRole,
   GAUNTLET_ROLES,
 } from "./sim";
+import { rollCondition, rollTraits } from "./traits";
 import type { MeasureKey } from "@/lib/cards/measures";
 
 const clamp = (value: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, value));
@@ -42,18 +43,37 @@ export interface OpponentTeam {
   avg: number;
   /** "DIVE COMP · 74 AVG" — the scouting line. */
   label: string;
+  /** Trait keys this team wears — read them before you commit. */
+  traits?: string[];
+  /** The round's condition key — the rules both sides play under. */
+  condition?: string;
 }
 
-/** The bracket's target average for a round, off the player's raw lineup
- *  average. Round 1 starts a shade below (a warm-up, not a coin flip) and
- *  round 8 ends about seven above — the wall is the CHAIN, not any single
- *  fight: eight straight wins compounds into a few-percent full clear on
- *  safe play, which is where a roguelike's full clears belong. v2
- *  steepened the ramp (1.0 → 1.6/round) after the v1 curve fell on the
- *  second try; crossroads play is where the difference comes back. Tuned
- *  by simulation (see sim.test's calibration band); steepen with care. */
+/** The reference lineup the bracket is priced against — roughly what a
+ *  season's shelf produces once a player owns a card per role. */
+export const LEAGUE_BASELINE = 74;
+
+/** How much of the bracket follows YOUR five rather than the league's
+ *  baseline. At 1.0 the bracket tracks you exactly and your collection is
+ *  worth literally nothing (v3 shipped this way: a 65-average lineup and
+ *  an 82-average lineup measured identical curves, which is a strange
+ *  thing for a card game). At 0 a thin shelf is unplayable. 0.88 leaves a
+ *  ten-point lineup edge worth about a point and a bit — felt, never
+ *  decisive, and small enough that SHAPE (commitment and chemistry, see
+ *  lineupShapeOf) still out-earns raw overall. */
+const LINEUP_TRACKING = 0.88;
+
+/** The bracket's target average for a round. Round 1 sits well under a
+ *  typical five, a warm-up you clear most of the time; round 8 sits over
+ *  it and is reached by under a tenth of runs. The wall is the CHAIN, not
+ *  any single fight.
+ *
+ *  Difficulty lives here and nowhere else — traits are shapes, conditions
+ *  are rules. Monte-Carlo pins the curve (see sim.test's calibration
+ *  band); anything that moves it is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
-  return clamp(Math.round(lineupAvg - 6 + round * 1.6), 45, 92);
+  const priced = LINEUP_TRACKING * lineupAvg + (1 - LINEUP_TRACKING) * LEAGUE_BASELINE;
+  return clamp(Math.round(priced - 10 + round * 2.2), 45, 92);
 }
 
 /**
@@ -82,5 +102,9 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   });
 
   const avg = Math.round(cards.reduce((sum, card) => sum + card.overall, 0) / cards.length);
-  return { cards, style, avg, label: `${style.toUpperCase()} COMP · ${avg} AVG` };
+  // Traits and the round's condition come off the SAME seeded stream, so
+  // the scouting screen and the fight always agree.
+  const traits = rollTraits(round, rand);
+  const condition = rollCondition(round, rand);
+  return { cards, style, avg, label: `${style.toUpperCase()} COMP · ${avg} AVG`, traits, condition };
 }

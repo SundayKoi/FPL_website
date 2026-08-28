@@ -2,8 +2,11 @@
 // "use server" modules may only export async functions, so the row type
 // and the fee live here.
 
+import type { Autopsy } from "./autopsy";
 import type { OpponentTeam } from "./opponents";
-import type { GauntletCard, HalfState, MatchResult } from "./sim";
+import { aggregateEffects } from "./relics";
+import { aggregateTraits, conditionEffects } from "./traits";
+import type { GauntletCard, HalfState, MatchContext, MatchResult } from "./sim";
 
 /** What a run costs to start. A sink by design: prizes stay under the
  *  fees paid league-wide, same guardrail as pack dust. */
@@ -16,6 +19,22 @@ export interface GauntletCrossroads {
   state: HalfState;
   seed2: number;
 }
+
+/** The modifiers a round resolves under, assembled in one place so the
+ *  server's fight and the client's odds preview can never disagree: your
+ *  relics, their traits, and the round's condition. */
+export function matchContextFor(relicKeys: string[], opponent: OpponentTeam | null): MatchContext {
+  return {
+    effects: aggregateEffects(relicKeys),
+    foe: aggregateTraits(opponent?.traits ?? []),
+    arena: conditionEffects(opponent?.condition),
+  };
+}
+
+/** A resolved round as the run row stores it — the whole tape plus the
+ *  post-match read, so a refresh redraws the same game and the same
+ *  explanation. */
+export type StoredMatchResult = MatchResult & { round: number; autopsy?: Autopsy };
 
 export interface GauntletRunRow {
   id: number;
@@ -32,7 +51,7 @@ export interface GauntletRunRow {
   status: "active" | "fallen" | "banked" | "cleared";
   round_seed: number | null;
   next_opponent: OpponentTeam | null;
-  last_result: (MatchResult & { round: number }) | null;
+  last_result: StoredMatchResult | null;
   /** Non-null while a fight is paused at minute 20 waiting on the call. */
   crossroads: GauntletCrossroads | null;
 }

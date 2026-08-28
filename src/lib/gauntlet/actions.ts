@@ -1,6 +1,6 @@
 "use server";
 
-// The Gauntlet's state machine: enter, fight, pick, retreat, swap.
+// The Gauntlet's state machine: enter, fight, choose, pick, reset, swap.
 //
 // Every transition is a compare-and-swap on the run row, so a double-click
 // or a refresh can never fight the same round twice or spend one relic
@@ -23,9 +23,10 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
 import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
+import { buildAutopsy } from "./autopsy";
 import { CROSSROADS_BY_KEY } from "./crossroads";
 import { generateOpponent } from "./opponents";
-import { GAUNTLET_ENTRY_FEE, type GauntletRunRow } from "./run";
+import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -134,6 +135,7 @@ export async function startGauntletRunAction(
       foil: row.foil,
       signed: row.signed === true,
       fresh: row.edition_week === thisWeek,
+      team: row.card.teamName ?? null,
     });
   }
 
@@ -180,7 +182,7 @@ export async function startGauntletRunAction(
     return {
       ok: false,
       error: active
-        ? "You already have a live run — finish or retreat it first."
+        ? "You already have a live run — finish it or walk away first."
         : `The run didn't start${refundError ? " and the fee couldn't be returned — staff have been notified" : " — your fee was returned"}.`,
     };
   }
@@ -209,8 +211,8 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const effects = aggregateEffects(run.relics);
-  const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, effects, mulberry32(run.round_seed));
+  const ctx = matchContextFor(run.relics, run.next_opponent);
+  const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
   const { data: updated, error: updateError } = await service
@@ -265,23 +267,26 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const effects = aggregateEffects(run.relics);
+  const ctx = matchContextFor(run.relics, run.next_opponent);
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
     run.lineup,
     run.next_opponent.cards,
-    effects,
+    ctx,
     mulberry32(run.crossroads.seed2),
   );
-  const score = roundScore(run.round, sim, run.lineup, effects);
+  const score = roundScore(run.round, sim, run.lineup, ctx.effects);
   const result: MatchResult = { ...sim, score };
+  // The read of the match, computed from the tape it just produced —
+  // stored with it so a refresh redraws the same explanation.
+  const autopsy = buildAutopsy(sim, run.crossroads.state.lanesWon);
 
   const cleared = sim.won && run.round >= GAUNTLET_ROUNDS;
   // The offer derives from the SAME stored seed (offset stream), so a
   // raced retry offers the same three relics.
   const offer =
-    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1)).map((r) => r.key) : null;
+    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1), run.round).map((r) => r.key) : null;
 
   const { data: updated } = await service
     .from("gauntlet_runs")
@@ -292,7 +297,7 @@ export async function chooseGauntletPathAction(
       relic_offer: offer,
       crossroads: null,
       next_opponent: sim.won ? null : run.next_opponent,
-      last_result: { ...result, round: run.round },
+      last_result: { ...result, round: run.round, autopsy },
       updated_at: new Date().toISOString(),
     })
     .eq("id", run.id)
@@ -373,27 +378,31 @@ export async function pickGauntletRelicAction(
   return { ok: true, run: (updated as GauntletRunRow[])[0] };
 }
 
-/** Banks the score and ends the run — the coward's exit, available only
- *  between rounds (a staged fight must be fought). THE BANKER pays its
- *  extra percent here, on the way out. */
-export async function retreatGauntletAction(runId: number): Promise<ActionResult<{ score: number }>> {
+/**
+ * Walks away from a live run so a new one can be drafted. Pays NOTHING:
+ * no refund, no bonus, no reward of any kind — the entry fee stays in the
+ * week's pot, and the score already won stands on the board exactly as a
+ * fallen run's would. The Gauntlet's only payout is Monday's settlement.
+ */
+export async function resetGauntletRunAction(runId: number): Promise<ActionResult<{ score: number }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   const service = createBettingServiceClient();
   const run = await loadOwnRun(service, runId, user.discordId);
   if (!run) return { ok: false, error: "That run isn't yours." };
   if (run.status !== "active") return { ok: false, error: "That run is over." };
-  if (!run.relic_offer) return { ok: false, error: "The fight is staged — see it through or don't start one." };
-
-  const bankBonusPct = aggregateEffects(run.relics).bankBonusPct ?? 0;
-  const banked = Math.round(run.score * (1 + bankBonusPct / 100));
 
   const { data: updated } = await service
     .from("gauntlet_runs")
-    .update({ status: "banked", relic_offer: null, score: banked, updated_at: new Date().toISOString() })
+    .update({
+      status: "banked",
+      relic_offer: null,
+      crossroads: null,
+      round_seed: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", run.id)
     .eq("status", "active")
-    .eq("score", run.score)
     .select("score");
   if (!updated || updated.length === 0) return { ok: false, error: "That run already ended." };
 
@@ -450,6 +459,7 @@ export async function benchSwapGauntletAction(
     foil: row.foil,
     signed: row.signed === true,
     fresh: row.edition_week === mondayOf(new Date()),
+    team: row.card.teamName ?? null,
   };
 
   const { data: updated } = await service
