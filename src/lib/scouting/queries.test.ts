@@ -8,8 +8,8 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const fixture = (id: string, teamA: string | null, teamB: string | null, season = "S5") => ({
-  id, season, stage: "week_1", team_a: teamA, team_b: teamB,
-  scheduled_at: "2026-08-01T00:00:00Z", best_of: 3, score_a: 2, score_b: 1,
+  id, season, stage: "week_1" as const, team_a: teamA, team_b: teamB,
+  scheduled_at: "2026-08-01T00:00:00Z", best_of: 3 as const, score_a: 2, score_b: 1,
 });
 
 function builder(data: unknown, error: unknown = null) {
@@ -256,6 +256,45 @@ describe("fetchScoutingHistory", () => {
     vi.unstubAllGlobals();
   });
 
+  it("maps a legacy Academy Week 1 report onto the A1 fixture", async () => {
+    const fixtureQuery = builder([
+      fixture("academy-week-1", "Astronauts", "The Strokers", "A1"),
+      fixture("legacy-week-1", "AST", "STRK", "S5"),
+    ]);
+    const draftQuery = builder([]);
+    const leagueTeamsQuery = builder([
+      { id: "team-a", name: "The Strokers", abbreviation: "STRK" },
+      { id: "team-b", name: "Astronauts", abbreviation: "AST" },
+    ]);
+    const reportQuery = builder([{
+      id: "report-1",
+      fixture_id: "legacy-week-1",
+      season: "S5",
+      draft_url: "https://drafter.lol/draft/series-1",
+      team_a_id: "team-a",
+      team_b_id: "team-b",
+    }]);
+    const reportGamesQuery = builder([{ report_id: "report-1", game_number: 1, blue_team_id: "team-b" }]);
+    const from = vi.fn((table: string) => ({
+      fixtures: fixtureQuery,
+      match_drafts: draftQuery,
+      league_teams: leagueTeamsQuery,
+      match_reports: reportQuery,
+      match_report_games: reportGamesQuery,
+    }[table] ?? builder([])));
+    const html = `<script>self.__next_f.push([1,"1d:[\\\"$\\\",null,{\\\"drafts\\\":[{\\\"done\\\":true,\\\"bluePick1\\\":\\\"Ahri\\\"}]}]"])</script>`;
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => html })));
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "academy", leagueTeamNames: ["Astronauts", "The Strokers"],
+    });
+
+    expect(history.fixtures.map((row) => row.id)).toEqual(["academy-week-1"]);
+    expect(history.drafts).toHaveLength(1);
+    expect(history.drafts[0]).toMatchObject({ fixture_id: "academy-week-1", game_number: 1, blue_team_name: "Astronauts" });
+    vi.unstubAllGlobals();
+  });
+
   it("loads history rows beyond the first Supabase page", async () => {
     const targetFixture = fixture("target", "Night Vale", "Other");
     const pages = new Map<string, unknown[]>([
@@ -413,5 +452,43 @@ describe("fetchIngestedScoutingGames", () => {
     );
 
     expect(result.map((row) => row.champion)).toEqual(["Orianna"]);
+  });
+
+  it("recovers a legacy Academy Week 1 ingested game through its report", async () => {
+    const rawStatsQuery = builder([{
+      id: 1, match_id: "academy-week-1-match", game_date: "2026-08-17T00:00:00Z", season: "S5",
+      summoner_name: "Northstar", tag: "NA1", champion: "Orianna",
+    }]);
+    const reportGamesQuery = builder([{
+      id: "game-1", match_id: "academy-week-1-match", report_id: "report-1", game_number: 1,
+    }]);
+    const reportsQuery = builder([{
+      id: "report-1", fixture_id: null, season: "S5", team_a_id: "team-a", team_b_id: "team-b", draft_url: null,
+    }]);
+    const teamsQuery = builder([
+      { id: "team-a", name: "Astronauts" },
+      { id: "team-b", name: "The Strokers" },
+    ]);
+    const from = vi.fn((table: string) => ({
+      raw_stats: rawStatsQuery,
+      match_report_games: reportGamesQuery,
+      match_reports: reportsQuery,
+      league_teams: teamsQuery,
+    }[table] ?? builder([])));
+
+    const result = await fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid" }],
+      [fixture("academy-week-1", "Astronauts", "The Strokers", "A1")],
+      "academy",
+    );
+
+    expect(result).toEqual([expect.objectContaining({
+      playerId: "n",
+      champion: "Orianna",
+      fixtureId: "academy-week-1",
+      season: "A1",
+      gameNumber: 1,
+    })]);
   });
 });

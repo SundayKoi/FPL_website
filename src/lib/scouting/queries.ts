@@ -21,7 +21,7 @@ export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
 export const INGESTED_SCOUTING_COLUMNS =
   "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win";
-const TEAM_COLUMNS = "id, name";
+const TEAM_COLUMNS = "id, name, abbreviation";
 const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";
 const SCOUTING_PAGE_SIZE = 1000;
@@ -134,24 +134,72 @@ function teamPairKey(teamA: string | null, teamB: string | null): string | null 
   return names.length === 2 ? names.join("::") : null;
 }
 
+function fixtureSlotKey(
+  fixture: ScoutFixtureRow,
+  teamNameAliases: ReadonlyMap<string, string> = new Map(),
+): string | null {
+  const resolveTeamName = (name: string | null) => teamNameAliases.get(normalizeName(name)) ?? name;
+  const pair = teamPairKey(resolveTeamName(fixture.team_a), resolveTeamName(fixture.team_b));
+  return pair ? `${fixture.stage}::${pair}` : null;
+}
+
+/**
+ * The Academy season split was added after Week 1 had already been played.
+ * The schedule seeder preserves any old fixture carrying a report, then
+ * writes the canonical A1 fixture beside it. Keep those old ids as aliases
+ * while the read path converges history onto the canonical fixture.
+ */
+function buildLegacyAcademyFixtureAliases(
+  allFixtures: ScoutFixtureRow[],
+  academyFixtures: ScoutFixtureRow[],
+  league: FetchScoutingHistoryInput["league"],
+  teamNameAliases: ReadonlyMap<string, string> = new Map(),
+): Map<string, string> {
+  if (league !== "academy") return new Map();
+
+  const canonicalBySlot = new Map<string, ScoutFixtureRow[]>();
+  for (const fixture of academyFixtures) {
+    const slot = fixtureSlotKey(fixture, teamNameAliases);
+    if (slot) canonicalBySlot.set(slot, [...(canonicalBySlot.get(slot) ?? []), fixture]);
+  }
+
+  const aliases = new Map<string, string>();
+  for (const fixture of allFixtures) {
+    if (seasonBelongsToLeague(fixture.season, "academy")) continue;
+    const slot = fixtureSlotKey(fixture, teamNameAliases);
+    const candidates = slot ? canonicalBySlot.get(slot) ?? [] : [];
+    if (candidates.length === 1 && candidates[0].id !== fixture.id) {
+      aliases.set(fixture.id, candidates[0].id);
+    }
+  }
+  return aliases;
+}
+
 function resolveReportFixtureIds(
   reports: UnknownRow[],
   fixtures: ScoutFixtureRow[],
   fixturesById: Map<string, ScoutFixtureRow>,
   teamNamesById: Map<string, string>,
+  fixtureIdAliases: ReadonlyMap<string, string> = new Map(),
+  league: FetchScoutingHistoryInput["league"] = "premier",
 ): UnknownRow[] {
   const fixturesBySeasonAndPair = new Map<string, ScoutFixtureRow[]>();
+  const fixturesByPair = new Map<string, ScoutFixtureRow[]>();
   for (const fixture of fixtures) {
     const pair = teamPairKey(fixture.team_a, fixture.team_b);
     if (!pair) continue;
     const key = `${fixture.season}::${pair}`;
     fixturesBySeasonAndPair.set(key, [...(fixturesBySeasonAndPair.get(key) ?? []), fixture]);
+    fixturesByPair.set(pair, [...(fixturesByPair.get(pair) ?? []), fixture]);
   }
 
   return reports.flatMap((report) => {
     const explicitFixtureId = asNullableString(report.fixture_id);
-    if (explicitFixtureId && fixturesById.has(explicitFixtureId)) {
-      return [{ ...report, fixture_id: explicitFixtureId }];
+    const resolvedExplicitFixtureId = explicitFixtureId
+      ? (fixturesById.has(explicitFixtureId) ? explicitFixtureId : fixtureIdAliases.get(explicitFixtureId) ?? null)
+      : null;
+    if (resolvedExplicitFixtureId) {
+      return [{ ...report, fixture_id: resolvedExplicitFixtureId }];
     }
 
     const season = asNullableString(report.season);
@@ -162,7 +210,14 @@ function resolveReportFixtureIds(
       teamB ? teamNamesById.get(teamB) ?? null : null,
     );
     if (!season || !pair) return [];
-    const candidates = fixturesBySeasonAndPair.get(`${season}::${pair}`) ?? [];
+    let candidates = fixturesBySeasonAndPair.get(`${season}::${pair}`) ?? [];
+    // Reports submitted before the Academy season split can still carry the
+    // shared Premier code (S5). The fixture pair is the safe fallback here:
+    // candidates already come from the selected Academy team scope and an
+    // ambiguous pair is rejected rather than guessed.
+    if (candidates.length === 0 && league === "academy" && !seasonBelongsToLeague(season, "academy")) {
+      candidates = fixturesByPair.get(pair) ?? [];
+    }
     return candidates.length === 1
       ? [{ ...report, fixture_id: candidates[0].id }]
       : [];
@@ -263,15 +318,26 @@ export async function fetchScoutingHistory(
   ]);
 
   const scope = createLeagueFixtureScope(input.leagueTeamNames);
-  const fixtures = asRows(fixtureRows)
+  const allFixtures = asRows(fixtureRows)
     .map(mapFixture)
+    .filter((fixture): fixture is ScoutFixtureRow => Boolean(fixture));
+  const fixtures = allFixtures
     .filter((fixture): fixture is ScoutFixtureRow => Boolean(
-      fixture &&
       seasonBelongsToLeague(fixture.season, input.league) &&
       scope.includesFixture(fixture),
     ));
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const fixtureIds = new Set(fixturesById.keys());
+  const teamNameAliases = new Map(
+    asRows(teamRows).flatMap((row) => {
+      const name = asNullableString(row.name);
+      const abbreviation = asNullableString(row.abbreviation);
+      return name && abbreviation
+        ? [[normalizeName(abbreviation), name] as const]
+        : [];
+    }),
+  );
+  const fixtureIdAliases = buildLegacyAcademyFixtureAliases(allFixtures, fixtures, input.league, teamNameAliases);
   const teamNamesById = new Map(
     asRows(teamRows)
       .flatMap((row) => {
@@ -282,6 +348,9 @@ export async function fetchScoutingHistory(
   );
   const drafts = asRows(draftRows)
     .map(mapDraft)
+    .map((draft) => draft
+      ? { ...draft, fixture_id: fixtureIdAliases.get(draft.fixture_id) ?? draft.fixture_id }
+      : null)
     .filter((draft): draft is ScoutDraftRow => Boolean(draft && fixtureIds.has(draft.fixture_id)))
     .map((draft) => {
       const fixture = fixturesById.get(draft.fixture_id);
@@ -293,7 +362,7 @@ export async function fetchScoutingHistory(
           }
         : draft;
     });
-  const reports = resolveReportFixtureIds(asRows(reportRows), fixtures, fixturesById, teamNamesById)
+  const reports = resolveReportFixtureIds(asRows(reportRows), fixtures, fixturesById, teamNamesById, fixtureIdAliases, input.league)
     .filter((report) => fixtureIds.has(asNullableString(report.fixture_id) ?? ""));
   const reportedDrafts = await loadReportedDrafts(reports, asRows(reportGameRows), fixturesById, teamNamesById);
   for (const reportedDraft of reportedDrafts) {
@@ -313,12 +382,12 @@ export async function fetchIngestedScoutingGames(
   fixtures: ScoutFixtureRow[] = [],
   league: FetchScoutingHistoryInput["league"] = "premier",
 ): Promise<IngestedScoutingGame[]> {
-  const rows = (await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
+  const allRows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
       .from("raw_stats")
       .select(INGESTED_SCOUTING_COLUMNS)
       .order("id")
-      .range(from, to))).filter((row) => seasonBelongsToLeague(row.season, league));
-  if (rows.length === 0) return buildIngestedScoutingGames(roster, rows);
+      .range(from, to));
+  if (allRows.length === 0) return buildIngestedScoutingGames(roster, allRows);
 
   const [reportGames, reports] = await Promise.all([
     fetchAllScoutingRows<{ id: string; match_id: string | null; report_id: string | null; game_number: number | null }>((from, to) => supabase
@@ -341,7 +410,7 @@ export async function fetchIngestedScoutingGames(
           const id = asNullableString(row.id);
           const name = asNullableString(row.name);
           return id && name ? [[id, name] as const] : [];
-        })))
+        })), new Map(), league)
       : asRows(reports))
       .flatMap((row) => {
         const id = asNullableString(row.id);
@@ -358,6 +427,19 @@ export async function fetchIngestedScoutingGames(
           : [];
       }),
   );
+  const fixtureSeasonsById = new Map(fixtures.map((fixture) => [fixture.id, fixture.season]));
+  const rows = allRows
+    .filter((row) => seasonBelongsToLeague(row.season, league) || (
+      league === "academy" &&
+      Boolean(row.match_id && fixtureIdsByMatchId.has(row.match_id))
+    ))
+    .map((row) => {
+      const reference = row.match_id ? fixtureIdsByMatchId.get(row.match_id) : undefined;
+      const fixtureSeason = reference ? fixtureSeasonsById.get(reference.fixtureId) : undefined;
+      return fixtureSeason && !seasonBelongsToLeague(row.season, league)
+        ? { ...row, season: fixtureSeason }
+        : row;
+    });
   return buildIngestedScoutingGames(roster, rows, fixtureIdsByMatchId);
 }
 
