@@ -32,14 +32,13 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
   },
 ];
 
-function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean, showFpldle: boolean): DropdownLink[] {
+function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): DropdownLink[] {
   const links = [
     ["Players", "players"],
     ["Teams", "teams"],
     ["Schedule", "schedule"],
-    ...(showFpldle ? [["FPL'dle", "fpldle"]] : []),
   ].map(([label, page]) => ({
-    href: leaguePath(page as "players" | "teams" | "schedule" | "fpldle", view),
+    href: leaguePath(page as "players" | "teams" | "schedule", view),
     label,
   }));
 
@@ -65,14 +64,15 @@ function isActive(pathname: string | null, href: string) {
 }
 
 function isPremiumActive(pathname: string | null) {
-  return ["/premium", "/betting", "/bangers", "/cards", "/drafter"].some((href) => isActive(pathname, href));
+  return ["/premium", "/betting", "/bangers", "/cards", "/drafter", "/fpldle", "/academy/fpldle"].some((href) =>
+    isActive(pathname, href),
+  );
 }
 
 export default function SiteNavigation({
   authSlot,
   showAdmin = false,
   showBroadcaster = false,
-  showFpldle = false,
 }: {
   authSlot: ReactNode;
   /** Renders the Admin hub link — set server-side for signed-in admins/owners
@@ -81,16 +81,13 @@ export default function SiteNavigation({
   /** Renders the Broadcaster workspace link — set server-side for owners and
    * broadcasters only. Presentation only; /broadcaster re-checks access. */
   showBroadcaster?: boolean;
-  /** Renders the FPL'dle test route only for site admins. Route and action
-   * authorization remain authoritative if the link is hidden or forged. */
-  showFpldle?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const league = resolveLeagueFromPath(pathname ?? "/");
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
-    { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster, showFpldle) },
+    { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];
   const [open, setOpen] = useState(false);
