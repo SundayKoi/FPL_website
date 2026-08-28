@@ -6,7 +6,7 @@ import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchDeployedCopyIds, fetchRuns, type ExpeditionRun } from "@/lib/expeditions/queries";
-import { fetchInventory, type InventoryRow } from "@/lib/packs/queries";
+import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -103,6 +103,17 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
       ])
     : [[], [], new Set<number>()];
 
+  // A run must always be able to name its own cards. The season read above
+  // is the collection as this page browses it, and a squad can sit outside
+  // it — a copy from another season's shelf, or one past whatever the
+  // collection read returned — so anything a run references and the shelf
+  // didn't hand back is fetched by id and folded in. They arrive already
+  // marked deployed, so they show in the strip and stay unpickable.
+  const shelved = new Set(inventory.map((copy) => copy.id));
+  const offShelf = [...new Set(runs.flatMap((run) => run.squad))].filter((id) => !shelved.has(id));
+  const copies =
+    offShelf.length > 0 ? [...inventory, ...(await fetchInventoryByIds(service, discordId, offShelf))] : inventory;
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -128,7 +139,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
       </header>
 
       <ExpeditionBoard
-        copies={inventory}
+        copies={copies}
         runs={runs}
         deployedIds={deployedIds}
         // Resolved server-side on the Eastern calendar the whole card

@@ -56,6 +56,31 @@ interface InventoryDbRow {
   acquired_at: string;
 }
 
+/** The columns a collection read needs. Named once because two functions
+ *  select exactly the same shape and a drift between them would hand one
+ *  caller a row the mapper can't read. */
+const INVENTORY_COLUMNS =
+  "id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at";
+
+/**
+ * PostgREST caps a response at max_rows (1000 in config.toml, and the same
+ * by default on the hosted project). A single select therefore does not
+ * return "a collection" — it returns the first thousand copies, silently,
+ * with no error and no marker.
+ *
+ * That is not a theoretical cap. It shipped as a real bug: a collector
+ * past a thousand copies saw an expedition in the field rendering two of
+ * its three cards as `#2317` and a `?`, because the run's squad was real
+ * and the collection read that had to name those copies had quietly
+ * stopped short of them.
+ *
+ * `acquired_at` alone is not a total order — two copies out of the same
+ * pack share it — and paging on a non-total order can repeat or skip rows
+ * between requests, so `id` is the tiebreak.
+ */
+const INVENTORY_PAGE = 1000;
+const INVENTORY_MAX_PAGES = 20;
+
 /** A user's collection for one season, newest pull first. Errors return
  *  empty — a collection page should render as "nothing yet" rather than
  *  500 when the migration hasn't been applied to this environment. */
@@ -64,14 +89,26 @@ export async function fetchInventory(
   discordId: string,
   season: string,
 ): Promise<InventoryRow[]> {
-  const { data, error } = await supabase
-    .from("card_inventory")
-    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at")
-    .eq("discord_id", discordId)
-    .eq("season", season)
-    .order("acquired_at", { ascending: false });
-  if (error) return [];
-  const rows = (data as InventoryDbRow[]) ?? [];
+  const rows: InventoryDbRow[] = [];
+  for (let page = 0; page < INVENTORY_MAX_PAGES; page += 1) {
+    const from = page * INVENTORY_PAGE;
+    const { data, error } = await supabase
+      .from("card_inventory")
+      .select(INVENTORY_COLUMNS)
+      .eq("discord_id", discordId)
+      .eq("season", season)
+      .order("acquired_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + INVENTORY_PAGE - 1);
+    // An error on the first page means no collection at all (a missing
+    // table, say); on a later page it means we return what we have rather
+    // than throwing away a thousand copies we already read.
+    if (error) break;
+    const batch = (data as InventoryDbRow[]) ?? [];
+    rows.push(...batch);
+    if (batch.length < INVENTORY_PAGE) break;
+  }
+  if (rows.length === 0) return [];
   // A copy freezes the card as it was pulled — ratings included, which is
   // the point. The team badge is the one exception: it is branding for a
   // team that can't change mid-season, and a copy pulled before that
@@ -138,7 +175,7 @@ export async function fetchInventoryByIds(
   if (ids.length === 0) return [];
   const { data, error } = await supabase
     .from("card_inventory")
-    .select("id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at")
+    .select(INVENTORY_COLUMNS)
     .eq("discord_id", discordId)
     .in("id", ids);
   if (error) return [];

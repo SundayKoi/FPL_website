@@ -957,7 +957,12 @@ export default function PlayerCard3D(props: {
   // wrapper-branch reasoning as the two relics below it.
   if (props.card.team) {
     return (
-      <div className={`w-full max-w-[20rem] ${props.className ?? ""}`}>
+      // The SAME fixed 20rem shell PlayerCardFace and the moment plate use.
+      // Not `w-full max-w-[20rem]`: the card grids lay their cells out with
+      // flex, and a flex item whose only width is 100% has no intrinsic
+      // width to resolve against — the plate collapsed to a thumbnail on
+      // the collection page while every card beside it stayed full size.
+      <div className={`relative ${props.className ?? ""}`} style={{ width: "20rem" }}>
         <TeamCard
           team={props.card.team}
           foil={props.forceFoil === true}

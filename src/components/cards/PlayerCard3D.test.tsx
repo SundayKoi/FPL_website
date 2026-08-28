@@ -355,6 +355,39 @@ describe("a moment sits the same size as the cards beside it", () => {
     expect((container.firstChild as HTMLElement).className).toContain("max-w-[18rem]");
   });
 
+  it("renders a roster plate in the same 20rem shell as every other card", () => {
+    // The bug this pins: the plate's shell was `w-full max-w-[20rem]`, and
+    // the card grids are flex, so it had no intrinsic width to resolve
+    // against and collapsed to a thumbnail beside full-size player cards.
+    const teamCard = {
+      ...card,
+      team: {
+        teamName: "Iron Wolves Gaming",
+        abbr: "IWG",
+        imageUrl: null,
+        monogram: "IWG",
+        bannerColor: "#c8102e",
+        overall: 78,
+        tierKey: "platinum",
+        tierLabel: "Platinum",
+        weekStart: "2026-08-24",
+        slots: [
+          { role: "Top", name: "Alba", slug: "alba", overall: 80, champion: "Ornn", standout: false, autograph: null },
+          { role: "Jungle", name: "Bo", slug: "bo", overall: 78, champion: "Lee Sin", standout: false, autograph: null },
+          { role: "Mid", name: "Ciivil", slug: "ciivil", overall: 79, champion: "Ahri", standout: false, autograph: null },
+          { role: "Bot", name: "Dee", slug: "dee", overall: 77, champion: "Jhin", standout: false, autograph: null },
+          { role: "Support", name: "Eve", slug: "eve", overall: 76, champion: "Thresh", standout: false, autograph: null },
+        ],
+      },
+    } as unknown as typeof card;
+    const { container } = render(<PlayerCard3D card={teamCard} />);
+
+    expect((container.firstChild as HTMLElement).style.width).toBe("20rem");
+    // The tag, not the name — five panels is no room for "Iron Wolves Gaming".
+    expect(container.textContent).toContain("IWG");
+    expect(container.textContent).toContain("Ciivil");
+  });
+
   it("renders a champions card as the Hand, in the same 20rem shell", () => {
     const champCard = {
       ...card,
