@@ -188,9 +188,21 @@ function BettingGamePreview({ market }: { market: MarketCardData | null }) {
 export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
+  const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
+      <aside aria-label="New feature announcement" className="rounded border border-coral/50 bg-coral/10 px-4 py-3 text-sm text-steel">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span className="label-dash">New feature announcement</span>
+            <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s {leagueLabel} player puzzle within five guesses to earn $200 betting dollars.</p>
+          </div>
+          <Link href={fpldleHref} className="shrink-0 rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
+            Play FPL&apos;dle →
+          </Link>
+        </div>
+      </aside>
       <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PREMIUM_LINKS.map((link) => (
           <Link key={link.href} href={link.href} className="rounded-lg border border-line bg-panel/60 p-4 transition hover:border-coral/60">

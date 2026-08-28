@@ -97,18 +97,8 @@ describe("FpldleBoard", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
-  });
-
-  it("announces FPL'dle on Premier and shows the completion reward", () => {
-    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
-
-    expect(screen.getByRole("complementary", { name: "New feature announcement" }).textContent).toContain("FPL'dle is here");
     expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$200 betting dollars");
-
-    cleanup();
-    render(<FpldleBoard game={game()} league="academy" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
-    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$200 betting dollars");
   });
 
   it("places the player chooser above guess history", () => {

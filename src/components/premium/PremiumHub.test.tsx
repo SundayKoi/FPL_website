@@ -45,12 +45,17 @@ describe("PremiumHub betting preview", () => {
   it("links members to the daily puzzle for the selected league", () => {
     render(<PremiumHub snapshot={snapshot} />);
 
+    const announcement = screen.getByRole("complementary", { name: "New feature announcement" });
+    expect(announcement.textContent).toContain("FPL'dle is here");
+    expect(within(announcement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/fpldle");
+
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
+    expect(within(screen.getByRole("complementary", { name: "New feature announcement" })).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
   });
 

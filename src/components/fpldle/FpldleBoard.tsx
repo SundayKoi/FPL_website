@@ -418,12 +418,6 @@ export default function FpldleBoard({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      {league === "premier" ? (
-        <aside aria-label="New feature announcement" className="rounded border border-coral/50 bg-coral/10 px-4 py-3 text-sm text-steel">
-          <span className="label-dash">New feature announcement</span>
-          <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s Premier player puzzle within five guesses to earn $200 betting dollars.</p>
-        </aside>
-      ) : null}
       <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
         <span className="label-dash">Daily reward</span>
         <p className="mt-2 text-white">Complete the puzzle within five guesses for $200 betting dollars, credited automatically once per league puzzle.</p>
