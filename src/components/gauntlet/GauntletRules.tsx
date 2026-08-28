@@ -8,6 +8,7 @@
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
+import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { CONDITION_CATALOG, TRAIT_CATALOG } from "@/lib/gauntlet/traits";
 import { FRESH_LEGS_BONUS, GAUNTLET_ROUNDS, TRIALIST_OVERALL } from "@/lib/gauntlet/sim";
 
@@ -55,9 +56,10 @@ export default function GauntletRules() {
           <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
           walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
           board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
-          starts well under it and round {GAUNTLET_ROUNDS} ends over it. Roughly 94% of runs clear round 1, four in
-          ten reach round 4, and about 4% clear all eight. A stacked shelf gets a harder bracket — but not a
-          proportionally harder one, so your cards do count. See below.
+          starts well under it and round {GAUNTLET_ROUNDS} ends over it, with a wall standing at rounds{" "}
+          {GATE_ROUND} and {FINAL_ROUND}. For a player who reads what&apos;s on offer: about 94% clear round 1,
+          four in ten reach round {GATE_ROUND}, and roughly one run in twenty clears all eight. A stacked shelf
+          gets a harder bracket — but not a proportionally harder one, so your cards do count. See below.
         </p>
       </Section>
 
@@ -229,6 +231,46 @@ export default function GauntletRules() {
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section title="The walls at rounds 4 and 8">
+        <p>
+          Rounds <b className="text-white">{GATE_ROUND}</b> and{" "}
+          <b className="text-white">{FINAL_ROUND}</b> are fought against a named wall. A wall is not a bigger
+          number — it is a <b className="text-white">rule that breaks one of your tools</b>, printed in full
+          on the scouting screen before you commit, with its counter-play beside it. They also field a
+          slightly stronger five, so the round reads as a wall on the way past.
+        </p>
+        <p>Which wall stands where rotates every week, the same for everyone.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[...GATE_BOSSES, ...FINAL_BOSSES].map((boss) => (
+            <div key={boss.key} className="rounded-lg border border-coral/40 bg-coral/5 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
+                {boss.title}
+                <span className="ml-2 font-normal normal-case tracking-normal text-steel">
+                  round {GATE_BOSSES.includes(boss) ? GATE_ROUND : FINAL_ROUND}
+                </span>
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{boss.rule}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">↳ {boss.counter}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="The week's bracket is the same for everyone">
+        <p>
+          The eight teams you climb are seeded by the <b className="text-white">week</b>, not by your run. The
+          comp you meet in round 3, the traits it wears, the patch it plays under and the wall standing at
+          round 4 are <b className="text-white">identical for every player in the league</b> for those seven
+          days — so the board compares runs against a shared bracket instead of eight private sets of dice,
+          and &ldquo;how did you get past the round-6 protect comp&rdquo; is a question with one answer.
+        </p>
+        <p>
+          Only their <i>ratings</i> still scale to your own five, because a shared bracket that ignored your
+          shelf would just be an unfair one. And the <b className="text-white">fight itself</b> keeps its own
+          private seed: the cast is public, the dice are not.
+        </p>
       </Section>
 
       <Section title="Round conditions — the patch you play under">

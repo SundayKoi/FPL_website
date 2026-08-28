@@ -46,7 +46,8 @@ import {
   traitCountFor,
 } from "./traits";
 import { buildAutopsy } from "./autopsy";
-import { bracketTarget, generateOpponent, LEAGUE_BASELINE } from "./opponents";
+import { bracketTarget, generateOpponent, LEAGUE_BASELINE, weekSeed } from "./opponents";
+import { bossEffects } from "./bosses";
 
 /** A five-card team at one flat rating, stats shaped by `shape`. */
 function team(overall: number, shape: Partial<Record<string, number>> = {}): GauntletCard[] {
@@ -734,6 +735,175 @@ describe("relics", () => {
   });
 });
 
+describe("the walls at rounds 4 and 8", () => {
+  const withBoss = (key: string): MatchContext => ({ ...bare(), boss: bossEffects(key) });
+
+  it("THE GATEKEEPER takes every check you only just won", () => {
+    // A check won by a hair is yours everywhere else in the game.
+    const hair = (tieBand?: number) =>
+      runContest(
+        {
+          key: "t", kind: "fight", label: "T", clock: 1, yourKeys: [], theirKeys: [],
+          yourVal: 51, theirVal: 50, spread: 0, tieBand,
+        },
+        () => 0.5,
+      );
+    expect(hair().won).toBe(true);
+    expect(hair(bossEffects("gatekeeper").tieBand).won).toBe(false);
+    // A real edge still carries.
+    const clear = runContest(
+      {
+        key: "t", kind: "fight", label: "T", clock: 1, yourKeys: [], theirKeys: [],
+        yourVal: 55, theirVal: 50, spread: 0, tieBand: 2,
+      },
+      () => 0.5,
+    );
+    expect(clear.won).toBe(true);
+    // ...and it costs real matches, not just one edge case.
+    let plain = 0;
+    let gatekeeper = 0;
+    for (let seed = 0; seed < 300; seed += 1) {
+      if (simulateMatch(team(74), team(74), bare(), mulberry32(seed)).won) plain += 1;
+      if (simulateMatch(team(74), team(74), withBoss("gatekeeper"), mulberry32(seed)).won) gatekeeper += 1;
+    }
+    expect(gatekeeper).toBeLessThan(plain);
+  });
+
+  it("THE ARCHIVIST erases the lineup you drafted for", () => {
+    const built = shapedTeam(74, ["combat", "presence"], "One Org");
+    let shaped = 0;
+    let scouted = 0;
+    for (let seed = 0; seed < 300; seed += 1) {
+      if (simulateMatch(built, team(76), bare(), mulberry32(seed)).won) shaped += 1;
+      if (simulateMatch(built, team(76), withBoss("archivist"), mulberry32(seed)).won) scouted += 1;
+    }
+    expect(scouted).toBeLessThan(shaped);
+    // A five with no shape has nothing to erase, so the rule is a no-op.
+    const flat = team(74);
+    let flatPlain = 0;
+    let flatScouted = 0;
+    for (let seed = 0; seed < 200; seed += 1) {
+      if (simulateMatch(flat, team(76), bare(), mulberry32(seed)).won) flatPlain += 1;
+      if (simulateMatch(flat, team(76), withBoss("archivist"), mulberry32(seed)).won) flatScouted += 1;
+    }
+    expect(flatScouted).toBe(flatPlain);
+  });
+
+  it("THE PIT KING takes the Baron line off the table entirely", () => {
+    for (let seed = 0; seed < 60; seed += 1) {
+      const rand = mulberry32(seed);
+      const ctx = withBoss("pit_king");
+      const half = simulateFirstHalf(team(80), team(74), ctx, rand);
+      const situation = CROSSROADS_BY_KEY.get(half.situationKey)!;
+      // Call the Baron wherever the board offers it — it still isn't yours.
+      const call = situation.choices.find((choice) => choice.consequence.onWin?.pit === "yours");
+      const result = simulateSecondHalf(half, call?.key ?? "", team(80), team(74), ctx, rand);
+      expect(result.baron.yours).toBe(false);
+    }
+  });
+
+  it("THE UNBROKEN caps the snowball, THE CLOSER doubles a lost fight", () => {
+    const ceiling = bossEffects("unbroken").momentumCeiling!;
+    for (let seed = 0; seed < 120; seed += 1) {
+      // Momentum is re-derived at the nexus, so check the tape's beats.
+      const result = simulateMatch(team(86), team(66), withBoss("unbroken"), mulberry32(seed));
+      const crossroads = result.contests.find((contest) => contest.kind === "crossroads");
+      if (crossroads) expect(crossroads.yourVal).toBeGreaterThan(0);
+      expect(result.baron.hpAtResolve).toBeGreaterThanOrEqual(0);
+    }
+    expect(ceiling).toBeLessThan(95);
+
+    // The Closer: same seeds, lost fights hurt more, so you win less.
+    let plain = 0;
+    let closer = 0;
+    for (let seed = 0; seed < 300; seed += 1) {
+      if (simulateMatch(team(72), team(74), bare(), mulberry32(seed)).won) plain += 1;
+      if (simulateMatch(team(72), team(74), withBoss("closer"), mulberry32(seed)).won) closer += 1;
+    }
+    expect(closer).toBeLessThan(plain);
+  });
+
+  it("makes rounds 4 and 8 measurably harder than their neighbours", () => {
+    // The wall has to READ as a wall on the way past, or the rule is
+    // flavour text. Any ONE week's round 3 and round 4 differ by their
+    // traits and patch as much as by the boss, so this averages over
+    // twelve weeks to isolate what the wall itself is worth.
+    const winRateAt = (round: number) => {
+      let wins = 0;
+      let played = 0;
+      const day = new Date(Date.UTC(2026, 0, 5));
+      for (let week = 0; week < 12; week += 1) {
+        const key = day.toISOString().slice(0, 10);
+        const opponent = generateOpponent(74, round, mulberry32(weekSeed(key, round)));
+        const ctx: MatchContext = {
+          effects: {},
+          foe: aggregateTraits(opponent.traits ?? []),
+          arena: conditionEffects(opponent.condition),
+          boss: bossEffects(opponent.boss),
+        };
+        for (let seed = 0; seed < 120; seed += 1) {
+          played += 1;
+          if (simulateMatch(team(74), opponent.cards, ctx, mulberry32(seed * 13 + week)).won) wins += 1;
+        }
+        day.setUTCDate(day.getUTCDate() + 7);
+      }
+      return wins / played;
+    };
+    expect(winRateAt(4)).toBeLessThan(winRateAt(3));
+    expect(winRateAt(8)).toBeLessThan(winRateAt(7));
+  });
+});
+
+describe("seeded weeks", () => {
+  it("hands the whole league the same cast, scaled to each shelf", () => {
+    const week = "2026-08-31";
+    const round = 3;
+    const teams = [64, 74, 88].map((avg) => generateOpponent(avg, round, mulberry32(weekSeed(week, round))));
+    const [weak, mid, strong] = teams;
+    // Same characters, same traits, same patch...
+    for (const other of [mid, strong]) {
+      expect(other.style).toBe(weak.style);
+      expect(other.traits).toEqual(weak.traits);
+      expect(other.condition).toBe(weak.condition);
+      expect(other.boss).toBe(weak.boss);
+      expect(other.cards.map((card) => card.name)).toEqual(weak.cards.map((card) => card.name));
+    }
+    // ...and only the RATINGS follow your own five, so a shared bracket
+    // never becomes an unfair one.
+    expect(weak.avg).toBeLessThan(mid.avg);
+    expect(mid.avg).toBeLessThan(strong.avg);
+  });
+
+  it("gives a different week a different bracket", () => {
+    const a = generateOpponent(74, 3, mulberry32(weekSeed("2026-08-31", 3)));
+    const b = generateOpponent(74, 3, mulberry32(weekSeed("2026-09-07", 3)));
+    expect(weekSeed("2026-08-31", 3)).not.toBe(weekSeed("2026-09-07", 3));
+    expect(weekSeed("2026-08-31", 3)).not.toBe(weekSeed("2026-08-31", 4));
+    expect([a.style, a.traits?.join(), a.condition].join("|")).not.toBe(
+      [b.style, b.traits?.join(), b.condition].join("|"),
+    );
+    // Stable: the same week always rebuilds the same seed.
+    expect(weekSeed("2026-08-31", 3)).toBe(weekSeed("2026-08-31", 3));
+  });
+
+  it("spreads styles and patches evenly over a season of weeks", () => {
+    const styles: Record<string, number> = { poke: 0, dive: 0, protect: 0 };
+    const day = new Date(Date.UTC(2026, 0, 5));
+    for (let week = 0; week < 52; week += 1) {
+      const key = day.toISOString().slice(0, 10);
+      for (let round = 1; round <= 8; round += 1) {
+        styles[generateOpponent(74, round, mulberry32(weekSeed(key, round))).style] += 1;
+      }
+      day.setUTCDate(day.getUTCDate() + 7);
+    }
+    // 416 draws over three styles — a hash that clumps would show here.
+    for (const count of Object.values(styles)) {
+      expect(count).toBeGreaterThan(100);
+      expect(count).toBeLessThan(180);
+    }
+  });
+});
+
 describe("calibration — the run curve itself", () => {
   /** A player who reads the relic card: takes the best net stat on offer,
    *  discounting dials they haven't built for. The realistic ceiling. */
@@ -790,8 +960,9 @@ describe("calibration — the run curve itself", () => {
     // players: one who takes whatever relic is offered first, and one who
     // reads the card. A 31-relic catalog with real tradeoffs is supposed
     // to reward knowing it — but never to lock out someone who doesn't.
-    // Measured: blind ~1.0% clears with a third of runs reaching round 4;
-    // sensible ~5.8%. Crossroads play and a committed lineup add on top.
+    // Measured with the walls standing at rounds 4 and 8: blind ~0.7%
+    // clears with a quarter of runs reaching round 4; sensible ~5.4%.
+    // Crossroads play and a committed lineup add on top.
     const blind = campaign(1000, (offer) => offer[0]);
     const read = campaign(1000, sensiblePick);
 

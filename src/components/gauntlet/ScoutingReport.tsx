@@ -5,14 +5,33 @@
 // just noise wearing a costume, so traits and the round's condition are
 // as public as the enemy's stat line.
 
+import { BOSS_BY_KEY, bossRoundOf } from "@/lib/gauntlet/bosses";
 import { CONDITION_BY_KEY, TRAIT_BY_KEY } from "@/lib/gauntlet/traits";
 import type { OpponentTeam } from "@/lib/gauntlet/opponents";
 
 export default function ScoutingReport({ opponent }: { opponent: OpponentTeam }) {
   const traits = (opponent.traits ?? []).map((key) => TRAIT_BY_KEY.get(key)).filter(Boolean);
   const condition = CONDITION_BY_KEY.get(opponent.condition ?? "standard");
+  const boss = opponent.boss ? BOSS_BY_KEY.get(opponent.boss) : null;
   return (
     <div className="flex flex-col gap-3">
+      {boss ? (
+        <div
+          className="rounded-xl border border-coral/60 p-4"
+          style={{
+            background: "linear-gradient(180deg,rgba(255,107,53,.14),rgba(0,0,0,.35))",
+            boxShadow: "0 0 34px -16px #ff6b35",
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-coral">
+            ⚠ The wall · round {bossRoundOf(opponent.boss)}
+          </span>
+          <p className="type-display mt-1 text-2xl text-white sm:text-3xl">{boss.title}</p>
+          <p className="mt-1 text-xs italic text-steel">&ldquo;{boss.flavor}&rdquo;</p>
+          <p className="mt-2.5 text-sm font-semibold leading-5 text-white">{boss.rule}</p>
+          <p className="mt-1.5 font-mono text-[11px] leading-4 text-gold">↳ {boss.counter}</p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {opponent.cards.map((card) => (
           <div key={card.name} className="w-[104px] rounded-lg border border-[#6b3d47] bg-[#221016] px-2.5 py-2">

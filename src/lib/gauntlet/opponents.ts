@@ -12,6 +12,7 @@ import {
   type GauntletRole,
   GAUNTLET_ROLES,
 } from "./sim";
+import { bossFor } from "./bosses";
 import { rollCondition, rollTraits } from "./traits";
 import type { MeasureKey } from "@/lib/cards/measures";
 
@@ -37,6 +38,25 @@ const ALL_KEYS: MeasureKey[] = [
   "combat", "damage", "economy", "laning", "vision", "objectives", "turrets", "survival", "presence", "impact",
 ];
 
+/** A stable 32-bit seed from the week and the round.
+ *
+ *  THE POINT: the opponent a player meets in round 3 this week is the
+ *  same character, wearing the same traits, under the same patch, as the
+ *  one everybody else meets — so the weekly board compares runs against a
+ *  shared bracket instead of eight private dice. Only the enemy's RATINGS
+ *  still scale to your own five (bracketTarget), because a shared bracket
+ *  that ignores your shelf would just be an unfair one. The FIGHT keeps
+ *  its own CSPRNG seed: the cast is public, the dice are not. */
+export function weekSeed(weekStart: string, round: number): number {
+  let hash = 0x811c9dc5;
+  const key = `${weekStart}#${round}`;
+  for (let i = 0; i < key.length; i += 1) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
 export interface OpponentTeam {
   cards: GauntletCard[];
   style: CompStyle;
@@ -47,7 +67,12 @@ export interface OpponentTeam {
   traits?: string[];
   /** The round's condition key — the rules both sides play under. */
   condition?: string;
+  /** The wall's key on rounds 4 and 8 — null everywhere else. */
+  boss?: string | null;
 }
+
+/** What a wall adds to its five's ratings on top of its rule. */
+export const BOSS_RATING_BUMP = 1.5;
 
 /** The reference lineup the bracket is priced against — roughly what a
  *  season's shelf produces once a player owns a card per role. */
@@ -73,7 +98,7 @@ const LINEUP_TRACKING = 0.88;
  *  band); anything that moves it is a rebalance, not a refactor. */
 export function bracketTarget(lineupAvg: number, round: number): number {
   const priced = LINEUP_TRACKING * lineupAvg + (1 - LINEUP_TRACKING) * LEAGUE_BASELINE;
-  return clamp(Math.round(priced - 10 + round * 2.2), 45, 92);
+  return clamp(Math.round(priced - 10 + round * 2.15), 45, 92);
 }
 
 /**
@@ -87,11 +112,19 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   const target = bracketTarget(lineupAvg, round);
   const shape = STYLE_SHAPE[style];
 
+  // A boss round is fought by a NAMED wall, not another anonymous five.
+  // The rule is what makes it memorable; this small rating bump is what
+  // makes the round read as a WALL on the way past — a boss that is only
+  // a rule disappears into the ramp, and one that is only a bump teaches
+  // nothing. Both, and neither alone.
+  const boss = bossFor(round, rand);
+  const bossBump = boss ? BOSS_RATING_BUMP : 0;
+
   const bank = [...NAME_BANKS[style]];
   const cards: GauntletCard[] = GAUNTLET_ROLES.map((role: GauntletRole) => {
     const nameIndex = Math.min(bank.length - 1, Math.floor(rand() * bank.length));
     const name = bank.splice(nameIndex, 1)[0] ?? `${style} ${role}`;
-    const overall = clamp(Math.round(target + (rand() - 0.5) * 10), 40, 95);
+    const overall = clamp(Math.round(target + bossBump + (rand() - 0.5) * 10), 40, 95);
     const stats: Partial<Record<MeasureKey, number>> = {};
     for (const key of ALL_KEYS) {
       const hot = shape.hot.includes(key) ? 8 : 0;
@@ -106,5 +139,15 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   // the scouting screen and the fight always agree.
   const traits = rollTraits(round, rand);
   const condition = rollCondition(round, rand);
-  return { cards, style, avg, label: `${style.toUpperCase()} COMP · ${avg} AVG`, traits, condition };
+  return {
+    cards,
+    style,
+    avg,
+    label: boss
+      ? `${boss.title} · ${style.toUpperCase()} COMP · ${avg} AVG`
+      : `${style.toUpperCase()} COMP · ${avg} AVG`,
+    traits,
+    condition,
+    boss: boss?.key ?? null,
+  };
 }

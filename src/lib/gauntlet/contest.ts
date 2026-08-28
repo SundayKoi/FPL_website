@@ -55,6 +55,12 @@ export interface ContestInput {
   spread: number;
   decidedBy?: string | null;
   role?: GauntletRole | null;
+  /** How far a check must land in your favour to count as yours. Zero by
+   *  default, so a dead-even check is yours. THE GATEKEEPER raises it:
+   *  margins under the band go to THEM, which is a rule that can actually
+   *  fire — exact float ties never happen, so a "ties go to them" boss
+   *  would have been flavour text. */
+  tieBand?: number;
 }
 
 /**
@@ -64,6 +70,7 @@ export interface ContestInput {
 export function runContest(input: ContestInput, rand: () => number): Contest {
   const roll = (rand() - 0.5) * input.spread;
   const margin = input.yourVal + roll - input.theirVal;
+  const won = margin >= (input.tieBand ?? 0);
   return {
     key: input.key,
     kind: input.kind,
@@ -75,7 +82,7 @@ export function runContest(input: ContestInput, rand: () => number): Contest {
     theirVal: Math.round(input.theirVal * 10) / 10,
     roll: Math.round(roll * 10) / 10,
     margin: Math.round(margin * 10) / 10,
-    won: margin >= 0,
+    won,
     goldSwing: 0,
     decidedBy: input.decidedBy ?? null,
     role: input.role ?? null,

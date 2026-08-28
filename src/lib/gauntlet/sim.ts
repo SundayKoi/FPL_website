@@ -22,7 +22,8 @@
 
 import type { MeasureKey } from "@/lib/cards/measures";
 import type { RelicEffects } from "./relics";
-import { type Contest, type ContestKind, contestDetail, runContest } from "./contest";
+import { type Contest, type ContestInput, type ContestKind, contestDetail, runContest } from "./contest";
+import type { BossEffects } from "./bosses";
 import type { ConditionEffects, TraitEffects } from "./traits";
 import {
   type CrossroadsChoice,
@@ -146,6 +147,14 @@ export interface MatchContext {
   foe: TraitEffects;
   /** The round's condition — the rules, for both sides. */
   arena: ConditionEffects;
+  /** The wall's rule on a boss round. Empty on every other round. */
+  boss?: BossEffects;
+}
+
+/** Every check in the match runs through here so a boss's tie band can't
+ *  be forgotten at one call site and silently not apply. */
+function checked(ctx: MatchContext, input: ContestInput, rand: () => number): Contest {
+  return runContest({ ...input, tieBand: ctx.boss?.tieBand ?? 0 }, rand);
 }
 
 /** Everything the ledger accumulates across the two halves. */
@@ -317,7 +326,15 @@ export function lineupShapeOf(team: GauntletCard[]): LineupShape {
 
 /** What the shape is worth on one beat — signature beats get commitment,
  *  everything gets chemistry. */
-function shapeBonus(shape: LineupShape, kind: ContestKind, effects?: RelicEffects): number {
+function shapeBonus(
+  shape: LineupShape,
+  kind: ContestKind,
+  effects?: RelicEffects,
+  boss?: BossEffects,
+): number {
+  // THE ARCHIVIST scouted your five: the shape you drafted for pays
+  // nothing this round, and the run is decided on raw bars.
+  if (boss?.nullifyShape) return 0;
   const chem = CHEMISTRY_BEATS.includes(kind) ? shape.chemistryBonus * (effects?.chemistryMult ?? 1) : 0;
   const focus = FOCUS_BEATS[shape.style].includes(kind) ? shape.focusBonus * (effects?.commitmentMult ?? 1) : 0;
   return chem + focus;
@@ -335,6 +352,14 @@ export const LANE_KEY: Record<GauntletRole, MeasureKey> = {
 
 const byRole = (team: GauntletCard[], role: GauntletRole): GauntletCard | undefined =>
   team.find((card) => card.role === role);
+
+/** What a fight moves. THE CLOSER doubles the cost of the ones you lose
+ *  — one bad teamfight is the game, which is what a finale should feel
+ *  like. */
+function fightSwing(won: boolean, ctx: MatchContext): number {
+  const base = (won ? 8 : -8) * (ctx.arena.fightSwingMult ?? 1);
+  return won ? base : base * (ctx.boss?.lossSwingMult ?? 1);
+}
 
 /** The momentum below which a run counts as BEHIND — where comeback
  *  relics wake up. */
@@ -455,6 +480,9 @@ export function simulateFirstHalf(
 ): HalfState {
   const { effects } = ctx;
   const events: MatchEvent[] = [];
+  // THE UNBROKEN: your momentum can never climb past its ceiling, so
+  // there is no snowball to ride home.
+  const ceiling = ctx.boss?.momentumCeiling ?? 95;
   const shape = lineupShapeOf(yours);
   const yourStyle = shape.style;
   const theirStyle = compStyleOf(theirs);
@@ -510,10 +538,10 @@ export function simulateFirstHalf(
     const key = LANE_KEY[role];
     const yoursVal =
       (mine ? statOf(mine, key, effects) : TRIALIST_OVERALL - 10) + lanesFlat +
-      shapeBonus(shape, "lane", effects) + behindFlat(effects, momentum);
+      shapeBonus(shape, "lane", effects, ctx.boss) + behindFlat(effects, momentum);
     const theirsVal =
       (foe ? statOf(foe, key) : TRIALIST_OVERALL - 10) + (ctx.foe.lanesFlat ?? 0) + foeClockFlat(ctx, 8);
-    const contest = runContest(
+    const contest = checked(ctx,
       {
         key: `lane-${role}`, kind: "lane", label: `${role} lane`, clock: 8,
         yourKeys: [key], theirKeys: [key],
@@ -539,7 +567,7 @@ export function simulateFirstHalf(
   });
   const lanesWon = lanes.filter((lane) => lane.won).length;
   const laneSwing = (lanesWon - 2.5) * (4 * (effects.laneMomentumMult ?? 1));
-  momentum = clamp(momentum + laneSwing, 5, 95);
+  momentum = clamp(momentum + laneSwing, 5, ceiling);
   events.push({
     clock: 8, kind: "lanes", tone: lanesWon >= 3 ? "win" : "loss",
     text: `Lane phase — ${lanesWon} of 5 lanes won`,
@@ -550,13 +578,13 @@ export function simulateFirstHalf(
   });
 
   // ── Herald: the first map objective, and the first turret.
-  const heraldContest = runContest(
+  const heraldContest = checked(ctx,
     {
       key: "herald-11", kind: "objective", label: "🐚 Rift Herald", clock: 11,
       yourKeys: ["objectives", "turrets"], theirKeys: ["objectives", "presence"],
       yourVal:
         teamAvg(yours, ["objectives", "turrets"], effects) + (effects.objectivesFlat ?? 0) +
-        shapeBonus(shape, "objective", effects) + behindFlat(effects, momentum),
+        shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 11),
       spread: noise(28, ctx),
@@ -565,7 +593,7 @@ export function simulateFirstHalf(
     rand,
   );
   book(ledger, heraldContest, (heraldContest.won ? 520 : -520) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
-  momentum = clamp(momentum + (heraldContest.won ? 4 : -4), 5, 95);
+  momentum = clamp(momentum + (heraldContest.won ? 4 : -4), 5, ceiling);
   events.push({
     clock: 11, kind: "objective", tone: heraldContest.won ? "win" : "loss",
     text: heraldContest.won ? "🐚 Rift Herald — taken, first turret falls" : "🐚 Rift Herald — theirs, your top turret goes",
@@ -573,13 +601,13 @@ export function simulateFirstHalf(
   });
 
   // ── First dragon.
-  const dragonContest = runContest(
+  const dragonContest = checked(ctx,
     {
       key: "dragon-14", kind: "objective", label: "🐉 Dragon", clock: 14,
       yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
       yourVal:
         teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) +
-        shapeBonus(shape, "objective", effects) + behindFlat(effects, momentum),
+        shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 14),
       spread: noise(30, ctx),
@@ -588,7 +616,7 @@ export function simulateFirstHalf(
     rand,
   );
   book(ledger, dragonContest, (dragonContest.won ? 320 : -320) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
-  momentum = clamp(momentum + (dragonContest.won ? 5 : -5), 5, 95);
+  momentum = clamp(momentum + (dragonContest.won ? 5 : -5), 5, ceiling);
   events.push({
     clock: 14, kind: "objective", tone: dragonContest.won ? "win" : "loss",
     text: dragonContest.won ? "🐉 Dragon — taken clean" : "🐉 Dragon — conceded",
@@ -598,12 +626,12 @@ export function simulateFirstHalf(
   // ── The skirmish. Symmetric: no home cushion.
   const fightFlat = (effects.fightFlat ?? 0) + (effects.earlyFightBonus ?? 0);
   const carry = [...yours].sort((a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects))[0];
-  const skirmish = runContest(
+  const skirmish = checked(ctx,
     {
       key: "skirmish-18", kind: "fight", label: "⚔ Skirmish in river", clock: 18,
       yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
       yourVal:
-        teamAvg(yours, ["combat", "damage"], effects) + fightFlat + shapeBonus(shape, "fight", effects) +
+        teamAvg(yours, ["combat", "damage"], effects) + fightFlat + shapeBonus(shape, "fight", effects, ctx.boss) +
         behindFlat(effects, momentum),
       theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 18),
       spread: noise(28, ctx),
@@ -613,7 +641,7 @@ export function simulateFirstHalf(
   );
   book(ledger, skirmish, skirmish.won ? 900 : -900, ctx);
   bookFight(ledger, yours, skirmish.won, effects);
-  momentum = clamp(momentum + (skirmish.won ? 8 : -8) * (ctx.arena.fightSwingMult ?? 1), 5, 95);
+  momentum = clamp(momentum + fightSwing(skirmish.won, ctx), 5, ceiling);
   events.push({
     clock: 18, kind: "fight", tone: skirmish.won ? "win" : "loss",
     text: skirmish.won
@@ -649,7 +677,7 @@ export function previewCrossroadsChoice(
   return {
     yourVal: Math.round(
       teamAvg(yours, choice.yourKeys, ctx.effects) + choice.bonus + (ctx.effects.crossroadsBonus ?? 0) +
-        shapeBonus(lineupShapeOf(yours), "crossroads", ctx.effects) + behindFlat(ctx.effects, momentum),
+        shapeBonus(lineupShapeOf(yours), "crossroads", ctx.effects, ctx.boss) + behindFlat(ctx.effects, momentum),
     ),
     theirVal: Math.round(teamAvg(theirs, choice.theirKeys) + foeClockFlat(ctx, 20)),
   };
@@ -699,7 +727,7 @@ function baronDance(
     teamAvg(theirs, ["objectives", "combat"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, clock) +
     (yoursToStart ? 0 : startEdge);
 
-  const contest = runContest(
+  const contest = checked(ctx,
     {
       key: "baron-25", kind: "baron", label: yoursToStart ? "🟣 Baron — your call" : "🟣 Baron — contested",
       clock,
@@ -747,6 +775,7 @@ export function simulateSecondHalf(
   rand: () => number,
 ): Omit<MatchResult, "score"> {
   const { effects } = ctx;
+  const ceiling = ctx.boss?.momentumCeiling ?? 95;
   const shape = lineupShapeOf(yours);
   const situation: CrossroadsSituation = CROSSROADS_BY_KEY.get(state.situationKey) ?? {
     key: state.situationKey, title: "THE CALL", band: [0, 100], narration: "", choices: [],
@@ -772,7 +801,7 @@ export function simulateSecondHalf(
   if (!preview) {
     // A no-roll call always "lands": it just takes its small sure gain.
     spoils = choice.consequence.onWin;
-    momentum = clamp(momentum + choice.win * stakes, 5, 95);
+    momentum = clamp(momentum + choice.win * stakes, 5, ceiling);
     events.push({
       clock: 20, kind: "crossroads", tone: "neutral",
       text: `📣 ${situation.title}: ${choice.label} — no dice rolled, the lead is farmed out`,
@@ -781,7 +810,7 @@ export function simulateSecondHalf(
   } else {
     const spread = crossroadsSpread(ctx.arena);
     const chance = winChanceOf(preview.yourVal, preview.theirVal, spread);
-    const call = runContest(
+    const call = checked(ctx,
       {
         key: "crossroads-20", kind: "crossroads", label: `📣 ${choice.label}`, clock: 20,
         yourKeys: choice.yourKeys, theirKeys: choice.theirKeys,
@@ -792,7 +821,7 @@ export function simulateSecondHalf(
     );
     spoils = call.won ? choice.consequence.onWin : choice.consequence.onFail;
     book(ledger, call, (call.won ? 400 : -400) + (spoils?.gold ?? 0), ctx);
-    momentum = clamp(momentum + (call.won ? choice.win : choice.lose) * stakes, 5, 95);
+    momentum = clamp(momentum + (call.won ? choice.win : choice.lose) * stakes, 5, ceiling);
     if (call.won) daring = Math.round(daringAt(choice.scoreBonus, chance) * (effects.daringMult ?? 1));
     events.push({
       clock: 20, kind: "crossroads", tone: call.won ? "win" : "loss",
@@ -818,13 +847,13 @@ export function simulateSecondHalf(
   }
 
   // ── Soul point dragon.
-  const soul = runContest(
+  const soul = checked(ctx,
     {
       key: "soul-23", kind: "objective", label: "🐲 Soul point dragon", clock: 23,
       yourKeys: ["objectives", "presence"], theirKeys: ["objectives", "presence"],
       yourVal:
         teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) + callObjectives +
-        shapeBonus(shape, "objective", effects) + behindFlat(effects, momentum),
+        shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
         teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 23),
       spread: noise(30, ctx),
@@ -833,7 +862,7 @@ export function simulateSecondHalf(
     rand,
   );
   book(ledger, soul, (soul.won ? 450 : -450) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
-  momentum = clamp(momentum + (soul.won ? 5 : -5), 5, 95);
+  momentum = clamp(momentum + (soul.won ? 5 : -5), 5, ceiling);
   events.push({
     clock: 23, kind: "objective", tone: soul.won ? "win" : "loss",
     text: soul.won ? "🐲 Soul point dragon — secured" : "🐲 Soul point dragon — lost",
@@ -842,13 +871,19 @@ export function simulateSecondHalf(
 
   // ── The Baron pit. The call's OUTCOME decides who holds it when it
   //   says so; otherwise the scoreboard does.
-  const yoursToStart = spoils?.pit === "yours" ? true : spoils?.pit === "theirs" ? false : momentum >= 48;
+  const yoursToStart = ctx.boss?.holdsPit
+    ? false
+    : spoils?.pit === "yours"
+      ? true
+      : spoils?.pit === "theirs"
+        ? false
+        : momentum >= 48;
   const { dance, contest: baronContest } = baronDance(
     yours, theirs, ctx, yoursToStart, rand,
-    callObjectives + shapeBonus(shape, "baron", effects) + behindFlat(effects, momentum),
+    callObjectives + shapeBonus(shape, "baron", effects, ctx.boss) + behindFlat(effects, momentum),
   );
   book(ledger, baronContest, (dance.taken ? 1500 : -1500) * (ctx.arena.objectiveGoldMult ?? 1), ctx);
-  momentum = clamp(momentum + (dance.taken ? 9 : -9), 5, 95);
+  momentum = clamp(momentum + (dance.taken ? 9 : -9), 5, ceiling);
   events.push({
     clock: dance.clock, kind: "baron", tone: dance.taken ? "win" : "loss",
     text: dance.taken
@@ -861,13 +896,13 @@ export function simulateSecondHalf(
   // ── The fight that Baron buys — now weighted by the gold on the board.
   const edge = goldEdge(ledger.gold, ctx.arena) * (effects.goldEdgeMult ?? 1);
   const carry = [...yours].sort((a, b) => statOf(b, "damage", effects) - statOf(a, "damage", effects))[0];
-  const pitFight = runContest(
+  const pitFight = checked(ctx,
     {
       key: "fight-27", kind: "fight", label: "⚔ Fight at Baron pit", clock: 27,
       yourKeys: ["combat", "damage"], theirKeys: ["combat", "damage"],
       yourVal:
         teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + callFight + edge +
-        shapeBonus(shape, "fight", effects) + behindFlat(effects, momentum) + (dance.taken ? 6 : -6),
+        shapeBonus(shape, "fight", effects, ctx.boss) + behindFlat(effects, momentum) + (dance.taken ? 6 : -6),
       theirVal: teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 27),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -876,7 +911,7 @@ export function simulateSecondHalf(
   );
   book(ledger, pitFight, pitFight.won ? 1300 : -1300, ctx);
   bookFight(ledger, yours, pitFight.won, effects);
-  momentum = clamp(momentum + (pitFight.won ? 8 : -8) * (ctx.arena.fightSwingMult ?? 1), 5, 95);
+  momentum = clamp(momentum + fightSwing(pitFight.won, ctx), 5, ceiling);
   events.push({
     clock: 27, kind: "fight", tone: pitFight.won ? "win" : "loss",
     text: pitFight.won
@@ -892,13 +927,13 @@ export function simulateSecondHalf(
   const holder = [...yours].sort((a, b) => statOf(b, "survival", effects) - statOf(a, "survival", effects))[0];
   const closeness = 1 - Math.abs(momentum - 50) / 50;
   const holdWeight = 0.35 + 0.65 * closeness;
-  const hold = runContest(
+  const hold = checked(ctx,
     {
       key: "hold-29", kind: "hold", label: "🏰 The base hold", clock: 29,
       yourKeys: ["survival", "turrets"], theirKeys: ["damage", "objectives"],
       yourVal:
         teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + callHold +
-        shapeBonus(shape, "hold", effects) + behindFlat(effects, momentum) + edge * 0.5,
+        shapeBonus(shape, "hold", effects, ctx.boss) + behindFlat(effects, momentum) + edge * 0.5,
       theirVal:
         teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29),
       spread: noise(20, ctx),
@@ -907,7 +942,7 @@ export function simulateSecondHalf(
     rand,
   );
   book(ledger, hold, Math.round((hold.won ? 500 : -800) * holdWeight), ctx);
-  momentum = clamp(momentum + (hold.won ? 6 : -8) * holdWeight, 5, 95);
+  momentum = clamp(momentum + (hold.won ? 6 : -8) * holdWeight, 5, ceiling);
   events.push({
     clock: 29, kind: "hold", tone: hold.won ? "win" : "loss",
     text: hold.won
