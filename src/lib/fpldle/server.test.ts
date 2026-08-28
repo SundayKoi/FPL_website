@@ -163,6 +163,7 @@ describe("FPL'dle server adapter", () => {
       player_slug: card.slug,
       player_name: card.name,
       player_tag: card.tag,
+      position: card.role,
     }] });
     createBettingServiceClient.mockReturnValue(service.client);
     createServerSupabase.mockResolvedValue(publicClient.client);
@@ -177,6 +178,7 @@ describe("FPL'dle server adapter", () => {
         slug: card.slug,
         name: card.name,
         tag: card.tag,
+        position: card.role,
       }],
     });
     expect(service.selections.find((selection) => selection.table === "fpldle_daily_puzzles")?.columns).not.toContain("answer_slug");

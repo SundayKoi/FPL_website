@@ -11,16 +11,17 @@ import {
   type FpldleFeedback,
   type FpldleLeague,
   type FpldlePlayerLabel,
+  type FpldlePlayerPreview,
 } from "./comparison";
 
-export type { FpldleCandidate, FpldleDivision, FpldleFeedback, FpldleLeague, FpldlePlayerLabel } from "./comparison";
+export type { FpldleCandidate, FpldleDivision, FpldleFeedback, FpldleLeague, FpldlePlayerLabel, FpldlePlayerPreview } from "./comparison";
 
 export interface FpldleGame {
   date: string;
   expiresAt: string;
   /** Reserved for account-backed progress. Browser progress is merged by the client. */
   previousGuesses: string[];
-  candidates: FpldlePlayerLabel[];
+  candidates: FpldlePlayerPreview[];
 }
 
 export interface FpldleSubmission {
@@ -298,18 +299,19 @@ async function publicCandidates(
   server: SupabaseClient,
   league: FpldleLeague,
   puzzleDate: string,
-): Promise<FpldlePlayerLabel[]> {
+): Promise<FpldlePlayerPreview[]> {
   const { data, error } = await server
     .from("fpldle_daily_candidates")
-    .select("player_slug, player_name, player_tag")
+    .select("player_slug, player_name, player_tag, position")
     .eq("puzzle_date", puzzleDate)
     .eq("league", league)
     .order("player_name", { ascending: true });
   if (error) throw error;
-  return ((data as Pick<FpldleCandidateRow, "player_slug" | "player_name" | "player_tag">[]) ?? []).map((row) => ({
+  return ((data as Pick<FpldleCandidateRow, "player_slug" | "player_name" | "player_tag" | "position">[]) ?? []).map((row) => ({
     slug: row.player_slug,
     name: row.player_name,
     tag: row.player_tag,
+    position: row.position,
   }));
 }
 

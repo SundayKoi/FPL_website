@@ -5,11 +5,18 @@ import type {
   FpldleFeedback,
   FpldleGame,
   FpldleLeague,
-  FpldlePlayerLabel,
+  FpldlePlayerPreview,
   FpldleSubmission,
 } from "@/lib/fpldle/server";
 
 const MAX_GUESSES = 6;
+const ROLE_GROUPS = [
+  { key: "top", label: "TOP" },
+  { key: "jungle", label: "JG" },
+  { key: "mid", label: "MID" },
+  { key: "adc", label: "ADC" },
+  { key: "support", label: "SUP" },
+] as const;
 
 type SubmitGuess = (input: unknown) => Promise<FpldleSubmission>;
 type RevealAnswer = (input: unknown) => Promise<{ name: string; tag: string }>;
@@ -57,6 +64,14 @@ function positionText(position: string): string {
     sup: "SUP",
   };
   return labels[position.trim().toLocaleLowerCase()] ?? position;
+}
+
+function roleGroupKey(position: string): string {
+  const normalized = position.trim().toLocaleLowerCase();
+  if (normalized === "jg") return "jungle";
+  if (normalized === "bot") return "adc";
+  if (normalized === "sup") return "support";
+  return normalized;
 }
 
 function exactLabel(value: "match" | "miss"): string {
@@ -171,7 +186,7 @@ export default function FpldleBoard({
 }) {
   const storageKey = `fpldle:${league}:${game.date}`;
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<FpldlePlayerLabel | null>(null);
+  const [selected, setSelected] = useState<FpldlePlayerPreview | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [guesses, setGuesses] = useState<FpldleFeedback[]>([]);
   const [status, setStatus] = useState<GameStatus>("playing");
@@ -240,8 +255,14 @@ export default function FpldleBoard({
       })
       .slice(0, 8);
   }, [game.candidates, guessedSlugs, query]);
+  const candidateGroups = useMemo(() => ROLE_GROUPS
+    .map((group) => ({
+      ...group,
+      candidates: filteredCandidates.filter((candidate) => roleGroupKey(candidate.position) === group.key),
+    }))
+    .filter((group) => group.candidates.length > 0), [filteredCandidates]);
 
-  const chooseCandidate = (candidate: FpldlePlayerLabel) => {
+  const chooseCandidate = (candidate: FpldlePlayerPreview) => {
     setSelected(candidate);
     setQuery(`${candidate.name}#${candidate.tag}`);
     setListOpen(false);
@@ -386,18 +407,25 @@ export default function FpldleBoard({
               />
               {listOpen ? (
                 <div id="fpldle-player-list" role="listbox" className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded border border-line bg-navy p-1 shadow-xl">
-                  {filteredCandidates.length > 0 ? filteredCandidates.map((candidate) => (
-                    <button
-                      key={candidate.slug}
-                      type="button"
-                      role="option"
-                      aria-selected={selected?.slug === candidate.slug}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => chooseCandidate(candidate)}
-                      className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-panel focus-visible:bg-panel focus-visible:outline-none"
-                    >
-                      <span className="font-semibold text-white">{candidate.name}<span className="ml-1 text-xs font-normal text-steel">#{candidate.tag}</span></span>
-                    </button>
+                  {candidateGroups.length > 0 ? candidateGroups.map((group) => (
+                    <div key={group.key} role="group" aria-labelledby={`fpldle-role-${group.key}`}>
+                      <div id={`fpldle-role-${group.key}`} className="border-b border-line/60 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-gold">
+                        {group.label}
+                      </div>
+                      {group.candidates.map((candidate) => (
+                        <button
+                          key={candidate.slug}
+                          type="button"
+                          role="option"
+                          aria-selected={selected?.slug === candidate.slug}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => chooseCandidate(candidate)}
+                          className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-panel focus-visible:bg-panel focus-visible:outline-none"
+                        >
+                          <span className="font-semibold text-white">{candidate.name}<span className="ml-1 text-xs font-normal text-steel">#{candidate.tag}</span></span>
+                        </button>
+                      ))}
+                    </div>
                   )) : <span className="block px-3 py-2 text-sm text-steel">No players found.</span>}
                 </div>
               ) : null}

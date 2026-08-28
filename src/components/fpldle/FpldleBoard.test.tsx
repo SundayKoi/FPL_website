@@ -81,6 +81,25 @@ describe("FpldleBoard", () => {
     expect(firstRow?.className).toContain("grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))]");
   });
 
+  it("groups player previews by role", () => {
+    const candidates = [
+      { ...candidate(1), position: "Top" },
+      { ...candidate(2), position: "Jungle" },
+      { ...candidate(3), position: "Mid" },
+      { ...candidate(4), position: "ADC" },
+      { ...candidate(5), position: "Support" },
+    ];
+    render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    fireEvent.focus(screen.getByRole("combobox", { name: "Search players" }));
+
+    expect(screen.getByRole("group", { name: "TOP" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "JG" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "MID" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "ADC" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "SUP" })).toBeTruthy();
+  });
+
   it("searches, submits, and exposes text plus accessible clue labels", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({

@@ -14,6 +14,7 @@ export interface FpldleCandidate {
 }
 
 export type FpldlePlayerLabel = Pick<FpldleCandidate, "slug" | "name" | "tag">;
+export type FpldlePlayerPreview = FpldlePlayerLabel & Pick<FpldleCandidate, "position">;
 
 export type ExactClue = "match" | "miss";
 export type OverallClue = "equal" | "higher" | "lower";
