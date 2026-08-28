@@ -30,10 +30,14 @@ jobs:
     # conclusion is checked here rather than assumed. The upstream's OWN
     # trigger is checked too: a scheduled ingest and a hand-run one both
     # drive the chain, which is what makes `workflow_dispatch` the way to
-    # catch a missed week up end to end.
+    # catch a missed week up end to end — unless that hand-run ingest
+    # unticked `cascade`, which it announces in its run name because a
+    # workflow_run payload carries no inputs to read. A missing title reads
+    # as no opt-out, so the chain fails toward running rather than silence.
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' &&
+       !contains(github.event.workflow_run.display_title, 'no cascade') &&
        contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event))
     environment: Production
     steps:
