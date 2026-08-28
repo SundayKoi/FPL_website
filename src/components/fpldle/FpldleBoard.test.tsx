@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { FpldleCandidate, FpldleFeedback, FpldleGame, FpldleSubmission } from "@/lib/fpldle/server";
+import type { FpldleCandidate, FpldleFeedback, FpldleGame, FpldleStreakSnapshot, FpldleSubmission } from "@/lib/fpldle/server";
 import FpldleBoard from "./FpldleBoard";
 
 const date = "2026-08-28";
@@ -44,6 +44,24 @@ function game(candidates: FpldleCandidate[] = [candidate(1), candidate(2), candi
     canReset: true,
     previousGuesses: [],
     candidates,
+    streaks: streaks(),
+  };
+}
+
+function streaks(overrides: Partial<FpldleStreakSnapshot> = {}): FpldleStreakSnapshot {
+  const personal = {
+    profileId: "profile-1",
+    username: "Tester",
+    avatarUrl: "https://example.com/tester.png",
+    currentStreak: 3,
+    bestStreak: 5,
+    rank: 1,
+    isCurrentUser: true,
+  };
+  return {
+    leaderboard: [personal],
+    personal,
+    ...overrides,
   };
 }
 
@@ -91,6 +109,71 @@ describe("FpldleBoard", () => {
     render(<FpldleBoard game={{ ...game(), canReset: false }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     expect(screen.queryByRole("button", { name: "Reset puzzle" })).toBeNull();
+  });
+
+  it("shows personal streak and positive leaderboard rows", () => {
+    render(
+      <FpldleBoard
+        game={game([candidate(1)])}
+        league="premier"
+        submitGuess={vi.fn()}
+        revealAnswer={vi.fn()}
+        resetPuzzle={resetPuzzle()}
+      />,
+    );
+
+    expect(screen.getByTestId("fpldle-current-streak").textContent).toContain("3");
+    expect(screen.getByTestId("fpldle-best-streak").textContent).toContain("5");
+    expect(screen.getByRole("heading", { name: "Top streaks" })).toBeTruthy();
+    const currentRow = screen.getByTestId("fpldle-current-leaderboard-row");
+    expect(currentRow.textContent).toContain("Tester");
+    expect(currentRow.className).toContain("bg-coral/10");
+  });
+
+  it("shows empty leaderboard when no positive streaks exist", () => {
+    render(
+      <FpldleBoard
+        game={{ ...game([candidate(1)]), streaks: { leaderboard: [], personal: null } }}
+        league="academy"
+        submitGuess={vi.fn()}
+        revealAnswer={vi.fn()}
+        resetPuzzle={resetPuzzle()}
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Top streaks" }).textContent).toContain("No active streaks yet.");
+  });
+
+  it("keeps current-user highlight when personal rank is outside top five", () => {
+    const rows = Array.from({ length: 5 }, (_, index) => ({
+      profileId: `leader-${index}`,
+      username: `Leader ${index}`,
+      avatarUrl: null,
+      currentStreak: 10 - index,
+      bestStreak: 10 - index,
+      rank: index + 1,
+      isCurrentUser: false,
+    }));
+    const personal = {
+      profileId: "profile-1",
+      username: "Tester",
+      avatarUrl: null,
+      currentStreak: 1,
+      bestStreak: 1,
+      rank: 6,
+      isCurrentUser: true,
+    };
+    render(
+      <FpldleBoard
+        game={{ ...game([candidate(1)]), streaks: { leaderboard: [...rows, personal], personal } }}
+        league="premier"
+        submitGuess={vi.fn()}
+        revealAnswer={vi.fn()}
+        resetPuzzle={resetPuzzle()}
+      />,
+    );
+    const currentRow = screen.getByTestId("fpldle-current-leaderboard-row");
+    expect(currentRow.textContent).toContain("#6");
+    expect(currentRow.className).toContain("bg-coral/10");
   });
 
   it("shows the substitute reminder at the top of the page", () => {
@@ -177,6 +260,7 @@ describe("FpldleBoard", () => {
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0], true),
       reward: { amount: 200, balance: 1200, alreadyClaimed: false },
+      streaks: null,
     }));
     const revealAnswer = vi.fn(async () => ({ name: "Answer", tag: "NA1" }));
     render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={submitGuess} revealAnswer={revealAnswer} resetPuzzle={resetPuzzle()} />);
@@ -203,11 +287,50 @@ describe("FpldleBoard", () => {
     expect(document.querySelector('img[src="https://example.com/team-2.png"]')).toBeTruthy();
   });
 
+  it("updates personal streak and leaderboard after a win without reload", async () => {
+    const candidates = [candidate(1), candidate(2)];
+    const refreshed = {
+      profileId: "profile-1",
+      username: "Tester",
+      avatarUrl: null,
+      currentStreak: 4,
+      bestStreak: 6,
+      rank: 1,
+      isCurrentUser: true,
+    };
+    const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async () => ({
+      feedback: feedback(candidates[0], true),
+      reward: null,
+      streaks: { leaderboard: [refreshed], personal: refreshed },
+    }));
+    render(
+      <FpldleBoard
+        game={{ ...game(candidates), streaks: { leaderboard: [{ ...refreshed, currentStreak: 1, bestStreak: 2 }], personal: { ...refreshed, currentStreak: 1, bestStreak: 2 } } }}
+        league="premier"
+        submitGuess={submitGuess}
+        revealAnswer={vi.fn()}
+        resetPuzzle={resetPuzzle()}
+      />,
+    );
+
+    const input = screen.getByRole("combobox", { name: "Search players" });
+    fireEvent.change(input, { target: { value: "Player 1" } });
+    fireEvent.click(screen.getByRole("option", { name: /Player 1#NA1/ }));
+    const submit = screen.getByRole("button", { name: "Submit guess" });
+    await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(screen.getByTestId("fpldle-current-streak").textContent).toContain("4"));
+    expect(screen.getByTestId("fpldle-best-streak").textContent).toContain("6");
+    expect(screen.getByTestId("fpldle-current-leaderboard-row").textContent).toContain("4");
+  });
+
   it("removes a submitted player from autocomplete", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
       reward: null,
+      streaks: null,
     }));
     render(<FpldleBoard game={game(candidates)} league="academy" submitGuess={submitGuess} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
@@ -229,6 +352,7 @@ describe("FpldleBoard", () => {
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
       reward: null,
+      streaks: null,
     }));
     const revealAnswer = vi.fn(async () => ({ name: "Player 6", tag: "NA1" }));
     render(<FpldleBoard game={game(candidates)} league="premier" submitGuess={submitGuess} revealAnswer={revealAnswer} resetPuzzle={resetPuzzle()} />);

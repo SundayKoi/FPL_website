@@ -36,7 +36,12 @@ const card = {
 
 type QueryResult = { data: unknown; error: unknown };
 
-function createQueryClient(options: { candidateRows?: unknown[] | null; guessRow?: unknown | null } = {}) {
+function createQueryClient(options: {
+  candidateRows?: unknown[] | null;
+  guessRow?: unknown | null;
+  streakRows?: unknown[] | null;
+  guessCount?: number;
+} = {}) {
   const selections: { table: string; columns: string; filters: Record<string, unknown> }[] = [];
   const from = vi.fn((table: string) => {
     const call = { table, columns: "", filters: {} as Record<string, unknown> };
@@ -69,7 +74,7 @@ function createQueryClient(options: { candidateRows?: unknown[] | null; guessRow
       if (table === "fpldle_daily_candidates" && call.columns === "player_slug") {
         return { data: options.candidateRows ?? [{ player_slug: card.slug }], error: null };
       }
-      if (table === "fpldle_daily_candidates" && call.filters.player_slug === "premier-only") {
+      if (table === "fpldle_daily_candidates" && (call.filters.player_slug === "premier-only" || call.filters.player_slug === "wrong-player")) {
         return { data: options.guessRow ?? null, error: null };
       }
       return { data: options.candidateRows ?? null, error: null };
@@ -99,9 +104,26 @@ function createQueryClient(options: { candidateRows?: unknown[] | null; guessRow
     };
     return builder;
   });
-  const rpc = vi.fn<(name: string, args: unknown) => Promise<QueryResult>>((name) => name === "record_fpldle_guess"
-    ? Promise.resolve({ data: [{ accepted: true, guess_count: 1, reward_amount: 200, balance: 1200, already_rewarded: false }], error: null })
-    : Promise.resolve({ data: null, error: null }));
+  const rpc = vi.fn<(name: string, args: unknown) => Promise<QueryResult>>((name) => {
+    if (name === "record_fpldle_guess") {
+      return Promise.resolve({ data: [{ accepted: true, guess_count: options.guessCount ?? 1, reward_amount: options.guessCount === 5 ? 0 : 200, balance: 1200, already_rewarded: false }], error: null });
+    }
+    if (name === "get_fpldle_streak_snapshot") {
+      return Promise.resolve({
+        data: options.streakRows ?? [{
+          profile_id: "profile-1",
+          username: "Tester",
+          avatar_url: "https://example.com/tester.png",
+          current_streak: 2,
+          best_streak: 4,
+          rank: 1,
+          is_current_user: true,
+        }],
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
   return { client: { from, rpc }, selections, rpc };
 }
 
@@ -183,6 +205,11 @@ describe("FPL'dle server adapter", () => {
       canReset: false,
       candidates: [{ slug: card.slug, name: card.name, tag: card.tag, position: card.role }],
     });
+    expect(service.rpc).toHaveBeenCalledWith("get_fpldle_streak_snapshot", {
+      p_league: "academy",
+      p_puzzle_date: today,
+      p_profile_id: "profile-1",
+    });
   });
 
   it("credits the wallet after a server-compared correct guess", async () => {
@@ -208,6 +235,7 @@ describe("FPL'dle server adapter", () => {
     await expect(submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: card.slug })).resolves.toMatchObject({
       feedback: { isCorrect: true },
       reward: { amount: 200, balance: 1200, alreadyClaimed: false },
+      streaks: { personal: { currentStreak: 2, bestStreak: 4 } },
     });
     expect(service.rpc).toHaveBeenCalledWith("record_fpldle_guess", {
       p_puzzle_date: today,
@@ -216,6 +244,51 @@ describe("FPL'dle server adapter", () => {
       p_discord_id: "discord-1",
       p_player_slug: card.slug,
       p_is_correct: true,
+    });
+    expect(service.rpc).toHaveBeenCalledWith("get_fpldle_streak_snapshot", {
+      p_league: "academy",
+      p_puzzle_date: today,
+      p_profile_id: "profile-1",
+    });
+  });
+
+  it("refreshes streaks after the fifth wrong guess", async () => {
+    const targetRow = {
+      puzzle_date: today,
+      league: "academy",
+      season: "A99",
+      edition_week: "2026-08-24",
+      player_slug: card.slug,
+      player_name: card.name,
+      player_tag: card.tag,
+      team: card.teamName,
+      team_logo_url: card.teamImageUrl,
+      position: card.role,
+      champion: card.signature.champion,
+      overall: card.overall,
+      division: null,
+    };
+    const service = createQueryClient({
+      candidateRows: [targetRow],
+      guessRow: { ...targetRow, player_slug: "wrong-player", player_name: "Wrong Player", team: "Other Team", overall: 70 },
+      guessCount: 5,
+      streakRows: [{
+        profile_id: "profile-1",
+        username: "Tester",
+        avatar_url: null,
+        current_streak: 0,
+        best_streak: 4,
+        rank: null,
+        is_current_user: true,
+      }],
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: "wrong-player" })).resolves.toMatchObject({
+      feedback: { isCorrect: false },
+      reward: null,
+      streaks: { personal: { currentStreak: 0, bestStreak: 4 } },
     });
   });
 
@@ -258,6 +331,26 @@ describe("FPL'dle server adapter", () => {
         tag: card.tag,
         position: card.role,
       }],
+      streaks: {
+        leaderboard: [{
+          profileId: "profile-1",
+          username: "Tester",
+          avatarUrl: "https://example.com/tester.png",
+          currentStreak: 2,
+          bestStreak: 4,
+          rank: 1,
+          isCurrentUser: true,
+        }],
+        personal: {
+          profileId: "profile-1",
+          username: "Tester",
+          avatarUrl: "https://example.com/tester.png",
+          currentStreak: 2,
+          bestStreak: 4,
+          rank: 1,
+          isCurrentUser: true,
+        },
+      },
     });
     expect(service.selections.find((selection) => selection.table === "fpldle_daily_puzzles")?.columns).not.toContain("answer_slug");
   });

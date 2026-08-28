@@ -24,11 +24,29 @@ export interface FpldleGame {
   /** Reserved for account-backed progress. Browser progress is merged by the client. */
   previousGuesses: string[];
   candidates: FpldlePlayerPreview[];
+  streaks: FpldleStreakSnapshot;
 }
 
 export interface FpldleSubmission {
   feedback: FpldleFeedback;
   reward: FpldleReward | null;
+  streaks: FpldleStreakSnapshot | null;
+}
+
+export interface FpldleStreakRow {
+  profileId: string;
+  username: string;
+  avatarUrl: string | null;
+  currentStreak: number;
+  bestStreak: number;
+  rank: number | null;
+  isCurrentUser: boolean;
+}
+
+export interface FpldleStreakSnapshot {
+  /** Top five positive rows plus the current user when outside the top five. */
+  leaderboard: FpldleStreakRow[];
+  personal: FpldleStreakRow | null;
 }
 
 export interface FpldleReward {
@@ -77,6 +95,16 @@ type FpldleProgressRpcRow = {
   reward_amount: number;
   balance: number;
   already_rewarded: boolean;
+};
+
+type FpldleStreakRpcRow = {
+  profile_id: string;
+  username: string;
+  avatar_url: string | null;
+  current_streak: number;
+  best_streak: number;
+  rank: number | null;
+  is_current_user: boolean;
 };
 
 const MAX_GUESSES = 5;
@@ -159,7 +187,7 @@ async function recordFpldleGuess(
   puzzleDate: string,
   playerSlug: string,
   isCorrect: boolean,
-): Promise<FpldleReward | null> {
+): Promise<{ reward: FpldleReward | null; guessCount: number; profileId: string } | null> {
   const user = await getBettingUser();
   if (!user?.allowed) return null;
 
@@ -174,12 +202,41 @@ async function recordFpldleGuess(
   if (error) throw error;
   const row = (data as FpldleProgressRpcRow[] | null)?.[0];
   if (!row) throw new FpldleError("PUZZLE_UNAVAILABLE", "FPL'dle progress could not be saved.");
-  if (Number(row.reward_amount) <= 0) return null;
+  const reward = Number(row.reward_amount) > 0
+    ? {
+        amount: Number(row.reward_amount),
+        balance: Number(row.balance),
+        alreadyClaimed: row.already_rewarded,
+      }
+    : null;
+  return { reward, guessCount: Number(row.guess_count), profileId: user.profileId };
+}
 
+async function loadFpldleStreakSnapshot(
+  service: FpldleServiceClient,
+  league: FpldleLeague,
+  puzzleDate: string,
+  profileId: string | null,
+): Promise<FpldleStreakSnapshot> {
+  const { data, error } = await service.rpc("get_fpldle_streak_snapshot", {
+    p_league: league,
+    p_puzzle_date: puzzleDate,
+    p_profile_id: profileId,
+  });
+  if (error) throw error;
+
+  const rows = ((data as FpldleStreakRpcRow[] | null) ?? []).map((row) => ({
+    profileId: row.profile_id,
+    username: row.username,
+    avatarUrl: row.avatar_url,
+    currentStreak: Number(row.current_streak),
+    bestStreak: Number(row.best_streak),
+    rank: row.rank === null ? null : Number(row.rank),
+    isCurrentUser: row.is_current_user,
+  }));
   return {
-    amount: Number(row.reward_amount),
-    balance: Number(row.balance),
-    alreadyClaimed: row.already_rewarded,
+    leaderboard: rows,
+    personal: rows.find((row) => row.isCurrentUser) ?? null,
   };
 }
 
@@ -377,12 +434,14 @@ export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   const { isAdmin } = await fetchStaffTier(server);
   const service = createBettingServiceClient();
   const puzzle = await ensurePuzzle(server, service, validLeague, date);
+  const user = await getBettingUser();
   return {
     date: puzzle.puzzle_date,
     expiresAt: puzzle.reset_at,
     canReset: isAdmin,
     previousGuesses: [],
     candidates: await publicCandidates(service, validLeague, date),
+    streaks: await loadFpldleStreakSnapshot(service, validLeague, date, user?.profileId ?? null),
   };
 }
 
@@ -478,9 +537,14 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
   if (!targetRow) throw new FpldleError("PUZZLE_UNAVAILABLE", "Daily puzzle target is unavailable.");
 
   const feedback = compareFpldleGuess(rowToCandidate(guessRow as FpldleCandidateRow), rowToCandidate(targetRow as FpldleCandidateRow));
+  const progress = await recordFpldleGuess(service, league, puzzleDate, playerSlug, feedback.isCorrect);
+  const streaks = feedback.isCorrect || progress?.guessCount === MAX_GUESSES
+    ? await loadFpldleStreakSnapshot(service, league, puzzleDate, progress?.profileId ?? null)
+    : null;
   return {
     feedback,
-    reward: await recordFpldleGuess(service, league, puzzleDate, playerSlug, feedback.isCorrect),
+    reward: progress?.reward ?? null,
+    streaks,
   };
 }
 
