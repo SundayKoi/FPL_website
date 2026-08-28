@@ -14,7 +14,6 @@ const LEAGUES: { key: CardLeague; label: string }[] = [
 ];
 
 const PREMIUM_LINKS = [
-  { label: "FPL'dle", href: "/fpldle", note: "One shared daily player puzzle" },
   { label: "Player Cards", href: "/cards", note: "Living ratings for every player" },
   { label: "Betting Exchange", href: "/betting", note: "Markets, pick'em, and wallet" },
   { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
@@ -248,16 +247,11 @@ function BettingGamePreview({ market }: { market: MarketCardData | null }) {
 export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
-  const premiumLinks = PREMIUM_LINKS.map((link) =>
-    link.label === "FPL'dle"
-      ? { ...link, href: snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle" }
-      : link,
-  );
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
-      <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {premiumLinks.map((link) => (
+      <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PREMIUM_LINKS.map((link) => (
           <Link key={link.href} href={link.href} className="rounded-lg border border-line bg-panel/60 p-4 transition hover:border-coral/60">
             <span className="block text-sm font-semibold text-white">{link.label}</span>
             <span className="mt-1 block text-xs text-steel">{link.note}</span>
@@ -386,6 +380,30 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             className="lg:col-span-6"
           >
             <DraftLeaguePreview />
+          </FeatureCard>
+        </div>
+      </section>
+
+      <section aria-labelledby="daily-games-heading" className="flex flex-col gap-5">
+        <SectionHeading
+          eyebrow="Daily games"
+          title="Daily games"
+          description="A fresh shared puzzle every day, with more daily games on the way."
+        />
+        <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <FeatureCard
+            eyebrow="Daily puzzle"
+            title="FPL'dle"
+            description={`Find today's ${leagueLabel} player in five guesses.`}
+            href={snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle"}
+            className="lg:col-span-4"
+          >
+            <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-coral/15 via-navy/70 to-gold/10 p-5">
+              <p className="text-sm leading-6 text-steel">
+                One shared puzzle for every {leagueLabel} Premium member, refreshed at midnight UTC.
+              </p>
+            </div>
           </FeatureCard>
         </div>
       </section>

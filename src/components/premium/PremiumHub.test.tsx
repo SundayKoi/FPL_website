@@ -45,11 +45,13 @@ describe("PremiumHub betting preview", () => {
   it("links members to the daily puzzle for the selected league", () => {
     render(<PremiumHub snapshot={snapshot} />);
 
-    expect(within(screen.getByRole("navigation", { name: "Premium destinations" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
+    const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
+    expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
-    expect(within(screen.getByRole("navigation", { name: "Premium destinations" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
+    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
   });
 
   it("offers detailed patron support from the premium edge heading", () => {
