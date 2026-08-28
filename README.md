@@ -492,3 +492,27 @@ typeable there) and posts nothing to Discord. The RPC is idempotent, so a
 workflow run and a button press — in either order, or overlapping — still
 leave exactly one winner per week; the later one just reports who already
 won.
+
+## Card expeditions
+
+Send three owned cards out for a stretch of hours and collect what they
+bring back. `/cards/expeditions` (`/academy/cards/expeditions`) offers three
+runs — Scouting Run (8h, ungated), Deep Raid (24h, 12 shine and a foil),
+and Legend Hunt (48h, 20 shine, two foils and an autograph) — where shine
+is what a squad's card tiers, parallels, and autographs add up to. Each day
+also carries a brief that pays 20% more when the squad fields the named
+role. A finished run pays betting dollars, sometimes comps a pack, and
+sometimes brings one of the three cards home wearing an expedition mark
+(Trail, Sigil, or the gilded Legend). Everyone gets one launch a day;
+patrons get two.
+
+Nothing is scheduled: a run resolves on its own clock and the owner claims
+it from that page. Deployed copies are locked — the dust and trade screens
+hide them, and `card_inventory_expedition_guard` refuses the write anyway —
+so a squad comes home before it can be melted or traded. Every tunable
+(entry gates, durations, odds, payouts) is in
+[`src/lib/expeditions/config.ts`](src/lib/expeditions/config.ts), so a
+balance pass is a one-file change; `expectedDailyDollars` fails a test if a
+tier's day starts earning more than a pack costs. A Legend Hunt jackpot
+posts to the cards Discord webhook (`DISCORD_CARDS_WEBHOOK_URL`); without
+it the claim still pays.

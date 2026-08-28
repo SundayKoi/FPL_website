@@ -88,6 +88,9 @@ function revalidateCardSurfaces(): void {
 /** `dust_card`'s raw `raise exception` text → friendly copy. Same contract as
  *  friendlyOpenPackError: never surface a raw Postgres error. */
 function friendlyDustError(message: string): string {
+  // Not dust_card's own text: card_inventory_expedition_guard raises this
+  // from under the DELETE, so it reaches this mapper through the RPC.
+  if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
   if (/card not owned/i.test(message)) return "That card isn't yours.";
   if (/unknown card/i.test(message)) return "That card is already gone.";
   if (/invalid dust value/i.test(message)) return "That card can't be dusted right now.";
@@ -97,6 +100,9 @@ function friendlyDustError(message: string): string {
 
 /** `accept_card_trade`'s raw exception text → friendly copy. */
 function friendlyAcceptError(message: string): string {
+  // Same guard, reached the other way: accept_card_trade moves discord_id,
+  // which is the other write card_inventory_expedition_guard refuses.
+  if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
   if (/trade is stale/i.test(message)) return "A card in this trade is no longer available.";
   if (/insufficient balance/i.test(message)) return "One side can't cover the dollars in this trade.";
   if (/not pending/i.test(message)) return "That trade has already been answered.";

@@ -6,6 +6,7 @@ import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
 
@@ -110,6 +111,11 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
         fetchInventory(service, user.discordId, season),
       ])
     : [{ incoming: [], outgoing: [] }, [], []];
+  // Copies away on an expedition — season-blind, because the deploy lock
+  // belongs to the card. The builder greys them; accept_card_trade would be
+  // refused by card_inventory_expedition_guard anyway, but not until the
+  // other side had already been sent an offer that could never settle.
+  const deployedIds = await fetchDeployedCopyIds(service, user.discordId);
 
   // Your own shelf ships its frozen cards with it, so the builder can preview
   // anything you might offer without a round trip. A collection is under ~100
@@ -165,6 +171,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
           myInventory={myInventory}
           viewerDiscordId={user.discordId}
           league={league}
+          deployedIds={deployedIds}
         />
       </section>
     </main>

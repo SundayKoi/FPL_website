@@ -104,6 +104,7 @@ function CardPicker({
   empty,
   disabled,
   testId,
+  deployedIds,
 }: {
   cards: TradeCardOption[];
   chosen: Set<number>;
@@ -111,17 +112,30 @@ function CardPicker({
   empty: string;
   disabled: boolean;
   testId: string;
+  /** Copies away on an expedition — yours only; a partner's lock is theirs
+   *  to see and this side has no read on it. Courtesy again: accept_card_
+   *  trade hits card_inventory_expedition_guard and refuses the swap
+   *  outright, but finding that out at ACCEPT time means the offer was
+   *  written, sent, and then died in someone else's inbox. */
+  deployedIds?: ReadonlySet<number>;
 }) {
   if (cards.length === 0) return <p className="text-xs text-steel">{empty}</p>;
   return (
     <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1" data-testid={testId}>
-      {cards.map((card) => (
+      {cards.map((card) => {
+        const deployed = deployedIds?.has(card.id) ?? false;
+        return (
         <li key={card.id} className="flex items-stretch gap-1">
-          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md border border-line bg-panel px-2 py-1 text-[11px] hover:border-coral/60">
+          <label
+            title={deployed ? "On expedition — back soon." : undefined}
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-panel px-2 py-1 text-[11px] ${
+              deployed ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-coral/60"
+            }`}
+          >
             <input
               type="checkbox"
               checked={chosen.has(card.id)}
-              disabled={disabled}
+              disabled={disabled || deployed}
               onChange={() => onToggle(card.id)}
               aria-label={`${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)}`}
               className="accent-coral"
@@ -143,6 +157,11 @@ function CardPicker({
             {card.altArt ? (
               <span className="font-black tracking-[0.12em] text-gold" title="Alternate art print">
                 ALT
+              </span>
+            ) : null}
+            {deployed ? (
+              <span className="shrink-0 whitespace-nowrap font-semibold uppercase tracking-wide text-steel">
+                On expedition
               </span>
             ) : null}
           </label>
@@ -169,7 +188,8 @@ function CardPicker({
             <span aria-hidden>⤢</span>
           </CardCopyPreview>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
@@ -179,11 +199,16 @@ export default function TradeBuilder({
   myInventory,
   viewerDiscordId,
   league,
+  deployedIds,
 }: {
   collectors: Collector[];
   myInventory: TradeCardOption[];
   viewerDiscordId: string;
   league: CardLeague;
+  /** Your copies currently out on an expedition — unofferable until they
+   *  are back. Only your side: the partner's shelf arrives from a server
+   *  action that reads their inventory, not their runs. */
+  deployedIds?: ReadonlySet<number>;
 }) {
   const router = useRouter();
   const [partner, setPartner] = useState("");
@@ -313,6 +338,7 @@ export default function TradeBuilder({
                 empty="You don't own any cards yet — open a pack."
                 disabled={busy}
                 testId="give-picker"
+                deployedIds={deployedIds}
               />
               <label className="flex items-center gap-2">
                 <span className="text-[11px] uppercase tracking-wide text-steel">Your dollars</span>

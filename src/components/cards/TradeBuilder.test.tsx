@@ -82,9 +82,15 @@ const collectors = [
   { discordId: ME, username: "Mine", cards: 4 },
 ];
 
-function renderBuilder() {
+function renderBuilder(deployedIds?: Set<number>) {
   return render(
-    <TradeBuilder collectors={collectors} myInventory={mine} viewerDiscordId={ME} league="premier" />,
+    <TradeBuilder
+      collectors={collectors}
+      myInventory={mine}
+      viewerDiscordId={ME}
+      league="premier"
+      deployedIds={deployedIds}
+    />,
   );
 }
 
@@ -127,6 +133,22 @@ describe("TradeBuilder", () => {
     // Both shelves are on the table now.
     expect(screen.getByLabelText(/^Canny 77/)).toBeTruthy();
     expect(screen.getByLabelText(/^Chaseworthy 92/)).toBeTruthy();
+  });
+
+  it("won't put a copy that's out on an expedition on the table", async () => {
+    renderBuilder(new Set([2]));
+    await pickPartner();
+
+    // The checkbox itself is what refuses — asserted on the element rather
+    // than by firing a click, because jsdom runs a dispatched click's
+    // activation behaviour on a disabled input where a browser would not.
+    const away = screen.getByLabelText(/^Bronzey 51/) as HTMLInputElement;
+    expect(away.disabled).toBe(true);
+    expect(away.closest("label")?.getAttribute("title")).toBe("On expedition — back soon.");
+    expect(screen.getByText("On expedition")).toBeTruthy();
+
+    // Only that one — the rest of your shelf still trades.
+    expect((screen.getByLabelText(/^Canny 77/) as HTMLInputElement).disabled).toBe(false);
   });
 
   it("keeps the summary line in step with the picks, variants counted", async () => {

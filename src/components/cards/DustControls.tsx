@@ -61,11 +61,19 @@ export default function DustControls({
   playerName,
   copies,
   patron = false,
+  deployedIds,
 }: {
   playerName: string;
   copies: DustCopy[];
   /** Active patron — shows the weekly art re-roll die on each copy. */
   patron?: boolean;
+  /** Copies currently away on an expedition. A courtesy layer only:
+   *  card_inventory_expedition_guard refuses the delete outright, so
+   *  omitting this costs a confusing error, never a lost card. The re-roll
+   *  die is deliberately NOT gated — it rewrites `card`, which the guard
+   *  (delete + update of discord_id) does not touch, and redecorating a
+   *  copy while it is out is harmless. */
+  deployedIds?: ReadonlySet<number>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -141,6 +149,7 @@ export default function DustControls({
           {copies.map((copy) => {
             // Patrons melt for 20% more — same helper the server credits by.
             const value = patronDustValue(copy, patron);
+            const deployed = deployedIds?.has(copy.id) ?? false;
             const isArmed = armed === copy.id;
             const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
             const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;
@@ -220,7 +229,8 @@ export default function DustControls({
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}
-                  disabled={pending}
+                  disabled={pending || deployed}
+                  title={deployed ? "On expedition — back soon." : undefined}
                   aria-label={`Dust the ${describe}`}
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60 ${
                     isArmed
@@ -228,7 +238,7 @@ export default function DustControls({
                       : "border-line text-steel hover:border-coral hover:text-coral"
                   }`}
                 >
-                  {isArmed ? `Confirm ${fmtPoints(value)}?` : `Dust · ${fmtPoints(value)}`}
+                  {deployed ? "On expedition" : isArmed ? `Confirm ${fmtPoints(value)}?` : `Dust · ${fmtPoints(value)}`}
                 </button>
               </li>
             );

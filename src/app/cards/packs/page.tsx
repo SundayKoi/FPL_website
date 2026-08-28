@@ -23,6 +23,7 @@ import {
   type LiveWindow,
 } from "@/lib/packs/queries";
 import { binderSlotsFor, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
+import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 
 export const metadata: Metadata = {
   title: "Card Packs — FPL",
@@ -114,6 +115,11 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
   // read for an active patron.
   const patronTenureDays = dailyRip.patron ? await fetchPatronTenureDays(service, user.discordId) : 0;
+  // Copies away on an expedition. Season-blind, because the deploy lock is
+  // a property of the card — and fails soft to "none deployed" in an
+  // environment that hasn't applied the expeditions migration, which is why
+  // it can sit outside the `season` branch above.
+  const deployedIds = await fetchDeployedCopyIds(service, user.discordId);
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   // Patrons shelve nine; everyone else six (binderSlotsFor).
@@ -238,7 +244,12 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
             Your binder →
           </a>
         </div>
-        <CollectionGrid inventory={inventory} pinnedIds={binderSlots.filter((id): id is number => id !== null)} flame={dailyRip.flame} />
+        <CollectionGrid
+          inventory={inventory}
+          pinnedIds={binderSlots.filter((id): id is number => id !== null)}
+          flame={dailyRip.flame}
+          deployedIds={deployedIds}
+        />
       </section>
 
       {binder ? (

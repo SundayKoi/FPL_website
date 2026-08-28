@@ -20,6 +20,7 @@ import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config"
 import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
+import ExpeditionMark from "./ExpeditionMark";
 import MomentPlate from "./MomentPlate";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
@@ -768,13 +769,30 @@ function PlayerCardFace({
           face, for the flame's reasons: it turns with the card and holds
           while the card shows its back, instead of flipping into a mirror
           image of itself.
-          Top-left, not the bottom-left the other two renderers use — a
-          player card's front is a stat rail from roughly its midpoint
-          down, and the laurel sat straight on top of the bar labels. This
-          pocket, under the tier pill and left of the OVR ring, is the one
-          the front keeps empty (the standout and Signed pills are
-          centered). */}
-      {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} position="left-[6%] top-[10%]" /> : null}
+          Left edge rather than the bottom-left the other two renderers
+          use — a player card's front is a stat rail from roughly its
+          midpoint down, and the laurel sat straight on top of the bar
+          labels. 40%, not the 10% this started at: measured on screen, the
+          tier pill runs 9-14.5% and the name starts at 20.6%, so a 28px
+          roundel (6.2% of the card) does not fit between them — at 10% it
+          sat on the tier word and at 22% it sat on the first letter of the
+          player's name. The one band the front leaves clear on EVERY
+          variant is between the role line (ends 32.4%, or 37.9% when a
+          standout pill pushes the identity down) and the archetype band
+          (48.9%, fixed): 40% clears both by ~10px. It is the same
+          treatment the expedition mark takes on the opposite edge — a
+          stamp over the art rather than a stamp in the furniture. */}
+      {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} position="left-[6%] top-[40%]" /> : null}
+      {/* Expedition provenance, on the tilt layer for the laurel's
+          reasons. The right edge at a third of the way down is the one
+          strip a player card front leaves empty top to bottom: below
+          the OVR ring and its serial, above the autograph and the team
+          watermark, and right of a left-aligned name. Bottom-right,
+          which the other two renderers can use, is the stat rail here.
+          The laurel is top-LEFT on this face, so the two never meet. */}
+      {card.expedition ? (
+        <ExpeditionMark mark={card.expedition.mark} date={card.expedition.date} position="right-[6%] top-[33%]" />
+      ) : null}
       </div>
     </div>
   );
@@ -986,6 +1004,18 @@ export default function PlayerCard3D(props: {
             exactly where it lands on a relic — below its centered footer
             stack. */}
         {props.card.drawWin ? <DrawLaurel weekStart={props.card.drawWin.weekStart} /> : null}
+        {/* Same shell, and the plate's bottom-right is as clear as its
+            bottom-left (the footer stack is centered), so the mark takes
+            the default pocket opposite the laurel. rounded-xl, not the
+            player card's rounded-2xl: the ember frame has to follow the
+            plate's own corner. */}
+        {props.card.expedition ? (
+          <ExpeditionMark
+            mark={props.card.expedition.mark}
+            date={props.card.expedition.date}
+            frame="inset-0 rounded-xl"
+          />
+        ) : null}
       </div>
     );
   }

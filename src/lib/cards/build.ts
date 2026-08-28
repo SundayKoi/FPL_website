@@ -135,6 +135,10 @@ export interface PlayerCardData {
   /** Set on a copy that won a Weekly Draw — cosmetic provenance only;
    *  dust pricing never reads it. weekStart is the drawn week's Monday. */
   drawWin?: { weekStart: string } | null;
+  /** Set on a copy that came back marked from an expedition — cosmetic
+   *  provenance only, never read by dust pricing. Replaceable only
+   *  upward (trail < sigil < legend); see lib/expeditions/config.ts. */
+  expedition?: { mark: "trail" | "sigil" | "legend"; tier: string; date: string } | null;
   /** Set only on a champions-drop card (the Dealer's Hand) — see
    *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
    *  this before reading any rating field. */

@@ -17,6 +17,7 @@ import { mintOrdinal } from "@/lib/cards/moments";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import type { PlayerCardData } from "@/lib/cards/build";
 import DrawLaurel from "./DrawLaurel";
+import ExpeditionMark from "./ExpeditionMark";
 
 /** Same layer classes PlayerCard3D composes for each parallel. */
 const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | "screen" }> = {
@@ -242,6 +243,21 @@ export default function ChampionsCard({
           indices sit top-left and bottom-right, and the footer rail is
           inset to the middle 68%. */}
       {card.drawWin ? <DrawLaurel weekStart={card.drawWin.weekStart} /> : null}
+
+      {/* Expedition provenance, over the foil for the same reason. NOT
+          the default bottom-right pocket: that corner is the flipped
+          index, so the roundel rides the same right edge a third of the
+          way up, in the gap between the wordmark and the name — both
+          centered, both well short of this edge. Clear of the laurel
+          bottom-left and of the autograph top-right. */}
+      {card.expedition ? (
+        <ExpeditionMark
+          mark={card.expedition.mark}
+          date={card.expedition.date}
+          position="bottom-[30%] right-[6%]"
+          frame="inset-0 rounded-xl"
+        />
+      ) : null}
     </article>
   );
 }
