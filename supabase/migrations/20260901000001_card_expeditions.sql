@@ -13,7 +13,9 @@ create table public.expedition_runs (
   discord_id  text not null references public.betting_profiles(discord_id),
   season      text not null,
   tier        text not null check (tier in ('scout', 'raid', 'legend')),
-  squad       bigint[] not null check (array_length(squad, 1) = 3),
+  -- coalesce, because array_length('{}') is NULL and `NULL = 3` is NULL,
+  -- which a CHECK accepts: without it an empty squad passes the constraint.
+  squad       bigint[] not null check (coalesce(array_length(squad, 1), 0) = 3),
   shine       int not null,
   started_at  timestamptz not null default now(),
   resolves_at timestamptz not null,
@@ -44,9 +46,19 @@ grant all on public.expedition_runs to service_role;
 -- (dust_card deletes the row) and not by trade (ownership update). The
 -- trigger is the guarantee; UI checks are courtesy.
 
+-- security definer, not invoker rights: the guard has to see EVERY
+-- unclaimed run, and expedition_runs is RLS'd to "your own runs". An
+-- invoker-rights guard fired by a table the caller can reach with a
+-- narrower view of expedition_runs would find no row and wave the card
+-- through — the guarantee would rest on card_inventory's grants happening
+-- to keep such callers out, which is a fact in a different migration.
+-- Owning it here makes the lock true whoever issues the delete or update.
+-- search_path is pinned for the usual definer reason.
 create or replace function public.expedition_guard()
 returns trigger
 language plpgsql
+security definer
+set search_path = public
 as $$
 begin
   if exists (
@@ -84,6 +96,12 @@ declare
 begin
   if p_tier not in ('scout', 'raid', 'legend') then raise exception 'unknown tier'; end if;
   if p_hours not between 1 and 96 then raise exception 'bad duration'; end if;
+  -- The last unguarded argument. Shine only scales the payout (config.ts
+  -- caps the bonus at +50%), but it is recorded on the row and read back
+  -- by the board, so it gets the same "service code passes config truth,
+  -- Postgres checks the range anyway" treatment as p_dollars. 60 is well
+  -- clear of the ceiling three maxed copies can reach (16 x 3 = 48).
+  if p_shine not between 0 and 60 then raise exception 'bad shine'; end if;
   if array_length(p_squad, 1) is distinct from 3
      or (select count(distinct s) from unnest(p_squad) s) <> 3 then
     raise exception 'squad must be three distinct cards';

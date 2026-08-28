@@ -11,7 +11,7 @@ begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(45);
+select plan(49);
 
 grant usage on schema tests to anon, authenticated;
 
@@ -58,7 +58,7 @@ language sql stable as $$
   order by id offset p_seq - 1 limit 1
 $$;
 
--- === 1-4. schema contract ====================================================
+-- === 1-5. schema contract ====================================================
 
 select has_table('public', 'expedition_runs', 'expedition_runs exists');
 select has_function('public', 'launch_expedition',
@@ -73,7 +73,17 @@ select ok(
   ), false),
   'expedition_runs has row-level security enabled');
 
--- === 5-9. launch refuses malformed and unowned squads =========================
+-- The squad shape is the TABLE's rule as well as the RPC's, so a row that
+-- never went through launch_expedition still cannot hold a squad of the
+-- wrong size. Empty is the case the constraint has to spell out: under a
+-- bare `array_length(squad, 1) = 3` this insert succeeds, because
+-- array_length('{}', 1) is NULL and a CHECK accepts NULL.
+select throws_ok($$
+  insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at)
+  values ('exped-0069', 'S_TEST_EXP', 'scout', array[]::bigint[], 0, now() + interval '8 hours') $$,
+  '23514', null, 'an empty squad cannot be stored at all');
+
+-- === 6-11. launch refuses malformed and unowned squads ========================
 
 select throws_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
@@ -95,13 +105,20 @@ select throws_ok($$
     array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 9, 500) $$,
   'P0001', 'bad duration', 'an absurd duration cannot launch');
 
+-- Shine is recorded on the row and read back by the board, so it is range
+-- checked here rather than trusted from the caller, exactly like p_dollars.
+select throws_ok($$
+  select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
+    array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 9000, 8) $$,
+  'P0001', 'bad shine', 'a forged shine cannot inflate the payout');
+
 -- Ownership is the RPC's own check, not the caller's promise.
 select throws_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
     array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-alien')], 9, 8) $$,
   'P0001', 'card not owned', 'a squad may not include somebody else''s copy');
 
--- === 10-13. the happy launch =================================================
+-- === 12-15. the happy launch =================================================
 -- The launch is captured into a temp table rather than called inline in the
 -- assertion: `between` duplicates its left operand in the parser, so an
 -- inline call would run the RPC twice and the second call would trip the
@@ -126,7 +143,7 @@ select is(
   array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')],
   'the squad is stored as launched');
 
--- === 14-17. the Eastern-day limit and the patron slot ========================
+-- === 16-19. the Eastern-day limit and the patron slot ========================
 
 select throws_ok($$
   select * from public.launch_expedition('exped-0069', 'S_TEST_EXP', 'scout',
@@ -153,7 +170,7 @@ select throws_ok($$
     array[tests.exp_card('exp-1'), tests.exp_card('exp-2'), tests.exp_card('exp-3')], 9, 8) $$,
   'P0001', 'daily expedition limit', 'the patron slot is a second run, not unlimited runs');
 
--- === 18-20. the deploy lock ==================================================
+-- === 20-22. the deploy lock ==================================================
 -- The trigger, not the RPC, is the guarantee: a deployed copy cannot leave
 -- the collection by melt or by trade, however the delete is issued.
 
@@ -169,7 +186,7 @@ select throws_ok(
   $$ update public.card_inventory set discord_id = 'other-0069' where id = tests.exp_card('exp-1') $$,
   'P0001', 'card is on expedition', 'a deployed copy cannot be traded away');
 
--- === 21-25. claim guards =====================================================
+-- === 23-27. claim guards =====================================================
 
 select throws_ok(
   $$ select * from public.claim_expedition('exped-0069', tests.exp_run(1), 'solid', 120, true, 'trail', tests.exp_card('exp-1')) $$,
@@ -195,7 +212,7 @@ select throws_ok(
   $$ select * from public.claim_expedition('exped-0069', tests.exp_run(1), 'solid', 120, false, 'trail', tests.exp_card('exp-7')) $$,
   'P0001', 'bearer not in squad', 'only a squad member can wear the mark');
 
--- === 26-31. the claim pays, stamps and locks =================================
+-- === 28-33. the claim pays, stamps and locks =================================
 
 select is(
   (select r.balance from public.claim_expedition('exped-0069', tests.exp_run(1), 'solid', 120, true, 'trail', tests.exp_card('exp-1')) r),
@@ -221,7 +238,7 @@ select throws_ok(
   $$ select * from public.claim_expedition('exped-0069', tests.exp_run(1), 'jackpot', 400, true, 'legend', tests.exp_card('exp-1')) $$,
   'P0001', 'already claimed', 'claimed_at is the reroll lock');
 
--- === 32-34. marks replace only upward ========================================
+-- === 34-36. marks never replace downward =====================================
 -- A copy already wearing a better mark keeps it; the dollars pay anyway,
 -- because the mark is cosmetic and the run still happened.
 
@@ -244,13 +261,53 @@ select is(
   (select remaining from public.card_pack_comps where discord_id = 'exped-0069' and kind = 'standard'),
   2, 'a second comp stacks on the existing row');
 
--- === 35. the lock lifts with the claim =======================================
+-- === 37. a better mark replaces the one a copy wears =========================
+-- The other half of the rule. With only the refusal above, a stamp that
+-- never upgraded anything would pass the suite unchanged.
+
+update public.card_inventory
+  set card = card || '{"expedition": {"mark": "trail", "tier": "scout", "date": "2026-08-02"}}'::jsonb
+  where id = tests.exp_card('exp-7');
+
+-- Inserted rather than launched: the day's two slots are spent, and what is
+-- under test is the claim, not the gate in front of it.
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at)
+values ('exped-0069', 'S_TEST_EXP', 'raid',
+        array[tests.exp_card('exp-7'), tests.exp_card('exp-2'), tests.exp_card('exp-3')],
+        14, now() - interval '1 minute');
+
+-- Captured rather than called inline, for the reason exp_launch is: an
+-- assertion that duplicates its operand would run the claim twice.
+create temporary table exp_upward on commit drop as
+  select * from public.claim_expedition('exped-0069', tests.exp_run(3), 'jackpot', 180, false,
+    'sigil', tests.exp_card('exp-7'));
+
+select is(
+  (select card -> 'expedition' ->> 'mark' from public.card_inventory where id = tests.exp_card('exp-7')),
+  'sigil', 'a better mark replaces the one the copy wears');
+
+-- === 38. the lock lifts with the claim =======================================
 
 select lives_ok(
   $$ select public.dust_card('exped-0069', tests.exp_card('exp-1'), 10) $$,
   'a claimed copy is free to melt again');
 
--- === 36-41. execute grants ===================================================
+-- === 39. a claim cannot reach across owners ==================================
+-- claim_expedition matches on (id, discord_id), and the discord_id half is
+-- the only thing between one collector and another's payout — it credits a
+-- wallet, so the predicate needs a test that goes red when it goes.
+
+insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at)
+values ('other-0069', 'S_TEST_EXP', 'scout',
+        array[tests.exp_card('exp-alien'), -1::bigint, -2::bigint], 3, now() - interval '1 minute');
+
+select throws_ok($$
+  select * from public.claim_expedition('exped-0069',
+    (select r.id from public.expedition_runs r where r.discord_id = 'other-0069'),
+    'jackpot', 400, true, 'legend', null) $$,
+  'P0001', 'unknown run', 'another collector''s finished run is not yours to claim');
+
+-- === 40-45. execute grants ===================================================
 -- Both RPCs move betting dollars on an unverified discord id, so the app
 -- layer is the authorization and PostgREST must never reach them.
 
@@ -274,19 +331,16 @@ select ok(has_function_privilege('service_role',
   'public.claim_expedition(text,bigint,text,bigint,boolean,text,bigint)', 'execute'),
   'service_role can claim expeditions');
 
--- === 42-45. row-level security ===============================================
+-- === 46-49. row-level security ===============================================
 -- A run belonging to somebody else is the non-vacuous half: a `using (true)`
--- policy would pass a bare count, so the other collector's run must be
--- invisible while the owner's two stay readable.
-
-insert into public.expedition_runs (discord_id, season, tier, squad, shine, resolves_at)
-values ('other-0069', 'S_TEST_EXP', 'scout',
-        array[tests.exp_card('exp-alien'), -1::bigint, -2::bigint], 3, now() + interval '8 hours');
+-- policy would pass a bare count, so the other collector's run (inserted
+-- for the cross-owner claim above) must be invisible while the owner's
+-- three stay readable.
 
 select tests.acting_as('00000000-0000-0000-0000-0000000e0069'::uuid);
 set local role authenticated;
-select is((select count(*) from public.expedition_runs)::int, 2,
-  'the owner reads their own two runs');
+select is((select count(*) from public.expedition_runs)::int, 3,
+  'the owner reads their own three runs');
 select is_empty($$ select 1 from public.expedition_runs where discord_id = 'other-0069' $$,
   'the owner cannot read another collector''s run');
 reset role;
