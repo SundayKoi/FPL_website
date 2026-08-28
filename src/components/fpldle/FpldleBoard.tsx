@@ -103,6 +103,18 @@ function formatCountdown(milliseconds: number): string {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
+function formatLocalResetTime(iso: string): string | null {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
 function shareSquare(value: ClueStatus) {
   if (value === "unavailable") return "⬛";
   const isMatch = value === "match" || value === "equal";
@@ -201,6 +213,7 @@ export default function FpldleBoard({
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [localResetTime, setLocalResetTime] = useState<string | null>(null);
   const [remaining, setRemaining] = useState(() => new Date(game.expiresAt).getTime() - Date.now());
   const [pending, startTransition] = useTransition();
   const [resetting, startResetTransition] = useTransition();
@@ -247,6 +260,13 @@ export default function FpldleBoard({
       setRemaining(new Date(game.expiresAt).getTime() - Date.now());
     }, 1000);
     return () => window.clearInterval(timer);
+  }, [game.expiresAt]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setLocalResetTime(formatLocalResetTime(game.expiresAt));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [game.expiresAt]);
 
   const guessedSlugs = useMemo(() => new Set(guesses.map((guess) => guess.player.slug)), [guesses]);
@@ -376,11 +396,15 @@ export default function FpldleBoard({
           <div className="rounded border border-line bg-panel px-4 py-3 text-right">
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-steel">Next puzzle</span>
             <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
-            <span className="block text-xs text-steel">UTC reset</span>
+            <span data-testid="fpldle-local-reset" className="block text-xs text-steel">
+              {localResetTime ? `Resets at ${localResetTime}` : "Resets at your local time"}
+            </span>
           </div>
-          <button type="button" onClick={handleReset} disabled={resetting || pending} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60">
-            {resetting ? "Resetting…" : "Reset puzzle"}
-          </button>
+          {game.canReset ? (
+            <button type="button" onClick={handleReset} disabled={resetting || pending} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral hover:bg-coral/10 disabled:cursor-not-allowed disabled:opacity-60">
+              {resetting ? "Resetting…" : "Reset puzzle"}
+            </button>
+          ) : null}
         </div>
       </header>
 

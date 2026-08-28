@@ -41,6 +41,7 @@ function game(candidates: FpldleCandidate[] = [candidate(1), candidate(2), candi
   return {
     date,
     expiresAt: "2026-08-29T00:00:00.000Z",
+    canReset: true,
     previousGuesses: [],
     candidates,
   };
@@ -61,6 +62,21 @@ afterEach(() => {
 });
 
 describe("FpldleBoard", () => {
+  it("shows the next reset in the browser's local timezone", async () => {
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    await waitFor(() => {
+      const reset = screen.getByTestId("fpldle-local-reset");
+      expect(reset.textContent).not.toBe("Resets at your local time");
+    });
+  });
+
+  it("hides the testing reset control from regular Premium members", () => {
+    render(<FpldleBoard game={{ ...game(), canReset: false }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    expect(screen.queryByRole("button", { name: "Reset puzzle" })).toBeNull();
+  });
+
   it("shows the substitute reminder at the top of the page", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 

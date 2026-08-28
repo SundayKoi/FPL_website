@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
+import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
   compareFpldleGuess,
@@ -18,6 +19,7 @@ export type { FpldleCandidate, FpldleDivision, FpldleFeedback, FpldleLeague, Fpl
 export interface FpldleGame {
   date: string;
   expiresAt: string;
+  canReset: boolean;
   /** Reserved for account-backed progress. Browser progress is merged by the client. */
   previousGuesses: string[];
   candidates: FpldlePlayerPreview[];
@@ -63,6 +65,14 @@ type PuzzleRow = {
 type FpldleServiceClient = ReturnType<typeof createBettingServiceClient>;
 
 const MAX_GUESSES = 5;
+
+async function requireFpldlePremium(): Promise<SupabaseClient> {
+  const access = await premiumAccess();
+  if (!access.allowed) {
+    throw new FpldleError("FORBIDDEN", "FPL'dle is available to Premium members.");
+  }
+  return createServerSupabase();
+}
 
 async function requireFpldleAdmin(): Promise<SupabaseClient> {
   const server = await createServerSupabase();
@@ -295,11 +305,11 @@ async function ensurePuzzle(
 }
 
 async function publicCandidates(
-  server: SupabaseClient,
+  service: FpldleServiceClient,
   league: FpldleLeague,
   puzzleDate: string,
 ): Promise<FpldlePlayerPreview[]> {
-  const { data, error } = await server
+  const { data, error } = await service
     .from("fpldle_daily_candidates")
     .select("player_slug, player_name, player_tag, position")
     .eq("puzzle_date", puzzleDate)
@@ -318,14 +328,16 @@ async function publicCandidates(
 export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   const validLeague = parseLeague(league);
   const date = utcDate();
-  const server = await requireFpldleAdmin();
+  const server = await requireFpldlePremium();
+  const { isAdmin } = await fetchStaffTier(server);
   const service = createBettingServiceClient();
   const puzzle = await ensurePuzzle(server, service, validLeague, date);
   return {
     date: puzzle.puzzle_date,
     expiresAt: puzzle.reset_at,
+    canReset: isAdmin,
     previousGuesses: [],
-    candidates: await publicCandidates(server, validLeague, date),
+    candidates: await publicCandidates(service, validLeague, date),
   };
 }
 
@@ -386,7 +398,7 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
     throw new FpldleError("STALE_PUZZLE", "That puzzle has expired. Refresh for today's game.");
   }
 
-  const server = await requireFpldleAdmin();
+  const server = await requireFpldlePremium();
   const service = createBettingServiceClient();
   await ensurePuzzle(server, service, league, puzzleDate);
 
@@ -450,7 +462,7 @@ export async function revealFpldleAnswer(input: unknown): Promise<FpldleAnswerRe
     throw new FpldleError("STALE_PUZZLE", "That puzzle has expired. Refresh for today's game.");
   }
 
-  const server = await requireFpldleAdmin();
+  const server = await requireFpldlePremium();
   const service = createBettingServiceClient();
   await ensurePuzzle(server, service, league, puzzleDate);
 

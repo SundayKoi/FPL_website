@@ -26,12 +26,12 @@ vi.mock("@/lib/fpldle/actions", () => ({
 afterEach(() => cleanup());
 
 describe("FpldlePage", () => {
-  it("redirects forbidden callers instead of rendering a public puzzle shell", async () => {
-    getFpldleGame.mockRejectedValue(new FpldleError("FORBIDDEN", "Admins only."));
+  it("redirects non-premium callers to Premium HQ", async () => {
+    getFpldleGame.mockRejectedValue(new FpldleError("FORBIDDEN", "Premium members only."));
 
     await FpldlePage();
 
-    expect(redirect).toHaveBeenCalledWith("/");
+    expect(redirect).toHaveBeenCalledWith("/premium");
   });
 
   it("keeps unavailable-state handling for non-authorization failures", async () => {

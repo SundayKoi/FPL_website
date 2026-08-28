@@ -14,6 +14,7 @@ const LEAGUES: { key: CardLeague; label: string }[] = [
 ];
 
 const PREMIUM_LINKS = [
+  { label: "FPL'dle", href: "/fpldle", note: "One shared daily player puzzle" },
   { label: "Player Cards", href: "/cards", note: "Living ratings for every player" },
   { label: "Betting Exchange", href: "/betting", note: "Markets, pick'em, and wallet" },
   { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
@@ -247,11 +248,16 @@ function BettingGamePreview({ market }: { market: MarketCardData | null }) {
 export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
+  const premiumLinks = PREMIUM_LINKS.map((link) =>
+    link.label === "FPL'dle"
+      ? { ...link, href: snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle" }
+      : link,
+  );
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
-      <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {PREMIUM_LINKS.map((link) => (
+      <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {premiumLinks.map((link) => (
           <Link key={link.href} href={link.href} className="rounded-lg border border-line bg-panel/60 p-4 transition hover:border-coral/60">
             <span className="block text-sm font-semibold text-white">{link.label}</span>
             <span className="mt-1 block text-xs text-steel">{link.note}</span>

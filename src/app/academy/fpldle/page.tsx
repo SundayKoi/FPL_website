@@ -15,7 +15,7 @@ export default async function AcademyFpldlePage() {
   try {
     game = await getFpldleGame("academy");
   } catch (error) {
-    if (error instanceof FpldleError && error.code === "FORBIDDEN") redirect("/");
+    if (error instanceof FpldleError && error.code === "FORBIDDEN") redirect("/premium?league=academy");
     return <FpldleUnavailable league="Academy" />;
   }
   return <FpldleBoard game={game} league="academy" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;

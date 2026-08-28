@@ -15,6 +15,7 @@ const snapshot = {
         id: 1,
         name: "Friday Night",
         description: null,
+        league: "premier" as const,
         open_markets: 1,
         locked_markets: 0,
         has_live_pickem: false,
@@ -41,6 +42,16 @@ const snapshot = {
 };
 
 describe("PremiumHub betting preview", () => {
+  it("links members to the daily puzzle for the selected league", () => {
+    render(<PremiumHub snapshot={snapshot} />);
+
+    expect(within(screen.getByRole("navigation", { name: "Premium destinations" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
+
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
+    expect(within(screen.getByRole("navigation", { name: "Premium destinations" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
+  });
+
   it("offers detailed patron support from the premium edge heading", () => {
     render(<PremiumHub snapshot={snapshot} />);
 

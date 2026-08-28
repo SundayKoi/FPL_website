@@ -8,11 +8,13 @@ const { createServerSupabase, fetchStaffTier } = vi.hoisted(() => ({
 }));
 const { createBettingServiceClient } = vi.hoisted(() => ({ createBettingServiceClient: vi.fn() }));
 const { fetchCardSeason } = vi.hoisted(() => ({ fetchCardSeason: vi.fn() }));
+const { premiumAccess } = vi.hoisted(() => ({ premiumAccess: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
+vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
 
 import { getFpldleGame, FpldleError } from "./server";
 import { resetFpldlePuzzleAction, revealFpldleAnswerAction, submitFpldleGuessAction } from "./actions";
@@ -106,8 +108,10 @@ beforeEach(() => {
   createBettingServiceClient.mockReset();
   fetchCardSeason.mockReset();
   fetchStaffTier.mockReset();
+  premiumAccess.mockReset();
   fetchCardSeason.mockResolvedValue("A99");
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
+  premiumAccess.mockResolvedValue({ signedIn: true, allowed: true, inconclusive: false });
 });
 
 afterEach(() => vi.useRealTimers());
@@ -139,14 +143,33 @@ describe("FPL'dle server adapter", () => {
     expect(createServerSupabase).not.toHaveBeenCalled();
   });
 
-  it("rejects non-admin callers before loading the puzzle or answer", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
+  it("rejects non-premium callers before loading the puzzle or answer", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    premiumAccess.mockResolvedValue({ signedIn: true, allowed: false, inconclusive: false });
     createServerSupabase.mockResolvedValue({ from: vi.fn() });
 
     await expect(
       submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: card.slug }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(createBettingServiceClient).not.toHaveBeenCalled();
+  });
+
+  it("allows premium members who are not site admins", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    const service = createQueryClient({ candidateRows: [{
+      player_slug: card.slug,
+      player_name: card.name,
+      player_tag: card.tag,
+      position: card.role,
+    }] });
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(getFpldleGame("academy")).resolves.toMatchObject({
+      date: today,
+      canReset: false,
+      candidates: [{ slug: card.slug, name: card.name, tag: card.tag, position: card.role }],
+    });
   });
 
   it("scopes candidate membership to the submitted league", async () => {
@@ -166,21 +189,21 @@ describe("FPL'dle server adapter", () => {
   });
 
   it("does not return the hidden answer from the game loader", async () => {
-    const service = createQueryClient();
-    const publicClient = createQueryClient({ candidateRows: [{
+    const service = createQueryClient({ candidateRows: [{
       player_slug: card.slug,
       player_name: card.name,
       player_tag: card.tag,
       position: card.role,
     }] });
     createBettingServiceClient.mockReturnValue(service.client);
-    createServerSupabase.mockResolvedValue(publicClient.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
 
     const game = await getFpldleGame("academy");
 
     expect(game).toEqual({
       date: today,
       expiresAt: "2026-08-29T00:00:00.000Z",
+      canReset: true,
       previousGuesses: [],
       candidates: [{
         slug: card.slug,
