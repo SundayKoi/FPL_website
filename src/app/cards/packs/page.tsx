@@ -3,11 +3,14 @@ import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import BinderEditor, { type BinderOption } from "@/components/cards/BinderEditor";
 import CollectionGrid from "@/components/cards/CollectionGrid";
+import TeamSetsSection from "@/components/cards/TeamSetsSection";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
-import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, fetchEditionCards, type CardLeague } from "@/lib/cards/queries";
+import { buildWeekSets } from "@/lib/cards/sets";
+import { fetchSetClaimState, setKey } from "@/lib/cards/setQueries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
   fetchChampionsWindow,
@@ -42,7 +45,16 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
  * public RLS policy (src/lib/packs/queries.ts), and the Discord id is taken
  * from the session, so nobody can ask for someone else's shelf.
  */
-export async function PacksPageView({ league = "premier" }: { league?: CardLeague }) {
+export async function PacksPageView({
+  league = "premier",
+  setWeek,
+}: {
+  league?: CardLeague;
+  /** ?setWeek= — which edition the roster sets are asked of. Sets are
+   *  open-ended, so a collector can go back for a week they finished
+   *  later; the newest week they hold copies from is the default. */
+  setWeek?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
 
@@ -134,6 +146,29 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
     foil: row.foil,
     signed: row.signed,
   }));
+
+  // Roster sets. Asked of a frozen edition, so the weeks on offer are the
+  // ones this collector actually holds copies from — newest first, and the
+  // newest is the default. A collector with no cards has no sets and the
+  // section renders nothing.
+  const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
+  const activeSetWeek = setWeek && heldWeeks.includes(setWeek) ? setWeek : heldWeeks[0];
+  const [setEditionCards, setClaims] = season && activeSetWeek
+    ? await Promise.all([
+        fetchEditionCards(service, season, activeSetWeek),
+        fetchSetClaimState(service, user.discordId, season, inventory.map((copy) => copy.id)),
+      ])
+    : [[], { claimed: new Set<string>(), spent: new Set<number>() }];
+  const teamSets = activeSetWeek
+    ? buildWeekSets(setEditionCards, inventory, activeSetWeek, setClaims.spent)
+    : [];
+  // A set already paid for has had its five copies spent, so buildWeekSets
+  // no longer reads it as complete — the claimed names are passed through
+  // separately so the row can say "Claimed" rather than quietly reverting
+  // to 0/5 and looking like the cards went missing.
+  const claimedTeams = activeSetWeek
+    ? teamSets.filter((set) => setClaims.claimed.has(setKey(activeSetWeek, set.teamName))).map((set) => set.teamName)
+    : [];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -252,6 +287,17 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         />
       </section>
 
+      {season && activeSetWeek ? (
+        <TeamSetsSection
+          season={season}
+          week={activeSetWeek}
+          weeks={heldWeeks}
+          sets={teamSets}
+          claimed={claimedTeams}
+          base={base}
+        />
+      ) : null}
+
       {binder ? (
         <BinderEditor slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
       ) : null}
@@ -259,6 +305,11 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   );
 }
 
-export default async function PacksPage() {
-  return PacksPageView({ league: "premier" });
+export default async function PacksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ setWeek?: string }>;
+}) {
+  const { setWeek } = await searchParams;
+  return PacksPageView({ league: "premier", setWeek });
 }
