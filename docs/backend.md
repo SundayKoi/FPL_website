@@ -194,6 +194,16 @@ Important RPC families include:
   records it in `weekly_draws`, pays the pot through `betting_ledger`, and
   comps a standard pack. It is idempotent: a second call for the same season
   and week returns the recorded winner and changes nothing.
+- Roster sets: `claim_team_set` pays the flat `TEAM_SET_BONUS` for holding
+  every one of a team's five from a single edition week. Two uniqueness
+  rules, deliberately separate — `card_set_claims` is unique per (collector,
+  season, week, team) so nobody claims the same set twice, and
+  `card_set_claim_copies` is primary-keyed on the COPY so the same five
+  cards cannot be traded round a group and paid for each of them in turn.
+  Burn-first: both inserts land before a dollar is credited. Who the five
+  are is roster truth from `src/lib/cards/sets.ts` (built off the same
+  `buildTeamCards` the team card prints); Postgres checks ownership, the
+  edition week, and the payout range.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the
