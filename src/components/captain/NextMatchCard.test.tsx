@@ -41,12 +41,15 @@ describe("NextMatchCard", () => {
     expect(screen.queryByRole("link", { name: "Opponent OP.GG Multi" })).toBeNull();
   });
 
-  it("offers one spectator-first Watch Draft link for the whole series", () => {
+  it("offers captain and spectator links for the whole series", () => {
     render(<NextMatchCard fixture={fixture} myTeamName="My Team" />);
 
     expect(screen.getByText(/series drafter/i)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /watch draft/i }).getAttribute("href")).toBe(
-      "/match-draft/fixture-1",
+    expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href")).toBe(
+      "/match-draft/fixture-1?layout=board",
+    );
+    expect(screen.getByRole("link", { name: /spectator link/i }).getAttribute("href")).toBe(
+      "/match-draft/fixture-1?layout=stage",
     );
     expect(screen.queryByRole("button")).toBeNull();
   });

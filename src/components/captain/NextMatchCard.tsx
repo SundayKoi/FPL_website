@@ -63,10 +63,16 @@ export default function NextMatchCard({
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={matchDraftHref(fixture)}
+              href={`${matchDraftHref(fixture)}?layout=board`}
               className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
             >
-              Watch Draft →
+              Captain&apos;s link →
+            </Link>
+            <Link
+              href={`${matchDraftHref(fixture)}?layout=stage`}
+              className="inline-flex rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+            >
+              Spectator link →
             </Link>
             {/* Untouched rows (a lone ready check) aren't worth a chip. */}
             {draftGames
@@ -82,7 +88,7 @@ export default function NextMatchCard({
                 </span>
               ))}
           </div>
-          <p className="mt-2 text-[11px] text-steel">One link for the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
+          <p className="mt-2 text-[11px] text-steel">Both links cover the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
         </div>
       </div>
     </section>

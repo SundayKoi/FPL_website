@@ -153,8 +153,10 @@ describe("MyTeamGate", () => {
     render(<MyTeamGate dashboard={ready} league="premier" />);
 
     expect(screen.getAllByText("vs Enemy Team")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: /watch draft/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1");
+    expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
+      .toBe("/match-draft/fixture-1?layout=board");
+    expect(screen.getByRole("link", { name: /spectator link/i }).getAttribute("href"))
+      .toBe("/match-draft/fixture-1?layout=stage");
     expect(screen.getByRole("link", { name: /scout opponent/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
 

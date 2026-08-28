@@ -188,8 +188,10 @@ describe("My Team page", () => {
     expect(screen.getByText("TOURNEY-CODE")).toBeTruthy();
     expect(screen.getByRole("heading", { name: /team schedule/i })).toBeTruthy();
     expect(screen.getByText("Signed In Player")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /watch draft/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1");
+    expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
+      .toBe("/match-draft/fixture-1?layout=board");
+    expect(screen.getByRole("link", { name: /spectator link/i }).getAttribute("href"))
+      .toBe("/match-draft/fixture-1?layout=stage");
     expect(screen.getByRole("link", { name: /scout opponent/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
     expect(screen.queryByText("Report a Result")).toBeNull();
