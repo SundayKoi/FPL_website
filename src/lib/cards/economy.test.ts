@@ -209,6 +209,87 @@ describe("fetchEconomyStats", () => {
     expect(stats.cardsPulled).toBe(200);
   });
 
+  it("shelves roster plates apart from the player figures, and counts editions", async () => {
+    const stats = await fetchEconomyStats(
+      client({
+        betting_profiles: PROFILES,
+        card_pack_opens: { data: [], error: null },
+        card_inventory: {
+          data: [
+            card("u1", { slug: "team-hawks-2026-08-24", player_name: "Hawks", tier: "team", overall: 0, edition_week: "2026-08-24", foil: true }),
+            card("u1", { slug: "team-hawks-2026-08-31", player_name: "Hawks", tier: "team", overall: 0, edition_week: "2026-08-31" }),
+            card("u2", { slug: "team-owls-2026-08-31", player_name: "Owls", tier: "team", overall: 0, edition_week: "2026-08-31" }),
+            card("u2", { player_name: "Ari", overall: 88 }),
+          ],
+          error: null,
+        },
+        card_moments: { count: 0, error: null },
+      }),
+      "S5",
+    );
+    expect(stats.teams.total).toBe(3);
+    expect(stats.teams.foils).toBe(1);
+    // Two Mondays across three plates — a team re-cut next week is a
+    // different collectible, not a second copy of the same one.
+    expect(stats.teams.weeks).toBe(2);
+    expect(stats.teams.byTeam).toEqual([
+      { teamName: "Hawks", copies: 2 },
+      { teamName: "Owls", copies: 1 },
+    ]);
+    // A plate is not a player: it must not win "most pulled", and its
+    // zero overall must not be mistaken for a pull worth naming.
+    expect(stats.mostPulled).toEqual({ playerName: "Ari", copies: 1 });
+    expect(stats.bestPull?.playerName).toBe("Ari");
+  });
+
+  it("counts the expedition board as activity, unclaimed runs included", async () => {
+    const stats = await fetchEconomyStats(
+      client({
+        betting_profiles: PROFILES,
+        card_pack_opens: { data: [], error: null },
+        card_inventory: { data: [card("u1")], error: null },
+        card_moments: { count: 0, error: null },
+        expedition_runs: {
+          data: [
+            { discord_id: "u1", tier: "scout", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "poor", dollars: 19, comp: false, mark: null } },
+            { discord_id: "u1", tier: "legend", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "jackpot", dollars: 520, comp: true, mark: "legend" } },
+            { discord_id: "u2", tier: "scout", claimed_at: null, outcome: null },
+            // A dev's run is left out the same as their packs.
+            { discord_id: "dev1", tier: "legend", claimed_at: "2026-08-27T00:00:00Z", outcome: { grade: "jackpot", dollars: 9999, comp: true, mark: "legend" } },
+          ],
+          error: null,
+        },
+      }),
+      "S5",
+    );
+    expect(stats.expeditions.runs).toBe(3);
+    expect(stats.expeditions.runners).toBe(2);
+    expect(stats.expeditions.inField).toBe(1);
+    expect(stats.expeditions.byTier).toEqual({ scout: 2, legend: 1 });
+    // Only claimed runs have paid anything — the squad still out there
+    // contributes no dollars rather than a zero.
+    expect(stats.expeditions.dollars).toBe(539);
+    expect(stats.expeditions.comps).toBe(1);
+    expect(stats.expeditions.marks).toBe(1);
+    expect(stats.expeditions.jackpots).toBe(1);
+  });
+
+  it("reports an empty board rather than throwing before the expedition migration lands", async () => {
+    const stats = await fetchEconomyStats(
+      client({
+        betting_profiles: PROFILES,
+        card_pack_opens: { data: [], error: null },
+        card_inventory: { data: [card("u1")], error: null },
+        card_moments: { count: 0, error: null },
+        expedition_runs: { error: { message: "relation does not exist" } },
+      }),
+      "S5",
+    );
+    expect(stats.expeditions.runs).toBe(0);
+    expect(stats.teams.total).toBe(0);
+    expect(stats.truncated).toBe(false);
+  });
+
   it("reports zero moments rather than throwing before the migration lands", async () => {
     const supabase = client({
       betting_profiles: PROFILES,

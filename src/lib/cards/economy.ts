@@ -11,6 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { FOIL_TYPES, foilTypeOf, type FoilType } from "@/lib/packs/config";
 import { CHAMPION_TIER } from "@/lib/cards/champions";
+import { TEAM_TIER } from "@/lib/cards/teamCards";
 
 /**
  * Wallets left out of every number here.
@@ -60,6 +61,33 @@ export interface EconomyStats {
   altArts: number;
   /** Minted, not pulled — moments aren't in packs. */
   momentsMinted: number;
+  /** Roster plates in circulation. `byTeam` is ordered by copies so the
+   *  page can show which rosters the league is actually holding, and
+   *  `weeks` counts the distinct editions minted — a team pulled across
+   *  four weeks is four different collectibles, not four of one. */
+  teams: {
+    total: number;
+    foils: number;
+    weeks: number;
+    byTeam: { teamName: string; copies: number }[];
+  };
+  /** The expedition board, as activity rather than inventory: runs are an
+   *  ACTION, so unlike every other figure here nothing deletes them and
+   *  these are true totals rather than what survived the dust button. */
+  expeditions: {
+    runs: number;
+    /** Distinct people who have sent a squad out. */
+    runners: number;
+    /** Squads still in the field — launched, not yet claimed. */
+    inField: number;
+    byTier: Record<string, number>;
+    /** What the board has actually paid: dollars, comped packs, marks. */
+    dollars: number;
+    comps: number;
+    marks: number;
+    /** Runs that came home on the top grade. */
+    jackpots: number;
+  };
   /** The Faceless Drop's relics in circulation. `byRank` keys are the
    *  corner indices (K, A, Q, 7, JOKER) so the page can show how the Hand
    *  spread; foils/signed/altArts are the drop's own shine, a SUBSET of
@@ -85,6 +113,8 @@ interface InventoryStatRow {
   foil_type: string | null;
   signed: boolean | null;
   artSkin: number | null;
+  /** Which edition the copy minted from — the week a roster plate froze. */
+  edition_week: string | null;
 }
 
 /** The discord ids behind `names`. An empty result is fine and normal —
@@ -165,7 +195,7 @@ export async function fetchEconomyStats(
   const { pageSize = 1000, maxPages = 100 } = paging;
   const excluded = await excludedIds(supabase, excludeNames);
 
-  const [opensPage, inventoryPage, momentsResult] = await Promise.all([
+  const [opensPage, inventoryPage, momentsResult, runsPage] = await Promise.all([
     fetchAllRows<{ discord_id: string; cost: number }>(
       supabase,
       "card_pack_opens",
@@ -179,15 +209,26 @@ export async function fetchEconomyStats(
     fetchAllRows<InventoryStatRow>(
       supabase,
       "card_inventory",
-      "id, discord_id, slug, player_name, overall, tier, foil, foil_type, signed, artSkin:card->artSkin",
+      "id, discord_id, slug, player_name, overall, tier, foil, foil_type, signed, edition_week, artSkin:card->artSkin",
       season,
       pageSize,
       maxPages,
     ),
     supabase.from("card_moments").select("id", { count: "exact", head: true }).eq("season", season),
+    // Expedition runs are ACTIONS, not inventory — nothing deletes them,
+    // so unlike the copy counts above these are true totals. A season with
+    // the table not yet migrated reads as an empty board, same tolerance
+    // the expedition page itself keeps.
+    fetchAllRows<{
+      discord_id: string;
+      tier: string;
+      claimed_at: string | null;
+      outcome: { grade?: string; dollars?: number; comp?: boolean; mark?: string | null } | null;
+    }>(supabase, "expedition_runs", "id, discord_id, tier, claimed_at, outcome", season, pageSize, maxPages),
   ]);
 
   const opens = opensPage.rows.filter((row) => !excluded.has(row.discord_id));
+  const runs = runsPage.rows.filter((row) => !excluded.has(row.discord_id));
   const cards = inventoryPage.rows.filter((row) => !excluded.has(row.discord_id));
 
   const copiesByPlayer = new Map<string, number>();
@@ -197,8 +238,12 @@ export async function fetchEconomyStats(
   let signed = 0;
   let altArts = 0;
   const champions = { total: 0, byRank: {} as Record<string, number>, foils: 0, signed: 0, altArts: 0 };
+  const teams = { total: 0, foils: 0, weeks: 0, byTeam: [] as { teamName: string; copies: number }[] };
+  const teamCopies = new Map<string, number>();
+  const teamWeeks = new Set<string>();
   for (const card of cards) {
     const isChampion = card.tier === CHAMPION_TIER;
+    const isTeam = card.tier === TEAM_TIER;
     if (card.foil) {
       foils += 1;
       // foilTypeOf, not the raw column: a copy pulled before parallels
@@ -221,6 +266,17 @@ export async function fetchEconomyStats(
       // bestPull on its own.
       continue;
     }
+    if (isTeam) {
+      // player_name on a plate is the TEAM's name and edition_week is the
+      // roster it froze, so neither needs the slug parsed back apart.
+      teams.total += 1;
+      if (card.foil) teams.foils += 1;
+      teamCopies.set(card.player_name, (teamCopies.get(card.player_name) ?? 0) + 1);
+      if (card.edition_week) teamWeeks.add(card.edition_week);
+      // Same reasoning as the Hand: a roster is not a player, and letting
+      // one into "most pulled" would answer a question nobody asked.
+      continue;
+    }
     copiesByPlayer.set(card.player_name, (copiesByPlayer.get(card.player_name) ?? 0) + 1);
     if (!best || card.overall > best.overall) {
       best = { playerName: card.player_name, overall: card.overall, tier: card.tier };
@@ -231,6 +287,34 @@ export async function fetchEconomyStats(
   const mostPulled = [...copiesByPlayer.entries()].sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
   )[0];
+
+  teams.weeks = teamWeeks.size;
+  teams.byTeam = [...teamCopies.entries()]
+    .map(([teamName, copies]) => ({ teamName, copies }))
+    .sort((a, b) => b.copies - a.copies || a.teamName.localeCompare(b.teamName));
+
+  // Claimed runs only for the payout figures: an unclaimed row has no
+  // outcome yet, and counting its absent dollars as zero would read as "the
+  // board paid nothing" rather than "the squad is still out there".
+  const expeditions = {
+    runs: runs.length,
+    runners: new Set(runs.map((row) => row.discord_id)).size,
+    inField: runs.filter((row) => !row.claimed_at).length,
+    byTier: {} as Record<string, number>,
+    dollars: 0,
+    comps: 0,
+    marks: 0,
+    jackpots: 0,
+  };
+  for (const run of runs) {
+    expeditions.byTier[run.tier] = (expeditions.byTier[run.tier] ?? 0) + 1;
+    const outcome = run.outcome;
+    if (!run.claimed_at || !outcome) continue;
+    expeditions.dollars += Number(outcome.dollars ?? 0);
+    if (outcome.comp === true) expeditions.comps += 1;
+    if (outcome.mark) expeditions.marks += 1;
+    if (outcome.grade === "jackpot") expeditions.jackpots += 1;
+  }
 
   return {
     packsOpened: opens.length,
@@ -243,9 +327,11 @@ export async function fetchEconomyStats(
     altArts,
     momentsMinted: momentsResult.error ? 0 : momentsResult.count ?? 0,
     champions,
+    teams,
+    expeditions,
     bestPull: best,
     mostPulled: mostPulled ? { playerName: mostPulled[0], copies: mostPulled[1] } : null,
     excludedCount: excluded.size,
-    truncated: opensPage.truncated || inventoryPage.truncated,
+    truncated: opensPage.truncated || inventoryPage.truncated || runsPage.truncated,
   };
 }

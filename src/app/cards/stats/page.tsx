@@ -8,6 +8,11 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchEconomyStats, type EconomyStats } from "@/lib/cards/economy";
 import { tierLabel } from "@/lib/cards/tier";
 import { CHAMPIONS_SEASON, CHAMPIONS_SET } from "@/lib/cards/champions";
+import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/config";
+
+/** Tier order for the board readout — easiest first, same as the launch
+ *  screen, so the two pages read in the same direction. */
+const EXPEDITION_TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
 
 export const metadata: Metadata = {
   title: "Card Ledger — FPL",
@@ -28,8 +33,13 @@ function Figure({ value, label, note }: { value: string; label: string; note?: s
  *  people argue about. Guarded: no pulls means no rate, not a divide by
  *  zero rendered as Infinity. */
 function rate(part: number, whole: number): string | undefined {
+  return rateOf(part, whole, "cards");
+}
+
+/** The same rate, over something that isn't a card — runs, mostly. */
+function rateOf(part: number, whole: number, unit: string): string | undefined {
   if (part <= 0 || whole <= 0) return undefined;
-  return `1 in ${Math.round(whole / part).toLocaleString()} cards`;
+  return `1 in ${Math.round(whole / part).toLocaleString()} ${unit}`;
 }
 
 /** Public on purpose: the ledger is the league's shared scoreboard for the
@@ -135,6 +145,93 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
                     label={`${def.rank}♠ · ${def.name}`}
                   />
                 ))}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Roster plates. `weeks` is the figure that makes a plate a
+              collectible rather than a duplicate: the same team pulled in
+              four different weeks is four different rosters. */}
+          {stats.teams.total > 0 ? (
+            <section aria-label="Roster plates" className="flex flex-col gap-4">
+              <div>
+                <span className="label-dash text-mint">▚ Team cards · the roster plates</span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Figure
+                  value={stats.teams.total.toLocaleString()}
+                  label="Plates in circulation"
+                  note={rate(stats.teams.total, stats.cardsPulled)}
+                />
+                <Figure
+                  value={stats.teams.foils.toLocaleString()}
+                  label="Foiled plates"
+                  note={rate(stats.teams.foils, stats.teams.total)}
+                />
+                <Figure
+                  value={stats.teams.weeks.toLocaleString()}
+                  label="Editions minted"
+                  note="A team's plate is re-cut every week"
+                />
+                <Figure
+                  value={stats.teams.byTeam.length.toLocaleString()}
+                  label="Rosters pulled"
+                  note={stats.teams.byTeam[0] ? `Most held: ${stats.teams.byTeam[0].teamName}` : undefined}
+                />
+              </div>
+              <ul className="card-brand flex flex-col divide-y divide-white/5 p-0">
+                {stats.teams.byTeam.map((team) => (
+                  <li key={team.teamName} className="flex items-center justify-between gap-4 px-5 py-3">
+                    <span className="truncate text-sm font-semibold text-white">{team.teamName}</span>
+                    <span className="text-sm tabular-nums text-steel">
+                      {team.copies.toLocaleString()} held
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* The expedition board. Runs are an action rather than an object,
+              so nothing deletes them — these are the only true totals on the
+              page, and the note says so. */}
+          {stats.expeditions.runs > 0 ? (
+            <section aria-label="Expeditions" className="flex flex-col gap-4">
+              <div>
+                <span className="label-dash text-[#f0b429]">⛰ Expeditions · squads sent out</span>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Figure
+                  value={stats.expeditions.runs.toLocaleString()}
+                  label="Runs launched"
+                  note="A run is never deleted — this is the real total"
+                />
+                <Figure value={stats.expeditions.runners.toLocaleString()} label="People running them" />
+                <Figure
+                  value={stats.expeditions.inField.toLocaleString()}
+                  label="Squads still out"
+                  note="Launched, not yet claimed"
+                />
+                <Figure
+                  value={fmtPoints(stats.expeditions.dollars)}
+                  label="Paid out"
+                  note={`${stats.expeditions.comps.toLocaleString()} free packs · ${stats.expeditions.marks.toLocaleString()} marks earned`}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {EXPEDITION_TIER_ORDER.map((key) => (
+                  <Figure
+                    key={key}
+                    value={(stats.expeditions.byTier[key] ?? 0).toLocaleString()}
+                    label={EXPEDITION_TIERS[key].label}
+                    note={`${EXPEDITION_TIERS[key].durationHours}h out`}
+                  />
+                ))}
+                <Figure
+                  value={stats.expeditions.jackpots.toLocaleString()}
+                  label="Jackpots"
+                  note={rateOf(stats.expeditions.jackpots, stats.expeditions.runs, "runs")}
+                />
               </div>
             </section>
           ) : null}
