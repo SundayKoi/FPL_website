@@ -58,6 +58,17 @@ describe("the laurel on a stamped copy", () => {
     expect(laurel()?.getAttribute("title")).toContain("2026-08-24");
   });
 
+  it("keeps the player-card laurel out of the banner row and the name", () => {
+    render(<PlayerCard3D card={{ ...card, drawWin: { weekStart: "2026-08-24" } }} />);
+
+    // Measured on screen: the tier pill runs 9-14.5% of the card and the
+    // player's name starts at 20.6%, so the roundel does not fit between
+    // them — at top-[10%] it covered the tier word and at top-[22%] it
+    // covered the first letter of the name. 40% is the band that is clear
+    // on every front (plain, foil, standout). See PlayerCard3D.
+    expect(laurel()?.className).toContain("top-[40%]");
+  });
+
   it("marks a champions relic that won the draw", () => {
     const champCard: PlayerCardData = {
       ...card,

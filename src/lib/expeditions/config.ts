@@ -189,7 +189,13 @@ const BRIEFS: DailyBrief[] = [
 ];
 
 /**
- * The brief for a UTC date ("2026-08-27"), the same for everyone all day.
+ * The brief for an EASTERN date ("2026-08-27"), the same for everyone all
+ * day. Every caller passes an ET day and must keep doing so: the page
+ * banner reads `easternDateOf(now)`, and the claim scores the run against
+ * `easternDateOf(startedAt)` — the launch day on the same calendar the
+ * daily limit uses (`launch_expedition`'s `now() at time zone
+ * 'America/New_York'`). Feeding this a UTC date would put the banner and
+ * the payout on different briefs for four hours a night.
  *
  * A char-code hash rather than a stored table or a shuffle: the brief has
  * to be recomputable from the date alone, both when a run launches and

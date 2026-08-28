@@ -319,6 +319,12 @@ export default function ExpeditionBoard({
       setBusyRun(null);
       if (!result.ok) {
         setClaimError(result.error);
+        // Refresh on the failure too. The common refusal is 'already
+        // claimed' — the claim went through and the response was dropped,
+        // so the run is resolved on the server while the board still shows
+        // a live Claim button over it. Re-reading moves it into the field
+        // log with its payout; the message stays up to say what happened.
+        router.refresh();
         return;
       }
       setCeremony({ run, outcome: result.outcome, bearerId: result.bearerId, balance: result.balance });
@@ -527,7 +533,19 @@ export default function ExpeditionBoard({
               >
                 <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier]?.label ?? run.tier}</span>
                 <span className="text-steel">
-                  {new Date(run.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  {/* Pinned to Eastern for RunStatus' reason: without a
+                      timeZone the server formats in UTC and the browser in
+                      the viewer's zone, so a run launched between midnight
+                      and 4am UTC renders one date in the HTML and another
+                      after hydration — a mismatch, and the wrong day. ET is
+                      also the calendar the feature runs on end to end (the
+                      daily limit, and the brief the payout was scored
+                      against), so the log agrees with the payout. */}
+                  {new Date(run.startedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "America/New_York",
+                  })}
                 </span>
                 {run.outcome ? (
                   <>

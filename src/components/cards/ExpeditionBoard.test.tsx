@@ -95,6 +95,12 @@ const COPIES: InventoryRow[] = [
 
 const HOUR = 60 * 60 * 1000;
 
+/** The zone this process runs in, captured before any test moves it.
+ *  `delete process.env.TZ` does NOT put Node back on the system zone, so
+ *  the field-log case restores by naming the zone rather than by unsetting
+ *  the variable. */
+const AMBIENT_TZ = process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
   return {
     tier: "raid",
@@ -313,6 +319,51 @@ describe("ExpeditionBoard — runs in the field", () => {
   });
 });
 
+describe("ExpeditionBoard — the field log", () => {
+  // 10pm Eastern on 1 September, which is already the 2nd in UTC. A log
+  // that formats without a timeZone prints the SERVER's day into the HTML
+  // and the VIEWER's day after hydration — a React mismatch, and the wrong
+  // date, for every run launched between midnight and 4am UTC.
+  const LATE_ON_THE_FIRST = "2026-09-02T02:00:00.000Z";
+
+  function finishedRun() {
+    return makeRun({
+      id: 30,
+      startedAt: LATE_ON_THE_FIRST,
+      resolvesAt: "2026-09-02T10:00:00.000Z",
+      claimedAt: "2026-09-02T10:30:00.000Z",
+      outcome: { grade: "solid", dollars: 120, comp: false, mark: null, bearer: null },
+    });
+  }
+
+  afterEach(() => {
+    process.env.TZ = AMBIENT_TZ;
+  });
+
+  it("dates a finished run on the Eastern calendar, not on the renderer's zone", () => {
+    // Rendered from a UTC box — the server's situation. Without the fix the
+    // log reads "Sep 2" here and "Sep 1" in an Eastern browser.
+    process.env.TZ = "UTC";
+    expect(new Date(LATE_ON_THE_FIRST).toLocaleDateString("en-US", { month: "short", day: "numeric" }))
+      .toBe("Sep 2");
+
+    renderBoard({ runs: [finishedRun()] });
+
+    const log = screen.getByRole("region", { name: "Finished expeditions" });
+    expect(within(log).getByText("Sep 1")).toBeTruthy();
+  });
+
+  it("reads the same date from an Eastern browser, so hydration agrees", () => {
+    process.env.TZ = "America/New_York";
+
+    renderBoard({ runs: [finishedRun()] });
+
+    const log = screen.getByRole("region", { name: "Finished expeditions" });
+    expect(within(log).getByText("Sep 1")).toBeTruthy();
+    expect(within(log).getByText("$120")).toBeTruthy();
+  });
+});
+
 describe("ExpeditionBoard — the claim ceremony", () => {
   const resolvable = () =>
     renderBoard({
@@ -374,7 +425,7 @@ describe("ExpeditionBoard — the claim ceremony", () => {
     expect(screen.queryByTestId("expedition-ceremony")).toBeNull();
   });
 
-  it("surfaces a refused claim and leaves the run claimable", async () => {
+  it("surfaces a refused claim, and re-reads the server so a paid run can't stick", async () => {
     claimExpeditionAction.mockResolvedValue({ ok: false, error: "That squad is still out — check back soon." });
     resolvable();
 
@@ -382,7 +433,11 @@ describe("ExpeditionBoard — the claim ceremony", () => {
 
     expect(screen.getByText("That squad is still out — check back soon.")).toBeTruthy();
     expect(screen.queryByTestId("expedition-ceremony")).toBeNull();
+    // No ceremony and no optimistic move to the log: the board shows what
+    // the server says. The refresh is what keeps an 'already claimed'
+    // refusal — the claim landed, the response was dropped — from leaving
+    // a live Claim button over a run that is already paid.
+    expect(refresh).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Claim the Deep Raid" })).toBeTruthy();
-    expect(refresh).not.toHaveBeenCalled();
   });
 });
