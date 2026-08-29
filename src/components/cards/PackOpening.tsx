@@ -29,6 +29,7 @@
 // because a user who doesn't want the theater has still bought the cards.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cardArtUrls, preloadArt } from "@/lib/cards/artUrls";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
@@ -308,6 +309,18 @@ export default function PackOpening({
     mutedRef.current = muted;
     reducedRef.current = reduced;
   });
+
+  // Warm the art the moment a pack lands, not when each card flips.
+  //
+  // Card art is lazy everywhere, which is right for a shelf and wrong here:
+  // these five are already decided, the stage opens on backs that nobody has
+  // turned yet, and that gap is free download time. Without it the flip
+  // played against an empty frame and the splash arrived after the
+  // animation — the slowest-feeling part of opening a pack was the part
+  // that had already finished.
+  useEffect(() => {
+    preloadArt(pack.pulls.flatMap((pull) => cardArtUrls(pull.card)));
+  }, [pack.pulls]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
