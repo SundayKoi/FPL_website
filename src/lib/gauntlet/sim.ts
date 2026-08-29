@@ -53,11 +53,6 @@ export interface GauntletCard {
   fresh: boolean;
   /** The real-life team this card played for — what chemistry reads. */
   team?: string | null;
-  /** The champion this card's week printed, for the lane map to give it a
-   *  body. Presentation only — no rating, roll or contest reads it. Absent
-   *  on runs drafted before the map existed, which fall back to a stable
-   *  stand-in (faces.ts). */
-  champion?: string | null;
   /** A stand-in for a role the collection can't cover. Costs score. */
   trialist?: boolean;
 }
