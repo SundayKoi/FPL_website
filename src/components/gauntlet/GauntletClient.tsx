@@ -423,6 +423,16 @@ export default function GauntletClient({
 
   const over = run.status !== "active";
   const offering = run.status === "active" && run.relic_offer;
+  // Held relics grouped by family, biggest first — the build, as a line of
+  // chips above the three on offer.
+  const heldFamilies = (() => {
+    const counts = new Map<RelicFamily, number>();
+    for (const key of run.relics ?? []) {
+      const relic = RELIC_BY_KEY.get(key);
+      if (relic) counts.set(relic.family, (counts.get(relic.family) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  })();
   const atCrossroads = run.status === "active" && run.crossroads && run.next_opponent;
   const canSwap =
     offering && run.relics.includes("sixth_man") && !run.bench_swap_used;
@@ -620,9 +630,28 @@ export default function GauntletClient({
             <span className="label-dash text-coral">ROUND {run.round - 1} CLEARED · CHOOSE YOUR RELIC</span>
             <p className="mt-1 text-xs text-steel">
               One of three, run-scoped. The other two are burned — choosing is the game. Rares get likelier
-              the deeper you go.
+              the deeper you go, and the offer leans toward what you are already building — never so far
+              that it stops offering you a way out of it.
             </p>
           </div>
+          {/* What you are holding, by family. The offer leans toward these,
+              and multipliers of a family compound — so a player stacking one
+              on purpose should be able to SEE the build rather than
+              rediscover it by reading five relic descriptions. */}
+          {heldFamilies.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="label-dash mr-1">Holding</span>
+              {heldFamilies.map(([family, count]) => (
+                <span
+                  key={family}
+                  className="rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]"
+                  style={{ borderColor: `${FAMILY_COLOR[family]}80`, color: FAMILY_COLOR[family] }}
+                >
+                  {family} ×{count}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-3">
             {(run.relic_offer ?? []).map((key) => {
               const relic = RELIC_BY_KEY.get(key) ?? RELIC_CATALOG[0];
