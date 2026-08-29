@@ -157,11 +157,12 @@ Postgres database and public schema:
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
 | Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. |
 | Betting | `betting_profiles`, `betting_teams`, `betting_events`, `betting_markets`, `betting_bets`, `betting_ledger`, pick'em/store/season tables | Service-role RPCs handle wallet, bet, lock, resolve, cancel, and audit transitions after app-layer Discord/staff checks. Schedule-linked events identify the reusable Premier/Academy season catalog entries; generated markets retain `fixture_id` for idempotent retries. |
-| Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`. |
+| Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. |
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
 | Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, and role positions are database-backed. |
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
+| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per UTC date and league, record each signed-in wallet's guesses, and credit one 200 betting-dollar base completion reward within five guesses (300 for an active patron). `reward_amount` records the actual completion payout. Answer and progress rows have no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
@@ -182,6 +183,18 @@ Important RPC families include:
   and `stats_game_log` views.
 - Betting: `place_bet`, `cashout_bet`, lifecycle/lock functions, and the
   admin create/resolve/cancel/grant functions.
+- Recurring rewards: `calculate_recurring_reward` is the shared database
+  calculator used by `claim_daily_streak`, `claim_weekly_streak`,
+  `vote_daily_banger`, `record_fpldle_guess`, and `pay_match_win`. The wallet
+  is locked before `patron_until > now()` is checked. Only the base is
+  multiplied: `base * 1.5 + step * (streak - 1)` for an active patron,
+  otherwise `base + step * (streak - 1)`. Callers cannot request a patron
+  amount; each payout records the calculated amount in its ledger and claim,
+  progress, vote, or payout row. Existing payouts are never backfilled.
+- FPL'dle: `ensure_fpldle_daily_puzzle` creates one stable puzzle per UTC date
+  and league; `record_fpldle_guess` enforces the five-guess progress limit and
+  atomically credits the one-time completion reward. A correct replay returns
+  the stored `reward_amount` without writing another ledger row.
 - Match drafts: `apply_match_draft_action`, `set_match_draft_ready`,
   `choose_match_draft_blue`, change/undo/reset functions, and their
   `open_draft_*` token equivalents.

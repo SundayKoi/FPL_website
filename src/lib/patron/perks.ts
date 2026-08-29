@@ -57,6 +57,14 @@ export const PATRON_PERKS: PatronPerk[] = [
     headline: true,
   },
   {
+    key: "recurring-rewards",
+    icon: "💰",
+    title: "50% more recurring rewards",
+    blurb:
+      "/daily, /weekly, Daily Stu, FPL'dle, and scheduled match wins pay 50% more on their base reward while your patron flame is active.",
+    headline: true,
+  },
+  {
     key: "ink",
     icon: "🖋",
     title: "The patron pen case",
@@ -120,5 +128,4 @@ export const HEADLINE_PATRON_PERKS = PATRON_PERKS.filter((perk) => perk.headline
 
 /** The line that has to sit under every version of this list. */
 export const PATRON_FAIRNESS_NOTE =
-  "Nothing a patron pays for changes a card's odds, anyone's rating, or what comes out of a pack. " +
-  "The flame marks who keeps the lights on, not who wins.";
+  "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.";

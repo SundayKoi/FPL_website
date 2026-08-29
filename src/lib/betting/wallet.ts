@@ -3,6 +3,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { bettingAccess } from "./access";
 import { createBettingServiceClient } from "./service-client";
 import type { BettingUser } from "./types";
+import { patronActive } from "@/lib/patron/flames";
 
 const SIGNUP_BONUS_AMOUNT = 1000;
 
@@ -58,17 +59,19 @@ export async function getBettingUser(): Promise<BettingUser | null> {
 
   const { data: profile } = await service
     .from("betting_profiles")
-    .select("balance")
+    .select("balance, patron_until")
     .eq("discord_id", discordId)
     .single();
 
   const { allowed, staff } = await bettingAccess(discordId);
 
+  const patron = patronActive((profile as { patron_until?: string | null } | null)?.patron_until);
   return {
     discordId,
     profileId: user.id,
     username,
-    balance: (profile as { balance: number } | null)?.balance ?? 0,
+    balance: (profile as { balance: number; patron_until?: string | null } | null)?.balance ?? 0,
+    ...(patron ? { patron: true } : {}),
     allowed,
     staff,
   };

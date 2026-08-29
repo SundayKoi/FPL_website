@@ -12,7 +12,7 @@ vi.mock("@/lib/betting/service-client", () => ({
   createBettingServiceClient: vi.fn(() => ({ rpc, from: vi.fn(() => ({ upsert })) })),
 }));
 
-import { voteBangerPost } from "./actions";
+import { voteBangerPost, voteDailyBanger } from "./actions";
 
 beforeEach(() => {
   getBettingUser.mockResolvedValue({ profileId: "user-1", allowed: true });
@@ -43,5 +43,18 @@ describe("voteBangerPost", () => {
     upsert.mockResolvedValue({ error: { message: "constraint failure" } });
 
     await expect(voteBangerPost("post-1", "mid")).resolves.toEqual({ ok: false, error: "That vote could not be saved." });
+  });
+});
+
+describe("voteDailyBanger", () => {
+  it("returns the actual reward amount from the payout RPC", async () => {
+    rpc.mockResolvedValue({ data: [{ balance: 1300, reward_amount: 300, already_voted: false }], error: null });
+
+    await expect(voteDailyBanger("post-1", "banger")).resolves.toEqual({
+      ok: true,
+      balance: 1300,
+      rewardAmount: 300,
+      alreadyVoted: false,
+    });
   });
 });

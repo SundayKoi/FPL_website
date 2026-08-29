@@ -47,6 +47,12 @@ describe("PATRON_PERKS", () => {
     expect(flame.blurb).toContain(String(Math.round(SOVEREIGN_TENURE_DAYS / 30)));
     // The flame reaches both boards now, not just betting.
     expect(flame.blurb).toMatch(/Gauntlet/);
+
+    const recurring = PATRON_PERKS.find((perk) => perk.key === "recurring-rewards")!;
+    expect(recurring.title).toBe("50% more recurring rewards");
+    expect(recurring.blurb).toContain("/daily");
+    expect(recurring.blurb).toContain("FPL'dle");
+    expect(recurring.headline).toBe(true);
   });
 
   it("keeps a short list for the cards hub, drawn from the same source", () => {
@@ -59,5 +65,8 @@ describe("PATRON_PERKS", () => {
     expect(PATRON_FAIRNESS_NOTE).toMatch(/odds/);
     expect(PATRON_FAIRNESS_NOTE).toMatch(/rating/);
     expect(PATRON_FAIRNESS_NOTE).toMatch(/pack/);
+    expect(PATRON_FAIRNESS_NOTE).toBe(
+      "Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.",
+    );
   });
 });

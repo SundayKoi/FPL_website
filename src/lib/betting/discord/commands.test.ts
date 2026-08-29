@@ -76,6 +76,22 @@ describe("/balance", () => {
 });
 
 describe("/daily", () => {
+  it("reports the actual patron amount returned by the claim RPC", async () => {
+    rpcImpl.current = vi.fn((fn: string) => {
+      if (fn === "claim_daily_streak") {
+        return Promise.resolve({ data: [{ amount: 375, balance: 2375, streak: 1 }], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const res = (await commandHandlers.daily(baseInteraction())) as {
+      data: { embeds: Array<{ description: string }> };
+    };
+
+    expect(res.data.embeds[0].description).toContain("+$375");
+    expect(res.data.embeds[0].description).toContain("$2,375");
+  });
+
   it("returns the already-claimed error embed with Discord relative + absolute timestamps", async () => {
     rpcImpl.current = vi.fn((fn: string) => {
       if (fn === "claim_daily_streak") {

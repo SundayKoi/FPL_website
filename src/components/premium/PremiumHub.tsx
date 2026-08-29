@@ -196,7 +196,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="label-dash">New feature announcement</span>
-            <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s {leagueLabel} player puzzle within five guesses to earn $200 betting dollars.</p>
+            <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s {leagueLabel} player puzzle within five guesses to earn $200 betting dollars, or $300 while your patron flame is active.</p>
           </div>
           <Link href={fpldleHref} className="shrink-0 rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
             Play FPL&apos;dle →
@@ -284,7 +284,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           <FeatureCard
             eyebrow="Community read"
             title="The Daily Stu"
-            description="Rate the latest take and vote once a day for $200."
+            description="Rate the latest take and vote once a day for $200, or $300 while your patron flame is active."
             href="/bangers"
             className="lg:col-span-3"
           >

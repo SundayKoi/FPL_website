@@ -91,6 +91,7 @@ describe("BangerBoard saved votes", () => {
         dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
         settings={DEFAULT_BANGER_BOARD_SETTINGS}
         initialDailyVote="mid"
+        initialDailyRewardAmount={200}
       />,
     );
 
@@ -144,7 +145,7 @@ describe("BangerBoard saved votes", () => {
 
 describe("BangerBoard vote feedback", () => {
   it("updates the daily banger meter after saving a daily vote", async () => {
-    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    voteDailyBanger.mockResolvedValue({ ok: true, rewardAmount: 200, alreadyVoted: false });
     render(
       <BangerBoard
         posts={[]}
@@ -167,7 +168,7 @@ describe("BangerBoard vote feedback", () => {
   });
 
   it("keeps an overlapping daily bar on daily counts after voting", async () => {
-    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    voteDailyBanger.mockResolvedValue({ ok: true, rewardAmount: 200, alreadyVoted: false });
     render(
       <BangerBoard
         posts={[{ ...post, bangerVotes: 9, midVotes: 1, stinkerVotes: 0 }]}
@@ -184,7 +185,7 @@ describe("BangerBoard vote feedback", () => {
   });
 
   it("shares a daily vote with the overlapping recent card", async () => {
-    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    voteDailyBanger.mockResolvedValue({ ok: true, rewardAmount: 200, alreadyVoted: false });
     render(
       <BangerBoard
         posts={[post]}
@@ -198,6 +199,23 @@ describe("BangerBoard vote feedback", () => {
     await waitFor(() => expect(screen.getByText("Vote locked in — $200 added to your wallet.")).toBeTruthy());
 
     expect(voteGroups[1].querySelector("button[aria-pressed='true']")?.textContent ?? "").toContain("Banger");
+  });
+
+  it("shows the database-returned patron reward", async () => {
+    voteDailyBanger.mockResolvedValue({ ok: true, rewardAmount: 300, alreadyVoted: false });
+    render(
+      <BangerBoard
+        posts={[]}
+        dailyBanger={{ ...post, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+        patron
+      />,
+    );
+
+    expect(screen.getByText("Vote once a day → get $300")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Banger/ }));
+    await waitFor(() => expect(screen.getByText("Vote locked in — $300 added to your wallet.")).toBeTruthy());
+    expect(screen.getByText("✓ $300 bonus claimed")).toBeTruthy();
   });
 
   it("shares a recent vote with the overlapping daily card", async () => {

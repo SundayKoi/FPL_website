@@ -133,4 +133,13 @@ describe("getBettingUser", () => {
 
     expect(result?.username).toBe("Zed");
   });
+
+  it("marks an active patron from the wallet's patron window", async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: "p1", identities: [{ provider: "discord", id: "42" }], user_metadata: {} } },
+    });
+    single.mockResolvedValue({ data: { balance: 1500, patron_until: "2099-01-01T00:00:00.000Z" } });
+
+    await expect(getBettingUser()).resolves.toMatchObject({ patron: true });
+  });
 });

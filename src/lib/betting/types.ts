@@ -23,6 +23,8 @@ export interface BettingUser {
   profileId: string;
   username: string;
   balance: number;
+  /** True only while the server-observed patron window is active. */
+  patron?: boolean;
   allowed: boolean;
   staff: boolean;
 }

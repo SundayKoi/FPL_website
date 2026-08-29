@@ -123,10 +123,11 @@ function LocalResetTime({ endsAt }: { endsAt: string }) {
   return <p className="mt-3 text-xs text-white/45">{resetLabel ? `Resets ${resetLabel}` : "Resets at your local time"}</p>;
 }
 
-export default function BangerBoard({ posts, dailyBanger, settings, initialVotes = {}, initialDailyVote }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote }) {
+export default function BangerBoard({ posts, dailyBanger, settings, patron = false, initialVotes = {}, initialDailyVote, initialDailyRewardAmount }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; patron?: boolean; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote; initialDailyRewardAmount?: number }) {
   const [votes, setVotes] = useState<Record<string, Vote | undefined>>(initialVotes);
   const [randomPostId, setRandomPostId] = useState<string | undefined>(undefined);
   const [dailyVote, setDailyVote] = useState<Vote | undefined>(initialDailyVote);
+  const [dailyRewardAmount, setDailyRewardAmount] = useState<number | undefined>(initialDailyRewardAmount);
   const [dailyMessage, setDailyMessage] = useState("");
   const [dailyPending, setDailyPending] = useState(false);
   const [pendingPostIds, setPendingPostIds] = useState<Set<string>>(() => new Set());
@@ -156,6 +157,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
   const overallVoteCount = useMemo(() => votedPosts.reduce((total, post) => total + post.bangerVotes + post.midVotes + post.stinkerVotes, 0), [votedPosts]);
   const overallBangerVotes = useMemo(() => votedPosts.reduce((total, post) => total + post.bangerVotes, 0), [votedPosts]);
   const overallRating = overallVoteCount === 0 ? 0 : Math.round((overallBangerVotes / overallVoteCount) * 100);
+  const listedDailyReward = patron ? 300 : 200;
 
   useEffect(() => {
     if ((!randomPostId || !posts.some((post) => post.id === randomPostId)) && posts.length > 0) {
@@ -205,7 +207,8 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
     setDailyMessage("Saving vote…");
     try {
       const result = await voteDailyBanger(dailyBanger.id, nextVote);
-      setDailyMessage(result.ok ? (result.alreadyVoted ? "You already voted today." : "Vote locked in — $200 added to your wallet.") : result.error);
+      if (result.ok && result.rewardAmount !== undefined) setDailyRewardAmount(result.rewardAmount);
+      setDailyMessage(result.ok ? (result.alreadyVoted ? "You already voted today." : result.rewardAmount ? `Vote locked in — $${result.rewardAmount} added to your wallet.` : "Vote locked in — reward added to your wallet.") : result.error);
       if (!result.ok) setDailyVote(undefined);
     } catch {
       setDailyVote(undefined);
@@ -238,8 +241,8 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
 
       <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
         <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · vote once a day for $200</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
-          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : "✓ $200 bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once a day → get $200</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />{dailyMessage ? <p className="mt-3 text-xs text-white/45" role="status" aria-live="polite">{dailyMessage}</p> : null}<LocalResetTime endsAt={dailyBanger.endsAt} /></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · vote once a day for ${listedDailyReward}</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
+          {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : dailyRewardAmount ? `✓ $${dailyRewardAmount} bonus claimed` : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once a day → get ${listedDailyReward}</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />{dailyMessage ? <p className="mt-3 text-xs text-white/45" role="status" aria-live="polite">{dailyMessage}</p> : null}<LocalResetTime endsAt={dailyBanger.endsAt} /></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
         </div>
       </section>
 

@@ -184,6 +184,12 @@ describe("FpldleBoard", () => {
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
   });
 
+  it("shows the patron reward rate in the reward card", () => {
+    render(<FpldleBoard game={{ ...game(), patron: true }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$300 betting dollars");
+  });
+
   it("places the player chooser above guess history", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 

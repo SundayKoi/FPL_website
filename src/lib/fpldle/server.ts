@@ -21,6 +21,8 @@ export interface FpldleGame {
   date: string;
   expiresAt: string;
   canReset: boolean;
+  /** Whether the signed-in player is currently eligible for the patron rate. */
+  patron?: boolean;
   /** Reserved for account-backed progress. Browser progress is merged by the client. */
   previousGuesses: string[];
   candidates: FpldlePlayerPreview[];
@@ -439,6 +441,7 @@ export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
     date: puzzle.puzzle_date,
     expiresAt: puzzle.reset_at,
     canReset: isAdmin,
+    ...(user?.patron ? { patron: true } : {}),
     previousGuesses: [],
     candidates: await publicCandidates(service, validLeague, date),
     streaks: await loadFpldleStreakSnapshot(service, validLeague, date, user?.profileId ?? null),

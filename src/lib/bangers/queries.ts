@@ -37,6 +37,8 @@ export async function fetchBangerPosts(): Promise<BangerPost[]> {
 export type BangerViewerVotes = {
   postVotes: Partial<Record<string, BangerVote>>;
   dailyVote?: BangerVote;
+  /** The amount actually paid for the current daily vote, when known. */
+  dailyRewardAmount?: number;
 };
 
 export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<BangerViewerVotes> {
@@ -52,7 +54,7 @@ export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<B
   const dailyVotePromise = dailyCheckDate
     ? supabase
         .from("daily_banger_votes")
-        .select("vote")
+        .select("vote, reward_amount")
         .eq("check_date", dailyCheckDate)
         .eq("voter_id", user.id)
         .maybeSingle()
@@ -66,8 +68,9 @@ export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<B
     }),
   );
   const dailyVote = parseBangerVote((dailyRow as { vote?: string } | null)?.vote);
+  const dailyRewardAmount = Number((dailyRow as { reward_amount?: number } | null)?.reward_amount ?? 0);
 
-  return { postVotes, dailyVote: dailyVote ?? undefined };
+  return { postVotes, dailyVote: dailyVote ?? undefined, dailyRewardAmount: dailyRewardAmount > 0 ? dailyRewardAmount : undefined };
 }
 
 export type DailyBanger = BangerPost & { checkDate: string; startsAt: string; endsAt: string };

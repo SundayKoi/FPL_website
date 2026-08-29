@@ -39,6 +39,7 @@ import { lastCompletedWeek } from "../src/lib/fantasy/week";
 import { PACK_COST } from "../src/lib/packs/config";
 import { mondayOf } from "../src/lib/packs/week";
 import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
+import { formatMatchWinPayouts, type MatchWinPayoutLine } from "../src/lib/betting/match-wins";
 
 interface SnapshotRow {
   slug: string;
@@ -73,6 +74,13 @@ async function postEmbed(webhookUrl: string, title: string, description: string,
   if (!response.ok) {
     throw new Error(`Discord webhook failed: HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
   }
+}
+
+function parseMatchWinPayment(data: unknown): { paid: boolean; amount: number } {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (typeof row !== "object" || row === null) return { paid: false, amount: 0 };
+  const payment = row as { paid?: unknown; amount?: unknown };
+  return { paid: payment.paid === true, amount: Number(payment.amount ?? 0) };
 }
 
 async function processSeason(
@@ -558,11 +566,11 @@ async function payMatchWinBonuses(
   let paidCount = 0;
   for (const win of wins) {
     if (!win.teamId) continue;
-    const paidNames: string[] = [];
+    const paidPayouts: MatchWinPayoutLine[] = [];
     for (const profileId of membership.get(win.teamId) ?? []) {
       const profile = bettingByProfile.get(profileId);
       if (!profile) continue;
-      const { data: paid, error: payError } = await supabase.rpc("pay_match_win", {
+      const { data: paymentData, error: payError } = await supabase.rpc("pay_match_win", {
         p_fixture: win.fixtureId,
         p_user: profile.discord_id,
         p_season: season,
@@ -575,11 +583,12 @@ async function payMatchWinBonuses(
         console.error(`[${label}] pay_match_win failed for ${profile.discord_id}: ${payError.message}`);
         continue;
       }
-      if (paid === true) paidNames.push(profile.username);
+      const payment = parseMatchWinPayment(paymentData);
+      if (payment.paid && payment.amount > 0) paidPayouts.push({ username: profile.username, amount: payment.amount });
     }
-    if (paidNames.length > 0) {
-      lines.push(`**${win.winnerName}** ${win.score} ${win.loserName} — +$${MATCH_WIN_BONUS} each: ${paidNames.join(", ")}`);
-      paidCount += paidNames.length;
+    if (paidPayouts.length > 0) {
+      lines.push(`**${win.winnerName}** ${win.score} ${win.loserName} — ${formatMatchWinPayouts(paidPayouts)}`);
+      paidCount += paidPayouts.length;
     }
   }
 
@@ -587,7 +596,7 @@ async function payMatchWinBonuses(
     console.log(`[${label}] Match bonuses for the week of ${week} were already paid — nothing new.`);
     return;
   }
-  console.log(`[${label}] Paid ${paidCount} match win bonus(es) of $${MATCH_WIN_BONUS} for the week of ${week}.`);
+  console.log(`[${label}] Paid ${paidCount} match win bonus(es) for the week of ${week}.`);
   if (!webhookUrl) return;
   await postEmbed(
     webhookUrl,
