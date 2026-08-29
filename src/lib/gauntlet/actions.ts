@@ -146,6 +146,10 @@ export async function startGauntletRunAction(
       signed: row.signed === true,
       fresh: row.edition_week === thisWeek,
       team: row.card.teamName ?? null,
+      // The champion this copy's week printed, so the lane map can give the
+      // card a body. Frozen with the run like everything else about it —
+      // presentation only, and nothing in the sim reads it.
+      champion: row.card.signature?.champion ?? null,
     });
   }
 
@@ -310,7 +314,9 @@ export async function chooseGauntletPathAction(
       relic_offer: offer,
       crossroads: null,
       next_opponent: sim.won ? null : run.next_opponent,
-      last_result: { ...result, round: run.round, autopsy },
+      // theirCards rides along so the tape can draw the map after the
+      // fight: next_opponent is cleared or advanced by this very update.
+      last_result: { ...result, round: run.round, autopsy, theirCards: run.next_opponent?.cards ?? [] },
       updated_at: new Date().toISOString(),
     })
     .eq("id", run.id)
