@@ -1,32 +1,27 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
-import BinderEditor, { type BinderOption } from "@/components/cards/BinderEditor";
-import CollectionGrid from "@/components/cards/CollectionGrid";
-import TeamSetsSection from "@/components/cards/TeamSetsSection";
+import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { buildWeekSets } from "@/lib/cards/sets";
-import { fetchSetClaimState, fetchSetEditionCards, setKey } from "@/lib/cards/setQueries";
 import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
   fetchChampionsWindow,
   fetchChase,
   fetchDailyRipStatus,
-  fetchInventory,
   fetchLiveWindow,
+  fetchOwnedSlugs,
   fetchPackComps,
   fetchPackOpenCount,
   type ChaseBanner,
   type DailyRipStatus,
-  type InventoryRow,
   type LiveWindow,
 } from "@/lib/packs/queries";
-import { binderSlotsFor, fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
-import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
+import { fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
   title: "Card Packs — FPL",
@@ -89,9 +84,12 @@ export async function PacksPageView({
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, openCount, editionWeeks, binder, dailyRip]: [InventoryRow[], number, string[], Binder | null, DailyRipStatus] = season
+  const [ownedSlugs, openCount, editionWeeks, binder, dailyRip]: [string[], number, string[], Binder | null, DailyRipStatus] = season
     ? await Promise.all([
-        fetchInventory(service, user.discordId, season),
+        // Slugs, not the collection. The shop only asks "do I own this
+        // player at all", and the shelf that needs every copy is suspended
+        // below so it cannot hold the buy buttons up.
+        fetchOwnedSlugs(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
         fetchCardEditionWeeks(service, season),
         // null when the card_binders migration hasn't been applied here —
@@ -111,13 +109,9 @@ export async function PacksPageView({
     number,
     number,
   ] = [null, null, null, 0, 0];
-  // Everything below needed only what the read above already produced, and
-  // ran as four more stages behind it — the shop banners, then the patron
-  // tenure, then the deploy lock, then the roster sets. Four round trips
-  // waiting on each other for no reason: this page was six sequential
-  // stages deep before it rendered a card. They go together now.
-  const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
-  const [shopReads, patronTenureDays, deployedIds, setReads] = await Promise.all([
+  // The shop's own banners, plus the patron tenure the wardrobe needs.
+  // Both are small and neither waits on a collection any more.
+  const [shopReads, patronTenureDays] = await Promise.all([
     season
       ? Promise.all([
           fetchLiveWindow(service),
@@ -135,64 +129,8 @@ export async function PacksPageView({
     // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
     // read for an active patron.
     dailyRip.patron ? fetchPatronTenureDays(service, user.discordId) : Promise.resolve(0),
-    // Copies away on an expedition. Season-blind, because the deploy lock is
-    // a property of the card — and fails soft to "none deployed" in an
-    // environment that hasn't applied the expeditions migration, which is
-    // why it can sit outside the `season` branch above.
-    fetchDeployedCopyIds(service, user.discordId),
-    season && heldWeeks.length > 0
-      ? Promise.all([
-          fetchSetEditionCards(service, season, heldWeeks),
-          fetchSetClaimState(service, user.discordId, season, inventory.map((copy) => copy.id)),
-        ])
-      : Promise.resolve([
-          [] as Awaited<ReturnType<typeof fetchSetEditionCards>>,
-          { claimed: new Set<string>(), spent: new Set<number>() },
-        ] as const),
   ]);
   [liveWindow, chase, championsWindow, championComps, standardComps] = shopReads;
-  const [setEditionCards, setClaims] = setReads;
-  const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
-  // Slots are 1-indexed in the table and positional in the editor.
-  // Patrons shelve nine; everyone else six (binderSlotsFor).
-  const binderSlots: (number | null)[] = Array.from({ length: binderSlotsFor(dailyRip.patron) }, (_, index) => {
-    return binder?.cards.find((entry) => entry.slot === index + 1)?.inventoryId ?? null;
-  });
-  const binderOptions: BinderOption[] = inventory.map((row) => ({
-    inventoryId: row.id,
-    playerName: row.playerName,
-    editionWeek: row.editionWeek,
-    tier: row.tier,
-    foil: row.foil,
-    signed: row.signed,
-  }));
-
-  // Roster sets. Asked of a frozen edition, so the weeks on offer are the
-  // ones this collector actually holds copies from — newest first (heldWeeks,
-  // resolved above so the read could join the batch).
-  //
-  // EVERY held week is computed here, not just the one being viewed: the
-  // week switch used to be a link, which re-ran this entire page to change
-  // which five names a small section listed.
-  const editionsByWeek = new Map<string, Awaited<ReturnType<typeof fetchSetEditionCards>>>();
-  for (const card of setEditionCards) {
-    const list = editionsByWeek.get(card.editionWeek) ?? [];
-    list.push(card);
-    editionsByWeek.set(card.editionWeek, list);
-  }
-  // A set already paid for has had its five copies spent, so buildWeekSets
-  // no longer reads it as complete — the claimed names travel separately so
-  // the row can say "Claimed" rather than quietly reverting to 0/5 and
-  // looking like the cards went missing.
-  const setsByWeek = heldWeeks.map((held) => {
-    const sets = buildWeekSets(editionsByWeek.get(held) ?? [], inventory, held, setClaims.spent);
-    return {
-      week: held,
-      sets,
-      claimed: sets.filter((set) => setClaims.claimed.has(setKey(held, set.teamName))).map((set) => set.teamName),
-    };
-  });
-  const activeSetWeek = setWeek && heldWeeks.includes(setWeek) ? setWeek : heldWeeks[0];
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -293,34 +231,22 @@ export async function PacksPageView({
         patronTenureDays={patronTenureDays}
       />
 
-      <section id="collection" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="type-display text-2xl sm:text-3xl">Your collection</h2>
-          <Link href={`${base}/trades`} className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            Trading post →
-          </Link>
-          <a href="#binder" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            Your binder →
-          </a>
-          <a href="#team-sets" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            Roster sets →
-          </a>
-        </div>
-        <CollectionGrid
-          inventory={inventory}
-          pinnedIds={binderSlots.filter((id): id is number => id !== null)}
+      {/* Suspended on purpose: this is the collection, the roster sets and
+          the binder, and it is the only part of the page that has to read
+          every copy somebody owns. The shop above is already interactive
+          while this arrives. */}
+      <Suspense fallback={<CollectionSectionsFallback />}>
+        <CollectionSections
+          discordId={user.discordId}
+          season={season}
+          base={base}
+          binder={binder}
+          patron={dailyRip.patron}
           flame={dailyRip.flame}
-          deployedIds={deployedIds}
+          setWeek={setWeek}
         />
-      </section>
+      </Suspense>
 
-      {season && activeSetWeek ? (
-        <TeamSetsSection season={season} initialWeek={activeSetWeek} weeks={setsByWeek} />
-      ) : null}
-
-      {binder ? (
-        <BinderEditor slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
-      ) : null}
     </main>
   );
 }
