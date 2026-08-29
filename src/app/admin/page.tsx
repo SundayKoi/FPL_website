@@ -132,6 +132,13 @@ export default async function AdminPage() {
       href: "/admin/claims",
     },
     {
+      label: "Gauntlet balance",
+      stat: "Picks & win rates",
+      statTone: "text-gold",
+      description: "What players take at the crossroads and off the relic table, and how it goes.",
+      href: "/admin/gauntlet",
+    },
+    {
       label: "Betting",
       stat: "Markets, pick'ems & catalog",
       statTone: "text-gold",

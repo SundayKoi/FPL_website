@@ -15,6 +15,7 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -26,6 +27,7 @@ import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
 import { buildAutopsy } from "./autopsy";
 import { CROSSROADS_BY_KEY } from "./crossroads";
 import { generateOpponent, weekSeed } from "./opponents";
+import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./telemetry";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
   GAUNTLET_ROLES,
@@ -320,6 +322,13 @@ export async function chooseGauntletPathAction(
     .not("crossroads", "is", null)
     .select("*");
 
+  // The balance tape, after the response. Best-effort by construction:
+  // a telemetry hiccup must never turn a resolved round into an error.
+  if (updated && updated.length > 0) {
+    const logRow = roundLogRow(run, choiceKey, result);
+    after(() => recordRound(service, logRow));
+  }
+
   if (!updated || updated.length === 0) {
     // Raced by our own double-click: the row already moved. Hand back what
     // it moved TO — the recomputed result is identical by construction
@@ -386,6 +395,11 @@ export async function pickGauntletRelicAction(
     .not("relic_offer", "is", null)
     .select("*");
   if (!updated || updated.length === 0) return { ok: false, error: "That pick already happened — reload." };
+
+  // Three keys went out and one came back — the denominator a relic's
+  // pick rate needs. Recorded off the response path, same as the call.
+  const offerRow = relicOfferRow(run, relicKey);
+  after(() => recordRelicOffer(service, offerRow));
 
   revalidateGauntlet();
   return { ok: true, run: (updated as GauntletRunRow[])[0] };
