@@ -180,14 +180,14 @@ describe("FpldleBoard", () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
-    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$200 betting dollars");
+    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("Normal users get $200 betting dollars; active patrons get $300");
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
   });
 
-  it("shows the patron reward rate in the reward card", () => {
+  it("shows the same normal and patron reward rates in the reward card", () => {
     render(<FpldleBoard game={{ ...game(), patron: true }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
-    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("$300 betting dollars");
+    expect(screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent).toContain("Normal users get $200 betting dollars; active patrons get $300");
   });
 
   it("places the player chooser above guess history", () => {
