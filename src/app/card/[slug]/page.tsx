@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
@@ -68,14 +69,20 @@ function SeasonJourney({ history }: { history: RatingHistoryPoint[] }) {
 
 /** Share URLs span both leagues: try Premier's season first, then the
  *  Academy's, so one /card/[slug] namespace serves every player. */
-async function loadCard(slug: string) {
+const loadCard = cache(async (slug: string) => {
   const supabase = await createServerSupabase();
-  for (const { league, season } of await fetchAllCardSeasons(supabase)) {
-    const card = await fetchCardBySlug(supabase, season, slug);
-    if (card) return { card, league };
+  const seasons = await fetchAllCardSeasons(supabase);
+  // Both shelves asked at once, then read in league order. Sequentially,
+  // every academy card paid for a premier miss first — and building a card
+  // is not a cheap read.
+  const found = await Promise.all(
+    seasons.map(async ({ league, season }) => ({ league, card: await fetchCardBySlug(supabase, season, slug) })),
+  );
+  for (const entry of found) {
+    if (entry.card) return { card: entry.card, league: entry.league };
   }
   return null;
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -139,11 +146,35 @@ export default async function CardSharePage({
   let skinNums: number[] = [0];
   if (card) {
     const supabase = await createServerSupabase();
-    const { data } = await supabase
-      .rpc("can_edit_card_art", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
-      .then((result) => result, () => ({ data: null }));
-    canEditArt = data === true;
-    history = await fetchRatingHistory(supabase, card.season, card.slug);
+    // Five reads that need nothing from each other, and used to wait in a
+    // line: the art permission, the rating history, who is looking, the
+    // moderation permission, and whether the card is claimed. On the most
+    // shared page on the site, that was five round trips deep before
+    // anything rendered.
+    const [editData, historyRows, viewerResult, moderatesData, claimData] = await Promise.all([
+      supabase
+        .rpc("can_edit_card_art", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
+        .then((result) => result.data, () => null),
+      fetchRatingHistory(supabase, card.season, card.slug),
+      supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } })),
+      supabase
+        .rpc("can_moderate_card", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
+        .then((result) => result.data, () => null),
+      // Failure-tolerant: before the claims migration lands this table does
+      // not exist, and the row simply reads as "unclaimed".
+      supabase
+        .from("card_claims")
+        .select("profile_id, status")
+        .eq("season", card.season)
+        .eq("summoner_name", card.name)
+        .eq("tag", card.tag)
+        .maybeSingle()
+        .then((result) => result.data, () => null),
+    ]);
+    canEditArt = editData === true;
+    history = historyRows;
+    canModerate = moderatesData === true;
+    viewerProfileId = viewerResult.data.user?.id ?? null;
     if (canEditArt) {
       // One narrow read, and only for the editor — a failure (the signature
       // migration not applied yet) just shows an empty pad.
@@ -158,9 +189,6 @@ export default async function CardSharePage({
       signature = (prefs as { signature: string | null } | null)?.signature ?? null;
       if (card.signature) skinNums = await fetchChampionSkinNums(card.signature.champion);
     }
-
-    const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
-    viewerProfileId = viewer.user?.id ?? null;
 
     // Patron inks: the signature pad offers gold and crimson to an active
     // patron editing their own card. Two narrow service reads, editor-only.
@@ -183,23 +211,7 @@ export default async function CardSharePage({
       }
     }
 
-    const { data: moderates } = await supabase
-      .rpc("can_moderate_card", { p_season: card.season, p_summoner: card.name, p_tag: card.tag })
-      .then((result) => result, () => ({ data: null }));
-    canModerate = moderates === true;
-
-    // Failure-tolerant like the signature read above: before the claims
-    // migration lands this table doesn't exist, and the row simply reads as
-    // "unclaimed".
-    const { data: claimRow } = await supabase
-      .from("card_claims")
-      .select("profile_id, status")
-      .eq("season", card.season)
-      .eq("summoner_name", card.name)
-      .eq("tag", card.tag)
-      .maybeSingle()
-      .then((result) => result, () => ({ data: null }));
-    const row = claimRow as { profile_id: string; status: "pending" | "approved" } | null;
+    const row = claimData as { profile_id: string; status: "pending" | "approved" } | null;
     if (row) {
       // profiles carries a public read policy (profiles_public_read,
       // 20260807000001), so the anon page client can name the claimant.
