@@ -18,6 +18,23 @@ import { ALT_SKIN_CHANCE } from "./config";
  *  purpose: the catalog only moves on a patch, and a pack of five pulls of
  *  the same player must not hit the CDN five times. Failures are NOT cached
  *  — a hiccup shouldn't print base splashes for the rest of the process. */
+/**
+ * How long Riot's answers are held in Next's data cache.
+ *
+ * The two Maps in this file are module globals: they survive as long as one
+ * serverless instance does, which on a quiet site is often a single request.
+ * That left every pack open paying for a live catalog fetch, and every
+ * alternate-print roll paying for live HEAD probes — Riot CDN latency,
+ * measured in hundreds of milliseconds, sitting directly between the click
+ * and the cards.
+ *
+ * A day, because the answers only change when Riot ships a patch, and a
+ * stale-by-a-day skin list costs nothing: a skin that appears late is
+ * simply unrollable until the cache turns over, and rollPrint already
+ * validates before freezing a print.
+ */
+const DDRAGON_CACHE_SECONDS = 86_400;
+
 const skinNumsById = new Map<string, number[]>();
 
 /**
@@ -38,6 +55,12 @@ export async function fetchChampionSkinNums(championName: string): Promise<numbe
   try {
     const response = await fetch(
       `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/data/en_US/champion/${champion.id}.json`,
+      // Cached across instances, not just within one. The Map above is a
+      // module global, which on serverless means it is cold on most opens —
+      // so this fetch was a live round trip to Riot's CDN sitting between
+      // somebody clicking "open" and their cards appearing. A champion's
+      // skin list changes on patch day at most; a day is generous.
+      { next: { revalidate: DDRAGON_CACHE_SECONDS } },
     );
     if (!response.ok) return [0];
     const body = (await response.json()) as {
@@ -69,11 +92,16 @@ export function rollSkinNum(skinNums: number[], rand: () => number): number {
  *  network failures are not cached, mirroring fetchChampionSkinNums. */
 const printValidity = new Map<string, boolean>();
 
+
 async function artUrlServed(url: string): Promise<boolean> {
   const cached = printValidity.get(url);
   if (cached !== undefined) return cached;
   try {
-    const response = await fetch(url, { method: "HEAD" });
+    // Same reasoning as the catalog fetch: whether Riot serves a given
+    // splash is fixed until they publish new art, and probing it live is
+    // latency on the pack-open path. HEAD rather than GET keeps the cached
+    // entry tiny.
+    const response = await fetch(url, { method: "HEAD", next: { revalidate: DDRAGON_CACHE_SECONDS } });
     printValidity.set(url, response.ok);
     return response.ok;
   } catch {

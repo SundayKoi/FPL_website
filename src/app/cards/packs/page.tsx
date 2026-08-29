@@ -104,34 +104,54 @@ export async function PacksPageView({
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
   // shows (and academy pulls can win) the same one as premier.
-  const [liveWindow, chase, championsWindow, championComps, standardComps]: [
+  let [liveWindow, chase, championsWindow, championComps, standardComps]: [
     LiveWindow | null,
     ChaseBanner | null,
     { until: string } | null,
     number,
     number,
-  ] = season
-    ? await Promise.all([
-        fetchLiveWindow(service),
-        editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
-        // The Faceless Drop is a premier relic — the academy shop never
-        // sells it.
-        league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
-        // The Champion's Tribute — free Faceless Packs for the S4 squad.
-        league === "premier" ? fetchPackComps(service, user.discordId, "champions") : Promise.resolve(0),
-        // Free shop packs — the Weekly Draw's prize. Not league-gated: the
-        // comp is held per person, and either shop's pack spends it.
-        fetchPackComps(service, user.discordId, "standard"),
-      ])
-    : [null, null, null, 0, 0];
-  // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
-  // read for an active patron.
-  const patronTenureDays = dailyRip.patron ? await fetchPatronTenureDays(service, user.discordId) : 0;
-  // Copies away on an expedition. Season-blind, because the deploy lock is
-  // a property of the card — and fails soft to "none deployed" in an
-  // environment that hasn't applied the expeditions migration, which is why
-  // it can sit outside the `season` branch above.
-  const deployedIds = await fetchDeployedCopyIds(service, user.discordId);
+  ] = [null, null, null, 0, 0];
+  // Everything below needed only what the read above already produced, and
+  // ran as four more stages behind it — the shop banners, then the patron
+  // tenure, then the deploy lock, then the roster sets. Four round trips
+  // waiting on each other for no reason: this page was six sequential
+  // stages deep before it rendered a card. They go together now.
+  const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
+  const [shopReads, patronTenureDays, deployedIds, setReads] = await Promise.all([
+    season
+      ? Promise.all([
+          fetchLiveWindow(service),
+          editionWeeks[0] ? fetchChase(service, editionWeeks[0]) : Promise.resolve(null),
+          // The Faceless Drop is a premier relic — the academy shop never
+          // sells it.
+          league === "premier" ? fetchChampionsWindow(service) : Promise.resolve(null),
+          // The Champion's Tribute — free Faceless Packs for the S4 squad.
+          league === "premier" ? fetchPackComps(service, user.discordId, "champions") : Promise.resolve(0),
+          // Free shop packs — the Weekly Draw's prize. Not league-gated: the
+          // comp is held per person, and either shop's pack spends it.
+          fetchPackComps(service, user.discordId, "standard"),
+        ])
+      : Promise.resolve([null, null, null, 0, 0] as const),
+    // Tenure unlocks the Sovereign flame in the wardrobe — only worth a
+    // read for an active patron.
+    dailyRip.patron ? fetchPatronTenureDays(service, user.discordId) : Promise.resolve(0),
+    // Copies away on an expedition. Season-blind, because the deploy lock is
+    // a property of the card — and fails soft to "none deployed" in an
+    // environment that hasn't applied the expeditions migration, which is
+    // why it can sit outside the `season` branch above.
+    fetchDeployedCopyIds(service, user.discordId),
+    season && heldWeeks.length > 0
+      ? Promise.all([
+          fetchSetEditionCards(service, season, heldWeeks),
+          fetchSetClaimState(service, user.discordId, season, inventory.map((copy) => copy.id)),
+        ])
+      : Promise.resolve([
+          [] as Awaited<ReturnType<typeof fetchSetEditionCards>>,
+          { claimed: new Set<string>(), spent: new Set<number>() },
+        ] as const),
+  ]);
+  [liveWindow, chase, championsWindow, championComps, standardComps] = shopReads;
+  const [setEditionCards, setClaims] = setReads;
   const ownedSlugs = [...new Set(inventory.map((row) => row.slug))];
   // Slots are 1-indexed in the table and positional in the editor.
   // Patrons shelve nine; everyone else six (binderSlotsFor).
@@ -148,21 +168,13 @@ export async function PacksPageView({
   }));
 
   // Roster sets. Asked of a frozen edition, so the weeks on offer are the
-  // ones this collector actually holds copies from — newest first.
+  // ones this collector actually holds copies from — newest first (heldWeeks,
+  // resolved above so the read could join the batch).
   //
-  // EVERY held week is computed here, not just the one being viewed. The
-  // week switch used to be a link, which re-ran this entire page — the
-  // collection, the shop, the binder, the drop banners — to change which
-  // five names a small section listed. One slim read covers them all and
-  // the switch becomes local state.
-  const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
-  const [setEditionCards, setClaims] = season && heldWeeks.length > 0
-    ? await Promise.all([
-        fetchSetEditionCards(service, season, heldWeeks),
-        fetchSetClaimState(service, user.discordId, season, inventory.map((copy) => copy.id)),
-      ])
-    : [[], { claimed: new Set<string>(), spent: new Set<number>() }];
-  const editionsByWeek = new Map<string, typeof setEditionCards>();
+  // EVERY held week is computed here, not just the one being viewed: the
+  // week switch used to be a link, which re-ran this entire page to change
+  // which five names a small section listed.
+  const editionsByWeek = new Map<string, Awaited<ReturnType<typeof fetchSetEditionCards>>>();
   for (const card of setEditionCards) {
     const list = editionsByWeek.get(card.editionWeek) ?? [];
     list.push(card);
