@@ -42,7 +42,7 @@ function game(candidates: FpldleCandidate[] = [candidate(1), candidate(2), candi
     date,
     expiresAt: "2026-08-29T00:00:00.000Z",
     canReset: true,
-    previousGuesses: [],
+    progress: { guesses: [], status: "playing", answer: null, reward: null },
     candidates,
     streaks: streaks(),
   };
@@ -264,6 +264,7 @@ describe("FpldleBoard", () => {
   it("searches, submits, and exposes text plus accessible clue labels", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
+      ok: true,
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0], true),
       reward: { amount: 200, balance: 1200, alreadyClaimed: false },
       streaks: null,
@@ -305,6 +306,7 @@ describe("FpldleBoard", () => {
       isCurrentUser: true,
     };
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async () => ({
+      ok: true,
       feedback: feedback(candidates[0], true),
       reward: null,
       streaks: { leaderboard: [refreshed], personal: refreshed },
@@ -334,6 +336,7 @@ describe("FpldleBoard", () => {
   it("removes a submitted player from autocomplete", async () => {
     const candidates = [candidate(1), candidate(2)];
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
+      ok: true,
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
       reward: null,
       streaks: null,
@@ -356,6 +359,7 @@ describe("FpldleBoard", () => {
   it("stops after five guesses and reveals the answer", async () => {
     const candidates = Array.from({ length: 6 }, (_, index) => candidate(index + 1));
     const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async (input) => ({
+      ok: true,
       feedback: feedback(candidates.find((item) => item.slug === inputValue(input)) ?? candidates[0]),
       reward: null,
       streaks: null,
@@ -397,6 +401,52 @@ describe("FpldleBoard", () => {
       );
       expect(answerLines).toHaveLength(1);
     });
+    expect(screen.getByText("Player 1")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Search players" })).toBeNull();
+  });
+
+  it("prefers completed account progress from another device over empty local storage", async () => {
+    const player = candidate(1);
+    const accountGame: FpldleGame = {
+      ...game([player]),
+      progress: {
+        guesses: [feedback(player, true)],
+        status: "won",
+        answer: null,
+        reward: { amount: 200, balance: 1200, alreadyClaimed: true },
+      },
+    };
+
+    render(<FpldleBoard game={accountGame} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    expect(screen.getByText("Solved in 1")).toBeTruthy();
+    expect(screen.getByText("Player 1")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Search players" })).toBeNull();
+  });
+
+  it("syncs authoritative progress when another device finishes during a guess", async () => {
+    const players = [candidate(1), candidate(2)];
+    const submitGuess = vi.fn<(input: unknown) => Promise<FpldleSubmission>>(async () => ({
+      ok: false,
+      code: "PROGRESS_CHANGED",
+      message: "Progress synced from another device.",
+      progress: {
+        guesses: [feedback(players[0], true)],
+        status: "won",
+        answer: null,
+        reward: { amount: 200, balance: 1200, alreadyClaimed: true },
+      },
+    }));
+    render(<FpldleBoard game={game(players)} league="premier" submitGuess={submitGuess} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+
+    const input = screen.getByRole("combobox", { name: "Search players" });
+    fireEvent.change(input, { target: { value: "Player 2" } });
+    fireEvent.click(screen.getByRole("option", { name: /Player 2#NA1/ }));
+    const submit = screen.getByRole("button", { name: "Submit guess" });
+    await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(screen.getByText("Solved in 1")).toBeTruthy());
     expect(screen.getByText("Player 1")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Search players" })).toBeNull();
   });

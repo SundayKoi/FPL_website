@@ -12,7 +12,7 @@ vi.mock("@/lib/betting/service-client", () => ({
   },
 }));
 
-import { fetchBangerPosts, fetchDailyBanger } from "./queries";
+import { fetchBangerPosts, fetchBangerViewerVotes, fetchDailyBanger } from "./queries";
 
 const databasePost = {
   id: "post-1",
@@ -83,5 +83,42 @@ describe("public Banger Board queries", () => {
       text: "A real post",
       checkDate: "2026-08-24",
     });
+  });
+
+  it("falls back to the saved vote when reward_amount is not deployed yet", async () => {
+    const selections: string[] = [];
+    const from = vi.fn((table: string) => ({
+      select(columns: string) {
+        selections.push(`${table}:${columns}`);
+        const filters: Record<string, unknown> = {};
+        const result = () => {
+          if (table === "banger_votes") return { data: [], error: null };
+          if (columns === "vote, reward_amount") {
+            return { data: null, error: { message: "column daily_banger_votes.reward_amount does not exist" } };
+          }
+          return { data: { vote: "mid" }, error: null };
+        };
+        const builder = {
+          eq(column: string, value: unknown) {
+            filters[column] = value;
+            return builder;
+          },
+          maybeSingle: async () => result(),
+          then: (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve),
+        };
+        return builder;
+      },
+    }));
+    createServerSupabase.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: "profile-1" } } }) },
+      from,
+    });
+
+    await expect(fetchBangerViewerVotes("2026-08-24")).resolves.toEqual({
+      postVotes: {},
+      dailyVote: "mid",
+      dailyRewardAmount: undefined,
+    });
+    expect(selections).toContain("daily_banger_votes:vote");
   });
 });

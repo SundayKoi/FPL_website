@@ -39,6 +39,8 @@ type QueryResult = { data: unknown; error: unknown };
 function createQueryClient(options: {
   candidateRows?: unknown[] | null;
   guessRow?: unknown | null;
+  progressRow?: unknown | null;
+  recordGuessError?: unknown | null;
   streakRows?: unknown[] | null;
   guessCount?: number;
 } = {}) {
@@ -71,6 +73,7 @@ function createQueryClient(options: {
         };
       }
       if (table === "fpldle_daily_puzzles") return { data: { answer_slug: "academy-player" }, error: null };
+      if (table === "fpldle_daily_progress") return { data: options.progressRow ?? null, error: null };
       if (table === "fpldle_daily_candidates" && call.columns === "player_slug") {
         return { data: options.candidateRows ?? [{ player_slug: card.slug }], error: null };
       }
@@ -106,6 +109,7 @@ function createQueryClient(options: {
   });
   const rpc = vi.fn<(name: string, args: unknown) => Promise<QueryResult>>((name) => {
     if (name === "record_fpldle_guess") {
+      if (options.recordGuessError) return Promise.resolve({ data: null, error: options.recordGuessError });
       return Promise.resolve({ data: [{ accepted: true, guess_count: options.guessCount ?? 1, reward_amount: options.guessCount === 5 ? 0 : 200, balance: 1200, already_rewarded: false }], error: null });
     }
     if (name === "get_fpldle_streak_snapshot") {
@@ -324,7 +328,7 @@ describe("FPL'dle server adapter", () => {
       date: today,
       expiresAt: "2026-08-29T00:00:00.000Z",
       canReset: true,
-      previousGuesses: [],
+      progress: { guesses: [], status: "playing", answer: null, reward: null },
       candidates: [{
         slug: card.slug,
         name: card.name,
@@ -353,6 +357,92 @@ describe("FPL'dle server adapter", () => {
       },
     });
     expect(service.selections.find((selection) => selection.table === "fpldle_daily_puzzles")?.columns).not.toContain("answer_slug");
+  });
+
+  it("rehydrates completed account progress for a second device", async () => {
+    const targetRow = {
+      puzzle_date: today,
+      league: "academy",
+      season: "A99",
+      edition_week: "2026-08-24",
+      player_slug: card.slug,
+      player_name: card.name,
+      player_tag: card.tag,
+      team: card.teamName,
+      team_logo_url: card.teamImageUrl,
+      position: card.role,
+      champion: card.signature.champion,
+      overall: card.overall,
+      division: null,
+    };
+    const wrongRow = {
+      ...targetRow,
+      player_slug: "wrong-player",
+      player_name: "Wrong Player",
+      team: "Other Team",
+      overall: 70,
+    };
+    const service = createQueryClient({
+      candidateRows: [targetRow, wrongRow],
+      progressRow: {
+        guesses: [wrongRow.player_slug, targetRow.player_slug],
+        completed_at: `${today}T12:00:00.000Z`,
+        reward_amount: 200,
+      },
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(getFpldleGame("academy")).resolves.toMatchObject({
+      progress: {
+        status: "won",
+        guesses: [
+          { player: { slug: "wrong-player" }, isCorrect: false },
+          { player: { slug: card.slug }, isCorrect: true },
+        ],
+        reward: { amount: 200, balance: 1000, alreadyClaimed: true },
+      },
+    });
+  });
+
+  it("returns authoritative progress when a stale device replays a completed puzzle", async () => {
+    const targetRow = {
+      puzzle_date: today,
+      league: "academy",
+      season: "A99",
+      edition_week: "2026-08-24",
+      player_slug: card.slug,
+      player_name: card.name,
+      player_tag: card.tag,
+      team: card.teamName,
+      team_logo_url: card.teamImageUrl,
+      position: card.role,
+      champion: card.signature.champion,
+      overall: card.overall,
+      division: null,
+    };
+    const service = createQueryClient({
+      candidateRows: [targetRow],
+      progressRow: {
+        guesses: [targetRow.player_slug],
+        completed_at: `${today}T12:00:00.000Z`,
+        reward_amount: 200,
+      },
+      recordGuessError: { code: "P0001", message: "FPLDLE_PUZZLE_COMPLETE" },
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    createServerSupabase.mockResolvedValue({ from: vi.fn() });
+
+    await expect(
+      submitFpldleGuessAction({ league: "academy", puzzleDate: today, playerSlug: card.slug }),
+    ).resolves.toMatchObject({
+      ok: false,
+      code: "PROGRESS_CHANGED",
+      progress: {
+        status: "won",
+        guesses: [{ player: { slug: card.slug }, isCorrect: true }],
+      },
+    });
   });
 
   it("resets only the current admin puzzle and recreates it", async () => {

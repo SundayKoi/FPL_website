@@ -317,10 +317,10 @@ export default function FpldleBoard({
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<FpldlePlayerPreview | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  const [guesses, setGuesses] = useState<FpldleFeedback[]>([]);
-  const [status, setStatus] = useState<GameStatus>("playing");
-  const [answer, setAnswer] = useState<{ name: string; tag: string } | null>(null);
-  const [reward, setReward] = useState<FpldleReward | null>(null);
+  const [guesses, setGuesses] = useState<FpldleFeedback[]>(game.progress.guesses);
+  const [status, setStatus] = useState<GameStatus>(game.progress.status);
+  const [answer, setAnswer] = useState<{ name: string; tag: string } | null>(game.progress.answer);
+  const [reward, setReward] = useState<FpldleReward | null>(game.progress.reward);
   const [streaks, setStreaks] = useState<FpldleStreakSnapshot>(game.streaks);
   const [error, setError] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
@@ -335,7 +335,8 @@ export default function FpldleBoard({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const stored = window.localStorage.getItem(storageKey);
+        const hasAccountProgress = game.progress.guesses.length > 0 || game.progress.status !== "playing";
+        const stored = hasAccountProgress ? null : window.localStorage.getItem(storageKey);
         if (stored) {
           const progress = JSON.parse(stored) as StoredProgress;
           if (
@@ -357,7 +358,7 @@ export default function FpldleBoard({
       setLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [game.date, storageKey]);
+  }, [game.date, game.progress.guesses.length, game.progress.status, storageKey]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -435,6 +436,16 @@ export default function FpldleBoard({
     startTransition(async () => {
       try {
         const result = await submitGuess({ league, puzzleDate: game.date, playerSlug: selected.slug });
+        if (!result.ok) {
+          setGuesses(result.progress.guesses);
+          setStatus(result.progress.status);
+          setAnswer(result.progress.answer);
+          setReward(result.progress.reward);
+          setSelected(null);
+          setQuery("");
+          setError(result.message);
+          return;
+        }
         const nextGuesses = [...guesses, result.feedback];
         setGuesses(nextGuesses);
         setReward(result.reward);

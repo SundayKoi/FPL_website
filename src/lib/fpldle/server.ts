@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
+import type { BettingUser } from "@/lib/betting/types";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -23,16 +24,33 @@ export interface FpldleGame {
   canReset: boolean;
   /** Whether the signed-in player is currently eligible for the patron rate. */
   patron?: boolean;
-  /** Reserved for account-backed progress. Browser progress is merged by the client. */
-  previousGuesses: string[];
+  /** Account-backed progress reconstructed from the frozen daily snapshot. */
+  progress: FpldleProgress;
   candidates: FpldlePlayerPreview[];
   streaks: FpldleStreakSnapshot;
 }
 
-export interface FpldleSubmission {
-  feedback: FpldleFeedback;
+export type FpldleSubmission =
+  | {
+      ok: true;
+      feedback: FpldleFeedback;
+      reward: FpldleReward | null;
+      streaks: FpldleStreakSnapshot | null;
+    }
+  | {
+      ok: false;
+      code: "PROGRESS_CHANGED";
+      message: string;
+      progress: FpldleProgress;
+    };
+
+export type FpldleGameStatus = "playing" | "won" | "lost";
+
+export interface FpldleProgress {
+  guesses: FpldleFeedback[];
+  status: FpldleGameStatus;
+  answer: FpldleAnswerReveal | null;
   reward: FpldleReward | null;
-  streaks: FpldleStreakSnapshot | null;
 }
 
 export interface FpldleStreakRow {
@@ -99,6 +117,12 @@ type FpldleProgressRpcRow = {
   already_rewarded: boolean;
 };
 
+type FpldleProgressRow = {
+  guesses: string[] | null;
+  completed_at: string | null;
+  reward_amount: number | null;
+};
+
 type FpldleStreakRpcRow = {
   profile_id: string;
   username: string;
@@ -110,6 +134,10 @@ type FpldleStreakRpcRow = {
 };
 
 const MAX_GUESSES = 5;
+
+function emptyFpldleProgress(): FpldleProgress {
+  return { guesses: [], status: "playing", answer: null, reward: null };
+}
 
 async function requireFpldlePremium(): Promise<SupabaseClient> {
   const access = await premiumAccess();
@@ -189,8 +217,12 @@ async function recordFpldleGuess(
   puzzleDate: string,
   playerSlug: string,
   isCorrect: boolean,
-): Promise<{ reward: FpldleReward | null; guessCount: number; profileId: string } | null> {
-  const user = await getBettingUser();
+  user: BettingUser | null,
+): Promise<
+  | { kind: "saved"; reward: FpldleReward | null; guessCount: number; profileId: string }
+  | { kind: "conflict" }
+  | null
+> {
   if (!user?.allowed) return null;
 
   const { data, error } = await service.rpc("record_fpldle_guess", {
@@ -201,7 +233,13 @@ async function recordFpldleGuess(
     p_player_slug: playerSlug,
     p_is_correct: isCorrect,
   });
-  if (error) throw error;
+  if (error) {
+    const message = isRecord(error) && typeof error.message === "string" ? error.message : "";
+    if (message.includes("FPLDLE_PUZZLE_COMPLETE") || message.includes("FPLDLE_DUPLICATE_GUESS")) {
+      return { kind: "conflict" };
+    }
+    throw error;
+  }
   const row = (data as FpldleProgressRpcRow[] | null)?.[0];
   if (!row) throw new FpldleError("PUZZLE_UNAVAILABLE", "FPL'dle progress could not be saved.");
   const reward = Number(row.reward_amount) > 0
@@ -211,7 +249,70 @@ async function recordFpldleGuess(
         alreadyClaimed: row.already_rewarded,
       }
     : null;
-  return { reward, guessCount: Number(row.guess_count), profileId: user.profileId };
+  return { kind: "saved", reward, guessCount: Number(row.guess_count), profileId: user.profileId };
+}
+
+async function loadFpldleProgress(
+  service: FpldleServiceClient,
+  league: FpldleLeague,
+  puzzleDate: string,
+  user: BettingUser | null,
+): Promise<FpldleProgress> {
+  if (!user?.allowed) return emptyFpldleProgress();
+
+  const { data, error } = await service
+    .from("fpldle_daily_progress")
+    .select("guesses, completed_at, reward_amount")
+    .eq("puzzle_date", puzzleDate)
+    .eq("league", league)
+    .eq("profile_id", user.profileId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const row = data as FpldleProgressRow | null;
+  const guessSlugs = row?.guesses?.filter((slug): slug is string => typeof slug === "string") ?? [];
+  if (guessSlugs.length === 0) return emptyFpldleProgress();
+
+  const { data: puzzleData, error: puzzleError } = await service
+    .from("fpldle_daily_puzzles")
+    .select("answer_slug")
+    .eq("puzzle_date", puzzleDate)
+    .eq("league", league)
+    .maybeSingle();
+  if (puzzleError) throw puzzleError;
+  const answerSlug = (puzzleData as { answer_slug: string } | null)?.answer_slug;
+  if (!answerSlug) throw new FpldleError("PUZZLE_UNAVAILABLE", "Daily puzzle answer is unavailable.");
+
+  const candidateSlugs = [...new Set([...guessSlugs, answerSlug])];
+  const { data: candidateData, error: candidateError } = await service
+    .from("fpldle_daily_candidates")
+    .select("puzzle_date, league, season, edition_week, player_slug, player_name, player_tag, team, team_logo_url, position, champion, overall, division")
+    .eq("puzzle_date", puzzleDate)
+    .eq("league", league)
+    .in("player_slug", candidateSlugs);
+  if (candidateError) throw candidateError;
+
+  const candidates = new Map(
+    ((candidateData as FpldleCandidateRow[] | null) ?? []).map((candidate) => [candidate.player_slug, rowToCandidate(candidate)]),
+  );
+  const target = candidates.get(answerSlug);
+  if (!target || guessSlugs.some((slug) => !candidates.has(slug))) {
+    throw new FpldleError("PUZZLE_UNAVAILABLE", "Saved FPL'dle progress could not be restored.");
+  }
+
+  const guesses = guessSlugs.map((slug) => compareFpldleGuess(candidates.get(slug)!, target));
+  const won = guesses.some((guess) => guess.isCorrect);
+  const lost = !won && (Boolean(row?.completed_at) || guesses.length >= MAX_GUESSES);
+  const rewardAmount = Number(row?.reward_amount ?? 0);
+
+  return {
+    guesses,
+    status: won ? "won" : lost ? "lost" : "playing",
+    answer: lost ? { name: target.name, tag: target.tag } : null,
+    reward: won && rewardAmount > 0
+      ? { amount: rewardAmount, balance: user.balance, alreadyClaimed: true }
+      : null,
+  };
 }
 
 async function loadFpldleStreakSnapshot(
@@ -437,14 +538,19 @@ export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   const service = createBettingServiceClient();
   const puzzle = await ensurePuzzle(server, service, validLeague, date);
   const user = await getBettingUser();
+  const [candidates, streaks, progress] = await Promise.all([
+    publicCandidates(service, validLeague, date),
+    loadFpldleStreakSnapshot(service, validLeague, date, user?.profileId ?? null),
+    loadFpldleProgress(service, validLeague, date, user),
+  ]);
   return {
     date: puzzle.puzzle_date,
     expiresAt: puzzle.reset_at,
     canReset: isAdmin,
     ...(user?.patron ? { patron: true } : {}),
-    previousGuesses: [],
-    candidates: await publicCandidates(service, validLeague, date),
-    streaks: await loadFpldleStreakSnapshot(service, validLeague, date, user?.profileId ?? null),
+    progress,
+    candidates,
+    streaks,
   };
 }
 
@@ -540,13 +646,23 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
   if (!targetRow) throw new FpldleError("PUZZLE_UNAVAILABLE", "Daily puzzle target is unavailable.");
 
   const feedback = compareFpldleGuess(rowToCandidate(guessRow as FpldleCandidateRow), rowToCandidate(targetRow as FpldleCandidateRow));
-  const progress = await recordFpldleGuess(service, league, puzzleDate, playerSlug, feedback.isCorrect);
-  const streaks = feedback.isCorrect || progress?.guessCount === MAX_GUESSES
-    ? await loadFpldleStreakSnapshot(service, league, puzzleDate, progress?.profileId ?? null)
+  const user = await getBettingUser();
+  const progress = await recordFpldleGuess(service, league, puzzleDate, playerSlug, feedback.isCorrect, user);
+  if (progress?.kind === "conflict") {
+    return {
+      ok: false,
+      code: "PROGRESS_CHANGED",
+      message: "Progress synced from another device.",
+      progress: await loadFpldleProgress(service, league, puzzleDate, user),
+    };
+  }
+  const streaks = feedback.isCorrect || (progress?.kind === "saved" && progress.guessCount === MAX_GUESSES)
+    ? await loadFpldleStreakSnapshot(service, league, puzzleDate, progress?.kind === "saved" ? progress.profileId : null)
     : null;
   return {
+    ok: true,
     feedback,
-    reward: progress?.reward ?? null,
+    reward: progress?.kind === "saved" ? progress.reward : null,
     streaks,
   };
 }

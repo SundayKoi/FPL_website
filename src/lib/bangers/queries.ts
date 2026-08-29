@@ -9,6 +9,12 @@ function parseBangerVote(value: string | null | undefined): BangerVote | null {
   return value && VALID_BANGER_VOTES.has(value as BangerVote) ? (value as BangerVote) : null;
 }
 
+function isMissingDailyRewardColumn(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("message" in error)) return false;
+  const message = String(error.message).toLocaleLowerCase();
+  return message.includes("reward_amount") && (message.includes("does not exist") || message.includes("schema cache"));
+}
+
 export async function fetchBangerPosts(): Promise<BangerPost[]> {
   const supabase = await createServerSupabase();
   const [{ data, error }, { data: counts }] = await Promise.all([
@@ -52,12 +58,21 @@ export async function fetchBangerViewerVotes(dailyCheckDate?: string): Promise<B
     .select("post_id, vote")
     .eq("voter_id", user.id);
   const dailyVotePromise = dailyCheckDate
-    ? supabase
+    ? (async () => {
+      const detailed = await supabase
         .from("daily_banger_votes")
         .select("vote, reward_amount")
         .eq("check_date", dailyCheckDate)
         .eq("voter_id", user.id)
-        .maybeSingle()
+        .maybeSingle();
+      if (!isMissingDailyRewardColumn(detailed.error)) return detailed;
+      return supabase
+        .from("daily_banger_votes")
+        .select("vote")
+        .eq("check_date", dailyCheckDate)
+        .eq("voter_id", user.id)
+        .maybeSingle();
+    })()
     : Promise.resolve({ data: null });
 
   const [{ data: postRows }, { data: dailyRow }] = await Promise.all([postVotesPromise, dailyVotePromise]);
