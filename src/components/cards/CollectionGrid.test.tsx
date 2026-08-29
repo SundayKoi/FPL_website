@@ -190,3 +190,49 @@ describe("CollectionGrid", () => {
     expect(screen.getAllByRole("button", { name: "Manage copies" })).toHaveLength(2);
   });
 });
+
+describe("CollectionGrid paging", () => {
+  afterEach(cleanup);
+
+  /** 70 players, one copy each — past the 60-cell page so the button shows. */
+  const many: InventoryRow[] = Array.from({ length: 70 }, (_, index) =>
+    makeRow(1000 + index, `Player${String(index).padStart(2, "0")}`, 99 - index, "2026-08-24"),
+  );
+
+  it("mounts a page of the shelf rather than all of it, and says what is left", () => {
+    // Every card is a 3D flip with two rendered faces. content-visibility
+    // skips the PAINT for what is off screen; React still built every one.
+    render(<CollectionGrid inventory={many} />);
+
+    expect(cardsFor("Player00")).toHaveLength(1);
+    expect(cardsFor("Player69")).toHaveLength(0);
+    expect(screen.getByText(/60 of 70 players · 10 more/)).toBeTruthy();
+  });
+
+  it("grows a page at a time and stops offering when the shelf is out", () => {
+    render(<CollectionGrid inventory={many} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(cardsFor("Player69")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("never hides anything on a shelf that fits", () => {
+    render(<CollectionGrid inventory={inventory} />);
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("starts a filtered shelf at the top rather than inheriting the last one", () => {
+    // A different filter is a different shelf — carrying the scroll depth
+    // over would show an arbitrary slice of it.
+    render(<CollectionGrid inventory={many} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Foils ·/ }));
+    fireEvent.click(screen.getByRole("button", { name: /All ·/ }));
+
+    expect(screen.getByRole("button", { name: "Show more" })).toBeTruthy();
+  });
+});

@@ -126,7 +126,41 @@ export async function fetchInventory(
       ? await fetchTeamIdentity(supabase, season)
       : { badges: new Map<string, string>(), abbrs: new Map<string, string>(), colors: new Map<string, string>() },
   );
-  return rows.map((row, index) => mapInventoryRow(row, repaired[index]));
+  return shareIdenticalCards(rows.map((row, index) => mapInventoryRow(row, repaired[index])));
+}
+
+/**
+ * Makes copies with identical frozen cards SHARE one card object.
+ *
+ * Nothing about the data changes — this is about how much of it crosses
+ * the wire. A collection page hands every copy to a client component, and
+ * React serializes each `card` it has not seen before in full: four copies
+ * of one print meant four copies of the same ~1.2 KB of json, and a signed
+ * copy carries an inked PNG inline, so a handful of those outweigh a
+ * thousand plain cards. Repeat REFERENCES serialize as back-references, so
+ * pointing the duplicates at one object is the whole fix.
+ *
+ * Keyed on the serialized card rather than on (slug, week, print): two
+ * copies share an object only when they are byte-identical, so this cannot
+ * quietly merge two prints that differ somewhere nobody thought to include
+ * in a key. The stringify costs a few milliseconds on a large collection
+ * and saves far more than that in transfer.
+ *
+ * Callers keep getting one row per copy with a `card` on it, so nothing
+ * downstream can tell the difference — except that the copies are now
+ * `===` to each other, which is only ever true of things that were equal
+ * anyway.
+ */
+function shareIdenticalCards(rows: InventoryRow[]): InventoryRow[] {
+  const seen = new Map<string, PlayerCardData>();
+  for (const row of rows) {
+    if (!row.card) continue;
+    const key = JSON.stringify(row.card);
+    const shared = seen.get(key);
+    if (shared) row.card = shared;
+    else seen.set(key, row.card);
+  }
+  return rows;
 }
 
 /** One db row as the app reads it. Split out of fetchInventory so the
@@ -335,4 +369,39 @@ export async function fetchChase(supabase: SupabaseClient, week: string): Promis
     week: row.week,
     claimedBy: row.claimed_by ? row.betting_profiles?.username ?? "someone" : null,
   };
+}
+
+/**
+ * Just the slugs a collector owns, for the surfaces that only need to know
+ * WHETHER a card is held — the pack shop's "new" marking, chase progress.
+ *
+ * Its own read because the full collection is the heaviest thing on the
+ * packs page and the shop was waiting behind it to answer a question worth
+ * twenty bytes a row. Split out, the shop paints while the shelf is still
+ * loading.
+ *
+ * Paged for the same reason fetchInventory is: past a thousand copies an
+ * unpaged select silently answers with the first thousand.
+ */
+export async function fetchOwnedSlugs(
+  supabase: SupabaseClient,
+  discordId: string,
+  season: string,
+): Promise<string[]> {
+  const slugs = new Set<string>();
+  for (let page = 0; page < INVENTORY_MAX_PAGES; page += 1) {
+    const from = page * INVENTORY_PAGE;
+    const { data, error } = await supabase
+      .from("card_inventory")
+      .select("slug")
+      .eq("discord_id", discordId)
+      .eq("season", season)
+      .order("id")
+      .range(from, from + INVENTORY_PAGE - 1);
+    if (error) break;
+    const batch = (data as { slug: string }[]) ?? [];
+    for (const row of batch) slugs.add(row.slug);
+    if (batch.length < INVENTORY_PAGE) break;
+  }
+  return [...slugs];
 }

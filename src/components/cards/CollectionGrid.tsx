@@ -146,6 +146,40 @@ function CopyCell({ row, count, pinned, flame }: { row: InventoryRow; count?: nu
   );
 }
 
+/** How many cells a shelf mounts at a time. Sized so a normal collection
+ *  never sees the button at all, and a big one pays for what it looks at
+ *  rather than for everything it owns. */
+const PAGE_SIZE = 60;
+
+/** The bottom of a paged shelf. Says what is left rather than just "more",
+ *  because "more" cannot tell you whether you are near the end — and it
+ *  renders nothing at all once everything is on screen. */
+function ShowMore({
+  shown,
+  total,
+  onMore,
+  noun,
+}: {
+  shown: number;
+  total: number;
+  onMore: () => void;
+  noun: string;
+}) {
+  if (shown >= total) return null;
+  const left = total - shown;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <button type="button" onClick={onMore} className="btn-pill px-5 py-2 text-sm">
+        Show more
+      </button>
+      <span className="text-xs text-steel">
+        {shown.toLocaleString()} of {total.toLocaleString()} {noun}
+        {total === 1 ? "" : "s"} · {left.toLocaleString()} more
+      </span>
+    </div>
+  );
+}
+
 export default function CollectionGrid({
   inventory,
   pinnedIds = [],
@@ -170,6 +204,19 @@ export default function CollectionGrid({
   // Which players have their print strip open. A Set rather than a single
   // slug: comparing two players' prints side by side is the point.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  // How many cells are mounted. Every card is a 3D flip with two rendered
+  // faces, and a large shelf mounted several hundred of them on first
+  // paint — content-visibility skips the PAINT for the ones off screen, but
+  // React still builds and hydrates every one. This is the other half of
+  // that: the shelf grows a page at a time, and the button says how much is
+  // left so nobody has to guess whether they have reached the end.
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  // A different filter is a different shelf, so it starts at the top again
+  // rather than inheriting however far down the last one was opened.
+  function chooseFilter(next: VariantFilter) {
+    setFilter(next);
+    setLimit(PAGE_SIZE);
+  }
 
   if (inventory.length === 0) {
     return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
@@ -192,7 +239,7 @@ export default function CollectionGrid({
           // Clicking the active variant chip falls back to the full shelf —
           // the same "click again to clear" the role chips have, except the
           // cleared state here has a name.
-          onClick={() => setFilter((current) => (current === key && key !== "all" ? "all" : key))}
+          onClick={() => chooseFilter(filter === key && key !== "all" ? "all" : key)}
           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
             filter === key ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
           }`}
@@ -211,13 +258,16 @@ export default function CollectionGrid({
         {shown.length === 0 ? (
           <p className="text-sm text-steel">{EMPTY_COPY[filter]}</p>
         ) : (
-          /* card-cell carries its own padding, so the gaps come down by that
-             much to sit where the shelf's do. */
-          <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
-            {shown.map((row) => (
-              <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} />
-            ))}
-          </div>
+          <>
+            {/* card-cell carries its own padding, so the gaps come down by
+                that much to sit where the shelf's do. */}
+            <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
+              {shown.slice(0, limit).map((row) => (
+                <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} />
+              ))}
+            </div>
+            <ShowMore shown={Math.min(limit, shown.length)} total={shown.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} noun="card" />
+          </>
         )}
       </div>
     );
@@ -280,7 +330,7 @@ export default function CollectionGrid({
       {/* card-cell skips the paint for shelves scrolled out of view; it brings its
           own padding, so the gaps come down by that much to sit where they did. */}
       <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
-        {owned.map((entry) => (
+        {owned.slice(0, limit).map((entry) => (
           <div key={entry.best.slug} className="card-cell flex flex-col items-center gap-2">
             <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} foilType={entry.best.foilType} flame={flame} />
             <div className="flex flex-col items-center gap-1.5 text-center">
@@ -345,6 +395,7 @@ export default function CollectionGrid({
           </div>
         ))}
       </div>
+      <ShowMore shown={Math.min(limit, owned.length)} total={owned.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} noun="player" />
     </div>
   );
 }

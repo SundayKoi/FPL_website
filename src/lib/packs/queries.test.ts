@@ -77,6 +77,37 @@ describe("fetchInventory", () => {
     ]);
   });
 
+  it("makes byte-identical cards share one object, so they serialize once", async () => {
+    // Four copies of one print used to cross the wire as four copies of the
+    // same ~1.2 KB of json — and a signed copy carries an inked PNG inline,
+    // so a handful of those outweigh a thousand plain cards. Repeat
+    // references serialize as back-references; equal cards now share one.
+    const rows = await fetchInventory(
+      client([row(1), row(2), row(3)].map((r) => ({ ...r, card: { slug: "same", name: "Same" } }))),
+      "42",
+      "S5",
+    );
+
+    expect(rows).toHaveLength(3);
+    expect(rows[0].card).toBe(rows[1].card);
+    expect(rows[1].card).toBe(rows[2].card);
+  });
+
+  it("never merges cards that differ, however slightly", async () => {
+    // Keyed on the serialized card, so two prints cannot be collapsed by a
+    // key that forgot to include whatever makes them different.
+    const rows = await fetchInventory(
+      client([
+        { ...row(1), card: { slug: "p", artSkin: 0 } },
+        { ...row(2), card: { slug: "p", artSkin: 3 } },
+      ]),
+      "42",
+      "S5",
+    );
+
+    expect(rows[0].card).not.toBe(rows[1].card);
+  });
+
   it("reads an empty collection as empty, not as an error", async () => {
     expect(await fetchInventory(client([]), "42", "S5")).toEqual([]);
   });
