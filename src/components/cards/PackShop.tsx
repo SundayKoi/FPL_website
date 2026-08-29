@@ -115,17 +115,18 @@ export default function PackShop({
 
   /** The wallet and the counter after a successful open. Shared by the first
    *  pack and by every "Open another" inside the overlay. */
-  const banked = useCallback(
-    (nextBalance: number) => {
-      setBalance(nextBalance);
-      setOpenCount((n) => n + 1);
-      // The collection below is server-rendered, so it only learns about
-      // these cards on a refresh. The overlay is local state and survives it
-      // — the opening keeps playing while the grid catches up.
-      router.refresh();
-    },
-    [router],
-  );
+  const banked = useCallback((nextBalance: number) => {
+    setBalance(nextBalance);
+    setOpenCount((n) => n + 1);
+    // NO router.refresh() here. The collection below is server-rendered and
+    // does have to learn about these cards — but it is behind a full-screen
+    // overlay nobody can see, and refreshing on arrival re-rendered the
+    // whole packs page (the shelf, the sets, the binder) on the same main
+    // thread as the ritual. That landed, reliably, right about when the
+    // wrapper tore: the pack ripped open and then everything stopped for a
+    // moment. handleExit refreshes when the overlay closes, which is the
+    // first instant the grid is worth anything to look at.
+  }, []);
 
   function handleOpen() {
     setError(null);
@@ -212,11 +213,12 @@ export default function PackShop({
       const result = await dustManyAction(inventoryIds);
       if (result.ok) {
         setBalance(result.balance);
-        router.refresh();
+        // Same reasoning as `banked`: the shelf is behind the overlay, and
+        // handleExit refreshes it on the way out.
       }
       return result;
     },
-    [router],
+    [],
   );
 
   return (

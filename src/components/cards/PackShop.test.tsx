@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PackShop from "./PackShop";
@@ -34,7 +34,8 @@ const { openPackAction, openChampionsPackAction, sounds } = vi.hoisted(() => {
 vi.mock("@/lib/packs/actions", () => ({ openPackAction, openChampionsPackAction }));
 // server-only transitively — the shop only hands it to the overlay.
 vi.mock("@/lib/trades/actions", () => ({ dustManyAction: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("@/lib/packs/sounds", () => ({ ...sounds, revealTone: vi.fn(), ripTick: vi.fn(), ripOpen: vi.fn() }));
 
 // The whole ritual is PackOpening's, and it has its own suite. Here it stands
@@ -333,5 +334,33 @@ describe("PackShop", () => {
     expect(screen.queryByLabelText(/edition/i)).toBeNull();
     await openPack();
     expect(openPackAction).toHaveBeenCalledWith("premier", undefined);
+  });
+});
+
+describe("PackShop — the shelf refreshes on the way out, not mid-ritual", () => {
+  it("leaves the page alone while the overlay is up, and refreshes when it closes", async () => {
+    // The bug: refreshing on arrival re-rendered the whole packs page — the
+    // shelf, the sets, the binder — on the same main thread as the ritual,
+    // and it landed right about when the wrapper tore. The pack ripped open
+    // and everything stopped for a moment.
+    refresh.mockClear();
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 800 });
+    renderShop();
+
+    await openPack();
+    await screen.findByTestId("opening");
+    expect(refresh).not.toHaveBeenCalled();
+
+    // Opening another from inside the overlay must not refresh either.
+    openPackAction.mockResolvedValue({ ok: true, cards: pulls, balance: 600 });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "overlay open another" }));
+    });
+    await waitFor(() => expect(screen.getByTestId("opening-balance").textContent).toBe("600"));
+    expect(refresh).not.toHaveBeenCalled();
+
+    // Closing is the first moment the shelf is worth looking at.
+    fireEvent.click(screen.getByRole("button", { name: "overlay done" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
