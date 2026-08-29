@@ -419,22 +419,103 @@ export function rarityWeights(round: number): Record<RelicRarity, number> {
  *  weighted draw of the catalog minus what's already held. Fewer than
  *  three remain only late in a run stacked with relics; the offer just
  *  shrinks. */
+/**
+ * How much a family you already hold pulls the next offer toward it, per
+ * relic held — and the point past which it stops pulling.
+ *
+ * A build that shares a family compounds: laneMomentumMult, goldMult,
+ * daringMult and friends MULTIPLY in aggregateEffects, so three of a kind
+ * is worth more than three scattered. That is the appeal, and it is also
+ * the danger — an offer that funnels you into one family every time would
+ * hand out compounding for free.
+ *
+ * So the pull is deliberately weak and it PLATEAUS. Two of a family is as
+ * hard as the game ever pulls; a third and fourth get no extra help, which
+ * is precisely where the compounding would start to run away.
+ */
+const FAMILY_PULL = 0.15;
+const FAMILY_PULL_CAP = 2;
+
+/** Weighted draw, one relic, removed from the pool it came from. */
+function draw(pool: RelicDef[], weightOf: (relic: RelicDef) => number, rand: () => number): RelicDef | null {
+  if (pool.length === 0) return null;
+  const total = pool.reduce((sum, relic) => sum + weightOf(relic), 0);
+  if (total <= 0) return pool.splice(Math.floor(rand() * pool.length), 1)[0] ?? null;
+  let ticket = rand() * total;
+  let index = pool.length - 1;
+  for (let i = 0; i < pool.length; i += 1) {
+    ticket -= weightOf(pool[i]);
+    if (ticket <= 0) {
+      index = i;
+      break;
+    }
+  }
+  return pool.splice(index, 1)[0] ?? null;
+}
+
+/**
+ * Three relics to choose between: two that lean toward what you are
+ * already building, and one that deliberately does not.
+ *
+ * THE THIRD SLOT IS THE POINT. Without it, a player who took two embers
+ * would be shown embers forever and the "choice" would be a formality —
+ * and worse, the compounding above would be handed over rather than
+ * chosen. The wildcard is drawn from OUTSIDE your dominant family, so
+ * every offer contains a real alternative to the build you are on, and
+ * staying pure is a decision you keep making rather than one the game
+ * makes for you.
+ *
+ * The rarity weights are untouched by any of this. Affinity changes WHICH
+ * relic fills a slot, never how good a slot is, so the power on offer per
+ * round is exactly what it was.
+ *
+ * With nothing held there is no dominant family and no affinity, so a
+ * first offer is drawn precisely as it always was.
+ */
 export function offerRelics(heldKeys: string[], rand: () => number, round = 1): RelicDef[] {
   const pool = RELIC_CATALOG.filter((relic) => !heldKeys.includes(relic.key));
   const weights = rarityWeights(round);
+
+  const held = new Map<RelicFamily, number>();
+  for (const key of heldKeys) {
+    const relic = RELIC_BY_KEY.get(key);
+    if (relic) held.set(relic.family, (held.get(relic.family) ?? 0) + 1);
+  }
+  let dominant: RelicFamily | null = null;
+  for (const [family, count] of held) {
+    if (!dominant || count > (held.get(dominant) ?? 0)) dominant = family;
+  }
+
+  const affinity = (relic: RelicDef) =>
+    weights[relic.rarity] * (1 + FAMILY_PULL * Math.min(held.get(relic.family) ?? 0, FAMILY_PULL_CAP));
+
   const offer: RelicDef[] = [];
-  while (offer.length < 3 && pool.length > 0) {
-    const total = pool.reduce((sum, relic) => sum + weights[relic.rarity], 0);
-    let ticket = rand() * total;
-    let index = pool.length - 1;
-    for (let i = 0; i < pool.length; i += 1) {
-      ticket -= weights[pool[i].rarity];
-      if (ticket <= 0) {
-        index = i;
-        break;
-      }
+  while (offer.length < 3) {
+    const picked = draw(pool, affinity, rand);
+    if (!picked) break;
+    offer.push(picked);
+  }
+
+  // The escape hatch, and ONLY when it is needed. An offer of three from
+  // the family you are already stacking is the one case where there is no
+  // decision left to make — and it is exactly the case where compounding
+  // would be handed over rather than chosen. Swap the last for something
+  // else and the choice comes back.
+  //
+  // Spending a slot on this unconditionally was the first attempt, and it
+  // made building a family HARDER than random: the guaranteed wildcard ate
+  // a slot that could have been on-family more often than affinity won one
+  // back. Measured, then fixed.
+  if (dominant && offer.length === 3 && offer.every((relic) => relic.family === dominant)) {
+    const offFamily = pool.filter((relic) => relic.family !== dominant);
+    const wildcard = draw(offFamily, (relic) => weights[relic.rarity], rand);
+    if (wildcard) {
+      const returned = offer.pop();
+      if (returned) pool.push(returned);
+      offer.push(wildcard);
+      const stillThere = pool.findIndex((relic) => relic.key === wildcard.key);
+      if (stillThere >= 0) pool.splice(stillThere, 1);
     }
-    offer.push(pool.splice(index, 1)[0]);
   }
   return offer;
 }
