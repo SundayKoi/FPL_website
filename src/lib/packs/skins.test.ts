@@ -119,9 +119,12 @@ describe("printArtExists", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(printArtExists("Zaheen", 1)).resolves.toBe(true);
+    // HEAD, and cached: whether Riot serves a splash is fixed until they
+    // publish new art, and probing it live put CDN latency between a click
+    // and the cards.
     expect(fetchMock).toHaveBeenCalledWith(
       "https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Zaheen_1.jpg",
-      { method: "HEAD" },
+      { method: "HEAD", next: { revalidate: 86_400 } },
     );
   });
 });

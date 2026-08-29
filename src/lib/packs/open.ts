@@ -180,7 +180,20 @@ export async function openPackFor(
   // vintage gap — the stamp used to be "whatever Monday it is today", so
   // two packs opened either side of an ingest could carry the same edition
   // label with different ratings.
-  const weeks = await fetchCardEditionWeeks(service, season);
+  // Three reads that only need `season`, started together rather than one
+  // after another. They were sequential — the archive list, then the pool,
+  // then the live-drop window, then the signature book — and each is a
+  // round trip to Supabase on the path between a click and five cards.
+  //
+  // The live window is deliberately still read ONCE per open: reading it
+  // earlier changes nothing about the honest answer (a window closing
+  // mid-pack keeps whichever side of the boundary the read landed on), and
+  // it is read before the charge either way.
+  const [weeks, liveRowResult, signatures] = await Promise.all([
+    fetchCardEditionWeeks(service, season),
+    service.from("league_settings").select("live_until, live_label").eq("id", 1).maybeSingle(),
+    fetchSignatures(service, season),
+  ]);
   const editionWeek = requestedWeek && weeks.includes(requestedWeek) ? requestedWeek : weeks[0] ?? null;
   if (requestedWeek && !weeks.includes(requestedWeek)) {
     return { ok: false, error: "That week isn't available yet." };
@@ -245,18 +258,13 @@ export async function openPackFor(
   // boosted rate and every card in the pack takes the LIVE stamp. Read
   // once per open; a window closing mid-pack keeps whichever side of the
   // boundary the read landed on, which is the only honest answer.
-  const { data: liveRow } = await service
-    .from("league_settings")
-    .select("live_until, live_label")
-    .eq("id", 1)
-    .maybeSingle();
-  const liveSettings = liveRow as { live_until: string | null; live_label: string | null } | null;
+  const liveSettings = liveRowResult.data as { live_until: string | null; live_label: string | null } | null;
   const liveNow = Boolean(liveSettings?.live_until && new Date(liveSettings.live_until).getTime() > Date.now());
   const liveLabel = liveNow ? liveSettings?.live_label?.trim() || "Live drop" : null;
 
   const pulls = applyAutographs(
     rollPack(cards, rand, liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE),
-    await fetchSignatures(service, season),
+    signatures,
     rand,
   );
 
