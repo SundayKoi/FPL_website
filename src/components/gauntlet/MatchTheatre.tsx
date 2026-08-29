@@ -19,7 +19,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Contest } from "@/lib/gauntlet/contest";
-import type { BaronDance, GoldSample, MatchEvent } from "@/lib/gauntlet/sim";
+import type { BaronDance, GauntletCard, GoldSample, LaneResult, MatchEvent } from "@/lib/gauntlet/sim";
+import LaneMap from "./LaneMap";
 
 export interface TheatreTape {
   events: MatchEvent[];
@@ -28,6 +29,11 @@ export interface TheatreTape {
   baron?: BaronDance | null;
   /** Where the clock stops — 20 for a paused first half, 31 for a match. */
   endClock: number;
+  /** The two fives, for the map. Optional: a tape recorded before the map
+   *  existed has no cast, and simply plays without one. */
+  lanes?: LaneResult[];
+  yours?: GauntletCard[];
+  theirs?: GauntletCard[];
 }
 
 const TONE_DOT: Record<MatchEvent["tone"], string> = {
@@ -288,6 +294,21 @@ export default function MatchTheatre({
         <span className="label-dash">{title}</span>
         <span className="font-mono text-xl font-bold tabular-nums text-white">{fmtClock(Math.min(clock, tape.endClock))}</span>
       </div>
+
+      {/* The map, when the tape carries a cast. Same clock as everything
+          else on the screen, so pausing or scrubbing moves it too. */}
+      {tape.yours && tape.theirs ? (
+        <div className="border-b border-line p-3">
+          <LaneMap
+            events={tape.events}
+            lanes={tape.lanes ?? []}
+            yours={tape.yours}
+            theirs={tape.theirs}
+            clock={clock}
+            reduced={Boolean(reduce)}
+          />
+        </div>
+      ) : null}
 
       <div className="border-b border-line px-4 py-3">
         <GoldGraph series={tape.goldSeries} clock={clock} endClock={tape.endClock} />

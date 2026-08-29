@@ -37,7 +37,15 @@ export function matchContextFor(relicKeys: string[], opponent: OpponentTeam | nu
 /** A resolved round as the run row stores it — the whole tape plus the
  *  post-match read, so a refresh redraws the same game and the same
  *  explanation. */
-export type StoredMatchResult = MatchResult & { round: number; autopsy?: Autopsy };
+export type StoredMatchResult = MatchResult & {
+  round: number;
+  autopsy?: Autopsy;
+  /** The five you fought, kept with the result so the tape can put them on
+   *  the map afterwards. next_opponent has already moved on to the next
+   *  round by then, so it is the wrong five to ask. Optional: a run in the
+   *  field from before this shipped plays its tape without a map. */
+  theirCards?: GauntletCard[];
+};
 
 export interface GauntletRunRow {
   id: number;

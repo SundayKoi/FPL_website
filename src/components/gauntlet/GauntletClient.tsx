@@ -481,6 +481,12 @@ export default function GauntletClient({
               goldSeries: lastFight.goldSeries ?? [{ clock: 0, diff: 0 }],
               baron: lastFight.baron,
               endClock: 31,
+              lanes: lastFight.lanes,
+              yours: run?.lineup,
+              // Absent on a run that was already in the field when the map
+              // shipped — the tape then plays without one rather than
+              // drawing five strangers.
+              theirs: lastFight.theirCards,
             }}
             autoPlay={justPlayed}
             onFinish={() => setTapeDone(true)}
@@ -549,6 +555,9 @@ export default function GauntletClient({
               goldSeries: run.crossroads!.state.ledger?.goldSeries ?? [{ clock: 0, diff: 0 }],
               baron: null,
               endClock: 20,
+              lanes: run.crossroads!.state.lanes,
+              yours: run.lineup,
+              theirs: run.next_opponent?.cards,
             }}
           />
           <MomentumBar value={run.crossroads!.state.momentum} />
