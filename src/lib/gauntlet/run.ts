@@ -23,8 +23,8 @@ export interface GauntletCrossroads {
 
 /** The modifiers a round resolves under, assembled in one place so the
  *  server's fight and the client's odds preview can never disagree: your
- *  relics, their traits, the round's condition, and the wall's rule on a
- *  boss round. */
+ *  relics, their traits, the round's condition, the wall's rule on a boss
+ *  round, and the opponent's game plan. */
 export function matchContextFor(
   relicKeys: string[],
   opponent: OpponentTeam | null,
@@ -39,6 +39,7 @@ export function matchContextFor(
     arena: conditionEffects(opponent?.condition),
     boss: bossEffects(opponent?.boss),
     situationSeed,
+    plan: opponent?.plan,
   };
 }
 

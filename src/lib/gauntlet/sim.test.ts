@@ -948,6 +948,10 @@ describe("calibration — the run curve itself", () => {
           effects: aggregateEffects(held),
           foe: aggregateTraits(opponent.traits ?? []),
           arena: conditionEffects(opponent.condition),
+          // The opponent's game plan is part of the bracket now, so the
+          // curve has to be measured against a thinking enemy or it is
+          // measuring a game nobody plays.
+          plan: opponent.plan,
         };
         alive = simulateMatch(team(74), opponent.cards, ctx, mulberry32(run * 31 + round * 7)).won;
         if (alive) {

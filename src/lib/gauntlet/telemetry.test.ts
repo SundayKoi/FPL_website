@@ -17,7 +17,10 @@ const run = {
   bench_swap_used: false,
   status: "active",
   round_seed: null,
-  next_opponent: { cards: [], style: "dive", avg: 76, label: "DIVE · 76", condition: "bloodmoon", boss: "the_wall" },
+  next_opponent: {
+    cards: [], style: "dive", avg: 76, label: "DIVE · 76",
+    condition: "bloodmoon", boss: "the_wall", plan: "brawl",
+  },
   last_result: null,
   crossroads: { state: { situationKey: "the_baron_question" }, seed2: 12 },
 } as unknown as GauntletRunRow;
@@ -43,6 +46,7 @@ describe("the round log row", () => {
       opponent_avg: 76,
       condition_key: "bloodmoon",
       boss_key: "the_wall",
+      plan_key: "brawl",
     });
   });
 
@@ -65,6 +69,7 @@ describe("the round log row", () => {
     expect(row.opponent_avg).toBeNull();
     expect(row.condition_key).toBeNull();
     expect(row.boss_key).toBeNull();
+    expect(row.plan_key).toBeNull();
     expect(row.situation_key).toBe("");
   });
 });

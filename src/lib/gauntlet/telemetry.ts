@@ -35,6 +35,9 @@ export interface RoundLogRow {
   opponent_avg: number | null;
   condition_key: string | null;
   boss_key: string | null;
+  /** Which of the four dispositions they brought — null on a run staged
+   *  before the plan shipped. */
+  plan_key: string | null;
 }
 
 /** One resolved relic offer: three went out, one came back. */
@@ -74,6 +77,7 @@ export function roundLogRow(
     opponent_avg: run.next_opponent?.avg ?? null,
     condition_key: run.next_opponent?.condition ?? null,
     boss_key: run.next_opponent?.boss ?? null,
+    plan_key: run.next_opponent?.plan ?? null,
   };
 }
 

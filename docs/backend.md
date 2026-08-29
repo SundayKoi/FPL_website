@@ -242,6 +242,17 @@ Important RPC families include:
   confounds: performance is LIFT against the per-round baseline (a relic
   taken at round six only ever fights the hardest rounds), and popularity
   is take rate against the times the thing was actually on the table.
+- Gauntlet opponents bring a game PLAN (`src/lib/gauntlet/foe.ts`), rolled
+  off the same week seed as the rest of the cast and stored on
+  `next_opponent`, so the whole league scouts the same brain all week. A
+  plan is a reallocation, never a buff: what it adds on one beat it gives
+  up on others, priced by `BEAT_VALUE` — the MEASURED win-rate worth of one
+  stat point on each beat (the pit is worth five times the base hold, and
+  five lane checks are worth less than one Baron), not a count of checks.
+  The same rule governs the in-fight reactions: they collapse on your worst
+  lane by exactly what they concede to your best, and the behind/ahead
+  swing trades objectives against the hold. `plan_key` rides on the round
+  log so the balance report can check the pricing against real runs.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the

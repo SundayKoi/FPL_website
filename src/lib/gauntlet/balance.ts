@@ -24,6 +24,7 @@
 // takes it, it loses) and a SLEEPER (nobody takes it, it wins).
 
 import { CROSSROADS_BY_KEY, CROSSROADS_CATALOG } from "./crossroads";
+import { FOE_PLANS } from "./foe";
 import { RELIC_BY_KEY, type RelicFamily, type RelicRarity } from "./relics";
 
 /** The tape rows this module reads — the read shape, not the write shape,
@@ -37,6 +38,8 @@ export interface RoundSample {
   daring: number;
   relics: string[];
   run_id: number;
+  /** The opponent's disposition. Null on rows from before it shipped. */
+  plan_key?: string | null;
 }
 
 export interface OfferSample {
@@ -108,6 +111,18 @@ export interface RelicStat {
   flags: BalanceFlag[];
 }
 
+/** How a round went against each of the opponent's four dispositions.
+ *  The plans are priced to be worth nothing on aggregate — this is where
+ *  that claim meets real runs instead of a Monte Carlo. */
+export interface PlanStat {
+  key: string;
+  title: string;
+  rounds: number;
+  winRate: number;
+  lift: number;
+  flags: BalanceFlag[];
+}
+
 export interface BalanceReport {
   /** Rounds and runs the report rests on — the first thing to read. */
   rounds: number;
@@ -117,6 +132,7 @@ export interface BalanceReport {
   baseline: { round: number; rounds: number; winRate: number; avgScore: number }[];
   situations: SituationStat[];
   relics: RelicStat[];
+  plans: PlanStat[];
   /** The findings, in plain language, worst first. Empty is a good week. */
   headlines: string[];
 }
@@ -287,9 +303,38 @@ function relicStats(
   return stats.sort((a, b) => b.offered - a.offered);
 }
 
+/** Per-disposition performance. Popularity means nothing here — nobody
+ *  chooses which enemy they meet — so a plan is only ever flagged strong
+ *  or weak, never dominant or ignored. */
+function planStats(rows: RoundSample[], baseline: ReturnType<typeof baselineOf>): PlanStat[] {
+  const byPlan = new Map<string, RoundSample[]>();
+  for (const row of rows) {
+    if (!row.plan_key) continue;
+    const bucket = byPlan.get(row.plan_key);
+    if (bucket) bucket.push(row);
+    else byPlan.set(row.plan_key, [row]);
+  }
+  return FOE_PLANS.map((plan) => {
+    const mine = byPlan.get(plan.key) ?? [];
+    const wins = mine.filter((row) => row.won).length;
+    const want = expected(mine.map((row) => row.round), baseline);
+    const lift = mine.length > 0 ? (wins - want.wins) / mine.length : 0;
+    const flags: BalanceFlag[] =
+      mine.length < MIN_SAMPLE ? ["thin"] : lift >= LIFT_BAND ? ["strong"] : lift <= -LIFT_BAND ? ["weak"] : [];
+    return {
+      key: plan.key,
+      title: plan.title,
+      rounds: mine.length,
+      winRate: rate(wins, mine.length),
+      lift,
+      flags,
+    };
+  }).sort((a, b) => a.lift - b.lift);
+}
+
 /** The findings, worst first — traps, then sleepers, then the plain
  *  outliers. Written as sentences because a human reads them. */
-function headlinesOf(situations: SituationStat[], relics: RelicStat[]): string[] {
+function headlinesOf(situations: SituationStat[], relics: RelicStat[], plans: PlanStat[]): string[] {
   const lines: string[] = [];
   const pct = (value: number) => `${Math.round(value * 100)}%`;
   const signed = (value: number) => `${value >= 0 ? "+" : ""}${Math.round(value * 100)}pts`;
@@ -325,6 +370,16 @@ function headlinesOf(situations: SituationStat[], relics: RelicStat[]): string[]
       }
     }
   }
+  for (const plan of plans) {
+    // A disposition is supposed to be a reallocation worth nothing. When
+    // one measures strong or weak against the round baseline, the pricing
+    // in foe.ts is off and the weights want re-measuring.
+    if (plan.flags.includes("strong")) {
+      lines.push(`EASY PLAN — runs meeting ${plan.title} clear ${signed(plan.lift)} more often than the round's baseline.`);
+    } else if (plan.flags.includes("weak")) {
+      lines.push(`HARD PLAN — runs meeting ${plan.title} clear ${signed(plan.lift)} against the round's baseline.`);
+    }
+  }
   for (const relic of relics) {
     if (relic.flags.includes("ignored") && !relic.flags.includes("sleeper")) {
       lines.push(`DEAD RELIC — ${relic.title} is passed ${pct(1 - relic.takeRate)} of the time it is offered.`);
@@ -341,6 +396,7 @@ export function buildBalanceReport(rows: RoundSample[], offers: OfferSample[]): 
   const baseline = baselineOf(rows);
   const situations = situationStats(rows, baseline);
   const relics = relicStats(rows, offers, baseline);
+  const plans = planStats(rows, baseline);
   return {
     rounds: rows.length,
     runs: new Set(rows.map((row) => row.run_id)).size,
@@ -355,7 +411,8 @@ export function buildBalanceReport(rows: RoundSample[], offers: OfferSample[]): 
       })),
     situations,
     relics,
-    headlines: headlinesOf(situations, relics),
+    plans,
+    headlines: headlinesOf(situations, relics, plans),
   };
 }
 
