@@ -944,22 +944,55 @@ export function buildCard({
       return best.title;
     })();
 
-  // Champion pool: most-played first, win rate breaking ties. raw_stats
-  // stores Riot's internal championName ("MonkeyKing", "MissFortune") —
-  // canonicalize to display names so art resolves and aliases merge.
-  const byChampion = new Map<string, { games: number; wins: number }>();
+  // Champion pool: most-played first, then win rate, then KDA, then the
+  // name. raw_stats stores Riot's internal championName ("MonkeyKing",
+  // "MissFortune") — canonicalize to display names so art resolves and
+  // aliases merge.
+  //
+  // KDA sits between win rate and the alphabet because the two champions
+  // that reach it are already tied on how often they were played and how
+  // often they won: the only question left is which one was played BETTER,
+  // and the alphabet cannot answer that. It is aggregate rather than a mean
+  // of per-game ratios — (all kills + all assists) over all deaths — so one
+  // deathless game cannot outvote a fortnight of them.
+  //
+  // Deaths floor at 1 for the division. A perfect record would otherwise be
+  // Infinity, which sorts fine but stops being a number the moment anything
+  // else touches it.
+  const byChampion = new Map<
+    string,
+    { games: number; wins: number; kills: number; deaths: number; assists: number }
+  >();
   for (const g of dated) {
     const name = g.champion?.trim();
     if (!name) continue;
     const display = championDisplayName(name);
-    const entry = byChampion.get(display) ?? { games: 0, wins: 0 };
+    const entry = byChampion.get(display) ?? { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 };
     entry.games += 1;
     if (g.win === true) entry.wins += 1;
+    entry.kills += g.kills ?? 0;
+    entry.deaths += g.deaths ?? 0;
+    entry.assists += g.assists ?? 0;
     byChampion.set(display, entry);
   }
   const topChampions = [...byChampion.entries()]
-    .map(([champion, stats]) => ({ champion, ...stats }))
-    .sort((a, b) => b.games - a.games || b.wins / b.games - a.wins / a.games || a.champion.localeCompare(b.champion))
+    .map(([champion, stats]) => ({
+      champion,
+      games: stats.games,
+      wins: stats.wins,
+      kda: (stats.kills + stats.assists) / Math.max(stats.deaths, 1),
+    }))
+    .sort(
+      (a, b) =>
+        b.games - a.games ||
+        b.wins / b.games - a.wins / a.games ||
+        b.kda - a.kda ||
+        a.champion.localeCompare(b.champion),
+    )
+    // kda was for the sort, not for the card: topChampions is part of every
+    // frozen copy's json, and widening that shape would make old copies and
+    // new ones disagree about what a champion entry is.
+    .map(({ champion, games, wins }) => ({ champion, games, wins }))
     .slice(0, 3);
 
   const teamName = dated.at(-1)?.team_name?.trim() || null;
