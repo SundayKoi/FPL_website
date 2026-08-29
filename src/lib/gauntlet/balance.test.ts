@@ -9,6 +9,7 @@ import {
   type RoundSample,
 } from "./balance";
 import { CROSSROADS_CATALOG } from "./crossroads";
+import { FOE_PLANS } from "./foe";
 import { RELIC_CATALOG } from "./relics";
 
 const SITUATION = CROSSROADS_CATALOG[0];
@@ -210,6 +211,30 @@ describe("the balance report", () => {
     expect(report.baseline.map((row) => row.round)).toEqual([1, 8]);
     expect(report.baseline[0].winRate).toBe(1);
     expect(report.baseline[1].winRate).toBe(0);
+  });
+
+  it("scores the enemy's dispositions without ever calling one popular", () => {
+    // Nobody chooses which enemy they meet, so a take rate would be
+    // meaningless — a plan is only ever strong, weak, or fine.
+    const hard = Array.from({ length: 60 }, (_, index) =>
+      round({ run_id: index, round: 4, won: index < 12, plan_key: FOE_PLANS[0].key }),
+    );
+    const rest = Array.from({ length: 180 }, (_, index) =>
+      round({ run_id: 100 + index, round: 4, won: index < 144, plan_key: FOE_PLANS[1].key }),
+    );
+    const report = buildBalanceReport([...hard, ...rest], []);
+    expect(report.plans.length).toBe(FOE_PLANS.length);
+    const worst = report.plans[0];
+    expect(worst.key).toBe(FOE_PLANS[0].key);
+    expect(worst.flags).toContain("weak");
+    expect(worst.flags).not.toContain("ignored");
+    expect(worst.flags).not.toContain("dominant");
+    expect(report.headlines.join(" ")).toContain("HARD PLAN");
+  });
+
+  it("says nothing about a plan it has barely seen", () => {
+    const report = buildBalanceReport(rounds(4, { plan_key: FOE_PLANS[0].key }), []);
+    expect(report.plans.every((plan) => plan.flags.includes("thin"))).toBe(true);
   });
 
   it("keeps its thresholds in the order the flags assume", () => {

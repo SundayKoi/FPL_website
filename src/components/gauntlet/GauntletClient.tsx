@@ -566,6 +566,7 @@ export default function GauntletClient({
             {situation.choices.map((choice) => {
               const preview = previewCrossroadsChoice(
                 choice, run.lineup, run.next_opponent!.cards, runCtx, run.crossroads!.state.momentum,
+                run.crossroads!.state.lanes ?? [],
               );
               const chance = preview
                 ? winChanceOf(preview.yourVal, preview.theirVal, crossroadsSpread(runCtx.arena))

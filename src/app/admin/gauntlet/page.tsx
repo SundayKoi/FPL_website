@@ -136,6 +136,43 @@ export default async function GauntletBalancePage() {
         </div>
       </section>
 
+      <section aria-label="Enemy plans" className="card-brand flex flex-col gap-3 p-5">
+        <h2 className="type-display text-2xl">Their game plans</h2>
+        <p className="text-sm text-steel">
+          Nobody chooses which enemy they meet, so there is no take rate here — only whether a disposition is
+          pulling its weight. Each is priced to be worth nothing on aggregate; a plan that measures strong or
+          weak against the round baseline means the weights in <code>foe.ts</code> want re-measuring.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm tabular-nums">
+            <thead className="text-left text-xs uppercase tracking-wide text-steel">
+              <tr>
+                <th className="py-1">Plan</th>
+                <th className="py-1">Rounds</th>
+                <th className="py-1">Win rate</th>
+                <th className="py-1">Lift</th>
+                <th className="py-1">Read</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.plans.map((plan) => (
+                <tr key={plan.key} className="border-t border-white/10">
+                  <td className="py-1.5 text-chalk">{plan.title}</td>
+                  <td className="py-1.5">{plan.rounds}</td>
+                  <td className="py-1.5">{pct(plan.winRate)}</td>
+                  <td className={`py-1.5 ${plan.lift >= 0 ? "text-emerald-300" : "text-coral"}`}>
+                    {lift(plan.lift)}
+                  </td>
+                  <td className="py-1.5">
+                    <Flags flags={plan.flags} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section aria-label="Relics" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Relics</h2>
         <p className="text-sm text-steel">

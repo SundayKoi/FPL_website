@@ -14,6 +14,7 @@ import {
 } from "./sim";
 import { bossFor } from "./bosses";
 import { rollCondition, rollTraits } from "./traits";
+import { type FoePlan, rollFoePlan } from "./foe";
 import type { MeasureKey } from "@/lib/cards/measures";
 
 const clamp = (value: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, value));
@@ -69,6 +70,10 @@ export interface OpponentTeam {
   condition?: string;
   /** The wall's key on rounds 4 and 8 — null everywhere else. */
   boss?: string | null;
+  /** How they intend to play it — printed on the scouting card before
+   *  you commit, and read by the engine at every beat. Absent on rows
+   *  staged before the plan shipped: those fight the old flat way. */
+  plan?: FoePlan;
 }
 
 /** What a wall adds to its five's ratings on top of its rule. */
@@ -139,6 +144,10 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   // the scouting screen and the fight always agree.
   const traits = rollTraits(round, rand);
   const condition = rollCondition(round, rand);
+  // Drawn LAST so adding the plan didn't re-roll every existing week's
+  // cast: the five, their traits and the condition come off the same
+  // prefix of the stream they always did.
+  const plan = rollFoePlan(rand);
   return {
     cards,
     style,
@@ -149,5 +158,6 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
     traits,
     condition,
     boss: boss?.key ?? null,
+    plan,
   };
 }

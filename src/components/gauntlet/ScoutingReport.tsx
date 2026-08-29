@@ -6,6 +6,7 @@
 // as public as the enemy's stat line.
 
 import { BOSS_BY_KEY, bossRoundOf } from "@/lib/gauntlet/bosses";
+import { FOE_PLAN_BY_KEY } from "@/lib/gauntlet/foe";
 import { CONDITION_BY_KEY, TRAIT_BY_KEY } from "@/lib/gauntlet/traits";
 import type { OpponentTeam } from "@/lib/gauntlet/opponents";
 
@@ -13,6 +14,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
   const traits = (opponent.traits ?? []).map((key) => TRAIT_BY_KEY.get(key)).filter(Boolean);
   const condition = CONDITION_BY_KEY.get(opponent.condition ?? "standard");
   const boss = opponent.boss ? BOSS_BY_KEY.get(opponent.boss) : null;
+  const plan = opponent.plan ? FOE_PLAN_BY_KEY.get(opponent.plan) : null;
   return (
     <div className="flex flex-col gap-3">
       {boss ? (
@@ -32,6 +34,16 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
           <p className="mt-1.5 font-mono text-[11px] leading-4 text-gold">↳ {boss.counter}</p>
         </div>
       ) : null}
+      {plan ? (
+        <div className="rounded-lg border border-[#ff8896]/45 bg-[#ff8896]/5 p-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff8896]">
+            Their game plan · {plan.title}
+          </p>
+          <p className="mt-1 text-[12px] leading-4 text-white">{plan.tell}</p>
+          <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-steel">↳ {plan.counter}</p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         {opponent.cards.map((card) => (
           <div key={card.name} className="w-[104px] rounded-lg border border-[#6b3d47] bg-[#221016] px-2.5 py-2">

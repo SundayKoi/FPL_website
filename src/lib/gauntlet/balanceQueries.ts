@@ -32,7 +32,8 @@ export interface BalanceTape {
   missing: boolean;
 }
 
-const ROUND_COLUMNS = "id, run_id, round, situation_key, choice_key, won, score, daring, relics";
+const ROUND_COLUMNS =
+  "id, run_id, round, situation_key, choice_key, won, score, daring, relics, plan_key";
 const OFFER_COLUMNS = "id, round, offered, taken";
 
 async function readAll<T>(

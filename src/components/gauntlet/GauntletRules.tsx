@@ -9,6 +9,7 @@ import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
+import { FOE_PLANS } from "@/lib/gauntlet/foe";
 import { CONDITION_CATALOG, TRAIT_CATALOG } from "@/lib/gauntlet/traits";
 import { FRESH_LEGS_BONUS, GAUNTLET_ROUNDS, TRIALIST_OVERALL } from "@/lib/gauntlet/sim";
 
@@ -228,6 +229,31 @@ export default function GauntletRules() {
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple">{trait.title}</p>
               <p className="mt-1 text-xs leading-4 text-white">{trait.blurb}</p>
               <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">↳ {trait.counter}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Their game plan — the enemy reads the board too">
+        <p>
+          Every opponent brings one of four dispositions, rolled with the week and printed on the scouting
+          screen before you commit. A plan is <b className="text-white">a reallocation, never a bonus</b>:
+          what they spend on one part of the game they give up somewhere else, priced by what a point on
+          that beat is actually worth. A thinking enemy is not a harder one.
+        </p>
+        <p>
+          They also react inside the fight. The lane you lose hardest is the lane they collapse on for the
+          rest of the game — and the lane you <em>win</em> hardest is the one they stop walking into, by
+          exactly as much. Behind on the scoreboard they throw the base and force the map; ahead, they stop
+          gambling on the pit and close. And at the crossroads they are reading the call: take the line
+          their plan is built for and they are waiting for it.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {FOE_PLANS.map((plan) => (
+            <div key={plan.key} className="rounded-lg border border-line/60 bg-panel/40 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#ff8896]">{plan.title}</p>
+              <p className="mt-1 text-xs leading-4 text-white">{plan.tell}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">↳ {plan.counter}</p>
             </div>
           ))}
         </div>
