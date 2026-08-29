@@ -168,6 +168,51 @@ describe("buildCard", () => {
     expect(card.level).toBe(10);
   });
 
+  it("breaks a games-and-winrate tie on KDA, not on the alphabet", () => {
+    // Two champions, two games each, one win each — everything the pool
+    // used to sort on is level, so the card printed whichever came first
+    // alphabetically. Now it prints the one they actually played better.
+    const tied = [
+      gameRow({ match_id: "T1", champion: "Zed", win: true, kills: 10, deaths: 2, assists: 4 }),
+      gameRow({ match_id: "T2", champion: "Zed", win: false, kills: 8, deaths: 2, assists: 6 }),
+      gameRow({ match_id: "T3", champion: "Ahri", win: true, kills: 2, deaths: 8, assists: 3 }),
+      gameRow({ match_id: "T4", champion: "Ahri", win: false, kills: 1, deaths: 9, assists: 2 }),
+    ];
+    const built = buildCard({ row: target, cohort: cohortOf(target), games: tied, gameLog: new Map() });
+
+    expect(built.signature?.champion).toBe("Zed");
+    expect(built.topChampions.map((c) => c.champion)).toEqual(["Zed", "Ahri"]);
+  });
+
+  it("keeps games and win rate ahead of KDA", () => {
+    // A monster KDA on one game must not outrank the champion they played
+    // three times: how often it was played is still the first question.
+    const games = [
+      gameRow({ match_id: "O1", champion: "Ahri", win: true, kills: 1, deaths: 5, assists: 1 }),
+      gameRow({ match_id: "O2", champion: "Ahri", win: true, kills: 1, deaths: 5, assists: 1 }),
+      gameRow({ match_id: "O3", champion: "Ahri", win: true, kills: 1, deaths: 5, assists: 1 }),
+      gameRow({ match_id: "O4", champion: "Zed", win: true, kills: 20, deaths: 0, assists: 10 }),
+    ];
+    const built = buildCard({ row: target, cohort: cohortOf(target), games, gameLog: new Map() });
+
+    expect(built.signature?.champion).toBe("Ahri");
+  });
+
+  it("survives a deathless record without producing Infinity", () => {
+    // Deaths floor at 1 for the division: a perfect record sorts fine as
+    // Infinity and then stops being a number the moment anything touches it.
+    const flawless = [
+      gameRow({ match_id: "F1", champion: "Zed", win: true, kills: 7, deaths: 0, assists: 3 }),
+      gameRow({ match_id: "F2", champion: "Ahri", win: true, kills: 6, deaths: 0, assists: 3 }),
+    ];
+    const built = buildCard({ row: target, cohort: cohortOf(target), games: flawless, gameLog: new Map() });
+
+    expect(built.signature?.champion).toBe("Zed");
+    // topChampions is part of every frozen copy's json — the sort key must
+    // not widen the shape old copies were minted with.
+    expect(Object.keys(built.topChampions[0]).sort()).toEqual(["champion", "games", "wins"]);
+  });
+
   it("canonicalizes Riot internal championName spellings so art resolves and aliases merge", () => {
     const riotNamed = [
       gameRow({ match_id: "NA1_10", game_date: "2026-08-01T00:00:00Z", champion: "MissFortune", win: true }),
