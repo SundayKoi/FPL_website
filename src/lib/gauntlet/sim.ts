@@ -149,6 +149,11 @@ export interface MatchContext {
   arena: ConditionEffects;
   /** The wall's rule on a boss round. Empty on every other round. */
   boss?: BossEffects;
+  /** Picks between the situations that share a momentum band. Comes from
+   *  the week and round, never from the match's rand — see situationFor.
+   *  Absent means "the first in the band", which is what it did before
+   *  there was more than one. */
+  situationSeed?: number;
 }
 
 /** Every check in the match runs through here so a boss's tie band can't
@@ -657,7 +662,7 @@ export function simulateFirstHalf(
     lanesWon,
     yourStyle,
     theirStyle,
-    situationKey: situationFor(momentum).key,
+    situationKey: situationFor(momentum, ctx.situationSeed).key,
     ledger,
   };
 }

@@ -283,13 +283,19 @@ describe("lineupShapeOf", () => {
 });
 
 describe("crossroads catalog", () => {
-  it("covers every momentum from 0 to 100 with exactly one situation", () => {
+  it("covers every momentum from 0 to 100, and answers from inside the band", () => {
+    // Bands used to hold exactly one situation each, which meant a run
+    // that kept winning saw the same call in all eight rounds. Several now
+    // share a band and a seed picks between them (crossroads.test.ts owns
+    // that); what still has to hold here is that no momentum falls through
+    // a gap, and that whatever comes back belongs to the band asked for.
     for (let momentum = 0; momentum <= 100; momentum += 1) {
       const matches = CROSSROADS_CATALOG.filter(
         (situation) => momentum >= situation.band[0] && momentum <= situation.band[1],
       );
-      expect(matches, `momentum ${momentum}`).toHaveLength(1);
-      expect(situationFor(momentum).key).toBe(matches[0].key);
+      expect(matches.length, `momentum ${momentum}`).toBeGreaterThan(0);
+      const chosen = situationFor(momentum);
+      expect(matches.map((situation) => situation.key)).toContain(chosen.key);
     }
   });
 

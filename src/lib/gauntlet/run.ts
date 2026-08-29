@@ -25,12 +25,20 @@ export interface GauntletCrossroads {
  *  server's fight and the client's odds preview can never disagree: your
  *  relics, their traits, the round's condition, and the wall's rule on a
  *  boss round. */
-export function matchContextFor(relicKeys: string[], opponent: OpponentTeam | null): MatchContext {
+export function matchContextFor(
+  relicKeys: string[],
+  opponent: OpponentTeam | null,
+  /** Picks between the situations sharing a momentum band. Pass the
+   *  week+round seed — the same one the opponent cast is drawn from — so
+   *  a week's round-four call is the same call for everyone in it. */
+  situationSeed?: number,
+): MatchContext {
   return {
     effects: aggregateEffects(relicKeys),
     foe: aggregateTraits(opponent?.traits ?? []),
     arena: conditionEffects(opponent?.condition),
     boss: bossEffects(opponent?.boss),
+    situationSeed,
   };
 }
 

@@ -224,7 +224,7 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const ctx = matchContextFor(run.relics, run.next_opponent);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round));
   const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
@@ -280,7 +280,7 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const ctx = matchContextFor(run.relics, run.next_opponent);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round));
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
