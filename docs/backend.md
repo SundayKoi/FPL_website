@@ -226,6 +226,22 @@ Important RPC families include:
   ranked under the premier season. A copy from a past season is refused.
   The bracket scales to the lineup average, so a bigger pool does not make
   the mode easier — the opponents rise with whatever gets picked.
+- Gauntlet balance telemetry: `gauntlet_round_log` (one row per resolved
+  round: the situation, the call taken, the outcome, the relics it was
+  fought with) and `gauntlet_relic_offers` (the three keys offered and the
+  one taken). Both are deny-all, service-role, and written off the response
+  path with `after()` — a telemetry failure must never fail a fight, so
+  every write swallows its error. Both carry `unique (run_id, round)` and
+  insert with `ignoreDuplicates`, so the double-click the actions already
+  guard with a CAS cannot double-count a call. NOTHING in the engine reads
+  these tables: the aggregation (`src/lib/gauntlet/balance.ts`, pure and
+  tested) is rendered at `/admin/gauntlet` for a human, who changes a
+  number by hand in a commit and says so in the channel. Auto-tuning is
+  deliberately not built — a mode that silently nerfs whatever is winning
+  is a treadmill the player can never read. The report corrects two
+  confounds: performance is LIFT against the per-round baseline (a relic
+  taken at round six only ever fights the hardest rounds), and popularity
+  is take rate against the times the thing was actually on the table.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the
