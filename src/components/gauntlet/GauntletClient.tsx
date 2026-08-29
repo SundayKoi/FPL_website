@@ -34,7 +34,6 @@ import {
 } from "@/lib/gauntlet/run";
 import type { GauntletOption } from "@/lib/gauntlet/queries";
 import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily, type RelicRarity } from "@/lib/gauntlet/relics";
-import { generateOpponent, weekSeed } from "@/lib/gauntlet/opponents";
 import {
   type CompStyle,
   lineupShapeOf,
@@ -45,7 +44,6 @@ import {
   type GauntletRole,
   LANE_KEY,
   makeTrialist,
-  mulberry32,
   previewCrossroadsChoice,
 } from "@/lib/gauntlet/sim";
 
@@ -251,25 +249,6 @@ export default function GauntletClient({
     const overalls = draftCards.map((card) => card.overall);
     return Math.round((overalls.reduce((a, b) => a + b, 0) / overalls.length) * 10) / 10;
   }, [draftCards]);
-
-  /**
-   * The five the last tape was fought against.
-   *
-   * Stored with the result from now on — but a run already in the field
-   * recorded its fights before that, and the cast is a pure function of
-   * the week, the round and the lineup average (the same three the server
-   * generated it from), so it can simply be rebuilt. Stored five first,
-   * rebuilt five second, and nothing at all if there is no run to ask.
-   */
-  const tapeOpponent = useMemo<GauntletCard[] | undefined>(() => {
-    if (lastFight?.theirCards?.length) return lastFight.theirCards;
-    if (!lastFight || !run) return undefined;
-    return generateOpponent(
-      run.lineup_avg,
-      lastFight.round,
-      mulberry32(weekSeed(run.week_start, lastFight.round)),
-    ).cards;
-  }, [lastFight, run]);
 
   function start() {
     setError(null);
@@ -491,12 +470,6 @@ export default function GauntletClient({
         ) : null}
       </div>
 
-      {/* Who you fought, for the map. The result stores the cast from here
-          on — but a run already in the field recorded its fights before
-          that, and "no map until your next fight" is a poor answer when
-          the cast is a pure function of the week, the round and your
-          lineup average. So: the stored five when they are there, and the
-          same five regenerated from the same seed when they are not. */}
       {lastFight ? (
         <div className="flex flex-col gap-4">
           <MatchTheatre
@@ -508,9 +481,6 @@ export default function GauntletClient({
               goldSeries: lastFight.goldSeries ?? [{ clock: 0, diff: 0 }],
               baron: lastFight.baron,
               endClock: 31,
-              lanes: lastFight.lanes,
-              yours: run?.lineup,
-              theirs: tapeOpponent,
             }}
             autoPlay={justPlayed}
             onFinish={() => setTapeDone(true)}
@@ -579,9 +549,6 @@ export default function GauntletClient({
               goldSeries: run.crossroads!.state.ledger?.goldSeries ?? [{ clock: 0, diff: 0 }],
               baron: null,
               endClock: 20,
-              lanes: run.crossroads!.state.lanes,
-              yours: run.lineup,
-              theirs: run.next_opponent?.cards,
             }}
           />
           <MomentumBar value={run.crossroads!.state.momentum} />
