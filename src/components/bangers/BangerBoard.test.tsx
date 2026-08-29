@@ -109,6 +109,19 @@ describe("BangerBoard saved votes", () => {
     expect(screen.getByRole("meter", { name: /70% Banger/i })).toBeTruthy();
   });
 
+  it("uses daily check counts instead of archived post counts", () => {
+    render(
+      <BangerBoard
+        posts={[{ ...post, bangerVotes: 9, midVotes: 1, stinkerVotes: 0 }]}
+        dailyBanger={{ ...post, bangerVotes: 1, midVotes: 0, stinkerVotes: 0, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    expect(screen.getByRole("meter", { name: "100% Banger" })).toBeTruthy();
+    expect(screen.getAllByRole("meter", { name: "90% Banger" }).length).toBeGreaterThan(0);
+  });
+
   it("hydrates the recent card from a saved daily vote when the tweet overlaps", () => {
     render(
       <BangerBoard
@@ -130,6 +143,46 @@ describe("BangerBoard saved votes", () => {
 });
 
 describe("BangerBoard vote feedback", () => {
+  it("updates the daily banger meter after saving a daily vote", async () => {
+    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    render(
+      <BangerBoard
+        posts={[]}
+        dailyBanger={{
+          ...post,
+          bangerVotes: 0,
+          midVotes: 0,
+          stinkerVotes: 0,
+          checkDate: "2026-08-24",
+          startsAt: "2026-08-24T00:00:00.000Z",
+          endsAt: "2026-08-25T00:00:00.000Z",
+        }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Banger/ }));
+
+    await waitFor(() => expect(screen.getByRole("meter", { name: "100% Banger" })).toBeTruthy());
+  });
+
+  it("keeps an overlapping daily bar on daily counts after voting", async () => {
+    voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
+    render(
+      <BangerBoard
+        posts={[{ ...post, bangerVotes: 9, midVotes: 1, stinkerVotes: 0 }]}
+        dailyBanger={{ ...post, bangerVotes: 1, midVotes: 0, stinkerVotes: 0, checkDate: "2026-08-24", startsAt: "2026-08-24T00:00:00.000Z", endsAt: "2026-08-25T00:00:00.000Z" }}
+        settings={DEFAULT_BANGER_BOARD_SETTINGS}
+      />,
+    );
+
+    const dailyVoteGroup = screen.getAllByRole("group", { name: "Vote on A saved vote" })[0];
+    fireEvent.click(dailyVoteGroup.querySelectorAll("button")[0]);
+
+    await waitFor(() => expect(screen.getByRole("meter", { name: "50% Mid" })).toBeTruthy());
+    expect(screen.getAllByRole("meter", { name: "82% Banger" }).length).toBeGreaterThan(0);
+  });
+
   it("shares a daily vote with the overlapping recent card", async () => {
     voteDailyBanger.mockResolvedValue({ ok: true, alreadyVoted: false });
     render(

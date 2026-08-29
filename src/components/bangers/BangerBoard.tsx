@@ -144,8 +144,12 @@ export default function BangerBoard({ posts, dailyBanger, settings, initialVotes
   const randomPost = useMemo(() => votedPosts.find((post) => post.id === randomPostId), [randomPostId, votedPosts]);
   const dailyDisplayPost = useMemo(() => {
     if (!dailyBanger) return undefined;
-    return votedPosts.find((post) => post.id === dailyBanger.id) ?? dailyBanger;
-  }, [dailyBanger, votedPosts]);
+    return withVotes(
+      dailyBanger,
+      { [dailyBanger.id]: dailyVote },
+      { [dailyBanger.id]: initialDailyVote },
+    );
+  }, [dailyBanger, dailyVote, initialDailyVote]);
   const dailyDisplayVote = dailyBanger
     ? (dailyOverlapsRecent ? dailyVote ?? votes[dailyBanger.id] : dailyVote)
     : undefined;
