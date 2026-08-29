@@ -114,47 +114,53 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   }
 
   const supabase = await createServerSupabase();
-  const season = await fetchCardSeason(supabase, league);
-  const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
+  // Three stages where there were seven round trips in a line. Nothing here
+  // waits on anything it doesn't actually need: the season and who is
+  // looking are independent, and then everything that needs one or both of
+  // them goes together.
+  const [season, viewerResult] = await Promise.all([
+    fetchCardSeason(supabase, league),
+    supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } })),
+  ]);
+  const viewerProfileId = viewerResult.data.user?.id ?? null;
 
-  // The thing a player is most likely here to do, and until now the hardest
-  // to find: their own card. One read for the whole page — never one per
-  // card — and every failure (signed-out edge, migration not applied, two
-  // claims in a season) reads as "no claim", whose strip is the harmless one.
-  const { data: viewer } = await supabase.auth.getUser().then((result) => result, () => ({ data: { user: null } }));
-  const viewerProfileId = viewer.user?.id ?? null;
-  const { data: claimRow } =
+  // The claim is the thing a player is most likely here to do and until now
+  // the hardest to find: their own card. One read for the whole page —
+  // never one per card — and every failure (signed-out edge, migration not
+  // applied, two claims in a season) reads as "no claim", whose strip is
+  // the harmless one.
+  //
+  // The viewer's Discord id comes from profiles (public read policy, and
+  // the same profile id the claim lookup uses) on the cookie-bound client —
+  // a plain select, so loading the hub writes nothing. Only weekly_draws
+  // reads publicly; the two locked-down reads go through loadDrawExtras,
+  // which owns the service client.
+  const [cards, claimResult, latestDraw, viewerProfileResult] = await Promise.all([
+    season ? fetchCurrentWeekCards(supabase, season) : Promise.resolve([]),
     viewerProfileId && season
-      ? await supabase
+      ? supabase
           .from("card_claims")
           .select("summoner_name, tag, status")
           .eq("profile_id", viewerProfileId)
           .eq("season", season)
           .limit(1)
           .maybeSingle()
-          .then((result) => result, () => ({ data: null }))
-      : { data: null };
-  const myClaim = claimRow as { summoner_name: string; tag: string; status: "pending" | "approved" } | null;
+          .then((result) => result.data, () => null)
+      : Promise.resolve(null),
+    season ? fetchLatestDraw(supabase, season) : Promise.resolve(null),
+    viewerProfileId
+      ? supabase
+          .from("profiles")
+          .select("discord_id")
+          .eq("id", viewerProfileId)
+          .maybeSingle()
+          .then((result) => result.data, () => null)
+      : Promise.resolve(null),
+  ]);
+  const myClaim = claimResult as { summoner_name: string; tag: string; status: "pending" | "approved" } | null;
   const mySlug = myClaim ? cardSlug(myClaim.summoner_name, myClaim.tag) : null;
+  const drawViewerId = (viewerProfileResult as { discord_id: string | null } | null)?.discord_id ?? null;
 
-  // The Weekly Draw, compacted to one strip: the copy that came up last,
-  // this week's pot, and how many tickets the viewer is holding.
-  //
-  // The viewer's Discord id comes from profiles (public read policy, and
-  // the same profile id the claim lookup above already resolved) on the
-  // cookie-bound client — a plain select, so loading the hub writes
-  // nothing. Only weekly_draws reads publicly; the two locked-down reads
-  // go through loadDrawExtras, which owns the service client.
-  const latestDraw = season ? await fetchLatestDraw(supabase, season) : null;
-  const { data: viewerProfile } = viewerProfileId
-    ? await supabase
-        .from("profiles")
-        .select("discord_id")
-        .eq("id", viewerProfileId)
-        .maybeSingle()
-        .then((result) => result, () => ({ data: null }))
-    : { data: null };
-  const drawViewerId = (viewerProfile as { discord_id: string | null } | null)?.discord_id ?? null;
   const { tickets: ticketCount, winnerName: drawWinnerName } = await loadDrawExtras(
     latestDraw,
     season,

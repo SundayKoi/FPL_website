@@ -43,6 +43,20 @@ export type HomepageAwardsData = {
   teamAwards: HomepageAward[];
 };
 
+/**
+ * A season of raw_stats is one row per player per GAME, so it passes a
+ * thousand well before a season is over — and every homepage award is
+ * derived from the whole set.
+ *
+ * This read had no paging and no order at all, which meant PostgREST
+ * answered with max_rows (1000) of them, silently, in whatever order the
+ * planner felt like. Past that line the homepage's Player of the Week,
+ * Team of the Week and every superlative under them were computed from an
+ * arbitrary slice of the season, with nothing anywhere to say so.
+ */
+const RAW_PAGE = 1000;
+const RAW_MAX_PAGES = 40;
+
 const RAW_COLUMNS = [
   ...WEEKLY_STAT_COLUMNS,
   "game_date",
@@ -412,11 +426,28 @@ export async function fetchHomepageRawStats(
 ): Promise<HomepageRawStatRow[]> {
   if (teamNames && teamNames.length === 0) return [];
   const supabase = await createServerSupabase();
-  let query = supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", season);
-  if (teamNames?.length) query = query.in("team_name", teamNames);
-  const { data, error } = await query;
-  if (error) throw error;
-  return ((data ?? []) as unknown) as HomepageRawStatRow[];
+  const rows: HomepageRawStatRow[] = [];
+  for (let page = 0; page < RAW_MAX_PAGES; page += 1) {
+    const from = page * RAW_PAGE;
+    // Filters first, THEN order and range: range() hands back a transform
+    // builder, which has no .in() on it — appending the team filter after
+    // it throws, and only on the academy homepage that passes one.
+    let filtered = supabase.from("raw_stats").select(RAW_COLUMNS).eq("season", season);
+    if (teamNames?.length) filtered = filtered.in("team_name", teamNames);
+    const { data, error } = await filtered
+      // Ordered by the primary key, which is what makes the paging sound:
+      // an unordered range can hand back a row twice and skip another
+      // between requests, and every award here is derived from the whole
+      // set rather than from a top-N, so a skipped row is a wrong answer
+      // rather than a missing one.
+      .order("id", { ascending: true })
+      .range(from, from + RAW_PAGE - 1);
+    if (error) throw error;
+    const batch = ((data ?? []) as unknown) as HomepageRawStatRow[];
+    rows.push(...batch);
+    if (batch.length < RAW_PAGE) break;
+  }
+  return rows;
 }
 
 async function fetchHomepagePrices(draftColumn: "featured_draft_id" | "academy_draft_id"): Promise<Map<string, number>> {
@@ -438,18 +469,11 @@ export async function fetchHomepageAwards(
   teamNames?: string[],
   draftColumn: "featured_draft_id" | "academy_draft_id" = "featured_draft_id",
 ): Promise<HomepageAwardsData> {
-  let rows: HomepageRawStatRow[];
-  try {
-    rows = await fetchHomepageRawStats(season, teamNames);
-  } catch {
-    rows = [];
-  }
-
-  let prices = new Map<string, number>();
-  try {
-    prices = await fetchHomepagePrices(draftColumn);
-  } catch {
-    prices = new Map();
-  }
+  // Independent of each other, and the stats read is now several round
+  // trips — no reason the price read should queue behind it.
+  const [rows, prices] = await Promise.all([
+    fetchHomepageRawStats(season, teamNames).catch(() => [] as HomepageRawStatRow[]),
+    fetchHomepagePrices(draftColumn).catch(() => new Map<string, number>()),
+  ]);
   return deriveHomepageAwards(rows, prices, season);
 }
