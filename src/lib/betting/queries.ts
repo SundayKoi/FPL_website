@@ -4,6 +4,7 @@ import { computePools } from "./pools";
 import type {
   PropSuggestion,
   BettingTeam,
+  BettingEventLeague,
   EventSummary,
   MarketDetailData,
   MarketCardData,
@@ -137,16 +138,21 @@ export async function fetchBettingEvent(eventId: number): Promise<{ id: number; 
  * Events with something currently open sort first (soonest lock leading),
  * then the rest newest-first — so a finished season sinks below a running
  * one without disappearing. */
-export async function fetchEventSummaries(): Promise<EventSummary[]> {
+export async function fetchEventSummaries(league?: BettingEventLeague): Promise<EventSummary[]> {
   const service = createBettingServiceClient();
 
+  let eventsQuery = service.from("betting_events").select("id, name, description, league");
+  if (league) eventsQuery = eventsQuery.eq("league", league);
+
   const [eventsResult, marketsResult, pickemsResult] = await Promise.all([
-    service.from("betting_events").select("id, name, description"),
+    eventsQuery,
     service.from("betting_markets").select("event_id, status, lock_at").in("status", ["OPEN", "LOCKED"]),
     service.from("betting_pickems").select("event_id, status, lock_at").in("status", ["OPEN", "LOCKED"]),
   ]);
 
-  const events = (eventsResult.data as { id: number; name: string; description: string | null }[] | null) ?? [];
+  const events =
+    (eventsResult.data as { id: number; name: string; description: string | null; league: BettingEventLeague | null }[] | null) ??
+    [];
   const markets = (marketsResult.data as { event_id: number; status: "OPEN" | "LOCKED"; lock_at: string }[] | null) ?? [];
   const pickems = (pickemsResult.data as { event_id: number; status: "OPEN" | "LOCKED"; lock_at: string }[] | null) ?? [];
 
@@ -161,6 +167,7 @@ export async function fetchEventSummaries(): Promise<EventSummary[]> {
       id: e.id,
       name: e.name,
       description: e.description,
+      league: e.league ?? null,
       open_markets: eventMarkets.filter((m) => m.status === "OPEN").length,
       locked_markets: eventMarkets.filter((m) => m.status === "LOCKED").length,
       has_live_pickem: livePickems.length > 0,

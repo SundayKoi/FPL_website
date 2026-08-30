@@ -114,9 +114,9 @@ describe("fetchEventSummaries", () => {
       betting_events: [
         {
           data: [
-            { id: 1, name: "Premier S5", description: null },
-            { id: 2, name: "Academy S1", description: "The academy league" },
-            { id: 3, name: "Preseason Cup", description: null },
+            { id: 1, name: "Premier S5", description: null, league: "premier" },
+            { id: 2, name: "Academy S1", description: "The academy league", league: "academy" },
+            { id: 3, name: "Preseason Cup", description: null, league: null },
           ],
         },
       ],
@@ -138,12 +138,14 @@ describe("fetchEventSummaries", () => {
     expect(result.map((e) => e.name)).toEqual(["Academy S1", "Premier S5", "Preseason Cup"]);
 
     const academy = result[0];
+    expect(academy.league).toBe("academy");
     expect(academy.open_markets).toBe(1);
     expect(academy.locked_markets).toBe(0);
     expect(academy.has_live_pickem).toBe(true);
     expect(academy.next_lock_at).toBe("2030-01-01T06:00:00Z");
 
     const premier = result[1];
+    expect(premier.league).toBe("premier");
     expect(premier.open_markets).toBe(1);
     expect(premier.locked_markets).toBe(1);
     expect(premier.has_live_pickem).toBe(false);
@@ -151,6 +153,25 @@ describe("fetchEventSummaries", () => {
     expect(premier.next_lock_at).toBe("2030-01-02T00:00:00Z");
 
     expect(result[2]).toMatchObject({ open_markets: 0, locked_markets: 0, has_live_pickem: false, next_lock_at: null });
+    expect(result[2].league).toBeNull();
+  });
+
+  it("scopes event rows to the requested league", async () => {
+    const log: SupabaseFilterCall[] = [];
+    fromImpl.current = makeSupabaseFrom(
+      {
+        betting_events: [{ data: [{ id: 2, name: "Academy S1", description: null, league: "academy" }] }],
+        betting_markets: [{ data: [] }],
+        betting_pickems: [{ data: [] }],
+      },
+      log,
+    );
+
+    const result = await fetchEventSummaries("academy");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].league).toBe("academy");
+    expect(log).toContainEqual({ table: "betting_events", method: "eq", args: ["league", "academy"] });
   });
 
   it("returns an empty list when no events exist", async () => {

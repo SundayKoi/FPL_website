@@ -97,6 +97,7 @@ export interface EventSummary {
   id: number;
   name: string;
   description: string | null;
+  league: BettingEventLeague | null;
   open_markets: number;
   locked_markets: number;
   /** An OPEN/LOCKED pick'em exists for this event right now. */
