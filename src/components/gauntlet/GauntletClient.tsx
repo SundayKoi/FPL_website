@@ -22,7 +22,7 @@ import {
   resetGauntletRunAction,
   startGauntletRunAction,
 } from "@/lib/gauntlet/actions";
-import { CROSSROADS_BY_KEY, crossroadsSpread, daringAt, winChanceOf } from "@/lib/gauntlet/crossroads";
+import { CHOICE_BY_KEY, CROSSROADS_BY_KEY, crossroadsSpread, daringAt, winChanceOf } from "@/lib/gauntlet/crossroads";
 import MatchTheatre from "./MatchTheatre";
 import { AutopsyPanel, Scoreboard } from "./MatchAutopsy";
 import ScoutingReport from "./ScoutingReport";
@@ -438,6 +438,10 @@ export default function GauntletClient({
     offering && run.relics.includes("sixth_man") && !run.bench_swap_used;
   const swapRole = run.lineup.find((card) => card.inventoryId === Number(swapOut))?.role;
   const situation = atCrossroads ? CROSSROADS_BY_KEY.get(run.crossroads!.state.situationKey) ?? null : null;
+  // A ghost brought a decision to this game, not just a stat line. Their
+  // call is shown BEFORE yours: answering a real one is the whole mode.
+  const theirCallKey = atCrossroads ? run.next_opponent?.ghost?.choiceKey ?? null : null;
+  const theirCall = theirCallKey ? CHOICE_BY_KEY.get(theirCallKey) ?? null : null;
   // The same context the server fights under — relics, their traits, the
   // round's condition — so the odds printed on a choice are the odds.
   const runCtx = matchContextFor(run.relics, run.next_opponent);
@@ -562,6 +566,20 @@ export default function GauntletClient({
             }}
           />
           <MomentumBar value={run.crossroads!.state.momentum} />
+          {theirCall ? (
+            <div className="rounded-xl border border-gold/50 bg-gold/5 px-4 py-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold">
+                {run.next_opponent!.ghost!.name} answers
+              </span>
+              <p className="mt-1 text-sm leading-5 text-white">
+                <b>{theirCall.choice.label}</b> — {theirCall.choice.description}
+              </p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">
+                ↳ the call they made at this point in their own run. Knowing it does not make the answer free —
+                you still have to be able to afford it.
+              </p>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-3">
             {situation.choices.map((choice) => {
               const preview = previewCrossroadsChoice(

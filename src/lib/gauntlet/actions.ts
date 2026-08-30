@@ -26,7 +26,8 @@ import { mondayOf } from "@/lib/packs/week";
 import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
 import { buildAutopsy } from "./autopsy";
 import { CROSSROADS_BY_KEY } from "./crossroads";
-import { generateOpponent, weekSeed } from "./opponents";
+import { generateOpponent, ghostOpponent, weekSeed } from "./opponents";
+import { fetchGhostBracket } from "./ghostQueries";
 import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./telemetry";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
@@ -171,7 +172,7 @@ export async function startGauntletRunAction(
   // The cast is public, the dice are not: the opponent is seeded by the
   // WEEK so the whole league fights the same bracket, while the fight
   // itself resolves with this run's own CSPRNG seed.
-  const opponent = generateOpponent(lineupAvg, 1, mulberry32(weekSeed(thisWeek, 1)));
+  const opponent = await stageOpponent(service, lineupAvg, 1, thisWeek);
   const { data: inserted, error: insertError } = await service
     .from("gauntlet_runs")
     .insert({
@@ -363,6 +364,34 @@ export async function chooseGauntletPathAction(
   return { ok: true, result, run: (updated as GauntletRunRow[])[0] };
 }
 
+
+/**
+ * The round's opponent: last week's run if somebody reached this round,
+ * an invented team if nobody did.
+ *
+ * Both come off the SAME week+round seed, so whichever it is, the whole
+ * league meets it. The ghost's five are shifted onto the round's bracket
+ * target inside ghostOpponent — the cast is real, the level is the
+ * bracket's — and a lookup failure of any kind falls through to the
+ * generator rather than blocking a fight.
+ */
+async function stageOpponent(
+  service: ReturnType<typeof createBettingServiceClient>,
+  lineupAvg: number,
+  round: number,
+  weekStart: string,
+) {
+  const seed = weekSeed(weekStart, round);
+  try {
+    const bracket = await fetchGhostBracket(service, weekStart);
+    const ghost = bracket.get(round);
+    if (ghost) return ghostOpponent(ghost, lineupAvg, round, mulberry32(seed));
+  } catch (error) {
+    console.error("gauntlet: ghost bracket lookup failed", error);
+  }
+  return generateOpponent(lineupAvg, round, mulberry32(seed));
+}
+
 /** Takes one relic from the pending offer and stages the next fight —
  *  new CSPRNG seed, new opponent, both stored before anything resolves. */
 export async function pickGauntletRelicAction(
@@ -379,7 +408,7 @@ export async function pickGauntletRelicAction(
   if (!run.relic_offer.includes(relicKey)) return { ok: false, error: "That relic wasn't offered." };
 
   const seed = seed32();
-  const opponent = generateOpponent(run.lineup_avg, run.round, mulberry32(weekSeed(run.week_start, run.round)));
+  const opponent = await stageOpponent(service, run.lineup_avg, run.round, run.week_start);
   const { data: updated } = await service
     .from("gauntlet_runs")
     .update({

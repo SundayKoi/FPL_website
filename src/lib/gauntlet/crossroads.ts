@@ -613,6 +613,16 @@ export const CROSSROADS_CATALOG: CrossroadsSituation[] = [
 
 export const CROSSROADS_BY_KEY = new Map(CROSSROADS_CATALOG.map((situation) => [situation.key, situation]));
 
+/** Every choice in the catalog, by key, regardless of which situation it
+ *  belongs to. A GHOST's recorded call came from the situation THEIR
+ *  half-time board summoned, which is rarely the one yours did — so
+ *  answering it means looking the choice up on its own. */
+export const CHOICE_BY_KEY = new Map(
+  CROSSROADS_CATALOG.flatMap((situation) =>
+    situation.choices.map((choice) => [choice.key, { choice, situation }] as const),
+  ),
+);
+
 /**
  * Which situation a scoreboard summons. Bands cover 0-100 completely, and
  * several situations share each band.

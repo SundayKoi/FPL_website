@@ -26,6 +26,7 @@ import { type Contest, type ContestInput, type ContestKind, contestDetail, runCo
 import type { BossEffects } from "./bosses";
 import type { ConditionEffects, TraitEffects } from "./traits";
 import {
+  CHOICE_BY_KEY,
   type CrossroadsChoice,
   CROSSROADS_BY_KEY,
   type CrossroadsSituation,
@@ -165,6 +166,11 @@ export interface MatchContext {
   /** How the opponent intends to play it. Absent on a run staged before
    *  the plan shipped, and absent means the old flat opponent. */
   plan?: FoePlan;
+  /** THE GHOST'S OWN CALL — the choice a real player made at this point
+   *  in their run last week. Their side of minute 20 stops being a stat
+   *  block and becomes a decision you are answering. Absent against a
+   *  generated opponent, which has no history to have made one in. */
+  foeCall?: string;
 }
 
 /** Every check in the match runs through here so a boss's tie band can't
@@ -387,6 +393,13 @@ function behindFlat(effects: RelicEffects, momentum: number): number {
   return momentum < BEHIND_MOMENTUM ? (effects.comebackFlat ?? 0) : 0;
 }
 
+/** Their comeback dial: help while THEY are losing, which is while your
+ *  momentum is high. The exact mirror of behindFlat, and the reason a
+ *  ghost holding a comeback relic is hardest when you are winning. */
+function foeBehindFlat(ctx: MatchContext, momentum: number): number {
+  return momentum > 100 - BEHIND_MOMENTUM ? (ctx.foe.comebackFlat ?? 0) : 0;
+}
+
 /** The enemy's clock-dependent flat — traits that key off the game phase. */
 function foeClockFlat(ctx: MatchContext, clock: number): number {
   return clock < MIDGAME_CLOCK ? (ctx.foe.earlyFlat ?? 0) : (ctx.foe.lateFlat ?? 0);
@@ -564,7 +577,7 @@ export function simulateFirstHalf(
       (mine ? statOf(mine, key, effects) : TRIALIST_OVERALL - 10) + lanesFlat +
       shapeBonus(shape, "lane", effects, ctx.boss) + behindFlat(effects, momentum);
     const theirsVal =
-      (foe ? statOf(foe, key) : TRIALIST_OVERALL - 10) + (ctx.foe.lanesFlat ?? 0) + foeClockFlat(ctx, 8) +
+      (foe ? statOf(foe, key) : TRIALIST_OVERALL - 10) + (ctx.foe.lanesFlat ?? 0) + foeClockFlat(ctx, 8) + foeBehindFlat(ctx, momentum) +
       foeEdge(ctx.plan, "lane", { momentum, role });
     const contest = checked(ctx,
       {
@@ -627,7 +640,7 @@ export function simulateFirstHalf(
         teamAvg(yours, ["objectives", "turrets"], effects) + (effects.objectivesFlat ?? 0) +
         shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
-        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 11) +
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 11) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "objective", { momentum, ...laneRead, role: "Jungle" }),
       spread: noise(28, ctx),
       decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
@@ -651,7 +664,7 @@ export function simulateFirstHalf(
         teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) +
         shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
-        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 14) +
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 14) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "objective", { momentum, ...laneRead, role: "Jungle" }),
       spread: noise(30, ctx),
       decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
@@ -677,7 +690,7 @@ export function simulateFirstHalf(
         teamAvg(yours, ["combat", "damage"], effects) + fightFlat + shapeBonus(shape, "fight", effects, ctx.boss) +
         behindFlat(effects, momentum),
       theirVal:
-        teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 18) +
+        teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 18) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "fight", { momentum, ...laneRead, role: carry?.role ?? null }),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -730,8 +743,8 @@ export function previewCrossroadsChoice(
         shapeBonus(lineupShapeOf(yours), "crossroads", ctx.effects, ctx.boss) + behindFlat(ctx.effects, momentum),
     ),
     theirVal: Math.round(
-      teamAvg(theirs, choice.theirKeys) + foeClockFlat(ctx, 20) +
-        foeCrossroadsEdge(ctx.plan, choice.theirKeys, { momentum, ...read }),
+      teamAvg(theirs, choice.theirKeys) + foeClockFlat(ctx, 20) + (ctx.foe.crossroadsFlat ?? 0) +
+        foeBehindFlat(ctx, momentum) + foeCrossroadsEdge(ctx.plan, choice.theirKeys, { momentum, ...read }),
     ),
   };
 }
@@ -780,7 +793,7 @@ function baronDance(
     (yoursToStart ? startEdge : 0);
   const theirVal =
     teamAvg(theirs, ["objectives", "combat"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, clock) +
-    (yoursToStart ? 0 : startEdge) + foeEdge(ctx.plan, "baron", board);
+    (yoursToStart ? 0 : startEdge) + foeBehindFlat(ctx, board.momentum) + foeEdge(ctx.plan, "baron", board);
 
   const contest = checked(ctx,
     {
@@ -904,6 +917,62 @@ export function simulateSecondHalf(
     });
   }
 
+  // ── THEIR call. A ghost brought a decision to this game, not just a
+  //   stat line: the call they made at this point in their own run. It
+  //   resolves the same way yours did — their side of it against yours —
+  //   and what it buys them lands on their side of everything after.
+  let foeCallFight = 0;
+  let foeCallHold = 0;
+  let foeCallObjectives = 0;
+  const theirEntry = ctx.foeCall ? CHOICE_BY_KEY.get(ctx.foeCall) : undefined;
+  if (theirEntry) {
+    const theirChoice = theirEntry.choice;
+    let theirSpoils: CrossroadsSpoils | undefined;
+    if (theirChoice.yourKeys.length === 0) {
+      // Their safe play: no dice, just the small sure gain.
+      theirSpoils = theirChoice.consequence.onWin;
+      momentum = clamp(momentum - theirChoice.win * stakes, 5, ceiling);
+      events.push({
+        clock: 20, kind: "crossroads", tone: "neutral",
+        text: `🕯 They answer with ${theirChoice.label} — no dice, they take the sure thing`,
+        detail: `${theirEntry.situation.title} · their call, from their own run`,
+      });
+    } else {
+      // Rolled with their side FIRST, so `won` here means THEY landed it.
+      const theirCall = checked(ctx,
+        {
+          key: "foe-crossroads-20", kind: "crossroads", label: `🕯 ${theirChoice.label}`, clock: 20,
+          yourKeys: theirChoice.yourKeys, theirKeys: theirChoice.theirKeys,
+          yourVal:
+            teamAvg(theirs, theirChoice.yourKeys) + theirChoice.bonus + (ctx.foe.crossroadsFlat ?? 0) +
+            foeBehindFlat(ctx, momentum),
+          theirVal: teamAvg(yours, theirChoice.theirKeys, effects),
+          spread: crossroadsSpread(ctx.arena),
+          decidedBy: null, role: null,
+        },
+        rand,
+      );
+      theirSpoils = theirCall.won ? theirChoice.consequence.onWin : theirChoice.consequence.onFail;
+      // Their gain is your loss: the momentum swing arrives inverted, and
+      // so does the gold their call moved.
+      momentum = clamp(momentum - (theirCall.won ? theirChoice.win : theirChoice.lose) * stakes, 5, ceiling);
+      ledger.gold -= (theirCall.won ? 400 : -400) + (theirSpoils?.gold ?? 0);
+      ledger.goldSeries.push({ clock: 20, diff: Math.round(ledger.gold) });
+      events.push({
+        clock: 20, kind: "crossroads", tone: theirCall.won ? "loss" : "win",
+        text: `🕯 They answer with ${theirChoice.label} — ${theirCall.won ? "and it lands" : "and it misses"}`,
+        detail: `${theirEntry.situation.title} · their call, from their own run`,
+      });
+    }
+    foeCallFight = theirSpoils?.fightFlat ?? 0;
+    foeCallHold = theirSpoils?.holdFlat ?? 0;
+    foeCallObjectives = theirSpoils?.objectivesFlat ?? 0;
+    // The pit reads from their side of the board, so a ghost that called
+    // Baron and got there holds it.
+    if (theirSpoils?.pit === "yours") spoils = { ...(spoils ?? {}), pit: "theirs" };
+    else if (theirSpoils?.pit === "theirs") spoils = { ...(spoils ?? {}), pit: "yours" };
+  }
+
   // ── Soul point dragon.
   const soul = checked(ctx,
     {
@@ -913,7 +982,8 @@ export function simulateSecondHalf(
         teamAvg(yours, ["objectives", "presence"], effects) + (effects.objectivesFlat ?? 0) + callObjectives +
         shapeBonus(shape, "objective", effects, ctx.boss) + behindFlat(effects, momentum),
       theirVal:
-        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeClockFlat(ctx, 23) +
+        teamAvg(theirs, ["objectives", "presence"]) + (ctx.foe.objectivesFlat ?? 0) + foeCallObjectives +
+        foeClockFlat(ctx, 23) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "objective", { momentum, ...secondHalfRead, role: "Jungle" }),
       spread: noise(30, ctx),
       decidedBy: byRole(yours, "Jungle")?.name ?? null, role: "Jungle",
@@ -964,7 +1034,8 @@ export function simulateSecondHalf(
         teamAvg(yours, ["combat", "damage"], effects) + (effects.fightFlat ?? 0) + callFight + edge +
         shapeBonus(shape, "fight", effects, ctx.boss) + behindFlat(effects, momentum) + (dance.taken ? 6 : -6),
       theirVal:
-        teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeClockFlat(ctx, 27) +
+        teamAvg(theirs, ["combat", "damage"]) + (ctx.foe.fightFlat ?? 0) + foeCallFight +
+        foeClockFlat(ctx, 27) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "fight", { momentum, ...secondHalfRead, role: carry?.role ?? null }),
       spread: noise(28, ctx),
       decidedBy: carry?.name ?? null, role: carry?.role ?? null,
@@ -997,7 +1068,8 @@ export function simulateSecondHalf(
         teamAvg(yours, ["survival", "turrets"], effects) + (effects.holdFlat ?? 0) + callHold +
         shapeBonus(shape, "hold", effects, ctx.boss) + behindFlat(effects, momentum) + edge * 0.5,
       theirVal:
-        teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeClockFlat(ctx, 29) +
+        teamAvg(theirs, ["damage", "objectives"]) + (ctx.foe.holdFlat ?? 0) + foeCallHold +
+        foeClockFlat(ctx, 29) + foeBehindFlat(ctx, momentum) +
         foeEdge(ctx.plan, "hold", { momentum, ...secondHalfRead, role: holder?.role ?? null }),
       spread: noise(20, ctx),
       decidedBy: holder?.name ?? null, role: holder?.role ?? null,

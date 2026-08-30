@@ -234,6 +234,34 @@ export default function GauntletRules() {
         </div>
       </Section>
 
+      <Section title="The bracket is other people">
+        <p>
+          The eight teams you fight are <b className="text-white">real runs from last week</b> — one per round,
+          the same eight for everybody, nobody twice. Their five, the relics they were holding when they got
+          that far, and the call they made at that round&rsquo;s crossroads all come with them. Beat round six
+          and you beat the person who was standing there.
+        </p>
+        <p>
+          Their ratings are <em>not</em> theirs. A deep collection posts an 85-average run and a thin shelf
+          reaches round eight at 68; dropped in raw, the bracket would be decided by who happened to be in it.
+          So a ghost&rsquo;s five are shifted onto the same target an invented team was always priced at,
+          keeping every card&rsquo;s and every stat&rsquo;s distance from their own team average. Their shape
+          is entirely theirs — the fed lane, the weak one, the comp identity. Only the level is the
+          round&rsquo;s.
+        </p>
+        <p>
+          What is theirs, unscaled: the <b className="text-white">build</b>, which defends at partial strength
+          because a defender is not running a run; the <b className="text-white">call</b>, shown to you before
+          you make yours, because answering a real decision is the point; and their{" "}
+          <b className="text-white">name</b>. A round nobody reached last week is fought against an invented
+          team instead, so a quiet week still plays.
+        </p>
+        <p className="text-gold">
+          And it runs the other way. Post a run this week and you are in next week&rsquo;s bracket — your five,
+          your relics, your calls, standing in the round you died in, for the whole league to get past.
+        </p>
+      </Section>
+
       <Section title="Their game plan — the enemy reads the board too">
         <p>
           Every opponent brings one of four dispositions, rolled with the week and printed on the scouting
