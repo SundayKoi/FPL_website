@@ -21,11 +21,12 @@ const game = {
   runVersion: 1,
   canReplay: false,
   roundExpiresAt: "2099-08-29T12:00:20.000Z",
-  referenceCard: { name: "Reference", overall: 82 },
+  referenceCard: { name: "Reference", overall: 82, editionWeek: "2026-08-24" },
   challengerCard: null,
   challenger: {
     slug: "challenger",
     name: "Challenger",
+    editionWeek: "2026-08-17",
     artUrl: null,
     teamName: "Red Team",
     teamAbbr: "RED",
@@ -52,6 +53,8 @@ describe("HigherLowerBoard", () => {
     );
 
     expect(screen.getByText("OVR concealed")).toBeTruthy();
+    expect(screen.getByText("From card week · Aug 24, 2026")).toBeTruthy();
+    expect(screen.getByText("From card week · Aug 17, 2026")).toBeTruthy();
     expect(screen.getByLabelText("Challenger challenger card")).toBeTruthy();
     expect(screen.queryByText("91 OVR")).toBeNull();
     expect(screen.queryByLabelText(/91/)).toBeNull();

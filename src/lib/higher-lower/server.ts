@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -17,6 +17,7 @@ import {
 import type {
   HigherLowerChoice,
   HigherLowerCompletionReason,
+  HigherLowerCard,
   HigherLowerGame,
   HigherLowerLastChoice,
   HigherLowerLeague,
@@ -28,6 +29,7 @@ export type {
   ConcealedHigherLowerCard,
   HigherLowerChoice,
   HigherLowerCompletionReason,
+  HigherLowerCard,
   HigherLowerGame,
   HigherLowerLeaderboardRow,
   HigherLowerLastChoice,
@@ -67,6 +69,7 @@ type CandidateRow = {
   player_slug: string;
   player_name: string;
   overall: number;
+  edition_week: string;
   card: unknown;
 };
 
@@ -191,18 +194,6 @@ async function requirePremiumPlayer(): Promise<{
   };
 }
 
-async function latestEdition(service: ReturnType<typeof createBettingServiceClient>, season: string): Promise<string | null> {
-  const { data, error } = await service
-    .from("card_editions")
-    .select("edition_week")
-    .eq("season", season)
-    .order("edition_week", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as { edition_week: string } | null)?.edition_week ?? null;
-}
-
 async function ensureSnapshot(
   server: SupabaseClient,
   service: ReturnType<typeof createBettingServiceClient>,
@@ -211,14 +202,14 @@ async function ensureSnapshot(
 ): Promise<void> {
   const season = await fetchCardSeason(server, league as CardLeague);
   if (!season) throw new HigherLowerError("NO_SEASON", "This league has no active card season.");
-  const editionWeek = await latestEdition(service, season);
-  if (!editionWeek) throw new HigherLowerError("NO_EDITION", "No frozen card edition is available yet.");
+  const editionWeeks = (await fetchCardEditionWeeks(server, season)).slice(0, 2);
+  if (editionWeeks.length === 0) throw new HigherLowerError("NO_EDITION", "No frozen card edition is available yet.");
 
-  const { error } = await service.rpc("ensure_higher_lower_daily_candidates", {
+  const { error } = await service.rpc("ensure_higher_lower_daily_candidates_weeks", {
     p_puzzle_date: puzzleDate,
     p_league: league,
     p_season: season,
-    p_edition_week: editionWeek,
+    p_edition_weeks: editionWeeks,
   });
   if (error) throwRpcError(error);
 }
@@ -252,7 +243,7 @@ async function loadCandidates(
   if (uniqueSlugs.length === 0) return new Map();
   const { data, error } = await service
     .from("higher_lower_daily_candidates")
-    .select("player_slug, player_name, overall, card")
+    .select("player_slug, player_name, overall, edition_week, card")
     .eq("puzzle_date", puzzleDate)
     .eq("league", league)
     .in("player_slug", uniqueSlugs);
@@ -260,11 +251,11 @@ async function loadCandidates(
   return new Map(((data as CandidateRow[] | null) ?? []).map((row) => [row.player_slug, row]));
 }
 
-function frozenCard(row: CandidateRow | undefined): PlayerCardData {
-  if (!row || !isRecord(row.card) || typeof row.card.overall !== "number" || typeof row.card.name !== "string") {
+function frozenCard(row: CandidateRow | undefined): HigherLowerCard {
+  if (!row || !row.edition_week || !isRecord(row.card) || typeof row.card.overall !== "number" || typeof row.card.name !== "string") {
     throw new HigherLowerError("SNAPSHOT_UNAVAILABLE", "A frozen player card could not be restored.");
   }
-  return row.card as unknown as PlayerCardData;
+  return { ...(row.card as unknown as PlayerCardData), editionWeek: row.edition_week };
 }
 
 async function loadLeaderboard(

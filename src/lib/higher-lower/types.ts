@@ -11,6 +11,9 @@ export type HigherLowerChoice = "higher" | "lower";
 export type HigherLowerLastChoice = HigherLowerChoice | "timeout";
 export type HigherLowerCompletionReason = "incorrect" | "timeout" | "perfect";
 
+/** A frozen player card plus the archive week that supplied it. */
+export type HigherLowerCard = PlayerCardData & { editionWeek: string };
+
 /** Safe challenger DTO. It intentionally has no overall, role, tier, or card stats. */
 export interface ConcealedHigherLowerCard {
   slug: string;
@@ -19,6 +22,7 @@ export interface ConcealedHigherLowerCard {
   teamName: string | null;
   teamAbbr: string | null;
   teamImageUrl: string | null;
+  editionWeek: string | null;
 }
 
 export interface HigherLowerLeaderboardRow {
@@ -42,9 +46,9 @@ export interface HigherLowerGame {
   runVersion: number;
   canReplay: boolean;
   roundExpiresAt: string | null;
-  referenceCard: PlayerCardData | null;
+  referenceCard: HigherLowerCard | null;
   /** Complete only after a choice has been recorded; concealed while playing. */
-  challengerCard: PlayerCardData | null;
+  challengerCard: HigherLowerCard | null;
   challenger: ConcealedHigherLowerCard | null;
   lastChoice: HigherLowerLastChoice | null;
   lastCorrect: boolean | null;

@@ -40,7 +40,7 @@ export function choiceIsCorrect(
 }
 
 /** Build the only challenger object allowed to cross into a client component. */
-export function concealHigherLowerCard(card: PlayerCardData): ConcealedHigherLowerCard {
+export function concealHigherLowerCard(card: PlayerCardData & { editionWeek?: string | null }): ConcealedHigherLowerCard {
   const champion = card.signature?.champion ?? "";
   return {
     slug: card.slug,
@@ -51,6 +51,7 @@ export function concealHigherLowerCard(card: PlayerCardData): ConcealedHigherLow
     teamName: card.teamName,
     teamAbbr: card.teamAbbr ?? null,
     teamImageUrl: card.teamImageUrl,
+    editionWeek: card.editionWeek ?? null,
   };
 }
 

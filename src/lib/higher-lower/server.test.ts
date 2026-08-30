@@ -3,9 +3,10 @@ import type { PlayerCardData } from "@/lib/cards/build";
 
 vi.mock("server-only", () => ({}));
 
-const { createServerSupabase, createBettingServiceClient, fetchCardSeason, fetchStaffTier, premiumAccess, getBettingUser } = vi.hoisted(() => ({
+const { createServerSupabase, createBettingServiceClient, fetchCardEditionWeeks, fetchCardSeason, fetchStaffTier, premiumAccess, getBettingUser } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
   createBettingServiceClient: vi.fn(),
+  fetchCardEditionWeeks: vi.fn(),
   fetchCardSeason: vi.fn(),
   fetchStaffTier: vi.fn(),
   premiumAccess: vi.fn(),
@@ -15,7 +16,7 @@ const { createServerSupabase, createBettingServiceClient, fetchCardSeason, fetch
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
-vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
+vi.mock("@/lib/cards/queries", () => ({ fetchCardEditionWeeks, fetchCardSeason }));
 vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
 
@@ -44,8 +45,8 @@ const challengerCard = {
 type Run = Record<string, unknown>;
 
 function createClient(run: Run | null, candidateRows = [
-  { player_slug: referenceCard.slug, player_name: referenceCard.name, overall: referenceCard.overall, card: referenceCard },
-  { player_slug: challengerCard.slug, player_name: challengerCard.name, overall: challengerCard.overall, card: challengerCard },
+  { player_slug: referenceCard.slug, player_name: referenceCard.name, overall: referenceCard.overall, edition_week: "2026-08-24", card: referenceCard },
+  { player_slug: challengerCard.slug, player_name: challengerCard.name, overall: challengerCard.overall, edition_week: "2026-08-17", card: challengerCard },
 ], runRows = run ? [run] : []) {
   const rpc = vi.fn(async (name: string) => {
     if (name === "start_higher_lower_run") {
@@ -81,6 +82,9 @@ function createClient(run: Run | null, candidateRows = [
       in() {
         return builder;
       },
+      range() {
+        return builder;
+      },
       maybeSingle: async () => {
         if (table === "card_editions") return { data: { edition_week: "2026-08-24" }, error: null };
         if (table === "higher_lower_daily_runs") {
@@ -93,7 +97,9 @@ function createClient(run: Run | null, candidateRows = [
       },
       then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
         const data =
-          table === "higher_lower_daily_candidates"
+          table === "card_editions"
+            ? [{ edition_week: "2026-08-24" }, { edition_week: "2026-08-17" }]
+            : table === "higher_lower_daily_candidates"
             ? candidateRows
             : table === "higher_lower_daily_runs" && columns === "profile_id, run_score"
               ? run
@@ -117,11 +123,13 @@ beforeEach(() => {
   createServerSupabase.mockReset();
   createBettingServiceClient.mockReset();
   fetchCardSeason.mockReset();
+  fetchCardEditionWeeks.mockReset();
   fetchStaffTier.mockReset();
   premiumAccess.mockReset();
   getBettingUser.mockReset();
-  createServerSupabase.mockResolvedValue({});
+  createServerSupabase.mockResolvedValue(createClient(null));
   fetchCardSeason.mockResolvedValue("S99");
+  fetchCardEditionWeeks.mockResolvedValue(["2026-08-24", "2026-08-17"]);
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
   premiumAccess.mockResolvedValue({ allowed: true });
   getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true });

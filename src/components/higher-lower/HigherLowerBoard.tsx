@@ -58,10 +58,18 @@ function ConcealedCard({ card }: { card: ConcealedHigherLowerCard }) {
   );
 }
 
-function CardStage({ children, label }: { children: React.ReactNode; label: string }) {
+function formatEditionWeek(editionWeek: string | null | undefined): string {
+  if (!editionWeek) return "Card week unavailable";
+  const date = new Date(`${editionWeek}T12:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return `From card week · ${editionWeek}`;
+  return `From card week · ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+}
+
+function CardStage({ children, label, editionWeek }: { children: React.ReactNode; label: string; editionWeek?: string | null }) {
   return (
     <section aria-label={label} className="flex min-w-0 flex-1 flex-col items-center">
       <span className="label-dash self-start">{label}</span>
+      <span className="mt-1 self-start text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-steel">{formatEditionWeek(editionWeek)}</span>
       <div className="mt-3 flex h-[24rem] w-full items-start justify-center overflow-hidden min-[360px]:h-[27rem] sm:h-[33rem]">
         <div className="origin-top scale-[0.8] min-[360px]:scale-[0.9] sm:scale-[1.08]">{children}</div>
       </div>
@@ -284,7 +292,7 @@ export default function HigherLowerBoard({
               {game.state === "awaiting_choice" ? <span className="text-xs uppercase tracking-[0.16em] text-steel">Choose before timer hits zero</span> : null}
             </div>
             <div className="mt-6 flex flex-col items-center gap-3 lg:flex-row lg:items-start">
-              {game.referenceCard ? <CardStage label="Reference card"><PlayerCard3D card={game.referenceCard} interactive /></CardStage> : null}
+              {game.referenceCard ? <CardStage label="Reference card" editionWeek={game.referenceCard.editionWeek}><PlayerCard3D card={game.referenceCard} interactive /></CardStage> : null}
               <div
                 aria-label={game.state === "awaiting_choice" ? "Higher or Lower choice" : "Round result"}
                 className="flex shrink-0 flex-col items-center justify-center gap-3 self-center lg:mt-52"
@@ -316,9 +324,9 @@ export default function HigherLowerBoard({
                 ) : null}
               </div>
               {game.state === "awaiting_choice" && game.challenger ? (
-                <CardStage label="Challenger"><ConcealedCard card={game.challenger} /></CardStage>
+                <CardStage label="Challenger" editionWeek={game.challenger.editionWeek}><ConcealedCard card={game.challenger} /></CardStage>
               ) : game.challengerCard ? (
-                <CardStage label="Challenger revealed"><PlayerCard3D card={game.challengerCard} interactive /></CardStage>
+                <CardStage label="Challenger revealed" editionWeek={game.challengerCard.editionWeek}><PlayerCard3D card={game.challengerCard} interactive /></CardStage>
               ) : null}
             </div>
           </section>
