@@ -5,16 +5,14 @@ import { HigherLowerError } from "@/lib/higher-lower/server";
 
 vi.mock("server-only", () => ({}));
 
-const { getHigherLowerGame, redirect } = vi.hoisted(() => ({
+const { getHigherLowerGame } = vi.hoisted(() => ({
   getHigherLowerGame: vi.fn(),
-  redirect: vi.fn(),
 }));
 
 vi.mock("@/lib/higher-lower/server", async () => {
   const actual = await vi.importActual<typeof import("@/lib/higher-lower/server")>("@/lib/higher-lower/server");
   return { ...actual, getHigherLowerGame };
 });
-vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("@/components/higher-lower/HigherLowerBoard", () => ({ default: () => <div data-testid="higher-lower-board" /> }));
 vi.mock("@/components/higher-lower/HigherLowerUnavailable", () => ({ default: () => <div data-testid="higher-lower-unavailable" /> }));
 vi.mock("@/lib/higher-lower/actions", () => ({
@@ -29,12 +27,14 @@ afterEach(() => {
 });
 
 describe("HigherLowerPage", () => {
-  it("redirects non-premium callers to Premium HQ", async () => {
-    getHigherLowerGame.mockRejectedValue(new HigherLowerError("FORBIDDEN", "Premium members only."));
+  it("shows patron early-access guidance to denied callers", async () => {
+    getHigherLowerGame.mockRejectedValue(new HigherLowerError("FORBIDDEN", "Higher or Lower is in early access for patrons, admins, and owners."));
 
-    await HigherLowerPage();
+    render(await HigherLowerPage());
 
-    expect(redirect).toHaveBeenCalledWith("/premium");
+    expect(screen.getByRole("heading", { name: /patron early access/i })).toBeTruthy();
+    expect(screen.getByText(/patrons get early access to new features/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /patron benefits/i }).getAttribute("href")).toBe("/support-devs");
   });
 
   it("keeps card-edition unavailability inside the game page", async () => {

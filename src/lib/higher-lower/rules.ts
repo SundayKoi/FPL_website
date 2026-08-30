@@ -11,7 +11,7 @@ export interface DifficultyBand {
   maxGap: number;
 }
 
-export const HIGHER_LOWER_ROUNDS = 30;
+export const HIGHER_LOWER_ROUNDS = 45;
 export const HIGHER_LOWER_TIMER_SECONDS = 20;
 
 const DIFFICULTY_BANDS: Array<{ through: number; band: DifficultyBand }> = [
@@ -20,12 +20,12 @@ const DIFFICULTY_BANDS: Array<{ through: number; band: DifficultyBand }> = [
   { through: 15, band: { minGap: 15, maxGap: 22 } },
   { through: 20, band: { minGap: 10, maxGap: 16 } },
   { through: 25, band: { minGap: 7, maxGap: 12 } },
-  { through: 30, band: { minGap: 4, maxGap: 9 } },
+  { through: 45, band: { minGap: 4, maxGap: 9 } },
 ];
 
 export function difficultyForRound(round: number): DifficultyBand {
   if (!Number.isInteger(round) || round < 1 || round > HIGHER_LOWER_ROUNDS) {
-    throw new RangeError("Higher or Lower round must be between 1 and 30.");
+    throw new RangeError("Higher or Lower round must be between 1 and 45.");
   }
   return DIFFICULTY_BANDS.find((entry) => round <= entry.through)!.band;
 }

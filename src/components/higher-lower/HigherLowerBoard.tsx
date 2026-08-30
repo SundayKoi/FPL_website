@@ -146,7 +146,7 @@ function Leaderboard({ game }: { game: HigherLowerGame }) {
                   </span>
                 </span>
               </span>
-              <span className="text-right font-mono font-bold text-white">{row.score}/30</span>
+              <span className="text-right font-mono font-bold text-white">{row.score}/{game.totalRounds}</span>
             </div>
           ))}
         </div>
@@ -229,7 +229,7 @@ export default function HigherLowerBoard({
           <span className="label-dash">FPL Premium · {label} Daily</span>
           <h1 className="type-display mt-2 text-4xl sm:text-6xl">Higher or Lower</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-steel sm:text-base">
-            Read the full card. Judge whether challenger&apos;s OVR is higher or lower. Thirty correct answers wins the perfect run.
+            Read the full card. Judge whether challenger&apos;s OVR is higher or lower. {game.totalRounds} correct answers wins the perfect run.
           </p>
         </div>
         <LeagueToggle league={league} />
@@ -239,12 +239,12 @@ export default function HigherLowerBoard({
         <div className="flex items-center gap-4">
           <div>
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-steel">Run score</span>
-            <span data-testid="higher-lower-score" className="font-display text-3xl font-bold text-gold">{game.score}<span className="ml-1 text-base font-normal text-steel">/30</span></span>
+            <span data-testid="higher-lower-score" className="font-display text-3xl font-bold text-gold">{game.score}<span className="ml-1 text-base font-normal text-steel">/{game.totalRounds}</span></span>
           </div>
           <div className="h-10 w-px bg-line" aria-hidden="true" />
           <div>
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-steel">Round</span>
-            <span className="font-mono text-xl font-bold text-white">{game.round || "—"}<span className="ml-1 text-xs font-normal text-steel">/30</span></span>
+            <span className="font-mono text-xl font-bold text-white">{game.round || "—"}<span className="ml-1 text-xs font-normal text-steel">/{game.totalRounds}</span></span>
           </div>
         </div>
         {game.state === "not_started" ? (

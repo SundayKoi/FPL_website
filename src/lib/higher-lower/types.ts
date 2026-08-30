@@ -42,7 +42,7 @@ export interface HigherLowerGame {
   state: HigherLowerRunState;
   score: number;
   round: number;
-  totalRounds: 30;
+  totalRounds: 45;
   runVersion: number;
   canReplay: boolean;
   roundExpiresAt: string | null;

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import type { PlayerCardData } from "@/lib/cards/build";
-import { resolvePremiumLeague, selectPreviewCard } from "./preview";
+import { resolvePremiumLeague, selectPreviewCard, selectPreviewCards } from "./preview";
 
 function card(slug: string, name: string): PlayerCardData {
   return {
@@ -57,5 +57,15 @@ describe("Premium HQ preview selection", () => {
 
   it("returns no selection when the live collection is empty", () => {
     expect(selectPreviewCard([], null, () => 0)).toBeNull();
+  });
+
+  it("selects a different challenger card for the game preview", () => {
+    const result = selectPreviewCards([card("one", "One"), card("two", "Two")], null, () => 0);
+
+    expect(result).toEqual({
+      card: expect.objectContaining({ slug: "one" }),
+      challengerCard: expect.objectContaining({ slug: "two" }),
+      selection: "random",
+    });
   });
 });

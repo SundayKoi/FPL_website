@@ -3,13 +3,12 @@ import type { PlayerCardData } from "@/lib/cards/build";
 
 vi.mock("server-only", () => ({}));
 
-const { createServerSupabase, createBettingServiceClient, fetchCardEditionWeeks, fetchCardSeason, fetchStaffTier, premiumAccess, getBettingUser } = vi.hoisted(() => ({
+const { createServerSupabase, createBettingServiceClient, fetchCardEditionWeeks, fetchCardSeason, fetchStaffTier, getBettingUser } = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
   createBettingServiceClient: vi.fn(),
   fetchCardEditionWeeks: vi.fn(),
   fetchCardSeason: vi.fn(),
   fetchStaffTier: vi.fn(),
-  premiumAccess: vi.fn(),
   getBettingUser: vi.fn(),
 }));
 
@@ -17,7 +16,6 @@ vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 vi.mock("@/lib/cards/queries", () => ({ fetchCardEditionWeeks, fetchCardSeason }));
-vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
 
 import { getHigherLowerGame, startHigherLowerRun, submitHigherLowerChoice } from "./server";
@@ -125,13 +123,11 @@ beforeEach(() => {
   fetchCardSeason.mockReset();
   fetchCardEditionWeeks.mockReset();
   fetchStaffTier.mockReset();
-  premiumAccess.mockReset();
   getBettingUser.mockReset();
   createServerSupabase.mockResolvedValue(createClient(null));
   fetchCardSeason.mockResolvedValue("S99");
   fetchCardEditionWeeks.mockResolvedValue(["2026-08-24", "2026-08-17"]);
   fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
-  premiumAccess.mockResolvedValue({ allowed: true });
   getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true });
 });
 
@@ -142,21 +138,39 @@ describe("Higher or Lower server module", () => {
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("keeps non-premium members out of the game", async () => {
-    premiumAccess.mockResolvedValue({ allowed: false });
-    await expect(getHigherLowerGame("premier")).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(createBettingServiceClient).not.toHaveBeenCalled();
-  });
-
-  it("keeps premium members out until they are admins or owners", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
+  it("keeps non-patrons out of the game", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true, patron: false });
 
     await expect(getHigherLowerGame("premier")).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Higher or Lower is currently available to admins and owners only.",
+      message: "Higher or Lower is in early access for patrons, admins, and owners.",
     });
-    expect(premiumAccess).not.toHaveBeenCalled();
     expect(createBettingServiceClient).not.toHaveBeenCalled();
+  });
+
+  it("keeps other staff out unless they are patrons, admins, or owners", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
+    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true, patron: false });
+
+    await expect(getHigherLowerGame("premier")).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Higher or Lower is in early access for patrons, admins, and owners.",
+    });
+    expect(createBettingServiceClient).not.toHaveBeenCalled();
+  });
+
+  it("allows active patrons to play without staff access", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
+    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: false, patron: true });
+    const client = createClient(null);
+    createBettingServiceClient.mockReturnValue(client);
+
+    await expect(getHigherLowerGame("premier")).resolves.toMatchObject({
+      league: "premier",
+      state: "not_started",
+      canReplay: false,
+    });
   });
 
   it("allows owners through the temporary staff gate", async () => {

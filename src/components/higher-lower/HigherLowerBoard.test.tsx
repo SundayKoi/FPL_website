@@ -17,7 +17,7 @@ const game = {
   state: "awaiting_choice",
   score: 0,
   round: 1,
-  totalRounds: 30,
+  totalRounds: 45,
   runVersion: 1,
   canReplay: false,
   roundExpiresAt: "2099-08-29T12:00:20.000Z",

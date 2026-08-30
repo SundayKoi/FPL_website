@@ -52,11 +52,17 @@ const previewCard = {
   overall: 74,
   tier: { key: "gold", label: "Gold" },
 } as PlayerCardData;
+const challengerCard = {
+  slug: "challenger-card",
+  name: "Challenger Card",
+  overall: 81,
+  tier: { key: "diamond", label: "Diamond" },
+} as PlayerCardData;
 const snapshotWithCard = {
   ...snapshot,
   cards: {
     status: "ready" as const,
-    data: { card: previewCard, count: 1, season: "S5", selection: "random" as const },
+    data: { card: previewCard, challengerCard, count: 2, season: "S5", selection: "random" as const },
   },
 };
 
@@ -99,6 +105,8 @@ describe("PremiumHub betting preview", () => {
 
     const higherLowerPreview = screen.getByRole("img", { name: "Higher or Lower game preview" });
     expect(within(higherLowerPreview).getAllByTestId("player-card-preview")).toHaveLength(2);
+    expect(within(higherLowerPreview).getByText("Preview Card")).toBeTruthy();
+    expect(within(higherLowerPreview).getByText("Challenger Card")).toBeTruthy();
   });
 
   it("offers detailed patron support from the premium edge heading", () => {

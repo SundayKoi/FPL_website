@@ -30,7 +30,8 @@ describe("Higher or Lower rules", () => {
     expect(difficultyForRound(21)).toEqual({ minGap: 7, maxGap: 12 });
     expect(difficultyForRound(26)).toEqual({ minGap: 4, maxGap: 9 });
     expect(difficultyForRound(30)).toEqual({ minGap: 4, maxGap: 9 });
-    expect(() => difficultyForRound(31)).toThrow();
+    expect(difficultyForRound(45)).toEqual({ minGap: 4, maxGap: 9 });
+    expect(() => difficultyForRound(46)).toThrow();
   });
 
   it("compares challenger OVR without allowing ties", () => {

@@ -209,7 +209,7 @@ function MiniHigherLowerCard({ card, concealed = false }: { card: PlayerCardData
   );
 }
 
-function HigherLowerPreview({ card }: { card: PlayerCardData | null }) {
+function HigherLowerPreview({ referenceCard, challengerCard }: { referenceCard: PlayerCardData | null; challengerCard: PlayerCardData | null }) {
   return (
     <div
       role="img"
@@ -217,12 +217,12 @@ function HigherLowerPreview({ card }: { card: PlayerCardData | null }) {
       className="flex min-h-36 items-center justify-center overflow-hidden rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-3"
     >
       <div className="flex items-center gap-2">
-        <MiniHigherLowerCard card={card} />
+        <MiniHigherLowerCard card={referenceCard} />
         <div className="flex shrink-0 flex-col items-center justify-center text-coral" aria-hidden="true">
           <span className="font-display text-2xl leading-5">↑</span>
           <span className="font-display text-2xl leading-5">↓</span>
         </div>
-        <MiniHigherLowerCard card={card} concealed />
+        <MiniHigherLowerCard card={challengerCard} concealed />
       </div>
     </div>
   );
@@ -233,7 +233,9 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
   const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
   const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
-  const higherLowerPreviewCard = snapshot.cards.status === "ready" ? snapshot.cards.data.card : null;
+  const higherLowerPreviewCards = snapshot.cards.status === "ready"
+    ? { referenceCard: snapshot.cards.data.card, challengerCard: snapshot.cards.data.challengerCard }
+    : { referenceCard: null, challengerCard: null };
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
@@ -410,7 +412,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             href={higherLowerHref}
             className="lg:col-span-4"
           >
-            <HigherLowerPreview card={higherLowerPreviewCard} />
+            <HigherLowerPreview {...higherLowerPreviewCards} />
           </FeatureCard>
         </div>
       </section>

@@ -17,6 +17,7 @@ export type PreviewResult<T> =
 
 export interface CardPreviewData {
   card: PlayerCardData;
+  challengerCard: PlayerCardData;
   count: number;
   season: string;
   selection: "own" | "random";
@@ -57,6 +58,21 @@ export function selectPreviewCard(
   return { card: cards[index], selection: "random" };
 }
 
+export function selectPreviewCards(
+  cards: PlayerCardData[],
+  ownedSlug: string | null,
+  random: () => number = Math.random,
+): { card: PlayerCardData; challengerCard: PlayerCardData; selection: CardPreviewData["selection"] } | null {
+  const selected = selectPreviewCard(cards, ownedSlug, random);
+  if (!selected) return null;
+
+  const alternatives = cards.filter((card) => card.slug !== selected.card.slug);
+  if (alternatives.length === 0) return { ...selected, challengerCard: selected.card };
+
+  const index = Math.min(alternatives.length - 1, Math.max(0, Math.floor(random() * alternatives.length)));
+  return { ...selected, challengerCard: alternatives[index] };
+}
+
 async function loadCardPreview(
   supabase: SupabaseClient,
   league: CardLeague,
@@ -78,27 +94,31 @@ async function loadCardPreview(
         .maybeSingle()
     : { data: null };
   const claim = claimRow as { summoner_name: string; tag: string } | null;
-  const selected = selectPreviewCard(cards, claim ? cardSlug(claim.summoner_name, claim.tag) : null);
+  const selected = selectPreviewCards(cards, claim ? cardSlug(claim.summoner_name, claim.tag) : null);
   if (!selected) return { status: "empty", message: "No rated cards are available yet." };
 
   return {
     status: "ready",
-    data: { card: selected.card, count: cards.length, season, selection: selected.selection },
+    data: {
+      card: selected.card,
+      challengerCard: selected.challengerCard,
+      count: cards.length,
+      season,
+      selection: selected.selection,
+    },
   };
 }
 
-async function loadBettingPreview(): Promise<PreviewResult<BettingPreviewData>> {
-  const [user, events, markets] = await Promise.all([
-    getBettingUser(),
-    fetchEventSummaries(),
-    fetchMarketCards(),
-  ]);
-  const market = markets.find((candidate) => candidate.status === "OPEN") ?? markets[0] ?? null;
+async function loadBettingPreview(league: CardLeague): Promise<PreviewResult<BettingPreviewData>> {
+  const [user, events] = await Promise.all([getBettingUser(), fetchEventSummaries(league)]);
   const event =
-    (market?.event_name ? events.find((candidate) => candidate.name === market.event_name) : undefined) ??
-    events.find((candidate) => candidate.open_markets > 0 || candidate.has_live_pickem) ??
+    events.find((candidate) => candidate.open_markets > 0) ??
+    events.find((candidate) => candidate.has_live_pickem) ??
     events[0];
   if (!event) return { status: "empty", message: "No betting events are live right now." };
+
+  const markets = await fetchMarketCards(event.id);
+  const market = markets.find((candidate) => candidate.status === "OPEN") ?? markets[0] ?? null;
   return { status: "ready", data: { balance: user?.balance ?? null, event, market } };
 }
 
@@ -125,7 +145,7 @@ export async function loadPremiumHubSnapshot(league: CardLeague): Promise<Premiu
   const supabase = await createServerSupabase();
   const [cards, betting, banger] = await Promise.all([
     safePreview(() => loadCardPreview(supabase, league), "Card preview is temporarily unavailable."),
-    safePreview(loadBettingPreview, "Betting preview is temporarily unavailable."),
+    safePreview(() => loadBettingPreview(league), "Betting preview is temporarily unavailable."),
     safePreview(loadBangerPreview, "The Daily Stu preview is temporarily unavailable."),
   ]);
   return { league, cards, betting, banger };

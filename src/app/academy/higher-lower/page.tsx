@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import HigherLowerBoard from "@/components/higher-lower/HigherLowerBoard";
+import HigherLowerAccessNotice from "@/components/higher-lower/HigherLowerAccessNotice";
 import HigherLowerUnavailable from "@/components/higher-lower/HigherLowerUnavailable";
 import {
   advanceHigherLowerRoundAction,
@@ -19,7 +19,9 @@ export default async function AcademyHigherLowerPage() {
   try {
     game = await getHigherLowerGame("academy");
   } catch (error) {
-    if (error instanceof HigherLowerError && error.code === "FORBIDDEN") redirect("/premium?league=academy");
+    if (error instanceof HigherLowerError && error.code === "FORBIDDEN") {
+      return <HigherLowerAccessNotice league="Academy" />;
+    }
     return <HigherLowerUnavailable league="Academy" />;
   }
   return (
