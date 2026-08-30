@@ -55,8 +55,11 @@ describe("HigherLowerBoard", () => {
     expect(screen.getByLabelText("Challenger challenger card")).toBeTruthy();
     expect(screen.queryByText("91 OVR")).toBeNull();
     expect(screen.queryByLabelText(/91/)).toBeNull();
-    expect(screen.getByRole("button", { name: /Higher/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Lower/ })).toBeTruthy();
+    expect(screen.getByLabelText("Higher or Lower choice")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Higher" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Lower" })).toBeTruthy();
+    expect(screen.getByText("↑")).toBeTruthy();
+    expect(screen.getByText("↓")).toBeTruthy();
   });
 
   it("shows owners a replay action after a finished run", () => {

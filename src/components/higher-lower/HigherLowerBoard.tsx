@@ -62,8 +62,8 @@ function CardStage({ children, label }: { children: React.ReactNode; label: stri
   return (
     <section aria-label={label} className="flex min-w-0 flex-1 flex-col items-center">
       <span className="label-dash self-start">{label}</span>
-      <div className="mt-3 flex h-[23rem] w-full items-start justify-center overflow-hidden sm:h-[27rem]">
-        <div className="origin-top scale-[0.78] sm:scale-[0.9]">{children}</div>
+      <div className="mt-3 flex h-[24rem] w-full items-start justify-center overflow-hidden min-[360px]:h-[27rem] sm:h-[33rem]">
+        <div className="origin-top scale-[0.8] min-[360px]:scale-[0.9] sm:scale-[1.08]">{children}</div>
       </div>
     </section>
   );
@@ -285,8 +285,35 @@ export default function HigherLowerBoard({
             </div>
             <div className="mt-6 flex flex-col items-center gap-3 lg:flex-row lg:items-start">
               {game.referenceCard ? <CardStage label="Reference card"><PlayerCard3D card={game.referenceCard} interactive /></CardStage> : null}
-              <div className="flex h-10 shrink-0 items-center justify-center self-center rounded-full border border-gold/50 bg-gold/10 px-4 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold lg:mt-52">
-                {game.state === "awaiting_choice" ? "vs" : game.lastCorrect ? "correct" : "result"}
+              <div
+                aria-label={game.state === "awaiting_choice" ? "Higher or Lower choice" : "Round result"}
+                className="flex shrink-0 flex-col items-center justify-center gap-3 self-center lg:mt-52"
+              >
+                <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold">
+                  {game.state === "awaiting_choice" ? "vs" : game.lastCorrect ? "correct" : "result"}
+                </span>
+                {game.state === "awaiting_choice" ? (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => choose("higher")}
+                      disabled={pending}
+                      className="btn-rivalry flex min-w-36 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm uppercase tracking-wide"
+                    >
+                      <span aria-hidden="true" className="text-xl leading-none">↑</span>
+                      Higher
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => choose("lower")}
+                      disabled={pending}
+                      className="flex min-w-36 items-center justify-center gap-2 rounded-full border border-cyan/70 bg-cyan/10 px-5 py-3 font-display text-sm font-bold uppercase tracking-wide text-cyan transition hover:bg-cyan/20 disabled:opacity-40"
+                    >
+                      <span aria-hidden="true" className="text-xl leading-none">↓</span>
+                      Lower
+                    </button>
+                  </div>
+                ) : null}
               </div>
               {game.state === "awaiting_choice" && game.challenger ? (
                 <CardStage label="Challenger"><ConcealedCard card={game.challenger} /></CardStage>
@@ -295,17 +322,6 @@ export default function HigherLowerBoard({
               ) : null}
             </div>
           </section>
-
-          {game.state === "awaiting_choice" ? (
-            <section aria-label="Higher or Lower choice" className="sticky bottom-3 z-20 flex flex-wrap justify-center gap-3 rounded-full bg-navy/90 p-2 backdrop-blur lg:static lg:bg-transparent lg:p-0">
-              <button type="button" onClick={() => choose("higher")} disabled={pending} className="btn-rivalry min-w-40 rounded-full px-8 py-4 text-base uppercase tracking-wide">
-                Higher ↑
-              </button>
-              <button type="button" onClick={() => choose("lower")} disabled={pending} className="rounded-full border border-cyan/70 bg-cyan/10 px-8 py-4 font-display text-base font-bold uppercase tracking-wide text-cyan transition hover:bg-cyan/20 disabled:opacity-40">
-                Lower ↓
-              </button>
-            </section>
-          ) : null}
 
           {resultMessage ? (
             <section className={`card-brand flex flex-col items-center gap-4 p-5 text-center ${game.lastCorrect ? "border-mint/60" : "border-coral/60"}`} aria-live="polite">
