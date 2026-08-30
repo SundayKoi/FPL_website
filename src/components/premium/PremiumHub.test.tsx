@@ -54,6 +54,7 @@ describe("PremiumHub betting preview", () => {
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
     expect(screen.getByText(/Admin\/owner preview for now/)).toBeTruthy();
+    expect(screen.getByText(/Owners can replay completed runs/)).toBeTruthy();
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);

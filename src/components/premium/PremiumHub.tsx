@@ -368,7 +368,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           >
             <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">
               <p className="text-sm leading-6 text-steel">
-                Admin/owner preview for now. One private 30-card run per day, with 20 seconds to make each call.
+                Admin/owner preview for now. Owners can replay completed runs; everyone else gets one private 30-card run per day, with 20 seconds to make each call.
               </p>
             </div>
           </FeatureCard>

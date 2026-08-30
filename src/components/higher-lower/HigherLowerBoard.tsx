@@ -63,7 +63,7 @@ function CardStage({ children, label }: { children: React.ReactNode; label: stri
     <section aria-label={label} className="flex min-w-0 flex-1 flex-col items-center">
       <span className="label-dash self-start">{label}</span>
       <div className="mt-3 flex h-[23rem] w-full items-start justify-center overflow-hidden sm:h-[27rem]">
-        <div className="origin-top scale-[0.57] sm:scale-[0.68]">{children}</div>
+        <div className="origin-top scale-[0.78] sm:scale-[0.9]">{children}</div>
       </div>
     </section>
   );
@@ -247,7 +247,9 @@ export default function HigherLowerBoard({
             {formatTimer(remaining)}
           </div>
         ) : game.state === "not_started" ? (
-          <span className="text-sm text-steel">One run per day · server-timed</span>
+          <span className="text-sm text-steel">
+            {game.canReplay ? "Owner preview · unlimited replays · server-timed" : "One run per day · server-timed"}
+          </span>
         ) : (
           <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
             {game.state === "perfect" ? "Perfect" : "Complete"}
@@ -315,14 +317,25 @@ export default function HigherLowerBoard({
                 </button>
               ) : null}
               {isFinished ? (
-                <Link
-                  href={league === "academy" ? "/premium?league=academy" : "/premium"}
-                  className="rounded border border-line px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral/60 hover:text-white"
-                >
-                  Back to Premium HQ →
-                </Link>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {game.canReplay ? (
+                    <button type="button" onClick={start} disabled={pending} className="btn-rivalry rounded px-5 py-2.5 text-xs uppercase tracking-wide">
+                      {pending ? "Starting…" : "Play Again →"}
+                    </button>
+                  ) : null}
+                  <Link
+                    href={league === "academy" ? "/premium?league=academy" : "/premium"}
+                    className="rounded border border-line px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral/60 hover:text-white"
+                  >
+                    Back to Premium HQ →
+                  </Link>
+                </div>
               ) : null}
-              {isFinished ? <p className="text-xs text-steel">This Daily run cannot be restarted or replayed.</p> : null}
+              {isFinished ? (
+                <p className="text-xs text-steel">
+                  {game.canReplay ? "Owner preview: replay as much as you want." : "This Daily run cannot be restarted or replayed."}
+                </p>
+              ) : null}
             </section>
           ) : null}
         </>

@@ -40,6 +40,7 @@ export interface HigherLowerGame {
   round: number;
   totalRounds: 30;
   runVersion: number;
+  canReplay: boolean;
   roundExpiresAt: string | null;
   referenceCard: PlayerCardData | null;
   /** Complete only after a choice has been recorded; concealed while playing. */

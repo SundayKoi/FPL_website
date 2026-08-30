@@ -153,6 +153,23 @@ describe("Higher or Lower server module", () => {
     await expect(getHigherLowerGame("premier")).resolves.toMatchObject({
       league: "premier",
       state: "not_started",
+      canReplay: true,
+    });
+  });
+
+  it("uses the owner replay RPC for new attempts", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
+    const client = createClient(null);
+    createBettingServiceClient.mockReturnValue(client);
+
+    const game = await startHigherLowerRun("premier");
+
+    expect(game.canReplay).toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("start_higher_lower_owner_run", {
+      p_puzzle_date: today,
+      p_league: "premier",
+      p_profile_id: "profile-1",
+      p_discord_id: "discord-1",
     });
   });
 
@@ -185,6 +202,7 @@ describe("Higher or Lower server module", () => {
     const game = await getHigherLowerGame("premier");
 
     expect(game.state).toBe("awaiting_choice");
+    expect(game.canReplay).toBe(false);
     expect(game.challenger).toMatchObject({ slug: challengerCard.slug, name: challengerCard.name });
     expect(game.challenger).not.toHaveProperty("overall");
     expect(game.challenger).not.toHaveProperty("signature");
