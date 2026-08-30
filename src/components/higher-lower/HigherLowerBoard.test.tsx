@@ -38,6 +38,14 @@ const game = {
   weeklyLeaderboard: [],
 } as unknown as HigherLowerGame;
 
+const correctRevealGame = {
+  ...game,
+  state: "correct_reveal",
+  challenger: null,
+  challengerCard: { name: "Challenger", overall: 91, editionWeek: "2026-08-17" },
+  lastCorrect: true,
+} as unknown as HigherLowerGame;
+
 afterEach(() => cleanup());
 
 describe("HigherLowerBoard", () => {
@@ -80,7 +88,24 @@ describe("HigherLowerBoard", () => {
     );
 
     expect(screen.getByRole("button", { name: /Play Again/ })).toBeTruthy();
-    expect(screen.getByText("Owner preview: replay as much as you want.")).toBeTruthy();
-    expect(screen.queryByText("This Daily run cannot be restarted or replayed.")).toBeNull();
+    expect(screen.getByRole("link", { name: /Back to Premium HQ/ })).toBeTruthy();
+    expect(screen.queryByText("Owner preview: replay as much as you want.")).toBeNull();
+    expect(screen.queryByText("Wrong answer. Run over.")).toBeNull();
+  });
+
+  it("puts Next Card in the game controls after a correct reveal", () => {
+    render(
+      <HigherLowerBoard
+        initialGame={correctRevealGame}
+        league="premier"
+        startRun={vi.fn()}
+        submitChoice={vi.fn()}
+        advanceRound={vi.fn()}
+      />,
+    );
+
+    const result = screen.getByLabelText("Round result");
+    expect(within(result).getByRole("button", { name: "Next Card →" })).toBeTruthy();
+    expect(screen.queryByText("Correct. Challenger becomes your next reference card.")).toBeNull();
   });
 });

@@ -1,6 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import PremiumHub from "./PremiumHub";
+import type { PlayerCardData } from "@/lib/cards/build";
+
+vi.mock("@/components/cards/PlayerCard3D", () => ({
+  default: ({ card }: { card: PlayerCardData }) => <div data-testid="player-card-preview">{card.name}</div>,
+}));
 
 afterEach(() => cleanup());
 
@@ -41,6 +46,20 @@ const snapshot = {
   banger: { status: "empty" as const, message: "The next take is warming up." },
 };
 
+const previewCard = {
+  slug: "preview-card",
+  name: "Preview Card",
+  overall: 74,
+  tier: { key: "gold", label: "Gold" },
+} as PlayerCardData;
+const snapshotWithCard = {
+  ...snapshot,
+  cards: {
+    status: "ready" as const,
+    data: { card: previewCard, count: 1, season: "S5", selection: "random" as const },
+  },
+};
+
 describe("PremiumHub betting preview", () => {
   it("links members to the daily puzzle for the selected league", () => {
     render(<PremiumHub snapshot={snapshot} />);
@@ -53,8 +72,12 @@ describe("PremiumHub betting preview", () => {
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
-    expect(screen.getByText(/Admin\/owner preview for now/)).toBeTruthy();
-    expect(screen.getByText(/Owners can replay completed runs/)).toBeTruthy();
+    const higherLowerPreview = screen.getByRole("img", { name: "Higher or Lower game preview" });
+    expect(within(higherLowerPreview).getAllByTestId("higher-lower-preview-card")).toHaveLength(2);
+    expect(within(higherLowerPreview).getByText("↑")).toBeTruthy();
+    expect(within(higherLowerPreview).getByText("↓")).toBeTruthy();
+    expect(screen.queryByText(/Admin\/owner preview for now/)).toBeNull();
+    expect(screen.queryByText(/Owners can replay completed runs/)).toBeNull();
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
@@ -69,6 +92,13 @@ describe("PremiumHub betting preview", () => {
     expect(screen.queryByRole("heading", { name: "Your card economy" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Go deeper" })).toBeNull();
     expect(screen.queryByRole("link", { name: /Open Packs/i })).toBeNull();
+  });
+
+  it("uses compact player cards for the Higher or Lower snapshot", () => {
+    render(<PremiumHub snapshot={snapshotWithCard} />);
+
+    const higherLowerPreview = screen.getByRole("img", { name: "Higher or Lower game preview" });
+    expect(within(higherLowerPreview).getAllByTestId("player-card-preview")).toHaveLength(2);
   });
 
   it("offers detailed patron support from the premium edge heading", () => {

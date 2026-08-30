@@ -5,6 +5,7 @@ import PatronSupportModal from "@/components/premium/PatronSupportModal";
 import { fmtPoints } from "@/lib/betting/format";
 import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
 import type { MarketCardData } from "@/lib/betting/types";
+import type { PlayerCardData } from "@/lib/cards/build";
 import type { CardLeague } from "@/lib/cards/queries";
 import type { PremiumHubSnapshot, PreviewResult } from "@/lib/premium/preview";
 
@@ -185,11 +186,54 @@ function BettingGamePreview({ market }: { market: MarketCardData | null }) {
   );
 }
 
+function MiniHigherLowerCard({ card, concealed = false }: { card: PlayerCardData | null; concealed?: boolean }) {
+  return (
+    <div data-testid="higher-lower-preview-card" className="relative h-[8.25rem] w-[5.9rem] shrink-0 overflow-hidden rounded-xl">
+      {card ? (
+        <div className="origin-top-left scale-[0.29]">
+          <PlayerCard3D card={card} interactive={false} />
+        </div>
+      ) : (
+        <div className="flex h-full w-full flex-col justify-between rounded-xl border-2 border-coral/70 bg-gradient-to-br from-coral/20 via-navy to-cyan/10 p-2">
+          <span className="text-[0.45rem] font-black uppercase tracking-[0.18em] text-coral">{concealed ? "Challenger" : "Reference"}</span>
+          <span className="self-center font-display text-2xl font-bold text-white">{concealed ? "?" : "OVR"}</span>
+          <span className="text-center text-[0.45rem] font-black uppercase tracking-[0.16em] text-steel">Higher or Lower</span>
+        </div>
+      )}
+      {concealed ? (
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-navy/55">
+          <span className="rounded-full border border-coral/70 bg-navy/80 px-2 py-1 font-display text-lg font-bold text-coral">?</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HigherLowerPreview({ card }: { card: PlayerCardData | null }) {
+  return (
+    <div
+      role="img"
+      aria-label="Higher or Lower game preview"
+      className="flex min-h-36 items-center justify-center overflow-hidden rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-3"
+    >
+      <div className="flex items-center gap-2">
+        <MiniHigherLowerCard card={card} />
+        <div className="flex shrink-0 flex-col items-center justify-center text-coral" aria-hidden="true">
+          <span className="font-display text-2xl leading-5">↑</span>
+          <span className="font-display text-2xl leading-5">↓</span>
+        </div>
+        <MiniHigherLowerCard card={card} concealed />
+      </div>
+    </div>
+  );
+}
+
 export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
   const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
   const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
+  const higherLowerPreviewCard = snapshot.cards.status === "ready" ? snapshot.cards.data.card : null;
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
@@ -366,11 +410,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             href={higherLowerHref}
             className="lg:col-span-4"
           >
-            <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">
-              <p className="text-sm leading-6 text-steel">
-                Admin/owner preview for now. Owners can replay completed runs; everyone else gets one private 30-card run per day, with 20 seconds to make each call.
-              </p>
-            </div>
+            <HigherLowerPreview card={higherLowerPreviewCard} />
           </FeatureCard>
         </div>
       </section>

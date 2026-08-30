@@ -214,15 +214,13 @@ export default function HigherLowerBoard({
 
   const label = leagueLabel(league);
   const isFinished = game.state === "lost" || game.state === "perfect";
-  const resultMessage = game.state === "perfect"
-    ? "Perfect run. Thirty correct answers."
-    : game.state === "lost"
-      ? game.completionReason === "timeout"
-        ? "Time expired. Run over."
-        : "Wrong answer. Run over."
-      : game.state === "correct_reveal"
-        ? "Correct. Challenger becomes your next reference card."
-        : null;
+  const centerLabel = game.state === "awaiting_choice"
+    ? "vs"
+    : game.state === "correct_reveal"
+      ? "correct"
+      : game.state === "perfect"
+        ? "perfect"
+        : "run over";
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1500px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6 lg:px-8">
@@ -298,7 +296,7 @@ export default function HigherLowerBoard({
                   </div>
                 ) : null}
                 <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold">
-                  {game.state === "awaiting_choice" ? "vs" : game.lastCorrect ? "correct" : "result"}
+                  {centerLabel}
                 </span>
                 {game.state === "awaiting_choice" ? (
                   <div className="flex flex-col gap-2">
@@ -322,6 +320,26 @@ export default function HigherLowerBoard({
                     </button>
                   </div>
                 ) : null}
+                {game.state === "correct_reveal" ? (
+                  <button type="button" onClick={nextCard} disabled={pending} className="btn-coral rounded px-6 py-3 text-sm uppercase tracking-wide">
+                    {pending ? "Loading…" : "Next Card →"}
+                  </button>
+                ) : null}
+                {isFinished ? (
+                  <div className="flex flex-col items-center gap-2">
+                    {game.canReplay ? (
+                      <button type="button" onClick={start} disabled={pending} className="btn-rivalry rounded px-5 py-2.5 text-xs uppercase tracking-wide">
+                        {pending ? "Starting…" : "Play Again →"}
+                      </button>
+                    ) : null}
+                    <Link
+                      href={league === "academy" ? "/premium?league=academy" : "/premium"}
+                      className="rounded border border-line px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral/60 hover:text-white"
+                    >
+                      Back to Premium HQ →
+                    </Link>
+                  </div>
+                ) : null}
               </div>
               {game.state === "awaiting_choice" && game.challenger ? (
                 <CardStage label="Challenger" editionWeek={game.challenger.editionWeek}><ConcealedCard card={game.challenger} /></CardStage>
@@ -330,38 +348,6 @@ export default function HigherLowerBoard({
               ) : null}
             </div>
           </section>
-
-          {resultMessage ? (
-            <section className={`card-brand flex flex-col items-center gap-4 p-5 text-center ${game.lastCorrect ? "border-mint/60" : "border-coral/60"}`} aria-live="polite">
-              <p className={`font-display text-2xl font-bold ${game.lastCorrect ? "text-mint" : "text-coral"}`}>{resultMessage}</p>
-              {game.challengerCard ? <p className="text-sm text-steel">{game.challengerCard.name}: <span className="font-mono font-bold text-white">{game.challengerCard.overall} OVR</span></p> : null}
-              {game.state === "correct_reveal" ? (
-                <button type="button" onClick={nextCard} disabled={pending} className="btn-coral rounded px-6 py-3 text-sm uppercase tracking-wide">
-                  {pending ? "Loading…" : "Next Card →"}
-                </button>
-              ) : null}
-              {isFinished ? (
-                <div className="flex flex-wrap justify-center gap-3">
-                  {game.canReplay ? (
-                    <button type="button" onClick={start} disabled={pending} className="btn-rivalry rounded px-5 py-2.5 text-xs uppercase tracking-wide">
-                      {pending ? "Starting…" : "Play Again →"}
-                    </button>
-                  ) : null}
-                  <Link
-                    href={league === "academy" ? "/premium?league=academy" : "/premium"}
-                    className="rounded border border-line px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral/60 hover:text-white"
-                  >
-                    Back to Premium HQ →
-                  </Link>
-                </div>
-              ) : null}
-              {isFinished ? (
-                <p className="text-xs text-steel">
-                  {game.canReplay ? "Owner preview: replay as much as you want." : "This Daily run cannot be restarted or replayed."}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
         </>
       )}
 
