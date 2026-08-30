@@ -68,7 +68,6 @@ function formatEditionWeek(editionWeek: string | null | undefined): string {
 function CardStage({ children, label, editionWeek }: { children: React.ReactNode; label: string; editionWeek?: string | null }) {
   return (
     <section aria-label={label} className="flex min-w-0 flex-1 flex-col items-center">
-      <span className="label-dash self-start">{label}</span>
       <span className="mt-1 self-start text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-steel">{formatEditionWeek(editionWeek)}</span>
       <div className="mt-3 flex h-[24rem] w-full items-start justify-center overflow-hidden min-[360px]:h-[27rem] sm:h-[33rem]">
         <div className="origin-top scale-[0.8] min-[360px]:scale-[0.9] sm:scale-[1.08]">{children}</div>
@@ -250,11 +249,7 @@ export default function HigherLowerBoard({
             <span className="font-mono text-xl font-bold text-white">{game.round || "—"}<span className="ml-1 text-xs font-normal text-steel">/30</span></span>
           </div>
         </div>
-        {game.state === "awaiting_choice" ? (
-          <div className={`rounded-full border px-4 py-2 font-mono text-lg font-bold ${remaining <= 5000 ? "border-coral bg-coral/15 text-coral" : "border-mint/50 bg-mint/10 text-mint"}`} role="timer" aria-live="polite">
-            {formatTimer(remaining)}
-          </div>
-        ) : game.state === "not_started" ? (
+        {game.state === "not_started" ? (
           <span className="text-sm text-steel">
             {game.canReplay ? "Owner preview · unlimited replays · server-timed" : "One run per day · server-timed"}
           </span>
@@ -297,6 +292,11 @@ export default function HigherLowerBoard({
                 aria-label={game.state === "awaiting_choice" ? "Higher or Lower choice" : "Round result"}
                 className="flex shrink-0 flex-col items-center justify-center gap-3 self-center lg:mt-52"
               >
+                {game.state === "awaiting_choice" ? (
+                  <div className={`rounded-2xl border-2 px-5 py-3 font-mono text-2xl font-bold shadow-[0_0_24px_rgb(0_0_0/0.2)] ${remaining <= 5000 ? "border-coral bg-coral/15 text-coral" : "border-mint/50 bg-mint/10 text-mint"}`} role="timer" aria-live="polite">
+                    {formatTimer(remaining)}
+                  </div>
+                ) : null}
                 <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold">
                   {game.state === "awaiting_choice" ? "vs" : game.lastCorrect ? "correct" : "result"}
                 </span>

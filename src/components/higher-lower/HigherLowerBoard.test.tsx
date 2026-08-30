@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import HigherLowerBoard from "./HigherLowerBoard";
 import type { HigherLowerGame } from "@/lib/higher-lower/types";
@@ -56,9 +56,12 @@ describe("HigherLowerBoard", () => {
     expect(screen.getByText("From card week · Aug 24, 2026")).toBeTruthy();
     expect(screen.getByText("From card week · Aug 17, 2026")).toBeTruthy();
     expect(screen.getByLabelText("Challenger challenger card")).toBeTruthy();
+    expect(screen.queryByText("Reference card")).toBeNull();
     expect(screen.queryByText("91 OVR")).toBeNull();
     expect(screen.queryByLabelText(/91/)).toBeNull();
-    expect(screen.getByLabelText("Higher or Lower choice")).toBeTruthy();
+    const choice = screen.getByLabelText("Higher or Lower choice");
+    const timer = within(choice).getByRole("timer");
+    expect(timer.compareDocumentPosition(within(choice).getByText("vs"))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByRole("button", { name: "Higher" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lower" })).toBeTruthy();
     expect(screen.getByText("↑")).toBeTruthy();
