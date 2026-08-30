@@ -98,6 +98,8 @@ export interface GhostFace {
   /** The call they made here. Shown before you make yours — answering a
    *  real decision is the entire point of the mode. */
   choiceKey: string | null;
+  /** One of last week's top finishers, standing in the pool marked. */
+  bounty?: boolean;
 }
 
 /** What a wall adds to its five's ratings on top of its rule. */
@@ -182,9 +184,13 @@ export function ghostOpponent(
     cards,
     style,
     avg,
-    label: boss
-      ? `${boss.title} · ${ghost.name.toUpperCase()} · ${avg} AVG`
-      : `${ghost.name.toUpperCase()} · ${style.toUpperCase()} COMP · ${avg} AVG`,
+    label: [
+      ghost.bounty ? "★ BOUNTY" : null,
+      boss ? boss.title : null,
+      ghost.name.toUpperCase(),
+      `${style.toUpperCase()} COMP`,
+      `${avg} AVG`,
+    ].filter(Boolean).join(" · "),
     traits,
     condition,
     boss: boss?.key ?? null,
@@ -196,6 +202,7 @@ export function ghostOpponent(
       trueAvg: Math.round(ghost.lineupAvg),
       relics: ghost.relics,
       choiceKey: ghost.choiceKey,
+      bounty: ghost.bounty,
     },
   };
 }

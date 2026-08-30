@@ -10,6 +10,7 @@ import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
+import { BOUNTY_MULT } from "@/lib/gauntlet/ghosts";
 import { CONDITION_CATALOG, TRAIT_CATALOG } from "@/lib/gauntlet/traits";
 import { FRESH_LEGS_BONUS, GAUNTLET_ROUNDS, TRIALIST_OVERALL } from "@/lib/gauntlet/sim";
 
@@ -256,8 +257,25 @@ export default function GauntletRules() {
           <b className="text-white">name</b>. A round nobody reached last week is fought against an invented
           team instead, so a quiet week still plays.
         </p>
+        <p>
+          The pool is shared; <b className="text-white">the draw is not</b>. Everyone fights the same
+          population of real runs, but each of your runs picks its own eight from it — so there is no week to
+          memorise, and your fifth attempt is as unfamiliar as your first. The board takes your best run, and a
+          solvable week would pay attempts instead of skill.
+        </p>
+        <p>
+          Three of last week&rsquo;s best finishers stand in the pool as{" "}
+          <b className="text-gold">★ bounties</b>. Beating one pays {Math.round(BOUNTY_MULT * 100)}% of the
+          round&rsquo;s score. You cannot go looking for them — whether you meet one is the draw, and whether
+          you beat one is not.
+        </p>
+        <p>
+          One rule on re-entry: <b className="text-white">your five must differ from your last run by at least
+          one card</b>. A re-run should be a different run, not the same one rolled again — and your sixth-best
+          card is a card too.
+        </p>
         <p className="text-gold">
-          And it runs the other way. Post a run this week and you are in next week&rsquo;s bracket — your five,
+          And it runs the other way. Post a run this week and you are in next week&rsquo;s pool — your five,
           your relics, your calls, standing in the round you died in, for the whole league to get past.
         </p>
       </Section>

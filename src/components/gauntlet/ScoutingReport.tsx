@@ -8,6 +8,7 @@
 import { BOSS_BY_KEY, bossRoundOf } from "@/lib/gauntlet/bosses";
 import { CHOICE_BY_KEY } from "@/lib/gauntlet/crossroads";
 import { FOE_PLAN_BY_KEY } from "@/lib/gauntlet/foe";
+import { BOUNTY_MULT } from "@/lib/gauntlet/ghosts";
 import { RELIC_BY_KEY } from "@/lib/gauntlet/relics";
 import { CONDITION_BY_KEY, TRAIT_BY_KEY } from "@/lib/gauntlet/traits";
 import type { OpponentTeam } from "@/lib/gauntlet/opponents";
@@ -44,7 +45,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
           style={{ background: "linear-gradient(180deg,rgba(245,182,46,.12),rgba(0,0,0,.35))" }}
         >
           <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gold">
-            A real run · posted last week
+            {ghost.bounty ? "★ Bounty · one of last week's best" : "A real run · posted last week"}
           </span>
           <p className="type-display mt-1 text-2xl text-white sm:text-3xl">{ghost.name}</p>
           <p className="mt-1 text-xs text-steel">
@@ -66,6 +67,13 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
           ) : (
             <p className="mt-2 text-[11px] italic text-steel">They got here with no relics at all.</p>
           )}
+          {ghost.bounty ? (
+            <p className="mt-2 rounded border border-gold/50 bg-gold/10 px-2 py-1.5 text-[11px] leading-4 text-gold">
+              They finished near the top of last week&rsquo;s board. Beat them and this round pays{" "}
+              <b className="text-white">{Math.round(BOUNTY_MULT * 100)}%</b> — you don&rsquo;t get to choose to
+              meet a bounty, so this is worth taking risks for.
+            </p>
+          ) : null}
           {theirCall ? (
             <p className="mt-2.5 font-mono text-[11px] leading-4 text-gold">
               ↳ At this point in their run they called <b className="text-white">{theirCall.choice.label}</b>. They

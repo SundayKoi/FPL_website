@@ -75,4 +75,7 @@ export interface GauntletRunRow {
   last_result: StoredMatchResult | null;
   /** Non-null while a fight is paused at minute 20 waiting on the call. */
   crossroads: GauntletCrossroads | null;
+  /** The seed this run's own eight opponents are drawn with. Null on runs
+   *  started before the private draw shipped — those keep the week's. */
+  ghost_seed: number | null;
 }

@@ -49,6 +49,8 @@ export interface GhostBrief {
   round: number;
   /** What their whole run scored — the scouting card's bragging line. */
   score: number;
+  /** One of last week's top finishers. Beating them pays BOUNTY_MULT. */
+  bounty: boolean;
 }
 
 /**
@@ -203,6 +205,57 @@ export interface GhostCandidate {
   id: number;
 }
 
+/** How many of last week's top runs stand in the pool as BOUNTIES, and
+ *  what beating one is worth.
+ *
+ *  This is the leaderboard's skill target. You cannot farm it: which
+ *  eight you meet is a private draw, so meeting a bounty is luck and
+ *  beating one is not — and unlike a lucky score roll, it cannot be
+ *  re-rolled into existence by playing more, because the multiplier is
+ *  on a fight you still have to win. */
+export const BOUNTY_COUNT = 3;
+export const BOUNTY_MULT = 1.5;
+
+/** Last week's best runs — one per player, so a grinder who posted the
+ *  top four scores does not become the entire bounty board. */
+export function bountiesIn(runs: Map<number, GhostRun>): Set<number> {
+  const bestPerPlayer = new Map<string, GhostRun>();
+  for (const run of runs.values()) {
+    const held = bestPerPlayer.get(run.discordId);
+    if (!held || run.score > held.score) bestPerPlayer.set(run.discordId, run);
+  }
+  return new Set(
+    [...bestPerPlayer.values()]
+      .sort((a, b) => b.score - a.score || a.id - b.id)
+      .slice(0, BOUNTY_COUNT)
+      .map((run) => run.id),
+  );
+}
+
+/**
+ * Whether two lineups are the same five cards.
+ *
+ * A re-run should be a DIFFERENT run, not the same run rolled again. The
+ * leaderboard takes your best score, so identical re-entries are just
+ * extra dice; making the collection move by at least one card means every
+ * attempt is a new attempt. It also asks something of the shelf beyond
+ * its best five, which is the point of fielding a collection at all.
+ *
+ * Compared as a SET of inventory ids: swapping which role a card is
+ * assigned to is not a new lineup, and order never mattered. A trialist
+ * (no inventory id) is a hole, and two lineups with holes in the same
+ * roles are still the same lineup.
+ */
+export function sameLineup(a: GauntletCard[], b: GauntletCard[]): boolean {
+  if (a.length !== b.length) return false;
+  const key = (cards: GauntletCard[]) =>
+    cards
+      .map((card) => (card.inventoryId === null ? `trialist:${card.role}` : String(card.inventoryId)))
+      .sort()
+      .join("|");
+  return key(a) === key(b);
+}
+
 /** A run row as the ghost chooser reads it. */
 export interface GhostRun {
   id: number;
@@ -230,6 +283,7 @@ export function chooseGhosts(
   names: Map<string, string>,
   seedFor: (round: number) => number,
   rounds: number[],
+  bounties: ReadonlySet<number> = new Set(),
 ): Map<number, GhostBrief> {
   const chosen = new Map<number, GhostBrief>();
   const spent = new Set<number>();
@@ -252,6 +306,7 @@ export function chooseGhosts(
       choiceKey: pick.choiceKey,
       round,
       score: run.score,
+      bounty: bounties.has(run.id),
     });
   }
   return chosen;

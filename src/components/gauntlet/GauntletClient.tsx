@@ -188,11 +188,16 @@ export default function GauntletClient({
   options,
   balance,
   weekBest,
+  lastLineup,
 }: {
   initialRun: GauntletRunRow | null;
   options: Record<GauntletRole, GauntletOption[]>;
   balance: number;
   weekBest: number;
+  /** The inventory ids fielded in the previous run. A re-run has to move
+   *  at least one card, and the draft screen says so up front rather than
+   *  letting the entry be refused after the fact. */
+  lastLineup: number[];
 }) {
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
@@ -222,6 +227,17 @@ export default function GauntletClient({
   const [swapIn, setSwapIn] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  /** The same five as last time? Compared as a SET of inventory ids, the
+   *  same way the server compares them — moving a card between roles is
+   *  not a new lineup. */
+  const repeatsLast = useMemo(() => {
+    if (lastLineup.length === 0) return false;
+    const now = GAUNTLET_ROLES.map((role) => picks[role]).filter((id): id is number => typeof id === "number");
+    if (now.length !== lastLineup.length) return false;
+    const previous = [...lastLineup].sort((a, b) => a - b).join("|");
+    return [...now].sort((a, b) => a - b).join("|") === previous;
+  }, [lastLineup, picks]);
 
   /** The would-be lineup as sim cards — overall AND bars, so the readout
    *  runs the sim's own functions on the sim's own inputs. */
@@ -404,8 +420,14 @@ export default function GauntletClient({
           })}
         </div>
         <CompReadout cards={draftCards} />
+        {repeatsLast ? (
+          <p className="rounded-lg border border-gold/45 bg-gold/5 px-3 py-2 text-xs leading-5 text-gold">
+            This is the same five you ran last time. Move at least one card — a re-run should be a different
+            run, not the same one rolled again.
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-4">
-          <button type="button" onClick={start} disabled={pending || short} className="btn-coral px-5 py-2.5 text-sm disabled:opacity-50">
+          <button type="button" onClick={start} disabled={pending || short || repeatsLast} className="btn-coral px-5 py-2.5 text-sm disabled:opacity-50">
             {pending ? "Entering…" : `Enter the Gauntlet — ${fmtPoints(GAUNTLET_ENTRY_FEE)}`}
           </button>
           <span className="text-xs text-steel">

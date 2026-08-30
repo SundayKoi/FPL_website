@@ -27,7 +27,8 @@ import { aggregateEffects, offerRelics, RELIC_BY_KEY } from "./relics";
 import { buildAutopsy } from "./autopsy";
 import { CROSSROADS_BY_KEY } from "./crossroads";
 import { generateOpponent, ghostOpponent, weekSeed } from "./opponents";
-import { fetchGhostBracket } from "./ghostQueries";
+import { drawGhostBracket, fetchGhostPool } from "./ghostQueries";
+import { BOUNTY_MULT, sameLineup } from "./ghosts";
 import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./telemetry";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
@@ -154,6 +155,22 @@ export async function startGauntletRunAction(
 
   const lineupAvg = lineup.reduce((sum, card) => sum + card.overall, 0) / lineup.length;
 
+  // A re-run has to be a different run. Checked BEFORE the fee is taken,
+  // so a refused entry never costs anything.
+  const { data: lastRuns } = await service
+    .from("gauntlet_runs")
+    .select("lineup")
+    .eq("discord_id", user.discordId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const previous = (lastRuns as { lineup: GauntletCard[] }[] | null)?.[0]?.lineup;
+  if (previous && sameLineup(previous, lineup)) {
+    return {
+      ok: false,
+      error: "Change at least one card — a re-run should be a different run, not the same five again.",
+    };
+  }
+
   // Charge first, refund as compensation — the pack pattern.
   const { error: feeError } = await service.rpc("gauntlet_enter", {
     p_user: user.discordId,
@@ -169,10 +186,10 @@ export async function startGauntletRunAction(
   }
 
   const seed = seed32();
-  // The cast is public, the dice are not: the opponent is seeded by the
-  // WEEK so the whole league fights the same bracket, while the fight
-  // itself resolves with this run's own CSPRNG seed.
-  const opponent = await stageOpponent(service, lineupAvg, 1, thisWeek);
+  // The seed this run's own bracket is drawn with. Rolled once, here, and
+  // never again — a run's eight opponents are fixed the moment it starts.
+  const ghostSeed = seed32();
+  const opponent = await stageOpponent(service, lineupAvg, 1, thisWeek, ghostSeed);
   const { data: inserted, error: insertError } = await service
     .from("gauntlet_runs")
     .insert({
@@ -182,6 +199,7 @@ export async function startGauntletRunAction(
       lineup,
       lineup_avg: lineupAvg,
       round_seed: seed,
+      ghost_seed: ghostSeed,
       next_opponent: opponent,
     })
     .select("*")
@@ -292,7 +310,12 @@ export async function chooseGauntletPathAction(
     ctx,
     mulberry32(run.crossroads.seed2),
   );
-  const score = roundScore(run.round, sim, run.lineup, ctx.effects);
+  // Beating one of last week's top finishers pays extra. Applied here
+  // rather than inside the engine: who you are fighting is a fact about
+  // the bracket, not about the match, and the sim stays a pure function
+  // of the board.
+  const bounty = sim.won && run.next_opponent.ghost?.bounty === true;
+  const score = Math.round(roundScore(run.round, sim, run.lineup, ctx.effects) * (bounty ? BOUNTY_MULT : 1));
   const result: MatchResult = { ...sim, score };
   // The read of the match, computed from the tape it just produced —
   // stored with it so a refresh redraws the same explanation.
@@ -366,30 +389,36 @@ export async function chooseGauntletPathAction(
 
 
 /**
- * The round's opponent: last week's run if somebody reached this round,
- * an invented team if nobody did.
+ * The round's opponent: one of last week's runs if somebody reached this
+ * round, an invented team if nobody did.
  *
- * Both come off the SAME week+round seed, so whichever it is, the whole
- * league meets it. The ghost's five are shifted onto the round's bracket
- * target inside ghostOpponent — the cast is real, the level is the
- * bracket's — and a lookup failure of any kind falls through to the
- * generator rather than blocking a fight.
+ * The POOL is shared — last week's runs, the same population for the
+ * whole league. The DRAW is private, seeded by the run's own ghost_seed,
+ * because the leaderboard takes a player's best run and a memorisable
+ * week would pay attempts instead of skill. Everyone fights the same
+ * people; nobody fights them in the same order.
+ *
+ * The round's RULES stay week-seeded either way — the wall, the patch and
+ * the traits are properties of the round, so round four is round four for
+ * everybody. A lookup failure of any kind falls through to the generator
+ * rather than blocking a fight.
  */
 async function stageOpponent(
   service: ReturnType<typeof createBettingServiceClient>,
   lineupAvg: number,
   round: number,
   weekStart: string,
+  ghostSeed: number | null,
 ) {
-  const seed = weekSeed(weekStart, round);
+  const roundSeed = weekSeed(weekStart, round);
   try {
-    const bracket = await fetchGhostBracket(service, weekStart);
-    const ghost = bracket.get(round);
-    if (ghost) return ghostOpponent(ghost, lineupAvg, round, mulberry32(seed));
+    const pool = await fetchGhostPool(service, weekStart);
+    const ghost = drawGhostBracket(pool, ghostSeed, weekStart).get(round);
+    if (ghost) return ghostOpponent(ghost, lineupAvg, round, mulberry32(roundSeed));
   } catch (error) {
-    console.error("gauntlet: ghost bracket lookup failed", error);
+    console.error("gauntlet: ghost pool lookup failed", error);
   }
-  return generateOpponent(lineupAvg, round, mulberry32(seed));
+  return generateOpponent(lineupAvg, round, mulberry32(roundSeed));
 }
 
 /** Takes one relic from the pending offer and stages the next fight —
@@ -408,7 +437,7 @@ export async function pickGauntletRelicAction(
   if (!run.relic_offer.includes(relicKey)) return { ok: false, error: "That relic wasn't offered." };
 
   const seed = seed32();
-  const opponent = await stageOpponent(service, run.lineup_avg, run.round, run.week_start);
+  const opponent = await stageOpponent(service, run.lineup_avg, run.round, run.week_start, run.ghost_seed);
   const { data: updated } = await service
     .from("gauntlet_runs")
     .update({

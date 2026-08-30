@@ -19,6 +19,11 @@ vi.mock("@/lib/cards/queries", () => ({
   fetchEditionCards: vi.fn(async () => [{ slug: "doug-na1" }]),
   fetchCurrentWeekCards: vi.fn(async () => [{ slug: "doug-na1" }]),
   fetchWeekMoments: vi.fn(async () => []),
+  // The roster-plate roll is a real CSPRNG draw against TEAM_PULL_CHANCE,
+  // so about one run in twenty took this branch and died on an unmocked
+  // read — a flake that failed the whole suite at random and looked, every
+  // time, like it belonged to whatever had just been changed.
+  fetchTeamIdentity: vi.fn(async () => ({ colors: {} })),
 }));
 vi.mock("./rng", () => ({
   rollPack: vi.fn(() => [

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  bountiesIn,
+  BOUNTY_COUNT,
+  BOUNTY_MULT,
   chooseGhosts,
+  sameLineup,
   GHOST_RELIC_POTENCY,
   GHOST_TARGET_RELIEF,
   type GhostBrief,
@@ -247,6 +251,7 @@ describe("the ghost as an opponent", () => {
     choiceKey: "hold",
     round: 2,
     score: 4200,
+    bounty: false,
   };
 
   it("prices an 88-average shelf at round 2's bracket, not at 88", () => {
@@ -303,6 +308,7 @@ describe("calibration — a real opponent is not an unbeatable one", () => {
       choiceKey: ["call_baron", "sit_on_it", "contest", "split_push", "turtle_up"][seed % 5],
       round,
       score: round * 800,
+      bounty: false,
     };
   }
 
@@ -400,5 +406,131 @@ describe("calibration — a real opponent is not an unbeatable one", () => {
     // slot, which is two ramps stacked on one round.
     expect(GHOST_RELIC_POTENCY).toBeGreaterThan(0);
     expect(GHOST_RELIC_POTENCY).toBeLessThan(1);
+  });
+});
+
+
+describe("the private draw", () => {
+  const runs = new Map<number, GhostRun>(
+    Array.from({ length: 12 }, (_, index) => index + 1).map((id) => [
+      id,
+      { id, discordId: `d${id}`, lineup: team(74), lineupAvg: 74, score: id * 100 },
+    ]),
+  );
+  const names = new Map([...runs.values()].map((run) => [run.discordId, `P${run.id}`]));
+  const candidates: GhostCandidate[] = [...runs.values()].flatMap((run) =>
+    [1, 2, 3].map((round) => ({
+      id: run.id * 10 + round,
+      runId: run.id,
+      round,
+      relics: [],
+      choiceKey: null,
+    })),
+  );
+  const draw = (seed: number) =>
+    chooseGhosts(candidates, runs, names, (round) => weekSeed(`2026-08-24#${seed}`, round), [1, 2, 3]);
+
+  it("gives two runs different brackets from the same pool", () => {
+    // THE point of the private draw. The leaderboard takes a player's
+    // BEST run, so a week everyone could memorise would pay attempts
+    // rather than skill — four runs and you have met all eight.
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 20; seed += 1) {
+      seen.add([1, 2, 3].map((round) => draw(seed).get(round)?.runId ?? 0).join("-"));
+    }
+    expect(seen.size).toBeGreaterThan(10);
+  });
+
+  it("is still the same bracket for the same run, every time it is asked", () => {
+    // A run's eight are fixed the moment it starts: same row, same
+    // opponents, forever — a reload must not re-roll the bracket.
+    for (let seed = 1; seed <= 10; seed += 1) {
+      const first = draw(seed);
+      const second = draw(seed);
+      for (const round of [1, 2, 3]) expect(first.get(round)!.runId).toBe(second.get(round)!.runId);
+    }
+  });
+
+  it("still never stands the same person in two rounds", () => {
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const ids = [1, 2, 3].map((round) => draw(seed).get(round)!.runId);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it("draws from the whole pool across many runs", () => {
+    // A draw that kept landing on the same three people would be a
+    // shared bracket wearing a private hat.
+    const met = new Set<number>();
+    for (let seed = 1; seed <= 60; seed += 1) {
+      for (const round of [1, 2, 3]) met.add(draw(seed).get(round)!.runId);
+    }
+    expect(met.size).toBeGreaterThan(runs.size * 0.6);
+  });
+});
+
+describe("bounties", () => {
+  it("marks last week's best, one per player", () => {
+    // A grinder who posted the top four scores must not become the whole
+    // bounty board — the target is people, not runs.
+    const runs = new Map<number, GhostRun>([
+      [1, { id: 1, discordId: "grinder", lineup: [], lineupAvg: 74, score: 9000 }],
+      [2, { id: 2, discordId: "grinder", lineup: [], lineupAvg: 74, score: 8500 }],
+      [3, { id: 3, discordId: "grinder", lineup: [], lineupAvg: 74, score: 8000 }],
+      [4, { id: 4, discordId: "ana", lineup: [], lineupAvg: 74, score: 7000 }],
+      [5, { id: 5, discordId: "ben", lineup: [], lineupAvg: 74, score: 6000 }],
+      [6, { id: 6, discordId: "cass", lineup: [], lineupAvg: 74, score: 100 }],
+    ]);
+    const bounties = bountiesIn(runs);
+    expect(bounties.size).toBe(BOUNTY_COUNT);
+    expect([...bounties].sort((a, b) => a - b)).toEqual([1, 4, 5]);
+  });
+
+  it("marks nobody out of an empty pool", () => {
+    expect(bountiesIn(new Map()).size).toBe(0);
+  });
+
+  it("pays more than an ordinary round, but is not the whole game", () => {
+    expect(BOUNTY_MULT).toBeGreaterThan(1);
+    expect(BOUNTY_MULT).toBeLessThanOrEqual(2);
+  });
+
+  it("rides through the draw onto the opponent", () => {
+    const runs = new Map<number, GhostRun>([
+      [1, { id: 1, discordId: "ana", lineup: team(74), lineupAvg: 74, score: 9000 }],
+    ]);
+    const candidates: GhostCandidate[] = [{ id: 1, runId: 1, round: 1, relics: [], choiceKey: null }];
+    const chosen = chooseGhosts(candidates, runs, new Map(), () => 0, [1], bountiesIn(runs));
+    expect(chosen.get(1)!.bounty).toBe(true);
+    expect(ghostOpponent(chosen.get(1)!, 74, 1, mulberry32(1)).ghost!.bounty).toBe(true);
+  });
+});
+
+describe("a re-run has to be a different run", () => {
+  const five = team(74);
+
+  it("catches the same five, whatever order they are in", () => {
+    expect(sameLineup(five, [...five].reverse())).toBe(true);
+  });
+
+  it("lets one swapped card through", () => {
+    const swapped = [...five];
+    swapped[3] = { ...swapped[3], inventoryId: 999, name: "Someone Else" };
+    expect(sameLineup(five, swapped)).toBe(false);
+  });
+
+  it("does not care what a card is called or what it is worth", () => {
+    // Only the copies matter: renaming or re-rating the same card is not
+    // a different lineup.
+    const renamed = five.map((card) => ({ ...card, name: "X", overall: 99 }));
+    expect(sameLineup(five, renamed)).toBe(true);
+  });
+
+  it("treats a hole in the same role as the same hole", () => {
+    const withHole = five.map((card, index) => (index === 0 ? { ...card, inventoryId: null } : card));
+    const sameHole = withHole.map((card) => ({ ...card }));
+    expect(sameLineup(withHole, sameHole)).toBe(true);
+    const otherHole = five.map((card, index) => (index === 1 ? { ...card, inventoryId: null } : card));
+    expect(sameLineup(withHole, otherHole)).toBe(false);
   });
 });

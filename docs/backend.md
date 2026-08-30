@@ -273,6 +273,21 @@ Important RPC families include:
   `generateOpponent`, so a fresh season, a quiet week or an unapplied
   migration all still play. `ghost_run_id` on the round log is the defence
   record.
+- The Gauntlet's ghost draw is PRIVATE. The pool is shared and cached per
+  week (last week's runs, immutable), but each run draws its own eight
+  using `ghost_seed` — a CSPRNG value rolled once at entry and stored, so a
+  run's bracket is fixed from the moment it starts and stays auditable.
+  The reason is the leaderboard: it takes a player's BEST run, and
+  best-of-N rewards the WIDTH of a score distribution, so a memorisable
+  week would pay attempts rather than skill. The round's rules (wall,
+  patch, traits) stay week-seeded — round four is round four for everyone.
+  Three of last week's top finishers, one per player, stand in the pool as
+  bounties worth `BOUNTY_MULT`; the multiplier is applied in
+  `chooseGauntletPathAction`, never in the engine, because who you are
+  fighting is a fact about the bracket and not about the match. Entry
+  refuses a lineup identical to the player's last one (`sameLineup`,
+  compared as a set of inventory ids) — checked before the fee is taken, so
+  a refused entry never costs anything.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the
