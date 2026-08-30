@@ -1,0 +1,42 @@
+name: Higher or Lower weekly settlement
+
+on:
+  # 8 PM Eastern is 00:00 UTC in daylight time and 01:00 UTC in standard
+  # time. The script checks America/New_York, so one of these is harmlessly
+  # skipped during each DST half of the year.
+  schedule:
+    - cron: "0 0 * * 2"
+    - cron: "0 1 * * 2"
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "Monday UTC week to settle (YYYY-MM-DD). Blank = last completed week."
+        type: string
+        default: ""
+      dry_run:
+        description: "Preview winners and split amounts without writing settlement, payout, ledger, or wallet rows."
+        type: boolean
+        default: true
+
+concurrency:
+  group: higher-lower-settlement
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx scripts/higher-lower-settlement.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          HIGHER_LOWER_WEEK: ${{ inputs.week }}
+          HIGHER_LOWER_DRY_RUN: ${{ inputs.dry_run }}
+          HIGHER_LOWER_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}

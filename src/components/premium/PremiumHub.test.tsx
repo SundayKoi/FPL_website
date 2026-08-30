@@ -52,11 +52,14 @@ describe("PremiumHub betting preview", () => {
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
+    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
+    expect(screen.getByText(/Admin\/owner preview for now/)).toBeTruthy();
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
     expect(within(screen.getByRole("complementary", { name: "New feature announcement" })).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
+    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/academy/higher-lower");
   });
 
   it("keeps card-specific deep links out of the hub", () => {

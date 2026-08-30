@@ -189,6 +189,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
   const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
+  const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
@@ -355,6 +356,19 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-coral/15 via-navy/70 to-gold/10 p-5">
               <p className="text-sm leading-6 text-steel">
                 One shared puzzle for every {leagueLabel} Premium member, refreshed at midnight UTC.
+              </p>
+            </div>
+          </FeatureCard>
+          <FeatureCard
+            eyebrow="Daily card game"
+            title="Higher or Lower"
+            description={`Read the ${leagueLabel} card, then call the challenger's OVR.`}
+            href={higherLowerHref}
+            className="lg:col-span-4"
+          >
+            <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">
+              <p className="text-sm leading-6 text-steel">
+                Admin/owner preview for now. One private 30-card run per day, with 20 seconds to make each call.
               </p>
             </div>
           </FeatureCard>
