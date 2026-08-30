@@ -46,7 +46,7 @@ type Run = Record<string, unknown>;
 function createClient(run: Run | null, candidateRows = [
   { player_slug: referenceCard.slug, player_name: referenceCard.name, overall: referenceCard.overall, card: referenceCard },
   { player_slug: challengerCard.slug, player_name: challengerCard.name, overall: challengerCard.overall, card: challengerCard },
-]) {
+], runRows = run ? [run] : []) {
   const rpc = vi.fn(async (name: string) => {
     if (name === "start_higher_lower_run") {
       return { data: run ? [run] : null, error: null };
@@ -56,6 +56,7 @@ function createClient(run: Run | null, candidateRows = [
 
   const from = vi.fn((table: string) => {
     let columns = "";
+    let limited = false;
     const builder = {
       select(nextColumns: string) {
         columns = nextColumns;
@@ -68,6 +69,7 @@ function createClient(run: Run | null, candidateRows = [
         return builder;
       },
       limit() {
+        limited = true;
         return builder;
       },
       gte() {
@@ -81,7 +83,12 @@ function createClient(run: Run | null, candidateRows = [
       },
       maybeSingle: async () => {
         if (table === "card_editions") return { data: { edition_week: "2026-08-24" }, error: null };
-        if (table === "higher_lower_daily_runs") return { data: run, error: null };
+        if (table === "higher_lower_daily_runs") {
+          if (!limited && runRows.length > 1) {
+            return { data: null, error: { message: "JSON object requested, multiple (or no) rows returned" } };
+          }
+          return { data: runRows.at(-1) ?? null, error: null };
+        }
         return { data: null, error: null };
       },
       then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
@@ -170,6 +177,41 @@ describe("Higher or Lower server module", () => {
       p_league: "premier",
       p_profile_id: "profile-1",
       p_discord_id: "discord-1",
+    });
+  });
+
+  it("loads the latest owner attempt when completed replays create multiple rows", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
+    const completedRun = {
+      puzzle_date: today,
+      league: "premier",
+      profile_id: "profile-1",
+      discord_id: "discord-1",
+      random_seed: 42,
+      run_state: "lost",
+      run_score: 2,
+      reference_player_slug: referenceCard.slug,
+      challenger_player_slug: challengerCard.slug,
+      recent_player_history: [referenceCard.slug],
+      round_number: 3,
+      run_version: 4,
+      higher_answers: 2,
+      lower_answers: 1,
+      last_choice: "higher",
+      last_correct: false,
+      round_expires_at: null,
+      started_at: `${today}T12:00:00.000Z`,
+      completed_at: `${today}T12:01:00.000Z`,
+      completion_reason: "incorrect",
+    } satisfies Run;
+    const replayRun = { ...completedRun, run_state: "awaiting_choice", run_score: 0, run_version: 1, round_number: 1, completed_at: null, completion_reason: null } satisfies Run;
+    const client = createClient(replayRun, undefined, [completedRun, replayRun]);
+    createBettingServiceClient.mockReturnValue(client);
+
+    await expect(getHigherLowerGame("premier")).resolves.toMatchObject({
+      state: "awaiting_choice",
+      score: 0,
+      canReplay: true,
     });
   });
 

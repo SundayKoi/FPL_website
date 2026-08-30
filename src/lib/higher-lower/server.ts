@@ -236,6 +236,7 @@ async function loadRun(
     .eq("league", league)
     .eq("profile_id", profileId)
     .order("id", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   return data as HigherLowerRunRow | null;
