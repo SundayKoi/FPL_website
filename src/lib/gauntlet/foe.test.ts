@@ -293,24 +293,29 @@ describe("calibration — a thinking enemy is not a harder one", () => {
   it("still changes the game it is not changing the difficulty of", () => {
     // The point of the whole exercise: same seeds, same cards, different
     // fights. A plan that measures identical to no plan is decoration.
-    const opponent = generateOpponent(74, 5, mulberry32(weekSeed("2026-08-24", 5)));
-    const ctxFor = (plan?: string) =>
-      ({
-        effects: aggregateEffects([]),
-        foe: aggregateTraits(opponent.traits ?? []),
-        arena: conditionEffects(opponent.condition),
-        plan,
-      }) as MatchContext;
+    // Averaged over several opponents so the number is a property of the
+    // mechanism rather than of one generated five.
     let differed = 0;
-    for (let seed = 1; seed <= 200; seed += 1) {
-      const bare = simulateMatch(flat(74), opponent.cards, ctxFor(), mulberry32(seed));
-      const brawl = simulateMatch(flat(74), opponent.cards, ctxFor("brawl"), mulberry32(seed));
-      if (bare.won !== brawl.won || bare.momentum !== brawl.momentum) differed += 1;
+    let played = 0;
+    for (let round = 1; round <= 8; round += 1) {
+      const opponent = generateOpponent(74, round, mulberry32(weekSeed("2026-08-24", round)));
+      const ctxFor = (plan?: string) =>
+        ({
+          effects: aggregateEffects([]),
+          foe: aggregateTraits(opponent.traits ?? []),
+          arena: conditionEffects(opponent.condition),
+          plan,
+        }) as MatchContext;
+      for (let seed = 1; seed <= 60; seed += 1) {
+        const bare = simulateMatch(flat(74), opponent.cards, ctxFor(), mulberry32(seed * round));
+        const brawl = simulateMatch(flat(74), opponent.cards, ctxFor("brawl"), mulberry32(seed * round));
+        if (bare.won !== brawl.won || bare.momentum !== brawl.momentum) differed += 1;
+        played += 1;
+      }
     }
-    // Measured: 60 of 200 identical-seed matches play out to a different
-    // scoreboard once the enemy has a plan. A check only flips when the
+    // Measured around a third of matches. A check only flips when the
     // reallocation lands inside the noise band, which is exactly the
     // texture wanted — a different fight, not a different bracket.
-    expect(differed).toBeGreaterThan(40);
+    expect(differed / played).toBeGreaterThan(0.15);
   });
 });

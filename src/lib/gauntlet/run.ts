@@ -6,7 +6,8 @@ import type { Autopsy } from "./autopsy";
 import { bossEffects } from "./bosses";
 import type { OpponentTeam } from "./opponents";
 import { aggregateEffects } from "./relics";
-import { aggregateTraits, conditionEffects } from "./traits";
+import { aggregateTraits, conditionEffects, mergeTraitEffects } from "./traits";
+import { ghostTraitEffects } from "./ghosts";
 import type { GauntletCard, HalfState, MatchContext, MatchResult } from "./sim";
 
 /** What a run costs to start. A sink by design: prizes stay under the
@@ -33,13 +34,21 @@ export function matchContextFor(
    *  a week's round-four call is the same call for everyone in it. */
   situationSeed?: number,
 ): MatchContext {
+  // A ghost's "traits" are their BUILD: the relics they were holding when
+  // they stood here. Flats add on top of any authored traits, so a future
+  // ghost that also wears one is not a special case.
+  const traits = aggregateTraits(opponent?.traits ?? []);
+  const foe = opponent?.ghost
+    ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics))
+    : traits;
   return {
     effects: aggregateEffects(relicKeys),
-    foe: aggregateTraits(opponent?.traits ?? []),
+    foe,
     arena: conditionEffects(opponent?.condition),
     boss: bossEffects(opponent?.boss),
     situationSeed,
     plan: opponent?.plan,
+    foeCall: opponent?.ghost?.choiceKey ?? undefined,
   };
 }
 
@@ -66,4 +75,7 @@ export interface GauntletRunRow {
   last_result: StoredMatchResult | null;
   /** Non-null while a fight is paused at minute 20 waiting on the call. */
   crossroads: GauntletCrossroads | null;
+  /** The seed this run's own eight opponents are drawn with. Null on runs
+   *  started before the private draw shipped — those keep the week's. */
+  ghost_seed: number | null;
 }

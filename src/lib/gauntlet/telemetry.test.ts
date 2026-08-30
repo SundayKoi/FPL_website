@@ -47,6 +47,7 @@ describe("the round log row", () => {
       condition_key: "bloodmoon",
       boss_key: "the_wall",
       plan_key: "brawl",
+      ghost_run_id: null,
     });
   });
 
@@ -70,7 +71,15 @@ describe("the round log row", () => {
     expect(row.condition_key).toBeNull();
     expect(row.boss_key).toBeNull();
     expect(row.plan_key).toBeNull();
+    expect(row.ghost_run_id).toBeNull();
     expect(row.situation_key).toBe("");
+  });
+  it("records the run you were standing in, so a defence record exists", () => {
+    const ghosted = {
+      ...run,
+      next_opponent: { ...run.next_opponent, ghost: { runId: 91, name: "Someone", score: 8000, trueAvg: 81, relics: [], choiceKey: "hold" } },
+    } as GauntletRunRow;
+    expect(roundLogRow(ghosted, "hold", result).ghost_run_id).toBe(91);
   });
 });
 

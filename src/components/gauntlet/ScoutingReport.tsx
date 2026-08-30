@@ -6,7 +6,10 @@
 // as public as the enemy's stat line.
 
 import { BOSS_BY_KEY, bossRoundOf } from "@/lib/gauntlet/bosses";
+import { CHOICE_BY_KEY } from "@/lib/gauntlet/crossroads";
 import { FOE_PLAN_BY_KEY } from "@/lib/gauntlet/foe";
+import { BOUNTY_MULT } from "@/lib/gauntlet/ghosts";
+import { RELIC_BY_KEY } from "@/lib/gauntlet/relics";
 import { CONDITION_BY_KEY, TRAIT_BY_KEY } from "@/lib/gauntlet/traits";
 import type { OpponentTeam } from "@/lib/gauntlet/opponents";
 
@@ -15,6 +18,8 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
   const condition = CONDITION_BY_KEY.get(opponent.condition ?? "standard");
   const boss = opponent.boss ? BOSS_BY_KEY.get(opponent.boss) : null;
   const plan = opponent.plan ? FOE_PLAN_BY_KEY.get(opponent.plan) : null;
+  const ghost = opponent.ghost ?? null;
+  const theirCall = ghost?.choiceKey ? CHOICE_BY_KEY.get(ghost.choiceKey) : null;
   return (
     <div className="flex flex-col gap-3">
       {boss ? (
@@ -34,6 +39,50 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
           <p className="mt-1.5 font-mono text-[11px] leading-4 text-gold">↳ {boss.counter}</p>
         </div>
       ) : null}
+      {ghost ? (
+        <div
+          className="rounded-xl border border-gold/55 p-4"
+          style={{ background: "linear-gradient(180deg,rgba(245,182,46,.12),rgba(0,0,0,.35))" }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gold">
+            {ghost.bounty ? "★ Bounty · one of last week's best" : "A real run · posted last week"}
+          </span>
+          <p className="type-display mt-1 text-2xl text-white sm:text-3xl">{ghost.name}</p>
+          <p className="mt-1 text-xs text-steel">
+            Their run scored <b className="text-white">{ghost.score.toLocaleString()}</b> · their shelf averaged{" "}
+            <b className="text-white">{ghost.trueAvg}</b>, priced here to the round · their five and their build are
+            theirs, the ratings are the bracket&rsquo;s.
+          </p>
+          {ghost.relics.length > 0 ? (
+            <p className="mt-2 flex flex-wrap gap-1.5">
+              {ghost.relics.map((key) => (
+                <span
+                  key={key}
+                  className="rounded border border-gold/40 bg-gold/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold"
+                >
+                  {RELIC_BY_KEY.get(key)?.title ?? key}
+                </span>
+              ))}
+            </p>
+          ) : (
+            <p className="mt-2 text-[11px] italic text-steel">They got here with no relics at all.</p>
+          )}
+          {ghost.bounty ? (
+            <p className="mt-2 rounded border border-gold/50 bg-gold/10 px-2 py-1.5 text-[11px] leading-4 text-gold">
+              They finished near the top of last week&rsquo;s board. Beat them and this round pays{" "}
+              <b className="text-white">{Math.round(BOUNTY_MULT * 100)}%</b> — you don&rsquo;t get to choose to
+              meet a bounty, so this is worth taking risks for.
+            </p>
+          ) : null}
+          {theirCall ? (
+            <p className="mt-2.5 font-mono text-[11px] leading-4 text-gold">
+              ↳ At this point in their run they called <b className="text-white">{theirCall.choice.label}</b>. They
+              will make it again.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {plan ? (
         <div className="rounded-lg border border-[#ff8896]/45 bg-[#ff8896]/5 p-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff8896]">

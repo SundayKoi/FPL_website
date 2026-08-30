@@ -98,6 +98,28 @@ export async function fetchActiveGauntletRun(
   return data as GauntletRunRow | null;
 }
 
+/**
+ * The five a player fielded last time, as inventory ids.
+ *
+ * The draft screen needs it because a re-run must differ by at least one
+ * card, and finding that out AFTER pressing start is a worse way to learn
+ * a rule than being shown it while you draft.
+ */
+export async function fetchLastLineup(
+  supabase: SupabaseClient,
+  discordId: string,
+): Promise<number[]> {
+  const { data, error } = await supabase
+    .from("gauntlet_runs")
+    .select("lineup")
+    .eq("discord_id", discordId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return [];
+  const lineup = (data as { lineup: { inventoryId: number | null }[] }[] | null)?.[0]?.lineup ?? [];
+  return lineup.map((card) => card.inventoryId).filter((id): id is number => typeof id === "number");
+}
+
 export interface GauntletWeekStats {
   bestScore: number;
   attempts: number;

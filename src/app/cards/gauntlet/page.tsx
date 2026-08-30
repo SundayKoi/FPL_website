@@ -13,6 +13,7 @@ import {
   fetchActiveGauntletRun,
   fetchGauntletBoard,
   fetchGauntletWeekStats,
+  fetchLastLineup,
   type GauntletBoardRow,
 } from "@/lib/gauntlet/queries";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
@@ -62,11 +63,12 @@ export default async function GauntletPage() {
   const season = seasons.find((entry) => entry.league === "premier")?.season ?? null;
   const leagueOf = new Map(seasons.map((entry) => [entry.season, entry.league]));
   const week = currentWeek();
-  const [inventory, activeRun, weekStats, board]: [
+  const [inventory, activeRun, weekStats, board, lastLineup]: [
     Awaited<ReturnType<typeof fetchInventory>>,
     Awaited<ReturnType<typeof fetchActiveGauntletRun>>,
     Awaited<ReturnType<typeof fetchGauntletWeekStats>>,
     GauntletBoardRow[],
+    number[],
   ] = season
     ? await Promise.all([
         // Every shelf, flattened — buildGauntletOptions tags each copy with
@@ -77,8 +79,9 @@ export default async function GauntletPage() {
         fetchActiveGauntletRun(service, user.discordId),
         fetchGauntletWeekStats(service, user.discordId, week),
         fetchGauntletBoard(service, season, week),
+        fetchLastLineup(service, user.discordId),
       ])
-    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, []];
+    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], []];
   const options = buildGauntletOptions(inventory, week, leagueOf);
 
   return (
@@ -115,6 +118,7 @@ export default async function GauntletPage() {
         options={options}
         balance={user.balance}
         weekBest={weekStats.bestScore}
+        lastLineup={lastLineup}
       />
 
       <GauntletRules />

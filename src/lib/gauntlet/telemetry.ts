@@ -38,6 +38,9 @@ export interface RoundLogRow {
   /** Which of the four dispositions they brought — null on a run staged
    *  before the plan shipped. */
   plan_key: string | null;
+  /** The run you were standing in, when the opponent was a real one.
+   *  Null against a generated team. This is the whole defence record. */
+  ghost_run_id: number | null;
 }
 
 /** One resolved relic offer: three went out, one came back. */
@@ -78,6 +81,7 @@ export function roundLogRow(
     condition_key: run.next_opponent?.condition ?? null,
     boss_key: run.next_opponent?.boss ?? null,
     plan_key: run.next_opponent?.plan ?? null,
+    ghost_run_id: run.next_opponent?.ghost?.runId ?? null,
   };
 }
 

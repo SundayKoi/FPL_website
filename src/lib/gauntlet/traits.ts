@@ -34,6 +34,13 @@ export interface TraitEffects {
   lateFlat?: number;
   /** Multiplies the gold they take from a won beat. */
   goldMult?: number;
+  /** Flat on their side of the crossroads check. No trait uses this yet —
+   *  it exists because a GHOST defends with a shot-caller's build (see
+   *  ghosts.ts), and their side of the call has to be able to feel it. */
+  crossroadsFlat?: number;
+  /** Flat help on every check while THEY are behind, which is while you
+   *  are ahead. The mirror of your own comeback dial. */
+  comebackFlat?: number;
 }
 
 export interface EnemyTrait {
@@ -121,7 +128,29 @@ export function aggregateTraits(keys: string[]): TraitEffects {
     if (fx.earlyFlat) total.earlyFlat = (total.earlyFlat ?? 0) + fx.earlyFlat;
     if (fx.lateFlat) total.lateFlat = (total.lateFlat ?? 0) + fx.lateFlat;
     if (fx.goldMult) total.goldMult = (total.goldMult ?? 1) * fx.goldMult;
+    if (fx.crossroadsFlat) total.crossroadsFlat = (total.crossroadsFlat ?? 0) + fx.crossroadsFlat;
+    if (fx.comebackFlat) total.comebackFlat = (total.comebackFlat ?? 0) + fx.comebackFlat;
   }
+  return total;
+}
+
+/** Two sets of enemy-side effects, combined the same way a team's own
+ *  traits combine: flats add, multipliers compound. Used to lay a ghost's
+ *  BUILD on top of whatever traits the round already gave them. */
+export function mergeTraitEffects(a: TraitEffects, b: TraitEffects): TraitEffects {
+  const total: TraitEffects = { ...a };
+  const add = (key: "objectivesFlat" | "fightFlat" | "lanesFlat" | "holdFlat" | "earlyFlat" | "lateFlat" | "crossroadsFlat" | "comebackFlat") => {
+    if (b[key]) total[key] = (total[key] ?? 0) + (b[key] ?? 0);
+  };
+  add("objectivesFlat");
+  add("fightFlat");
+  add("lanesFlat");
+  add("holdFlat");
+  add("earlyFlat");
+  add("lateFlat");
+  add("crossroadsFlat");
+  add("comebackFlat");
+  if (b.goldMult) total.goldMult = (total.goldMult ?? 1) * b.goldMult;
   return total;
 }
 
