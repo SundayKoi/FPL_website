@@ -8,6 +8,12 @@
 // worth the same on a quiet week as on a loud one. Two questions, two
 // answers; the naming keeps them apart everywhere they are shown.
 //
+// A week's score is the AVERAGE of the games played in it, and the season
+// is the SUM of those weekly scores. Volume inside a week buys nothing —
+// four games and two games are both one week — while turning up for
+// another week earns another score. Getting this backwards was the first
+// version of this file.
+//
 // A NOTE ON UNITS, because it is the one thing that can silently go wrong
 // here by a factor of a hundred: the tariff prices damage share and kill
 // participation per 1.0 — a 30% damage share is 0.30 — while `raw_stats`
@@ -96,31 +102,33 @@ export function gamePoints(row: FantasyStatRow, tariff: FantasyTariff = FANTASY_
   );
 }
 
-/** What one game contributed, for the per-game breakdown a player row
- *  expands into. */
-export interface FantasyLine {
-  /** Monday of the game's week, or null on a row with no date. */
-  week: string | null;
+/** One week of a player's season: the AVERAGE of the games they played
+ *  in it, plus what that average was taken over. */
+export interface FantasyWeekScore {
+  /** Monday of the week, Eastern. */
+  week: string;
+  /** The week's score — the mean of its games, not their sum. */
   points: number;
-  win: boolean;
+  games: number;
+  wins: number;
 }
 
 export interface FantasyPlayer {
   summonerName: string;
   tag: string;
-  /** "name#tag" — the key the table sorts and the compare drawer uses. */
+  /** "name#tag" — the key the table sorts by. */
   key: string;
   games: number;
   wins: number;
-  /** Every game this season, newest first. */
-  lines: FantasyLine[];
-  /** Season total. */
+  /** Every week they played, newest first. */
+  weeks: FantasyWeekScore[];
+  byWeek: Map<string, FantasyWeekScore>;
+  /** The season total: the sum of the weekly scores above. Playing more
+   *  WEEKS earns more; playing more games inside one week does not. */
   points: number;
-  /** Points per game — the fair comparison when people have played
-   *  different numbers of games, which in a league with byes is everyone. */
-  perGame: number;
-  /** Monday -> points, for the weekly view and the sparkline. */
-  byWeek: Map<string, number>;
+  /** The season total over the weeks it was earned in — the fair
+   *  comparison when people have missed different weeks. */
+  perWeek: number;
 }
 
 /** The identity a raw row belongs to. Name and tag together: two players
@@ -140,45 +148,66 @@ export function weekOf(row: Pick<FantasyStatRow, "game_date">): string | null {
 /**
  * Every player's fantasy season, from raw rows.
  *
- * Rows may span any range the caller fetched; grouping is by player, and
- * the weekly split is derived per row rather than assumed, so one call
- * answers both "this week" and "all season".
+ * A WEEK is scored as the mean of the games played in it, so a player who
+ * turned up for four games is not ahead of one who won twice purely on
+ * volume. The SEASON is the sum of those weekly scores, which is the
+ * accumulation the tariff is actually for: showing up for another week
+ * earns another score, showing up twice in one week does not.
+ *
+ * A row with no usable game_date belongs to no week and is dropped
+ * entirely rather than being scored into a total it cannot be averaged
+ * into — leaving it in would make `games` disagree with `points`, and a
+ * table whose columns contradict each other is worse than one missing a
+ * row. In practice every ingested row carries a date.
  */
 export function fantasySeason(rows: FantasyStatRow[], tariff: FantasyTariff = FANTASY_TARIFF): FantasyPlayer[] {
-  const players = new Map<string, FantasyPlayer>();
+  /** key -> week -> the games in it. */
+  const tally = new Map<string, { name: string; tag: string; weeks: Map<string, { points: number; games: number; wins: number }> }>();
+
   for (const row of rows) {
     // A row with no name cannot be attributed to anyone; counting it under
     // "#" would invent a player the league does not have.
     if (!row.summoner_name) continue;
-    const key = fantasyKey(row);
-    let player = players.get(key);
-    if (!player) {
-      player = {
-        summonerName: row.summoner_name,
-        tag: row.tag ?? "",
-        key,
-        games: 0,
-        wins: 0,
-        lines: [],
-        points: 0,
-        perGame: 0,
-        byWeek: new Map(),
-      };
-      players.set(key, player);
-    }
-    const points = gamePoints(row, tariff);
     const week = weekOf(row);
-    player.games += 1;
-    if (row.win === true) player.wins += 1;
-    player.lines.push({ week, points, win: row.win === true });
-    player.points = round2(player.points + points);
-    if (week) player.byWeek.set(week, round2((player.byWeek.get(week) ?? 0) + points));
+    if (!week) continue;
+    const key = fantasyKey(row);
+    let player = tally.get(key);
+    if (!player) {
+      player = { name: row.summoner_name, tag: row.tag ?? "", weeks: new Map() };
+      tally.set(key, player);
+    }
+    const bucket = player.weeks.get(week) ?? { points: 0, games: 0, wins: 0 };
+    bucket.points += gamePoints(row, tariff);
+    bucket.games += 1;
+    if (row.win === true) bucket.wins += 1;
+    player.weeks.set(week, bucket);
   }
 
-  for (const player of players.values()) {
-    player.perGame = player.games > 0 ? round2(player.points / player.games) : 0;
+  const players: FantasyPlayer[] = [];
+  for (const [key, entry] of tally) {
+    const weeks: FantasyWeekScore[] = [...entry.weeks.entries()]
+      .map(([week, bucket]) => ({
+        week,
+        // THE rule: the week's score is the average of its games.
+        points: round2(bucket.points / bucket.games),
+        games: bucket.games,
+        wins: bucket.wins,
+      }))
+      .sort((a, b) => b.week.localeCompare(a.week));
+    const points = round2(weeks.reduce((sum, week) => sum + week.points, 0));
+    players.push({
+      summonerName: entry.name,
+      tag: entry.tag,
+      key,
+      games: weeks.reduce((sum, week) => sum + week.games, 0),
+      wins: weeks.reduce((sum, week) => sum + week.wins, 0),
+      weeks,
+      byWeek: new Map(weeks.map((week) => [week.week, week])),
+      points,
+      perWeek: weeks.length > 0 ? round2(points / weeks.length) : 0,
+    });
   }
-  return [...players.values()].sort((a, b) => b.points - a.points || a.key.localeCompare(b.key));
+  return players.sort((a, b) => b.points - a.points || a.key.localeCompare(b.key));
 }
 
 /** Every week present in the rows, newest first — the week picker's list. */
@@ -191,23 +220,14 @@ export function weeksIn(rows: FantasyStatRow[]): string[] {
   return [...weeks].sort().reverse();
 }
 
-/** The same players scored over ONE week only, ranked. Derived from the
- *  season rather than re-scored, so a weekly table and the season table can
- *  never disagree about a game. */
-export function fantasyWeek(players: FantasyPlayer[], week: string): FantasyPlayer[] {
+/** One week's table: everyone who played it, on that week's score alone.
+ *  Derived from the season rather than re-scored, so the weekly view and
+ *  the season total can never disagree about a game. */
+export function fantasyWeek(players: FantasyPlayer[], week: string): (FantasyPlayer & { weekScore: FantasyWeekScore })[] {
   return players
-    .filter((player) => player.byWeek.has(week))
-    .map((player) => {
-      const lines = player.lines.filter((line) => line.week === week);
-      const points = player.byWeek.get(week) ?? 0;
-      return {
-        ...player,
-        games: lines.length,
-        wins: lines.filter((line) => line.win).length,
-        lines,
-        points,
-        perGame: lines.length > 0 ? round2(points / lines.length) : 0,
-      };
+    .flatMap((player) => {
+      const score = player.byWeek.get(week);
+      return score ? [{ ...player, weekScore: score }] : [];
     })
-    .sort((a, b) => b.points - a.points || a.key.localeCompare(b.key));
+    .sort((a, b) => b.weekScore.points - a.weekScore.points || a.key.localeCompare(b.key));
 }

@@ -16,13 +16,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { fetchFantasyRows } from "@/lib/stats/queries";
-import {
-  FANTASY_TARIFF,
-  fantasySeason,
-  fantasyWeek,
-  type FantasyPlayer,
-  weeksIn,
-} from "@/lib/stats/fantasyPoints";
+import { FANTASY_TARIFF, fantasySeason, fantasyWeek, weeksIn } from "@/lib/stats/fantasyPoints";
 import { editionLabel } from "@/lib/packs/week";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
@@ -63,10 +57,35 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
   // render beats an effect that briefly shows an empty table.
   const active = view !== SEASON_VIEW && !weeks.includes(view) ? SEASON_VIEW : view;
 
-  const shown: FantasyPlayer[] = useMemo(
-    () => (active === SEASON_VIEW ? players : fantasyWeek(players, active)),
-    [players, active],
-  );
+  /** One shape for both views, because the columns differ in MEANING
+   *  rather than in kind: a week's Pts is the mean of its games, and the
+   *  season's is the sum of those weekly means. */
+  const shown = useMemo(() => {
+    if (active === SEASON_VIEW) {
+      return players.map((player) => ({
+        key: player.key,
+        name: player.summonerName,
+        tag: player.tag,
+        weeks: player.weeks.length,
+        games: player.games,
+        wins: player.wins,
+        points: player.points,
+        secondary: player.perWeek,
+      }));
+    }
+    return fantasyWeek(players, active).map((player) => ({
+      key: player.key,
+      name: player.summonerName,
+      tag: player.tag,
+      weeks: 1,
+      games: player.weekScore.games,
+      wins: player.weekScore.wins,
+      points: player.weekScore.points,
+      secondary: null,
+    }));
+  }, [players, active]);
+
+  const seasonView = active === SEASON_VIEW;
 
   if (status === "loading") return <LoadingCard label="fantasy points" />;
   if (status === "error") return <ErrorCard noun="fantasy points" />;
@@ -100,16 +119,19 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-cyan/20">
-              {["#", "Player", "GP", "W", "Pts", "Pts/GP"].map((label, index) => (
-                <th
-                  key={label}
-                  className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-steel ${
-                    index < 2 ? "text-left" : "text-right"
-                  } ${index === 1 ? "sticky left-0 z-10 bg-panel" : ""}`}
-                >
-                  {label}
-                </th>
-              ))}
+              {["#", "Player", ...(seasonView ? ["WKS"] : []), "GP", "W", "Pts", ...(seasonView ? ["Pts/wk"] : [])].map(
+                (label, index) => (
+                  <th
+                    key={label}
+                    title={label === "Pts" ? (seasonView ? "Sum of the weekly scores" : "Average of this week's games") : undefined}
+                    className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-steel ${
+                      index < 2 ? "text-left" : "text-right"
+                    } ${index === 1 ? "sticky left-0 z-10 bg-panel" : ""}`}
+                  >
+                    {label}
+                  </th>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -117,21 +139,31 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
               <tr key={player.key} className="border-b border-line/60 last:border-0">
                 <td className="px-3 py-2 font-mono text-xs text-steel">{index + 1}</td>
                 <td className="sticky left-0 z-10 bg-panel px-3 py-2 font-semibold text-white">
-                  {player.summonerName}
+                  {player.name}
                   <span className="ml-1 text-xs font-normal text-steel">#{player.tag}</span>
                 </td>
+                {seasonView ? (
+                  <td className="px-3 py-2 text-right tabular-nums text-steel">{player.weeks}</td>
+                ) : null}
                 <td className="px-3 py-2 text-right tabular-nums text-steel">{player.games}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-steel">{player.wins}</td>
                 <td className="px-3 py-2 text-right font-bold tabular-nums text-cyan">{player.points}</td>
-                {/* The fair comparison in a league with byes: two players
-                    are rarely on the same number of games. */}
-                <td className="px-3 py-2 text-right tabular-nums text-steel">{player.perGame}</td>
+                {/* The fair comparison over a season: people miss different
+                    weeks, and a missed week is a zero nobody chose. */}
+                {seasonView ? (
+                  <td className="px-3 py-2 text-right tabular-nums text-steel">{player.secondary}</td>
+                ) : null}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
+      <p className="text-xs text-steel">
+        A week scores the <b className="text-white">average</b> of the games played in it, so four games and two
+        games are both one week. The season total is the <b className="text-white">sum of those weekly scores</b>
+        {" "}— turning up for another week earns another score.
+      </p>
       <p className="text-xs text-steel">
         Separate from the Fantasy card game&rsquo;s lineup scoring, which ranks a lineup by Power Ranking against
         the week&rsquo;s field. This table is the flat tariff above, applied to every game played.

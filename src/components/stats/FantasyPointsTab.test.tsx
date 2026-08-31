@@ -35,8 +35,10 @@ function renderTab(rows: FantasyStatRow[]) {
 
 describe("FantasyPointsTab", () => {
   const rows = [
-    // Doug: 3 kills + a win one week, 1 kill the next.
+    // Doug plays TWICE in the week of Aug 24 — 14 points and 3 — so that
+    // week scores 8.5, not 17. Then once more the following week for 3.
     game({ kills: 3, win: true, game_date: "2026-08-25T20:00:00Z" }),
+    game({ kills: 1, game_date: "2026-08-26T20:00:00Z" }),
     game({ kills: 1, game_date: "2026-09-02T20:00:00Z" }),
     // Ana out-scores him on the season in a single game.
     game({ summoner_name: "Ana", tag: "EUW", kills: 10, game_date: "2026-09-02T20:00:00Z" }),
@@ -49,8 +51,21 @@ describe("FantasyPointsTab", () => {
     expect(names[0]).toContain("Ana");
     expect(names[0]).toContain("30");
     expect(names[1]).toContain("Doug");
-    // 3 kills + win = 14, plus 3 = 17.
-    expect(names[1]).toContain("17");
+    // 8.5 for his first week (the mean of 14 and 3) plus 3 for his second.
+    expect(names[1]).toContain("11.5");
+  });
+
+  it("counts a week once however many games are in it", async () => {
+    // The correction this table exists in: Doug played three games across
+    // two weeks, and the season is the sum of TWO weekly scores.
+    renderTab(rows);
+    await waitFor(() => expect(screen.getByText("Ana")).toBeTruthy());
+    const doug = screen.getAllByRole("row").find((row) => row.textContent?.includes("Doug"))!;
+    const cells = [...doug.querySelectorAll("td")].map((cell) => cell.textContent);
+    // rank, player, weeks, games, wins, points, points per week
+    expect(cells[2]).toBe("2");
+    expect(cells[3]).toBe("3");
+    expect(cells[5]).toBe("11.5");
   });
 
   it("re-ranks on a week and drops anyone who didn't play it", async () => {
@@ -62,7 +77,17 @@ describe("FantasyPointsTab", () => {
     const body = screen.getAllByRole("row").slice(1);
     expect(body).toHaveLength(1);
     expect(body[0].textContent).toContain("Doug");
-    expect(body[0].textContent).toContain("14");
+    // The AVERAGE of that week's two games, not their sum.
+    expect(body[0].textContent).toContain("8.5");
+    expect(body[0].textContent).not.toContain("17");
+  });
+
+  it("explains the maths on the page", async () => {
+    // "Why is my week lower than my games add up to" is the first question
+    // this table will get asked.
+    renderTab(rows);
+    await waitFor(() => expect(screen.getByText(/average/i)).toBeTruthy());
+    expect(screen.getByText(/sum of those weekly scores/i)).toBeTruthy();
   });
 
   it("prints the tariff, so the ranking can be argued with", async () => {
