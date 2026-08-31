@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import { preloadArt } from "@/lib/cards/artUrls";
 import type {
   ConcealedHigherLowerCard,
   HigherLowerChoice,
@@ -21,17 +22,49 @@ function formatTimer(milliseconds: number): string {
   return `${Math.max(0, Math.ceil(milliseconds / 1000))}s`;
 }
 
+async function requestLeaderboard(league: HigherLowerLeague): Promise<HigherLowerGame["weeklyLeaderboard"] | null> {
+  try {
+    const response = await fetch(`/api/higher-lower/leaderboard?league=${league}`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { weeklyLeaderboard?: HigherLowerGame["weeklyLeaderboard"] };
+    return Array.isArray(data.weeklyLeaderboard) ? data.weeklyLeaderboard : null;
+  } catch {
+    return null;
+  }
+}
+
 function ConcealedCard({ card }: { card: ConcealedHigherLowerCard }) {
+  const [failedArtUrl, setFailedArtUrl] = useState<string | null>(null);
+  const showArt = Boolean(card.artUrl) && failedArtUrl !== card.artUrl;
+
   return (
     <div
       className="relative flex h-[28rem] w-[20rem] flex-col overflow-hidden rounded-2xl border-4 border-coral bg-panel shadow-[0_16px_36px_rgb(0_0_0/0.45)]"
       aria-label={`${card.name} challenger card`}
     >
       <div
-        className="absolute inset-1 rounded-xl bg-cover bg-center opacity-75"
-        style={card.artUrl ? { backgroundImage: `linear-gradient(rgb(0 31 52 / 0.35), rgb(0 31 52 / 0.82)), url("${card.artUrl}")` } : undefined}
+        className="absolute inset-1 overflow-hidden rounded-xl opacity-75"
         aria-hidden="true"
-      />
+      >
+        {showArt ? (
+          // An image element starts discovery as soon as card renders and can
+          // expose failure, unlike a CSS background declared after action return.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={card.artUrl!}
+            alt=""
+            loading="eager"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setFailedArtUrl(card.artUrl)}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-navy/90 px-4 text-center text-xs font-bold uppercase tracking-[0.14em] text-steel">
+            Challenger art unavailable
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-navy/30 via-navy/20 to-navy/85" />
+      </div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,rgb(255_107_53/0.2),transparent_42%),linear-gradient(135deg,transparent_0_47%,rgb(255_255_255/0.06)_48%_50%,transparent_51%)]" aria-hidden="true" />
       <div className="relative flex flex-1 flex-col justify-between p-5">
         <div className="flex items-start justify-between gap-3">
@@ -54,6 +87,34 @@ function ConcealedCard({ card }: { card: ConcealedHigherLowerCard }) {
           <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-coral">OVR concealed</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoundTimer({ expiresAt, onTimeout }: { expiresAt: string; onTimeout: () => void }) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const timeoutSent = useRef(false);
+
+  useEffect(() => {
+    const expiry = new Date(expiresAt).getTime();
+    timeoutSent.current = false;
+    const tick = () => {
+      const currentMs = Date.now();
+      setNowMs(currentMs);
+      if (expiry - currentMs <= 0 && !timeoutSent.current) {
+        timeoutSent.current = true;
+        onTimeout();
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [expiresAt, onTimeout]);
+
+  const remaining = new Date(expiresAt).getTime() - nowMs;
+  return (
+    <div className={`rounded-2xl border-2 px-5 py-3 font-mono text-2xl font-bold shadow-[0_0_24px_rgb(0_0_0/0.2)] ${remaining <= 5000 ? "border-coral bg-coral/15 text-coral" : "border-mint/50 bg-mint/10 text-mint"}`} role="timer" aria-live="polite">
+      {formatTimer(remaining)}
     </div>
   );
 }
@@ -169,40 +230,47 @@ export default function HigherLowerBoard({
   advanceRound: GameAction;
 }) {
   const [game, setGame] = useState(initialGame);
-  const [nowMs, setNowMs] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const timeoutSentFor = useRef<string | null>(null);
+
+  const refreshLeaderboard = useCallback(() => {
+    void requestLeaderboard(league).then((weeklyLeaderboard) => {
+      if (weeklyLeaderboard) setGame((current) => ({ ...current, weeklyLeaderboard }));
+    });
+  }, [league]);
+
+  useEffect(() => {
+    if (game.challenger?.artUrl) preloadArt([game.challenger.artUrl]);
+  }, [game.challenger?.artUrl]);
+
+  useEffect(() => {
+    let active = true;
+    void requestLeaderboard(league).then((weeklyLeaderboard) => {
+      if (active && weeklyLeaderboard) setGame((current) => ({ ...current, weeklyLeaderboard }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [league]);
 
   const applyAction = useCallback((action: () => Promise<HigherLowerGame>) => {
     setError(null);
     startTransition(async () => {
       try {
-        setGame(await action());
+        const nextGame = await action();
+        if (nextGame.challenger?.artUrl) preloadArt([nextGame.challenger.artUrl]);
+        setGame(nextGame);
+        void refreshLeaderboard();
       } catch (actionError) {
         setError(actionError instanceof Error ? actionError.message : "Higher or Lower could not save that move.");
       }
     });
-  }, [startTransition]);
+  }, [refreshLeaderboard, startTransition]);
 
-  const remaining = game.roundExpiresAt ? new Date(game.roundExpiresAt).getTime() - nowMs : 0;
-
-  useEffect(() => {
-    if (game.state !== "awaiting_choice" || !game.roundExpiresAt) return;
-    const expiry = new Date(game.roundExpiresAt).getTime();
-    const versionKey = `${game.date}:${game.runVersion}`;
-    const tick = () => {
-      const next = expiry - Date.now();
-      setNowMs(Date.now());
-      if (next <= 0 && timeoutSentFor.current !== versionKey) {
-        timeoutSentFor.current = versionKey;
-        applyAction(() => submitChoice({ league, puzzleDate: game.date, runVersion: game.runVersion, choice: "timeout" }));
-      }
-    };
-    tick();
-    const timer = window.setInterval(tick, 250);
-    return () => window.clearInterval(timer);
-  }, [applyAction, game.date, game.runVersion, game.roundExpiresAt, game.state, league, submitChoice]);
+  const timeoutRound = useCallback(
+    () => applyAction(() => submitChoice({ league, puzzleDate: game.date, runVersion: game.runVersion, choice: "timeout" })),
+    [applyAction, game.date, game.runVersion, league, submitChoice],
+  );
 
   const choose = (choice: HigherLowerChoice) => {
     applyAction(() => submitChoice({ league, puzzleDate: game.date, runVersion: game.runVersion, choice }));
@@ -296,11 +364,7 @@ export default function HigherLowerBoard({
                 aria-label={game.state === "awaiting_choice" ? "Higher or Lower choice" : "Round result"}
                 className="flex shrink-0 flex-col items-center justify-center gap-3 self-center lg:mt-52"
               >
-                {game.state === "awaiting_choice" ? (
-                  <div className={`rounded-2xl border-2 px-5 py-3 font-mono text-2xl font-bold shadow-[0_0_24px_rgb(0_0_0/0.2)] ${remaining <= 5000 ? "border-coral bg-coral/15 text-coral" : "border-mint/50 bg-mint/10 text-mint"}`} role="timer" aria-live="polite">
-                    {formatTimer(remaining)}
-                  </div>
-                ) : null}
+                {game.state === "awaiting_choice" && game.roundExpiresAt ? <RoundTimer expiresAt={game.roundExpiresAt} onTimeout={timeoutRound} /> : null}
                 <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 font-display text-sm font-bold uppercase tracking-[0.2em] text-gold">
                   {centerLabel}
                 </span>

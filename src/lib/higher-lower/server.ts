@@ -309,10 +309,10 @@ async function buildGame(
   canReplay: boolean,
 ): Promise<HigherLowerGame> {
   const weekStart = utcWeekStart(new Date(`${puzzleDate}T12:00:00.000Z`));
-  const [run, weeklyLeaderboard] = await Promise.all([
-    loadRun(service, puzzleDate, league, profileId),
-    loadLeaderboard(service, weekStart, profileId),
-  ]);
+  const run = await loadRun(service, puzzleDate, league, profileId);
+  // Leaderboard is cosmetic and can scale with every attempt in the week.
+  // Keep it off the mutation response path; the client refreshes it separately.
+  const weeklyLeaderboard: HigherLowerGame["weeklyLeaderboard"] = [];
   if (!run || run.run_state === "not_started") {
     return {
       date: puzzleDate,
@@ -377,6 +377,13 @@ export async function getHigherLowerGame(league: HigherLowerLeague): Promise<Hig
   const puzzleDate = todayUtc();
   await ensureSnapshot(server, service, validLeague, puzzleDate);
   return buildGame(service, validLeague, puzzleDate, profileId, canReplay);
+}
+
+export async function getHigherLowerLeaderboard(league: unknown): Promise<HigherLowerGame["weeklyLeaderboard"]> {
+  parseLeague(league);
+  const { service, profileId } = await requireHigherLowerPlayer();
+  const puzzleDate = todayUtc();
+  return loadLeaderboard(service, utcWeekStart(new Date(`${puzzleDate}T12:00:00.000Z`)), profileId);
 }
 
 export async function startHigherLowerRun(league: HigherLowerLeague): Promise<HigherLowerGame> {

@@ -25,7 +25,7 @@ vi.mock("@/lib/cards/queries", () => ({ fetchCardEditionWeeks, fetchCardSeason }
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
 vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
 
-import { getHigherLowerGame, startHigherLowerRun, submitHigherLowerChoice } from "./server";
+import { getHigherLowerGame, getHigherLowerLeaderboard, startHigherLowerRun, submitHigherLowerChoice } from "./server";
 
 const today = "2026-08-29";
 const referenceCard = {
@@ -52,7 +52,7 @@ type Run = Record<string, unknown>;
 function createClient(run: Run | null, candidateRows = [
   { player_slug: referenceCard.slug, player_name: referenceCard.name, overall: referenceCard.overall, edition_week: "2026-08-24", card: referenceCard },
   { player_slug: challengerCard.slug, player_name: challengerCard.name, overall: challengerCard.overall, edition_week: "2026-08-17", card: challengerCard },
-], runRows = run ? [run] : []) {
+], runRows = run ? [run] : [], leaderboardGate?: Promise<void>) {
   const rpc = vi.fn(async (name: string) => {
     if (name === "start_higher_lower_run") {
       return { data: run ? [run] : null, error: null };
@@ -101,19 +101,20 @@ function createClient(run: Run | null, candidateRows = [
         return { data: null, error: null };
       },
       then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
+        const waitForLeaderboard = table === "higher_lower_daily_runs" && columns === "profile_id, run_score, league, puzzle_date"
+          ? leaderboardGate
+          : undefined;
         const data =
           table === "card_editions"
             ? [{ edition_week: "2026-08-24" }, { edition_week: "2026-08-17" }]
             : table === "higher_lower_daily_candidates"
             ? candidateRows
-            : table === "higher_lower_daily_runs" && columns === "profile_id, run_score"
-              ? run
-                ? [{ profile_id: run.profile_id, run_score: run.run_score }]
-                : []
+            : table === "higher_lower_daily_runs" && (columns === "profile_id, run_score" || columns === "profile_id, run_score, league, puzzle_date")
+              ? runRows
               : table === "betting_profiles"
                 ? [{ profile_id: "profile-1", username: "Tester", avatar_url: null }]
                 : null;
-        return Promise.resolve({ data, error: null }).then(resolve, reject);
+        return Promise.resolve(waitForLeaderboard).then(() => ({ data, error: null })).then(resolve, reject);
       },
     };
     return builder;
@@ -175,6 +176,63 @@ describe("Higher or Lower server module", () => {
       state: "not_started",
       canReplay: true,
     });
+  });
+
+  it("does not wait for weekly leaderboard before returning an active round", async () => {
+    let releaseLeaderboard!: () => void;
+    const leaderboardGate = new Promise<void>((resolve) => {
+      releaseLeaderboard = resolve;
+    });
+    const run = {
+      puzzle_date: today,
+      league: "premier",
+      profile_id: "profile-1",
+      discord_id: "discord-1",
+      random_seed: 1,
+      run_state: "awaiting_choice",
+      run_score: 0,
+      reference_player_slug: referenceCard.slug,
+      challenger_player_slug: challengerCard.slug,
+      recent_player_history: [referenceCard.slug],
+      round_number: 1,
+      run_version: 1,
+      higher_answers: 0,
+      lower_answers: 0,
+      last_choice: null,
+      last_correct: null,
+      round_expires_at: `${today}T12:00:20.000Z`,
+      started_at: `${today}T12:00:00.000Z`,
+      completed_at: null,
+      completion_reason: null,
+    } satisfies Run;
+    const client = createClient(run, undefined, undefined, leaderboardGate);
+    createBettingServiceClient.mockReturnValue(client);
+
+    let resolved = false;
+    const gamePromise = getHigherLowerGame("premier").then((game) => {
+      resolved = true;
+      return game;
+    });
+    for (let index = 0; index < 100; index += 1) await Promise.resolve();
+
+    expect(resolved).toBe(true);
+    releaseLeaderboard();
+    await expect(gamePromise).resolves.toMatchObject({ state: "awaiting_choice" });
+  });
+
+  it("loads weekly leaderboard independently from the round state", async () => {
+    const run = {
+      profile_id: "profile-1",
+      run_score: 3,
+      league: "premier",
+      puzzle_date: today,
+    };
+    const client = createClient(null, undefined, [run]);
+    createBettingServiceClient.mockReturnValue(client);
+
+    await expect(getHigherLowerLeaderboard("premier")).resolves.toMatchObject([
+      { username: "Tester", score: 3, league: "premier", isCurrentUser: true },
+    ]);
   });
 
   it("uses the unlimited replay RPC for Premium members", async () => {

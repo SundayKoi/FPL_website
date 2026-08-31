@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import HigherLowerBoard from "./HigherLowerBoard";
 import type { HigherLowerGame } from "@/lib/higher-lower/types";
@@ -92,6 +92,26 @@ describe("HigherLowerBoard", () => {
     expect(screen.getByRole("link", { name: /Back to Premium HQ/ })).toBeTruthy();
     expect(screen.queryByText("Owner preview: replay as much as you want.")).toBeNull();
     expect(screen.queryByText("Wrong answer. Run over.")).toBeNull();
+  });
+
+  it("renders concealed challenger art as an eager image with a visible fallback", () => {
+    const { container } = render(
+      <HigherLowerBoard
+        initialGame={{
+          ...game,
+          challenger: { ...game.challenger!, artUrl: "https://cdn.example/challenger.jpg" },
+        } as HigherLowerGame}
+        league="premier"
+        startRun={vi.fn()}
+        submitChoice={vi.fn()}
+        advanceRound={vi.fn()}
+      />,
+    );
+
+    const image = container.querySelector('img[src="https://cdn.example/challenger.jpg"]');
+    expect(image?.getAttribute("loading")).toBe("eager");
+    fireEvent.error(image!);
+    expect(screen.getByText("Challenger art unavailable")).toBeTruthy();
   });
 
   it("shows the shared daily reward on a finished run", () => {
