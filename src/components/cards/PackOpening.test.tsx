@@ -134,6 +134,21 @@ function flipEverything() {
   throw new Error("the line never finished flipping");
 }
 
+/** Walk a solo (narrow) pack end to end: reveal, clear any walkout, step
+ *  on. The fan helper can't do this — in solo mode only one back is in the
+ *  DOM at a time, so flipEverything sees an empty line and stops after the
+ *  first card. */
+function walkSoloPack(count: number) {
+  for (let card = 1; card <= count; card += 1) {
+    const back = screen.queryByRole("button", { name: new RegExp(`reveal card ${card} of ${count}`, "i") });
+    if (back) fireEvent.click(back);
+    const walkout = screen.queryByRole("button", { name: "Continue" });
+    if (walkout) fireEvent.click(walkout);
+    const next = screen.queryByRole("button", { name: /next card/i });
+    if (next) fireEvent.click(next);
+  }
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   stubReducedMotion(false);
@@ -462,5 +477,54 @@ describe("phone reveal", () => {
 
     expect(screen.getByRole("button", { name: /reveal card 2 of 5/i })).toBeTruthy();
     expect(screen.getByText(/2\s*\/\s*5|2 of 5/i)).toBeTruthy();
+  });
+
+  it("starts the NEXT pack back at card one", async () => {
+    // Reported from a phone: open a pack, walk to the last card, buy
+    // another, and it opened already on card five with no way back. The
+    // solo view renders only `index === cursor`, and the cursor was the
+    // one piece of state handleOpenAnother forgot to reset — so the other
+    // four were hidden and the "next card" button was gone. Invisible on
+    // desktop, where the fan renders all five and ignores the cursor.
+    stubMedia({ narrow: true });
+    renderOpening();
+    await ripPack();
+
+    // Walk to the end of the first pack.
+    walkSoloPack(5);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Open another — $200" }));
+    });
+    await ripPack();
+
+    expect(screen.getByText(/1\s*\/\s*5|1 of 5/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /reveal card 1 of 5/i })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /reveal card/i })).toHaveLength(1);
+  });
+
+  it("never lands on a card the pack doesn't have", async () => {
+    // Belt and braces for the same class of bug: the cursor is clamped to
+    // the pack on screen, so a stale one shows the LAST card rather than
+    // nothing at all. Rendering no card is a dead end with no button to
+    // press — strictly worse than showing the wrong one.
+    stubMedia({ narrow: true });
+    const onOpenAnother = vi.fn(async () => ({
+      ok: true as const,
+      cards: [pulls[0]],
+      balance: 800,
+    }));
+    renderOpening({ onOpenAnother });
+    await ripPack();
+
+    walkSoloPack(5);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Open another — $200" }));
+    });
+    await ripPack();
+
+    // A one-card pack shows its one card, not a blank stage.
+    expect(screen.getAllByRole("button", { name: /reveal card/i })).toHaveLength(1);
   });
 });
