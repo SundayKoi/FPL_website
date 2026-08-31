@@ -231,6 +231,18 @@ describe("friendlyExpeditionError", () => {
     expect(friendlyExpeditionError("unknown run")).toBe("That expedition no longer exists.");
   });
 
+  it("tells a player NOT to retry a payout the guard refused", () => {
+    // The one exception a player cannot have caused, and the one where
+    // "try again" is actively harmful: nothing was written, so the run is
+    // still claimable — but rollOutcome re-rolls on every attempt, so a
+    // retry pays a lower grade and closes it. This message exists because
+    // a real Legend Hunt jackpot was refused as a generic error, and the
+    // obvious response to a generic error is to click again.
+    const message = friendlyExpeditionError("payout out of range");
+    expect(message).toContain("don't retry");
+    expect(message).not.toBe("Something went wrong with that expedition.");
+  });
+
   it("never surfaces a raw Postgres error", () => {
     expect(friendlyExpeditionError("bearer not in squad")).toBe("Something went wrong with that expedition.");
     expect(friendlyExpeditionError('null value in column "shine" violates not-null constraint')).toBe(

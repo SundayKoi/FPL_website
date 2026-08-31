@@ -72,6 +72,15 @@ export function friendlyExpeditionError(message: string): string {
   if (/expedition still out/i.test(message)) return "That squad is still out — check back soon.";
   if (/unknown run/i.test(message)) return "That expedition no longer exists.";
   if (/unknown user/i.test(message)) return "Account not found — try signing in again.";
+  // A guard the PLAYER cannot have caused. It fired for real once: the
+  // claim's payout ceiling was the legend jackpot's base rather than its
+  // maximum, so every bonused jackpot was refused as a generic "something
+  // went wrong" — and since rollOutcome re-rolls on retry, clicking again
+  // paid a lower grade. Named here so a repeat says what it is, and so
+  // nobody is told to try again in a way that costs them the roll.
+  if (/payout out of range/i.test(message)) {
+    return "That payout didn't add up, so nothing was written — don't retry, tell staff. Your squad is still safe.";
+  }
   return GENERIC_EXPEDITION_ERROR;
 }
 
@@ -230,7 +239,13 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     p_mark: outcome.mark,
     p_bearer: bearerId,
   });
-  if (claimError) return { ok: false, error: friendlyExpeditionError(claimError.message) };
+  if (claimError) {
+    // The raw message, always: the friendly text is deliberately vague and
+    // an unrecognised failure is exactly the case somebody will have to
+    // diagnose from a screenshot.
+    console.error("expeditions: claim rejected", { discordId, runId, message: claimError.message });
+    return { ok: false, error: friendlyExpeditionError(claimError.message) };
+  }
   const balanceRow = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number } | null;
 
   // The rarest result in the feature, and the only one worth a ping. Best

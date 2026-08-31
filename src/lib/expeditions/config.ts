@@ -333,6 +333,31 @@ export function payoutRange(tier: ExpeditionTierKey): { min: number; max: number
   return { min: Math.min(...all), max: Math.max(...all) };
 }
 
+/**
+ * The most any single expedition can ever pay, in betting dollars.
+ *
+ * The claim RPC guards p_dollars the way open_card_pack guards p_cost — a
+ * caller may only write a number the config could actually produce. That
+ * guard shipped as a flat 2,000, which was the legend jackpot's BASE, and
+ * so refused every legend jackpot that carried any bonus at all: a squad
+ * one point over the gate rolled 2,060 and the claim died with "payout out
+ * of range". Because rollOutcome re-rolls on every attempt, a player who
+ * retried was paid a lower grade instead — the rarest outcome in the
+ * feature was the one outcome that could not be paid.
+ *
+ * So the ceiling is DERIVED here and the SQL is held to it by a test,
+ * rather than being a second number that can drift from this one.
+ */
+export function maxExpeditionPayout(): number {
+  let most = 0;
+  for (const tier of Object.keys(REWARDS) as ExpeditionTierKey[]) {
+    for (const grade of GRADES) {
+      most = Math.max(most, Math.round(REWARDS[tier].dollars[grade] * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS)));
+    }
+  }
+  return most;
+}
+
 /** How much each point of shine ABOVE the tier's gate adds to the payout,
  *  and the cap it stops at. Measured against the gate so a Legend Hunt's
  *  mandatory 20 shine is not paid for twice; capped so the ceiling in the
