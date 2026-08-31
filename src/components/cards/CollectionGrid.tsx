@@ -28,9 +28,13 @@
 // still only appears in the All view: the variant views are a display case,
 // not a workbench.
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
+import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
+import { fmtPoints } from "@/lib/betting/format";
+import { dustManyAction } from "@/lib/trades/actions";
 import BinderPinButton from "./BinderPinButton";
 import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
@@ -146,6 +150,61 @@ function CopyCell({ row, count, pinned, flame }: { row: InventoryRow; count?: nu
   );
 }
 
+/**
+ * A copy in select mode: the card, and a tap target over the whole cell.
+ *
+ * The card itself is the button rather than a checkbox beside it — on a
+ * phone a 14px tickbox next to a 200px card is the wrong half to aim at,
+ * and the cell already reads as one object.
+ */
+function PickCell({
+  row,
+  picked,
+  locked,
+  atCap,
+  flame,
+  value,
+  onToggle,
+}: {
+  row: InventoryRow;
+  picked: boolean;
+  /** Away on an expedition — the database would refuse the delete, so the
+   *  cell says why instead of failing on tap. */
+  locked: boolean;
+  /** The batch is full and this copy is not in it. */
+  atCap: boolean;
+  flame?: string | null;
+  value: number;
+  onToggle: () => void;
+}) {
+  const disabled = locked || (atCap && !picked);
+  return (
+    <div className="card-cell flex flex-col items-center gap-2">
+      <button
+        type="button"
+        aria-pressed={picked}
+        disabled={disabled}
+        onClick={onToggle}
+        title={locked ? "On expedition — back soon." : undefined}
+        className={`flex flex-col items-center gap-2 rounded-xl border-2 p-1 transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          picked ? "border-gold bg-gold/10" : "border-transparent hover:border-gold/40"
+        }`}
+      >
+        <PlayerCard3D card={row.card} forceFoil={row.foil} foilType={row.foilType} flame={flame} />
+        <span className="flex w-full items-center justify-center gap-1.5 text-xs">
+          <span className="truncate font-semibold text-white">{row.playerName}</span>
+          <span className={picked ? "font-bold text-gold" : "text-steel"}>
+            {picked ? "✓ " : ""}+{fmtPoints(value)}
+          </span>
+        </span>
+        <span className="text-[10px] uppercase tracking-wide text-steel">
+          {locked ? "On expedition" : editionLabel(row.editionWeek)}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 /** How many cells a shelf mounts at a time. Sized so a normal collection
  *  never sees the button at all, and a big one pays for what it looks at
  *  rather than for everything it owns. */
@@ -218,6 +277,84 @@ export default function CollectionGrid({
     setLimit(PAGE_SIZE);
   }
 
+  // ── Select mode: clearing out duplicates without opening one drawer per
+  //   player. DustControls stays exactly as it was — it is the right tool
+  //   for "which of my three Dougs", and this is the tool for "these
+  //   eleven".
+  const router = useRouter();
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  const [armed, setArmed] = useState(false);
+  const [dustError, setDustError] = useState<string | null>(null);
+  const [dusting, startDust] = useTransition();
+
+  const patron = Boolean(flame);
+  /** What a copy dusts for. Same function the server prices with, so the
+   *  running total can never quote a number the ledger won't credit. */
+  const valueOf = (row: InventoryRow): number =>
+    patronDustValue(
+      {
+        tier: row.tier,
+        foil: row.foil,
+        foilType: row.foilType,
+        signed: row.signed,
+        moment: Boolean(row.card.moment),
+        champWin: Boolean(row.card.champWin),
+        team: Boolean(row.card.team),
+      },
+      patron,
+    );
+
+  function leaveSelectMode() {
+    setSelecting(false);
+    setPicked(new Set());
+    setArmed(false);
+    setDustError(null);
+  }
+
+  function togglePick(id: number) {
+    setArmed(false);
+    setDustError(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.delete(id)) return next;
+      // The cap is the server's, imported rather than restated — being
+      // told "too many" after the tap is a worse rule than a full basket
+      // that stops accepting.
+      if (next.size >= MAX_DUST_BATCH) return current;
+      next.add(id);
+      return next;
+    });
+  }
+
+  function dustPicked() {
+    if (picked.size === 0 || dusting) return;
+    if (!armed) {
+      // Two taps, always — the same rule the single-copy drawer keeps.
+      // There is no undo on the other side of this.
+      setArmed(true);
+      setDustError(null);
+      return;
+    }
+    setArmed(false);
+    const ids = [...picked];
+    startDust(async () => {
+      const result = await dustManyAction(ids);
+      if (!result.ok) {
+        setDustError(result.error);
+        return;
+      }
+      setPicked(new Set());
+      setDustError(
+        result.skipped > 0
+          ? `Dusted ${result.dusted} for ${fmtPoints(result.value)}. ${result.skipped} couldn't be sold — a copy in a live lineup or out on an expedition.`
+          : null,
+      );
+      if (result.skipped === 0) setSelecting(false);
+      router.refresh();
+    });
+  }
+
   if (inventory.length === 0) {
     return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
   }
@@ -228,6 +365,19 @@ export default function CollectionGrid({
     signed: inventory.filter(MATCHES.signed).length,
     alt: inventory.filter(MATCHES.alt).length,
   };
+
+  const selectToggle = (
+    <button
+      type="button"
+      onClick={() => (selecting ? leaveSelectMode() : setSelecting(true))}
+      aria-pressed={selecting}
+      className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+        selecting ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+      }`}
+    >
+      {selecting ? "Cancel" : "Select to dust"}
+    </button>
+  );
 
   const chips = (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Variant filter">
@@ -247,8 +397,82 @@ export default function CollectionGrid({
           {label} · {counts[key]}
         </button>
       ))}
+      {selectToggle}
     </div>
   );
+
+  if (selecting) {
+    // Every COPY, not one card per player: a duplicate is a copy, and the
+    // whole job here is picking specific copies out of the pile. The
+    // variant chips still narrow it, which is how "dust my spare commons"
+    // is a two-tap job.
+    const shown = (filter === "all" ? inventory : inventory.filter(MATCHES[filter])).slice().sort(showcaseOrder);
+    const total = shown.filter((row) => picked.has(row.id)).reduce((sum, row) => sum + valueOf(row), 0);
+    return (
+      <div className="flex flex-col gap-4">
+        {chips}
+        <p className="text-xs text-steel">
+          Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup or out on an
+          expedition can&apos;t be dusted and the shelf will say so.
+        </p>
+        <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
+          {shown.slice(0, limit).map((row) => (
+            <PickCell
+              key={row.id}
+              row={row}
+              picked={picked.has(row.id)}
+              locked={deployedIds?.has(row.id) ?? false}
+              atCap={picked.size >= MAX_DUST_BATCH}
+              flame={flame}
+              value={valueOf(row)}
+              onToggle={() => togglePick(row.id)}
+            />
+          ))}
+        </div>
+        <ShowMore
+          shown={Math.min(limit, shown.length)}
+          total={shown.length}
+          onMore={() => setLimit((n) => n + PAGE_SIZE)}
+          noun="card"
+        />
+        {dustError ? (
+          <p role="alert" className="text-sm text-red-400">
+            {dustError}
+          </p>
+        ) : null}
+        {/* Sticky, because the selection is made by scrolling and a button
+            at the bottom of four hundred cards is a button nobody finds. */}
+        <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-navy/95 px-4 py-3 shadow-lg">
+          <span className="text-sm font-semibold text-white">
+            {picked.size} selected
+            {picked.size >= MAX_DUST_BATCH ? <span className="ml-1 text-xs text-steel">(max)</span> : null}
+          </span>
+          <span className="text-sm font-bold text-gold">+{fmtPoints(total)}</span>
+          {picked.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="text-xs font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-white hover:underline"
+            >
+              Clear
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={dustPicked}
+            disabled={picked.size === 0 || dusting}
+            className="ml-auto rounded-full border border-gold/60 bg-gold/10 px-5 py-2 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {dusting
+              ? "Dusting…"
+              : armed
+                ? `Dust ${picked.size} — sure?`
+                : `Dust selected — +${fmtPoints(total)}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (filter !== "all") {
     const shown = inventory.filter(MATCHES[filter]).sort(showcaseOrder);
