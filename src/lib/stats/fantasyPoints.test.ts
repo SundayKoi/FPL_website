@@ -103,10 +103,13 @@ describe("scoring one game", () => {
 
 describe("a player's season", () => {
   const rows: FantasyStatRow[] = [
+    // Doug plays twice in the week of Aug 24 — 14 points and 3 — and once
+    // the following week for 6.
     game({ kills: 3, win: true, game_date: "2026-08-25T20:00:00Z" }),
     game({ kills: 1, game_date: "2026-08-26T20:00:00Z" }),
-    game({ summoner_name: "Ana", tag: "EUW", kills: 10, game_date: "2026-08-25T20:00:00Z" }),
     game({ kills: 2, game_date: "2026-09-02T20:00:00Z" }),
+    // Ana plays once, for 30.
+    game({ summoner_name: "Ana", tag: "EUW", kills: 10, game_date: "2026-08-25T20:00:00Z" }),
   ];
 
   it("groups by name AND tag", () => {
@@ -117,25 +120,50 @@ describe("a player's season", () => {
     expect(fantasyKey({ summoner_name: "Doug", tag: "NA1" })).toBe("Doug#NA1");
   });
 
-  it("totals the season and ranks best first", () => {
+  it("scores a week as the AVERAGE of its games, never the sum", () => {
+    // THE rule. Doug's first week is 14 and 3 — that is 8.5, not 17.
+    // Summing would mean turning up four times beat playing well twice,
+    // which is a participation trophy rather than a score.
+    const doug = fantasySeason(rows).find((player) => player.key === "Doug#NA1")!;
+    expect(doug.byWeek.get("2026-08-24")!.points).toBe(8.5);
+    expect(doug.byWeek.get("2026-08-24")!.games).toBe(2);
+    expect(doug.byWeek.get("2026-08-31")!.points).toBe(6);
+  });
+
+  it("totals the season as the SUM of the weekly scores", () => {
+    // 8.5 + 6. Playing more weeks earns more; playing more games inside
+    // one week does not.
+    const doug = fantasySeason(rows).find((player) => player.key === "Doug#NA1")!;
+    expect(doug.points).toBe(14.5);
+    expect(doug.weeks).toHaveLength(2);
+    expect(doug.games).toBe(3);
+    expect(doug.wins).toBe(1);
+    expect(doug.perWeek).toBe(7.25);
+  });
+
+  it("cannot be climbed by playing more games in one week", () => {
+    // The regression this correction is about: a player who plays the same
+    // game four times must score exactly what they score playing it once.
+    const once = fantasySeason([game({ kills: 4, game_date: "2026-08-25T20:00:00Z" })]);
+    const fourTimes = fantasySeason(
+      Array.from({ length: 4 }, () => game({ kills: 4, game_date: "2026-08-25T20:00:00Z" })),
+    );
+    expect(fourTimes[0].points).toBe(once[0].points);
+    expect(fourTimes[0].games).toBe(4);
+  });
+
+  it("ranks on the season total", () => {
     const players = fantasySeason(rows);
     expect(players[0].key).toBe("Ana#EUW");
     expect(players[0].points).toBe(30);
-    const doug = players.find((player) => player.key === "Doug#NA1")!;
-    // 3 kills + win (14), 1 kill (3), 2 kills (6).
-    expect(doug.points).toBe(23);
-    expect(doug.games).toBe(3);
-    expect(doug.wins).toBe(1);
-    expect(doug.perGame).toBe(7.67);
+    expect(players[1].key).toBe("Doug#NA1");
   });
 
   it("splits the season into Eastern weeks", () => {
     const doug = fantasySeason(rows).find((player) => player.key === "Doug#NA1")!;
     // The 25th and 26th of August are the same league week; September 2nd
-    // is the next one.
-    expect([...doug.byWeek.keys()].sort()).toEqual(["2026-08-24", "2026-08-31"]);
-    expect(doug.byWeek.get("2026-08-24")).toBe(17);
-    expect(doug.byWeek.get("2026-08-31")).toBe(6);
+    // is the next one. Newest first.
+    expect(doug.weeks.map((week) => week.week)).toEqual(["2026-08-31", "2026-08-24"]);
   });
 
   it("skips a row that belongs to nobody", () => {
@@ -146,10 +174,11 @@ describe("a player's season", () => {
     expect(players).toHaveLength(2);
   });
 
-  it("keeps a dateless game in the season but out of every week", () => {
-    const players = fantasySeason([game({ kills: 5, game_date: null })]);
-    expect(players[0].points).toBe(15);
-    expect(players[0].byWeek.size).toBe(0);
+  it("drops a game with no date rather than scoring it into no week", () => {
+    // It belongs to no week, so there is nothing to average it into.
+    // Keeping it would make `games` disagree with `points`, and a table
+    // whose own columns contradict each other is worse than a missing row.
+    expect(fantasySeason([game({ kills: 5, game_date: null })])).toEqual([]);
     expect(weekOf({ game_date: null })).toBeNull();
     expect(weekOf({ game_date: "not a date" })).toBeNull();
   });
@@ -171,29 +200,29 @@ describe("one week of it", () => {
     expect(weeksIn(rows)).toEqual(["2026-08-31", "2026-08-24"]);
   });
 
-  it("re-ranks on the week's points alone", () => {
+  it("re-ranks on the week's own score", () => {
     const week = fantasyWeek(fantasySeason(rows), "2026-08-31");
     expect(week.map((player) => player.key)).toEqual(["Ana#EUW", "Doug#NA1"]);
-    expect(week[0].points).toBe(30);
-    expect(week[1].points).toBe(3);
+    expect(week[0].weekScore.points).toBe(30);
+    expect(week[1].weekScore.points).toBe(3);
   });
 
   it("leaves out anyone who didn't play that week", () => {
     const week = fantasyWeek(fantasySeason(rows), "2026-08-24");
     expect(week.map((player) => player.key)).toEqual(["Doug#NA1"]);
-    expect(week[0].games).toBe(1);
-    expect(week[0].wins).toBe(1);
+    expect(week[0].weekScore.games).toBe(1);
+    expect(week[0].weekScore.wins).toBe(1);
   });
 
-  it("never disagrees with the season about a game", () => {
+  it("never disagrees with the season about a week", () => {
     // The weekly view is DERIVED from the season rather than re-scored, so
-    // a week's totals must sum back to it exactly.
+    // the weeks must sum back to the season total exactly.
     const season = fantasySeason(rows);
     const doug = season.find((player) => player.key === "Doug#NA1")!;
     const fromWeeks = weeksIn(rows)
       .flatMap((week) => fantasyWeek(season, week))
       .filter((player) => player.key === "Doug#NA1")
-      .reduce((sum, player) => sum + player.points, 0);
+      .reduce((sum, player) => sum + player.weekScore.points, 0);
     expect(fromWeeks).toBe(doug.points);
   });
 });
