@@ -6,6 +6,7 @@ import { scopeSeasons } from "@/lib/stats/scope";
 import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
 import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
+import FantasyPointsTab from "./FantasyPointsTab";
 import PlayerDetail from "./PlayerDetail";
 import PlayersTab, { type SelectedPlayer } from "./PlayersTab";
 import HeadToHeadTab from "./HeadToHeadTab";
@@ -22,6 +23,7 @@ import TimelineTab from "./TimelineTab";
 // component stays in the tree for the moment; nothing routes to it.
 const TABS = [
   "Leaderboard",
+  "Fantasy Pts",
   "Teams",
   "Champions",
   "Records",
@@ -219,6 +221,8 @@ export default function StatsTabs({
         />
       ) : activeTab === "Leaderboard" ? (
         <LeaderboardTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} teamNames={teamNames} />
+      ) : activeTab === "Fantasy Pts" ? (
+        <FantasyPointsTab season={season} phase={phase} />
       ) : activeTab === "Teams" ? (
         <TeamsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Champions" ? (
