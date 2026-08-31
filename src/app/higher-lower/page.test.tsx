@@ -27,14 +27,14 @@ afterEach(() => {
 });
 
 describe("HigherLowerPage", () => {
-  it("shows patron early-access guidance to denied callers", async () => {
-    getHigherLowerGame.mockRejectedValue(new HigherLowerError("FORBIDDEN", "Higher or Lower is in early access for patrons, admins, and owners."));
+  it("shows Premium guidance to denied callers", async () => {
+    getHigherLowerGame.mockRejectedValue(new HigherLowerError("FORBIDDEN", "Higher or Lower is available to Premium members."));
 
     render(await HigherLowerPage());
 
-    expect(screen.getByRole("heading", { name: /patron early access/i })).toBeTruthy();
-    expect(screen.getByText(/patrons get early access to new features/i)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /patron benefits/i }).getAttribute("href")).toBe("/support-devs");
+    expect(screen.getByRole("heading", { name: /premium members only/i })).toBeTruthy();
+    expect(screen.getByText(/premium members can play higher or lower/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /open premium hq/i }).getAttribute("href")).toBe("/premium");
   });
 
   it("keeps card-edition unavailability inside the game page", async () => {

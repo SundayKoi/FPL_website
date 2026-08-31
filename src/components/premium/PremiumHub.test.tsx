@@ -71,8 +71,10 @@ describe("PremiumHub betting preview", () => {
     render(<PremiumHub snapshot={snapshot} />);
 
     const announcement = screen.getByRole("complementary", { name: "New feature announcement" });
-    expect(announcement.textContent).toContain("FPL'dle is here");
+    expect(announcement.textContent).toContain("FPL'dle and Higher or Lower are here");
+    expect(announcement.textContent).toContain("one shared reward");
     expect(within(announcement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/fpldle");
+    expect(within(announcement).getByRole("link", { name: /play higher or lower/i }).getAttribute("href")).toBe("/higher-lower");
 
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
@@ -87,7 +89,9 @@ describe("PremiumHub betting preview", () => {
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
-    expect(within(screen.getByRole("complementary", { name: "New feature announcement" })).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
+    const academyAnnouncement = screen.getByRole("complementary", { name: "New feature announcement" });
+    expect(within(academyAnnouncement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
+    expect(within(academyAnnouncement).getByRole("link", { name: /play higher or lower/i }).getAttribute("href")).toBe("/academy/higher-lower");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/academy/higher-lower");
   });

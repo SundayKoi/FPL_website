@@ -83,16 +83,20 @@ The site presents Premier/FPL and Academy as paired league experiences. The
 header's `LeagueBrandChooser` is the single league-switching control: it maps
 the current supported route (and its query string) to the corresponding
 Premier or Academy path, while an unrelated shared route falls back to the
-target league home. Page-level league toggles are intentionally absent.
+target league home. Premium HQ is the intentional exception: its
+Premier/Academy toggle keeps card and fantasy destinations in the selected
+league.
 
 `SiteNavigation` renders five direct links for the active league—Players,
-Teams, Schedule, Stats, and My Team—and groups active-league destinations plus
-Auction Draft under League, with shared destinations under Premium and Info.
-Match Drafter is grouped under Premium. Admin and Broadcaster are Staff entries
-within Info, conditionally rendered from the server-provided staff tier. Those props do
-not authorize access: `/admin` and `/broadcaster` continue to perform their
-existing server-side gates, and the route checks remain authoritative if a
-link is hidden or manually visited.
+Teams, Schedule, Stats, and My Team—and a direct Premium link to the gated
+Premium HQ. Active-league destinations plus Auction Draft remain under League,
+with shared destinations under Info. Premium HQ previews and links Betting, The
+Daily Stu, Player Cards, Draft League, Match Drafter, and the card economy.
+Admin and Broadcaster are Staff entries within Info, conditionally rendered
+from the server-provided staff tier. Those props do not authorize access:
+`/admin` and `/broadcaster` continue to perform their existing server-side
+gates, and the route checks remain authoritative if a link is hidden or
+manually visited.
 
 ## Authentication and authorization
 
@@ -134,6 +138,11 @@ Authorization has several independent dimensions:
 - Betting access checks Discord guild membership and roles in
   `src/lib/betting/access.ts`; staff and owner checks are separate from normal
   member access.
+- Premium HQ uses `src/lib/premium/access.ts` as the shared server-side gate;
+  `DISCORD_REQUIRED_ROLE_ID` in `DISCORD_GUILD_ID` is the canonical FPL
+  Premium role, with the legacy drafter variables retained as a fallback.
+  The gate reads the payment URL from the League Links payment resource only
+  for visitors who are not already admitted.
 - Public token drafts use the token as their capability and keep lobby reads
   and mutations scoped to the lobby/game in the corresponding RPCs.
 - Public open-lobby creation is intentionally different from lobby usage:
@@ -162,7 +171,8 @@ Postgres database and public schema:
 | Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, and role positions are database-backed. |
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
-| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per UTC date and league, record each signed-in wallet's guesses, and credit one 200 betting-dollar base completion reward within five guesses (300 for an active patron). `reward_amount` records the actual completion payout. Answer and progress rows have no `anon`/`authenticated` read grant. |
+| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per UTC date and league, record each signed-in wallet's guesses, and claim the shared daily-game reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile and UTC date (300 for an active patron), regardless of which daily game completes first; FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
+| Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
@@ -185,7 +195,7 @@ Important RPC families include:
   admin create/resolve/cancel/grant functions.
 - Recurring rewards: `calculate_recurring_reward` is the shared database
   calculator used by `claim_daily_streak`, `claim_weekly_streak`,
-  `vote_daily_banger`, `record_fpldle_guess`, and `pay_match_win`. The wallet
+  `vote_daily_banger`, `claim_daily_game_reward`, and `pay_match_win`. The wallet
   is locked before `patron_until > now()` is checked. Only the base is
   multiplied: `base * 1.5 + step * (streak - 1)` for an active patron,
   otherwise `base + step * (streak - 1)`. Callers cannot request a patron
@@ -193,8 +203,20 @@ Important RPC families include:
   progress, vote, or payout row. Existing payouts are never backfilled.
 - FPL'dle: `ensure_fpldle_daily_puzzle` creates one stable puzzle per UTC date
   and league; `record_fpldle_guess` enforces the five-guess progress limit and
-  atomically credits the one-time completion reward. A correct replay returns
-  the stored `reward_amount` without writing another ledger row.
+  claims the shared daily-game reward. A correct replay returns the stored
+  `reward_amount` without writing another ledger row.
+- Higher or Lower: `ensure_higher_lower_daily_candidates_weeks` freezes the latest
+  card-edition pool once per UTC date and league; the shared Premium gate
+  authorizes access, and the trusted `start_higher_lower_run` path preserves
+  completed attempts for unlimited replay; `submit_higher_lower_choice` claims
+  the shared daily-game reward when a run ends, while that function and
+  `advance_higher_lower_round` own the server-timed state machine and
+  expected-version race handling;
+  `settle_higher_lower_week` pays tied top combined-league runs exactly once.
+  The `higher-lower-settlement` GitHub workflow triggers at both UTC hours
+  that can represent 8 PM America/New_York, and the script skips the wrong
+  DST half, supports a chosen Monday and dry-run preview, and relies on the
+  settlement RPC's idempotency for the second trigger.
 - Match drafts: `apply_match_draft_action`, `set_match_draft_ready`,
   `choose_match_draft_blue`, change/undo/reset functions, and their
   `open_draft_*` token equivalents.

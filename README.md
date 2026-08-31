@@ -16,7 +16,8 @@ The site now also includes:
   Discord commands/interactions;
 - fixture-based and public token-based champion drafts, including realtime
   presence and draft state; and
-- player cards, weekly rating snapshots, card art, mottos, and share images.
+- player cards, weekly rating snapshots, card art, mottos, and share images;
+- Premium daily games: FPL'dle and the 45-round Higher or Lower card run with unlimited attempts, sharing one daily betting-dollar reward.
 
 See [docs/backend.md](docs/backend.md) for the backend architecture and the
 source-file map intended for agents picking up work.
@@ -155,7 +156,7 @@ update profiles set is_admin = true where id = '<your auth user uuid>';
 npm run lint             # ESLint
 npm test                 # Vitest unit/component suite
 npm run build            # production Next.js build
-npx supabase test db     # pgTAP suite; local Supabase must be running
+npm run test:db          # pgTAP suite; local Supabase must be running
 npm run e2e              # Playwright auction + betting smoke tests
 ```
 

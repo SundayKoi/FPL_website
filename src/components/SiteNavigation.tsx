@@ -85,6 +85,10 @@ export default function SiteNavigation({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const league = resolveLeagueFromPath(pathname ?? "/");
+  const premiumHref =
+    league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
+      ? "/premium?league=academy"
+      : "/premium";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
@@ -169,7 +173,7 @@ export default function SiteNavigation({
             );
           })}
           <Link
-            href="/premium"
+            href={premiumHref}
             aria-current={isPremiumActive(pathname) ? "page" : undefined}
             onClick={closeMenus}
             className={topLinkClass(isPremiumActive(pathname))}

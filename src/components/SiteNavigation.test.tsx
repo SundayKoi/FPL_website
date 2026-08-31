@@ -2,15 +2,19 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import SiteNavigation from "./SiteNavigation";
 
-const { pathname } = vi.hoisted(() => ({ pathname: { value: "/" } }));
+const { pathname, search } = vi.hoisted(() => ({
+  pathname: { value: "/" },
+  search: { value: "tab=Players" },
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname.value,
-  useSearchParams: () => new URLSearchParams("tab=Players"),
+  useSearchParams: () => new URLSearchParams(search.value),
 }));
 
 afterEach(() => {
   pathname.value = "/";
+  search.value = "tab=Players";
   cleanup();
 });
 
@@ -166,6 +170,22 @@ describe("SiteNavigation", () => {
     pathname.value = "/cards/compare";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
     expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("keeps the Premium destination on the current league", () => {
+    pathname.value = "/academy/players";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe(
+      "/premium?league=academy",
+    );
+
+    cleanup();
+    pathname.value = "/premium";
+    search.value = "league=academy";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe(
+      "/premium?league=academy",
+    );
   });
 
   it("uses the larger desktop header and brand treatment", () => {

@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(12);
 
 select is(
   (select count(*) from information_schema.columns
@@ -17,13 +17,11 @@ select is(has_function_privilege('anon', 'public._start_higher_lower_run(date,te
 
 insert into public.profiles (id, display_name)
 values
-  ('00000000-0000-0000-0000-000000000751', 'Higher Lower Owner'),
-  ('00000000-0000-0000-0000-000000000752', 'Higher Lower Member');
+  ('00000000-0000-0000-0000-000000000751', 'Higher Lower Owner');
 
 insert into public.betting_profiles (discord_id, profile_id, username, balance)
 values
-  ('higher-lower-0751', '00000000-0000-0000-0000-000000000751', 'Owner', 1000),
-  ('higher-lower-0752', '00000000-0000-0000-0000-000000000752', 'Member', 1000);
+  ('higher-lower-0751', '00000000-0000-0000-0000-000000000751', 'Owner', 1000);
 
 insert into public.higher_lower_daily_candidates (
   puzzle_date, league, season, edition_week, player_slug, player_name, overall, card
@@ -64,21 +62,6 @@ select is((select count(*) from public.higher_lower_daily_runs
   where puzzle_date = '2099-02-02' and league = 'premier'
     and profile_id = '00000000-0000-0000-0000-000000000751'), 2::bigint,
   'owner attempts remain available for best-score ranking');
-
-select * from public.start_higher_lower_run(
-  '2099-02-02', 'premier', '00000000-0000-0000-0000-000000000752', 'higher-lower-0752'
-)
-\gset member_first_
-select is(:'member_first_run_state'::text, 'awaiting_choice'::text, 'ordinary members still start one daily run');
-select * from public.start_higher_lower_run(
-  '2099-02-02', 'premier', '00000000-0000-0000-0000-000000000752', 'higher-lower-0752'
-);
-select is((select count(*) from public.higher_lower_daily_runs
-  where puzzle_date = '2099-02-02' and league = 'premier'
-    and profile_id = '00000000-0000-0000-0000-000000000752'), 1::bigint,
-  'ordinary members remain limited to one daily attempt');
-select is((select owner_replay from public.higher_lower_daily_runs
-  where id = :'member_first_id'::bigint), false, 'ordinary attempts are not marked for owner replay');
 
 select * from finish();
 rollback;

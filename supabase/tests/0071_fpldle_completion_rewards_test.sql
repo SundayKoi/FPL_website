@@ -56,7 +56,7 @@ select is(:'reward_accepted'::boolean, true, 'correct guess is accepted');
 select is(:'reward_guess_count'::int, 2, 'correct guess stays within five attempts');
 select is(:'reward_reward_amount'::bigint, 200::bigint, 'correct guess earns 200');
 select is(:'reward_balance'::bigint, 1200::bigint, 'reward is added to the wallet');
-select is((select count(*) from public.betting_ledger where discord_id = 'fpldle-0071' and reason = 'fpldle_completion'), 1::bigint, 'one completion ledger row is written');
+select is((select count(*) from public.betting_ledger where discord_id = 'fpldle-0071' and reason = 'daily_game_reward'), 1::bigint, 'one shared daily-game ledger row is written');
 
 select * from public.record_fpldle_guess(
   '2026-08-28', 'academy', '00000000-0000-0000-0000-000000000071', 'fpldle-0071', 'academy-answer', true
@@ -64,7 +64,7 @@ select * from public.record_fpldle_guess(
 \gset retry_
 select is(:'retry_accepted'::boolean, false, 'replayed correct guess is not accepted twice');
 select is(:'retry_already_rewarded'::boolean, true, 'replayed correct guess reports the existing reward');
-select is((select count(*) from public.betting_ledger where discord_id = 'fpldle-0071' and reason = 'fpldle_completion'), 1::bigint, 'replay does not add another ledger row');
+select is((select count(*) from public.betting_ledger where discord_id = 'fpldle-0071' and reason = 'daily_game_reward'), 1::bigint, 'replay does not add another shared-reward ledger row');
 
 select public.reset_fpldle_daily_puzzle('2026-08-28', 'academy');
 select is((select cardinality(guesses) from public.fpldle_daily_progress where puzzle_date = '2026-08-28' and league = 'academy' and profile_id = '00000000-0000-0000-0000-000000000071'), 0, 'admin reset clears attempts');

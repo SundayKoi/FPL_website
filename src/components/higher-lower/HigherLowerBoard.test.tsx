@@ -35,6 +35,7 @@ const game = {
   lastChoice: null,
   lastCorrect: null,
   completionReason: null,
+  reward: null,
   weeklyLeaderboard: [],
 } as unknown as HigherLowerGame;
 
@@ -76,7 +77,7 @@ describe("HigherLowerBoard", () => {
     expect(screen.getByText("↓")).toBeTruthy();
   });
 
-  it("shows owners a replay action after a finished run", () => {
+  it("shows Premium members a replay action after a finished run", () => {
     render(
       <HigherLowerBoard
         initialGame={{ ...game, state: "lost", canReplay: true } as HigherLowerGame}
@@ -91,6 +92,20 @@ describe("HigherLowerBoard", () => {
     expect(screen.getByRole("link", { name: /Back to Premium HQ/ })).toBeTruthy();
     expect(screen.queryByText("Owner preview: replay as much as you want.")).toBeNull();
     expect(screen.queryByText("Wrong answer. Run over.")).toBeNull();
+  });
+
+  it("shows the shared daily reward on a finished run", () => {
+    render(
+      <HigherLowerBoard
+        initialGame={{ ...game, state: "lost", canReplay: true, reward: { amount: 300, alreadyClaimed: false } } as HigherLowerGame}
+        league="premier"
+        startRun={vi.fn()}
+        submitChoice={vi.fn()}
+        advanceRound={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("+$300 daily reward credited.")).toBeTruthy();
   });
 
   it("puts Next Card in the game controls after a correct reveal", () => {

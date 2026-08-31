@@ -243,11 +243,18 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="label-dash">New feature announcement</span>
-            <p className="mt-2 text-white">FPL&apos;dle is here: solve today&apos;s {leagueLabel} player puzzle within five guesses to earn $200 betting dollars, or $300 while your patron flame is active.</p>
+            <p className="mt-2 text-white">
+              FPL&apos;dle and Higher or Lower are here: complete either daily game to claim one shared reward — $200 betting dollars, or $300 while your patron flame is active. Solve FPL&apos;dle within five guesses or take on 45 Higher or Lower rounds with unlimited replays.
+            </p>
           </div>
-          <Link href={fpldleHref} className="shrink-0 rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
-            Play FPL&apos;dle →
-          </Link>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Link href={fpldleHref} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
+              Play FPL&apos;dle →
+            </Link>
+            <Link href={higherLowerHref} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
+              Play Higher or Lower →
+            </Link>
+          </div>
         </div>
       </aside>
       <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -388,7 +395,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <SectionHeading
           eyebrow="Daily games"
           title="Daily games"
-          description="A fresh shared puzzle every day, with more daily games on the way."
+          description="Two daily games, one shared reward, refreshed at midnight UTC."
         />
         <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
         <div className="grid gap-5 lg:grid-cols-12">

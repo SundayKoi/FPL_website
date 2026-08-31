@@ -3,20 +3,27 @@ import type { PlayerCardData } from "@/lib/cards/build";
 
 vi.mock("server-only", () => ({}));
 
-const { createServerSupabase, createBettingServiceClient, fetchCardEditionWeeks, fetchCardSeason, fetchStaffTier, getBettingUser } = vi.hoisted(() => ({
+const {
+  createServerSupabase,
+  createBettingServiceClient,
+  fetchCardEditionWeeks,
+  fetchCardSeason,
+  getBettingUser,
+  premiumAccess,
+} = vi.hoisted(() => ({
   createServerSupabase: vi.fn(),
   createBettingServiceClient: vi.fn(),
   fetchCardEditionWeeks: vi.fn(),
   fetchCardSeason: vi.fn(),
-  fetchStaffTier: vi.fn(),
   getBettingUser: vi.fn(),
+  premiumAccess: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 vi.mock("@/lib/cards/queries", () => ({ fetchCardEditionWeeks, fetchCardSeason }));
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
+vi.mock("@/lib/premium/access", () => ({ premiumAccess }));
 
 import { getHigherLowerGame, startHigherLowerRun, submitHigherLowerChoice } from "./server";
 
@@ -122,13 +129,13 @@ beforeEach(() => {
   createBettingServiceClient.mockReset();
   fetchCardSeason.mockReset();
   fetchCardEditionWeeks.mockReset();
-  fetchStaffTier.mockReset();
   getBettingUser.mockReset();
+  premiumAccess.mockReset();
   createServerSupabase.mockResolvedValue(createClient(null));
   fetchCardSeason.mockResolvedValue("S99");
   fetchCardEditionWeeks.mockResolvedValue(["2026-08-24", "2026-08-17"]);
-  fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
   getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true });
+  premiumAccess.mockResolvedValue({ signedIn: true, allowed: true, inconclusive: false });
 });
 
 describe("Higher or Lower server module", () => {
@@ -138,44 +145,28 @@ describe("Higher or Lower server module", () => {
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("keeps non-patrons out of the game", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
-    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true, patron: false });
+  it("keeps non-Premium callers out of the game", async () => {
+    premiumAccess.mockResolvedValue({ signedIn: true, allowed: false, inconclusive: false });
 
     await expect(getHigherLowerGame("premier")).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Higher or Lower is in early access for patrons, admins, and owners.",
+      message: "Higher or Lower is available to Premium members.",
     });
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("keeps other staff out unless they are patrons, admins, or owners", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
-    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: true, patron: false });
+  it("asks signed-out callers to sign in", async () => {
+    premiumAccess.mockResolvedValue({ signedIn: false, allowed: false, inconclusive: false });
 
     await expect(getHigherLowerGame("premier")).rejects.toMatchObject({
       code: "FORBIDDEN",
-      message: "Higher or Lower is in early access for patrons, admins, and owners.",
+      message: "Sign in with Discord to play Higher or Lower.",
     });
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("allows active patrons to play without staff access", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: false });
-    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: false, patron: true });
-    const client = createClient(null);
-    createBettingServiceClient.mockReturnValue(client);
-
-    await expect(getHigherLowerGame("premier")).resolves.toMatchObject({
-      league: "premier",
-      state: "not_started",
-      canReplay: false,
-    });
-  });
-
-  it("allows owners through the temporary staff gate", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
-    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: false });
+  it("allows Premium members to play without patron status or staff access", async () => {
+    getBettingUser.mockResolvedValue({ profileId: "profile-1", discordId: "discord-1", allowed: false, patron: false });
     const client = createClient(null);
     createBettingServiceClient.mockReturnValue(client);
 
@@ -186,15 +177,14 @@ describe("Higher or Lower server module", () => {
     });
   });
 
-  it("uses the owner replay RPC for new attempts", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
+  it("uses the unlimited replay RPC for Premium members", async () => {
     const client = createClient(null);
     createBettingServiceClient.mockReturnValue(client);
 
     const game = await startHigherLowerRun("premier");
 
     expect(game.canReplay).toBe(true);
-    expect(client.rpc).toHaveBeenCalledWith("start_higher_lower_owner_run", {
+    expect(client.rpc).toHaveBeenCalledWith("start_higher_lower_run", {
       p_puzzle_date: today,
       p_league: "premier",
       p_profile_id: "profile-1",
@@ -202,8 +192,7 @@ describe("Higher or Lower server module", () => {
     });
   });
 
-  it("loads the latest owner attempt when completed replays create multiple rows", async () => {
-    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
+  it("loads the latest Premium attempt when completed replays create multiple rows", async () => {
     const completedRun = {
       puzzle_date: today,
       league: "premier",
@@ -266,7 +255,7 @@ describe("Higher or Lower server module", () => {
     const game = await getHigherLowerGame("premier");
 
     expect(game.state).toBe("awaiting_choice");
-    expect(game.canReplay).toBe(false);
+    expect(game.canReplay).toBe(true);
     expect(game.challenger).toMatchObject({ slug: challengerCard.slug, name: challengerCard.name });
     expect(game.challenger).not.toHaveProperty("overall");
     expect(game.challenger).not.toHaveProperty("signature");

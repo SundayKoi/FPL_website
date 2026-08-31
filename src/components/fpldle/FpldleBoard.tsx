@@ -519,7 +519,7 @@ export default function FpldleBoard({
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
         <span className="label-dash">Daily reward</span>
-        <p className="mt-2 text-white">Normal users get $200 betting dollars; active patrons get $300. Complete the puzzle within five guesses; credit is automatic once per league puzzle.</p>
+        <p className="mt-2 text-white">Complete any daily game to claim one shared reward: $200 betting dollars, or $300 while your patron flame is active. FPL&apos;dle pays when you solve within five guesses.</p>
       </aside>
       <p role="note" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-steel">
         <span className="font-semibold text-gold">Reminder:</span> Possible players include substitutes (subs).

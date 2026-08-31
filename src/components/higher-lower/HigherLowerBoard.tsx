@@ -248,14 +248,17 @@ export default function HigherLowerBoard({
           </div>
         </div>
         {game.state === "not_started" ? (
-          <span className="text-sm text-steel">
-            {game.canReplay ? "Owner preview · unlimited replays · server-timed" : "One run per day · server-timed"}
-          </span>
+          <span className="text-sm text-steel">Unlimited replays · server-timed</span>
         ) : (
           <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
             {game.state === "perfect" ? "Perfect" : "Complete"}
           </span>
         )}
+        {game.reward ? (
+          <p className="basis-full text-right text-sm font-semibold text-mint">
+            +${game.reward.amount} daily reward credited{game.reward.alreadyClaimed ? " previously" : ""}.
+          </p>
+        ) : null}
       </section>
 
       {error ? <p role="alert" className="rounded border border-coral/60 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p> : null}
@@ -265,12 +268,15 @@ export default function HigherLowerBoard({
           <span className="label-dash">Today&apos;s card gauntlet</span>
           <h2 className="type-display text-3xl sm:text-5xl">How far can you read?</h2>
           <p className="max-w-xl text-sm leading-7 text-steel">
-            Every round shows a complete reference card and a concealed challenger. The timer starts only when a round begins, and one miss ends your Daily run.
+            Every round shows a complete reference card and a concealed challenger. The timer starts only when a round begins, and one miss ends your run. Play again as often as you like.
+          </p>
+          <p className="max-w-xl text-xs leading-6 text-gold">
+            Finish any daily game to claim the shared reward: $200 betting dollars, or $300 while your patron flame is active.
           </p>
           <button type="button" onClick={start} disabled={pending} className="btn-rivalry rounded-full px-7 py-3 text-sm uppercase tracking-wide">
             {pending ? "Starting…" : "Start Run →"}
           </button>
-          <p className="text-xs text-steel">Frozen card pool · private sequence · 20 seconds per choice</p>
+          <p className="text-xs text-steel">Frozen card pool · private sequence · unlimited runs · 20 seconds per choice</p>
         </section>
       ) : (
         <>

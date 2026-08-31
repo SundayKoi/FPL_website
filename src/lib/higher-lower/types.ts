@@ -25,6 +25,11 @@ export interface ConcealedHigherLowerCard {
   editionWeek: string | null;
 }
 
+export interface HigherLowerReward {
+  amount: number;
+  alreadyClaimed: boolean;
+}
+
 export interface HigherLowerLeaderboardRow {
   username: string;
   avatarUrl: string | null;
@@ -53,6 +58,7 @@ export interface HigherLowerGame {
   lastChoice: HigherLowerLastChoice | null;
   lastCorrect: boolean | null;
   completionReason: HigherLowerCompletionReason | null;
+  reward: HigherLowerReward | null;
   weeklyLeaderboard: HigherLowerLeaderboardRow[];
 }
 

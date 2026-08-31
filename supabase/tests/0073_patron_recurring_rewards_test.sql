@@ -84,7 +84,7 @@ select is((select reward_amount from public.record_fpldle_guess('2026-08-28', 'p
 select is((select reward_amount from public.fpldle_daily_progress where discord_id = 'fpl-active-0073'), 300::bigint, 'FPL''dle progress stores the actual patron amount');
 select is((select accepted from public.record_fpldle_guess('2026-08-28', 'premier', '00000000-0000-0000-0000-000000007302'::uuid, 'fpl-active-0073', 'active-answer', true)), false, 'replayed FPL''dle solve is not accepted twice');
 select is((select reward_amount from public.record_fpldle_guess('2026-08-28', 'premier', '00000000-0000-0000-0000-000000007302'::uuid, 'fpl-active-0073', 'active-answer', true)), 300::bigint, 'replayed FPL''dle solve returns the existing reward');
-select is((select count(*) from public.betting_ledger where discord_id = 'fpl-active-0073' and reason = 'fpldle_completion'), 1::bigint, 'replayed FPL''dle solve writes one ledger row');
+select is((select count(*) from public.betting_ledger where discord_id = 'fpl-active-0073' and reason = 'daily_game_reward'), 1::bigint, 'replayed FPL''dle solve writes one shared-reward ledger row');
 
 insert into public.fixtures (id, season, stage, team_a, team_b, best_of, sort_order)
 values ('00000000-0000-0000-0000-000000007501'::uuid, 'PATRON_0073', 'week_1', 'A', 'B', 3, 7301);
