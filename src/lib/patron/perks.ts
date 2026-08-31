@@ -15,6 +15,7 @@
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
 import { PATRON_DUST_MULT } from "@/lib/packs/config";
 import { SOVEREIGN_TENURE_DAYS } from "./flames";
+import { DAILY_LAUNCHES, PATRON_DAILY_LAUNCHES } from "@/lib/expeditions/config";
 
 export interface PatronPerk {
   key: string;
@@ -27,12 +28,16 @@ export interface PatronPerk {
   headline: boolean;
 }
 
-/** Launches per Eastern day, patron vs not. These two live in SQL, not
- *  TS — `launch_expedition` in 20260901000001_card_expeditions.sql sets
- *  `v_limit := case when patron then 2 else 1` — so they can't be
- *  imported; the perks test pins this copy to those numbers instead. */
-export const PATRON_EXPEDITION_LAUNCHES = 2;
-export const BASE_EXPEDITION_LAUNCHES = 1;
+/** Launches per Eastern day, patron vs not.
+ *
+ *  These were a second pair of literals restating DAILY_LAUNCHES and
+ *  PATRON_DAILY_LAUNCHES, which were themselves restating the `v_limit :=
+ *  case when patron then 2 else 1` inside launch_expedition — four
+ *  constants and a SQL literal for two numbers, none of them connected.
+ *  Now there is one TS source, and a test (expeditions/launchLimit.test.ts)
+ *  reads the live migration and holds the SQL to it. */
+export const BASE_EXPEDITION_LAUNCHES = DAILY_LAUNCHES;
+export const PATRON_EXPEDITION_LAUNCHES = PATRON_DAILY_LAUNCHES;
 
 const EXTRA_SLOTS = PATRON_BINDER_SLOTS - BINDER_SLOTS;
 const DUST_BONUS_PCT = Math.round((PATRON_DUST_MULT - 1) * 100);

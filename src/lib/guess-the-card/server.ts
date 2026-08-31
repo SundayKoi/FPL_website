@@ -7,6 +7,7 @@ import { cardSlug } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { dailyGameDate } from "@/lib/dailyDay";
 import {
   revealGuessTheCard,
   type GuessTheCardCandidate,
@@ -204,10 +205,6 @@ function isIsoDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function utcDate(date: Date = new Date()): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function parseLeague(value: unknown): GuessTheCardLeague {
@@ -579,7 +576,7 @@ function rpcErrorCode(error: unknown): GuessTheCardErrorCode | null {
 /** Ensure today's frozen game and restore this admin's account-backed progress. */
 export async function getGuessTheCardGame(league: GuessTheCardLeague): Promise<GuessTheCardGame> {
   const validLeague = parseLeague(league);
-  const date = utcDate();
+  const date = dailyGameDate();
   const { server, service, profileId } = await requireGuessTheCardAdmin();
   await ensurePuzzle(server, service, validLeague, date);
   const user = await getBettingUser();
@@ -589,7 +586,7 @@ export async function getGuessTheCardGame(league: GuessTheCardLeague): Promise<G
 /** Submit only a player reference. Postgres compares it with the hidden answer. */
 export async function submitGuessTheCard(input: unknown): Promise<GuessTheCardSubmission> {
   const { league, puzzleDate, playerSlug } = parseGuess(input);
-  if (puzzleDate !== utcDate()) {
+  if (puzzleDate !== dailyGameDate()) {
     throw new GuessTheCardError("STALE_PUZZLE", "That Guess the Card puzzle has expired. Refresh for today's game.");
   }
   const { server, service, profileId, discordId } = await requireGuessTheCardAdmin();
@@ -616,7 +613,7 @@ export async function submitGuessTheCard(input: unknown): Promise<GuessTheCardSu
 /** Admin-only reset for finding several state transitions during testing. */
 export async function resetGuessTheCardPuzzle(input: unknown): Promise<GuessTheCardPuzzleReset> {
   const { league, puzzleDate } = parseReference(input);
-  if (puzzleDate !== utcDate()) {
+  if (puzzleDate !== dailyGameDate()) {
     throw new GuessTheCardError("STALE_PUZZLE", "Only today's Guess the Card puzzle can be reset.");
   }
   const { server, service } = await requireGuessTheCardAdmin();

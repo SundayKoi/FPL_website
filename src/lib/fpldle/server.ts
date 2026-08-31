@@ -7,6 +7,7 @@ import type { BettingUser } from "@/lib/betting/types";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { dailyGameDate } from "@/lib/dailyDay";
 import {
   compareFpldleGuess,
   type FpldleCandidate,
@@ -184,10 +185,6 @@ function isIsoDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-function utcDate(date: Date = new Date()): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function parseLeague(league: unknown): FpldleLeague {
@@ -532,7 +529,7 @@ async function publicCandidates(
 /** Ensure today's stable puzzle, then return only public labels and state. */
 export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   const validLeague = parseLeague(league);
-  const date = utcDate();
+  const date = dailyGameDate();
   const server = await requireFpldlePremium();
   const { isAdmin } = await fetchStaffTier(server);
   const service = createBettingServiceClient();
@@ -607,7 +604,7 @@ function parseReveal(input: unknown): { league: FpldleLeague; puzzleDate: string
 /** Validate request independently, load hidden answer server-side, and return clue feedback only. */
 export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmission> {
   const { league, puzzleDate, playerSlug } = parseSubmission(input);
-  if (puzzleDate !== utcDate()) {
+  if (puzzleDate !== dailyGameDate()) {
     throw new FpldleError("STALE_PUZZLE", "That puzzle has expired. Refresh for today's game.");
   }
 
@@ -670,7 +667,7 @@ export async function submitFpldleGuess(input: unknown): Promise<FpldleSubmissio
 /** Admin-only testing reset: remove today's snapshot and immediately choose a new stable answer. */
 export async function resetFpldlePuzzle(input: unknown): Promise<FpldlePuzzleReset> {
   const { league, puzzleDate } = parsePuzzleReference(input);
-  if (puzzleDate !== utcDate()) {
+  if (puzzleDate !== dailyGameDate()) {
     throw new FpldleError("STALE_PUZZLE", "Only today's puzzle can be reset.");
   }
 
@@ -688,7 +685,7 @@ export async function resetFpldlePuzzle(input: unknown): Promise<FpldlePuzzleRes
 /** Reveal answer only after five distinct, current-puzzle guesses. */
 export async function revealFpldleAnswer(input: unknown): Promise<FpldleAnswerReveal> {
   const { league, puzzleDate, guesses } = parseReveal(input);
-  if (puzzleDate !== utcDate()) {
+  if (puzzleDate !== dailyGameDate()) {
     throw new FpldleError("STALE_PUZZLE", "That puzzle has expired. Refresh for today's game.");
   }
 
