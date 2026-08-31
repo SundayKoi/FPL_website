@@ -284,6 +284,12 @@ export default function PackOpening({
   // on a 390px screen — so the name, the OVR and the bars were all
   // unreadable and the flip target was a sliver. Desktop keeps the fan.
   const [narrow, setNarrow] = useState(false);
+  /** Which card the solo (narrow) view is showing. Reset on every new
+   *  pack — see handleOpenAnother. It used to survive one, so a phone
+   *  that had walked to card five opened the NEXT pack already on card
+   *  five: `index !== cursor` hid the other four and there was no "next"
+   *  left to press. Desktop never saw it, because the fan renders all
+   *  five and ignores the cursor entirely. */
   const [cursor, setCursor] = useState(0);
   /** True for the length of a flip. The card's ambient loops (halo, sparkles,
    *  drifting frame) are paused while it turns — nobody can read them edge-on,
@@ -350,6 +356,10 @@ export default function PackOpening({
   /** One-card-at-a-time reveal: phones only, and only while still revealing —
    *  the summary is a contact sheet of the whole pack on every screen. */
   const solo = narrow && view === "line";
+  /** The cursor, clamped to the pack actually on screen. Belt and braces
+   *  for the reset above: a cursor past the end renders NO card at all
+   *  rather than the wrong one, which is a blank screen with no way out. */
+  const soloIndex = Math.min(cursor, Math.max(0, pack.pulls.length - 1));
 
   // The page behind the overlay must not scroll under it.
   useEffect(() => {
@@ -512,6 +522,7 @@ export default function PackOpening({
     burstedRef.current = false;
     setPack({ index: pack.index + 1, pulls, isNew: marked.flags, seen: marked.seen });
     setFlipped(blank);
+    setCursor(0);
     setWalkoutQueue([]);
     setAutoFlip(false);
     setProgress(0);
@@ -634,7 +645,7 @@ export default function PackOpening({
             <div className={`pack-line ${solo ? "pack-line-solo" : ""}`}>
               {pack.pulls.map((pull, index) => {
                 // Phones show one card; the summary still lays them all out.
-                if (solo && index !== cursor) return null;
+                if (solo && index !== soloIndex) return null;
                 const rarity = rarityOf(pull.card.tier.key);
                 const face = flipped[index];
                 // A lone card has nothing to fan against, so it sits straight.
@@ -738,13 +749,13 @@ export default function PackOpening({
             {solo ? (
               <div className="relative mt-3 flex items-center justify-center gap-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-steel">
-                  {cursor + 1} / {count}
+                  {soloIndex + 1} / {count}
                 </span>
-                {cursor < count - 1 ? (
+                {soloIndex < count - 1 ? (
                   <button
                     type="button"
                     onClick={() => setCursor((c) => Math.min(c + 1, count - 1))}
-                    disabled={!flipped[cursor]}
+                    disabled={!flipped[soloIndex]}
                     className="btn-pill px-5 py-2 text-sm disabled:opacity-40"
                   >
                     Next card →
