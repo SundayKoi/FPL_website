@@ -233,6 +233,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
   const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
   const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
+  const boxScoreHref = snapshot.league === "academy" ? "/academy/box-score" : "/box-score";
   const higherLowerPreviewCards = snapshot.cards.status === "ready"
     ? { referenceCard: snapshot.cards.data.card, challengerCard: snapshot.cards.data.challengerCard }
     : { referenceCard: null, challengerCard: null };
@@ -395,7 +396,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <SectionHeading
           eyebrow="Daily games"
           title="Daily games"
-          description="Two daily games, one shared reward, refreshed at midnight UTC."
+          description="Three daily games, one shared reward, refreshed at midnight UTC."
         />
         <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
         <div className="grid gap-5 lg:grid-cols-12">
@@ -420,6 +421,21 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             className="lg:col-span-4"
           >
             <HigherLowerPreview {...higherLowerPreviewCards} />
+          </FeatureCard>
+          <FeatureCard
+            eyebrow="Daily box score"
+            title="Box Score"
+            description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
+            href={boxScoreHref}
+            className="lg:col-span-4"
+          >
+            <div className="flex min-h-28 flex-col justify-between rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-display text-lg font-bold text-white">?????#????</span>
+                <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
+              </div>
+              <p className="mt-5 text-sm leading-6 text-steel">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
+            </div>
           </FeatureCard>
         </div>
       </section>

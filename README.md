@@ -17,7 +17,7 @@ The site now also includes:
 - fixture-based and public token-based champion drafts, including realtime
   presence and draft state; and
 - player cards, weekly rating snapshots, card art, mottos, and share images;
-- Premium daily games: FPL'dle and the 45-round Higher or Lower card run with unlimited attempts, sharing one daily betting-dollar reward.
+- Premium daily games: FPL'dle, the 45-round Higher or Lower card run with unlimited attempts, and the admin-testing Box Score game share one daily betting-dollar reward.
 
 See [docs/backend.md](docs/backend.md) for the backend architecture and the
 source-file map intended for agents picking up work.
