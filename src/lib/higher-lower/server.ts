@@ -13,6 +13,7 @@ import {
   rankHigherLowerWeek,
   utcWeekStart,
 } from "./rules";
+import { dailyGameDate } from "@/lib/dailyDay";
 import type {
   HigherLowerChoice,
   HigherLowerCompletionReason,
@@ -116,10 +117,6 @@ function parseLeague(value: unknown): HigherLowerLeague {
     throw new HigherLowerError("INVALID_INPUT", "Choose a valid Higher or Lower league.");
   }
   return value;
-}
-
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function isIsoDate(value: unknown): value is string {
@@ -374,7 +371,7 @@ async function buildGame(
 export async function getHigherLowerGame(league: HigherLowerLeague): Promise<HigherLowerGame> {
   const validLeague = parseLeague(league);
   const { server, service, profileId, canReplay } = await requireHigherLowerPlayer();
-  const puzzleDate = todayUtc();
+  const puzzleDate = dailyGameDate();
   await ensureSnapshot(server, service, validLeague, puzzleDate);
   return buildGame(service, validLeague, puzzleDate, profileId, canReplay);
 }
@@ -382,14 +379,14 @@ export async function getHigherLowerGame(league: HigherLowerLeague): Promise<Hig
 export async function getHigherLowerLeaderboard(league: unknown): Promise<HigherLowerGame["weeklyLeaderboard"]> {
   parseLeague(league);
   const { service, profileId } = await requireHigherLowerPlayer();
-  const puzzleDate = todayUtc();
+  const puzzleDate = dailyGameDate();
   return loadLeaderboard(service, utcWeekStart(new Date(`${puzzleDate}T12:00:00.000Z`)), profileId);
 }
 
 export async function startHigherLowerRun(league: HigherLowerLeague): Promise<HigherLowerGame> {
   const validLeague = parseLeague(league);
   const { server, service, profileId, discordId, canReplay } = await requireHigherLowerPlayer();
-  const puzzleDate = todayUtc();
+  const puzzleDate = dailyGameDate();
   await ensureSnapshot(server, service, validLeague, puzzleDate);
   const { error } = await service.rpc("start_higher_lower_run", {
     p_puzzle_date: puzzleDate,
@@ -403,7 +400,7 @@ export async function startHigherLowerRun(league: HigherLowerLeague): Promise<Hi
 
 export async function submitHigherLowerChoice(input: unknown): Promise<HigherLowerGame> {
   const parsed = parseRunInput(input, "choice");
-  if (parsed.puzzleDate !== todayUtc()) {
+  if (parsed.puzzleDate !== dailyGameDate()) {
     throw new HigherLowerError("STALE_PUZZLE", "That Daily run has expired. Refresh for today's game.");
   }
   const { service, profileId, canReplay } = await requireHigherLowerPlayer();
@@ -420,7 +417,7 @@ export async function submitHigherLowerChoice(input: unknown): Promise<HigherLow
 
 export async function advanceHigherLowerRound(input: unknown): Promise<HigherLowerGame> {
   const parsed = parseRunInput(input, "advance");
-  if (parsed.puzzleDate !== todayUtc()) {
+  if (parsed.puzzleDate !== dailyGameDate()) {
     throw new HigherLowerError("STALE_PUZZLE", "That Daily run has expired. Refresh for today's game.");
   }
   const { service, profileId, canReplay } = await requireHigherLowerPlayer();
