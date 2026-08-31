@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { InventoryRow } from "@/lib/packs/queries";
-import { buildGauntletOptions, DRAFT_STAT_KEYS } from "./queries";
+import { buildGauntletOptions, DRAFT_STAT_KEYS,
+  buildHeirloomOptions,
+} from "./queries";
 
 const row = (over: Partial<InventoryRow> = {}): InventoryRow =>
   ({
@@ -63,5 +65,37 @@ describe("buildGauntletOptions", () => {
     (moment.card as { moment?: object }).moment = { kind: "pentakill" };
     const options = buildGauntletOptions([moment], "2026-08-24");
     expect(options.Mid).toHaveLength(0);
+  });
+});
+
+describe("buildHeirloomOptions", () => {
+  const row = (id: number, card: unknown) =>
+    ({ id, card, role: "Mid", season: "S5", playerName: "x", overall: 80, foil: false, signed: false, editionWeek: "2026-08-24" }) as never;
+
+  it("picks up exactly the copies the lineup draft throws away", () => {
+    // buildGauntletOptions skips moments, plates and relics because they
+    // have no role. This is the other half of that same read — no second
+    // query, and nothing on the shelf is invisible to both.
+    const options = buildHeirloomOptions([
+      row(1, { moment: { id: 5, title: "THE STEAL", triggerKey: "baron_steal" } }),
+      row(2, { team: { teamName: "The Faceless", monogram: "FL", abbr: "FLS" } }),
+      row(3, { name: "Doug" }),
+    ]);
+    expect(options.map((option) => option.inventoryId).sort()).toEqual([1, 2]);
+  });
+
+  it("carries what each kind needs to be read against a lineup", () => {
+    // Sorted by kind, so moments come before plates.
+    const [momentOption, plateOption] = buildHeirloomOptions([
+      row(1, { moment: { id: 5, title: "THE STEAL", triggerKey: "baron_steal" } }),
+      row(2, { team: { teamName: "The Faceless", monogram: "FL", abbr: "FLS" } }),
+    ]);
+    expect(momentOption.family).toBe("void");
+    expect(plateOption.teamName).toBe("The Faceless");
+    expect(plateOption.title).toBe("FLS roster");
+  });
+
+  it("is empty for a shelf with no relics on it", () => {
+    expect(buildHeirloomOptions([row(1, { name: "Doug" })])).toEqual([]);
   });
 });

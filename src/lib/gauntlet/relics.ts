@@ -399,6 +399,33 @@ export function aggregateEffects(relicKeys: string[]): RelicEffects {
   return total;
 }
 
+/**
+ * Two effect sets combined the same way a relic stack combines: flats add,
+ * multipliers compound. Extracted so an HEIRLOOM (a moment or a roster
+ * plate brought along from the shelf — see heirlooms.ts) folds into a
+ * run's relics through exactly the same arithmetic, rather than through a
+ * second set of rules the engine would have to learn.
+ */
+export function mergeRelicEffects(a: RelicEffects, b: RelicEffects): RelicEffects {
+  const total: RelicEffects = { ...a };
+  const flats = [
+    "objectivesFlat", "earlyFightBonus", "freshLegsExtra", "styleScorePerShiny", "fightFlat",
+    "lanesFlat", "holdFlat", "crossroadsBonus", "scoreFlat", "baronWindowFlat", "comebackFlat",
+  ] as const;
+  const mults = [
+    "laneMomentumMult", "snowballMult", "goldMult", "goldEdgeMult", "daringMult",
+    "baronBurnMult", "commitmentMult", "chemistryMult", "draftMult",
+  ] as const;
+  for (const key of flats) {
+    if (b[key]) total[key] = (total[key] ?? 0) + (b[key] ?? 0);
+  }
+  for (const key of mults) {
+    if (b[key]) total[key] = (total[key] ?? 1) * (b[key] ?? 1);
+  }
+  if (b.benchSwap) total.benchSwap = true;
+  return total;
+}
+
 /** Base draw weights per rarity — Slay the Spire's 50/33/17, which is
  *  the ratio that makes a rare feel like a find rather than a Tuesday. */
 const RARITY_WEIGHT: Record<RelicRarity, number> = { common: 50, uncommon: 33, rare: 17 };

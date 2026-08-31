@@ -32,7 +32,9 @@ import {
   matchContextFor,
   type StoredMatchResult,
 } from "@/lib/gauntlet/run";
-import type { GauntletOption } from "@/lib/gauntlet/queries";
+import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
+import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
+import type { MomentFamily } from "@/lib/cards/moments";
 import { RELIC_BY_KEY, RELIC_CATALOG, type RelicFamily, type RelicRarity } from "@/lib/gauntlet/relics";
 import {
   type CompStyle,
@@ -189,6 +191,7 @@ export default function GauntletClient({
   balance,
   weekBest,
   lastLineup,
+  heirlooms,
 }: {
   initialRun: GauntletRunRow | null;
   options: Record<GauntletRole, GauntletOption[]>;
@@ -198,6 +201,8 @@ export default function GauntletClient({
    *  at least one card, and the draft screen says so up front rather than
    *  letting the entry be refused after the fact. */
   lastLineup: number[];
+  /** Moments and roster plates on the shelf — a run may bring one. */
+  heirlooms: HeirloomOption[];
 }) {
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
@@ -223,6 +228,9 @@ export default function GauntletClient({
     });
   }, []);
   const [picks, setPicks] = useState<Partial<Record<GauntletRole, number | null>>>({});
+  /** The shelf relic coming along, if any. Null is a real answer — most
+   *  runs bring nothing, and the picker must never imply otherwise. */
+  const [heirloomId, setHeirloomId] = useState<number | null>(null);
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
@@ -261,6 +269,22 @@ export default function GauntletClient({
       }),
     [picks, options],
   );
+  /** What the chosen relic is doing, read against the five on screen —
+   *  a plate's whole value is conditional on who you brought, so the line
+   *  has to update as the draft changes. */
+  const chosenHeirloomBlurb = useMemo(() => {
+    const option = heirlooms.find((entry) => entry.inventoryId === heirloomId);
+    if (!option) return null;
+    const stored = {
+      inventoryId: option.inventoryId,
+      kind: option.kind,
+      title: option.title,
+      family: option.family as MomentFamily | undefined,
+      teamName: option.teamName,
+    };
+    return heirloomBlurb(stored, plateMatches(stored, draftCards));
+  }, [heirloomId, heirlooms, draftCards]);
+
   const draftAvg = useMemo(() => {
     const overalls = draftCards.map((card) => card.overall);
     return Math.round((overalls.reduce((a, b) => a + b, 0) / overalls.length) * 10) / 10;
@@ -269,7 +293,7 @@ export default function GauntletClient({
   function start() {
     setError(null);
     startTransition(async () => {
-      const result = await startGauntletRunAction(picks);
+      const result = await startGauntletRunAction(picks, heirloomId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -420,6 +444,47 @@ export default function GauntletClient({
           })}
         </div>
         <CompReadout cards={draftCards} />
+        {heirlooms.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <span className="label-dash">Bring a relic — optional</span>
+            <p className="text-xs text-steel">
+              A moment or a roster plate can come along. It takes no role and never fights; it hands the run a
+              small edge and stays on the shelf afterwards. The bracket is priced off your five, so this is an
+              edge rather than a tax.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={heirloomId === null}
+                onClick={() => setHeirloomId(null)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  heirloomId === null ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                }`}
+              >
+                Bring nothing
+              </button>
+              {heirlooms.map((option) => (
+                <button
+                  key={option.inventoryId}
+                  type="button"
+                  aria-pressed={heirloomId === option.inventoryId}
+                  onClick={() => setHeirloomId(option.inventoryId)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    heirloomId === option.inventoryId
+                      ? "bg-gold text-navy"
+                      : "border border-line bg-panel text-steel hover:text-white"
+                  }`}
+                >
+                  {option.kind === "moment" ? "✦ " : "▦ "}
+                  {option.title}
+                </button>
+              ))}
+            </div>
+            {chosenHeirloomBlurb ? (
+              <p className="font-mono text-[11px] leading-4 text-gold">↳ {chosenHeirloomBlurb}</p>
+            ) : null}
+          </div>
+        ) : null}
         {repeatsLast ? (
           <p className="rounded-lg border border-gold/45 bg-gold/5 px-3 py-2 text-xs leading-5 text-gold">
             This is the same five you ran last time. Move at least one card — a re-run should be a different
@@ -455,6 +520,11 @@ export default function GauntletClient({
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   })();
+  /** The relic this run brought, read against the five it fielded. */
+  const runHeirloom = run.heirloom ?? null;
+  const runHeirloomBlurb = runHeirloom
+    ? heirloomBlurb(runHeirloom, plateMatches(runHeirloom, run.lineup))
+    : null;
   const atCrossroads = run.status === "active" && run.crossroads && run.next_opponent;
   const canSwap =
     offering && run.relics.includes("sixth_man") && !run.bench_swap_used;
@@ -679,6 +749,18 @@ export default function GauntletClient({
               and multipliers of a family compound — so a player stacking one
               on purpose should be able to SEE the build rather than
               rediscover it by reading five relic descriptions. */}
+          {runHeirloom ? (
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="label-dash mr-1">Brought along</span>
+              <span className="rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
+                {runHeirloom.kind === "moment" ? "✦ " : "▦ "}
+                {runHeirloom.title}
+              </span>
+              {runHeirloomBlurb ? (
+                <span className="font-mono text-[10.5px] leading-4 text-steel">{runHeirloomBlurb}</span>
+              ) : null}
+            </div>
+          ) : null}
           {heldFamilies.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="label-dash mr-1">Holding</span>

@@ -5,7 +5,8 @@
 import type { Autopsy } from "./autopsy";
 import { bossEffects } from "./bosses";
 import type { OpponentTeam } from "./opponents";
-import { aggregateEffects } from "./relics";
+import { aggregateEffects, mergeRelicEffects } from "./relics";
+import { heirloomEffects, type StoredHeirloom } from "./heirlooms";
 import { aggregateTraits, conditionEffects, mergeTraitEffects } from "./traits";
 import { ghostTraitEffects } from "./ghosts";
 import type { GauntletCard, HalfState, MatchContext, MatchResult } from "./sim";
@@ -33,6 +34,10 @@ export function matchContextFor(
    *  week+round seed — the same one the opponent cast is drawn from — so
    *  a week's round-four call is the same call for everyone in it. */
   situationSeed?: number,
+  /** The shelf relic brought along, and the five it is read against — a
+   *  plate is worth nothing without the roster it belongs to. */
+  heirloom?: StoredHeirloom | null,
+  lineup: GauntletCard[] = [],
 ): MatchContext {
   // A ghost's "traits" are their BUILD: the relics they were holding when
   // they stood here. Flats add on top of any authored traits, so a future
@@ -42,7 +47,7 @@ export function matchContextFor(
     ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics))
     : traits;
   return {
-    effects: aggregateEffects(relicKeys),
+    effects: mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
     foe,
     arena: conditionEffects(opponent?.condition),
     boss: bossEffects(opponent?.boss),
@@ -75,6 +80,9 @@ export interface GauntletRunRow {
   last_result: StoredMatchResult | null;
   /** Non-null while a fight is paused at minute 20 waiting on the call. */
   crossroads: GauntletCrossroads | null;
+  /** The shelf relic brought into the run, frozen at entry. Null on a run
+   *  started before heirlooms shipped, and on one that brought nothing. */
+  heirloom: StoredHeirloom | null;
   /** The seed this run's own eight opponents are drawn with. Null on runs
    *  started before the private draw shipped — those keep the week's. */
   ghost_seed: number | null;

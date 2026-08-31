@@ -30,6 +30,7 @@ import { generateOpponent, ghostOpponent, weekSeed } from "./opponents";
 import { drawGhostBracket, fetchGhostPool } from "./ghostQueries";
 import { BOUNTY_MULT, sameLineup } from "./ghosts";
 import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./telemetry";
+import { heirloomOf, type StoredHeirloom } from "./heirlooms";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import {
   GAUNTLET_ROLES,
@@ -72,6 +73,9 @@ function revalidateGauntlet(): void {
  */
 export async function startGauntletRunAction(
   picks: Partial<Record<GauntletRole, number | null>>,
+  /** One moment or roster plate from the shelf, brought along for the run.
+   *  Never spent, never fielded — see lib/gauntlet/heirlooms.ts. */
+  heirloomId?: number | null,
 ): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
@@ -155,6 +159,29 @@ export async function startGauntletRunAction(
 
   const lineupAvg = lineup.reduce((sum, card) => sum + card.overall, 0) / lineup.length;
 
+  // The shelf relic, if one was brought. Validated the same way the five
+  // are: it has to be this caller's copy, off a current shelf, and it has
+  // to actually BE a relic — a player card belongs in the lineup.
+  let heirloom: StoredHeirloom | null = null;
+  if (typeof heirloomId === "number") {
+    const { data: relicRow } = await service
+      .from("card_inventory")
+      .select("id, discord_id, season, card")
+      .eq("id", heirloomId)
+      .maybeSingle();
+    const row = relicRow as { id: number; discord_id: string; season: string; card: PlayerCardData } | null;
+    if (!row || row.discord_id !== user.discordId) {
+      return { ok: false, error: "That relic isn't in your collection." };
+    }
+    if (!fieldable.has(row.season)) {
+      return { ok: false, error: "That relic is from an old season's shelf." };
+    }
+    heirloom = heirloomOf(row.id, row.card);
+    if (!heirloom) {
+      return { ok: false, error: "Only a moment or a roster plate can come along." };
+    }
+  }
+
   // A re-run has to be a different run. Checked BEFORE the fee is taken,
   // so a refused entry never costs anything.
   const { data: lastRuns } = await service
@@ -200,6 +227,7 @@ export async function startGauntletRunAction(
       lineup_avg: lineupAvg,
       round_seed: seed,
       ghost_seed: ghostSeed,
+      heirloom,
       next_opponent: opponent,
     })
     .select("*")
@@ -245,7 +273,7 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round));
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup);
   const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
@@ -301,7 +329,7 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round));
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup);
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
