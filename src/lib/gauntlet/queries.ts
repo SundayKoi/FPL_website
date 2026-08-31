@@ -11,6 +11,7 @@ import type { GauntletRunRow } from "./run";
 import { rankGauntletWeek } from "./settle";
 import { patronActive } from "@/lib/patron/flames";
 import { GAUNTLET_ROLES, type GauntletRole } from "./sim";
+import { heirloomBlurb, heirloomOf } from "./heirlooms";
 
 /** The bars the draft screen reads: the three comp identities
  *  (compProfileOf) plus every lane key — small enough to ship per option. */
@@ -35,6 +36,47 @@ export interface GauntletOption {
   /** The DRAFT_STAT_KEYS bars only — enough for the comp readout and the
    *  per-card chips; missing bars fall back the way statOf falls back. */
   stats: Partial<Record<MeasureKey, number>>;
+}
+
+/** One shelf relic that can come along on a run — the slice the draft
+ *  screen needs, without the frozen card json. */
+export interface HeirloomOption {
+  inventoryId: number;
+  kind: "moment" | "plate";
+  title: string;
+  /** Moments: the colorway family, and so the dial it hands over. */
+  family?: string;
+  /** Plates: whose roster, so the screen can say who it wants fielded. */
+  teamName?: string | null;
+  /** The line the picker prints under it. */
+  blurb: string;
+}
+
+/**
+ * The moments and roster plates on the shelf, as things a run can bring.
+ *
+ * Deliberately the SAME inventory read the lineup options come from —
+ * buildGauntletOptions skips these copies (a relic has no role), and this
+ * picks them back up rather than paying for a second query.
+ */
+export function buildHeirloomOptions(rows: InventoryRow[]): HeirloomOption[] {
+  const options: HeirloomOption[] = [];
+  for (const row of rows) {
+    const heirloom = heirloomOf(row.id, row.card);
+    if (!heirloom) continue;
+    options.push({
+      inventoryId: heirloom.inventoryId,
+      kind: heirloom.kind,
+      title: heirloom.title,
+      family: heirloom.family,
+      teamName: heirloom.teamName,
+      // The draft screen has no lineup yet when this is built, so a
+      // plate's line is the general one; the picker re-reads it against
+      // the five once cards are chosen.
+      blurb: heirloomBlurb(heirloom, heirloom.kind === "plate" ? 1 : 0) ?? "",
+    });
+  }
+  return options.sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title));
 }
 
 /** The Monday key of the running week — module-level so components call

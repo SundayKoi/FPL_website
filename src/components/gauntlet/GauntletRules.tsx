@@ -280,6 +280,28 @@ export default function GauntletRules() {
         </p>
       </Section>
 
+      <Section title="Heirlooms — the shelf comes along">
+        <p>
+          A run may bring <b className="text-white">one moment or one roster plate</b> from your collection.
+          It takes no role and never fights: it hands the run a small edge and stays on the shelf when the run
+          ends. Nothing is spent, and you can bring a different one next time.
+        </p>
+        <p>
+          A <b className="text-white">moment</b> pays on the dial its colorway is already about — ember burns
+          for the teamfights, void for the pit and the dragons, ice for the base hold and the comeback, gold
+          for what every won beat pays. The four are worth close to the same; none of them is the answer.
+        </p>
+        <p>
+          A <b className="text-white">roster plate</b> is different: it multiplies your chemistry, and only for
+          the players who actually played for that team. Bring the plate and field none of them and it does
+          nothing at all — it is a reason to field <em>that</em> five, not a free bonus.
+        </p>
+        <p className="text-steel">
+          The bracket is priced off your five and does not rise to meet an heirloom, which is what makes
+          bringing one worth something — the same rule Fresh Legs plays by.
+        </p>
+      </Section>
+
       <Section title="Their game plan — the enemy reads the board too">
         <p>
           Every opponent brings one of four dispositions, rolled with the week and printed on the scouting

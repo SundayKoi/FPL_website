@@ -319,6 +319,19 @@ Important RPC families include:
   bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
   each attempt, retrying paid a lower grade and closed the run. Any guard
   that encodes a config rule in SQL needs a test bridging the two.
+- Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
+  shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
+  at entry like the lineup. It is never spent and never fielded. Everything
+  it does is expressed as `RelicEffects` and folded in with
+  `mergeRelicEffects`, so the engine needed no changes to accept one: a
+  moment pays its colorway family's dial, and a plate multiplies
+  `chemistryMult` by how many of the five actually played for that team —
+  zero matches means an empty effects object, not a small one. Sizes are
+  measured, not chosen: the four families land within 0.3 points of each
+  other on rounds won (6.6-6.9% over no heirloom at 3,000 runs), and the
+  numbers differ per family precisely because the beats are not equal in
+  value. The bracket is still priced off the raw lineup average, so an
+  heirloom is an edge the same way Fresh Legs is.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the

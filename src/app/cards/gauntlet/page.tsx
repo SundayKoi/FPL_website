@@ -9,6 +9,7 @@ import { fetchInventory } from "@/lib/packs/queries";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import {
   buildGauntletOptions,
+  buildHeirloomOptions,
   currentWeek,
   fetchActiveGauntletRun,
   fetchGauntletBoard,
@@ -83,6 +84,9 @@ export default async function GauntletPage() {
       ])
     : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], []];
   const options = buildGauntletOptions(inventory, week, leagueOf);
+  // The same inventory read, picked over a second time: buildGauntletOptions
+  // skips moments and plates (a relic has no role), and this collects them.
+  const heirlooms = buildHeirloomOptions(inventory);
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
@@ -119,6 +123,7 @@ export default async function GauntletPage() {
         balance={user.balance}
         weekBest={weekStats.bestScore}
         lastLineup={lastLineup}
+        heirlooms={heirlooms}
       />
 
       <GauntletRules />
