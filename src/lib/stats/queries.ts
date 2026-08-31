@@ -14,6 +14,7 @@
 // few repeated lines for types that actually check.
 
 import { createClient } from "@/lib/supabase/client";
+import type { FantasyStatRow } from "./fantasyPoints";
 import type { HeadToHeadRow } from "./headToHead";
 import type {
   ChampionAggRow,
@@ -243,6 +244,33 @@ export async function fetchHeadToHeadRows(
     if (season) query = query.eq("season", season);
     if (phase && phase !== "All") query = query.eq("season_phase", phase);
     if (teamNames?.length) query = query.in("team_name", teamNames);
+    return query;
+  });
+}
+
+/**
+ * Every raw row the fantasy-points table scores, PAGED.
+ *
+ * One row per player per game — ten a game — so a season crosses max_rows
+ * several times over. An unpaged read would drop whole weeks off the back
+ * of the season with nothing to show it had.
+ *
+ * Ordered by id, which is unique: paging on a non-unique key lets a row
+ * repeat on one page and vanish from another, and a vanished game is
+ * invisible in a total.
+ */
+export async function fetchFantasyRows(season?: string, phase?: string): Promise<FantasyStatRow[]> {
+  const supabase = createClient();
+  return fetchAllPages<FantasyStatRow>((from, to) => {
+    let query = supabase
+      .from("raw_stats")
+      .select(
+        "id, summoner_name, tag, game_date, kills, deaths, assists, cs_per_min, vision_score, damage_share_pct, kill_participation_pct, win",
+      )
+      .order("id")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
     return query;
   });
 }
