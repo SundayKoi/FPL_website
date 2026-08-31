@@ -288,6 +288,14 @@ Important RPC families include:
   refuses a lineup identical to the player's last one (`sameLineup`,
   compared as a set of inventory ids) — checked before the fee is taken, so
   a refused entry never costs anything.
+- Expedition payouts are guarded at `maxExpeditionPayout()` (3,600 = the
+  best base x the shine cap x the brief bonus), and a test reads the
+  literal out of `20260906000001_expedition_payout_ceiling.sql` so the
+  TypeScript and the SQL cannot drift. They did once: the guard shipped as
+  the legend jackpot's BASE (2,000) rather than its maximum, so every
+  bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
+  each attempt, retrying paid a lower grade and closed the run. Any guard
+  that encodes a config rule in SQL needs a test bridging the two.
 - Card expeditions: `launch_expedition` validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
   per tier — `tier already out`) and the per-day launch limit under the

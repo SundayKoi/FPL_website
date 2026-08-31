@@ -1,14 +1,20 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CardCopy } from "./config";
 import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP, MAXED_DAILY_STREAK } from "@/lib/betting/daily";
 import { PACK_COST } from "@/lib/packs/config";
 import {
+  BRIEF_BONUS,
   briefFor,
   EXPEDITION_TIERS,
   expectedDailyDollars,
   DAILY_LAUNCHES,
   MARK_RANK,
+  maxExpeditionPayout,
+  payoutRange,
   rollOutcome,
+  SHINE_BONUS_CAP,
   shineOf,
   squadMeets,
   squadShine,
@@ -198,5 +204,54 @@ describe("rollOutcome", () => {
     };
     rollOutcome("scout", 0, [{ role: "X" }, { role: "X" }, { role: "X" }], "2026-08-27", rand);
     expect(used).toBe(1);
+  });
+});
+
+
+describe("the payout ceiling the claim RPC guards", () => {
+  /** The live guard, read out of the migration that last defined it. */
+  function guardCeiling(): number {
+    const sql = readFileSync(
+      join(process.cwd(), "supabase/migrations/20260906000001_expedition_payout_ceiling.sql"),
+      "utf8",
+    );
+    const match = sql.match(/p_dollars not between 1 and (\d+)/);
+    expect(match, "the claim guard is not where the test expects it").not.toBeNull();
+    return Number(match![1]);
+  }
+
+  it("is high enough to pay a maxed legend jackpot", () => {
+    // THE BUG this test exists for. The guard shipped as a flat 2,000 —
+    // which is the legend jackpot's BASE, not its maximum — so a squad one
+    // point over the gate rolled 2,060 and the claim died with a generic
+    // "something went wrong". And because rollOutcome re-rolls on every
+    // attempt, clicking again paid a LOWER grade and closed the run: the
+    // rarest outcome in the feature was the only one that could not be
+    // paid, and retrying destroyed it.
+    expect(guardCeiling()).toBeGreaterThanOrEqual(maxExpeditionPayout());
+  });
+
+  it("matches the config exactly, so the two cannot drift again", () => {
+    // The real lesson is not the number. It is that a TypeScript constant
+    // and a SQL literal described the same rule with nothing holding them
+    // together. Raising a tier's dollars, the shine cap or the brief bonus
+    // now fails here until the guard follows.
+    expect(guardCeiling()).toBe(maxExpeditionPayout());
+  });
+
+  it("derives the ceiling rather than restating it", () => {
+    // best base x shine cap x brief bonus — read off REWARDS, so this
+    // stays true through a rebalance.
+    const best = Math.max(
+      ...(["scout", "raid", "legend"] as const).map((tier) => payoutRange(tier).max),
+    );
+    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS)));
+  });
+
+  it("still refuses a payout no roll could produce", () => {
+    // The guard is open_card_pack's p_cost discipline: a caller may write
+    // only a number the config could actually have produced. Widening it
+    // to the true ceiling must not turn it into no guard at all.
+    expect(guardCeiling()).toBeLessThan(maxExpeditionPayout() * 2);
   });
 });
