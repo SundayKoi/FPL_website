@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
@@ -6,7 +6,8 @@ import CollectionGrid from "./CollectionGrid";
 
 // DustControls (rendered under every player group) reaches for the router and
 // the dust action; neither is exercised here.
-vi.mock("@/lib/trades/actions", () => ({ dustCardAction: vi.fn() }));
+const { dustManyAction } = vi.hoisted(() => ({ dustManyAction: vi.fn() }));
+vi.mock("@/lib/trades/actions", () => ({ dustCardAction: vi.fn(), dustManyAction }));
 // server-only transitively, same as trades/actions — mocked so jsdom can load.
 vi.mock("@/lib/cards/reroll-actions", () => ({ rerollPrintAction: vi.fn() }));
 // Same for the binder pin: the actions module is server-only, and the
@@ -234,5 +235,120 @@ describe("CollectionGrid paging", () => {
     fireEvent.click(screen.getByRole("button", { name: /All ·/ }));
 
     expect(screen.getByRole("button", { name: "Show more" })).toBeTruthy();
+  });
+});
+
+
+describe("CollectionGrid select-to-dust", () => {
+  afterEach(() => {
+    cleanup();
+    dustManyAction.mockReset();
+  });
+
+  /** Enter select mode and hand back every pickable copy cell. */
+  function enterSelectMode(props: Partial<Parameters<typeof CollectionGrid>[0]> = {}) {
+    render(<CollectionGrid inventory={inventory} {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select to dust" }));
+  }
+
+  it("shows every COPY, not one card per player", () => {
+    // The point of the mode is clearing duplicates, and a duplicate is a
+    // copy. The collapsed shelf shows two players; select mode shows five
+    // cards, because there are five cards.
+    enterSelectMode();
+    expect(cardsFor("Chaseworthy")).toHaveLength(3);
+    expect(cardsFor("Commonly")).toHaveLength(2);
+  });
+
+  it("adds up only what is ticked", () => {
+    enterSelectMode();
+    expect(screen.getByText("0 selected")).toBeTruthy();
+
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    expect(screen.getByText("1 selected")).toBeTruthy();
+    // Two gold copies of the same print are worth the same, so ticking the
+    // second doubles the total rather than guessing at it.
+    const oneCard = screen.getByRole("button", { name: /^Dust selected/ }).textContent;
+    fireEvent.click(cardsFor("Commonly")[1].closest("button[aria-pressed]")!);
+    expect(screen.getByText("2 selected")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Dust selected/ }).textContent).not.toBe(oneCard);
+  });
+
+  it("takes two taps, and sends exactly the ticked ids", async () => {
+    dustManyAction.mockResolvedValue({ ok: true, dusted: 1, value: 10, balance: 1010, skipped: 0 });
+    enterSelectMode();
+
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    fireEvent.click(screen.getByRole("button", { name: /^Dust selected/ }));
+    // Armed, not fired — there is no undo on the other side of this.
+    expect(dustManyAction).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Dust 1 — sure?" })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 1 — sure?" }));
+    });
+    expect(dustManyAction).toHaveBeenCalledTimes(1);
+    expect(dustManyAction.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it("stands the confirm down when the selection changes under it", () => {
+    enterSelectMode();
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    fireEvent.click(screen.getByRole("button", { name: /^Dust selected/ }));
+    expect(screen.getByRole("button", { name: "Dust 1 — sure?" })).toBeTruthy();
+
+    fireEvent.click(cardsFor("Commonly")[1].closest("button[aria-pressed]")!);
+    expect(screen.queryByRole("button", { name: /sure\?/ })).toBeNull();
+  });
+
+  it("refuses to tick a copy that is out on an expedition", () => {
+    enterSelectMode({ deployedIds: new Set([4]) });
+    const away = cardsFor("Commonly")[0].closest("button[aria-pressed]") as HTMLButtonElement;
+    expect(away.disabled).toBe(true);
+    fireEvent.click(away);
+    expect(screen.getByText("0 selected")).toBeTruthy();
+    expect(screen.getByText("On expedition")).toBeTruthy();
+  });
+
+  it("says what the server refused instead of pretending it worked", async () => {
+    dustManyAction.mockResolvedValue({ ok: true, dusted: 1, value: 10, balance: 1010, skipped: 1 });
+    enterSelectMode();
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    fireEvent.click(cardsFor("Commonly")[1].closest("button[aria-pressed]")!);
+    fireEvent.click(screen.getByRole("button", { name: /^Dust selected/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 2 — sure?" }));
+    });
+    expect(screen.getByRole("alert").textContent).toContain("1 couldn't be sold");
+  });
+
+  it("surfaces a refusal and keeps the selection", async () => {
+    dustManyAction.mockResolvedValue({ ok: false, error: "Those cards aren't yours." });
+    enterSelectMode();
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    fireEvent.click(screen.getByRole("button", { name: /^Dust selected/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 1 — sure?" }));
+    });
+    expect(screen.getByRole("alert").textContent).toBe("Those cards aren't yours.");
+    expect(screen.getByText("1 selected")).toBeTruthy();
+  });
+
+  it("leaves the shelf exactly as it was on cancel", () => {
+    enterSelectMode();
+    fireEvent.click(cardsFor("Commonly")[0].closest("button[aria-pressed]")!);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    // Back to one card per player, and the selection is gone rather than
+    // waiting to be committed the next time the mode is opened.
+    expect(cardsFor("Chaseworthy")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Select to dust" }));
+    expect(screen.getByText("0 selected")).toBeTruthy();
+  });
+
+  it("narrows with the variant chips, so 'dust my spare foils' is two taps", () => {
+    enterSelectMode();
+    fireEvent.click(screen.getByRole("button", { name: /Foils · / }));
+    expect(cardsFor("Chaseworthy")).toHaveLength(2);
+    expect(cardsFor("Commonly")).toHaveLength(0);
   });
 });

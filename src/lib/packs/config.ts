@@ -314,6 +314,23 @@ export function dustValueOf(row: {
  */
 export const PATRON_DUST_MULT = 1.2;
 
+/**
+ * How many copies one mass-dust may destroy.
+ *
+ * Lives here rather than in the action because THREE places have to agree
+ * on it — the server that enforces it, the pack overlay, and the shelf's
+ * select mode — and a client that lets someone tick 60 cards only to be
+ * told "too many" after the tap is a worse rule than a lower one. The
+ * expedition payout guard is the cautionary tale: a limit written twice
+ * is a limit that drifts.
+ *
+ * Fifty rather than the original ten: ten was sized for a five-card pack,
+ * and a shelf clear-out is the case that actually needs a batch. Each
+ * copy is still one dust_card call under its own lock, so this bounds the
+ * work of one request, not the safety of any single destroy.
+ */
+export const MAX_DUST_BATCH = 50;
+
 /** dustValueOf with the patron bonus applied — the ONE function every
  *  dust surface (actions and displayed prices alike) goes through, so the
  *  button can never quote a different number than the ledger credits.

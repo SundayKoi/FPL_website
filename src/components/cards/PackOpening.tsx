@@ -300,8 +300,21 @@ export default function PackOpening({
   const [pending, setPending] = useState(false);
   // The sell button is a two-tap: "Sell pack" arms it, the second tap
   // commits. "sold" is terminal for THIS pack — Open another re-arms it.
-  const [sellStage, setSellStage] = useState<"idle" | "confirm" | "selling">("idle");
+  /** Which dust the second tap will commit — "all" and "picked" arm
+   *  SEPARATELY, so arming one disarms the other and a confirm can never
+   *  destroy a bigger set than the button that was armed said it would. */
+  const [armedSell, setArmedSell] = useState<"all" | "picked" | null>(null);
+  const [selling, setSelling] = useState(false);
+  /** Running total for THIS pack: a partial dust is not terminal any more,
+   *  so these accumulate across several. */
   const [sold, setSold] = useState<{ dusted: number; value: number } | null>(null);
+  /** Copies already destroyed out of this pack — they stay on the stage
+   *  (you paid to see them) but can't be picked or dusted twice. */
+  const [dustedIds, setDustedIds] = useState<ReadonlySet<number>>(new Set());
+  /** The cards ticked for dusting. Empty means "nothing picked", which is
+   *  why Dust all is a separate button rather than the same one with a
+   *  different meaning. */
+  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   const [sellError, setSellError] = useState<string | null>(null);
 
   // `flipped` is mirrored into a ref because turning a card is not an
@@ -528,58 +541,108 @@ export default function PackOpening({
     setProgress(0);
     setBalance(result.balance);
     setSessionCount((n) => n + 1);
-    setSellStage("idle");
+    setArmedSell(null);
+    setSelling(false);
     setSold(null);
+    setDustedIds(new Set());
+    setPicked(new Set());
     setSellError(null);
     setPhase("drop");
   }
 
-  async function handleSellPack() {
-    if (!onSellPack || sold) return;
-    if (sellStage === "idle") {
-      // Arm, don't fire: selling five cards you just paid for deserves a
+  /** Tick a card for dusting. Already-dusted copies are inert. */
+  function togglePick(inventoryId: number) {
+    if (dustedIds.has(inventoryId)) return;
+    setSellError(null);
+    // A changed selection un-arms: the confirm you are about to give must
+    // belong to the set currently on screen.
+    setArmedSell(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(inventoryId)) next.add(inventoryId);
+      return next;
+    });
+  }
+
+  /**
+   * Dust a set of the pack, in two taps.
+   *
+   * `mode` is carried through the arm so the confirm commits exactly the
+   * button that was armed — arming "all" and then ticking a card cannot
+   * turn the pending confirm into something smaller, and vice versa.
+   */
+  async function handleSell(mode: "all" | "picked") {
+    if (!onSellPack || selling) return;
+    const ids =
+      mode === "all"
+        ? pack.pulls.map((pull) => pull.inventoryId).filter((id) => !dustedIds.has(id))
+        : [...picked];
+    if (ids.length === 0) return;
+
+    if (armedSell !== mode) {
+      // Arm, don't fire: destroying cards you just paid for deserves a
       // deliberate second tap, not a misclick.
-      setSellStage("confirm");
+      setArmedSell(mode);
       setSellError(null);
       return;
     }
-    if (sellStage !== "confirm") return;
-    setSellStage("selling");
-    const result = await onSellPack(pack.pulls.map((pull) => pull.inventoryId));
+
+    setArmedSell(null);
+    setSelling(true);
+    const result = await onSellPack(ids);
+    setSelling(false);
     if (!result.ok) {
-      setSellStage("idle");
       setSellError(result.error);
       return;
     }
-    setSold({ dusted: result.dusted, value: result.value });
-    // Out of "selling" even on success — leaving it set would keep the
-    // other summary buttons disabled for the rest of the pack.
-    setSellStage("idle");
+    // The server reports how many it actually destroyed, and it may be
+    // fewer than were asked for (a copy locked into a lineup between
+    // render and tap). Only what it dusted comes off the stage — marking
+    // all of them would hide a card the player still owns.
+    setDustedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids.slice(0, result.dusted)) next.add(id);
+      return next;
+    });
+    setPicked((current) => {
+      const next = new Set(current);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+    setSold((current) => ({
+      dusted: (current?.dusted ?? 0) + result.dusted,
+      value: (current?.value ?? 0) + result.value,
+    }));
     setBalance(result.balance);
     setSellError(
       result.skipped > 0 ? `${result.skipped} card${result.skipped === 1 ? "" : "s"} couldn't be sold.` : null,
     );
   }
 
-  const dustTotal = pack.pulls.reduce(
-    (sum, pull) =>
-      sum +
-      patronDustValue(
-        {
-          tier: pull.card.tier.key,
-          foil: pull.foil,
-          foilType: pull.foilType,
-          signed: pull.signed,
-          // Without the flags a pulled moment or champions relic would price
-          // as the placeholder gold tier its wrapper carries — the sell-all
-          // button then offers $10 for a $150 relic.
-          moment: Boolean(pull.card.moment),
-          champWin: Boolean(pull.card.champWin),
-        },
-        patron,
-      ),
-    0,
-  );
+  /** What one pull dusts for. The flags matter: without them a pulled
+   *  moment or champions relic would price as the placeholder gold tier
+   *  its wrapper carries, and the button would offer $10 for a $150
+   *  relic. Priced on the client only to LABEL the button — the action
+   *  re-derives every value server-side from the row's own columns. */
+  const dustValueOfPull = (pull: Pull): number =>
+    patronDustValue(
+      {
+        tier: pull.card.tier.key,
+        foil: pull.foil,
+        foilType: pull.foilType,
+        signed: pull.signed,
+        moment: Boolean(pull.card.moment),
+        champWin: Boolean(pull.card.champWin),
+      },
+      patron,
+    );
+
+  const dustTotal = pack.pulls.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
+  /** What is still on the stage, and what the two buttons are worth. */
+  const remaining = pack.pulls.filter((pull) => !dustedIds.has(pull.inventoryId));
+  const remainingTotal = remaining.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
+  const pickedPulls = pack.pulls.filter((pull) => picked.has(pull.inventoryId));
+  const pickedTotal = pickedPulls.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
   const newCount = pack.isNew.filter(Boolean).length;
   // The rays are the loudest thing on the stage, so they're spent sparingly:
   // a legendary-topped pack while it's still sealed, and any walkout.
@@ -737,6 +800,31 @@ export default function PackOpening({
                             Alt
                           </span>
                         ) : null}
+                        {/* Picking happens on the SUMMARY, not mid-reveal: a
+                            dust chip next to a card still being turned is a
+                            destructive control competing with the moment the
+                            pack exists for. */}
+                        {onSellPack && view === "summary" ? (
+                          dustedIds.has(pull.inventoryId) ? (
+                            <span className="w-full rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel">
+                              Dusted
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              aria-pressed={picked.has(pull.inventoryId)}
+                              onClick={() => togglePick(pull.inventoryId)}
+                              disabled={selling}
+                              className={`w-full rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition disabled:opacity-60 ${
+                                picked.has(pull.inventoryId)
+                                  ? "border-gold bg-gold/20 text-gold"
+                                  : "border-line text-steel hover:border-gold hover:text-gold"
+                              }`}
+                            >
+                              {picked.has(pull.inventoryId) ? "✓ " : ""}Dust +{fmtPoints(dustValueOfPull(pull))}
+                            </button>
+                          )
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -819,30 +907,45 @@ export default function PackOpening({
                 {sellError}
               </p>
             ) : null}
-            {onSellPack ? (
-              sold ? (
-                <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
-                  Sold {sold.dusted} for +{fmtPoints(sold.value)}
-                </span>
-              ) : (
+            {sold ? (
+              <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
+                Dusted {sold.dusted} for +{fmtPoints(sold.value)}
+              </span>
+            ) : null}
+            {onSellPack && remaining.length > 0 ? (
+              <>
+                {picked.size > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleSell("picked")}
+                    disabled={selling || pending}
+                    className="rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {selling
+                      ? "Dusting…"
+                      : armedSell === "picked"
+                        ? `Dust ${picked.size} — sure?`
+                        : `Dust ${picked.size} selected — +${fmtPoints(pickedTotal)}`}
+                  </button>
+                ) : null}
                 <button
                   type="button"
-                  onClick={() => void handleSellPack()}
-                  disabled={sellStage === "selling" || pending}
-                  className="rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void handleSell("all")}
+                  disabled={selling || pending}
+                  className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-steel transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {sellStage === "selling"
-                    ? "Selling…"
-                    : sellStage === "confirm"
-                      ? `Sell all ${count} — sure?`
-                      : `Sell pack — +${fmtPoints(dustTotal)}`}
+                  {selling
+                    ? "Dusting…"
+                    : armedSell === "all"
+                      ? `Dust all ${remaining.length} — sure?`
+                      : `Dust all — +${fmtPoints(remainingTotal)}`}
                 </button>
-              )
+              </>
             ) : null}
             <button
               type="button"
               onClick={handleOpenAnother}
-              disabled={pending || error !== null || sellStage === "selling"}
+              disabled={pending || error !== null || selling}
               className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Opening…" : `Open another — ${fmtPoints(packCost)}`}

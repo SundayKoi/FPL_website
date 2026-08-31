@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MOMENT_DUST } from "@/lib/cards/moments";
 import {
@@ -15,6 +17,7 @@ import {
   RARITY_WEIGHTS,
   SIGNED_DUST_BASE,
   dustValueOf,
+  MAX_DUST_BATCH,
 } from "./config";
 
 describe("dustValueOf", () => {
@@ -155,5 +158,30 @@ describe("foil parallels", () => {
 
   it("gives every parallel a label", () => {
     for (const type of FOIL_TYPES) expect(FOIL_TYPE_LABELS[type]).toBeTruthy();
+  });
+});
+
+describe("the mass-dust cap", () => {
+  it("is the one number three surfaces read", () => {
+    // The server enforces it, the pack overlay and the shelf's select mode
+    // both stop accepting at it. Restating it in any of the three is how
+    // the expedition payout guard drifted from its config and refused
+    // every legend jackpot — so this is the bridge.
+    const action = readFileSync(join(process.cwd(), "src/lib/trades/actions.ts"), "utf8");
+    expect(action).toContain("ids.length > MAX_DUST_BATCH");
+    expect(action).not.toMatch(/ids\.length > \d+/);
+
+    for (const file of ["src/components/cards/CollectionGrid.tsx"]) {
+      expect(readFileSync(join(process.cwd(), file), "utf8")).toContain("MAX_DUST_BATCH");
+    }
+  });
+
+  it("is big enough for a shelf clear-out and small enough to be one request", () => {
+    // Ten was sized for a five-card pack; the case that needed a batch was
+    // always the collection. Each copy is still its own dust_card call
+    // under its own lock, so this bounds one request's work — never the
+    // safety of a single destroy.
+    expect(MAX_DUST_BATCH).toBeGreaterThan(10);
+    expect(MAX_DUST_BATCH).toBeLessThanOrEqual(100);
   });
 });

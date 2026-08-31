@@ -19,7 +19,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { patronDustValue } from "@/lib/packs/config";
+import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
 import { patronActive } from "@/lib/patron/flames";
 
 /** Whether this wallet gets the patron dust bonus, read at dust time so a
@@ -179,7 +179,9 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
 export async function dustManyAction(inventoryIds: number[]): Promise<DustAllResult> {
   const ids = normalizeIds(inventoryIds);
   if (!ids || ids.length === 0) return { ok: false, error: "Nothing to sell." };
-  if (ids.length > 10) return { ok: false, error: "That's too many cards to sell at once." };
+  if (ids.length > MAX_DUST_BATCH) {
+    return { ok: false, error: `That's too many cards to sell at once — ${MAX_DUST_BATCH} is the limit.` };
+  }
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };

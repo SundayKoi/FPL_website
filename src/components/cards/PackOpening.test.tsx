@@ -307,36 +307,36 @@ describe("PackOpening", () => {
     expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
   });
 
-  it("sells the whole pack in two deliberate taps", async () => {
+  it("dusts the whole pack in two deliberate taps", async () => {
     const onSellPack = vi.fn(async (ids: number[]) => ({ ok: true as const, dusted: ids.length, value: 405, balance: 1205, skipped: 0 }));
     renderOpening({ onSellPack });
     await ripPack();
     flipEverything();
 
     // First tap arms; nothing is sold yet.
-    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dust all — +$405" }));
     expect(onSellPack).not.toHaveBeenCalled();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+      fireEvent.click(screen.getByRole("button", { name: "Dust all 5 — sure?" }));
     });
     // Every inventory id in the pack, and the balance banks the proceeds.
     expect(onSellPack).toHaveBeenCalledTimes(1);
     expect([...onSellPack.mock.calls[0][0]].sort()).toEqual([1, 2, 3, 4, 5]);
-    expect(screen.getByText("Sold 5 for +$405")).toBeTruthy();
+    expect(screen.getByText("Dusted 5 for +$405")).toBeTruthy();
     expect(screen.getByText("$1,205")).toBeTruthy();
-    // Terminal for this pack — the button is gone, not re-armed.
-    expect(screen.queryByRole("button", { name: /sell/i })).toBeNull();
+    // Nothing left on the stage to dust, so both buttons go.
+    expect(screen.queryByRole("button", { name: /dust/i })).toBeNull();
   });
 
-  it("re-arms the sell button for the next pack", async () => {
+  it("re-arms the dust buttons for the next pack", async () => {
     const onSellPack = vi.fn(async () => ({ ok: true as const, dusted: 5, value: 405, balance: 1205, skipped: 0 }));
     renderOpening({ onSellPack });
     await ripPack();
     flipEverything();
-    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dust all — +$405" }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+      fireEvent.click(screen.getByRole("button", { name: "Dust all 5 — sure?" }));
     });
 
     await act(async () => {
@@ -344,22 +344,165 @@ describe("PackOpening", () => {
     });
     await ripPack();
     flipEverything();
-    expect(screen.getByRole("button", { name: "Sell pack — +$405" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Dust all — +$405" })).toBeTruthy();
   });
 
-  it("keeps the stage up when the sell is refused", async () => {
+  it("dusts only the cards that were ticked", async () => {
+    const onSellPack = vi.fn(async (ids: number[]) => ({
+      ok: true as const,
+      dusted: ids.length,
+      value: 20,
+      balance: 1020,
+      skipped: 0,
+    }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    // Two of the five, priced as the sum of just those two.
+    const chips = screen.getAllByRole("button", { name: /^dust \+\$/i });
+    expect(chips).toHaveLength(5);
+    fireEvent.click(chips[0]);
+    fireEvent.click(chips[1]);
+
+    const selected = screen.getByRole("button", { name: /dust 2 selected/i });
+    fireEvent.click(selected);
+    expect(onSellPack).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 2 — sure?" }));
+    });
+    expect(onSellPack).toHaveBeenCalledTimes(1);
+    expect(onSellPack.mock.calls[0][0]).toHaveLength(2);
+    // The rest of the pack is untouched and still dustable.
+    expect(screen.getByRole("button", { name: /dust all/i })).toBeTruthy();
+    expect(screen.getAllByText("Dusted")).toHaveLength(2);
+  });
+
+  it("lets a second dust add to the first instead of ending the pack", async () => {
+    // A partial dust used to be terminal, because "sold" was one flag for
+    // the whole pack. Picking two and then changing your mind about a
+    // third is the normal way this gets used.
+    const onSellPack = vi.fn(async (ids: number[]) => ({
+      ok: true as const,
+      dusted: ids.length,
+      value: 10 * ids.length,
+      balance: 1000 + 10 * ids.length,
+      skipped: 0,
+    }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^dust \+\$/i })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /dust 1 selected/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 1 — sure?" }));
+    });
+    expect(screen.getByText("Dusted 1 for +$10")).toBeTruthy();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^dust \+\$/i })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /dust 1 selected/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 1 — sure?" }));
+    });
+    // The tally accumulates rather than replacing.
+    expect(screen.getByText("Dusted 2 for +$20")).toBeTruthy();
+    expect(onSellPack).toHaveBeenCalledTimes(2);
+  });
+
+  it("never dusts a card twice", async () => {
+    const onSellPack = vi.fn(async (ids: number[]) => ({
+      ok: true as const,
+      dusted: ids.length,
+      value: 10,
+      balance: 1010,
+      skipped: 0,
+    }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^dust \+\$/i })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /dust 1 selected/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 1 — sure?" }));
+    });
+
+    // Dust all now offers the FOUR that are left, not all five.
+    fireEvent.click(screen.getByRole("button", { name: /dust all/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust all 4 — sure?" }));
+    });
+    const second = onSellPack.mock.calls[1][0];
+    expect(second).toHaveLength(4);
+    expect(second).not.toContain(onSellPack.mock.calls[0][0][0]);
+  });
+
+  it("un-arms a confirm when the selection changes under it", async () => {
+    // The armed button names a set. If ticking another card could grow
+    // that set without re-arming, the second tap would destroy more than
+    // the button said it would.
+    const onSellPack = vi.fn(async () => ({ ok: true as const, dusted: 1, value: 10, balance: 1010, skipped: 0 }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    const chips = screen.getAllByRole("button", { name: /^dust \+\$/i });
+    fireEvent.click(chips[0]);
+    fireEvent.click(screen.getByRole("button", { name: /dust 1 selected/i }));
+    expect(screen.getByRole("button", { name: "Dust 1 — sure?" })).toBeTruthy();
+
+    // Tick a second card: the confirm stands down.
+    fireEvent.click(chips[1]);
+    expect(screen.queryByRole("button", { name: /sure\?/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /dust 2 selected/i })).toBeTruthy();
+    expect(onSellPack).not.toHaveBeenCalled();
+  });
+
+  it("only marks what the server actually destroyed", async () => {
+    // A copy can be locked into a lineup between render and tap. The
+    // server reports how many it really dusted; marking all of them would
+    // hide a card the player still owns.
+    const onSellPack = vi.fn(async () => ({ ok: true as const, dusted: 1, value: 10, balance: 1010, skipped: 1 }));
+    renderOpening({ onSellPack });
+    await ripPack();
+    flipEverything();
+
+    const chips = screen.getAllByRole("button", { name: /^dust \+\$/i });
+    fireEvent.click(chips[0]);
+    fireEvent.click(chips[1]);
+    fireEvent.click(screen.getByRole("button", { name: /dust 2 selected/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust 2 — sure?" }));
+    });
+
+    expect(screen.getAllByText("Dusted")).toHaveLength(1);
+    expect(screen.getByRole("alert").textContent).toBe("1 card couldn't be sold.");
+  });
+
+  it("offers no dust chips before the summary", async () => {
+    // A destructive control next to a card still being turned competes
+    // with the only moment the pack exists for.
+    renderOpening({ onSellPack: vi.fn() });
+    await ripPack();
+    fireEvent.click(screen.getAllByRole("button", { name: /reveal card/i })[0]);
+    expect(screen.queryByRole("button", { name: /^dust \+\$/i })).toBeNull();
+  });
+
+  it("keeps the stage up when the dust is refused", async () => {
     const onSellPack = vi.fn(async () => ({ ok: false as const, error: "Those cards aren't yours." }));
     renderOpening({ onSellPack });
     await ripPack();
     flipEverything();
-    fireEvent.click(screen.getByRole("button", { name: "Sell pack — +$405" }));
+    fireEvent.click(screen.getByRole("button", { name: "Dust all — +$405" }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Sell all 5 — sure?" }));
+      fireEvent.click(screen.getByRole("button", { name: "Dust all 5 — sure?" }));
     });
 
     expect(screen.getByRole("alert").textContent).toBe("Those cards aren't yours.");
     // Back to idle — the pack is still sellable once the problem is fixed.
-    expect(screen.getByRole("button", { name: "Sell pack — +$405" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Dust all — +$405" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Done" })).toBeTruthy();
   });
 
