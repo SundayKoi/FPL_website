@@ -16,7 +16,7 @@ vi.mock("@/lib/cards/queries", () => ({ fetchCardSeason }));
 vi.mock("@/lib/betting/wallet", () => ({ getBettingUser }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 
-import { BoxScoreError, getBoxScoreGame, submitBoxScoreGuess } from "./server";
+import { GuessTheCardError, getGuessTheCardGame, submitGuessTheCard } from "./server";
 
 const today = "2026-08-31";
 
@@ -192,10 +192,10 @@ beforeEach(() => {
 
 afterEach(() => vi.useRealTimers());
 
-describe("Box Score server module", () => {
+describe("Guess the Card server module", () => {
   it("rejects malformed and stale submissions before touching privileged clients", async () => {
-    await expect(submitBoxScoreGuess({ league: "nope", puzzleDate: today, playerSlug: "x" })).rejects.toMatchObject({ code: "INVALID_INPUT" });
-    await expect(submitBoxScoreGuess({ league: "premier", puzzleDate: "2026-08-30", playerSlug: "target-na1" })).rejects.toMatchObject({ code: "STALE_PUZZLE" });
+    await expect(submitGuessTheCard({ league: "nope", puzzleDate: today, playerSlug: "x" })).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(submitGuessTheCard({ league: "premier", puzzleDate: "2026-08-30", playerSlug: "target-na1" })).rejects.toMatchObject({ code: "STALE_PUZZLE" });
     expect(createServerSupabase).not.toHaveBeenCalled();
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
@@ -203,10 +203,10 @@ describe("Box Score server module", () => {
   it("keeps the route admin-only even when the caller has a betting wallet", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: true, isBroadcaster: false });
 
-    await expect(getBoxScoreGame("premier")).rejects.toEqual(expect.objectContaining({
+    await expect(getGuessTheCardGame("premier")).rejects.toEqual(expect.objectContaining({
       code: "FORBIDDEN",
-      message: "Box Score is available to admins during testing.",
-    } satisfies Partial<BoxScoreError>));
+      message: "Guess the Card is available to admins during testing.",
+    } satisfies Partial<GuessTheCardError>));
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
@@ -214,7 +214,7 @@ describe("Box Score server module", () => {
     const service = createService();
     createBettingServiceClient.mockReturnValue(service.client);
 
-    const game = await getBoxScoreGame("premier");
+    const game = await getGuessTheCardGame("premier");
 
     expect(fetchCardSeason).toHaveBeenCalledWith(expect.anything(), "premier");
     expect(service.rpc).toHaveBeenCalledWith("ensure_box_score_daily_puzzle", expect.objectContaining({
@@ -231,7 +231,7 @@ describe("Box Score server module", () => {
     const service = createService();
     createBettingServiceClient.mockReturnValue(service.client);
 
-    const result = await submitBoxScoreGuess({ league: "premier", puzzleDate: today, playerSlug: "target-na1" });
+    const result = await submitGuessTheCard({ league: "premier", puzzleDate: today, playerSlug: "target-na1" });
 
     expect(service.rpc).toHaveBeenCalledWith("record_box_score_guess", {
       p_puzzle_date: today,

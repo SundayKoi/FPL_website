@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, type PointerEvent } from "react";
-import type { BoxScoreReveal } from "@/lib/box-score/reveal";
+import type { GuessTheCardReveal } from "@/lib/guess-the-card/reveal";
 
 function number(value: number, decimals = 0): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
@@ -30,7 +30,7 @@ function LockedGroup({ label }: { label: string }) {
   );
 }
 
-function CombatGroup({ reveal }: { reveal: BoxScoreReveal }) {
+function CombatGroup({ reveal }: { reveal: GuessTheCardReveal }) {
   if (!reveal.combat) return <LockedGroup label="Combat" />;
   return (
     <section aria-label="Combat stats" className="rounded-lg border border-mint/30 bg-mint/10 px-3 py-2">
@@ -44,7 +44,7 @@ function CombatGroup({ reveal }: { reveal: BoxScoreReveal }) {
   );
 }
 
-function DamageGroup({ reveal }: { reveal: BoxScoreReveal }) {
+function DamageGroup({ reveal }: { reveal: GuessTheCardReveal }) {
   if (!reveal.damage) return <LockedGroup label="Damage" />;
   return (
     <section aria-label="Damage stats" className="rounded-lg border border-coral/30 bg-coral/10 px-3 py-2">
@@ -58,7 +58,7 @@ function DamageGroup({ reveal }: { reveal: BoxScoreReveal }) {
   );
 }
 
-function EconomyGroup({ reveal }: { reveal: BoxScoreReveal }) {
+function EconomyGroup({ reveal }: { reveal: GuessTheCardReveal }) {
   if (!reveal.economy) return <LockedGroup label="Economy" />;
   return (
     <section aria-label="Economy stats" className="rounded-lg border border-gold/30 bg-gold/10 px-3 py-2">
@@ -72,7 +72,7 @@ function EconomyGroup({ reveal }: { reveal: BoxScoreReveal }) {
   );
 }
 
-function FrontFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean }) {
+function FrontFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: boolean }) {
   const final = reveal.final;
   const identity = final ? `${final.name}#${final.tag}` : "?????#????";
   return (
@@ -90,7 +90,7 @@ function FrontFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean
         ) : null}
         <div className="relative flex items-start justify-between gap-3">
           <div>
-            <span className="label-dash">BOX SCORE</span>
+            <span className="label-dash">GUESS THE CARD</span>
             <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Daily game</p>
           </div>
           <span className="rounded-full border border-cyan/50 bg-cyan/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan">
@@ -133,7 +133,7 @@ function FrontFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean
   );
 }
 
-function BackFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean }) {
+function BackFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: boolean }) {
   const back = reveal.cardBack;
   if (!back || !reveal.final) return null;
   return (
@@ -142,7 +142,7 @@ function BackFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean 
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="label-dash">COMPLETED</span>
-            <h3 className="mt-2 font-display text-2xl font-bold text-white">Completed box score</h3>
+            <h3 className="mt-2 font-display text-2xl font-bold text-white">Completed game stats</h3>
           </div>
           <span className="rounded-full bg-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-navy">{reveal.final.result}</span>
         </div>
@@ -171,7 +171,7 @@ function BackFace({ reveal, hidden }: { reveal: BoxScoreReveal; hidden: boolean 
   );
 }
 
-export default function BoxScoreCard({ reveal }: { reveal: BoxScoreReveal }) {
+export default function GuessTheCard({ reveal }: { reveal: GuessTheCardReveal }) {
   const [flipped, setFlipped] = useState(false);
   const [glare, setGlare] = useState({ x: 50, y: 50 });
   const canFlip = reveal.canFlip && Boolean(reveal.cardBack);
@@ -185,7 +185,7 @@ export default function BoxScoreCard({ reveal }: { reveal: BoxScoreReveal }) {
   }
 
   return (
-    <div data-testid="box-score-card" role="region" aria-label="Box Score player card" className="w-[20rem] max-w-full [perspective:1200px]">
+    <div data-testid="guess-the-card-card" role="region" aria-label="Guess the Card player card" className="w-[20rem] max-w-full [perspective:1200px]">
       <div
         className="relative aspect-[5/7] w-full [transform-style:preserve-3d]"
         onPointerMove={handlePointerMove}
@@ -204,7 +204,7 @@ export default function BoxScoreCard({ reveal }: { reveal: BoxScoreReveal }) {
             type="button"
             className="absolute right-3 top-3 z-20 rounded-full border border-white/30 bg-navy/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
             onClick={() => setFlipped((current) => !current)}
-            aria-label={flipped ? "Show box score front" : "Show box score back"}
+            aria-label={flipped ? "Show Guess the Card front" : "Show Guess the Card back"}
           >
             {flipped ? "Front" : "Back ↻"}
           </button>

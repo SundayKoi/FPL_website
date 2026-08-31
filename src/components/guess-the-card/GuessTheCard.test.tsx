@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import BoxScoreCard from "./BoxScoreCard";
-import type { BoxScoreReveal } from "@/lib/box-score/reveal";
+import GuessTheCard from "./GuessTheCard";
+import type { GuessTheCardReveal } from "@/lib/guess-the-card/reveal";
 
 afterEach(() => cleanup());
 
-const startReveal: BoxScoreReveal = {
+const startReveal: GuessTheCardReveal = {
   stage: "role",
   role: "Mid",
   champion: null,
@@ -17,7 +17,7 @@ const startReveal: BoxScoreReveal = {
   canFlip: false,
 };
 
-const completedReveal: BoxScoreReveal = {
+const completedReveal: GuessTheCardReveal = {
   stage: "final",
   role: "Mid",
   champion: { name: "Ahri", artUrl: "https://cdn.example/ahri.jpg" },
@@ -48,11 +48,11 @@ const completedReveal: BoxScoreReveal = {
   canFlip: true,
 };
 
-describe("BoxScoreCard", () => {
+describe("GuessTheCard", () => {
   it("keeps the player anonymous and champion art hidden at the start", () => {
-    render(<BoxScoreCard reveal={startReveal} />);
+    render(<GuessTheCard reveal={startReveal} />);
 
-    expect(screen.getByTestId("box-score-card")).toBeTruthy();
+    expect(screen.getByTestId("guess-the-card-card")).toBeTruthy();
     expect(screen.getByText("?????#????")).toBeTruthy();
     expect(screen.getByText("Mid")).toBeTruthy();
     expect(screen.getByText("🔒 Combat")).toBeTruthy();
@@ -61,14 +61,14 @@ describe("BoxScoreCard", () => {
   });
 
   it("shows the final identity, player-card link, and completed back", () => {
-    render(<BoxScoreCard reveal={completedReveal} />);
+    render(<GuessTheCard reveal={completedReveal} />);
 
     expect(screen.getByText("Target Player#NA1")).toBeTruthy();
     expect(screen.getByAltText("Ahri splash art")).toBeTruthy();
     expect(screen.getByRole("link", { name: /view player card/i }).getAttribute("href")).toBe("/card/target-na1");
 
-    fireEvent.click(screen.getByRole("button", { name: /show box score back/i }));
-    expect(screen.getByText("Completed box score")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /show Guess the Card back/i }));
+    expect(screen.getByText("Completed game stats")).toBeTruthy();
     expect(screen.getByText("Vision score")).toBeTruthy();
     expect(screen.getByText("31.0")).toBeTruthy();
   });

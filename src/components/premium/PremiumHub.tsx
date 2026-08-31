@@ -233,7 +233,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
   const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
   const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
-  const boxScoreHref = snapshot.league === "academy" ? "/academy/box-score" : "/box-score";
+  const guessTheCardHref = snapshot.league === "academy" ? "/academy/guess-the-card" : "/guess-the-card";
   const higherLowerPreviewCards = snapshot.cards.status === "ready"
     ? { referenceCard: snapshot.cards.data.card, challengerCard: snapshot.cards.data.challengerCard }
     : { referenceCard: null, challengerCard: null };
@@ -423,10 +423,10 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             <HigherLowerPreview {...higherLowerPreviewCards} />
           </FeatureCard>
           <FeatureCard
-            eyebrow="Daily box score"
-            title="Box Score"
+            eyebrow="Daily Guess the Card"
+            title="Guess the Card"
             description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
-            href={boxScoreHref}
+            href={guessTheCardHref}
             className="lg:col-span-4"
           >
             <div className="flex min-h-28 flex-col justify-between rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">

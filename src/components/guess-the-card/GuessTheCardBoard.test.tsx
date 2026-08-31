@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import BoxScoreBoard from "./BoxScoreBoard";
-import type { BoxScoreGame, BoxScoreReveal, BoxScoreSubmission } from "@/lib/box-score/server";
+import GuessTheCardBoard from "./GuessTheCardBoard";
+import type { GuessTheCardGame, GuessTheCardReveal, GuessTheCardSubmission } from "@/lib/guess-the-card/server";
 
 afterEach(() => cleanup());
 
-const reveal: BoxScoreReveal = {
+const reveal: GuessTheCardReveal = {
   stage: "champion",
   role: "Mid",
   champion: { name: "Ahri", artUrl: null },
@@ -17,7 +17,7 @@ const reveal: BoxScoreReveal = {
   canFlip: false,
 };
 
-const game: BoxScoreGame = {
+const game: GuessTheCardGame = {
   date: "2099-02-08",
   expiresAt: "2099-02-09T00:00:00.000Z",
   league: "premier",
@@ -33,7 +33,7 @@ const game: BoxScoreGame = {
   reward: null,
 };
 
-describe("BoxScoreBoard", () => {
+describe("GuessTheCardBoard", () => {
   it("restores guesses, submits only a player reference, and replaces the game state", async () => {
     const completed = {
       ...game,
@@ -41,10 +41,10 @@ describe("BoxScoreBoard", () => {
       status: "won" as const,
       reveal: { ...reveal, stage: "final" as const, final: { slug: "right-player-na1", name: "Right Player", tag: "NA1", team: "FPL", date: "2099-02-08", result: "win" as const, side: "Blue", durationMin: 35 }, canFlip: false },
     };
-    const submitGuess = vi.fn<(input: unknown) => Promise<BoxScoreSubmission>>().mockResolvedValue({ ok: true, correct: true, game: completed });
+    const submitGuess = vi.fn<(input: unknown) => Promise<GuessTheCardSubmission>>().mockResolvedValue({ ok: true, correct: true, game: completed });
     const resetPuzzle = vi.fn().mockResolvedValue({ date: game.date, league: game.league });
 
-    render(<BoxScoreBoard initialGame={game} submitGuess={submitGuess} resetPuzzle={resetPuzzle} />);
+    render(<GuessTheCardBoard initialGame={game} submitGuess={submitGuess} resetPuzzle={resetPuzzle} />);
 
     expect(screen.getByText("Wrong Player#NA1")).toBeTruthy();
     expect(screen.getByRole("option", { name: /wrong player/i })).toHaveProperty("disabled", true);
@@ -57,15 +57,15 @@ describe("BoxScoreBoard", () => {
   });
 
   it("copies a spoiler-free result after game over", async () => {
-    const lostGame: BoxScoreGame = { ...game, guesses: game.candidates.map((candidate, index) => ({ ...candidate, correct: index === 1 })), status: "lost", reveal: { ...reveal, stage: "final", final: { slug: "right-player-na1", name: "Right Player", tag: "NA1", team: "FPL", date: "2099-02-08", result: "win", side: "Blue", durationMin: 35 } } };
+    const lostGame: GuessTheCardGame = { ...game, guesses: game.candidates.map((candidate, index) => ({ ...candidate, correct: index === 1 })), status: "lost", reveal: { ...reveal, stage: "final", final: { slug: "right-player-na1", name: "Right Player", tag: "NA1", team: "FPL", date: "2099-02-08", result: "win", side: "Blue", durationMin: 35 } } };
     const clipboard = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
     const resetPuzzle = vi.fn().mockResolvedValue({ date: game.date, league: game.league });
 
-    render(<BoxScoreBoard initialGame={lostGame} submitGuess={vi.fn()} resetPuzzle={resetPuzzle} />);
+    render(<GuessTheCardBoard initialGame={lostGame} submitGuess={vi.fn()} resetPuzzle={resetPuzzle} />);
     fireEvent.click(screen.getByRole("button", { name: /copy result/i }));
 
-    await waitFor(() => expect(clipboard).toHaveBeenCalledWith("Box Score 2/5 ⬜🟩"));
-    expect(screen.getByText("Box Score 2/5 ⬜🟩")).toBeTruthy();
+    await waitFor(() => expect(clipboard).toHaveBeenCalledWith("Guess the Card 2/5 ⬜🟩"));
+    expect(screen.getByText("Guess the Card 2/5 ⬜🟩")).toBeTruthy();
   });
 });

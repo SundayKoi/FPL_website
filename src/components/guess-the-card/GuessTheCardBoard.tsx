@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
-import BoxScoreCard from "./BoxScoreCard";
-import type { BoxScoreGame, BoxScoreLeague, BoxScorePuzzleReset, BoxScoreSubmission } from "@/lib/box-score/server";
+import GuessTheCard from "./GuessTheCard";
+import type { GuessTheCardGame, GuessTheCardLeague, GuessTheCardPuzzleReset, GuessTheCardSubmission } from "@/lib/guess-the-card/server";
 
-type SubmitGuess = (input: unknown) => Promise<BoxScoreSubmission>;
-type ResetPuzzle = (input: unknown) => Promise<BoxScorePuzzleReset>;
+type SubmitGuess = (input: unknown) => Promise<GuessTheCardSubmission>;
+type ResetPuzzle = (input: unknown) => Promise<GuessTheCardPuzzleReset>;
 
 function countdownLabel(expiresAt: string, now: number): string {
   const remaining = Math.max(0, new Date(expiresAt).getTime() - now);
@@ -17,27 +17,27 @@ function countdownLabel(expiresAt: string, now: number): string {
   return [hours, minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function shareText(game: BoxScoreGame): string {
+function shareText(game: GuessTheCardGame): string {
   const squares = game.guesses.map((guess) => (guess.correct ? "🟩" : "⬜")).join("");
-  return `Box Score ${game.guesses.length}/5 ${squares}`.trim();
+  return `Guess the Card ${game.guesses.length}/5 ${squares}`.trim();
 }
 
-function leaguePath(league: BoxScoreLeague): string {
-  return league === "academy" ? "/academy/box-score" : "/box-score";
+function leaguePath(league: GuessTheCardLeague): string {
+  return league === "academy" ? "/academy/guess-the-card" : "/guess-the-card";
 }
 
-function gameStatusLabel(game: BoxScoreGame): string {
+function gameStatusLabel(game: GuessTheCardGame): string {
   if (game.status === "won") return "Solved";
   if (game.status === "lost") return "Game over";
   return `${game.guesses.length}/5 guesses`;
 }
 
-export default function BoxScoreBoard({
+export default function GuessTheCardBoard({
   initialGame,
   submitGuess,
   resetPuzzle,
 }: {
-  initialGame: BoxScoreGame;
+  initialGame: GuessTheCardGame;
   submitGuess: SubmitGuess;
   resetPuzzle: ResetPuzzle;
 }) {
@@ -102,17 +102,17 @@ export default function BoxScoreBoard({
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">Daily game · Admin testing</span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Box Score</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Guess the Card</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-steel">
             Identify the anonymous {leagueLabel} player from one completed game. Five guesses. A new frozen puzzle at midnight UTC.
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center gap-1.5" role="group" aria-label="Box Score league">
-            <Link href="/box-score" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
+          <div className="flex items-center gap-1.5" role="group" aria-label="Guess the Card league">
+            <Link href="/guess-the-card" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
               Premier
             </Link>
-            <Link href="/academy/box-score" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
+            <Link href="/academy/guess-the-card" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
               Academy
             </Link>
           </div>
@@ -129,10 +129,10 @@ export default function BoxScoreBoard({
 
       <div className="grid items-start gap-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-12">
         <div className="mx-auto w-full max-w-[20rem]">
-          <BoxScoreCard reveal={game.reveal} />
+          <GuessTheCard reveal={game.reveal} />
         </div>
 
-        <section aria-label="Box Score guesses" className="card-brand min-w-0 p-5 sm:p-6">
+        <section aria-label="Guess the Card guesses" className="card-brand min-w-0 p-5 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <span className="label-dash">{leagueLabel} puzzle · {game.date}</span>
@@ -155,10 +155,10 @@ export default function BoxScoreBoard({
 
           {isPlaying ? (
             <form className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
-              <label className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.14em] text-steel" htmlFor="box-score-player">
+              <label className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.14em] text-steel" htmlFor="guess-the-card-player">
                 Guess a player
                 <select
-                  id="box-score-player"
+                  id="guess-the-card-player"
                   value={selectedSlug}
                   onChange={(event) => setSelectedSlug(event.target.value)}
                   disabled={isPending}
@@ -178,7 +178,7 @@ export default function BoxScoreBoard({
             </form>
           ) : (
             <div className="mt-6 rounded border border-mint/40 bg-mint/10 px-4 py-3 text-sm text-mint">
-              {game.status === "won" ? "Solved. Flip the card to review the completed box score." : "Five guesses used. The final reveal is on the card."}
+              {game.status === "won" ? "Solved. Flip the card to review the completed game stats." : "Five guesses used. The final reveal is on the card."}
             </div>
           )}
 

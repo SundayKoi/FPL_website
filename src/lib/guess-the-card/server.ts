@@ -8,55 +8,55 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { championSplashUrl } from "@/lib/match-draft/champions";
 import { createServerSupabase } from "@/lib/supabase/server";
 import {
-  revealBoxScore,
-  type BoxScoreCandidate,
-  type BoxScoreReveal,
-  type BoxScoreSnapshot,
-  type BoxScoreStatus,
-  type BoxScoreTarget,
+  revealGuessTheCard,
+  type GuessTheCardCandidate,
+  type GuessTheCardReveal,
+  type GuessTheCardSnapshot,
+  type GuessTheCardStatus,
+  type GuessTheCardTarget,
 } from "./reveal";
 
-export type { BoxScoreCandidate, BoxScoreReveal, BoxScoreSnapshot, BoxScoreStatus } from "./reveal";
-export type BoxScoreLeague = "premier" | "academy";
+export type { GuessTheCardCandidate, GuessTheCardReveal, GuessTheCardSnapshot, GuessTheCardStatus } from "./reveal";
+export type GuessTheCardLeague = "premier" | "academy";
 
-export interface BoxScoreGuess extends BoxScoreCandidate {
+export interface GuessTheCardGuess extends GuessTheCardCandidate {
   correct: boolean;
 }
 
-export interface BoxScoreReward {
+export interface GuessTheCardReward {
   amount: number;
   balance: number;
   alreadyClaimed: boolean;
 }
 
-export interface BoxScoreGame {
+export interface GuessTheCardGame {
   date: string;
   expiresAt: string;
-  league: BoxScoreLeague;
+  league: GuessTheCardLeague;
   canReset: boolean;
   /** Testing gate marker. This is presentation only; server actions re-check. */
   adminTesting: true;
-  candidates: BoxScoreCandidate[];
-  guesses: BoxScoreGuess[];
-  status: BoxScoreStatus;
-  reveal: BoxScoreReveal;
-  reward: BoxScoreReward | null;
+  candidates: GuessTheCardCandidate[];
+  guesses: GuessTheCardGuess[];
+  status: GuessTheCardStatus;
+  reveal: GuessTheCardReveal;
+  reward: GuessTheCardReward | null;
 }
 
-export interface BoxScoreSubmission {
+export interface GuessTheCardSubmission {
   ok: true;
   correct: boolean;
-  game: BoxScoreGame;
+  game: GuessTheCardGame;
 }
 
-export interface BoxScorePuzzleReset {
+export interface GuessTheCardPuzzleReset {
   date: string;
-  league: BoxScoreLeague;
+  league: GuessTheCardLeague;
 }
 
 type ServiceClient = ReturnType<typeof createBettingServiceClient>;
 
-type RawBoxScoreRow = {
+type RawGuessTheCardRow = {
   match_id: string | null;
   game_date: string | null;
   game_duration_min: number | null;
@@ -108,7 +108,7 @@ type CandidateRow = {
 
 type PuzzleRow = {
   puzzle_date: string;
-  league: BoxScoreLeague;
+  league: GuessTheCardLeague;
   answer_slug: string;
   target_stats: Record<string, unknown>;
   reset_at: string;
@@ -116,7 +116,7 @@ type PuzzleRow = {
 
 type ProgressRow = {
   guesses: string[] | null;
-  status: BoxScoreStatus | null;
+  status: GuessTheCardStatus | null;
   reward_amount: number | null;
   reward_already_claimed: boolean | null;
 };
@@ -125,14 +125,14 @@ type RecordGuessRow = {
   accepted: boolean;
   correct: boolean;
   guess_count: number;
-  status: BoxScoreStatus;
+  status: GuessTheCardStatus;
   reward_amount: number;
   balance: number;
   already_rewarded: boolean;
 };
 
 const MIN_GAME_DURATION = 15;
-const BOX_SCORE_RAW_COLUMNS = [
+const GUESS_THE_CARD_RAW_COLUMNS = [
   "match_id",
   "game_date",
   "game_duration_min",
@@ -174,7 +174,7 @@ const BOX_SCORE_RAW_COLUMNS = [
   "win",
 ].join(",");
 
-export type BoxScoreErrorCode =
+export type GuessTheCardErrorCode =
   | "INVALID_INPUT"
   | "FORBIDDEN"
   | "STALE_PUZZLE"
@@ -185,10 +185,10 @@ export type BoxScoreErrorCode =
   | "DUPLICATE_GUESS"
   | "GAME_COMPLETE";
 
-export class BoxScoreError extends Error {
-  constructor(public readonly code: BoxScoreErrorCode, message: string) {
+export class GuessTheCardError extends Error {
+  constructor(public readonly code: GuessTheCardErrorCode, message: string) {
     super(message);
-    this.name = "BoxScoreError";
+    this.name = "GuessTheCardError";
   }
 }
 
@@ -196,7 +196,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isLeague(value: unknown): value is BoxScoreLeague {
+function isLeague(value: unknown): value is GuessTheCardLeague {
   return value === "premier" || value === "academy";
 }
 
@@ -210,21 +210,21 @@ function utcDate(date: Date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
 
-function parseLeague(value: unknown): BoxScoreLeague {
-  if (!isLeague(value)) throw new BoxScoreError("INVALID_INPUT", "Choose a valid Box Score league.");
+function parseLeague(value: unknown): GuessTheCardLeague {
+  if (!isLeague(value)) throw new GuessTheCardError("INVALID_INPUT", "Choose a valid Guess the Card league.");
   return value;
 }
 
-function parseReference(input: unknown): { league: BoxScoreLeague; puzzleDate: string } {
+function parseReference(input: unknown): { league: GuessTheCardLeague; puzzleDate: string } {
   if (!isRecord(input) || !isIsoDate(input.puzzleDate)) {
-    throw new BoxScoreError("INVALID_INPUT", "Invalid Box Score puzzle.");
+    throw new GuessTheCardError("INVALID_INPUT", "Invalid Guess the Card puzzle.");
   }
   return { league: parseLeague(input.league), puzzleDate: input.puzzleDate };
 }
 
-function parseGuess(input: unknown): { league: BoxScoreLeague; puzzleDate: string; playerSlug: string } {
+function parseGuess(input: unknown): { league: GuessTheCardLeague; puzzleDate: string; playerSlug: string } {
   if (!isRecord(input) || !isIsoDate(input.puzzleDate)) {
-    throw new BoxScoreError("INVALID_INPUT", "Invalid Box Score guess.");
+    throw new GuessTheCardError("INVALID_INPUT", "Invalid Guess the Card guess.");
   }
   const league = parseLeague(input.league);
   if (
@@ -232,12 +232,12 @@ function parseGuess(input: unknown): { league: BoxScoreLeague; puzzleDate: strin
     !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(input.playerSlug) ||
     input.playerSlug.length > 180
   ) {
-    throw new BoxScoreError("INVALID_INPUT", "Invalid Box Score player.");
+    throw new GuessTheCardError("INVALID_INPUT", "Invalid Guess the Card player.");
   }
   return { league, puzzleDate: input.puzzleDate, playerSlug: input.playerSlug };
 }
 
-async function requireBoxScoreAdmin(): Promise<{
+async function requireGuessTheCardAdmin(): Promise<{
   server: SupabaseClient;
   service: ServiceClient;
   profileId: string;
@@ -247,11 +247,11 @@ async function requireBoxScoreAdmin(): Promise<{
   const server = await createServerSupabase();
   const { isAdmin } = await fetchStaffTier(server);
   if (!isAdmin) {
-    throw new BoxScoreError("FORBIDDEN", "Box Score is available to admins during testing.");
+    throw new GuessTheCardError("FORBIDDEN", "Guess the Card is available to admins during testing.");
   }
   const user = await getBettingUser();
   if (!user) {
-    throw new BoxScoreError("FORBIDDEN", "Sign in with Discord to test Box Score.");
+    throw new GuessTheCardError("FORBIDDEN", "Sign in with Discord to test Guess the Card.");
   }
   return {
     server,
@@ -270,7 +270,7 @@ function hasNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function eligibleRow(row: RawBoxScoreRow): boolean {
+function eligibleRow(row: RawGuessTheCardRow): boolean {
   return (
     hasText(row.match_id) &&
     hasText(row.game_date) &&
@@ -332,7 +332,7 @@ function displayRole(role: string): string {
   return labels[role.trim().toLowerCase()] ?? role;
 }
 
-function toCandidate(row: RawBoxScoreRow): CandidateRow {
+function toCandidate(row: RawGuessTheCardRow): CandidateRow {
   return {
     player_slug: cardSlug(row.summoner_name!, row.tag!),
     player_name: row.summoner_name!,
@@ -341,7 +341,7 @@ function toCandidate(row: RawBoxScoreRow): CandidateRow {
   };
 }
 
-function uniqueCandidates(rows: RawBoxScoreRow[]): { candidate: CandidateRow; sourceMatchId: string }[] {
+function uniqueCandidates(rows: RawGuessTheCardRow[]): { candidate: CandidateRow; sourceMatchId: string }[] {
   const seen = new Set<string>();
   const candidates: { candidate: CandidateRow; sourceMatchId: string }[] = [];
   for (const row of rows) {
@@ -354,7 +354,7 @@ function uniqueCandidates(rows: RawBoxScoreRow[]): { candidate: CandidateRow; so
   return candidates;
 }
 
-async function puzzleExists(service: ServiceClient, date: string, league: BoxScoreLeague): Promise<boolean> {
+async function puzzleExists(service: ServiceClient, date: string, league: GuessTheCardLeague): Promise<boolean> {
   const { data, error } = await service
     .from("box_score_daily_puzzles")
     .select("puzzle_date")
@@ -368,16 +368,16 @@ async function puzzleExists(service: ServiceClient, date: string, league: BoxSco
 async function ensurePuzzle(
   server: SupabaseClient,
   service: ServiceClient,
-  league: BoxScoreLeague,
+  league: GuessTheCardLeague,
   date: string,
 ): Promise<void> {
   if (await puzzleExists(service, date, league)) return;
   const season = await fetchCardSeason(server, league as CardLeague);
-  if (!season) throw new BoxScoreError("NO_SEASON", "This league has no active season.");
+  if (!season) throw new GuessTheCardError("NO_SEASON", "This league has no active season.");
 
   const { data, error } = await service
     .from("raw_stats")
-    .select(BOX_SCORE_RAW_COLUMNS)
+    .select(GUESS_THE_CARD_RAW_COLUMNS)
     .eq("season", season)
     .not("match_id", "is", null)
     .not("game_date", "is", null)
@@ -386,9 +386,9 @@ async function ensurePuzzle(
     .order("game_date", { ascending: false })
     .order("match_id", { ascending: false });
   if (error) throw error;
-  const candidates = uniqueCandidates((data as unknown as RawBoxScoreRow[] | null) ?? []);
+  const candidates = uniqueCandidates((data as unknown as RawGuessTheCardRow[] | null) ?? []);
   if (candidates.length === 0) {
-    throw new BoxScoreError("NO_CANDIDATES", "No complete current-season games are available yet.");
+    throw new GuessTheCardError("NO_CANDIDATES", "No complete current-season games are available yet.");
   }
 
   const { error: ensureError } = await service.rpc("ensure_box_score_daily_puzzle", {
@@ -406,7 +406,7 @@ async function ensurePuzzle(
   if (ensureError) throw ensureError;
 }
 
-async function loadPuzzle(service: ServiceClient, date: string, league: BoxScoreLeague): Promise<PuzzleRow> {
+async function loadPuzzle(service: ServiceClient, date: string, league: GuessTheCardLeague): Promise<PuzzleRow> {
   const { data, error } = await service
     .from("box_score_daily_puzzles")
     .select("puzzle_date, league, answer_slug, target_stats, reset_at")
@@ -414,11 +414,11 @@ async function loadPuzzle(service: ServiceClient, date: string, league: BoxScore
     .eq("league", league)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new BoxScoreError("PUZZLE_UNAVAILABLE", "Daily Box Score puzzle is unavailable.");
+  if (!data) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", "Daily Guess the Card puzzle is unavailable.");
   return data as PuzzleRow;
 }
 
-async function loadCandidates(service: ServiceClient, date: string, league: BoxScoreLeague): Promise<BoxScoreCandidate[]> {
+async function loadCandidates(service: ServiceClient, date: string, league: GuessTheCardLeague): Promise<GuessTheCardCandidate[]> {
   const { data, error } = await service
     .from("box_score_daily_candidates")
     .select("player_slug, player_name, player_tag, role")
@@ -434,7 +434,7 @@ async function loadCandidates(service: ServiceClient, date: string, league: BoxS
   }));
 }
 
-async function loadProgress(service: ServiceClient, date: string, league: BoxScoreLeague, profileId: string): Promise<ProgressRow | null> {
+async function loadProgress(service: ServiceClient, date: string, league: GuessTheCardLeague, profileId: string): Promise<ProgressRow | null> {
   const { data, error } = await service
     .from("box_score_daily_progress")
     .select("guesses, status, reward_amount, reward_already_claimed")
@@ -447,21 +447,21 @@ async function loadProgress(service: ServiceClient, date: string, league: BoxSco
 }
 
 function numberFrom(value: unknown, field: string): number {
-  if (!hasNumber(value)) throw new BoxScoreError("PUZZLE_UNAVAILABLE", `Box Score target is missing ${field}.`);
+  if (!hasNumber(value)) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", `Guess the Card target is missing ${field}.`);
   return value;
 }
 
 function stringFrom(value: unknown, field: string): string {
-  if (!hasText(value)) throw new BoxScoreError("PUZZLE_UNAVAILABLE", `Box Score target is missing ${field}.`);
+  if (!hasText(value)) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", `Guess the Card target is missing ${field}.`);
   return value;
 }
 
-function targetFromPuzzle(puzzle: PuzzleRow, answer: BoxScoreCandidate): BoxScoreTarget {
+function targetFromPuzzle(puzzle: PuzzleRow, answer: GuessTheCardCandidate): GuessTheCardTarget {
   const stats = puzzle.target_stats;
   const result = stats.result === "win" || stats.result === "loss" ? stats.result : null;
-  if (!result) throw new BoxScoreError("PUZZLE_UNAVAILABLE", "Box Score target result is invalid.");
+  if (!result) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", "Guess the Card target result is invalid.");
   const multikills = stats.multikills;
-  if (!isRecord(multikills)) throw new BoxScoreError("PUZZLE_UNAVAILABLE", "Box Score multikills are invalid.");
+  if (!isRecord(multikills)) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", "Guess the Card multikills are invalid.");
   return {
     slug: answer.slug,
     name: answer.name,
@@ -505,27 +505,27 @@ function targetFromPuzzle(puzzle: PuzzleRow, answer: BoxScoreCandidate): BoxScor
   };
 }
 
-function statusFromProgress(progress: ProgressRow | null): BoxScoreStatus {
+function statusFromProgress(progress: ProgressRow | null): GuessTheCardStatus {
   return progress?.status === "won" || progress?.status === "lost" ? progress.status : "playing";
 }
 
 function buildGame(
-  league: BoxScoreLeague,
+  league: GuessTheCardLeague,
   puzzle: PuzzleRow,
-  candidates: BoxScoreCandidate[],
+  candidates: GuessTheCardCandidate[],
   progress: ProgressRow | null,
   balance: number,
   canReset: boolean,
-): BoxScoreGame {
+): GuessTheCardGame {
   const answer = candidates.find((candidate) => candidate.slug === puzzle.answer_slug);
-  if (!answer) throw new BoxScoreError("PUZZLE_UNAVAILABLE", "Daily Box Score answer label is unavailable.");
+  if (!answer) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", "Daily Guess the Card answer label is unavailable.");
   const status = statusFromProgress(progress);
   const guesses = (progress?.guesses ?? [])
     .map((slug) => candidates.find((candidate) => candidate.slug === slug))
-    .filter((candidate): candidate is BoxScoreCandidate => Boolean(candidate))
+    .filter((candidate): candidate is GuessTheCardCandidate => Boolean(candidate))
     .map((candidate) => ({ ...candidate, correct: candidate.slug === answer.slug }));
   const wrongGuesses = guesses.filter((guess) => !guess.correct).map((guess) => guess.slug);
-  const snapshot: BoxScoreSnapshot = {
+  const snapshot: GuessTheCardSnapshot = {
     date: puzzle.puzzle_date,
     expiresAt: puzzle.reset_at,
     candidates,
@@ -541,7 +541,7 @@ function buildGame(
     candidates,
     guesses,
     status,
-    reveal: revealBoxScore(snapshot, wrongGuesses, status),
+    reveal: revealGuessTheCard(snapshot, wrongGuesses, status),
     reward: rewardAmount > 0
       ? {
           amount: rewardAmount,
@@ -554,12 +554,12 @@ function buildGame(
 
 async function getGameForAdmin(
   service: ServiceClient,
-  league: BoxScoreLeague,
+  league: GuessTheCardLeague,
   date: string,
   profileId: string,
   balance: number,
   canReset: boolean,
-): Promise<BoxScoreGame> {
+): Promise<GuessTheCardGame> {
   const [puzzle, candidates, progress] = await Promise.all([
     loadPuzzle(service, date, league),
     loadCandidates(service, date, league),
@@ -568,7 +568,7 @@ async function getGameForAdmin(
   return buildGame(league, puzzle, candidates, progress, balance, canReset);
 }
 
-function rpcErrorCode(error: unknown): BoxScoreErrorCode | null {
+function rpcErrorCode(error: unknown): GuessTheCardErrorCode | null {
   const message = isRecord(error) && typeof error.message === "string" ? error.message : "";
   if (message.includes("BOX_SCORE_DUPLICATE_GUESS")) return "DUPLICATE_GUESS";
   if (message.includes("BOX_SCORE_GAME_COMPLETE")) return "GAME_COMPLETE";
@@ -577,22 +577,22 @@ function rpcErrorCode(error: unknown): BoxScoreErrorCode | null {
 }
 
 /** Ensure today's frozen game and restore this admin's account-backed progress. */
-export async function getBoxScoreGame(league: BoxScoreLeague): Promise<BoxScoreGame> {
+export async function getGuessTheCardGame(league: GuessTheCardLeague): Promise<GuessTheCardGame> {
   const validLeague = parseLeague(league);
   const date = utcDate();
-  const { server, service, profileId } = await requireBoxScoreAdmin();
+  const { server, service, profileId } = await requireGuessTheCardAdmin();
   await ensurePuzzle(server, service, validLeague, date);
   const user = await getBettingUser();
   return getGameForAdmin(service, validLeague, date, profileId, user?.balance ?? 0, true);
 }
 
 /** Submit only a player reference. Postgres compares it with the hidden answer. */
-export async function submitBoxScoreGuess(input: unknown): Promise<BoxScoreSubmission> {
+export async function submitGuessTheCard(input: unknown): Promise<GuessTheCardSubmission> {
   const { league, puzzleDate, playerSlug } = parseGuess(input);
   if (puzzleDate !== utcDate()) {
-    throw new BoxScoreError("STALE_PUZZLE", "That Box Score puzzle has expired. Refresh for today's game.");
+    throw new GuessTheCardError("STALE_PUZZLE", "That Guess the Card puzzle has expired. Refresh for today's game.");
   }
-  const { server, service, profileId, discordId } = await requireBoxScoreAdmin();
+  const { server, service, profileId, discordId } = await requireGuessTheCardAdmin();
   await ensurePuzzle(server, service, league, puzzleDate);
   const { data, error } = await service.rpc("record_box_score_guess", {
     p_puzzle_date: puzzleDate,
@@ -603,23 +603,23 @@ export async function submitBoxScoreGuess(input: unknown): Promise<BoxScoreSubmi
   });
   if (error) {
     const code = rpcErrorCode(error);
-    if (code) throw new BoxScoreError(code, error.message ?? "Box Score guess was not accepted.");
+    if (code) throw new GuessTheCardError(code, error.message ?? "Guess the Card guess was not accepted.");
     throw error;
   }
   const row = (data as RecordGuessRow[] | null)?.[0];
-  if (!row) throw new BoxScoreError("PUZZLE_UNAVAILABLE", "Box Score progress could not be saved.");
+  if (!row) throw new GuessTheCardError("PUZZLE_UNAVAILABLE", "Guess the Card progress could not be saved.");
   const user = await getBettingUser();
   const game = await getGameForAdmin(service, league, puzzleDate, profileId, Number(row.balance ?? user?.balance ?? 0), true);
   return { ok: true, correct: Boolean(row.correct), game };
 }
 
 /** Admin-only reset for finding several state transitions during testing. */
-export async function resetBoxScorePuzzle(input: unknown): Promise<BoxScorePuzzleReset> {
+export async function resetGuessTheCardPuzzle(input: unknown): Promise<GuessTheCardPuzzleReset> {
   const { league, puzzleDate } = parseReference(input);
   if (puzzleDate !== utcDate()) {
-    throw new BoxScoreError("STALE_PUZZLE", "Only today's Box Score puzzle can be reset.");
+    throw new GuessTheCardError("STALE_PUZZLE", "Only today's Guess the Card puzzle can be reset.");
   }
-  const { server, service } = await requireBoxScoreAdmin();
+  const { server, service } = await requireGuessTheCardAdmin();
   const { error } = await service.rpc("reset_box_score_daily_puzzle", {
     p_puzzle_date: puzzleDate,
     p_league: league,
@@ -629,4 +629,4 @@ export async function resetBoxScorePuzzle(input: unknown): Promise<BoxScorePuzzl
   return { date: puzzleDate, league };
 }
 
-export { revealBoxScore };
+export { revealGuessTheCard };

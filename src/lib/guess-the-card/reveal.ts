@@ -1,7 +1,7 @@
-export type BoxScoreStatus = "playing" | "won" | "lost";
-export type BoxScoreRevealStage = "role" | "champion" | "combat" | "damage" | "economy" | "final";
+export type GuessTheCardStatus = "playing" | "won" | "lost";
+export type GuessTheCardRevealStage = "role" | "champion" | "combat" | "damage" | "economy" | "final";
 
-export interface BoxScoreCandidate {
+export interface GuessTheCardCandidate {
   slug: string;
   name: string;
   tag: string;
@@ -9,7 +9,7 @@ export interface BoxScoreCandidate {
 }
 
 /** Internal snapshot. Keep this type on the server when constructing it. */
-export interface BoxScoreTarget {
+export interface GuessTheCardTarget {
   slug: string;
   name: string;
   tag: string;
@@ -51,15 +51,15 @@ export interface BoxScoreTarget {
   objectiveDamage: number;
 }
 
-export interface BoxScoreSnapshot {
+export interface GuessTheCardSnapshot {
   date: string;
   expiresAt: string;
-  candidates: BoxScoreCandidate[];
-  target: BoxScoreTarget;
+  candidates: GuessTheCardCandidate[];
+  target: GuessTheCardTarget;
 }
 
-export interface BoxScoreReveal {
-  stage: BoxScoreRevealStage;
+export interface GuessTheCardReveal {
+  stage: GuessTheCardRevealStage;
   role: string;
   champion: { name: string; artUrl: string | null } | null;
   combat: {
@@ -94,7 +94,7 @@ export interface BoxScoreReveal {
     damageTaken: number;
     damageMitigated: number;
     healing: number;
-    multikills: BoxScoreTarget["multikills"];
+    multikills: GuessTheCardTarget["multikills"];
     soloKills: number;
     turretDamage: number;
     objectiveDamage: number;
@@ -107,13 +107,13 @@ export interface BoxScoreReveal {
  * This is the only reveal seam: locked fields stay null until their miss, and
  * identity/card-back fields stay private until the game is complete.
  */
-export function revealBoxScore(
-  snapshot: BoxScoreSnapshot,
+export function revealGuessTheCard(
+  snapshot: GuessTheCardSnapshot,
   wrongGuesses: readonly string[],
-  status: BoxScoreStatus,
-): BoxScoreReveal {
+  status: GuessTheCardStatus,
+): GuessTheCardReveal {
   const gameOver = status !== "playing" || wrongGuesses.length >= 5;
-  const stage: BoxScoreRevealStage = gameOver
+  const stage: GuessTheCardRevealStage = gameOver
     ? "final"
     : wrongGuesses.length >= 4
       ? "economy"

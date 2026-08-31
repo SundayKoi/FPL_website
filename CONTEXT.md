@@ -2,13 +2,13 @@
 
 ## Daily games
 
-- **Shared daily reward**: One 200-betting-dollar reward per member and UTC puzzle date, increased to 300 while the member's patron flame is active. Completing any enabled daily game—FPL'dle, Higher or Lower, or Box Score—claims it; completing another game later does not pay again.
+- **Shared daily reward**: One 200-betting-dollar reward per member and UTC puzzle date, increased to 300 while the member's patron flame is active. Completing any enabled daily game—FPL'dle, Higher or Lower, or Guess the Card—claims it; completing another game later does not pay again.
 
-## Box Score
+## Guess the Card
 
 - **Daily puzzle**: One frozen completed `raw_stats` game per league and UTC date, shared by every player; Premier and Academy never share candidates or answers.
 - **Reveal stage**: The progressive safe DTO: role at start, then champion, combat, damage, economy, and finally match/player identity after a win or five misses. The answer JSON remains server-only.
-- **Admin test gate**: Box Score currently permits admins with a betting wallet only. The Premium Hub tile is visible as a test surface, while server actions and database grants keep gameplay data protected.
+- **Admin test gate**: Guess the Card currently permits admins with a betting wallet only. The Premium Hub tile is visible as a test surface, while server actions and database grants keep gameplay data protected.
 
 ## Higher or Lower
 

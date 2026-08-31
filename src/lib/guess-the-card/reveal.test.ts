@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { revealBoxScore, type BoxScoreSnapshot } from "./reveal";
+import { revealGuessTheCard, type GuessTheCardSnapshot } from "./reveal";
 
-const snapshot: BoxScoreSnapshot = {
+const snapshot: GuessTheCardSnapshot = {
   date: "2026-08-31",
   expiresAt: "2026-09-01T00:00:00.000Z",
   candidates: [
@@ -46,9 +46,9 @@ const snapshot: BoxScoreSnapshot = {
   },
 };
 
-describe("revealBoxScore", () => {
+describe("revealGuessTheCard", () => {
   it("starts with role and keeps champion, stats, and identity locked", () => {
-    const reveal = revealBoxScore(snapshot, [], "playing");
+    const reveal = revealGuessTheCard(snapshot, [], "playing");
 
     expect(reveal).toEqual({
       stage: "role",
@@ -64,22 +64,22 @@ describe("revealBoxScore", () => {
   });
 
   it("opens one clue rail after each wrong guess", () => {
-    expect(revealBoxScore(snapshot, ["guess-one-na1"], "playing")).toMatchObject({
+    expect(revealGuessTheCard(snapshot, ["guess-one-na1"], "playing")).toMatchObject({
       stage: "champion",
       champion: { name: "Ahri", artUrl: "https://ddragon.example/ahri.jpg" },
       combat: null,
     });
-    expect(revealBoxScore(snapshot, ["a", "b"], "playing")).toMatchObject({
+    expect(revealGuessTheCard(snapshot, ["a", "b"], "playing")).toMatchObject({
       stage: "combat",
       combat: { kills: 8, deaths: 2, assists: 11, kda: 9.5, killParticipationPct: 72.4 },
       damage: null,
     });
-    expect(revealBoxScore(snapshot, ["a", "b", "c"], "playing")).toMatchObject({
+    expect(revealGuessTheCard(snapshot, ["a", "b", "c"], "playing")).toMatchObject({
       stage: "damage",
       damage: { total: 28_400, perMin: 812.6, sharePct: 31.2 },
       economy: null,
     });
-    expect(revealBoxScore(snapshot, ["a", "b", "c", "d"], "playing")).toMatchObject({
+    expect(revealGuessTheCard(snapshot, ["a", "b", "c", "d"], "playing")).toMatchObject({
       stage: "economy",
       economy: { cs: 245, csPerMin: 7, gold: 13_200, goldPerMin: 377.1, csAt10: 82, goldAt10: 3_450 },
       final: null,
@@ -87,7 +87,7 @@ describe("revealBoxScore", () => {
   });
 
   it("reveals identity after game over and keeps the completed back separate", () => {
-    const lost = revealBoxScore(snapshot, ["a", "b", "c", "d", "e"], "lost");
+    const lost = revealGuessTheCard(snapshot, ["a", "b", "c", "d", "e"], "lost");
     expect(lost.stage).toBe("final");
     expect(lost.final).toEqual({
       slug: "target-na1",
@@ -102,7 +102,7 @@ describe("revealBoxScore", () => {
     expect(lost.cardBack).toBeNull();
     expect(lost.canFlip).toBe(false);
 
-    const won = revealBoxScore(snapshot, [], "won");
+    const won = revealGuessTheCard(snapshot, [], "won");
     expect(won.final?.name).toBe("Target");
     expect(won.cardBack).toEqual({
       visionScore: 24,
@@ -119,8 +119,8 @@ describe("revealBoxScore", () => {
   });
 
   it("never serializes internal game identifiers or locked answer fields early", () => {
-    const start = JSON.stringify(revealBoxScore(snapshot, [], "playing"));
-    const champion = JSON.stringify(revealBoxScore(snapshot, ["guess"], "playing"));
+    const start = JSON.stringify(revealGuessTheCard(snapshot, [], "playing"));
+    const champion = JSON.stringify(revealGuessTheCard(snapshot, ["guess"], "playing"));
 
     expect(start).not.toContain("target-na1");
     expect(start).not.toContain("matchId");
