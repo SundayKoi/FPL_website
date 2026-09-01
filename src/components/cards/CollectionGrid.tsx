@@ -33,7 +33,15 @@ import { useRouter } from "next/navigation";
 import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
-import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
+import {
+  canDust,
+  DEFAULT_FOIL_TYPE,
+  ECLIPSE_FOIL_TYPE,
+  FOIL_TYPE_LABELS,
+  foilTypeOf,
+  MAX_DUST_BATCH,
+  patronDustValue,
+} from "@/lib/packs/config";
 import { fmtPoints } from "@/lib/betting/format";
 import { dustManyAction } from "@/lib/trades/actions";
 import BinderPinButton from "./BinderPinButton";
@@ -70,27 +78,55 @@ const MATCHES: Record<Exclude<VariantFilter, "all">, (row: InventoryRow) => bool
   alt: (row) => skinOf(row) > 0,
 };
 
-/** What makes two copies the same *print*: the three cosmetic rolls. Two
- *  copies of a player from different weeks at different ratings are still
- *  the same thing to look at if all three match. */
-function printKey(row: InventoryRow): string {
-  return `${skinOf(row)}|${row.foil ? "f" : ""}|${row.signed ? "s" : ""}`;
+/** Which parallel a copy wears, for grouping. A matte copy is "", and so
+ *  is a pre-parallels foil that was backfilled to Prisma: they are the base
+ *  look. Anything else is its own print — a Cracked Ice is not a Prisma. */
+function parallelOf(row: InventoryRow): string {
+  if (!row.foil) return "";
+  return row.foilType && row.foilType !== DEFAULT_FOIL_TYPE ? row.foilType : "";
 }
 
-/** The copy to put on the shelf: an autographed copy outranks everything —
- *  the ink is the rarest thing that can happen to a pull, and nobody shelves
- *  a plain copy over a signed one — then highest overall, foil winning a tie
- *  (identical ratings are the same card, and the foil is the nicer print). */
+/** The one copy that outranks every rule below it. */
+function isEclipse(row: InventoryRow): boolean {
+  return row.foilType === ECLIPSE_FOIL_TYPE;
+}
+
+/** What makes two copies the same *print*: the cosmetic rolls. Two copies
+ *  of a player from different weeks at different ratings are still the same
+ *  thing to look at if they match.
+ *
+ *  The parallel is part of the key. The first cut keyed on foil-or-not, and
+ *  the first Eclipse ever pulled — a signed foil, technically — stacked
+ *  behind a signed Prisma of the same player and showed as "×2". A
+ *  one-of-one that reads as a duplicate is the exact opposite of what it
+ *  is, and the same is true, more quietly, of a Cracked Ice filed under a
+ *  Prisma. */
+function printKey(row: InventoryRow): string {
+  return `${skinOf(row)}|${row.foil ? "f" : ""}|${row.signed ? "s" : ""}|${parallelOf(row)}`;
+}
+
+/** The copy to put on the shelf: an Eclipse over everything, because there
+ *  is nothing rarer and nothing else that can happen to a pull; then an
+ *  autographed copy — the ink is the rarest ordinary thing and nobody
+ *  shelves a plain copy over a signed one — then highest overall, foil
+ *  winning a tie (identical ratings are the same card, and the foil is the
+ *  nicer print). */
 function betterCopy(a: InventoryRow, b: InventoryRow): InventoryRow {
+  if (isEclipse(a) !== isEclipse(b)) return isEclipse(b) ? b : a;
   if (a.signed !== b.signed) return b.signed ? b : a;
   if (b.overall !== a.overall) return b.overall > a.overall ? b : a;
   return b.foil && !a.foil ? b : a;
 }
 
-/** Showcase order: the ink first, then rating. Same rule the shelf ranks a
- *  player's copies by, so a strip and a filtered wall agree. */
+/** Showcase order: Eclipse, then the ink, then rating. Same rule the shelf
+ *  ranks a player's copies by, so a strip and a filtered wall agree. */
 function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
-  return Number(b.signed) - Number(a.signed) || b.overall - a.overall || a.id - b.id;
+  return (
+    Number(isEclipse(b)) - Number(isEclipse(a)) ||
+    Number(b.signed) - Number(a.signed) ||
+    b.overall - a.overall ||
+    a.id - b.id
+  );
 }
 
 const CHIP = "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
@@ -157,9 +193,15 @@ function CopyCaption({
             ✍
           </span>
         ) : null}
-        {row.foil ? (
-          <span className={GOLD_CHIP} title="Foil copy">
-            ✦
+        {isEclipse(row) ? (
+          <span className={GOLD_CHIP} title="Eclipse — the only copy of this print that will ever exist">
+            ◐ 1 of 1
+          </span>
+        ) : row.foil ? (
+          <span className={GOLD_CHIP} title={`${FOIL_TYPE_LABELS[foilTypeOf(row.foilType)]} foil copy`}>
+            {/* The parallel by name where it is more than the base foil —
+                a Cracked Ice beside a Prisma should not wear the same ✦. */}
+            {parallelOf(row) ? FOIL_TYPE_LABELS[foilTypeOf(row.foilType)] : "✦"}
           </span>
         ) : null}
         {skin > 0 ? (
@@ -229,7 +271,10 @@ function PickCell({
   value: number;
   onToggle: () => void;
 }) {
-  const disabled = locked || (atCap && !picked);
+  // A one-of-one is never pickable for dust — not a situation like a lock
+  // that lifts when the expedition returns, but a property of the copy.
+  const keepsake = !canDust(row);
+  const disabled = locked || keepsake || (atCap && !picked);
   return (
     <div className="card-cell flex flex-col items-center gap-2">
       <button
@@ -237,7 +282,13 @@ function PickCell({
         aria-pressed={picked}
         disabled={disabled}
         onClick={onToggle}
-        title={locked ? "On expedition — back soon." : undefined}
+        title={
+          keepsake
+            ? "An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
+            : locked
+              ? "On expedition — back soon."
+              : undefined
+        }
         className={`flex flex-col items-center gap-2 rounded-xl border-2 p-1 transition disabled:cursor-not-allowed disabled:opacity-40 ${
           picked ? "border-gold bg-gold/10" : "border-transparent hover:border-gold/40"
         }`}
@@ -246,11 +297,11 @@ function PickCell({
         <span className="flex w-full items-center justify-center gap-1.5 text-xs">
           <span className="truncate font-semibold text-white">{row.playerName}</span>
           <span className={picked ? "font-bold text-gold" : "text-steel"}>
-            {picked ? "✓ " : ""}+{fmtPoints(value)}
+            {keepsake ? "1 of 1" : `${picked ? "✓ " : ""}+${fmtPoints(value)}`}
           </span>
         </span>
         <span className="text-[10px] uppercase tracking-wide text-steel">
-          {locked ? "On expedition" : editionLabel(row.editionWeek)}
+          {keepsake ? "Can't be dusted" : locked ? "On expedition" : editionLabel(row.editionWeek)}
         </span>
       </button>
     </div>
@@ -470,8 +521,8 @@ export default function CollectionGrid({
       <div className="flex flex-col gap-4">
         {chips}
         <p className="text-xs text-steel">
-          Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup or out on an
-          expedition can&apos;t be dusted and the shelf will say so.
+          Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup, out on an
+          expedition, or a one-of-one can&apos;t be dusted and the shelf will say so.
         </p>
         <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
           {shown.slice(0, limit).map((row) => (
@@ -574,7 +625,11 @@ export default function CollectionGrid({
       return {
         best: copies.reduce(betterCopy),
         count: copies.length,
-        foils: copies.filter((copy) => copy.foil).length,
+        // The Eclipse is counted apart from the foils: a ✦ beside a ◐ would
+        // say "two foils" about a stack that holds one foil and one thing
+        // there is exactly one of in the world.
+        eclipses: copies.filter(isEclipse).length,
+        foils: copies.filter((copy) => copy.foil && !isEclipse(copy)).length,
         signatures: copies.filter((copy) => copy.signed).length,
         // Chronological, so the chips read as a print history.
         editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
@@ -589,6 +644,10 @@ export default function CollectionGrid({
             id: copy.id,
             tier: copy.tier,
             foil: copy.foil,
+            // The parallel is what tells the drawer a copy cannot be dusted
+            // at all (an Eclipse), and what prices a Cracked Ice above a
+            // Prisma — the same field the server reads for both.
+            foilType: copy.foilType,
             signed: copy.signed,
             editionWeek: copy.editionWeek,
             card: copy.card,
@@ -636,6 +695,14 @@ export default function CollectionGrid({
                     title={`${entry.signatures} autographed ${entry.signatures === 1 ? "copy" : "copies"}`}
                   >
                     {"✍".repeat(entry.signatures)}
+                  </span>
+                ) : null}
+                {entry.eclipses > 0 ? (
+                  // On the collapsed shelf too, not only in the prints strip:
+                  // the first Eclipse pulled hid behind "×2 ✍✍ ✦✦" and read as
+                  // a spare signed foil, which is the one thing it is not.
+                  <span className={GOLD_CHIP} title="Eclipse — the only copy of this print that will ever exist">
+                    ◐ 1 of 1
                   </span>
                 ) : null}
                 {entry.foils > 0 ? (

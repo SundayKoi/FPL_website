@@ -32,7 +32,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cardArtUrls, preloadArt } from "@/lib/cards/artUrls";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
+import { canDust, patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
 import type { RarityClass } from "@/lib/packs/config";
 import { flipTone, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
@@ -553,6 +553,8 @@ export default function PackOpening({
   /** Tick a card for dusting. Already-dusted copies are inert. */
   function togglePick(inventoryId: number) {
     if (dustedIds.has(inventoryId)) return;
+    // A one-of-one is never in the dust set, whatever was tapped.
+    if (pack.pulls.some((pull) => pull.inventoryId === inventoryId && !canDust(pull))) return;
     setSellError(null);
     // A changed selection un-arms: the confirm you are about to give must
     // belong to the set currently on screen.
@@ -575,7 +577,7 @@ export default function PackOpening({
     if (!onSellPack || selling) return;
     const ids =
       mode === "all"
-        ? pack.pulls.map((pull) => pull.inventoryId).filter((id) => !dustedIds.has(id))
+        ? pack.pulls.filter((pull) => canDust(pull)).map((pull) => pull.inventoryId).filter((id) => !dustedIds.has(id))
         : [...picked];
     if (ids.length === 0) return;
 
@@ -639,7 +641,10 @@ export default function PackOpening({
 
   const dustTotal = pack.pulls.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
   /** What is still on the stage, and what the two buttons are worth. */
-  const remaining = pack.pulls.filter((pull) => !dustedIds.has(pull.inventoryId));
+  // "Dust all" means everything that CAN be dusted: an Eclipse in the pack
+  // stays on the stage and out of the count, or the button would offer to
+  // destroy the one card the server will refuse.
+  const remaining = pack.pulls.filter((pull) => !dustedIds.has(pull.inventoryId) && canDust(pull));
   const remainingTotal = remaining.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
   const pickedPulls = pack.pulls.filter((pull) => picked.has(pull.inventoryId));
   const pickedTotal = pickedPulls.reduce((sum, pull) => sum + dustValueOfPull(pull), 0);
@@ -808,6 +813,13 @@ export default function PackOpening({
                           dustedIds.has(pull.inventoryId) ? (
                             <span className="w-full rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel">
                               Dusted
+                            </span>
+                          ) : !canDust(pull) ? (
+                            <span
+                              title="An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
+                              className="w-full rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-center text-[10px] font-black uppercase tracking-[0.18em] text-gold"
+                            >
+                              1 of 1
                             </span>
                           ) : (
                             <button

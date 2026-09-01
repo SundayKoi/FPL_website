@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 import { applyEclipse, isEclipseEligible, type EclipsePrint } from "./eclipse";
 import {
   ALL_FOIL_TYPES,
+  canDust,
   CHASE_FOIL_TYPES,
+  dustValueOf,
   ECLIPSE_CHANCE,
   ECLIPSE_FOIL_TYPE,
   FOIL_TYPES,
@@ -133,5 +135,26 @@ describe("an Eclipse takes the player's ink automatically", () => {
     // here would consume rand outside the pinned sequence.
     const before = print({ card: card({ artSkin: 7 }) });
     expect(applyEclipse(before, "INK").card.artSkin).toBe(7);
+  });
+});
+
+describe("an Eclipse has no dust value, and every label reads it from the same table", () => {
+  // dust_card refuses an Eclipse outright, so the only truthful quote on a
+  // button is nothing. The first live Eclipse showed a price under it — a
+  // real offer, as far as the holder could tell — because the multiplier
+  // table still carried the pre-decision figure. Zero here is what keeps the
+  // label and the ledger saying the same thing.
+  it("prices at zero", () => {
+    expect(dustValueOf({ tier: "master", foil: true, foilType: ECLIPSE_FOIL_TYPE, signed: true })).toBe(0);
+  });
+
+  it("is the one copy that cannot be dusted by its nature", () => {
+    expect(canDust({ foilType: ECLIPSE_FOIL_TYPE })).toBe(false);
+    expect(canDust({ foilType: "ice" })).toBe(true);
+    expect(canDust({ foilType: null })).toBe(true);
+  });
+
+  it("does not leak the zero into other parallels", () => {
+    expect(dustValueOf({ tier: "master", foil: true, foilType: "ice", signed: false })).toBeGreaterThan(0);
   });
 });

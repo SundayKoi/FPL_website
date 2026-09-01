@@ -30,7 +30,7 @@ import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
-import { patronDustValue } from "@/lib/packs/config";
+import { canDust, patronDustValue } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
@@ -45,6 +45,10 @@ export interface DustCopy {
   id: number;
   tier: string;
   foil: boolean;
+  /** Which parallel. Optional for the callers that predate parallels; the
+   *  one value that changes the drawer's behaviour is 'eclipse', which
+   *  cannot be dusted at all. */
+  foilType?: string | null;
   signed: boolean;
   editionWeek: string;
   card: PlayerCardData;
@@ -156,6 +160,10 @@ export default function DustControls({
             // Patrons melt for 20% more — same helper the server credits by.
             const value = patronDustValue(copy, patron);
             const deployed = deployedIds?.has(copy.id) ?? false;
+            // A one-of-one has no dust value to quote. The server refuses it
+            // anyway; the button saying so first is what stops a price that
+            // reads as a real offer from sitting under the rarest card there is.
+            const keepsake = !canDust(copy);
             const isArmed = armed === copy.id;
             const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
             const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;
@@ -241,8 +249,14 @@ export default function DustControls({
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}
-                  disabled={pending || deployed}
-                  title={deployed ? "On expedition — back soon." : undefined}
+                  disabled={pending || deployed || keepsake}
+                  title={
+                    keepsake
+                      ? "An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
+                      : deployed
+                        ? "On expedition — back soon."
+                        : undefined
+                  }
                   aria-label={`Dust the ${describe}`}
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60 ${
                     isArmed
@@ -250,7 +264,13 @@ export default function DustControls({
                       : "border-line text-steel hover:border-coral hover:text-coral"
                   }`}
                 >
-                  {deployed ? "On expedition" : isArmed ? `Confirm ${fmtPoints(value)}?` : `Dust · ${fmtPoints(value)}`}
+                  {keepsake
+                    ? "1 of 1"
+                    : deployed
+                      ? "On expedition"
+                      : isArmed
+                        ? `Confirm ${fmtPoints(value)}?`
+                        : `Dust · ${fmtPoints(value)}`}
                 </button>
               </li>
             );

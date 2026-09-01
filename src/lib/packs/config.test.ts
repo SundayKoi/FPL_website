@@ -200,12 +200,15 @@ describe("Eclipse, the one-of-one", () => {
     }
   });
 
-  it("still renders, prices and labels like a parallel", () => {
+  it("still renders and labels like a parallel, but carries no dust price", () => {
     // A preview that had to bypass the real component would be proving
-    // nothing about how the card actually looks.
+    // nothing about how the card actually looks. The multiplier is the one
+    // place it parts from the other parallels: dust_card refuses an
+    // Eclipse, so any price the table quoted would be an offer nobody can
+    // take — the first one pulled sat above "$405" for a day.
     expect(ALL_FOIL_TYPES as readonly string[]).toContain("eclipse");
     expect(FOIL_TYPE_LABELS.eclipse).toBe("Eclipse");
-    expect(FOIL_TYPE_DUST_MULT.eclipse).toBeGreaterThan(FOIL_TYPE_DUST_MULT.ice);
+    expect(FOIL_TYPE_DUST_MULT.eclipse).toBe(0);
   });
 
   it("reads back off a stored value rather than falling back to Prisma", () => {
