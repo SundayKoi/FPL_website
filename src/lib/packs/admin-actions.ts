@@ -16,6 +16,7 @@ import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { revalidatePath } from "next/cache";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCardSeason } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
+import { cardImageUrl } from "@/lib/cards/shareImage";
 import { WEEKLY_DRAW_POT } from "./config";
 import { chaseCriteriaFromPreset, chaseRoleOf, type ChasePreset } from "./chase";
 import { GOLD, LIVE_RED, postCardsWebhook } from "./announce";
@@ -184,7 +185,10 @@ export async function armChaseAction(input: {
     title: "★ This week's chase is live",
     description: `**${title}**\nFirst to pull it${bounty > 0 ? ` wins **${bounty}** betting dollars and` : ""} takes the CHASE stamp — ${editionLabel(week)} packs only, premier or academy.`,
     color: GOLD,
-    ...(site && criteria.slug ? { image: { url: `${site}/card/${criteria.slug}/card.png` } } : {}),
+    // The chase is armed against `week`, so the picture shows that week's
+    // print — and, because the url now carries the week, next week's chase
+    // cannot be announced with this week's cached image.
+    ...(site && criteria.slug ? { image: { url: cardImageUrl(site, criteria.slug, week) } } : {}),
   });
   revalidatePath("/cards/packs");
   revalidatePath("/schedule");

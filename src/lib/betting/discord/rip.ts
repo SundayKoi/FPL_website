@@ -21,6 +21,7 @@ import { BRAND, GREEN, deferred, errMsg } from "./respond";
 import type { DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { cardImageUrl } from "@/lib/cards/shareImage";
 import { editionLabel } from "@/lib/packs/week";
 
 const GUILD_ONLY_MSG = "Use this in the server.";
@@ -79,11 +80,12 @@ function pullEmbed(
   editionWeek: string | null,
 ): DiscordEmbed {
   const { card } = pull;
-  const week = editionWeek ? `?w=${encodeURIComponent(editionWeek)}` : "";
   return {
     description: pullLine(pull),
     color: TIER_COLORS[card.tier.key] ?? BRAND,
-    ...(site && !card.moment ? { image: { url: `${site}/card/${card.slug}/card.png${week}` } } : {}),
+    ...(site && !card.moment
+      ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } }
+      : {}),
   };
 }
 
