@@ -16,6 +16,7 @@ import {
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
+import { cardImageUrl } from "@/lib/cards/shareImage";
 import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
@@ -476,7 +477,7 @@ export async function openPackFor(
             .from("card_chases")
             .update({ claimed_inventory_id: ids[hitIndex] })
             .eq("id", chase.id);
-          await announceChaseClaim(service, discordId, chase.title, prints[hitIndex], chase.bounty);
+          await announceChaseClaim(service, discordId, chase.title, prints[hitIndex], chase.bounty, editionWeek);
         }
       }
     }
@@ -527,6 +528,7 @@ async function announceChaseClaim(
   title: string,
   print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean },
   bounty: number,
+  editionWeek: string | null,
 ): Promise<void> {
   const { data } = await service
     .from("betting_profiles")
@@ -554,7 +556,7 @@ async function announceChaseClaim(
     title: "🏆 The chase has fallen",
     description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR · ${traits}${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
     color: GOLD,
-    ...(site ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
+    ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
   });
 }
 

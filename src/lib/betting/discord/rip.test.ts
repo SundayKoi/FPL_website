@@ -122,11 +122,13 @@ describe("the picture is the print that was pulled", () => {
     expect(picture).toContain("/card/doug/card.png?w=2026-08-24");
   });
 
-  it("leaves the url bare when the pack fell back to the live cards", () => {
+  it("still keys the url when the pack fell back to the live cards", () => {
+    // No archived week to ask for, but a bare url is the bug — it would be
+    // cached forever. Falls back to the weekly `v` token instead.
     const followup = ripFollowup(ok([pull("Doug", 90)], { editionWeek: null }), "Doug");
     const embeds = (followup as { embeds: { image?: { url: string } }[] }).embeds;
     const picture = embeds.find((embed) => embed.image)?.image?.url;
-    expect(picture).toContain("/card/doug/card.png");
+    expect(picture).toContain("/card/doug/card.png?v=");
     expect(picture).not.toContain("?w=");
   });
 

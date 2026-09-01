@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
+import { cardImageUrl } from "@/lib/cards/shareImage";
 import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import TiltHint from "@/components/cards/TiltHint";
@@ -88,11 +89,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const card = (await loadCard(slug))?.card ?? null;
   if (!card) return { title: "Player card — FPL" };
+  const shareImage = cardImageUrl("", slug, null);
   return {
     title: `${card.name} — ${card.overall} OVR ${card.tier.label} | FPL`,
     description: `${card.archetype} · ${card.role}${card.teamName ? ` · ${card.teamName}` : ""} · ${card.wins}–${card.losses} (${Math.round(card.winratePct)}% WR) · Season ${card.season}`,
-    openGraph: { images: [`/card/${slug}/card.png`] },
-    twitter: { card: "summary_large_image", images: [`/card/${slug}/card.png`] },
+    // Keyed, not bare: an unfurler that caches by url would otherwise pin
+    // this player's preview to whatever their card looked like the first
+    // time anyone shared it. `v` turns over every Monday and does not change
+    // what the route renders — the preview stays the live card.
+    openGraph: { images: [shareImage] },
+    twitter: { card: "summary_large_image", images: [shareImage] },
   };
 }
 
