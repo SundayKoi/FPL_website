@@ -911,6 +911,75 @@ body {
   background-size: 100% 100%;
 }
 
+/* ── Eclipse — the one-of-one. ────────────────────────────────────────
+   Every parallel above ADDS colour over the art. This one takes it away
+   and puts back exactly two things: a ring of light behind the player and
+   a bead of liquid gold. At the top of a ladder, restraint outranks
+   addition — a fifth rainbow would just be a louder Cracked Ice.
+
+   Three layers instead of the usual one, and the split matters:
+
+     desat + ground  sit OUTSIDE the tilt-swung wrapper, at constant
+                     opacity. Inside it they would fade to 30% at rest and
+                     deepen on tilt, so the card would gain its colour back
+                     whenever nobody was touching it.
+     eclipse         is the FOIL_LAYERS entry, so it swings and tracks the
+                     pointer like every other parallel's highlight.
+
+   `mix-blend-mode: saturation` over a grey does the draining. The obvious
+   tool is backdrop-filter, which is a real cost on a shelf painting forty
+   cards; this is one composited layer and no filter pass. */
+@utility card-foil-eclipse-desat {
+  position: absolute;
+  inset: 0;
+  background: #6f7378;
+  mix-blend-mode: saturation;
+}
+
+@utility card-foil-eclipse-ground {
+  position: absolute;
+  inset: 0;
+  background-image:
+    /* The corona: one ring behind the subject, and the only colour left. */
+    radial-gradient(circle at 50% 40%, transparent 0 25%,
+      rgb(255 226 150 / 0.5) 25.6%, rgb(232 193 75 / 0.14) 27.6%, transparent 33%),
+    /* Guilloche — engine-turned line work, the way a banknote is secured.
+       Invisible until the light crosses it. */
+    repeating-conic-gradient(from 0deg at 50% 40%,
+      rgb(232 193 75 / 0.10) 0deg 1.1deg, transparent 1.1deg 3.4deg),
+    /* The drain. */
+    linear-gradient(180deg, rgb(4 6 10 / 0.74), rgb(2 4 7 / 0.82));
+  background-blend-mode: screen, overlay, normal;
+  animation: eclipseCorona 7s ease-in-out infinite;
+}
+
+@keyframes eclipseCorona {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+
+/* The bead of liquid gold, in place of Refractor's white bar: slower,
+   thicker, and rimmed dark so it reads as metal rather than glare. */
+@utility card-foil-eclipse {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    102deg,
+    transparent 0 41%,
+    rgb(120 84 20 / 0.4) 44%,
+    rgb(232 193 75 / 0.92) 47.6%,
+    rgb(255 246 214 / 1) 49.8%,
+    rgb(232 193 75 / 0.92) 52%,
+    rgb(120 84 20 / 0.4) 55.5%,
+    transparent 59% 100%
+  );
+  background-size: 240% 240%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-foil-eclipse-ground { animation: none; }
+}
+
 @utility card-foil-cosmos {
   position: absolute;
   inset: 0;

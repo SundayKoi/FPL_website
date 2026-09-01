@@ -18,6 +18,8 @@ import {
   SIGNED_DUST_BASE,
   dustValueOf,
   MAX_DUST_BATCH,
+  ALL_FOIL_TYPES,
+  foilTypeOf,
 } from "./config";
 
 describe("dustValueOf", () => {
@@ -183,5 +185,39 @@ describe("the mass-dust cap", () => {
     // safety of a single destroy.
     expect(MAX_DUST_BATCH).toBeGreaterThan(10);
     expect(MAX_DUST_BATCH).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("Eclipse, the one-of-one", () => {
+  it("cannot be produced by any roll", () => {
+    // THE safety property. Eclipse is absent from FOIL_TYPES, so
+    // rollFoilType has no weight to draw and no branch to return it —
+    // structural rather than a zero somebody could later edit to a one.
+    expect(FOIL_TYPES as readonly string[]).not.toContain("eclipse");
+    expect(Object.keys(FOIL_TYPE_WEIGHTS)).not.toContain("eclipse");
+    for (let seed = 0; seed < 4000; seed += 1) {
+      expect(rollFoilType(() => seed / 4000)).not.toBe("eclipse");
+    }
+  });
+
+  it("still renders, prices and labels like a parallel", () => {
+    // A preview that had to bypass the real component would be proving
+    // nothing about how the card actually looks.
+    expect(ALL_FOIL_TYPES as readonly string[]).toContain("eclipse");
+    expect(FOIL_TYPE_LABELS.eclipse).toBe("Eclipse");
+    expect(FOIL_TYPE_DUST_MULT.eclipse).toBeGreaterThan(FOIL_TYPE_DUST_MULT.ice);
+  });
+
+  it("reads back off a stored value rather than falling back to Prisma", () => {
+    // card_inventory.foil_type is plain text. If foilTypeOf didn't know
+    // the name, a stored Eclipse would render as an ordinary foil.
+    expect(foilTypeOf("eclipse")).toBe("eclipse");
+    expect(foilTypeOf("not-a-parallel")).toBe(DEFAULT_FOIL_TYPE);
+  });
+
+  it("keeps the mintable ladder exactly as it was", () => {
+    // Nothing about the odds may move because a new look was added.
+    expect([...FOIL_TYPES]).toEqual(["prisma", "aurora", "refractor", "ice"]);
+    expect(FOIL_TYPE_WEIGHTS).toEqual({ prisma: 60, aurora: 25, refractor: 12, ice: 3 });
   });
 });

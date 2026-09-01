@@ -86,7 +86,13 @@ const TIER_LADDER = ["bronze", "silver", "gold", "platinum", "emerald", "diamond
  * rarity-true bonus would let one lucky card carry a squad past a tier it
  * has no business running.
  */
-const FOIL_SHINE: Record<FoilType, number> = { prisma: 1, aurora: 2, refractor: 3, ice: 4 };
+const FOIL_SHINE: Record<FoilType, number> = {
+  prisma: 1, aurora: 2, refractor: 3, ice: 4,
+  // A 1/1 is not a squad-building input. Pinned to the top of the ladder
+  // rather than above it: nothing should make sending the rarest card in
+  // the game out on an expedition the CORRECT play.
+  eclipse: 4,
+};
 
 /** What an autograph adds. Equal to the top parallel: real ink is the
  *  rarest print there is (SIGNED_CHANCE, 1%), and pinning it to Cracked
