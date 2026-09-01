@@ -209,6 +209,13 @@ async function processSeason(
     } else {
       const removed = pruned > 0 ? `, removed ${pruned} no longer in that week's pool` : "";
       console.log(`[${label}] Archived ${editionCards.length} cards as the ${editionWeek} edition${removed}.`);
+      // The week's crowns are also the week's ECLIPSE slots — five new
+      // one-of-ones enter the pool the moment the edition lands, and a
+      // board that grows in silence may as well not grow. Announced only
+      // on a successful archive: these cards are claimable through this
+      // week's packs, and promising a chase the archive step just failed
+      // to create would be worse than saying nothing.
+      await postEclipseBoard(supabase, season, label, editionWeek, editionCards, webhookUrl);
     }
   }
 
@@ -636,6 +643,59 @@ async function payMatchWinBonuses(
     `🏅 ${label} match win bonuses — week of ${week}`,
     lines.join("\n"),
     "A free pack's worth for taking your match. Claim your player identity to get yours.",
+  );
+}
+
+/**
+ * Announces the week's new Eclipse slots, and the running count of every
+ * one-of-one still unclaimed across all weeks.
+ *
+ * The mechanics need no help — eligibility is derived from the crowns the
+ * archive just froze, so the slots exist whether or not anyone says so.
+ * This is purely the town crier: the whole design leans on people knowing
+ * the board grows every week and that OLD weeks stay in play, and neither
+ * fact is visible anywhere unless the drop says it.
+ */
+async function postEclipseBoard(
+  supabase: SupabaseClient,
+  season: string,
+  label: string,
+  editionWeek: string,
+  editionCards: { slug: string; name: string; role: string; standout?: boolean }[],
+  webhookUrl: string | null,
+): Promise<void> {
+  if (!webhookUrl) return;
+  const crowned = editionCards.filter((card) => card.standout);
+  if (crowned.length === 0) return;
+
+  // The running board: every crowned print across the season's archive,
+  // less the Eclipses already minted. Both reads are small (one row per
+  // crowned card, one per minted Eclipse) and both tolerate failure — a
+  // miscounted footer must not take down the drop, so on any error the
+  // post simply omits the running total.
+  let unclaimedLine = "";
+  try {
+    const [{ data: crowns }, { data: minted }] = await Promise.all([
+      supabase.from("card_editions").select("edition_week, slug").eq("season", season).filter("card->>standout", "eq", "true"),
+      supabase.from("card_inventory").select("edition_week, slug").eq("season", season).eq("foil_type", "eclipse"),
+    ]);
+    if (crowns) {
+      const taken = new Set(((minted ?? []) as { edition_week: string; slug: string }[]).map((row) => `${row.edition_week}|${row.slug}`));
+      const open = (crowns as { edition_week: string; slug: string }[]).filter((row) => !taken.has(`${row.edition_week}|${row.slug}`)).length;
+      unclaimedLine = `\n\n**${open}** Eclipse${open === 1 ? "" : "s"} now unclaimed across every week — old weeks stay in play.`;
+    }
+  } catch {
+    // The five new names still post.
+  }
+
+  const lines = crowned
+    .sort((a, b) => a.role.localeCompare(b.role))
+    .map((card) => `🌑 **${card.name}** — ${card.role}`);
+  await postEmbed(
+    webhookUrl,
+    `🌑 ${label} — five new 1/1s enter the pool`,
+    `This week's Cards of the Week can now go **Eclipse** in ${editionWeek} packs:\n\n${lines.join("\n")}${unclaimedLine}`,
+    "One of each will ever exist. First to pull it owns the only copy.",
   );
 }
 
