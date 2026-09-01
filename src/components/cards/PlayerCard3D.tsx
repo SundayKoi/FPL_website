@@ -435,8 +435,8 @@ function PlayerCardFace({
               />
             ) : null}
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/85" />
-            {/* Eclipse's ground: the shadow and the corona. Two placements
-                matter here.
+            {/* Eclipse's ground: the shadow and the bleed of light around
+                the card's rim. Two placements matter here.
 
                 In the STACK, these sit above the art and below the name,
                 the stat rail and the badges — the eclipse falls across the

@@ -913,9 +913,17 @@ body {
 
 /* ── Eclipse — the one-of-one. ────────────────────────────────────────
    Every parallel above ADDS colour over the art. This one takes it away
-   and puts back exactly two things: a ring of light behind the player and
-   a bead of liquid gold. At the top of a ladder, restraint outranks
-   addition — a fifth rainbow would just be a louder Cracked Ice.
+   and puts back exactly two things: light bleeding around the edge of the
+   card, and a bead of liquid gold. At the top of a ladder, restraint
+   outranks addition — a fifth rainbow would just be a louder Cracked Ice.
+
+   THE CARD IS THE OCCLUDING BODY. That is the whole idea, and it is the
+   second version of it: the first drew the corona as a ring in the middle
+   of the card, and a hard-edged circle sitting on a player's face reads as
+   a shape someone drew on the print, not as light. Moving the light to the
+   perimeter fixes it — nothing is drawn over the subject, the eclipse is
+   the card itself, and the frame gets the glow. It also lets the interior
+   go properly dark, which is where this parallel wants to be.
 
    Three layers instead of the usual one, and the split matters:
 
@@ -937,36 +945,39 @@ body {
   /* Not a full kill. At opacity 1 the art goes to true greyscale and every
      Eclipse looks like the same card; held back a little, team colour and
      skin tone survive as a tint and each print still reads as its player. */
-  opacity: 0.72;
+  opacity: 0.8;
 }
 
 @utility card-foil-eclipse-ground {
   position: absolute;
   inset: 0;
   background-image:
-    /* The corona: one ring behind the subject, and the only colour left. */
-    radial-gradient(circle at 50% 38%, transparent 0 24%,
-      rgb(255 232 170 / 0.58) 24.6%, rgb(232 193 75 / 0.16) 26.8%, transparent 33%),
     /* Guilloche — engine-turned line work, the way a banknote is secured.
-       Invisible until the light crosses it. */
-    repeating-conic-gradient(from 0deg at 50% 38%,
-      rgb(232 193 75 / 0.10) 0deg 1.1deg, transparent 1.1deg 3.4deg),
-    /* The shadow. An eclipse throws one — it does not paint the card out.
-       So it falls AWAY from the corona: clear inside the ring, where the
-       player's face sits, and closing to near-black at the corners. A flat
-       wash here (the first cut was 0.74 → 0.82 top to bottom) put the whole
-       print behind smoked glass, which is the opposite of a premium one. */
-    radial-gradient(circle at 50% 38%,
-      rgb(3 5 9 / 0) 0 23%,
-      rgb(3 5 9 / 0.2) 41%,
-      rgb(2 4 7 / 0.48) 72%,
-      rgb(1 3 5 / 0.62) 100%);
-  background-blend-mode: screen, overlay, normal;
+       Straight and full-bleed now: struck from the centre it threw spokes,
+       which only reinforced the circle this version is getting rid of. */
+    repeating-linear-gradient(58deg,
+      rgb(232 193 75 / 0.055) 0 1px, transparent 1px 5px),
+    /* The shadow, and it is meant to be heavy. The type, the badges and the
+       stat rail all paint ABOVE this layer, so the card can go dark without
+       going unreadable — the only thing losing light here is the artwork.
+       Smooth two-stop falloff on purpose: any intermediate stop shows up as
+       a band, and a band in the middle of a card is a drawn circle again. */
+    radial-gradient(ellipse 82% 64% at 50% 36%,
+      rgb(4 6 10 / 0.68), rgb(1 3 5 / 0.88) 100%);
+  background-blend-mode: overlay, normal;
+  /* The bleed. An inset shadow rather than four edge gradients because it
+     follows the card's own corner radius for free: a hairline of light on
+     the rim, then a short warm spill inboard of it. */
+  box-shadow:
+    inset 0 0 0 1px rgb(255 240 202 / 0.5),
+    inset 0 0 30px -9px rgb(240 205 105 / 0.55),
+    inset 0 0 3px 0 rgb(255 233 175 / 0.28);
   animation: eclipseCorona 7s ease-in-out infinite;
 }
 
+/* The bleed breathes. Slow enough to be caught rather than watched. */
 @keyframes eclipseCorona {
-  0%, 100% { opacity: 0.9; }
+  0%, 100% { opacity: 0.94; }
   50% { opacity: 1; }
 }
 
