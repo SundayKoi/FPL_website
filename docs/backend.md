@@ -458,6 +458,16 @@ year:
   the point of owning one. The mass-dust path skips Eclipses rather than
   failing, because a fifty-card sweep is where one would actually be lost.
 
+**It takes the player's ink automatically** when they have drawn one. Left to
+the ordinary 1% autograph roll the two gates compound to ~1 in 91,000 packs —
+one signed Eclipse every twelve years at current volume — while an *ordinary*
+copy of the same player can roll signed. Chance would make the rarest card in
+the game the plain version of a player whose commons are autographed. A player
+who never inked one still gets an Eclipse; it is simply the lesser of the two,
+which is what gives drawing a signature a job. The rules live in
+`src/lib/packs/eclipse.ts` as pure functions (`isEclipseEligible`,
+`applyEclipse`) rather than inline in the opener.
+
 Eclipse stays out of `FOIL_TYPES` and `FOIL_TYPE_WEIGHTS` on purpose: it does
 not compete with Cracked Ice for the foil pull, and no edit to the weights
 table can produce one by accident.
