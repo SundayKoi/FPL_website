@@ -25,6 +25,10 @@ const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | 
   aurora: { className: "card-foil-aurora", blend: "screen" },
   refractor: { className: "card-foil-refractor", blend: "color-dodge" },
   ice: { className: "card-foil-ice", blend: "color-dodge" },
+  // Eclipse rides its own GROUND layers as well (the drain and the
+  // corona, rendered outside the tilt-swung wrapper). This entry is the
+  // bead of gold that moves with the pointer.
+  eclipse: { className: "card-foil-eclipse", blend: "screen" },
 };
 
 /**

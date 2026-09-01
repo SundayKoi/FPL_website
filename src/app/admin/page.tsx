@@ -132,6 +132,13 @@ export default async function AdminPage() {
       href: "/admin/claims",
     },
     {
+      label: "Parallels",
+      stat: "Foil ladder preview",
+      statTone: "text-gold",
+      description: "Every parallel on real cards, including the proposed one-of-one. Mints nothing.",
+      href: "/admin/parallels",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

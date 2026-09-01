@@ -97,6 +97,10 @@ const FOIL_LAYERS: Record<FoilType, { className: string; blend: "color-dodge" | 
   aurora: { className: "card-foil-aurora", blend: "screen" },
   refractor: { className: "card-foil-refractor", blend: "color-dodge" },
   ice: { className: "card-foil-ice", blend: "color-dodge" },
+  // Eclipse rides its own GROUND layers as well (the drain and the
+  // corona, rendered outside the tilt-swung wrapper). This entry is the
+  // bead of gold that moves with the pointer.
+  eclipse: { className: "card-foil-eclipse", blend: "screen" },
 };
 
 function PlayerCardFace({
@@ -610,6 +614,24 @@ function PlayerCardFace({
                 className="pointer-events-none absolute inset-0 transition-opacity duration-200"
                 style={{ opacity: hovering ? 0.55 : 0.18, background: REST_GLARE, mixBlendMode: "overlay" }}
               />
+            ) : null}
+            {/* Eclipse's ground: the drain and the corona, at CONSTANT
+                opacity outside the wrapper below. Inside it they would
+                fade to rest, and the card would get its colour back
+                whenever nobody was touching it. */}
+            {forceFoil && parallel === "eclipse" ? (
+              <>
+                <div
+                  aria-hidden
+                  data-testid="eclipse-desat"
+                  className="card-foil-eclipse-desat pointer-events-none overflow-hidden rounded-xl"
+                />
+                <div
+                  aria-hidden
+                  data-testid="eclipse-ground"
+                  className="card-foil-eclipse-ground pointer-events-none overflow-hidden rounded-xl"
+                />
+              </>
             ) : null}
             {forceFoil ? (
               // A pulled foil answers the pointer where a tier holo cannot:

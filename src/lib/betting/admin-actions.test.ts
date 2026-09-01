@@ -38,12 +38,20 @@ import {
 
 const STAFF_CTX = { discordId: "staff-1", profileId: "profile-1" };
 
+/** A game time that is always in the future.
+ *
+ *  createMarket refuses a game time in the past, and this was a hardcoded
+ *  2026-09-01 — the future when it was written, and not any more. A date
+ *  literal in a test with a "must be in the future" guard behind it is a
+ *  time bomb with a fuse the length of whatever you picked. */
+const FUTURE_GAME_AT = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
 const validCreateMarketInput = {
   eventId: 1,
   teamAId: 1,
   teamBId: 2,
   title: "Final",
-  gameAt: "2026-09-01T00:00:00Z",
+  gameAt: FUTURE_GAME_AT,
   drawEnabled: false,
 };
 
@@ -110,7 +118,7 @@ describe("authorization (non-staff rejected before any RPC/table call)", () => {
           teamAId: 1,
           teamBId: 2,
           title: "Final",
-          gameAt: "2026-09-01T00:00:00Z",
+          gameAt: FUTURE_GAME_AT,
           drawEnabled: false,
         }),
     ],
@@ -245,7 +253,7 @@ describe("createMarket", () => {
       teamAId: 3,
       teamBId: 3,
       title: "Bad market",
-      gameAt: "2026-09-01T00:00:00Z",
+      gameAt: FUTURE_GAME_AT,
       drawEnabled: false,
     });
 
@@ -259,7 +267,7 @@ describe("createMarket", () => {
       teamAId: 1,
       teamBId: 2,
       title: "   ",
-      gameAt: "2026-09-01T00:00:00Z",
+      gameAt: FUTURE_GAME_AT,
       drawEnabled: false,
     });
 
@@ -275,7 +283,7 @@ describe("createMarket", () => {
       teamAId: 1,
       teamBId: 2,
       title: "Grand Final",
-      gameAt: "2026-09-01T00:00:00Z",
+      gameAt: FUTURE_GAME_AT,
       rakeBps: 500,
       drawEnabled: true,
     });
@@ -287,7 +295,7 @@ describe("createMarket", () => {
       p_team_b: 2,
       p_title: "Grand Final",
       p_rules: null,
-      p_game_at: "2026-09-01T00:00:00Z",
+      p_game_at: FUTURE_GAME_AT,
       p_rake_bps: 500,
       p_open_line_prob_a: null,
       p_draw_enabled: true,

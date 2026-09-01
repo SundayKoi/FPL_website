@@ -160,18 +160,40 @@ export const FOIL_DUST_MULT = 2;
  * unmistakable one (Cracked Ice) tops out.
  */
 export const FOIL_TYPES = ["prisma", "aurora", "refractor", "ice"] as const;
-export type FoilType = (typeof FOIL_TYPES)[number];
+
+/**
+ * ECLIPSE — the one-of-one, and the reason this list is separate from the
+ * one above.
+ *
+ * FOIL_TYPES is the MINTABLE ladder: rollFoilType walks it, and
+ * FOIL_TYPE_WEIGHTS is keyed on it. Eclipse is deliberately not in either,
+ * so there is no weight for the roll to draw and no code path that can put
+ * one in a pack — the guarantee is structural rather than a zero someone
+ * could later edit to a one by accident.
+ *
+ * It renders, prices and labels like any other parallel, which is what
+ * lets the preview at /admin/parallels show it on real cards through the
+ * real component. How a 1/1 is actually AWARDED is a separate decision and
+ * is not made here.
+ */
+export const UNMINTABLE_FOIL_TYPES = ["eclipse"] as const;
+
+/** Every parallel that can be RENDERED, mintable or not. */
+export const ALL_FOIL_TYPES = [...FOIL_TYPES, ...UNMINTABLE_FOIL_TYPES] as const;
+export type FoilType = (typeof ALL_FOIL_TYPES)[number];
+/** Narrower alias for the ones a pack can actually produce. */
+export type MintableFoilType = (typeof FOIL_TYPES)[number];
 
 /** The base, and what every foil minted before parallels existed IS. Never
  *  change this: the migration backfilled real copies to it, and a pulled
  *  card's look is frozen at mint like everything else on it. */
-export const DEFAULT_FOIL_TYPE: FoilType = "prisma";
+export const DEFAULT_FOIL_TYPE: MintableFoilType = "prisma";
 
 /** Relative weights within a foil pull. Multiply by FOIL_CHANCE for the
  *  real per-card odds: Prisma 3.6%, Aurora 1.5%, Refractor 0.72%, Cracked
  *  Ice 0.18% — roughly one Cracked Ice per 111 packs, which puts it just
  *  past a signature (SIGNED_CHANCE, 1%) as the hardest cosmetic to hit. */
-export const FOIL_TYPE_WEIGHTS: Record<FoilType, number> = {
+export const FOIL_TYPE_WEIGHTS: Record<MintableFoilType, number> = {
   prisma: 60,
   aurora: 25,
   refractor: 12,
@@ -200,6 +222,11 @@ export const FOIL_TYPE_DUST_MULT: Record<FoilType, number> = {
   aurora: 3,
   refractor: 4.5,
   ice: 6.5,
+  // Priced above the ladder for completeness only. The real answer for a
+  // 1/1 is that the dust path REFUSES it — a number, however large, is
+  // still a number somebody can accept at three in the morning. Nothing
+  // can mint one today, so this line is unreachable either way.
+  eclipse: 12,
 };
 
 /** What the card calls each parallel. */
@@ -208,19 +235,20 @@ export const FOIL_TYPE_LABELS: Record<FoilType, string> = {
   aurora: "Aurora",
   refractor: "Refractor",
   ice: "Cracked Ice",
+  eclipse: "Eclipse",
 };
 
 /** A stored value narrowed to a FoilType, falling back to the base.
  *  card_inventory.foil_type is plain text, and an unrecognised value must
  *  render and price as an ordinary foil rather than crash a collection. */
 export function foilTypeOf(value: string | null | undefined): FoilType {
-  return (FOIL_TYPES as readonly string[]).includes(value ?? "")
+  return (ALL_FOIL_TYPES as readonly string[]).includes(value ?? "")
     ? (value as FoilType)
     : DEFAULT_FOIL_TYPE;
 }
 
 /** Weighted pick of a parallel. Consumes exactly one rand. */
-export function rollFoilType(rand: () => number): FoilType {
+export function rollFoilType(rand: () => number): MintableFoilType {
   const total = FOIL_TYPES.reduce((sum, type) => sum + FOIL_TYPE_WEIGHTS[type], 0);
   let ticket = rand() * total;
   for (const type of FOIL_TYPES) {
