@@ -402,3 +402,41 @@ describe("CollectionGrid select-to-dust", () => {
     expect(cardsFor("Commonly")).toHaveLength(0);
   });
 });
+
+describe("a one-of-one on the shelf", () => {
+  // The first Eclipse ever pulled stacked behind a signed Prisma of the same
+  // player and showed as "×2" — the print key was skin/foil/signed, and an
+  // Eclipse is, technically, a signed foil. The opposite of what it is.
+  const shelf = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17", { foil: true, foilType: "prisma", signed: true }),
+    makeRow(2, "Chaseworthy", 90, "2026-08-24", { foil: true, foilType: "eclipse", signed: true }),
+  ];
+
+  it("is its own print, and the copy the shelf shows", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    // One shelf card for the player — and it is the Eclipse, not the
+    // higher-rated signed Prisma the old ranking would have put on top.
+    const card = cardsFor("Chaseworthy");
+    expect(card).toHaveLength(1);
+    expect(card[0].getAttribute("aria-label")).toMatch(/Eclipse foil/);
+    expect(screen.getByText("◐ 1 of 1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View prints (2)" })).toBeTruthy();
+  });
+
+  it("cannot be ticked for dust, and says so in place of a price", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select to dust" }));
+    const cells = cardsFor("Chaseworthy").map((node) => node.closest("button[aria-pressed]") as HTMLButtonElement);
+    const eclipse = cells.find((cell) => cell.textContent?.includes("1 of 1"))!;
+    expect(eclipse.disabled).toBe(true);
+    expect(eclipse.textContent).toContain("Can't be dusted");
+    expect(eclipse.textContent).not.toMatch(/\+\$/);
+    fireEvent.click(eclipse);
+    expect(screen.getByText("0 selected")).toBeTruthy();
+  });
+
+  it("names a parallel on its chip instead of a bare ✦", () => {
+    render(<CollectionGrid inventory={[makeRow(3, "Chaseworthy", 88, "2026-08-31", { foil: true, foilType: "ice" })]} />);
+    expect(screen.getByText("Cracked Ice")).toBeTruthy();
+  });
+});
