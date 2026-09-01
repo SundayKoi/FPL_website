@@ -176,6 +176,8 @@ Postgres database and public schema:
 | Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
+| Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
+| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
 
@@ -475,6 +477,79 @@ table can produce one by accident.
 An unclaimed Eclipse stays claimable **forever** through that week's packs, so
 the back catalogue of unminted ones grows every week. That is why the rate can
 be flat and small rather than escalating to guarantee a weekly hit.
+
+### Print runs and provenance
+
+Two facts about an owned copy that the card itself cannot carry: which stamp
+it took, and whose hands it has been through.
+
+**Print numbers.** `card_print_runs` holds one counter per print —
+`(season, edition_week, slug)`, the same key the Eclipse index uses — and
+`card_inventory.print_number` holds the serial. The `card_inventory_print_number`
+trigger (`BEFORE INSERT`) bumps the counter with a single
+`insert … on conflict do update set minted = card_print_runs.minted + 1 returning minted`
+and assigns the result, so two packs opened in the same instant serialize on
+that counter row instead of both reading a stale maximum.
+
+`minted` is **minted-to-date, never a live count**, and it never decreases.
+`dust_card` deletes the row, so a live count would renumber the world every
+time somebody melted a duplicate: `#7 of 43` would become `#7 of 42`, then
+eventually a serial larger than its own run. A dusted copy retires its
+number instead — the press ran 43 times whatever happened afterwards — which
+is the only reading under which the stamp on a copy is a fact rather than a
+snapshot of the market. How many are still held is a separate question, one
+`count(*)` away.
+
+Eclipse falls out as `#1 of 1` by construction rather than by a special case:
+`card_inventory_one_eclipse_per_print` already caps a print at one Eclipse,
+and an Eclipse pulled from a print nobody else has hit is the first thing
+that counter ever stamped.
+
+The counts are world-readable (`card_print_runs` has a permissive select
+policy and an `anon`/`authenticated` grant) because "43 of these exist" is a
+fact about a print, not about anybody's shelf, and it is printed on cards
+that signed-out visitors see. Reads go through `fetchPrintRuns` in
+`src/lib/packs/queries.ts`, which takes the `(week, slug)` pairs a page is
+actually rendering and pages its chunks — the counter table has a row per
+card per edition week and would otherwise trip PostgREST's 1000-row cap.
+
+**Provenance.** `card_provenance` records every move: `minted` (with the
+`card_pack_opens` row it fell out of, read off `pack_open_id`), `transferred`
+(from the old owner to the new one) and `dusted` (with who destroyed it).
+The rows are written by `AFTER` triggers on `card_inventory` rather than by
+each caller, so a transfer path written next year is recorded correctly by a
+developer who has never read this file. There is **no foreign key** to
+`card_inventory` on purpose: a chain that vanished when the copy did would
+answer "who owned this?" only while the answer is trivial. The triggers are
+`AFTER`, so `card_inventory_expedition_guard` — a `BEFORE` trigger that
+raises — refuses a deployed copy's move without leaving a record of a move
+that never happened.
+
+**The `fpl.provenance_ref` contract.** A row change carries no context: the
+UPDATE that moves `discord_id` looks identical whether it came from a trade,
+a sale, or an admin fixing a typo. So a caller that knows why states it, in
+the transaction, immediately before its update:
+
+```sql
+perform set_config('fpl.provenance_ref', 'card_trades:' || p_trade, true);
+```
+
+The value is `table:id`; the trigger parses it and stamps `ref_table` /
+`ref_id`. `true` makes it transaction-local, so it cannot leak onto the next
+statement on a pooled connection, and an unset or malformed GUC produces a
+transfer with no ref rather than an error — an unattributed transfer is still
+a true transfer. `accept_card_trade` sets it, and **any future RPC that moves
+a copy should set it the same way**. Mints do not use it: an insert already
+carries `pack_open_id` on the row, and a fact stored on the row beats a fact
+the caller had to remember to announce.
+
+Reads go through `fetchProvenance` in `src/lib/cards/provenance.ts` (service
+client — the table is deny-all like the inventory it describes), with the
+pure `describeProvenance` turning rows into lines. The server action is
+`fetchProvenanceAction` in `src/lib/trades/actions.ts`, gated exactly like
+`fetchInventoryCardAction` and for the same reason: the chain of a copy you
+are being offered names people who are not you, which is precisely what you
+want to see before agreeing.
 
 ### Player renames
 

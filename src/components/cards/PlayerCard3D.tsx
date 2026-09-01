@@ -17,6 +17,7 @@ import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import { editionLabel } from "@/lib/packs/week";
 import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
@@ -112,6 +113,7 @@ function PlayerCardFace({
   forceFoil = false,
   foilType,
   flame = null,
+  print = null,
   className = "",
 }: {
   card: PlayerCardData;
@@ -140,6 +142,13 @@ function PlayerCardFace({
    *  not have. A layer over the frame, never a frame swap — tier stays
    *  visible underneath, so money never reads as a rating. */
   flame?: string | null;
+  /** This copy's serial and the size of its run, for the back face's one
+   *  line of provenance. Optional, and null by default, because most
+   *  callers are NOT showing a copy: the share page, the hub and the
+   *  edition gallery render the LIVE card, which nobody owns and which
+   *  therefore has no number to print. Only a surface holding a
+   *  card_inventory row can pass it. */
+  print?: { number: number; of: number; editionWeek: string } | null;
   className?: string;
 }) {
   // `hovering` is the only pointer state React still owns — it flips twice per
@@ -818,6 +827,18 @@ function PlayerCardFace({
               </span>
               <span>LVL {card.level}</span>
             </div>
+
+            {/* The one line on this card that is true of THIS COPY rather
+                than of the player: which stamp it took, out of how many the
+                print has ever run. On the back because it is provenance,
+                not a stat — and rendered only when a caller holding an
+                inventory row passes it, since the live card has no copy to
+                be a number of. */}
+            {print ? (
+              <div className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
+                Print #{print.number} of {print.of} · {editionLabel(print.editionWeek)}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1006,6 +1027,9 @@ export default function PlayerCard3D(props: {
   forceFoil?: boolean;
   foilType?: string | null;
   flame?: string | null;
+  /** This copy's serial and run size — see PlayerCardFace. Player cards
+   *  only: a moment, a relic and a roster plate carry their own serials. */
+  print?: { number: number; of: number; editionWeek: string } | null;
   className?: string;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,

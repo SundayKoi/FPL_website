@@ -20,7 +20,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { buildWeekSets } from "@/lib/cards/sets";
 import { fetchSetClaimState, fetchSetEditionCards, setKey } from "@/lib/cards/setQueries";
 import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
-import { fetchInventory } from "@/lib/packs/queries";
+import { fetchInventory, fetchPrintRuns } from "@/lib/packs/queries";
 import { binderSlotsFor, type Binder } from "@/lib/binder/queries";
 
 export default async function CollectionSections({
@@ -48,7 +48,7 @@ export default async function CollectionSections({
 
   // Both need the collection, so they start together once it lands.
   const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
-  const [deployedIds, setReads] = await Promise.all([
+  const [deployedIds, setReads, printRuns] = await Promise.all([
     // Season-blind, because the deploy lock is a property of the card — and
     // fails soft to "none deployed" where the expeditions migration hasn't
     // been applied.
@@ -62,6 +62,16 @@ export default async function CollectionSections({
           [] as Awaited<ReturnType<typeof fetchSetEditionCards>>,
           { claimed: new Set<string>(), spent: new Set<number>() },
         ] as const),
+    // Only the prints this shelf is actually rendering — a season's whole
+    // counter table is thousands of rows to answer a question about the
+    // few dozen a collection holds.
+    season
+      ? fetchPrintRuns(
+          service,
+          season,
+          inventory.map((copy) => ({ editionWeek: copy.editionWeek, slug: copy.slug })),
+        )
+      : Promise.resolve(new Map<string, number>()),
   ]);
   const [setEditionCards, setClaims] = setReads;
 
@@ -121,6 +131,7 @@ export default async function CollectionSections({
           pinnedIds={binderSlots.filter((id): id is number => id !== null)}
           flame={flame}
           deployedIds={deployedIds}
+          printRuns={printRuns}
         />
       </section>
 

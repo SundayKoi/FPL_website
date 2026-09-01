@@ -30,6 +30,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
 import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
@@ -95,12 +96,31 @@ function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
 const CHIP = "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
 const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
 
+/**
+ * "#7 of 43" for one copy, or null when either half is unknown.
+ *
+ * Both halves have to be there: a serial with no run size is a number
+ * nobody can read, and a run size with no serial belongs to a different
+ * copy. The map is keyed by print (week + slug), not by copy, because one
+ * print's total is the same for every copy of it — see fetchPrintRuns.
+ */
+function printOf(
+  row: InventoryRow,
+  printRuns?: ReadonlyMap<string, number>,
+): { number: number; of: number; editionWeek: string } | null {
+  if (row.printNumber == null) return null;
+  const minted = printRuns?.get(printRunKey(row.editionWeek, row.slug));
+  if (!minted) return null;
+  return { number: row.printNumber, of: minted, editionWeek: row.editionWeek };
+}
+
 /** The line under a single copy: whose it is, which print run it came from,
  *  what tier it printed at, and every marker that makes it a variant. */
 function CopyCaption({
   row,
   count = 1,
   pinned,
+  printRuns,
 }: {
   row: InventoryRow;
   count?: number;
@@ -108,8 +128,13 @@ function CopyCaption({
    *  shows a representative copy, and pinning "a representative" would be
    *  a lie about which copy went on display. */
   pinned?: ReadonlySet<number>;
+  /** Minted-to-date per print, keyed by printRunKey. Optional throughout:
+   *  a shelf whose page hasn't read the counters still renders, it just
+   *  doesn't say which copy this is. */
+  printRuns?: ReadonlyMap<string, number>;
 }) {
   const skin = skinOf(row);
+  const print = printOf(row, printRuns);
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
       <span className="text-sm font-semibold text-white">
@@ -119,6 +144,14 @@ function CopyCaption({
       <div className="flex flex-wrap justify-center gap-1">
         <span className={CHIP}>{editionLabel(row.editionWeek)}</span>
         <span className={CHIP}>{row.card.tier.label}</span>
+        {print ? (
+          <span
+            className={CHIP}
+            title={`Copy ${print.number} of the ${print.of} this print has ever stamped`}
+          >
+            #{print.number} of {print.of}
+          </span>
+        ) : null}
         {row.signed ? (
           <span className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold" title="Autographed copy">
             ✍
@@ -141,11 +174,30 @@ function CopyCaption({
 }
 
 /** One copy on display, sized and spaced like every other card grid. */
-function CopyCell({ row, count, pinned, flame }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number>; flame?: string | null }) {
+function CopyCell({
+  row,
+  count,
+  pinned,
+  flame,
+  printRuns,
+}: {
+  row: InventoryRow;
+  count?: number;
+  pinned?: ReadonlySet<number>;
+  flame?: string | null;
+  printRuns?: ReadonlyMap<string, number>;
+}) {
   return (
     <div className="card-cell flex flex-col items-center gap-2">
-      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} foilType={row.foilType} flame={flame} />
-      <CopyCaption row={row} count={count} pinned={pinned} />
+      <PlayerCard3D
+        card={row.card}
+        interactive
+        forceFoil={row.foil}
+        foilType={row.foilType}
+        flame={flame}
+        print={printOf(row, printRuns)}
+      />
+      <CopyCaption row={row} count={count} pinned={pinned} printRuns={printRuns} />
     </div>
   );
 }
@@ -244,6 +296,7 @@ export default function CollectionGrid({
   pinnedIds = [],
   flame = null,
   deployedIds,
+  printRuns,
 }: {
   inventory: InventoryRow[];
   /** Copies already on display, so the shelf can show which ones are in
@@ -257,6 +310,11 @@ export default function CollectionGrid({
    *  Passed straight through rather than flattened to an array: the shelf
    *  itself has no use for it. */
   deployedIds?: ReadonlySet<number>;
+  /** How many copies each print has ever stamped, keyed by printRunKey —
+   *  the "of 43" half of "#7 of 43". Optional so every existing caller
+   *  still compiles: a shelf with no counters shows the same cards, minus
+   *  the one chip. */
+  printRuns?: ReadonlyMap<string, number>;
 }) {
   const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
@@ -487,7 +545,7 @@ export default function CollectionGrid({
                 that much to sit where the shelf's do. */}
             <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
               {shown.slice(0, limit).map((row) => (
-                <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} />
+                <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} printRuns={printRuns} />
               ))}
             </div>
             <ShowMore shown={Math.min(limit, shown.length)} total={shown.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} noun="card" />
@@ -534,6 +592,10 @@ export default function CollectionGrid({
             signed: copy.signed,
             editionWeek: copy.editionWeek,
             card: copy.card,
+            // Resolved here rather than in the drawer: the drawer's copies
+            // carry no slug, and the counter map is keyed by print.
+            printNumber: copy.printNumber,
+            printRun: printRuns?.get(printRunKey(copy.editionWeek, copy.slug)) ?? null,
           }))
           .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
       };
@@ -610,8 +672,15 @@ export default function CollectionGrid({
               <div className="flex w-80 gap-4 overflow-x-auto pb-2">
                 {entry.prints.map((print) => (
                   <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
-                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} foilType={print.copy.foilType} flame={flame} />
-                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} />
+                    <PlayerCard3D
+                      card={print.copy.card}
+                      interactive
+                      forceFoil={print.copy.foil}
+                      foilType={print.copy.foilType}
+                      flame={flame}
+                      print={printOf(print.copy, printRuns)}
+                    />
+                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} printRuns={printRuns} />
                   </div>
                 ))}
               </div>

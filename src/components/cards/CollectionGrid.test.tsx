@@ -54,7 +54,13 @@ function makeRow(
   name: string,
   overall: number,
   editionWeek: string,
-  { foil = false, signed = false, artSkin = 0, foilType = null as string | null } = {},
+  {
+    foil = false,
+    signed = false,
+    artSkin = 0,
+    foilType = null as string | null,
+    printNumber = null as number | null,
+  } = {},
 ): InventoryRow {
   return {
     id,
@@ -73,6 +79,7 @@ function makeRow(
     card: makeCard(name, overall, artSkin, signed ? "data:image/png;base64,ink" : null),
     packOpenId: null,
     acquiredAt: "2026-08-20T00:00:00Z",
+    printNumber,
   };
 }
 
@@ -189,6 +196,49 @@ describe("CollectionGrid", () => {
     render(<CollectionGrid inventory={inventory} />);
 
     expect(screen.getAllByRole("button", { name: "Manage copies" })).toHaveLength(2);
+  });
+});
+
+describe("CollectionGrid print numbers", () => {
+  // Two copies of the same player from different weeks: different prints,
+  // so different denominators — which is the thing a single counter would
+  // get wrong.
+  const numbered: InventoryRow[] = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17", { foil: true, printNumber: 7 }),
+    makeRow(2, "Chaseworthy", 90, "2026-08-24", { foil: true, printNumber: 2 }),
+  ];
+  const printRuns = new Map([
+    ["2026-08-17|chaseworthy", 43],
+    ["2026-08-24|chaseworthy", 3],
+  ]);
+
+  it("stamps each copy against its OWN print's total", () => {
+    render(<CollectionGrid inventory={numbered} printRuns={printRuns} />);
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 2" }));
+
+    expect(screen.getByText("#7 of 43")).toBeTruthy();
+    expect(screen.getByText("#2 of 3")).toBeTruthy();
+  });
+
+  it("says nothing at all when the page never read the counters", () => {
+    render(<CollectionGrid inventory={numbered} />);
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 2" }));
+
+    // A serial with no denominator is a number nobody can read, so the chip
+    // is absent rather than half-written.
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
+  });
+
+  it("says nothing for a copy minted before numbering existed", () => {
+    render(
+      <CollectionGrid
+        inventory={[makeRow(3, "Chaseworthy", 92, "2026-08-17", { foil: true })]}
+        printRuns={printRuns}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 1" }));
+
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
   });
 });
 
