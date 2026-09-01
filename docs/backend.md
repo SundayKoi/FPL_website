@@ -176,6 +176,7 @@ Postgres database and public schema:
 | Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
+| Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
 
@@ -244,6 +245,12 @@ Important RPC families include:
   `setClaim.ts`, so a tampered request cannot name cards it does not own.
   Sets are per league: each collection page asks its own league's season,
   so premier and academy shelves have their own sets and their own claims.
+- Card market: `execute_card_sale` is the atom under both boards — it locks
+  the copy, verifies the seller still owns it, locks both wallets in
+  `least/greatest` order, refuses a buyer who cannot cover the price, writes
+  the two `betting_ledger` rows (reason `card_sale`, ref'd at the listing or
+  want), and moves `card_inventory.discord_id`. `buy_card_listing` and
+  `fill_card_want` are the two ways in. See "Market" below.
 - The Gauntlet fields cards from EVERY current shelf, premier and academy
   alike (`fetchAllCardSeasons`), while the run itself is still filed and
   ranked under the premier season. A copy from a past season is refused.
@@ -475,6 +482,64 @@ table can produce one by accident.
 An unclaimed Eclipse stays claimable **forever** through that week's packs, so
 the back catalogue of unminted ones grows every week. That is why the rate can
 be flat and small rather than escalating to guarantee a weekly hit.
+
+### Market
+
+`/cards/market` (and `/academy/cards/market`) is the trading post's blunter
+half. A trade needs two people to agree on everything at once; a listing needs
+one person to name a price and another to accept it. Both boards are
+members-only, gated on FPL Better exactly like trades, and read entirely
+through the service client — `card_listings` and `card_wants` have RLS on with
+no policies at all.
+
+**The two boards.** `card_listings` names one `card_inventory` copy, an ask,
+an optional note and an expiry fourteen days out. `card_wants` names a slug, a
+season and a bounty — the card you are hunting, not one that happens to be for
+sale. Nothing is escrowed on either side: a listing is a snapshot of an
+intent, exactly like a `card_trades` row, and every promise in it is re-checked
+at the moment money moves.
+
+**One open listing per copy** is a partial unique index, not an application
+check. Two open listings for the same card would let two people pay for it and
+only one of them be given it, and the second's money would have to be walked
+back by hand. A sold, cancelled or expired listing frees the copy again.
+
+**The sale.** `execute_card_sale(p_inventory, p_seller, p_buyer, p_price,
+p_ref_table, p_ref_id)` is where the atomicity lives: lock the copy `FOR
+UPDATE`, confirm the seller still holds it, lock both wallets in
+`least/greatest` order (the deadlock-safe order `tip_points` and
+`accept_card_trade` use), refuse a buyer who cannot cover the price, write two
+`betting_ledger` rows with reason `card_sale` ref'd at the LISTING or WANT
+rather than at the copy, stamp `fpl.provenance_ref`, and move
+`card_inventory.discord_id`. `buy_card_listing` adds the listing lock, the
+open/expired checks and the "not your own listing" rule; `fill_card_want` adds
+the slug-and-season match and marks the want filled. Both are service-role
+only and neither authenticates its caller — the server actions in
+`src/lib/market/actions.ts` derive the Discord id from the session.
+
+**A deployed copy cannot be sold.** `card_inventory_expedition_guard` refuses
+the ownership update from under the sale, and the exception propagates as
+`card is on expedition` with the whole transaction rolled back. The app checks
+the deploy lock and the fantasy lineup lock at LISTING time as well, so a card
+that cannot be delivered never reaches the board — but the trigger is the
+guarantee.
+
+**Expiry has no sweeper.** Nothing crons over `expires_at`. The board query
+filters on it, `buy_card_listing` refuses a lapsed listing, and `createListing`
+retires the seller's own lapsed rows to `expired` before writing a new one —
+without that last step one dead listing would make its copy permanently
+unlistable under the unique index.
+
+**Limits** live in `src/lib/market/config.ts` (`MAX_LISTING_ASK`,
+`MAX_WANT_BOUNTY`, `LISTING_DAYS`, `MAX_OPEN_LISTINGS`, `MAX_OPEN_WANTS`,
+`MAX_NOTE_CHARS`). The migration restates the ask cap, the bounty cap, the
+note length and the fourteen days, so `config.test.ts` parses the SQL and
+asserts the pairs agree.
+
+A completed sale posts a best-effort "SOLD" embed to the cards channel through
+`postCardsWebhook`. Like every other announcement it is garnish: the money has
+already moved, and a Discord outage must never turn a settled sale into an
+error.
 
 ### Player renames
 
