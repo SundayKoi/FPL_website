@@ -36,12 +36,12 @@ export const LCS_DRAFT_STEPS: DraftStep[] = [
 
 /**
  * The action sequence is the source of truth for persistence and turn
- * handling. This is the single presentation-order seam: blue reads naturally
- * from B1/P1 to B5/P5, while red is mirrored for a face-to-face board.
+ * handling. Pick rows read naturally from P1 to P5 on both sides; red bans
+ * remain mirrored for the face-to-face board.
  */
 export function draftDisplayOrder(side: DraftSide, kind: DraftActionKind): DraftStep[] {
   const steps = LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === kind);
-  return side === "red" ? steps.reverse() : steps;
+  return side === "red" && kind === "ban" ? steps.reverse() : steps;
 }
 
 /** How many games the drafter offers for a fixture — regular-season series

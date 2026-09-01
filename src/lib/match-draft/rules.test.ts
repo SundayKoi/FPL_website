@@ -182,10 +182,10 @@ describe("pickOrderBySide", () => {
 });
 
 describe("draftDisplayOrder", () => {
-  it("mirrors red presentation without changing the stored action sequence", () => {
+  it("keeps pick rows in normal order and mirrors only red bans", () => {
     const stored = [...LCS_DRAFT_STEPS];
     expect(draftDisplayOrder("blue", "pick").map((step) => step.slot)).toEqual([1, 2, 3, 4, 5]);
-    expect(draftDisplayOrder("red", "pick").map((step) => step.slot)).toEqual([5, 4, 3, 2, 1]);
+    expect(draftDisplayOrder("red", "pick").map((step) => step.slot)).toEqual([1, 2, 3, 4, 5]);
     expect(draftDisplayOrder("blue", "ban").map((step) => step.slot)).toEqual([1, 2, 3, 4, 5]);
     expect(draftDisplayOrder("red", "ban").map((step) => step.slot)).toEqual([5, 4, 3, 2, 1]);
     expect(LCS_DRAFT_STEPS).toEqual(stored);

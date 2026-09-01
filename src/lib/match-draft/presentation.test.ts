@@ -28,8 +28,8 @@ describe("createDraftMatchupView", () => {
     expect(view.blue.bans).toHaveLength(5);
     expect(view.red.bans).toHaveLength(5);
     expect(view.blue.picks[0].state).toBe("missing");
-    expect(view.red.picks.at(-1)?.state).toBe("skipped");
-    expect(view.red.picks.map((pick) => pick.slot)).toEqual([5, 4, 3, 2, 1]);
+    expect(view.red.picks[0].state).toBe("skipped");
+    expect(view.red.picks.map((pick) => pick.slot)).toEqual([1, 2, 3, 4, 5]);
     expect(view.blue.bans[0].state).toBe("recorded");
     expect(view.red.bans.map((ban) => ban.slot)).toEqual([5, 4, 3, 2, 1]);
   });

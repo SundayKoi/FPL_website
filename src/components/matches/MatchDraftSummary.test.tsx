@@ -119,7 +119,7 @@ describe("a full 20-action draft, shaped as the database stores one", () => {
 
   it("numbers every pick on both sides", () => {
     expect(sideRows(full, "blue").pickNumbers).toEqual([1, 2, 3, 4, 5]);
-    expect(sideRows(full, "red").pickNumbers).toEqual([5, 4, 3, 2, 1]);
+    expect(sideRows(full, "red").pickNumbers).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("renders a badge for each of the ten picks", () => {
