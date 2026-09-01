@@ -195,9 +195,25 @@ update public.free_agency_avg_bids
    and not exists (select 1 from public.free_agency_avg_bids b where b.player_name = 'Icy Rain');
 
 -- ── Cards ─────────────────────────────────────────────────────────────
--- Art prefs and the claim are keyed (season, summoner_name, tag). The OLD row
--- holds the real content — the skin, the motto, the profile_id that IS the
--- discord link. Clear any new-side stub, then move the old row onto the key.
+-- Art prefs are keyed (season, summoner_name, tag), and BOTH sides can hold
+-- real content: the skin and motto were almost certainly set under the old
+-- name, but he may have inked a signature after renaming. Picking one row
+-- whole would throw the other's away — a signature is not recoverable, so
+-- fold the two together FIELD BY FIELD first, then collapse.
+--
+-- The new side wins each field it actually filled, because anything set
+-- there was set more recently than the rename. The old side supplies
+-- everything the new side left empty. (skin 0 is the "no preference"
+-- default, so it counts as empty rather than as a choice.)
+update public.card_art_prefs old
+   set signature = coalesce(new_row.signature, old.signature),
+       motto     = coalesce(new_row.motto, old.motto),
+       skin      = case when new_row.skin <> 0 then new_row.skin else old.skin end
+  from public.card_art_prefs new_row
+ where lower(old.summoner_name) = 'ywgi' and lower(old.tag) = 'rain'
+   and lower(new_row.summoner_name) = 'icy rain' and lower(new_row.tag) = 'ywgi'
+   and new_row.season = old.season;
+
 delete from public.card_art_prefs new_row
  where lower(new_row.summoner_name) = 'icy rain' and lower(new_row.tag) = 'ywgi'
    and exists (select 1 from public.card_art_prefs old
@@ -207,6 +223,27 @@ delete from public.card_art_prefs new_row
 update public.card_art_prefs
    set summoner_name = 'Icy Rain', tag = 'YWGI'
  where lower(summoner_name) = 'ywgi' and lower(tag) = 'rain';
+
+-- A claim is a person, so this one refuses rather than picks. Two claims by
+-- the SAME profile are the same person twice and the duplicate goes; two
+-- claims by DIFFERENT profiles means someone else claimed the new identity,
+-- and quietly deleting either one takes a card away from a real player.
+do $$
+declare v_split int;
+begin
+  select count(*) into v_split
+    from public.card_claims old
+    join public.card_claims new_row
+      on new_row.season = old.season
+     and lower(new_row.summoner_name) = 'icy rain' and lower(new_row.tag) = 'ywgi'
+   where lower(old.summoner_name) = 'ywgi' and lower(old.tag) = 'rain'
+     and new_row.profile_id is distinct from old.profile_id;
+  if v_split > 0 then
+    raise exception
+      'Both identities are claimed by DIFFERENT profiles in % season(s). Sort the claims out by hand first. Nothing changed.',
+      v_split;
+  end if;
+end $$;
 
 delete from public.card_claims new_row
  where lower(new_row.summoner_name) = 'icy rain' and lower(new_row.tag) = 'ywgi'
