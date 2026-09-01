@@ -9,6 +9,15 @@ describe("cardsNavGroups", () => {
     for (const href of hrefs) expect(href.startsWith("/academy/cards")).toBe(true);
   });
 
+  it("puts the market next to trades, where the other way to move a card lives", () => {
+    const collect = cardsNavGroups({ base: "/cards" }).find((group) => group.title === "Collect")!;
+    const labels = collect.items.map((item) => item.label);
+
+    expect(labels).toContain("Market");
+    expect(labels.indexOf("Market")).toBe(labels.indexOf("Trades") + 1);
+    expect(collect.items.find((item) => item.label === "Market")?.href).toBe("/cards/market");
+  });
+
   it("keeps player claims out of the card navigation", () => {
     const labels = cardsNavGroups({ base: "/cards" })
       .flatMap((g) => g.items.map((i) => i.label));
