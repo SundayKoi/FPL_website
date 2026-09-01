@@ -66,13 +66,24 @@ function pullLine(pull: Extract<OpenPackResult, { ok: true }>["cards"][number]):
 
 /** One pull as its own embed: the line, the tier's color stripe, and the
  *  card itself via the share renderer. Moments have no /card page, so
- *  they keep their line and stripe but carry no picture. */
-function pullEmbed(pull: Extract<OpenPackResult, { ok: true }>["cards"][number], site: string): DiscordEmbed {
+ *  they keep their line and stripe but carry no picture.
+ *
+ *  The edition week rides the picture's URL, and it is load-bearing twice
+ *  over. It makes the render the print that was actually pulled rather than
+ *  the player's card as it stands today — and, because Discord's image proxy
+ *  caches by URL, it stops a week-old render being served under this week's
+ *  text, which is what it did while every rip pointed at the same string. */
+function pullEmbed(
+  pull: Extract<OpenPackResult, { ok: true }>["cards"][number],
+  site: string,
+  editionWeek: string | null,
+): DiscordEmbed {
   const { card } = pull;
+  const week = editionWeek ? `?w=${encodeURIComponent(editionWeek)}` : "";
   return {
     description: pullLine(pull),
     color: TIER_COLORS[card.tier.key] ?? BRAND,
-    ...(site && !card.moment ? { image: { url: `${site}/card/${card.slug}/card.png` } } : {}),
+    ...(site && !card.moment ? { image: { url: `${site}/card/${card.slug}/card.png${week}` } } : {}),
   };
 }
 
@@ -99,7 +110,7 @@ export function ripFollowup(result: OpenPackResult, username: string): { embeds:
     color: best && (best.foil || best.signed || best.card.moment) ? GREEN : BRAND,
     footer: { text: `Free daily pack${streakNote}` },
   };
-  return { embeds: [header, ...result.cards.map((pull) => pullEmbed(pull, site))] };
+  return { embeds: [header, ...result.cards.map((pull) => pullEmbed(pull, site, result.editionWeek))] };
 }
 
 /** League option; defaults to premier — the daily is a ritual, not a menu. */

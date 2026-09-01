@@ -633,6 +633,38 @@ export async function fetchRatingHistory(
   }));
 }
 
+/**
+ * One archived card, exactly as it was printed in a given week.
+ *
+ * The share PNG needs this because a pull is FROM a week: a card ripped out
+ * of the 18 August edition should picture the 18 August print, not whatever
+ * that player's rating says today. Reads the one row rather than the week's
+ * whole pool, which is ~50 cards of frozen json for a single picture.
+ *
+ * Null when that week was never archived, or holds no such slug — callers
+ * fall back to the live card, same as fetchEditionCards.
+ */
+export async function fetchEditionCardBySlug(
+  supabase: SupabaseClient,
+  season: string,
+  editionWeek: string,
+  slug: string,
+): Promise<PlayerCardData | null> {
+  const { data, error } = await supabase
+    .from("card_editions")
+    .select("card")
+    .eq("season", season)
+    .eq("edition_week", editionWeek)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error || !data) return null;
+  const card = (data as { card: PlayerCardData }).card;
+  // Team colours and crests live outside the frozen json, so an archived
+  // card needs the same backfill the week's pool gets.
+  const [withIdentity] = await backfillTeamIdentity([card], await fetchTeamIdentity(supabase, season));
+  return withIdentity ?? card;
+}
+
 /** One card by its URL slug, or null. */
 export async function fetchCardBySlug(
   supabase: SupabaseClient,
