@@ -20,6 +20,7 @@ import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, deferred, errMsg } from "./respond";
 import type { DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
+import { TIER_COLORS } from "./tierColors";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { cardImageUrl } from "@/lib/cards/shareImage";
 import { editionLabel } from "@/lib/packs/week";
@@ -36,20 +37,6 @@ const TIER_EMOJI: Record<string, string> = {
   master: "🟪",
   grandmaster: "🟥",
   challenger: "👑",
-};
-
-/** Embed stripe per tier — the same ladder the site's tier styling walks,
- *  so a rip reads at a glance in the channel the way it does on the shelf. */
-const TIER_COLORS: Record<string, number> = {
-  bronze: 0xb08d57,
-  silver: 0xc7ccd6,
-  gold: 0xe8c14b,
-  platinum: 0x35d0ba,
-  emerald: 0x2ecc71,
-  diamond: 0x6ea8ff,
-  master: 0xa96fe3,
-  grandmaster: 0xe04747,
-  challenger: 0x9ee7ff,
 };
 
 /** One pull as an embed line: tier glyph, name, overall, and everything

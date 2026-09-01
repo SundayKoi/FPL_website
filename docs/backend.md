@@ -485,6 +485,39 @@ card is alive and re-rates weekly, so its key is the week; a copy is frozen
 at mint except for the expedition mark it can come home wearing, so its key
 is `card.expedition?.mark ?? "none"`.
 
+The copy image's caption line carries the copy's identity: the edition it
+came out of and, when both halves are known, its stamp — "WK Aug 24 edition ·
+#7 of 43". The route reads `card_inventory.print_number` and the one
+`card_print_runs` row keyed by (season, edition_week, slug); a copy minted
+before print numbering, or a run whose counter cannot be read, keeps the
+plain edition line rather than losing it.
+
+### Discord card commands
+
+Two slash commands live outside `commands.ts`, each in its own module
+registered into `commandHandlers` by a side-effect import in
+`src/app/api/discord/interactions/route.ts`:
+
+- **`/rip`** (`src/lib/betting/discord/rip.ts`) opens the free daily pack and
+  posts the pulls, one embed per card, pictured with `cardImageUrl`.
+- **`/flex`** (`src/lib/betting/discord/flex.ts`) posts the caller's best copy
+  of a named player, pictured with `copyImageUrl` so the parallel, the ink and
+  the Eclipse frame that copy actually printed are what the channel sees.
+  "Best" is `bestCopy`: Eclipse, then signed, then the parallel ladder
+  (`FOIL_TYPES` order, ice down to prisma), then overall, then the newest
+  pull. The flex is public; every refusal — owning none, a name matching
+  several players, a week that isn't archived — is ephemeral.
+
+Both defer (`deferred()` + `after()`) and answer on the interaction's followup
+webhook, because a pack open and a paged collection read both outrun Discord's
+three-second deadline. Both take an optional free-text `week`, resolved by
+`resolveRipWeek` against the live archive.
+
+**Discord only learns a command exists from a run of
+`scripts/register-discord-commands.ts`** (`npm run register:discord-commands`,
+which PUTs `DISCORD_COMMANDS` from `commandDefs.ts`). Adding a handler is half
+the job; the registration is the other half.
+
 ### Eclipse, the one-of-one
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in
