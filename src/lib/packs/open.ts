@@ -475,7 +475,7 @@ export async function openPackFor(
   // ruled on any race, so this can never trumpet a card that was refused.
   const eclipsePrint = prints.find((print) => print.foilType === ECLIPSE_FOIL_TYPE);
   if (eclipsePrint) {
-    await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek);
+    await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek, league);
   }
 
   // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
@@ -578,6 +578,7 @@ async function announceEclipseClaim(
   discordId: string,
   print: { card: PlayerCardData; signed: boolean },
   editionWeek: string,
+  league: CardLeague,
 ): Promise<void> {
   const { data } = await service
     .from("betting_profiles")
@@ -589,6 +590,13 @@ async function announceEclipseClaim(
   const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
   const { card } = print;
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  // Where the news goes next. An Eclipse falling is the one moment people
+  // ask "what else is out there" — the Vault is the answer, and it is the
+  // league's OWN register, so the announcement points at it rather than
+  // leaving the question in the channel. The league picks the path: an
+  // academy pull belongs on the academy board, and sending a reader to the
+  // premier one would show them a card nobody in that message owns.
+  const vaultUrl = site ? `${site}${league === "academy" ? "/academy/cards/vault" : "/cards/vault"}` : "";
   await postCardsWebhook({
     title: "🌑 AN ECLIPSE HAS BEEN FOUND",
     description:
@@ -597,7 +605,8 @@ async function announceEclipseClaim(
       `${card.overall} OVR · ${card.tier.label} ${card.role}${print.signed ? " · ✍️ Signed" : ""}
 
 ` +
-      `One of one. Nobody else will ever own this card.`,
+      `One of one. Nobody else will ever own this card.` +
+      (vaultUrl ? `\n[The Vault](${vaultUrl}) — every one found, and every one still out there.` : ""),
     color: GOLD,
     ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
   });

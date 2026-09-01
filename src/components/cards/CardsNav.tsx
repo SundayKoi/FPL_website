@@ -16,7 +16,7 @@ interface NavItem {
   label: string;
   href: string;
   blurb: string;
-  /** The one gold destination — moments are not a normal page. */
+  /** A gold destination — the pages that are not a normal page. */
   accent?: boolean;
 }
 
@@ -33,6 +33,12 @@ export function cardsNavGroups({ base }: { base: string }): NavGroup[] {
         { label: "Team Cards", href: `${base}/teams`, blurb: "Every roster as one composite card" },
         { label: "Card vs Card", href: `${base}/compare`, blurb: "Put two players side by side" },
         { label: "Moments", href: `${base}/moments`, blurb: "The rarest single games of the season", accent: true },
+        {
+          label: "The Vault",
+          href: `${base}/vault`,
+          blurb: "Every one-of-one, who holds it, and what's still out there",
+          accent: true,
+        },
       ],
     },
     {
