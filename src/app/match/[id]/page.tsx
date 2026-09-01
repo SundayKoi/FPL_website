@@ -32,10 +32,24 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   // of the pick/ban phase is fetched alongside — it exists the moment a
   // draft finishes, usually well before any stats do.
   const [{ data: reports }, { data: draftRows }] = await Promise.all([
-    supabase.from("match_reports").select("id").eq("fixture_id", id),
+    supabase.from("match_reports").select("id, forfeit_team_id, forfeit_note").eq("fixture_id", id),
     supabase.from("match_drafts").select("*").eq("fixture_id", id).order("game_number"),
   ]);
-  const reportIds = ((reports as { id: string }[]) ?? []).map((r) => r.id);
+  const reportRows = (reports as { id: string; forfeit_team_id: string | null; forfeit_note: string | null }[]) ?? [];
+  const reportIds = reportRows.map((r) => r.id);
+  // A forfeited series shows a score its games cannot account for — 2-0 with
+  // one scoreboard below it. Without a line saying so, the page looks like it
+  // is missing data. One extra query, and only when there is something to say.
+  const forfeit = reportRows.find((r) => r.forfeit_team_id) ?? null;
+  let forfeitTeamName: string | null = null;
+  if (forfeit?.forfeit_team_id) {
+    const { data: team } = await supabase
+      .from("league_teams")
+      .select("name")
+      .eq("id", forfeit.forfeit_team_id)
+      .maybeSingle();
+    forfeitTeamName = (team as { name: string } | null)?.name ?? null;
+  }
   const draftGames = (((draftRows as MatchDraftRow[]) ?? [])).map((row) => ({
     gameNumber: row.game_number,
     blueTeamName: row.blue_team_name ?? fixture.team_a,
@@ -87,6 +101,15 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           {formatKickoff(fixture.scheduled_at)} · Best of {fixture.best_of}
           {games.length > 0 ? ` · ${games.length} game${games.length === 1 ? "" : "s"} on record` : ""}
         </p>
+        {forfeit && (
+          <p className="text-sm text-gold">
+            Won by forfeit{forfeitTeamName ? ` — ${forfeitTeamName} did not finish the series` : ""}
+            {forfeit.forfeit_note ? ` (${forfeit.forfeit_note})` : ""}.
+            {games.length > 0
+              ? " The games below were played in full and count for player stats."
+              : " No games were played."}
+          </p>
+        )}
         <Link href="/schedule" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
           ← Back to the schedule
         </Link>
@@ -96,9 +119,11 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
 
       {games.length === 0 ? (
         <section className="card-brand p-6 text-sm text-steel">
-          {played
-            ? "No game data for this match yet. Stats appear once the report has been submitted with this fixture attached and the nightly ingest has run."
-            : "This match hasn't been played yet."}
+          {forfeit
+            ? "Nothing was played — this series was settled by forfeit."
+            : played
+              ? "No game data for this match yet. Stats appear once the report has been submitted with this fixture attached and the nightly ingest has run."
+              : "This match hasn't been played yet."}
         </section>
       ) : (
         games.map((game) => (

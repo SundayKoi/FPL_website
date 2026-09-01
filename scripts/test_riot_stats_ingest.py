@@ -744,6 +744,24 @@ def run_rollup_report_status_tests():
         if got != expected:
             failures.append(f"rollup_report_status({statuses!r}) = {got!r}, want {expected!r}")
 
+    # A declared forfeit is the one empty report that is finished rather than
+    # broken -- and it settles as 'forfeit', never as 'ingested', so the
+    # "an empty game set is not an ingest" invariant above still holds.
+    forfeit_cases = [
+        ([], "forfeit"),
+        # Games that WERE played still decide it: a concession after game one
+        # is an ordinary ingest that happens to carry a forfeit marker.
+        (["ingested"], "ingested"),
+        (["ingested", "needs_side"], "needs_sides"),
+        (["failed"], "failed"),
+    ]
+    for statuses, expected in forfeit_cases:
+        got = rollup_report_status(statuses, forfeited=True)
+        if got != expected:
+            failures.append(
+                f"rollup_report_status({statuses!r}, forfeited=True) = {got!r}, want {expected!r}"
+            )
+
     if failures:
         print(f"FAILED: {len(failures)} rollup_report_status assertion(s) failed:")
         for f in failures:
@@ -766,6 +784,35 @@ def run_compute_score_warning_tests():
     match_ok = compute_score_warning(3, 0, 3, 0)
     if match_ok is not None:
         failures.append(f"compute_score_warning(3, 0, 3, 0) expected None (scores match), got {match_ok!r}")
+
+    # --- forfeits: the played games are a SUBSET, not the whole series ----
+    # The case this was built for: team B concedes after losing game one, so
+    # the series is 2-0 with one real game. Warning about that every week is
+    # how a warning field gets ignored.
+    quiet = compute_score_warning(2, 0, 1, 0, "b")
+    if quiet is not None:
+        failures.append(f"compute_score_warning(2, 0, 1, 0, 'b') expected None (a forfeit after one game), got {quiet!r}")
+
+    # Nobody played at all -- the no-show.
+    no_show = compute_score_warning(2, 0, 0, 0, "b")
+    if no_show is not None:
+        failures.append(f"compute_score_warning(2, 0, 0, 0, 'b') expected None (a no-show), got {no_show!r}")
+
+    # Still a mistake: more real wins than the series credits.
+    impossible = compute_score_warning(2, 0, 1, 1, "b")
+    if impossible is None:
+        failures.append("compute_score_warning(2, 0, 1, 1, 'b') expected a warning: team B won a game it is credited none of")
+
+    # Still a mistake: the side that conceded is reported as the winner.
+    backwards = compute_score_warning(0, 2, 0, 0, "b")
+    if backwards is None:
+        failures.append("compute_score_warning(0, 2, 0, 0, 'b') expected a warning: the forfeiting team cannot win the series")
+
+    # A forfeit_team_id naming neither team fails safe -- forfeit_side_of
+    # returns None and the ORDINARY strict check applies.
+    unresolved = compute_score_warning(2, 0, 1, 0, None)
+    if unresolved is None:
+        failures.append("compute_score_warning(2, 0, 1, 0, None) expected the ordinary strict mismatch warning")
 
     if failures:
         print(f"FAILED: {len(failures)} compute_score_warning assertion(s) failed:")
@@ -1127,6 +1174,111 @@ def run_ingest_report_empty_games_test():
     return True
 
 
+def run_ingest_report_declared_forfeit_test():
+    """The other side of run_ingest_report_empty_games_test: an empty report
+    that DECLARES a forfeit is finished, not broken. It settles as 'forfeit'
+    (never 'ingested' -- an empty game set is still not an ingest), stamps
+    ingested_at so it stops being re-fetched, and DOES push the result to the
+    fixture, because a no-show that never reaches the schedule is a series
+    that silently disappears."""
+    import riot_stats_ingest as mod
+
+    failures = []
+
+    def check(condition, message):
+        if not condition:
+            failures.append(message)
+
+    class FakeResponse:
+        def __init__(self, status_code=200, json_data=None, text=""):
+            self.status_code = status_code
+            self._json_data = json_data if json_data is not None else []
+            self.text = text
+
+        def json(self):
+            return self._json_data
+
+    cfg = IngestConfig(
+        supabase_url="https://example.invalid",
+        service_key="fake-service-key",
+        riot_api_key="fake-riot-key",
+        dry_run=False,
+    )
+    report = {
+        "id": "report-forfeit",
+        "team_a_id": "team-a",
+        "team_b_id": "team-b",
+        "season": "S5",
+        "season_phase": "Regular",
+        "score_a": 2,
+        "score_b": 0,
+        "fixture_id": "fx-1",
+        "forfeit_team_id": "team-b",
+        "match_report_games": [],
+    }
+    team_names = {"team-a": "Team A", "team-b": "Team B"}
+
+    patch_calls = []
+
+    def fake_get(url, headers=None, params=None, **kwargs):
+        # sync_fixture_score reads the fixture's own team order first.
+        if "fixtures" in url:
+            return FakeResponse(200, [{"team_a": "Team A", "team_b": "Team B"}])
+        return FakeResponse(200, [])
+
+    def fake_patch(url, headers=None, data=None, **kwargs):
+        patch_calls.append((url, data))
+        return FakeResponse(200, [{"id": "fx-1"}])
+
+    orig_get, orig_patch = mod.requests.get, mod.requests.patch
+    mod.requests.get = fake_get
+    mod.requests.patch = fake_patch
+    try:
+        result = mod.ingest_report(cfg, report, team_names)
+    finally:
+        mod.requests.get = orig_get
+        mod.requests.patch = orig_patch
+
+    check(result["status"] == "forfeit", f"declared forfeit should end 'forfeit', got {result['status']!r}")
+    check(not result.get("error"), f"a declared forfeit is not an error, got {result.get('error')!r}")
+    check(not result.get("warning"), f"2-0 against the forfeiting side is not a mismatch, got {result.get('warning')!r}")
+
+    report_patches = [(u, d) for u, d in patch_calls if "match_reports" in u]
+    fixture_patches = [(u, d) for u, d in patch_calls if "fixtures" in u]
+    check(len(report_patches) == 1, f"expected one match_reports PATCH, got {len(report_patches)}")
+    if report_patches:
+        body = json.loads(report_patches[0][1])
+        check(body["status"] == "forfeit", f"match_reports PATCH status should be 'forfeit', got {body!r}")
+        check(body["ingested_at"] is not None, "a settled forfeit must stamp ingested_at so it stops being re-fetched")
+        check(body["error_text"] is None, f"a declared forfeit carries no error_text, got {body!r}")
+    check(len(fixture_patches) == 1, f"a settled forfeit should reach the schedule, got {fixture_patches!r}")
+    if fixture_patches:
+        body = json.loads(fixture_patches[0][1])
+        check(body == {"score_a": 2, "score_b": 0}, f"fixture should take the reported forfeit score, got {body!r}")
+
+    # And the guard still holds for an empty report that declares nothing.
+    patch_calls.clear()
+    mod.requests.get, mod.requests.patch = fake_get, fake_patch
+    try:
+        bare = mod.ingest_report(cfg, {**report, "forfeit_team_id": None, "id": "report-bare"}, team_names)
+    finally:
+        mod.requests.get, mod.requests.patch = orig_get, orig_patch
+    check(bare["status"] == "failed", f"an empty report with no forfeit must still fail, got {bare['status']!r}")
+    check(
+        not any("fixtures" in url for url, _ in patch_calls),
+        f"and must still never touch the fixture, got {patch_calls!r}",
+    )
+
+    if failures:
+        print(f"FAILED: {len(failures)} ingest_report-declared-forfeit assertion(s) failed:")
+        for f in failures:
+            print(f"  - {f}")
+        return False
+
+    print("OK: a declared forfeit settles as 'forfeit' and reaches the schedule.")
+    return True
+
+
 def run_ingest_report_stale_ingested_status_test():
     """IMPORTANT fix regression: a game whose match_report_games.status
     already says 'ingested' (client-writable -- RLS restricts who, not
@@ -1272,6 +1424,10 @@ def test_ingest_report_empty_games():
     assert run_ingest_report_empty_games_test() is True
 
 
+def test_ingest_report_declared_forfeit():
+    assert run_ingest_report_declared_forfeit_test() is True
+
+
 def test_ingest_report_stale_ingested_status():
     assert run_ingest_report_stale_ingested_status_test() is True
 
@@ -1373,6 +1529,7 @@ if __name__ == "__main__":
         and run_from_reports_bypasses_league_settings_test()
         and run_sync_fixture_score_tests()
         and run_ingest_report_empty_games_test()
+        and run_ingest_report_declared_forfeit_test()
         and run_ingest_report_stale_ingested_status_test()
         and run_load_history_map_tests()
     )

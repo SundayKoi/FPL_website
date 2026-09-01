@@ -30,6 +30,10 @@ interface ReportForm {
   scoreA: string;
   scoreB: string;
   draftUrl: string;
+  /** "" when the series was played out; otherwise the id of the team that
+   *  conceded. This is what lets the games list be shorter than the score. */
+  forfeitTeamId: string;
+  forfeitNote: string;
   games: GameFormRow[];
 }
 
@@ -63,6 +67,8 @@ function emptyForm(defaults: {
     scoreA: prefill?.scoreA != null ? String(prefill.scoreA) : "",
     scoreB: prefill?.scoreB != null ? String(prefill.scoreB) : "",
     draftUrl: prefill?.draftUrl ?? "",
+    forfeitTeamId: "",
+    forfeitNote: "",
     // One row per game the drafter finished: blue side filled in, the Riot
     // match id left for the captain — the one fact the drafter can't know.
     games: (prefill?.games ?? []).map((game) => ({
@@ -162,7 +168,17 @@ export default function ReportBox({
     const problems: string[] = [];
     if (!form.teamAId || !form.teamBId) problems.push("Pick both teams.");
     else if (form.teamAId === form.teamBId) problems.push("Teams must be different.");
-    if (form.games.length === 0) problems.push("Add at least one game.");
+    // A forfeit is the one result with no games to report: nobody played.
+    // Everything else still needs at least one, because a series with no
+    // games and no explanation is a report that will fail in the ingest
+    // hours later with nobody watching.
+    const forfeitTeamId = form.forfeitTeamId;
+    if (forfeitTeamId && forfeitTeamId !== form.teamAId && forfeitTeamId !== form.teamBId) {
+      problems.push("The team that forfeited must be one of the two teams in the series.");
+    }
+    if (form.games.length === 0 && !forfeitTeamId) {
+      problems.push("Add at least one game, or record which team forfeited.");
+    }
 
     const trimmedIds = form.games.map((g) => g.matchId.trim());
     trimmedIds.forEach((id, i) => {
@@ -192,6 +208,18 @@ export default function ReportBox({
       scoreA >= 0 &&
       scoreB >= 0;
     if (!scoresValid) problems.push("Enter a whole-number score for each team.");
+    // The score still decides the series — a forfeit says why it ended, not
+    // who won. Catching a backwards forfeit here beats catching it on the
+    // public schedule after the ingest has already synced it.
+    if (scoresValid && forfeitTeamId) {
+      const forfeiterScore = forfeitTeamId === form.teamAId ? scoreA : scoreB;
+      const winnerScore = forfeitTeamId === form.teamAId ? scoreB : scoreA;
+      if (winnerScore <= forfeiterScore) {
+        problems.push(
+          `Score the series as the forfeit win — ${teamName(forfeitTeamId)} forfeited, so they cannot be the higher score.`,
+        );
+      }
+    }
 
     if (problems.length === 0) {
       const [existingGames, existingStats] = await Promise.all([
@@ -223,6 +251,8 @@ export default function ReportBox({
         scoreB,
         draftUrl: form.draftUrl.trim() || null,
         fixtureId,
+        forfeitTeamId: forfeitTeamId || null,
+        forfeitNote: forfeitTeamId ? form.forfeitNote.trim() || null : null,
         games: form.games.map((g) => ({
           gameNumber: g.gameNumber,
           matchId: g.matchId.trim(),
@@ -349,6 +379,41 @@ export default function ReportBox({
           />
         </label>
         <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
+          Forfeit (optional)
+          <select
+            value={form.forfeitTeamId}
+            onChange={(e) => setForm((p) => ({ ...p, forfeitTeamId: e.target.value }))}
+            className={inputClass}
+          >
+            <option value="">Series was played out</option>
+            {form.teamAId && <option value={form.teamAId}>{teamName(form.teamAId)} forfeited</option>}
+            {form.teamBId && <option value={form.teamBId}>{teamName(form.teamBId)} forfeited</option>}
+          </select>
+        </label>
+        {form.forfeitTeamId && (
+          <>
+            <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
+              Why (optional)
+              <input
+                value={form.forfeitNote}
+                onChange={(e) => setForm((p) => ({ ...p, forfeitNote: e.target.value }))}
+                placeholder="No show, roster ineligible, conceded after game 1…"
+                className={inputClass}
+              />
+            </label>
+            {/* The one thing a captain in this situation actually needs told:
+                report the games that happened and nothing else. The instinct
+                is to leave the whole series out, or to invent rows for the
+                games nobody played — and the first loses real stats while the
+                second poisons them. */}
+            <p className="col-span-2 text-xs text-gold">
+              Score the series as the forfeit win, then add only the games that were actually
+              played — leave the rest out. Those games still count in full for player stats and
+              cards. If nobody played at all, add no games.
+            </p>
+          </>
+        )}
+        <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
           Draft URL (optional)
           <input
             value={form.draftUrl}
@@ -367,7 +432,13 @@ export default function ReportBox({
             drafter — double-check them, then add each game&apos;s Riot match id.
           </p>
         )}
-        {form.games.length === 0 && <p className="text-sm text-steel">No games yet — parse a paste or add one.</p>}
+        {form.games.length === 0 && (
+          <p className="text-sm text-steel">
+            {form.forfeitTeamId
+              ? "No games — reporting this as a forfeit with nothing played."
+              : "No games yet — parse a paste or add one."}
+          </p>
+        )}
         {form.games.map((g) => (
           <div key={g.key} className="flex flex-wrap items-center gap-2">
             <span className="w-16 shrink-0 text-xs text-steel">Game {g.gameNumber}</span>

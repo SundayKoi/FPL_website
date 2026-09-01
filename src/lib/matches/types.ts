@@ -12,8 +12,12 @@
 //
 // .superpowers/sdd/2026-08-11-match-reporting-auto-ingest/task-3-brief.md
 
-/** `match_reports.status` check constraint. */
-export type ReportStatus = "pending" | "ingested" | "needs_sides" | "failed";
+/** `match_reports.status` check constraint. `forfeit` is the terminal state
+ *  of a series nobody played — see 20260909000001_match_report_forfeit.sql.
+ *  It is deliberately not `ingested`: nothing was verified, because there was
+ *  nothing to verify. A series that WAS played and then conceded ingests
+ *  normally and carries `forfeit_team_id` instead. */
+export type ReportStatus = "pending" | "ingested" | "needs_sides" | "failed" | "forfeit";
 
 /** `match_report_games.status` check constraint (singular "side", not "sides"). */
 export type GameStatus = "pending" | "ingested" | "needs_side" | "failed";
@@ -68,6 +72,13 @@ export interface MatchReport {
   warning_text: string | null;
   ingested_at: string | null;
   fixture_id: string | null;
+  /** Which side conceded, when the series did not go the distance. Null for
+   *  an ordinary series. The games that WERE played are still reported and
+   *  still ingest — a forfeit removes the games nobody played, not the ones
+   *  they did. */
+  forfeit_team_id: string | null;
+  /** Human reason ("no show", "roster ineligible"), shown to staff. */
+  forfeit_note: string | null;
 }
 
 /** One game within a `match_reports` series. */

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam, MatchReport, MatchReportGame } from "@/lib/matches/types";
 import { fixGameSide } from "@/lib/captain/queries";
-import { FixtureChips, StatusBadge } from "./reportStatus";
+import { FixtureChips, ForfeitLine, StatusBadge } from "./reportStatus";
 
 /**
  * Admin panel on /captain: every match_reports row (any team, any season),
@@ -142,9 +142,15 @@ export default function AdminReportsQueue({
                       <div className="ml-auto flex gap-1.5">
                         <button
                           type="button"
-                          disabled={busy || r.status === "ingested"}
+                          disabled={busy || r.status === "ingested" || r.status === "forfeit"}
                           onClick={() => void handleRetry(r)}
-                          title={r.status === "ingested" ? "Already ingested — nothing to retry" : undefined}
+                          title={
+                            r.status === "ingested"
+                              ? "Already ingested — nothing to retry"
+                              : r.status === "forfeit"
+                                ? "Settled by forfeit — there are no games to re-ingest"
+                                : undefined
+                          }
                           className="rounded-full border border-line bg-panel px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-50"
                         >
                           Retry
@@ -159,6 +165,7 @@ export default function AdminReportsQueue({
                         </button>
                       </div>
                     </div>
+                    <ForfeitLine team={r.forfeit_team_id ? teamName(r.forfeit_team_id) : null} note={r.forfeit_note} />
                     {r.error_text && <p className="mt-1 text-xs text-red-400">{r.error_text}</p>}
                     {r.warning_text && <p className="mt-1 text-xs text-amber-300">{r.warning_text}</p>}
                     <ul className="mt-2 flex flex-col gap-1.5">
