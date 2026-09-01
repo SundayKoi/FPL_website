@@ -38,8 +38,9 @@ vi.mock("@/lib/cards/queries", () => ({
   fetchCardEditionWeeks: fetchCardEditionWeeksMock,
 }));
 
-const { bestCopy, flexEmbed, matchPlayer } = await import("./flex");
-import { commandHandlers, type DiscordInteraction } from "./registry";
+const { bestCopy, copyChoices, copyLabel, flexEmbed, matchPlayer, pickCopy, playerChoices, rankCopies } =
+  await import("./flex");
+import { autocompleteHandlers, commandHandlers, type DiscordInteraction } from "./registry";
 import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 
@@ -157,6 +158,80 @@ describe("matchPlayer", () => {
 
   it("finds nothing when nothing matches", () => {
     expect(matchPlayer([copy()], "spies")).toEqual({ rows: [] });
+  });
+});
+
+describe("the picker's pure parts", () => {
+  it("names a copy by what tells it apart from the others", () => {
+    const row = copy({
+      editionWeek: "2026-08-24",
+      foil: true,
+      foilType: "ice",
+      signed: true,
+      printNumber: 7,
+      artSkin: 2,
+      overall: 87,
+      mark: "sigil",
+    });
+    expect(copyLabel(row)).toBe("WK Aug 24 · Cracked Ice · Signed · #7 · Alt art · Gold 87 · Sigil mark");
+    expect(copyLabel(copy({ overall: 80 }))).toBe("WK Aug 24 · Matte · Gold 80");
+  });
+
+  it("lists copies best first, the same ladder bestCopy climbs", () => {
+    const matte = copy({ id: 1 });
+    const eclipse = copy({ id: 2, foil: true, foilType: "eclipse" });
+    const signed = copy({ id: 3, signed: true });
+    expect(rankCopies([matte, signed, eclipse]).map((row) => row.id)).toEqual([2, 3, 1]);
+  });
+
+  it("offers one entry per owned player, best copy first, slug as the value", () => {
+    const rows = [
+      copy({ slug: "spies-na1", playerName: "Spies", overall: 99 }),
+      copy({ slug: "doug-na1", playerName: "Doug", overall: 60 }),
+      copy({ slug: "doug-na1", playerName: "Doug", foil: true, foilType: "eclipse", overall: 61 }),
+    ];
+    const choices = playerChoices(rows, "");
+    expect(choices.map((choice) => choice.value)).toEqual(["doug-na1", "spies-na1"]);
+    expect(choices[0].name).toBe("Doug — WK Aug 24 · Eclipse · Gold 61");
+  });
+
+  it("narrows the player list to what has been typed, any case, any part", () => {
+    const rows = [copy({ slug: "doug-na1", playerName: "Doug" }), copy({ slug: "spies-na1", playerName: "Spies" })];
+    expect(playerChoices(rows, "OU").map((choice) => choice.value)).toEqual(["doug-na1"]);
+    expect(playerChoices(rows, "zzz")).toEqual([]);
+  });
+
+  it("offers every copy, best first, id as the value, and narrows on the label", () => {
+    const rows = [
+      copy({ id: 10, printNumber: 3 }),
+      copy({ id: 11, foil: true, foilType: "ice", printNumber: 8 }),
+      copy({ id: 12, signed: true, printNumber: 1 }),
+    ];
+    expect(copyChoices(rows, "").map((choice) => choice.value)).toEqual(["12", "11", "10"]);
+    expect(copyChoices(rows, "").map((choice) => choice.name)[1]).toBe("Doug · WK Aug 24 · Cracked Ice · #8 · Gold 80");
+    expect(copyChoices(rows, "ice").map((choice) => choice.value)).toEqual(["11"]);
+    expect(copyChoices(rows, "#1").map((choice) => choice.value)).toEqual(["12"]);
+  });
+
+  it("never sends Discord more choices than it will show", () => {
+    const rows = Array.from({ length: 40 }, (_, i) => copy({ id: 100 + i, slug: `p${i}`, playerName: `Player ${i}` }));
+    expect(playerChoices(rows, "")).toHaveLength(25);
+    expect(copyChoices(rows, "")).toHaveLength(25);
+  });
+
+  it("takes a picked id as is, and a typed label only when it fits exactly one copy", () => {
+    const rows = [copy({ id: 10 }), copy({ id: 11, foil: true, foilType: "ice" }), copy({ id: 12, foil: true, foilType: "aurora" })];
+    expect(pickCopy(rows, "11")).toBe(rows[1]);
+    expect(pickCopy(rows, "99")).toBeNull();
+    expect(pickCopy(rows, "cracked")).toBe(rows[1]);
+    expect(pickCopy(rows, "wk aug 24")).toBe("ambiguous");
+    expect(pickCopy(rows, "eclipse")).toBeNull();
+  });
+
+  it("lets a slug picked from the list match without a second guess", () => {
+    const rows = [copy({ slug: "ash-na1", playerName: "Ash" }), copy({ slug: "ashley-na1", playerName: "Ashley" })];
+    const match = matchPlayer(rows, "ashley-na1");
+    expect("rows" in match && match.rows.map((row) => row.playerName)).toEqual(["Ashley"]);
   });
 });
 
@@ -362,6 +437,35 @@ describe("the /flex handler", () => {
     expect(body.embeds[0].image.url).toContain("/copy/2/card.png");
   });
 
+  it("flexes the copy you picked instead of the best one", async () => {
+    fetchInventoryMock.mockResolvedValue([
+      copy({ id: 1, playerName: "Doug", overall: 70 }),
+      copy({ id: 2, playerName: "Doug", foil: true, foilType: "ice", overall: 65 }),
+    ]);
+
+    const body = (await run([
+      { name: "player", value: "doug-na1" },
+      { name: "copy", value: "1" },
+    ])) as { embeds: { description: string; image: { url: string } }[] };
+
+    expect(body.embeds[0].description).toContain("Matte");
+    expect(body.embeds[0].image.url).toContain("/copy/1/card.png");
+  });
+
+  it("refuses a copy pick that is no longer one of yours, rather than showing another", async () => {
+    fetchInventoryMock.mockResolvedValue([copy({ id: 1, playerName: "Doug" }), copy({ id: 3, playerName: "Spies" })]);
+
+    // 3 exists, but it is a Spies — a stale or forged id must not cross
+    // players.
+    const body = (await run([
+      { name: "player", value: "doug" },
+      { name: "copy", value: "3" },
+    ])) as { content: string; flags: number };
+
+    expect(body.flags).toBe(64);
+    expect(body.content).toContain("pick again from the list");
+  });
+
   it("answers even when the read blows up", async () => {
     // The deferral already said "thinking…"; a silent stall sits there
     // forever.
@@ -371,5 +475,85 @@ describe("the /flex handler", () => {
 
     expect(body.flags).toBe(64);
     expect(body.content).toContain("Something went wrong");
+  });
+});
+
+
+describe("the /flex picker", () => {
+  function typing(
+    focused: { name: string; value: string },
+    others: { name: string; value: unknown }[] = [],
+  ): DiscordInteraction {
+    return {
+      id: "1",
+      application_id: "app",
+      type: 4,
+      token: "tok",
+      data: { name: "flex", options: [{ ...focused, focused: true }, ...others] },
+      member: { user: { id: "u1", username: "doug", global_name: "Doug" }, roles: [] },
+    } as DiscordInteraction;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fetchCardSeasonMock.mockResolvedValue("2026");
+    fetchCardEditionWeeksMock.mockResolvedValue(["2026-08-24", "2026-08-17"]);
+    fetchInventoryMock.mockResolvedValue([
+      copy({ id: 1, slug: "doug-na1", playerName: "Doug", editionWeek: "2026-08-17" }),
+      copy({ id: 2, slug: "doug-na1", playerName: "Doug", foil: true, foilType: "ice" }),
+      copy({ id: 3, slug: "spies-na1", playerName: "Spies", signed: true }),
+    ]);
+  });
+
+  it("registers itself beside the command", () => {
+    expect(autocompleteHandlers.flex).toBeTypeOf("function");
+  });
+
+  it("offers the players you own while you type the name", async () => {
+    const res = (await autocompleteHandlers.flex(typing({ name: "player", value: "d" }))) as {
+      type: number;
+      data: { choices: { name: string; value: string }[] };
+    };
+    expect(res.type).toBe(8);
+    expect(res.data.choices.map((choice) => choice.value)).toEqual(["doug-na1"]);
+    // The picker is the caller's own shelf, nobody else's.
+    expect(fetchInventoryMock).toHaveBeenCalledWith(expect.anything(), "u1", "2026");
+  });
+
+  it("offers only the chosen player's copies, best first, narrowed by week", async () => {
+    const all = (await autocompleteHandlers.flex(
+      typing({ name: "copy", value: "" }, [{ name: "player", value: "doug-na1" }]),
+    )) as { data: { choices: { value: string }[] } };
+    expect(all.data.choices.map((choice) => choice.value)).toEqual(["2", "1"]);
+
+    const week = (await autocompleteHandlers.flex(
+      typing({ name: "copy", value: "" }, [
+        { name: "player", value: "doug-na1" },
+        { name: "week", value: "2026-08-17" },
+      ]),
+    )) as { data: { choices: { value: string }[] } };
+    expect(week.data.choices.map((choice) => choice.value)).toEqual(["1"]);
+  });
+
+  it("offers everything you own when no player has been chosen yet", async () => {
+    const res = (await autocompleteHandlers.flex(typing({ name: "copy", value: "signed" }))) as {
+      data: { choices: { value: string }[] };
+    };
+    expect(res.data.choices.map((choice) => choice.value)).toEqual(["3"]);
+  });
+
+  it("answers with no choices — never a message — from a DM or a broken read", async () => {
+    const dm = (await autocompleteHandlers.flex({
+      id: "1",
+      application_id: "app",
+      type: 4,
+      token: "tok",
+      data: { name: "flex", options: [{ name: "player", value: "", focused: true }] },
+    } as DiscordInteraction)) as { type: number; data: { choices: unknown[] } };
+    expect(dm).toEqual({ type: 8, data: { choices: [] } });
+
+    fetchInventoryMock.mockRejectedValue(new Error("down"));
+    const broken = await autocompleteHandlers.flex(typing({ name: "player", value: "d" }));
+    expect(broken).toEqual({ type: 8, data: { choices: [] } });
   });
 });

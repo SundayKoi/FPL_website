@@ -244,7 +244,8 @@ service's dashboard in a browser.
    That script is the only thing that tells Discord which commands exist, so
    re-run it after any change to `src/lib/betting/discord/commandDefs.ts` —
    including the card commands `/rip` (open the free daily pack) and `/flex`
-   (post a card out of your collection, pictured as the copy you own).
+   (post a card out of your collection, pictured as the copy you own — the
+   player and copy options autocomplete from what you hold).
 
 ### Step 3 — Vercel
 
