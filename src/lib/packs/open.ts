@@ -24,7 +24,7 @@ import { rollPack } from "./rng";
 import { applyEclipse, isEclipseEligible } from "./eclipse";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
-import { mondayOf } from "./week";
+import { editionLabel, mondayOf } from "./week";
 
 /** slug -> that player's inked signature, for everyone in `season` who has
  *  drawn one. Read through the service client (card_art_prefs is publicly
@@ -469,6 +469,15 @@ export async function openPackFor(
 
   const ids = (inserted as { id: number }[]).map((row) => row.id);
 
+  // An Eclipse landing is league news, and it can never happen twice for
+  // the same print — announce it. AFTER the insert, same reasoning as the
+  // chase below: the copy provably exists, and the unique index has already
+  // ruled on any race, so this can never trumpet a card that was refused.
+  const eclipsePrint = prints.find((print) => print.foilType === ECLIPSE_FOIL_TYPE);
+  if (eclipsePrint) {
+    await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek);
+  }
+
   // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
   // bounty, and claiming before the cards exist would need un-claiming on
   // an insert failure — a compensation path with money in it. This order's
@@ -555,6 +564,45 @@ export async function openPackFor(
  * postCardsWebhook: the claim and the bounty are already committed, and an
  * outage must not fail a pack someone just won something out of.
  */
+/**
+ * Tells the cards channel a one-of-one has been found.
+ *
+ * Best-effort like every announcement here: postCardsWebhook swallows its
+ * own failures, so a Discord outage can never fail a pack that already
+ * minted the rarest card in the game. The image URL carries the edition
+ * week, both so it pictures THAT week's print and so Discord's cache
+ * cannot serve a stale render under it.
+ */
+async function announceEclipseClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  print: { card: PlayerCardData; signed: boolean },
+  editionWeek: string,
+): Promise<void> {
+  const { data } = await service
+    .from("betting_profiles")
+    .select("username, patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  const row = data as { username: string; patron_until: string | null } | null;
+  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const { card } = print;
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  await postCardsWebhook({
+    title: "🌑 AN ECLIPSE HAS BEEN FOUND",
+    description:
+      `**${who}** pulled the one and only **${card.name}** — ${editionLabel(editionWeek)} edition.
+` +
+      `${card.overall} OVR · ${card.tier.label} ${card.role}${print.signed ? " · ✍️ Signed" : ""}
+
+` +
+      `One of one. Nobody else will ever own this card.`,
+    color: GOLD,
+    ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
+  });
+}
+
 async function announceChaseClaim(
   service: ReturnType<typeof createBettingServiceClient>,
   discordId: string,
