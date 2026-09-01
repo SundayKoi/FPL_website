@@ -16,7 +16,7 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "league" | "info";
+type DropdownKey = "league" | "premium" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
   {
@@ -31,6 +31,20 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
     ],
   },
 ];
+
+function premiumDropdownLinks(view: LeagueView, premiumHref: string): DropdownLink[] {
+  const prefix = view === "academy" ? "/academy" : "";
+
+  return [
+    { href: premiumHref, label: "Premium HQ" },
+    { href: "/betting", label: "Betting" },
+    { href: "/bangers", label: "The Daily Stu" },
+    { href: "/drafter", label: "Match Drafter" },
+    { href: `${prefix}/fpldle`, label: "FPL'dle" },
+    { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
+    { href: `${prefix}/guess-the-card`, label: "Guess the Card" },
+  ];
+}
 
 function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): DropdownLink[] {
   const links = [
@@ -59,14 +73,17 @@ function topLinkClass(active: boolean, extra = "") {
 }
 
 function isActive(pathname: string | null, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
+  const path = href.split("?")[0];
+  if (path === "/") return pathname === "/";
+  return pathname === path || (pathname?.startsWith(`${path}/`) ?? false);
 }
 
-function isPremiumActive(pathname: string | null) {
-  return ["/premium", "/betting", "/bangers", "/cards", "/drafter", "/fpldle", "/academy/fpldle"].some((href) =>
-    isActive(pathname, href),
-  );
+// Cards owns both leagues' collection hubs plus the single-card share page and
+// the public binder view, none of which live under a /cards prefix.
+const CARDS_ACTIVE_PREFIXES = ["/cards", "/academy/cards", "/card", "/binder"];
+
+function isCardsActive(pathname: string | null) {
+  return CARDS_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
 }
 
 export default function SiteNavigation({
@@ -89,8 +106,10 @@ export default function SiteNavigation({
     league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
       ? "/premium?league=academy"
       : "/premium";
+  const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
+    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(league, premiumHref) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];
@@ -173,12 +192,12 @@ export default function SiteNavigation({
             );
           })}
           <Link
-            href={premiumHref}
-            aria-current={isPremiumActive(pathname) ? "page" : undefined}
+            href={cardsHref}
+            aria-current={isCardsActive(pathname) ? "page" : undefined}
             onClick={closeMenus}
-            className={topLinkClass(isPremiumActive(pathname))}
+            className={topLinkClass(isCardsActive(pathname))}
           >
-            Premium
+            Cards
           </Link>
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;

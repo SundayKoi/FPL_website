@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import TradeBuilder, { type TradeCardOption } from "@/components/cards/TradeBuilder";
 import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -60,7 +59,7 @@ function toInboxTrade(trade: TradeRow): InboxTrade {
 /**
  * The trading post: offers in, offers out, and the form that writes new ones.
  *
- * Gated on FPL Better rather than the premium card role, same as /cards/packs
+ * Gated on the wallet rather than the premium-role check, same as /cards/packs
  * — a trade can carry betting dollars, so the wallet is the thing you need to
  * be party to one.
  *
@@ -79,7 +78,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
         <span className="label-dash">Trading post</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to trade cards</h1>
         <p className="max-w-md text-sm text-steel">
-          Trades move cards and betting dollars between collectors, so they ride on your FPL Better
+          Trades move cards and betting dollars between collectors, so they ride on your
           wallet — sign in with Discord to check your access.
         </p>
         <Link href={`/login?redirect=${base}/trades`} className="btn-pill mt-2">
@@ -93,10 +92,10 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
     return (
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Trading post</span>
-        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-steel">
-          Trades can carry betting dollars, and only FPL Better members have a wallet to spend. Join the
-          FPL Better role in Discord and come back to start dealing.
+          Trades can carry betting dollars, and only premium members have a wallet to spend. Grab the
+          premium role in the Discord and come back to start dealing.
         </p>
       </main>
     );
@@ -148,14 +147,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
             money, or both. Nothing moves until the other person accepts, and a card fielded in this
             week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/trades" />
       </header>
 
       <TradeInbox

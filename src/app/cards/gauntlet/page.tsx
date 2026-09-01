@@ -37,7 +37,7 @@ export default async function GauntletPage() {
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">The Gauntlet</span>
         <h1 className="type-display text-3xl sm:text-4xl">
-          {user ? "FPL Better members only" : "Sign in to run the Gauntlet"}
+          {user ? "Premium members only" : "Sign in to run the Gauntlet"}
         </h1>
         <p className="max-w-md text-sm text-steel">
           A run costs betting dollars and fields cards from your collection — you need the wallet and the
@@ -101,12 +101,6 @@ export default async function GauntletPage() {
             dollars, and the only money out is Monday&apos;s pot to the top of the board. Every roll is in
             the rulebook below.
           </p>
-          <Link
-            href="/cards/packs"
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to packs
-          </Link>
         </div>
         <div className="text-right text-sm">
           <span className="label-dash">This week</span>

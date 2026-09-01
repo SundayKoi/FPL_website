@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import TeamCardsSection from "@/components/cards/TeamCardsSection";
 import { fetchCardSeason, fetchCurrentWeekCards, fetchLatestGameWeek, fetchTeamIdentity, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
@@ -58,11 +57,7 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
             cards, so the frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s
             Card of the Week.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/teams" />
       </header>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — team cards appear once this season&apos;s first games are ingested.</p>
