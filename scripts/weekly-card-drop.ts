@@ -215,7 +215,7 @@ async function processSeason(
       // on a successful archive: these cards are claimable through this
       // week's packs, and promising a chase the archive step just failed
       // to create would be worse than saying nothing.
-      await postEclipseBoard(supabase, season, label, editionWeek, editionCards, webhookUrl);
+      await postEclipseBoard(supabase, season, label, editionWeek, editionCards, webhookUrl, origin ? `${origin}${hubPath}/vault` : null);
     }
   }
 
@@ -663,6 +663,7 @@ async function postEclipseBoard(
   editionWeek: string,
   editionCards: { slug: string; name: string; role: string; standout?: boolean }[],
   webhookUrl: string | null,
+  vaultUrl: string | null,
 ): Promise<void> {
   if (!webhookUrl) return;
   const crowned = editionCards.filter((card) => card.standout);
@@ -695,7 +696,12 @@ async function postEclipseBoard(
     webhookUrl,
     `🌑 ${label} — five new 1/1s enter the pool`,
     `This week's Cards of the Week can now go **Eclipse** in ${editionWeek} packs:\n\n${lines.join("\n")}${unclaimedLine}`,
-    "One of each will ever exist. First to pull it owns the only copy.",
+    // The board says how many are open; the Vault says which ones, who
+    // holds the ones that fell, and everywhere they have been. A running
+    // total with nowhere to go is a tease.
+    vaultUrl
+      ? `One of each will ever exist. First to pull it owns the only copy. · ${vaultUrl}`
+      : "One of each will ever exist. First to pull it owns the only copy.",
   );
 }
 

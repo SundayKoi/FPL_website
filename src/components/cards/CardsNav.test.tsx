@@ -18,6 +18,14 @@ describe("cardsNavGroups", () => {
     expect(collect.items.find((item) => item.label === "Market")?.href).toBe("/cards/market");
   });
 
+  it("puts the Vault in Browse, in gold, because a registry is for looking at", () => {
+    const browse = cardsNavGroups({ base: "/cards" }).find((group) => group.title === "Browse")!;
+    const vault = browse.items.find((item) => item.label === "The Vault");
+
+    expect(vault?.href).toBe("/cards/vault");
+    expect(vault?.accent).toBe(true);
+  });
+
   it("keeps player claims out of the card navigation", () => {
     const labels = cardsNavGroups({ base: "/cards" })
       .flatMap((g) => g.items.map((i) => i.label));
@@ -52,6 +60,12 @@ describe("CardsNav", () => {
     render(<CardsNav base="/cards" />);
     const browse = screen.getByText("Browse").closest("section")!;
     expect(within(browse).getByRole("link", { name: /moments/i })).toBeTruthy();
+  });
+
+  it("links the Vault from the Browse group", () => {
+    render(<CardsNav base="/cards" />);
+    const browse = screen.getByText("Browse").closest("section")!;
+    expect(within(browse).getByRole("link", { name: /the vault/i })).toBeTruthy();
   });
 
   it("does not render a claims link", () => {
