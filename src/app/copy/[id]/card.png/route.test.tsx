@@ -21,8 +21,12 @@ const { maybeSingleMock, eqMock, selectMock, fromMock, serviceClientMock, resolv
   const maybeSingleMock = vi.fn();
   // Typed so the assertions below can read what the route asked for —
   // which table, which columns, which id — rather than trusting that it
-  // asked at all.
-  const eqMock = vi.fn<(column: string, value: unknown) => { maybeSingle: typeof maybeSingleMock }>(() => ({
+  // asked at all. `eq` returns itself as well as the terminator because the
+  // print-run read filters on three columns (season, week, slug), which is
+  // PostgREST's builder chained rather than a second call.
+  type EqChain = { eq: typeof eqMock; maybeSingle: typeof maybeSingleMock };
+  const eqMock: ReturnType<typeof vi.fn<(column: string, value: unknown) => EqChain>> = vi.fn(() => ({
+    eq: eqMock,
     maybeSingle: maybeSingleMock,
   }));
   const selectMock = vi.fn<(columns: string) => { eq: typeof eqMock }>(() => ({ eq: eqMock }));
@@ -39,7 +43,7 @@ const { maybeSingleMock, eqMock, selectMock, fromMock, serviceClientMock, resolv
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient: serviceClientMock }));
 vi.mock("@/lib/packs/skins", () => ({ resolvePrintArtUrl: resolvePrintArtUrlMock }));
 
-import { GET, runtime } from "./route";
+import { GET, copyLabel, runtime } from "./route";
 import type { PlayerCardData } from "@/lib/cards/build";
 
 const INK = "data:image/png;base64,aGVsbG8=";
@@ -79,12 +83,14 @@ function frozenCard(overrides: Partial<PlayerCardData> = {}): PlayerCardData {
 function copyRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 4211,
+    slug: "doug-na1",
     card: frozenCard(),
     foil: true,
     foil_type: "ice",
     signed: false,
     edition_week: "2026-08-24",
     season: "2026",
+    print_number: 7,
     ...overrides,
   };
 }
@@ -113,6 +119,9 @@ describe("/copy/[id]/card.png", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resolvePrintArtUrlMock.mockResolvedValue("https://cdn.example/ahri-4.jpg");
+    // The default answer for any read a test doesn't stage — the print-run
+    // lookup, mostly, which every render of a stamped copy makes.
+    maybeSingleMock.mockResolvedValue({ data: null, error: null });
   });
 
   it("renders on the Node runtime, like its sibling", () => {
@@ -157,9 +166,58 @@ describe("/copy/[id]/card.png", () => {
     expect(fromMock).toHaveBeenCalledWith("card_inventory");
     expect(eqMock).toHaveBeenCalledWith("id", 4211);
     const columns = selectMock.mock.calls[0][0];
-    for (const column of ["id", "card", "foil", "foil_type", "signed", "edition_week", "season"]) {
+    for (const column of ["id", "slug", "card", "foil", "foil_type", "signed", "edition_week", "season", "print_number"]) {
       expect(columns).toContain(column);
     }
+  });
+
+  it("stamps the print run on the label", async () => {
+    maybeSingleMock
+      .mockResolvedValueOnce({ data: copyRow(), error: null })
+      .mockResolvedValueOnce({ data: { minted: 43 }, error: null });
+
+    await GET(new Request("http://x"), { params: Promise.resolve({ id: "4211" }) });
+
+    // The run is read by its own primary key — the three columns that
+    // define a print, not the copy's id.
+    expect(fromMock).toHaveBeenCalledWith("card_print_runs");
+    expect(eqMock).toHaveBeenCalledWith("season", "2026");
+    expect(eqMock).toHaveBeenCalledWith("edition_week", "2026-08-24");
+    expect(eqMock).toHaveBeenCalledWith("slug", "doug-na1");
+    expect(printedText(renderedInput()).join(" | ")).toContain("WK Aug 24 edition · #7 of 43");
+  });
+
+  it("keeps the edition-only label when the run size is unknown", async () => {
+    // A denominator is a garnish: an unapplied migration or a missing row
+    // must not cost the picture its edition line.
+    maybeSingleMock
+      .mockResolvedValueOnce({ data: copyRow(), error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "no such table" } });
+
+    await GET(new Request("http://x"), { params: Promise.resolve({ id: "4211" }) });
+
+    const printed = printedText(renderedInput()).join(" | ");
+    expect(printed).toContain("WK Aug 24 edition · Season 2026");
+    expect(printed).not.toContain("#7");
+  });
+
+  it("doesn't go looking for a run a copy has no stamp in", async () => {
+    // Minted before print numbering existed: there is no serial to put a
+    // denominator under, so the query isn't worth making.
+    maybeSingleMock.mockResolvedValueOnce({ data: copyRow({ print_number: null }), error: null });
+
+    await GET(new Request("http://x"), { params: Promise.resolve({ id: "4211" }) });
+
+    expect(fromMock).not.toHaveBeenCalledWith("card_print_runs");
+    expect(printedText(renderedInput()).join(" | ")).toContain("WK Aug 24 edition · Season 2026");
+  });
+
+  it("prints no label at all for a copy with no edition", async () => {
+    maybeSingleMock.mockResolvedValueOnce({ data: copyRow({ edition_week: null }), error: null });
+
+    await GET(new Request("http://x"), { params: Promise.resolve({ id: "4211" }) });
+
+    expect(printedText(renderedInput()).join(" | ")).toContain("FPL Player Card · Season 2026");
   });
 
   it("pictures the copy's own cosmetics and edition", async () => {
@@ -192,6 +250,22 @@ describe("/copy/[id]/card.png", () => {
     await GET(new Request("http://x"), { params: Promise.resolve({ id: "4211" }) });
 
     expect(resolvePrintArtUrlMock).toHaveBeenCalledWith("Ahri", 4);
+  });
+
+  it.each([
+    [7, 43, "WK Aug 24 edition · #7 of 43"],
+    // Half a stamp is not a stamp: a serial with no run size reads as a
+    // number nobody can place, and a run size with no serial is another
+    // copy's fact.
+    [7, null, "WK Aug 24 edition"],
+    [null, 43, "WK Aug 24 edition"],
+    [1, 1, "WK Aug 24 edition · #1 of 1"],
+  ])("labels a copy stamped %s of %s", (number, minted, expected) => {
+    expect(copyLabel("2026-08-24", number, minted)).toBe(expected);
+  });
+
+  it("has no label to give when the copy has no edition", () => {
+    expect(copyLabel(null, 7, 43)).toBeUndefined();
   });
 
   it("falls back to base centered art when the frozen print no longer resolves", async () => {

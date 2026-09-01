@@ -31,12 +31,33 @@ export const runtime = "nodejs";
 
 interface CopyRow {
   id: number;
+  slug: string | null;
   card: PlayerCardData;
   foil: boolean | null;
   foil_type: string | null;
   signed: boolean | null;
   edition_week: string | null;
   season: string | null;
+  print_number: number | null;
+}
+
+/**
+ * "WK Aug 24 edition · #7 of 43", or as much of it as is knowable.
+ *
+ * Both halves of the stamp have to be there before either is printed: a
+ * serial with no run size is a number nobody can read, and a run size with
+ * no serial belongs to a different copy. A copy minted before print
+ * numbering existed in this environment has neither, and keeps the plain
+ * edition line it has always had.
+ */
+export function copyLabel(
+  editionWeek: string | null,
+  printNumber: number | null,
+  minted: number | null,
+): string | undefined {
+  if (!editionWeek) return undefined;
+  const edition = `${editionLabel(editionWeek)} edition`;
+  return printNumber != null && minted ? `${edition} · #${printNumber} of ${minted}` : edition;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +74,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, card, foil, foil_type, signed, edition_week, season")
+    .select("id, slug, card, foil, foil_type, signed, edition_week, season, print_number")
     .eq("id", inventoryId)
     .maybeSingle();
 
@@ -79,6 +100,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       championCenteredUrl(card.signature.champion)
     : null;
 
+  // The print run's size, for the "of N" half of the stamp. One row by
+  // primary key, and only when there is a stamp to put a denominator under
+  // — an old copy without one would pay for a query whose answer it could
+  // not use. A miss (missing table, unapplied migration) drops back to the
+  // edition-only label rather than failing the picture.
+  const minted = await mintedOf(service, row);
+
   return new ImageResponse(
     renderCardImage({
       card,
@@ -86,12 +114,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       foilType: row.foil_type,
       signed: Boolean(row.signed),
       autograph: card.autograph ?? null,
-      // Which edition this copy came out of — the one fact a copy has that
-      // the live card does not, and the thing that makes two otherwise
-      // identical cards different collectibles.
-      label: row.edition_week ? `${editionLabel(row.edition_week)} edition` : undefined,
+      // Which edition this copy came out of and which stamp it took — the
+      // two facts a copy has that the live card does not, and the things
+      // that make two otherwise identical cards different collectibles.
+      label: copyLabel(row.edition_week, row.print_number, minted),
       splash,
     }),
     CARD_IMAGE_SIZE,
   );
+}
+
+/** Minted-to-date for this copy's print, or null when it cannot be known.
+ *  `card_print_runs` is keyed by exactly these three columns, so this is a
+ *  primary-key read returning one row or none — the paging fetchPrintRuns
+ *  does is for callers asking about a whole collection at once. */
+async function mintedOf(
+  service: ReturnType<typeof createBettingServiceClient>,
+  row: CopyRow,
+): Promise<number | null> {
+  const slug = row.slug ?? row.card?.slug ?? null;
+  if (row.print_number == null || !row.season || !row.edition_week || !slug) return null;
+  const { data, error } = await service
+    .from("card_print_runs")
+    .select("minted")
+    .eq("season", row.season)
+    .eq("edition_week", row.edition_week)
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { minted: number } | null)?.minted ?? null;
 }
