@@ -171,10 +171,22 @@ function PlayerCardFace({
   const style = TIER_STYLES[card.tier.key];
   const parallel = foilTypeOf(foilType);
   const foilLayer = FOIL_LAYERS[parallel];
+  // Eclipse is not a film over a tier card, it is a different object — so it
+  // takes the frame and the halo outright, over Card of the Week and over
+  // Challenger both. Nothing else on the site outranks it.
+  const isEclipse = forceFoil && parallel === "eclipse";
   // Card of the Week outshines its tier: molten-gold animated frame.
-  const frameClass = card.standout ? "card-frame-standout" : style.frameClass;
+  const frameClass = isEclipse
+    ? "card-frame-eclipse"
+    : card.standout
+      ? "card-frame-standout"
+      : style.frameClass;
   const frameStyle = frameClass ? undefined : style.frame;
-  const glowClass = card.standout ? "card-glow-standout" : style.glowClass ?? "";
+  const glowClass = isEclipse
+    ? "card-glow-eclipse"
+    : card.standout
+      ? "card-glow-standout"
+      : style.glowClass ?? "";
   // The art the front tries, best first. Riot's centered crop is the one the
   // frame is designed around, but it's missing for a lot of otherwise valid
   // skins — the uncropped splash of the same skin beats falling all the way
@@ -447,7 +459,7 @@ function PlayerCardFace({
                 so they hold a constant opacity. Inside it they would fade
                 to rest, and the card would get its colour back whenever
                 nobody was touching it. */}
-            {forceFoil && parallel === "eclipse" ? (
+            {isEclipse ? (
               <>
                 <div
                   aria-hidden
@@ -493,7 +505,18 @@ function PlayerCardFace({
                   knowing you did. Prisma stays unlabelled: it is the base,
                   every foil before parallels was one, and badging it would
                   make ordinary foils look like a new thing. */}
-              {forceFoil && parallel !== "prisma" ? (
+              {isEclipse ? (
+                // The hallmark. Every other parallel gets a name badge; this
+                // one gets its serial, because on a real card the serial is
+                // what sells the rarity — and this serial cannot be beaten.
+                <span
+                  data-testid="eclipse-seal"
+                  className="card-eclipse-seal rounded-sm px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.22em]"
+                  title="Eclipse — one of one"
+                >
+                  1 of 1
+                </span>
+              ) : forceFoil && parallel !== "prisma" ? (
                 <span
                   className="rounded-full border border-white/45 bg-navy/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
                   title={`${FOIL_TYPE_LABELS[parallel]} parallel`}
@@ -632,6 +655,16 @@ function PlayerCardFace({
               </div>
             </div>
 
+            {/* Totality, above everything the card says — light floods a
+                card, it does not politely stop at the text. Zero for eleven
+                seconds out of every thirteen; see globals.css. */}
+            {isEclipse ? (
+              <div
+                aria-hidden
+                data-testid="eclipse-flare"
+                className="card-foil-eclipse-flare pointer-events-none overflow-hidden rounded-xl"
+              />
+            ) : null}
             {/* Glare follows the pointer; foil on Emerald+, or on request. */}
             {interactive ? (
               <div
