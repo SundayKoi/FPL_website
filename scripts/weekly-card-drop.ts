@@ -34,7 +34,12 @@ import { archiveEdition } from "../src/lib/cards/editions";
 import { ingestVerdict } from "../src/lib/cards/ingestFreshness";
 import { planPayouts } from "../src/lib/fantasy/payouts";
 import { fetchBettingUsernames, fetchWeekLineups, type FantasyLineupRow } from "../src/lib/fantasy/queries";
-import { scoreLineup, weeklyScoresBySlug } from "../src/lib/fantasy/scoring";
+import {
+  type CurrentIdentity,
+  inventoryIdsIn,
+  scoreLineup,
+  weeklyScoresBySlug,
+} from "../src/lib/fantasy/scoring";
 import { lastCompletedWeek } from "../src/lib/fantasy/week";
 import { PACK_COST } from "../src/lib/packs/config";
 import { mondayOf } from "../src/lib/packs/week";
@@ -309,13 +314,41 @@ async function scoreFantasyWeek(
       (row) => row.game_date && mondayOf(new Date(row.game_date)) === week,
     );
     const scores = weeklyScoresBySlug(weekRows);
+
+    // A slot's slug is frozen at submit time; the score map is keyed by the
+    // slug raw_stats produces TODAY. A Riot rename moves the second and not
+    // the first, and the slot then scores 0 while the renamed player's real
+    // points go unclaimed. The card copy is the stable link between them —
+    // inventoryId survives a rename, and card_inventory.slug is updated by
+    // one — so resolve through it before scoring anything.
+    const identities = new Map<number, CurrentIdentity>();
+    const inventoryIds = inventoryIdsIn(unscored);
+    if (inventoryIds.length > 0) {
+      // Paged on the primary key: PostgREST caps an unpaged select at
+      // max_rows and says nothing, and a lineup silently dropping off the
+      // end would score its slots against stale slugs — the exact bug this
+      // lookup exists to prevent.
+      const pageSize = 500;
+      for (let from = 0; from < inventoryIds.length; from += pageSize) {
+        const { data: copies, error: copyError } = await supabase
+          .from("card_inventory")
+          .select("id, slug, player_name")
+          .in("id", inventoryIds.slice(from, from + pageSize));
+        if (copyError) throw copyError;
+        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string }[])) {
+          identities.set(copy.id, { slug: copy.slug, playerName: copy.player_name });
+        }
+      }
+    }
+    const renamed = inventoryIds.filter((id) => identities.has(id)).length;
     console.log(
-      `[${label}] Fantasy week ${week}: ${weekRows.length} stat rows, ${scores.size} players rated — scoring ${unscored.length} lineup(s).`,
+      `[${label}] Fantasy week ${week}: ${weekRows.length} stat rows, ${scores.size} players rated, `
+      + `${renamed}/${inventoryIds.length} fielded copies resolved — scoring ${unscored.length} lineup(s).`,
     );
 
     const scoredAt = new Date().toISOString();
     for (const lineup of unscored) {
-      const { score, breakdown } = scoreLineup(lineup.slots, scores);
+      const { score, breakdown } = scoreLineup(lineup.slots, scores, identities);
       if (!dryRun) {
         const { error: updateError } = await supabase
           .from("fantasy_lineups")

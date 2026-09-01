@@ -17,7 +17,11 @@ import { FANTASY_ROLES, type FantasyRole } from "./config";
 
 /** One fielded card, as it is denormalized into `fantasy_lineups.slots`.
  *  Frozen at submit time: the copy's rating and edition are part of the
- *  entry, so a restat can't retroactively bust a lineup's salary cap. */
+ *  entry, so a restat can't retroactively bust a lineup's salary cap.
+ *
+ *  `slug` is frozen too, and that part is a snapshot of an IDENTITY rather
+ *  than of a valuation — which is why scoring must not trust it. See
+ *  currentIdentity below. */
 export interface StoredSlot {
   inventoryId: number;
   slug: string;
@@ -60,25 +64,80 @@ export function weeklyScoresBySlug(rows: WeeklyRawStatRow[]): Map<string, number
   return scores;
 }
 
+/** A card copy's identity as it stands NOW, keyed by card_inventory id.
+ *  The caller reads it from card_inventory, which a rename updates. */
+export interface CurrentIdentity {
+  slug: string;
+  playerName: string;
+}
+
+/**
+ * The slug to score a slot under, and the name to print beside it.
+ *
+ * A slot's stored slug is whatever the player was called on the day the
+ * lineup was filed. `weeklyScoresBySlug` keys on the slug derived from
+ * raw_stats as it reads TODAY. A Riot rename moves the second and not the
+ * first, and then the two never meet: the lineup's slot scores 0 because
+ * nothing in the map answers to the old slug, and the renamed player's real
+ * points sit in the map unclaimed because no lineup asks for the new one.
+ * That is not a hypothetical — Imperialarcher#ezpz became Archêr#ezpz and
+ * every lineup that had fielded him took a zero for the week.
+ *
+ * The card copy is the stable thing. inventoryId does not change when a
+ * player is renamed, and card_inventory.slug is updated by the rename, so
+ * resolving through it makes every future rename invisible to scoring.
+ * Falls back to the stored values when the copy is gone (dusted, or a
+ * hand-written row), because a missing lookup should cost nothing more than
+ * the old behaviour.
+ */
+export function currentIdentity(
+  slot: StoredSlot,
+  identities?: Map<number, CurrentIdentity>,
+): CurrentIdentity {
+  return identities?.get(slot.inventoryId) ?? { slug: slot.slug, playerName: slot.playerName };
+}
+
 /**
  * Scores one stored lineup against a week's `weeklyScoresBySlug` map.
  *
  * A player absent from the map didn't play that week and scores 0 rather
  * than being dropped: fielding someone whose team was on bye is a lineup
  * decision the manager made, and the breakdown should show the zero.
+ *
+ * `identities` is the live card_inventory identity per inventory id. Pass it
+ * so renames resolve; omit it and scoring falls back to the frozen slugs,
+ * which is what every caller did before renames were handled.
  */
 export function scoreLineup(
   slots: StoredSlots,
   scores: Map<string, number>,
+  identities?: Map<number, CurrentIdentity>,
 ): { score: number; breakdown: LineupBreakdown } {
   const breakdown: LineupBreakdown = {};
   let total = 0;
   for (const role of FANTASY_ROLES) {
     const slot = slots[role];
     if (!slot) continue;
-    const points = round1(scores.get(slot.slug) ?? 0);
+    const identity = currentIdentity(slot, identities);
+    const points = round1(scores.get(identity.slug) ?? 0);
     total += points;
-    breakdown[role] = { slug: slot.slug, playerName: slot.playerName, points };
+    // The breakdown prints the CURRENT name too: a manager reading last
+    // week's card back should see the player as they are called now, not a
+    // name that no longer exists anywhere else on the site.
+    breakdown[role] = { slug: identity.slug, playerName: identity.playerName, points };
   }
   return { score: round1(total), breakdown };
+}
+
+/** Every card_inventory id a set of lineups fielded — what the scoring job
+ *  needs to look up before it can resolve identities. */
+export function inventoryIdsIn(lineups: { slots: StoredSlots }[]): number[] {
+  const ids = new Set<number>();
+  for (const lineup of lineups) {
+    for (const role of FANTASY_ROLES) {
+      const slot = lineup.slots[role];
+      if (slot && Number.isInteger(slot.inventoryId)) ids.add(slot.inventoryId);
+    }
+  }
+  return [...ids];
 }
