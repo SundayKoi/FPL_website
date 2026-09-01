@@ -523,6 +523,34 @@ An unclaimed Eclipse stays claimable **forever** through that week's packs, so
 the back catalogue of unminted ones grows every week. That is why the rate can
 be flat and small rather than escalating to guarantee a weekly hit.
 
+### The Vault
+
+`/cards/vault` (and `/academy/cards/vault`) is the register of one-of-ones,
+and it is **public** — no sign-in, like the moments wall and the ledger. An
+Eclipse falling is league news, the Discord announcement links here, and a
+page that answers "who owns that one" cannot sit behind a members gate and
+still do its job. The reads go through the service client because
+`card_inventory` and `card_provenance` are deny-all RLS, the same way
+`/binder/[token]` reads a binder: the tables are closed, the content is not.
+
+Two halves. **Found** is every `card_inventory` row with
+`foil_type = 'eclipse'` for the season, drawn as the copy actually printed
+(`PlayerCard3D` with `forceFoil`, `#1 of 1` by construction), with the holder's
+name, avatar and patron flame, the date it was pulled, its chain of custody
+from `describeProvenance`, and a link to its copy PNG. **Still out there** is
+every crowned print (`card_editions.card->>'standout' = 'true'`) with no
+Eclipse against its `(season, edition_week, slug)` — the same key the partial
+unique index covers — grouped newest week first, in role order, with a *mints
+signed* chip where the player has inked a signature. That chip is computed by
+running `cardSlug()` over `card_art_prefs` in TypeScript rather than joining on
+the database's `card_slug()`, so the board works in an environment where that
+migration has not been applied.
+
+Ordering and grouping are pure functions in `src/lib/cards/vault.ts`
+(`groupUnclaimedByWeek`, `orderFound`, `vaultTotals`); the IO is
+`fetchVault(service, season)` in `src/lib/cards/vaultQueries.ts`, framework-free
+and paged like every other card read.
+
 ### Print runs and provenance
 
 Two facts about an owned copy that the card itself cannot carry: which stamp
