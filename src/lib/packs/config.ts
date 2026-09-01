@@ -165,24 +165,54 @@ export const FOIL_TYPES = ["prisma", "aurora", "refractor", "ice"] as const;
  * ECLIPSE — the one-of-one, and the reason this list is separate from the
  * one above.
  *
- * FOIL_TYPES is the MINTABLE ladder: rollFoilType walks it, and
- * FOIL_TYPE_WEIGHTS is keyed on it. Eclipse is deliberately not in either,
- * so there is no weight for the roll to draw and no code path that can put
- * one in a pack — the guarantee is structural rather than a zero someone
- * could later edit to a one by accident.
+ * FOIL_TYPES is the LADDER: rollFoilType walks it and FOIL_TYPE_WEIGHTS is
+ * keyed on it, so every parallel in it competes for the same foil pull.
+ * Eclipse is in neither, and that is still deliberate — it does not compete
+ * with Cracked Ice, it is not reachable by drawing a weight, and no edit to
+ * the weights table can produce one by accident.
  *
- * It renders, prices and labels like any other parallel, which is what
- * lets the preview at /admin/parallels show it on real cards through the
- * real component. How a 1/1 is actually AWARDED is a separate decision and
- * is not made here.
+ * It comes through its own gate instead (ECLIPSE_CHANCE), which is narrower
+ * than any weight could express: it can only fall on a Card of the Week.
  */
-export const UNMINTABLE_FOIL_TYPES = ["eclipse"] as const;
+export const CHASE_FOIL_TYPES = ["eclipse"] as const;
 
-/** Every parallel that can be RENDERED, mintable or not. */
-export const ALL_FOIL_TYPES = [...FOIL_TYPES, ...UNMINTABLE_FOIL_TYPES] as const;
+/** Every parallel that can be RENDERED. */
+export const ALL_FOIL_TYPES = [...FOIL_TYPES, ...CHASE_FOIL_TYPES] as const;
 export type FoilType = (typeof ALL_FOIL_TYPES)[number];
-/** Narrower alias for the ones a pack can actually produce. */
+/** Narrower alias for the ones the ordinary foil roll can produce. */
 export type MintableFoilType = (typeof FOIL_TYPES)[number];
+
+/**
+ * Chance an Eclipse falls on a Card-of-the-Week pull.
+ *
+ * Half a percent, and the number only means anything through the gate in
+ * front of it. A Card of the Week is the top-rated card in each ROLE — five
+ * per week — and because the roller picks uniformly inside a rarity class,
+ * one lands in roughly 2-4% of pack SLOTS depending on how top-heavy the
+ * league is (a thin league is the HIGHER figure: fewer legendaries means
+ * each one is likelier when that class hits). Multiplying through:
+ *
+ *     ~0.5% of Card-of-the-Week pulls
+ *   × ~2-4% of slots being one
+ *   = roughly 1 Eclipse per 1,000-2,000 packs
+ *
+ * Which lands at about one a season at the league's current volume — rare
+ * enough that most people never see one, common enough that they exist.
+ *
+ * It is deliberately NOT tuned so that each week reliably produces one. It
+ * does not have to: an unclaimed Eclipse stays claimable forever through
+ * that week's packs, so the back catalogue of unminted ones grows every
+ * week and the chase is always live. That is what lets this number be flat
+ * and small instead of escalating to guarantee a weekly hit.
+ *
+ * Because the rate rides the Card-of-the-Week gate rather than the whole
+ * pool, the real odds drift with the league's shape: as more players reach
+ * the top tiers, Eclipses quietly get rarer on their own.
+ */
+export const ECLIPSE_CHANCE = 0.005;
+
+/** The parallel a Card of the Week wears when the Eclipse gate opens. */
+export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
 
 /** The base, and what every foil minted before parallels existed IS. Never
  *  change this: the migration backfilled real copies to it, and a pulled

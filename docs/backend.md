@@ -438,6 +438,34 @@ Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
 
+### Eclipse, the one-of-one
+
+An Eclipse can only fall on a **Card of the Week** — the top-rated card in
+each role, five per edition week. `ECLIPSE_CHANCE` (0.5%) is the roll on such
+a pull; multiplied by the ~2-4% of slots that are one, that is roughly one
+Eclipse per 1,000-2,000 packs.
+
+Two rules live in the database, not the application, because "there is only
+one of these" must survive a race, a retry and whatever gets written next
+year:
+
+- **One per card, per week, forever** — `card_inventory_one_eclipse_per_print`,
+  a partial unique index. A duplicate raises 23505. The opener reads first so
+  the common case never hits that path, since a rejected row would fail the
+  whole five-card insert and refund a pack that had already won.
+- **It cannot be dusted** — refused inside `dust_card`, under the same
+  `FOR UPDATE` lock as the ownership check. It can still be traded; that is
+  the point of owning one. The mass-dust path skips Eclipses rather than
+  failing, because a fifty-card sweep is where one would actually be lost.
+
+Eclipse stays out of `FOIL_TYPES` and `FOIL_TYPE_WEIGHTS` on purpose: it does
+not compete with Cracked Ice for the foil pull, and no edit to the weights
+table can produce one by accident.
+
+An unclaimed Eclipse stays claimable **forever** through that week's packs, so
+the back catalogue of unminted ones grows every week. That is why the rate can
+be flat and small rather than escalating to guarantee a weekly hit.
+
 ### Player renames
 
 A Riot rename moves a player's identity, and this site writes that identity

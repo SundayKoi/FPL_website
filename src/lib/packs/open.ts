@@ -17,7 +17,7 @@ import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/momen
 import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { cardImageUrl } from "@/lib/cards/shareImage";
-import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_CHANCE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
@@ -388,6 +388,37 @@ export async function openPackFor(
   }
 
   const stampedWeek = editionWeek ?? mondayOf(new Date());
+
+  // ── Eclipse: the one-of-one ────────────────────────────────────────
+  // Only a Card of the Week is eligible, and only one Eclipse of a given
+  // print can ever exist. The unique index on card_inventory is what
+  // actually guarantees that; this read is the courtesy that keeps the
+  // common case off the error path, because a duplicate would fail the
+  // whole five-card insert and refund a pack the roller had already won.
+  //
+  // Read AFTER the pack is rolled, and only when something eligible
+  // actually came out — the overwhelming majority of packs contain no
+  // Card of the Week at all and pay nothing for this.
+  const eclipseCandidates = prints
+    .map((print, index) => ({ print, index }))
+    .filter(({ print }) => print.card.standout && !print.card.moment && !print.card.team)
+    .filter(() => rand() < ECLIPSE_CHANCE);
+  if (eclipseCandidates.length > 0) {
+    const { data: alreadyMinted } = await service
+      .from("card_inventory")
+      .select("slug")
+      .eq("season", season)
+      .eq("edition_week", stampedWeek)
+      .eq("foil_type", ECLIPSE_FOIL_TYPE)
+      .in("slug", eclipseCandidates.map(({ print }) => print.card.slug));
+    const taken = new Set(((alreadyMinted ?? []) as { slug: string }[]).map((row) => row.slug));
+    // One per pack even in the impossible case of two eligible hits: a pack
+    // that mints two one-of-ones reads as a bug however legitimate it was.
+    const winner = eclipseCandidates.find(({ print }) => !taken.has(print.card.slug));
+    if (winner) {
+      prints[winner.index] = { ...prints[winner.index], foil: true, foilType: ECLIPSE_FOIL_TYPE };
+    }
+  }
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(

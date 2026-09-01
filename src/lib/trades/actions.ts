@@ -19,7 +19,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
+import { ECLIPSE_FOIL_TYPE, MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
 import { patronActive } from "@/lib/patron/flames";
 
 /** Whether this wallet gets the patron dust bonus, read at dust time so a
@@ -87,10 +87,16 @@ function revalidateCardSurfaces(): void {
 
 /** `dust_card`'s raw `raise exception` text → friendly copy. Same contract as
  *  friendlyOpenPackError: never surface a raw Postgres error. */
+/** Said the same way wherever it is refused — the local check and the RPC's
+ *  own refusal are two guards on one rule, and a rule that phrases itself
+ *  differently depending on which guard caught it reads as two rules. */
+const ECLIPSE_UNDUSTABLE = "An Eclipse is a one-of-one — it can't be dusted, but you can trade it.";
+
 function friendlyDustError(message: string): string {
   // Not dust_card's own text: card_inventory_expedition_guard raises this
   // from under the DELETE, so it reaches this mapper through the RPC.
   if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
+  if (/eclipse cannot be dusted/i.test(message)) return ECLIPSE_UNDUSTABLE;
   if (/card not owned/i.test(message)) return "That card isn't yours.";
   if (/unknown card/i.test(message)) return "That card is already gone.";
   if (/invalid dust value/i.test(message)) return "That card can't be dusted right now.";
@@ -138,6 +144,8 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
   // Not-yours and doesn't-exist collapse into one message on purpose: a
   // stranger probing ids shouldn't learn which ones are real.
   if (!row || row.discord_id !== user.discordId) return { ok: false, error: "That card isn't yours." };
+
+  if (row.foil_type === ECLIPSE_FOIL_TYPE) return { ok: false, error: ECLIPSE_UNDUSTABLE };
 
   const locked = await lockedInventoryIds(service, user.discordId, row.season);
   if (locked.has(row.id)) return { ok: false, error: "That card is fielded in this week's lineup." };
@@ -213,6 +221,15 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
   const patron = await dustsAsPatron(service, user.discordId);
   for (const row of owned) {
     if (lockedBySeason.get(row.season)?.has(row.id)) {
+      skipped += 1;
+      continue;
+    }
+    // Skipped rather than refused: this is the mass-select path, and the
+    // one place a one-of-one is most likely to be dusted is inside a
+    // fifty-card sweep nobody read carefully. The RPC would reject it
+    // anyway — passing over it here means the rest of the sweep still goes
+    // through, and the count tells them something was held back.
+    if (row.foil_type === ECLIPSE_FOIL_TYPE) {
       skipped += 1;
       continue;
     }
