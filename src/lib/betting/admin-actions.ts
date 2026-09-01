@@ -93,8 +93,8 @@ export interface CreateMarketInput {
 /**
  * Creates a market via `create_market_admin`. Note: unlike an earlier draft
  * of this task's interface, the RPC has no `p_lock_at` parameter — it always
- * derives `lock_at = game_at - 5 minutes` server-side (see
- * 20260813000003_betting_market_rpcs.sql), so there is no separate lock time
+ * derives `lock_at = game_at` server-side (see
+ * 20260827000009_betting_lock_at_kickoff.sql), so there is no separate lock time
  * to accept here.
  */
 export async function createMarket(input: CreateMarketInput): Promise<IdResult> {

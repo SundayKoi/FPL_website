@@ -52,14 +52,25 @@ select is((select count(*) from public.betting_markets m join public.betting_eve
 select is((select count(*) from public.betting_markets m join public.betting_events e on e.id = m.event_id
            where e.name = 'Academy Automation'), 1::bigint,
           'Academy market uses the bound Academy event');
-select is(array(select title from public.betting_markets order by title),
+select is(array(
+            select m.title
+              from public.betting_markets m
+              join public.betting_events e on e.id = m.event_id
+             where e.name in ('Premier Automation', 'Academy Automation')
+             order by m.title
+          ),
           array['AAL vs ABR', 'PAL vs PBR']::text[],
           'generated titles use schedule-order betting codes');
 select is((select count(*) from public.betting_markets where game_at = '2026-09-01 00:00:00+00'), 2::bigint,
           'generated markets use fixture kickoff');
-select is((select count(*) from public.betting_markets where lock_at = '2026-08-31 23:55:00+00'), 2::bigint,
-          'generated markets lock five minutes before kickoff');
-select is((select count(*) from public.betting_markets where rake_bps = 0 and not draw_enabled), 2::bigint,
+select is((select count(*) from public.betting_markets where lock_at = '2026-09-01 00:00:00+00'), 2::bigint,
+          'generated markets lock at kickoff');
+select is((select count(*)
+             from public.betting_markets m
+             join public.betting_events e on e.id = m.event_id
+            where e.name in ('Premier Automation', 'Academy Automation')
+              and m.rake_bps = 0
+              and not m.draw_enabled), 2::bigint,
           'generated markets preserve zero rake and no draw defaults');
 
 select public.generate_weekly_betting_markets('2026-08-25 05:00:00+00') as result

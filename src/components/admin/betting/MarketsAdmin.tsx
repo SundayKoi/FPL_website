@@ -122,7 +122,7 @@ function CreateMarketForm({
             onChange={(e) => setGameAt(e.target.value)}
             className="input-brand px-2 py-1.5 text-sm"
           />
-          <span className="text-[10px] text-steel/70">Locks automatically 5 minutes before this time.</span>
+          <span className="text-[10px] text-steel/70">Locks automatically at this time.</span>
         </label>
         <label className="flex flex-col gap-1 text-xs text-steel">
           Rake (bps)

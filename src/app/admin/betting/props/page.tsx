@@ -25,7 +25,7 @@ export default async function AdminBettingPropsPage() {
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Betting — Prop Suggestions</h1>
         <p className="mt-3 max-w-2xl text-sm text-steel">
           Approving turns a suggestion into a real market (two outcome sides, normal pool betting, auto-announced in
-          Discord). Betting locks 5 minutes before the game time you pick.
+          Discord). Betting locks at the game time you pick.
         </p>
       </header>
       <PropsAdmin suggestions={suggestions} events={events} />
