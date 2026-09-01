@@ -435,6 +435,32 @@ function PlayerCardFace({
               />
             ) : null}
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/85" />
+            {/* Eclipse's ground: the shadow and the corona. Two placements
+                matter here.
+
+                In the STACK, these sit above the art and below the name,
+                the stat rail and the badges — the eclipse falls across the
+                photograph, not across the type. The first cut had them
+                over everything and the name came out charcoal on black.
+
+                In the TREE, they sit outside the tilt-swung wrapper below,
+                so they hold a constant opacity. Inside it they would fade
+                to rest, and the card would get its colour back whenever
+                nobody was touching it. */}
+            {forceFoil && parallel === "eclipse" ? (
+              <>
+                <div
+                  aria-hidden
+                  data-testid="eclipse-desat"
+                  className="card-foil-eclipse-desat pointer-events-none overflow-hidden rounded-xl"
+                />
+                <div
+                  aria-hidden
+                  data-testid="eclipse-ground"
+                  className="card-foil-eclipse-ground pointer-events-none overflow-hidden rounded-xl"
+                />
+              </>
+            ) : null}
             {card.teamImageUrl ? (
               // Team watermark, ghosted behind the stat block.
               // Not greyscaled, and lifted off 15% opacity: a dark crest
@@ -614,24 +640,6 @@ function PlayerCardFace({
                 className="pointer-events-none absolute inset-0 transition-opacity duration-200"
                 style={{ opacity: hovering ? 0.55 : 0.18, background: REST_GLARE, mixBlendMode: "overlay" }}
               />
-            ) : null}
-            {/* Eclipse's ground: the drain and the corona, at CONSTANT
-                opacity outside the wrapper below. Inside it they would
-                fade to rest, and the card would get its colour back
-                whenever nobody was touching it. */}
-            {forceFoil && parallel === "eclipse" ? (
-              <>
-                <div
-                  aria-hidden
-                  data-testid="eclipse-desat"
-                  className="card-foil-eclipse-desat pointer-events-none overflow-hidden rounded-xl"
-                />
-                <div
-                  aria-hidden
-                  data-testid="eclipse-ground"
-                  className="card-foil-eclipse-ground pointer-events-none overflow-hidden rounded-xl"
-                />
-              </>
             ) : null}
             {forceFoil ? (
               // A pulled foil answers the pointer where a tier holo cannot:

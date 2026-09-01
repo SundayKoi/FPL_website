@@ -151,6 +151,22 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector(".card-art-live")).toBeNull();
   });
 
+  it("throws Eclipse's shadow across the art, under the name and the stat rail", () => {
+    // The first cut painted the drain over everything, and the name came out
+    // charcoal on black — a foil sits over a card, it does not replace it.
+    // Both eclipse layers must precede the type in document order, because
+    // positioned siblings at z-index auto paint in exactly that order.
+    const { container } = render(<PlayerCard3D card={card} forceFoil foilType="eclipse" />);
+    // Front face first; the back carries the same heading.
+    const [name] = screen.getAllByRole("heading", { name: card.name });
+    for (const testid of ["eclipse-desat", "eclipse-ground"]) {
+      const layer = screen.getByTestId(testid);
+      expect(container.contains(layer)).toBe(true);
+      // FOLLOWING === the name comes after this layer, so the name is on top.
+      expect(layer.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
   it("drives the foil off the pointer, then settles it back at rest", () => {
     const { container } = render(<PlayerCard3D card={card} forceFoil />);
     const frame = screen.getByRole("button");
