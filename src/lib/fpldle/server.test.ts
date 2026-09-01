@@ -326,7 +326,7 @@ describe("FPL'dle server adapter", () => {
 
     expect(game).toEqual({
       date: today,
-      expiresAt: "2026-08-29T00:00:00.000Z",
+      expiresAt: "2026-08-29T04:00:00.000Z",
       canReset: true,
       progress: { guesses: [], status: "playing", answer: null, reward: null },
       candidates: [{

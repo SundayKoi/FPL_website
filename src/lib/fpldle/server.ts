@@ -7,7 +7,7 @@ import type { BettingUser } from "@/lib/betting/types";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { dailyGameDate } from "@/lib/dailyDay";
+import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
 import {
   compareFpldleGuess,
   type FpldleCandidate,
@@ -542,7 +542,9 @@ export async function getFpldleGame(league: FpldleLeague): Promise<FpldleGame> {
   ]);
   return {
     date: puzzle.puzzle_date,
-    expiresAt: puzzle.reset_at,
+    // Keep the timer on the same Eastern calendar as dailyGameDate. Existing
+    // rows may still contain reset_at values written by the old UTC calendar.
+    expiresAt: dailyGameResetAt(puzzle.puzzle_date),
     canReset: isAdmin,
     ...(user?.patron ? { patron: true } : {}),
     progress,

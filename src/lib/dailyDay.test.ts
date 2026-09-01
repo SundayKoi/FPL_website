@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dailyGameDate } from "./dailyDay";
+import { dailyGameDate, dailyGameResetAt } from "./dailyDay";
 import { easternDateOf } from "@/lib/packs/week";
 
 describe("the daily game day", () => {
@@ -30,5 +30,10 @@ describe("the daily game day", () => {
 
   it("returns a plain ISO date", () => {
     expect(dailyGameDate(new Date("2026-09-11T18:00:00Z"))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("returns the next Eastern midnight, including the DST change", () => {
+    expect(dailyGameResetAt("2026-08-28")).toBe("2026-08-29T04:00:00.000Z");
+    expect(dailyGameResetAt("2026-11-01")).toBe("2026-11-02T05:00:00.000Z");
   });
 });
