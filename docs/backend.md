@@ -69,7 +69,9 @@ brief prose), Vercel (hosting), and Supabase Cloud (production data).
     modals through `src/lib/betting/discord/`.
   - `src/app/api/betting/share/[id]/open/route.tsx` and `result/route.tsx`
     render Discord share cards with `next/og`.
-  - `src/app/card/[slug]/card.png/route.tsx` renders player-card images.
+  - `src/app/card/[slug]/card.png/route.tsx` and
+    `src/app/copy/[id]/card.png/route.tsx` render player-card images — the
+    card, and one owned copy of it. See "Copy images" below.
 - The Discord interactions route explicitly uses the Node runtime because
   signature verification relies on WebCrypto behavior in that environment.
 
@@ -439,6 +441,42 @@ generator never resolves, cancels, or recreates weekly events.
 Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
+
+### Copy images
+
+Two routes render the same 1200x630 picture, from
+`src/lib/cards/render/cardImage.tsx`:
+
+- `/card/{slug}/card.png` pictures the CARD — a player as they stand, or
+  `?w=YYYY-MM-DD` for that week's archived edition print. It reads public
+  data with the anon client, because link unfurlers arrive with no cookies.
+- `/copy/{id}/card.png` pictures one OWNED copy out of `card_inventory`,
+  with the cosmetics that copy actually printed: its parallel, its Eclipse
+  frame and hallmark, its autograph. `card_inventory` is deny-all RLS, so
+  this route reads through `createBettingServiceClient`. That is not a
+  privacy hole — copies are already public through binders and the trade
+  board, and the frozen json it prints is the same public card plus ink the
+  live card prints too — but it is why the id is validated as a positive
+  integer before a client is built, and why a miss returns a placeholder
+  IMAGE rather than a 404: these urls sit inside Discord messages, where a
+  404 is a broken-image icon.
+
+The layout is shared rather than copied because a copy image that laid its
+stats out differently would read as a different card of the same player,
+which is the one thing a collectible must never do. satori (next/og's
+renderer) has no CSS 3D, blend modes or animation, so the parallels the live
+card wears as moving light are reduced to flat marks — a named badge, a
+frame colour, a "1 OF 1" stamp — by `src/lib/cards/render/treatment.ts`.
+
+**Both urls carry a cache key, and neither may be built by hand.** Discord's
+image proxy caches by URL, so a url that never changes pictures whatever was
+rendered the first time it was fetched, forever; that is a bug this repo has
+already shipped once. Use `cardImageUrl(site, slug, editionWeek)` for a card
+and `copyImageUrl(site, copy)` for a copy, both from
+`src/lib/cards/shareImage.ts`. The keys differ because the subjects differ: a
+card is alive and re-rates weekly, so its key is the week; a copy is frozen
+at mint except for the expedition mark it can come home wearing, so its key
+is `card.expedition?.mark ?? "none"`.
 
 ### Eclipse, the one-of-one
 
