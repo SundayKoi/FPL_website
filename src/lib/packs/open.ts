@@ -21,6 +21,7 @@ import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_CHANCE, ECLIPSE_FOIL_TYPE, 
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
+import { applyEclipse, isEclipseEligible } from "./eclipse";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { mondayOf } from "./week";
@@ -401,7 +402,7 @@ export async function openPackFor(
   // Card of the Week at all and pay nothing for this.
   const eclipseCandidates = prints
     .map((print, index) => ({ print, index }))
-    .filter(({ print }) => print.card.standout && !print.card.moment && !print.card.team)
+    .filter(({ print }) => isEclipseEligible(print.card))
     .filter(() => rand() < ECLIPSE_CHANCE);
   if (eclipseCandidates.length > 0) {
     const { data: alreadyMinted } = await service
@@ -416,9 +417,10 @@ export async function openPackFor(
     // that mints two one-of-ones reads as a bug however legitimate it was.
     const winner = eclipseCandidates.find(({ print }) => !taken.has(print.card.slug));
     if (winner) {
-      prints[winner.index] = { ...prints[winner.index], foil: true, foilType: ECLIPSE_FOIL_TYPE };
+      prints[winner.index] = applyEclipse(prints[winner.index], signatures.get(winner.print.card.slug) ?? null);
     }
   }
+
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(
