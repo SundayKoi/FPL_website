@@ -35,7 +35,7 @@ describe("MatchDraftSummary", () => {
     expect(container.querySelector('img[alt="Aatrox"]')?.className).toContain("grayscale");
   });
 
-  it("orders picks by confirmed roles when the captains set them", () => {
+  it("keeps confirmed picks in pick order while showing their roles", () => {
     render(
       <MatchDraftSummary
         games={[game({ positions: { blue: ["Ahri", null, null, null, null] } })]}
@@ -49,8 +49,8 @@ describe("MatchDraftSummary", () => {
 
 describe("pick order", () => {
   /** Blue took Ahri FIRST and Sett THIRD, but the captains confirmed a role
-   *  order that lists Sett (top) before Ahri (mid). Position in the row
-   *  therefore says nothing about when a champion was taken. */
+   *  order that lists Sett (top) before Ahri (mid). The display still follows
+   *  pick order and keeps each champion's confirmed role attached. */
   const reordered = game({
     actions: [
       { stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri" },
@@ -60,22 +60,20 @@ describe("pick order", () => {
     positions: { blue: ["Sett", null, "Ahri", null, "Lulu"] },
   });
 
-  it("numbers each pick by when it was taken, not where it sits", () => {
+  it("orders confirmed picks by when they were taken", () => {
     const { bans, picks, pickNumbers } = sideRows(reordered, "blue");
     void bans;
-    expect(picks[0]).toBe("Sett");
-    expect(pickNumbers[0]).toBe(3);
-    expect(picks[2]).toBe("Ahri");
-    expect(pickNumbers[2]).toBe(1);
+    expect(picks.slice(0, 3)).toEqual(["Ahri", "Lulu", "Sett"]);
+    expect(pickNumbers.slice(0, 3)).toEqual([1, 2, 3]);
   });
 
   it("leaves a slot with no pick unnumbered", () => {
-    expect(sideRows(reordered, "blue").pickNumbers[1]).toBeNull();
+    expect(sideRows(reordered, "blue").pickNumbers[3]).toBeNull();
   });
 
   it("renders the number beside the champion", () => {
     render(<MatchDraftSummary games={[reordered]} />);
-    // Sett was pick 3 and leads the confirmed row.
+    // Pick numbers remain visible beside champions after role confirmation.
     expect(screen.getAllByText("3").length).toBeGreaterThan(0);
   });
 
@@ -112,7 +110,7 @@ describe("a full 20-action draft, shaped as the database stores one", () => {
       champion: `${SIDES[index]}-${KINDS[index]}-${slot}`,
       playerName: null,
     })),
-    // Blue's five picks, deliberately NOT in draft order.
+    // Blue's five picks, deliberately NOT in confirmed role order.
     positions: {
       blue: ["blue-pick-3", "blue-pick-5", "blue-pick-1", "blue-pick-4", "blue-pick-2"],
       red: ["red-pick-1", "red-pick-2", "red-pick-3", "red-pick-4", "red-pick-5"],
@@ -120,8 +118,8 @@ describe("a full 20-action draft, shaped as the database stores one", () => {
   });
 
   it("numbers every pick on both sides", () => {
-    expect(sideRows(full, "blue").pickNumbers).toEqual([3, 5, 1, 4, 2]);
-    expect(sideRows(full, "red").pickNumbers).toEqual([1, 2, 3, 4, 5]);
+    expect(sideRows(full, "blue").pickNumbers).toEqual([1, 2, 3, 4, 5]);
+    expect(sideRows(full, "red").pickNumbers).toEqual([5, 4, 3, 2, 1]);
   });
 
   it("renders a badge for each of the ten picks", () => {

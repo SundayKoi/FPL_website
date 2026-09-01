@@ -11,12 +11,10 @@ export interface TeamDraftRow {
   score: string | null;
   stageLabel: string;
   picks: (string | null)[];
-  /** Per-side pick number for each entry of `picks`, aligned by index —
-   *  the row is in confirmed ROLE order, so position no longer says when a
-   *  champion was taken. */
+  /** Per-side pick number for each entry of `picks`, aligned by index. */
   pickNumbers: (number | null)[];
   bans: (string | null)[];
-  /** Picks are in captain-confirmed role order (top→support). */
+  /** True when role metadata is available for the pick-order chips. */
   confirmed: boolean;
 }
 
@@ -52,7 +50,7 @@ export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
                 vs <span className="font-semibold text-white">{row.opponent}</span>
                 <span className="ml-2 font-mono text-[11px] text-steel">
                   {row.stageLabel}
-                  {row.confirmed ? " · role order" : " · draft order"}
+                  {row.confirmed ? " · roles confirmed" : " · draft order"}
                 </span>
               </span>
               <span className="flex flex-wrap items-center gap-1.5" aria-label="Game one picks and bans">

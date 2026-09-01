@@ -27,7 +27,7 @@ describe("TeamRecentDrafts", () => {
 
     expect(screen.getByText(/W 2–1/)).toBeTruthy();
     expect(screen.getByText("Dribb")).toBeTruthy();
-    expect(screen.getByText(/role order/)).toBeTruthy();
+    expect(screen.getByText(/roles confirmed/)).toBeTruthy();
     // 5 picks + 4 named bans render champion icons; the skipped ban shows a
     // dashed placeholder instead of an image.
     expect(screen.getAllByRole("img").length).toBe(9);

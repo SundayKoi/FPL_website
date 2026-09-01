@@ -125,24 +125,10 @@ function championValue(action: MatchDraftAction | null): string | null {
   return action?.champion?.trim() || null;
 }
 
-function actionStepIndex(actions: MatchDraftAction[], side: DraftSide, action: MatchDraftAction | null): number | null {
-  if (!action) return null;
-  if (typeof action.stepIndex === "number") return action.stepIndex;
-  return draftDisplayOrder(side, action.kind).find((step) => actionForStep(actions, step) === action)?.index ?? null;
-}
-
-function actionForChampion(
-  actions: MatchDraftAction[],
-  side: DraftSide,
-  champion: string,
-  used: Set<MatchDraftAction>,
-): MatchDraftAction | null {
+function confirmedRoleIndex(positions: (string | null)[] | undefined, champion: string | null): number {
+  if (positions?.length !== ROLE_LABELS.length || !champion) return -1;
   const key = normalizeChampionName(champion);
-  const action = draftDisplayOrder(side, "pick")
-    .map((step) => actionForStep(actions, step))
-    .find((candidate) => candidate && !used.has(candidate) && candidate.champion && normalizeChampionName(candidate.champion) === key);
-  if (action) used.add(action);
-  return action ?? null;
+  return positions.findIndex((position) => position && normalizeChampionName(position) === key);
 }
 
 function picksForSide(
@@ -152,37 +138,19 @@ function picksForSide(
   team: DraftMatchupTeamView,
 ): DraftMatchupPickView[] {
   const steps = draftDisplayOrder(side, "pick");
-  const used = new Set<MatchDraftAction>();
-  const skipped = steps
-    .map((step) => actionForStep(actions, step))
-    .filter((action): action is MatchDraftAction => Boolean(action && actionState(action) === "skipped"));
-
-  if (positions?.length === ROLE_LABELS.length) {
-    return positions.map((champion, index) => {
-      const action = champion ? actionForChampion(actions, side, champion, used) : skipped.shift() ?? null;
-      return {
-        side,
-        slot: index + 1,
-        pickNumber: action?.slot ?? null,
-        stepIndex: actionStepIndex(actions, side, action),
-        champion: champion?.trim() || championValue(action),
-        playerName: team.players[index] ?? action?.playerName ?? null,
-        role: ROLE_LABELS[index],
-        state: actionState(action),
-      };
-    });
-  }
 
   return steps.map((step) => {
     const action = actionForStep(actions, step);
+    const champion = championValue(action);
+    const roleIndex = confirmedRoleIndex(positions, champion);
     return {
       side,
       slot: step.slot,
       pickNumber: action?.slot ?? step.slot,
       stepIndex: step.index,
-      champion: championValue(action),
-      playerName: action?.playerName ?? team.players[step.slot - 1] ?? null,
-      role: null,
+      champion,
+      playerName: roleIndex >= 0 ? team.players[roleIndex] ?? action?.playerName ?? null : action?.playerName ?? null,
+      role: roleIndex >= 0 ? ROLE_LABELS[roleIndex] : null,
       state: actionState(action),
     };
   });

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Lobby-mode tests run without onSave, so the board builds a live client;
@@ -412,7 +412,7 @@ describe("MatchDraftBoard", () => {
     expect(screen.queryByRole("button", { name: /lock in/i })).toBeNull();
   });
 
-  it("re-orders the pick column by role once positions are confirmed", () => {
+  it("keeps the pick column in draft order once positions are confirmed", () => {
     render(
       <MatchDraftBoard
         initialState={{
@@ -428,11 +428,11 @@ describe("MatchDraftBoard", () => {
       />,
     );
 
-    // Role labels replace "pick N" and the order follows the confirmation.
+    // Role labels remain attached, but order follows the original picks.
     expect(screen.getAllByText("Top").length).toBeGreaterThan(0);
     const column = screen.getByRole("region", { name: /stage draft layout/i });
     const text = column.textContent ?? "";
-    expect(text.indexOf("Zed")).toBeLessThan(text.indexOf("Ahri"));
+    expect(text.indexOf("Ahri")).toBeLessThan(text.indexOf("Zed"));
   });
 
   it("opens a post-draft role modal with draggable pick tiles and per-side ready buttons", async () => {
@@ -743,10 +743,9 @@ describe("passing a ban", () => {
 });
 
 describe("pick order after roles are confirmed", () => {
-  /** A finished draft whose captains have confirmed the role order. Blue
-   *  took Ahri first and Sett third, but the confirmed order lists Sett
-   *  (top) before Ahri (mid) — so position in the column no longer says
-   *  anything about when a champion was taken. */
+  /** A finished draft whose captains have confirmed role assignments. Blue
+   *  took Ahri first and Sett third, but the confirmed role order lists Sett
+   *  (top) before Ahri (mid). The board still displays P1 → P5. */
   const confirmed: MatchDraftState = {
     ...state,
     status: "complete",
@@ -762,13 +761,22 @@ describe("pick order after roles are confirmed", () => {
   };
 
   it("still says which pick each champion was", () => {
-    // The order was always in the data; confirming roles just stopped
-    // showing it, and there was no other place on the site to read it.
+    // Confirmed roles annotate the pick-order rows rather than reordering them.
     render(<MatchDraftBoard initialState={confirmed} onSave={vi.fn()} />);
 
-    // Sett went third and sits first in the confirmed column.
+    const column = screen.getByRole("region", { name: /stage draft layout/i });
+    const picks = within(column).getAllByTestId("blue-pick-slot").slice(0, 5);
+    expect(picks.map((pick) => pick.textContent)).toEqual([
+      expect.stringContaining("Ahri"),
+      expect.stringContaining("Lulu"),
+      expect.stringContaining("Sett"),
+      expect.stringContaining("Amumu"),
+      expect.stringContaining("Jinx"),
+    ]);
+
+    // Sett went third and keeps its confirmed role.
     expect(screen.getByText(/Top · P3/i)).toBeTruthy();
-    // Ahri went first and sits third.
+    // Ahri went first and keeps its confirmed role.
     expect(screen.getByText(/Mid · P1/i)).toBeTruthy();
   });
 
@@ -780,7 +788,7 @@ describe("pick order after roles are confirmed", () => {
     }
   });
 
-  it("labels a slot with the role alone when the champion was never picked", () => {
+  it("keeps missing picks in normal pick order after role confirmation", () => {
     const withGap: MatchDraftState = {
       ...confirmed,
       actions: confirmed.actions.filter((action) => action.champion !== "Sett"),
@@ -788,10 +796,17 @@ describe("pick order after roles are confirmed", () => {
     };
     render(<MatchDraftBoard initialState={withGap} onSave={vi.fn()} />);
 
-    // The slot keeps its role heading and gains no pick number — a plain
-    // "Top" match would also hit the pool's role filter button, so the
-    // assertion is on the ABSENCE of an invented number.
-    expect(screen.queryByText(/^Top · P/i)).toBeNull();
+    // Missing action stays in its normal pick row; known roles remain attached
+    // to the champions that were actually picked.
+    const column = screen.getByRole("region", { name: /stage draft layout/i });
+    const picks = within(column).getAllByTestId("blue-pick-slot").slice(0, 5);
+    expect(picks.map((pick) => pick.textContent)).toEqual([
+      expect.stringContaining("Ahri"),
+      expect.stringContaining("Lulu"),
+      expect.stringContaining("B3"),
+      expect.stringContaining("Amumu"),
+      expect.stringContaining("Jinx"),
+    ]);
     expect(screen.getByText(/^Jungle · P4$/i)).toBeTruthy();
   });
 });

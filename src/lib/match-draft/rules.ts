@@ -159,11 +159,9 @@ export interface PickOrderEntry {
 /**
  * Champion -> where that side picked it.
  *
- * Pick order is recorded on every action and always has been, but it stops
- * being VISIBLE the moment captains confirm roles: both the board and the
- * match summary re-order the column top-to-support and relabel each slot
- * with its role, so "which pick was this" leaves the screen. Nothing is
- * lost in the data — this is the lookup that puts it back on it.
+ * Pick order is recorded on every action and remains the display order after
+ * captains confirm roles. The confirmed role is presentation metadata attached
+ * to the matching champion, so "which pick was this" stays visible.
  *
  * Keyed by champion because that is what the confirmed role order stores:
  * `positions` is five champion names, with no step index attached. A

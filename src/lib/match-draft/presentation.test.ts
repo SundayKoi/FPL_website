@@ -34,7 +34,7 @@ describe("createDraftMatchupView", () => {
     expect(view.red.bans.map((ban) => ban.slot)).toEqual([5, 4, 3, 2, 1]);
   });
 
-  it("keeps pick numbers attached when confirmed roles reorder champions", () => {
+  it("keeps roles attached while displaying confirmed champions in pick order", () => {
     const view = createDraftMatchupView({
       gameNumber: 1,
       blueTeam: { name: "Blue Team", players: ["Top", "Jungle", "Mid", "ADC", "Support"] },
@@ -48,12 +48,12 @@ describe("createDraftMatchupView", () => {
       winnerTeam: "Blue Team",
     });
 
-    expect(view.blue.picks.map((pick) => [pick.champion, pick.pickNumber, pick.role])).toEqual([
-      ["Sett", 3, "Top"],
-      [null, null, "Jungle"],
-      ["Ahri", 1, "Mid"],
-      [null, null, "ADC"],
-      ["Lulu", 2, "Support"],
+    expect(view.blue.picks.map((pick) => [pick.champion, pick.pickNumber, pick.role, pick.playerName])).toEqual([
+      ["Ahri", 1, "Mid", "Mid"],
+      ["Lulu", 2, "Support", "Support"],
+      ["Sett", 3, "Top", "Top"],
+      [null, 4, null, null],
+      [null, 5, null, null],
     ]);
     expect(view.outcome).toEqual({ winnerTeam: "Blue Team", winnerSide: "blue", status: "winner" });
   });
