@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import MomentWall from "@/components/cards/MomentWall";
 import { fetchCardSeason, fetchSeasonMoments, type CardLeague } from "@/lib/cards/queries";
 import { MOMENTS_PER_WEEK, MOMENT_PULL_CHANCE } from "@/lib/cards/moments";
@@ -14,7 +12,6 @@ export const metadata: Metadata = {
 /** Public, unlike the rest of the card hub: a moment is something that
  *  happened in a league match, and the wall is the league's highlight reel. */
 export async function MomentsPageView({ league = "premier" }: { league?: CardLeague }) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
   const moments = season ? await fetchSeasonMoments(supabase, season) : [];
@@ -35,11 +32,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
             only be pulled from a pack bought for the week it happened in, at roughly{" "}
             {Math.round(MOMENT_PULL_CHANCE * 100)}% a pack.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/moments" />
       </header>
 
       <MomentWall moments={moments} season={season} />

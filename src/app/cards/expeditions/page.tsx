@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -22,7 +21,7 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
  * with betting dollars, sometimes a free pack, and rarely a mark that stays
  * on one of them forever.
  *
- * Gated on FPL Better rather than the premium card role, same as
+ * Gated on the wallet rather than the premium-role check, same as
  * /cards/packs and the Gauntlet — an expedition pays into the wallet, so
  * the wallet is the thing you need.
  *
@@ -53,7 +52,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
         <span className="label-dash">Card expeditions</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to send a squad out</h1>
         <p className="max-w-md text-sm text-steel">
-          Expeditions field cards from your collection and pay into your FPL Better wallet — sign in
+          Expeditions field cards from your collection and pay into your wallet — sign in
           with Discord to check your access.
         </p>
         <Link href={`/login?redirect=${base}/expeditions`} className="btn-pill mt-2">
@@ -81,10 +80,10 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
     return (
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card expeditions</span>
-        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-steel">
-          An expedition pays betting dollars, and only FPL Better members have a wallet to pay into.
-          Join the FPL Better role in Discord and come back to send a squad out.
+          An expedition pays betting dollars, and only premium members have a wallet to pay into.
+          Grab the premium role in the Discord and come back to send a squad out.
         </p>
       </main>
     );
@@ -128,14 +127,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
             betting dollars, sometimes a free pack, and occasionally a mark that one of them wears for
             the rest of its life. Brighter cards clear harder runs and are paid more for it.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/expeditions" />
       </header>
 
       <ExpeditionBoard

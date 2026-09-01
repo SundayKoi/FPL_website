@@ -333,10 +333,10 @@ export default function PackShop({
           {muted ? "🔇" : "🔊"}
         </button>
         <Link
-          href={`${base}/packs#collection`}
+          href={`${base}/collection`}
           className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
         >
-          Your collection ↓
+          Your collection →
         </Link>
         <span className="ml-auto text-xs text-steel">
           {openCount} {openCount === 1 ? "pack" : "packs"} opened

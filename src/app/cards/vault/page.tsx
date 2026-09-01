@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -118,7 +117,6 @@ function FoundCard({ copy }: { copy: FoundEclipse }) {
  * closed, the content is not.
  */
 export async function VaultPageView({ league = "premier" }: { league?: CardLeague }) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
   const vault: VaultData = season ? await fetchVault(service, season) : { found: [], unclaimed: [] };
@@ -140,11 +138,7 @@ export async function VaultPageView({ league = "premier" }: { league?: CardLeagu
             and, below, every crowned print still waiting for somebody to pull it. An unclaimed one stays
             claimable forever through its own week&apos;s packs, so the board only ever grows.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/vault" />
       </header>
 
       <p className="text-sm text-steel">

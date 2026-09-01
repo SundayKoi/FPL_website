@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
-import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
+import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import PackShop from "@/components/cards/PackShop";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
@@ -21,7 +19,6 @@ import {
   type DailyRipStatus,
   type LiveWindow,
 } from "@/lib/packs/queries";
-import { fetchOrCreateOwnBinder, type Binder } from "@/lib/binder/queries";
 
 export const metadata: Metadata = {
   title: "Card Packs — FPL",
@@ -31,73 +28,45 @@ export const metadata: Metadata = {
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /**
- * The pack counter and the collection it fills. Gated on FPL Better rather
- * than the premium card role — packs are bought with betting dollars, so the
- * wallet is the thing you need — which is why this page reads
- * getBettingUser() instead of drafterAccess() like the rest of /cards.
+ * The pack shop. Reads getBettingUser() rather than drafterAccess() because
+ * packs are bought with betting dollars, so the wallet side of the account
+ * has to exist — the role both checks look at is the same one.
  *
- * Inventory reads go through the service client: card_inventory has no
- * public RLS policy (src/lib/packs/queries.ts), and the Discord id is taken
- * from the session, so nobody can ask for someone else's shelf.
+ * The collection this fills used to be the bottom half of this page. It is
+ * its own tab now (/cards/collection): "my cards" and "buy cards" are
+ * different questions, and nobody looking for the first guessed "Packs".
  */
-export async function PacksPageView({
-  league = "premier",
-  setWeek,
-}: {
-  league?: CardLeague;
-  /** ?setWeek= — which edition the roster sets are asked of. Sets are
-   *  open-ended, so a collector can go back for a week they finished
-   *  later; the newest week they hold copies from is the default. */
-  setWeek?: string;
-} = {}) {
+export async function PacksPageView({ league = "premier" }: { league?: CardLeague } = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
 
   if (!user) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Card packs</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Sign in to open packs</h1>
-        <p className="max-w-md text-sm text-steel">
-          Packs are bought with betting dollars, so they ride on your FPL Better wallet — sign in with
-          Discord to check your access.
-        </p>
-        <Link href={`/login?redirect=${base}/packs`} className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      </main>
+      <CardsGate
+        section="Packs"
+        title="Sign in to open packs"
+        body="Packs are bought with betting dollars, so they ride on your wallet — sign in with Discord to check your access."
+        signIn={`${base}/packs`}
+      />
     );
   }
 
   if (!user.allowed) {
-    return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Card packs</span>
-        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-        <p className="max-w-md text-sm text-steel">
-          Packs are paid for with betting dollars, and only FPL Better members have a wallet to spend.
-          Join the FPL Better role in Discord and come back to start a collection.
-        </p>
-      </main>
-    );
+    return <CardsGate section="Packs" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
   }
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [ownedSlugs, openCount, editionWeeks, binder, dailyRip]: [string[], number, string[], Binder | null, DailyRipStatus] = season
+  const [ownedSlugs, openCount, editionWeeks, dailyRip]: [string[], number, string[], DailyRipStatus] = season
     ? await Promise.all([
         // Slugs, not the collection. The shop only asks "do I own this
-        // player at all", and the shelf that needs every copy is suspended
-        // below so it cannot hold the buy buttons up.
+        // player at all"; the shelf itself lives on its own tab.
         fetchOwnedSlugs(service, user.discordId, season),
         fetchPackOpenCount(service, user.discordId, season),
         fetchCardEditionWeeks(service, season),
-        // null when the card_binders migration hasn't been applied here —
-        // the section is skipped rather than 500ing the whole page.
-        fetchOrCreateOwnBinder(service, user.discordId),
         fetchDailyRipStatus(service, user.discordId),
       ])
-    : [[], 0, [], null, { left: 0, patron: false, flame: null }];
+    : [[], 0, [], { left: 0, patron: false, flame: null }];
   // The banners above the shop: an open Live Drops window and this week's
   // chase. The chase is pinned to the NEWEST edition, matching the week a
   // pack mints by default — and it is league-wide, so the academy shop
@@ -146,11 +115,7 @@ export async function PacksPageView({
             different weeks is two different prints. Every copy comes printed in a random skin of that
             player&apos;s signature champion, and foils are a rare pull on any tier.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/packs" />
       </header>
 
       {liveWindow ? (
@@ -231,31 +196,17 @@ export async function PacksPageView({
         patronTenureDays={patronTenureDays}
       />
 
-      {/* Suspended on purpose: this is the collection, the roster sets and
-          the binder, and it is the only part of the page that has to read
-          every copy somebody owns. The shop above is already interactive
-          while this arrives. */}
-      <Suspense fallback={<CollectionSectionsFallback />}>
-        <CollectionSections
-          discordId={user.discordId}
-          season={season}
-          base={base}
-          binder={binder}
-          patron={dailyRip.patron}
-          flame={dailyRip.flame}
-          setWeek={setWeek}
-        />
-      </Suspense>
-
+      <p className="text-sm text-steel">
+        Everything you pull lands in{" "}
+        <Link href={`${base}/collection`} className="text-coral underline-offset-4 hover:underline">
+          your collection
+        </Link>
+        .
+      </p>
     </main>
   );
 }
 
-export default async function PacksPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ setWeek?: string }>;
-}) {
-  const { setWeek } = await searchParams;
-  return PacksPageView({ league: "premier", setWeek });
+export default async function PacksPage() {
+  return PacksPageView({ league: "premier" });
 }

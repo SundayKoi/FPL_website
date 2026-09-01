@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGallery from "@/components/cards/CardsGallery";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
-import CardsNav from "@/components/cards/CardsNav";
 import ClaimFinder from "@/components/cards/ClaimFinder";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fmtPoints } from "@/lib/betting/format";
@@ -182,12 +180,8 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             tilt, click to flip, and share your card straight into Discord.
           </p>
         </div>
-        <CardsLeagueToggle league={league} />
       </header>
 
-      {/* Nine identical pills used to sit in the header, all shouting at the
-          same volume. Grouped by what someone came here to do instead. */}
-      <CardsNav base={base} />
       {/* Your card, before the wall of everyone else's. */}
       {myClaim && myClaim.status === "approved" && mySlug ? (
         <section className="card-brand flex flex-wrap items-center justify-between gap-4 px-5 py-4">

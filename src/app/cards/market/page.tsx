@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import ListCardForm from "@/components/cards/ListCardForm";
 import MarketBoard, { type BoardListing } from "@/components/cards/MarketBoard";
 import MyListings, { type MyListing } from "@/components/cards/MyListings";
@@ -79,7 +78,7 @@ function toMyListing(listing: MarketListing): MyListing {
  * The market: copies for sale, bounties waiting, and the two forms that write
  * them.
  *
- * Gated on FPL Better rather than the premium card role, same as the trading
+ * Gated on the wallet rather than the premium-role check, same as the trading
  * post — every row here is priced in betting dollars, so the wallet is the
  * thing you need to be party to one.
  *
@@ -98,7 +97,7 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
         <span className="label-dash">Card market</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to buy and sell cards</h1>
         <p className="max-w-md text-sm text-steel">
-          The market moves copies for betting dollars, so it rides on your FPL Better wallet — sign in
+          The market moves copies for betting dollars, so it rides on your wallet — sign in
           with Discord to check your access.
         </p>
         <Link href={`/login?redirect=${base}/market`} className="btn-pill mt-2">
@@ -112,10 +111,10 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
     return (
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card market</span>
-        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-steel">
-          Every price on the market is in betting dollars, and only FPL Better members have a wallet to
-          spend. Join the FPL Better role in Discord and come back to start dealing.
+          Every price on the market is in betting dollars, and only premium members have a wallet to
+          spend. Grab the premium role in the Discord and come back to start dealing.
         </p>
       </main>
     );
@@ -185,14 +184,7 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
             the other side: post a bounty on a card you need, and whoever holds one can sell it to you
             at that price.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/market" />
       </header>
 
       <section className="flex flex-col gap-3">

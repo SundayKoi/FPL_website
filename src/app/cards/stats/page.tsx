@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { FOIL_TYPES, FOIL_TYPE_LABELS } from "@/lib/packs/config";
-import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fmtPoints } from "@/lib/betting/format";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -47,7 +45,6 @@ function rateOf(part: number, whole: number, unit: string): string | undefined {
  *  people it is about unable to see it. Only aggregates ever leave the
  *  server — no row, no wallet, no collection. */
 export async function CardStatsPageView({ league = "premier" }: { league?: CardLeague }) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
   const stats: EconomyStats | null = season ? await fetchEconomyStats(service, season) : null;
@@ -74,11 +71,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               </>
             ) : null}
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/stats" />
       </header>
 
       {!stats || stats.cardsPulled === 0 ? (

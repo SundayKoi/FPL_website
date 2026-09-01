@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import FantasyLeaderboard, {
   type FantasySeasonRow,
   type FantasyWeeklyRow,
@@ -85,8 +84,8 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
   if (!user.allowed) {
     return (
       <Gate
-        title="FPL Better members only"
-        body="Fantasy lineups pay out of the betting wallet, so they're part of the FPL Better site — ask staff about access."
+        title="Premium members only"
+        body="Fantasy lineups pay out of the betting wallet, so they're part of FPL Premium — grab the premium role in the Discord."
       />
     );
   }
@@ -159,7 +158,7 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
-            FPL Better · {LEAGUE_LABELS[league]} · Season {season}
+            Premium · {LEAGUE_LABELS[league]} · Season {season}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Fantasy</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
@@ -173,14 +172,7 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
             Balance <b className="font-semibold text-white">{fmtPoints(user.balance)}</b> · {options.length} card
             {options.length === 1 ? "" : "s"} in your collection.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/fantasy" />
       </header>
 
       <LineupBuilder

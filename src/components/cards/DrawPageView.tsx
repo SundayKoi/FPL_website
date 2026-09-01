@@ -1,5 +1,3 @@
-import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fmtPoints } from "@/lib/betting/format";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -57,7 +55,6 @@ async function loadWinnerNames(discordIds: string[]): Promise<Map<string, string
  * one season code, chosen by the caller.
  */
 export async function DrawPageView({ league = "premier" }: { league?: CardLeague } = {}) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
   const history = season ? await fetchDrawHistory(supabase, season) : [];
@@ -79,14 +76,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
             comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and the winning
             card is stamped with a laurel it wears forever.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/draw" />
       </header>
 
       {history.length === 0 ? (

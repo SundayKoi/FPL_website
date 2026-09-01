@@ -89,16 +89,33 @@ target league home. Premium HQ is the intentional exception: its
 Premier/Academy toggle keeps card and fantasy destinations in the selected
 league.
 
-`SiteNavigation` renders five direct links for the active league—Players,
-Teams, Schedule, Stats, and My Team—and a direct Premium link to the gated
-Premium HQ. Active-league destinations plus Auction Draft remain under League,
-with shared destinations under Info. Premium HQ previews and links Betting, The
-Daily Stu, Player Cards, Draft League, Match Drafter, and the card economy.
-Admin and Broadcaster are Staff entries within Info, conditionally rendered
-from the server-provided staff tier. Those props do not authorize access:
-`/admin` and `/broadcaster` continue to perform their existing server-side
-gates, and the route checks remain authoritative if a link is hidden or
-manually visited.
+`SiteNavigation` renders Stats, My Team and Cards as direct links for the
+active league, then three dropdowns: Premium (Premium HQ, Betting, The Daily
+Stu, Match Drafter, and the daily games), League (Players, Teams, Schedule,
+Auction Draft), and Info. Admin and Broadcaster are Staff entries within Info,
+conditionally rendered from the server-provided staff tier. Those props do not
+authorize access: `/admin` and `/broadcaster` continue to perform their
+existing server-side gates, and the route checks remain authoritative if a
+link is hidden or manually visited.
+
+**The cards section** (`/cards/*`, mirrored under `/academy/cards/*`) is laid
+out by one map, `src/lib/cards/sections.ts`: six tabs — Home, My Collection,
+Packs, Browse, Market, Play — the last three with sub-tabs (Team cards,
+Compare, Moments, the Vault under Browse; Listings & bounties and Trade
+offers under Market; Fantasy, Gauntlet, Expeditions, Weekly Draw and Stats
+under Play). `CardsTabs` renders that map on every cards page from the two
+`layout.tsx` files, marks the current tab and sub-tab from the pathname, and
+carries the only Premier/Academy switcher a cards page has (`pairedCardsHref`
+keeps the same page across leagues, sending the premier-only Gauntlet to the
+academy's Play tab). Pages do not draw their own back links or league
+toggles. Every old URL still resolves; the map decides which tab it lights.
+A page the map does not list (`/cards/claims`, a redirect) lights nothing.
+
+Gating within Cards uses one wording, `CardsGate` with `PREMIUM_GATE_TITLE`
+and `PREMIUM_GATE_BODY`, whichever check a page runs: `premiumAccess()` (the
+premium role) and `getBettingUser().allowed` (the wallet) both resolve the
+same Discord role in production, so the two names the pages used to show for
+it were two names for one thing.
 
 ## Authentication and authorization
 

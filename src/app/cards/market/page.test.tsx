@@ -65,7 +65,7 @@ describe("MarketPageView", () => {
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("renders both boards and the league toggle for a member", async () => {
+  it("renders both boards for a member, and no league toggle of its own", async () => {
     getBettingUser.mockResolvedValue({ discordId: "42", allowed: true });
 
     render(await MarketPageView({ league: "premier" }));
@@ -74,7 +74,8 @@ describe("MarketPageView", () => {
     expect(screen.getByTestId("list-card-form")).toBeTruthy();
     expect(screen.getByTestId("my-listings")).toBeTruthy();
     expect(screen.getByTestId("wants-board")).toBeTruthy();
-    // The toggle carries the sub-page, or it drops you on the wrong screen.
-    expect(screen.getByRole("link", { name: "Academy" }).getAttribute("href")).toBe("/academy/cards/market");
+    // The league switcher lives in the cards tab bar now (CardsTabs, from
+    // the layout) — the page must not draw a second one.
+    expect(screen.queryByRole("link", { name: "Academy" })).toBeNull();
   });
 });

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import CompareClient from "@/components/cards/CompareClient";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
@@ -55,11 +54,7 @@ export async function CompareCardsPageView({
             Put any two cards head to head — the better number lights up green. The URL follows your
             picks, so paste it into Discord for match-night arguments.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
-            ← Back to the collection
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/compare" />
       </header>
       <CompareClient cards={cards} initialA={firstParam(query.a)} initialB={firstParam(query.b)} basePath={`${base}/compare`} />
     </main>
