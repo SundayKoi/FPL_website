@@ -505,8 +505,24 @@ registered into `commandHandlers` by a side-effect import in
   the Eclipse frame that copy actually printed are what the channel sees.
   "Best" is `bestCopy`: Eclipse, then signed, then the parallel ladder
   (`FOIL_TYPES` order, ice down to prisma), then overall, then the newest
-  pull. The flex is public; every refusal — owning none, a name matching
-  several players, a week that isn't archived — is ephemeral.
+  pull. An optional `copy` option overrides the ranking with one specific
+  copy (`pickCopy`, scoped to the named player's copies, so a stale id can
+  never surface someone else's card). The flex is public; every refusal —
+  owning none, a name matching several players, a week that isn't archived,
+  a copy that no longer fits — is ephemeral.
+
+  Both `player` and `copy` **autocomplete** out of the caller's own
+  collection (`autocompleteHandlers.flex`): `playerChoices` offers one entry
+  per owned player, best copy first, with the slug as the value; `copyChoices`
+  offers every copy of the chosen player, best first, labelled by
+  `copyLabel` (edition · parallel · ink · stamp · art · grade) with the
+  inventory id as the value. A value typed rather than picked still works —
+  `matchPlayer` accepts a slug or part of a name, and `pickCopy` matches
+  typed text against the same labels the picker showed. Autocomplete has no
+  deferral and does no wallet provisioning: one read, answer inside three
+  seconds, and every failure is an empty list because Discord accepts nothing
+  else in reply to an autocomplete interaction (`route.ts` answers the access
+  gate and an unknown command the same way).
 
 Both defer (`deferred()` + `after()`) and answer on the interaction's followup
 webhook, because a pack open and a paged collection read both outrun Discord's

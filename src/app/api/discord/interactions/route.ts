@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import type { DiscordInteraction, Handler } from "@/lib/betting/discord/registry";
-import { commandHandlers, componentHandlers, modalHandlers } from "@/lib/betting/discord/registry";
-import { errMsg, pong } from "@/lib/betting/discord/respond";
+import { autocompleteHandlers, commandHandlers, componentHandlers, modalHandlers } from "@/lib/betting/discord/registry";
+import { autocomplete, errMsg, pong } from "@/lib/betting/discord/respond";
 import { verifyDiscordSignature } from "@/lib/betting/discord/verify";
 // Side-effect import only: commands.ts registers its slash-command handlers
 // into `commandHandlers` (registry.ts) at module load — see its own header
@@ -45,6 +45,7 @@ const INTERACTION_TYPE = {
   PING: 1,
   APPLICATION_COMMAND: 2,
   MESSAGE_COMPONENT: 3,
+  APPLICATION_COMMAND_AUTOCOMPLETE: 4,
   MODAL_SUBMIT: 5,
 } as const;
 
@@ -74,6 +75,8 @@ function resolveHandler(interaction: DiscordInteraction): Handler | undefined {
       return interaction.data?.custom_id ? componentHandlers[customIdPrefix(interaction.data.custom_id)] : undefined;
     case INTERACTION_TYPE.MODAL_SUBMIT:
       return interaction.data?.custom_id ? modalHandlers[customIdPrefix(interaction.data.custom_id)] : undefined;
+    case INTERACTION_TYPE.APPLICATION_COMMAND_AUTOCOMPLETE:
+      return interaction.data?.name ? autocompleteHandlers[interaction.data.name] : undefined;
     default:
       return undefined;
   }
@@ -109,13 +112,20 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json(pong());
   }
 
+  // An autocomplete request can only be answered with a choice list — a
+  // message body here is a malformed response, which Discord shows as a
+  // picker that never fills in. So the two refusals below answer it with
+  // no choices, and the command itself (which the user still has to submit)
+  // is where the gate speaks.
+  const isAutocomplete = interaction.type === INTERACTION_TYPE.APPLICATION_COMMAND_AUTOCOMPLETE;
+
   if (!hasAccess(interaction)) {
-    return NextResponse.json(errMsg(NO_ACCESS_MSG));
+    return NextResponse.json(isAutocomplete ? autocomplete([]) : errMsg(NO_ACCESS_MSG));
   }
 
   const handler = resolveHandler(interaction);
   if (!handler) {
-    return NextResponse.json(errMsg("Unknown interaction."));
+    return NextResponse.json(isAutocomplete ? autocomplete([]) : errMsg("Unknown interaction."));
   }
 
   return NextResponse.json(await handler(interaction));

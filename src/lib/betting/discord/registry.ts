@@ -10,7 +10,7 @@
 export interface DiscordInteraction {
   id: string;
   application_id: string;
-  /** 1 PING, 2 APPLICATION_COMMAND, 3 MESSAGE_COMPONENT, 5 MODAL_SUBMIT (others exist but are unused here). */
+  /** 1 PING, 2 APPLICATION_COMMAND, 3 MESSAGE_COMPONENT, 4 APPLICATION_COMMAND_AUTOCOMPLETE, 5 MODAL_SUBMIT. */
   type: number;
   token: string;
   /** Present for slash/user/message commands (type 2). */
@@ -50,3 +50,10 @@ export const componentHandlers: Record<string, Handler> = {};
 /** Modal-submit handlers, keyed by the same custom_id-prefix convention as
  * `componentHandlers`. */
 export const modalHandlers: Record<string, Handler> = {};
+
+/** Autocomplete handlers, keyed by `data.name` like `commandHandlers`. Discord
+ * sends one of these on every keystroke in an option registered with
+ * `autocomplete: true`, and expects `autocomplete()` (respond.ts) back inside
+ * the same three seconds a command gets — there is no deferral for these, so
+ * a handler here reads once and answers. */
+export const autocompleteHandlers: Record<string, Handler> = {};

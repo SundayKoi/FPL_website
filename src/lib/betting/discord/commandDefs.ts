@@ -65,13 +65,28 @@ export const DISCORD_COMMANDS: CommandDef[] = [
     description: "Show off a card you own",
     options: [
       {
-        // Part of a name is enough: nobody types "Doug" with the tag, and
-        // the handler answers an ambiguous match with the names it found
-        // rather than picking one of them for you.
+        // Autocompleted from the caller's own collection, so the picker only
+        // ever offers players they can actually flex and nobody has to know
+        // a display name to the character. Typing past the list still works:
+        // part of a name is enough, and the handler answers an ambiguous
+        // match with the names it found rather than picking one for you.
         name: "player",
-        description: "who — part of the name is fine",
+        description: "who — pick from your collection, or type part of a name",
         type: OPTION_TYPE.STRING,
         required: true,
+        autocomplete: true,
+      },
+      {
+        // Which of your copies of that player. The list is every copy you
+        // own of the player chosen above, best first, each named by what
+        // makes it that copy (edition, parallel, ink, stamp). Left empty,
+        // the best one goes — the picker exists for the day you would
+        // rather show the matte you pulled first than the foil.
+        name: "copy",
+        description: "which copy — pick from the list (default: your best)",
+        type: OPTION_TYPE.STRING,
+        required: false,
+        autocomplete: true,
       },
       {
         name: "league",
@@ -117,9 +132,9 @@ export const DISCORD_COMMANDS: CommandDef[] = [
         description: "Pick an item (start typing to filter)",
         type: OPTION_TYPE.INTEGER,
         required: true,
-        // Registration only — autocomplete requires handling a separate
-        // APPLICATION_COMMAND_AUTOCOMPLETE interaction type, which the
-        // handlers don't implement.
+        // Registration only: the route does dispatch autocomplete now (see
+        // autocompleteHandlers and /flex), but nothing registers one for
+        // /buy, and a picker that never fills in is worse than none.
         autocomplete: false,
       },
     ],

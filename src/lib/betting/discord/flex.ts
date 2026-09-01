@@ -14,13 +14,22 @@
 //
 // The flex itself is PUBLIC. Every refusal is ephemeral: owning nothing of
 // the player you named is not something the channel needs told.
+//
+// Both text options autocomplete out of the caller's OWN collection. The
+// first /flex shipped with a bare text box, which meant knowing a player's
+// display name to the character and no way at all to pick which of your
+// copies went — the handler chose. Now `player` offers the players you
+// hold, and `copy` offers every copy you own of the one you picked, best
+// first, each named by what makes it that copy. Autocomplete has no
+// deferral: Discord wants the list back inside three seconds, so those
+// handlers do one collection read and answer.
 import "server-only";
 import { after } from "next/server";
 import { createBettingServiceClient } from "../service-client";
-import { commandHandlers } from "./registry";
+import { autocompleteHandlers, commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
-import { BRAND, deferred, errMsg } from "./respond";
-import type { DiscordEmbed } from "./respond";
+import { AUTOCOMPLETE_LIMIT, BRAND, autocomplete, deferred, errMsg } from "./respond";
+import type { AutocompleteChoice, DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
 import { TIER_COLORS } from "./tierColors";
 import { resolveRipWeek } from "./rip";
@@ -107,6 +116,11 @@ export function bestCopy(rows: InventoryRow[]): InventoryRow | null {
   return best;
 }
 
+/** The same ladder, as a sort: best copy first. What the copy picker lists. */
+export function rankCopies(rows: InventoryRow[]): InventoryRow[] {
+  return [...rows].sort((a, b) => (outranks(a, b) ? -1 : outranks(b, a) ? 1 : 0));
+}
+
 function outranks(candidate: InventoryRow, incumbent: InventoryRow): boolean {
   const order =
     Number(isEclipse(candidate)) - Number(isEclipse(incumbent)) ||
@@ -138,6 +152,10 @@ function compareAcquired(a: InventoryRow, b: InventoryRow): number {
  */
 export function matchPlayer(rows: InventoryRow[], query: string): { rows: InventoryRow[] } | { names: string[] } {
   const needle = query.trim().toLowerCase();
+  // A pick from the autocomplete list arrives as the slug, which is exact
+  // by construction — and unlike a name, two players cannot share one.
+  const bySlug = rows.filter((row) => row.slug === needle);
+  if (bySlug.length > 0) return { rows: bySlug };
   const hits = rows.filter((row) => row.playerName.toLowerCase().includes(needle));
   const exact = hits.filter((row) => row.playerName.toLowerCase() === needle);
   if (exact.length > 0) return { rows: exact };
@@ -146,6 +164,86 @@ export function matchPlayer(rows: InventoryRow[], query: string): { rows: Invent
   for (const row of hits) names.set(row.playerName.toLowerCase(), row.playerName);
   if (names.size > 1) return { names: [...names.values()] };
   return { rows: hits };
+}
+
+/**
+ * One copy as a line in the picker — everything that tells it apart from
+ * the caller's other copies of the same player, in the order the embed's
+ * chips use, plain text because a choice name renders no markdown.
+ *
+ *   "Aug 24 · Cracked Ice · Signed · #7 · Alt art · Gold 87"
+ *
+ * Exported for the handler's text fallback: a value typed rather than picked
+ * is matched against these same labels, so what you read is what you can
+ * type.
+ */
+export function copyLabel(row: InventoryRow): string {
+  const parts: string[] = [editionLabel(row.editionWeek), parallelLabel(row)];
+  if (row.signed) parts.push("Signed");
+  if (row.printNumber != null) parts.push(`#${row.printNumber}`);
+  if ((row.card?.artSkin ?? 0) > 0) parts.push("Alt art");
+  parts.push(`${row.card?.tier?.label ?? row.tier} ${row.overall}`);
+  const mark = row.card?.expedition?.mark;
+  if (mark && MARK_LABELS[mark]) parts.push(MARK_LABELS[mark]);
+  return parts.join(" · ");
+}
+
+/**
+ * The players in a collection, as picker choices: one per player, the ones
+ * whose best copy ranks highest first, narrowed to what has been typed so
+ * far. The value is the slug, so a pick never has to survive a second trip
+ * through name matching.
+ *
+ * Best-copy order rather than alphabetical because the empty picker — the
+ * one you see before typing — is the interesting one: it should open on
+ * your Eclipse, not on whoever's name starts with A.
+ */
+export function playerChoices(rows: InventoryRow[], typed: string): AutocompleteChoice[] {
+  const needle = typed.trim().toLowerCase();
+  const best = new Map<string, InventoryRow>();
+  for (const row of rows) {
+    if (needle && !row.playerName.toLowerCase().includes(needle)) continue;
+    const incumbent = best.get(row.slug);
+    if (!incumbent || outranks(row, incumbent)) best.set(row.slug, row);
+  }
+  return rankCopies([...best.values()])
+    .slice(0, AUTOCOMPLETE_LIMIT)
+    .map((row) => ({ name: `${row.playerName} — ${copyLabel(row)}`, value: row.slug }));
+}
+
+/**
+ * The copies the caller could flex, best first, as picker choices, narrowed
+ * to what has been typed so far — matched against the label, so typing
+ * "ice" or "signed" or "Aug 24" finds the copy without knowing its id. The
+ * value is the inventory id: the one name a copy has that nothing else
+ * shares.
+ */
+export function copyChoices(rows: InventoryRow[], typed: string): AutocompleteChoice[] {
+  const needle = typed.trim().toLowerCase();
+  return rankCopies(rows)
+    .map((row) => ({ row, label: copyLabel(row) }))
+    .filter(({ label }) => !needle || label.toLowerCase().includes(needle))
+    .slice(0, AUTOCOMPLETE_LIMIT)
+    .map(({ row, label }) => ({ name: `${row.playerName} · ${label}`, value: String(row.id) }));
+}
+
+/**
+ * The copy a typed `copy` value means, out of the copies the player match
+ * left. A pick from the list is an id and is taken as is; anything else is
+ * matched against the labels the list showed. `null` when nothing fits;
+ * `"ambiguous"` when more than one does — either way the handler refuses
+ * rather than guessing, because a guess shows the wrong card in public.
+ */
+export function pickCopy(rows: InventoryRow[], value: string): InventoryRow | "ambiguous" | null {
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const id = Number(trimmed);
+    return rows.find((row) => row.id === id) ?? null;
+  }
+  const needle = trimmed.toLowerCase();
+  const hits = rows.filter((row) => copyLabel(row).toLowerCase().includes(needle));
+  if (hits.length === 1) return hits[0];
+  return hits.length === 0 ? null : "ambiguous";
 }
 
 export interface FlexContext {
@@ -209,6 +307,15 @@ function stringOption(interaction: DiscordInteraction, name: string): string | n
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
+/** The option the caller is typing in right now, and what is in it so far.
+ *  An autocomplete interaction marks exactly one option `focused`. */
+function focusedOption(interaction: DiscordInteraction): { name: string; value: string } | null {
+  const options = (interaction.data?.options ?? []) as { name: string; value?: unknown; focused?: boolean }[];
+  const focused = options.find((option) => option.focused);
+  if (!focused) return null;
+  return { name: focused.name, value: typeof focused.value === "string" ? focused.value : "" };
+}
+
 /** An ephemeral refusal, in the followup shape the webhook takes. */
 function refusal(message: string): object {
   return { content: `❌ ${message}`, flags: EPHEMERAL_FLAG };
@@ -223,6 +330,7 @@ async function handleFlex(interaction: DiscordInteraction): Promise<object> {
 
   const league = leagueOf(interaction);
   const player = stringOption(interaction, "player") ?? "";
+  const copy = stringOption(interaction, "copy");
   const rawWeek = stringOption(interaction, "week");
   const username = member.global_name ?? member.username ?? "Someone";
   const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}`;
@@ -234,6 +342,7 @@ async function handleFlex(interaction: DiscordInteraction): Promise<object> {
         discordId: member.id,
         league,
         player,
+        copy,
         rawWeek,
         username,
       });
@@ -256,9 +365,16 @@ async function handleFlex(interaction: DiscordInteraction): Promise<object> {
  *  match, pick, print run. Returns the followup body either way. */
 async function flexBody(
   service: ReturnType<typeof createBettingServiceClient>,
-  input: { discordId: string; league: CardLeague; player: string; rawWeek: string | null; username: string },
+  input: {
+    discordId: string;
+    league: CardLeague;
+    player: string;
+    copy: string | null;
+    rawWeek: string | null;
+    username: string;
+  },
 ): Promise<object> {
-  const { discordId, league, player, rawWeek, username } = input;
+  const { discordId, league, player, copy, rawWeek, username } = input;
   const leagueLabel = LEAGUE_LABELS[league];
 
   const season = await fetchCardSeason(service, league);
@@ -284,10 +400,23 @@ async function flexBody(
     return refusal(`"${player}" matches ${listed}${more} — be more specific.`);
   }
 
-  const row = bestCopy(match.rows);
-  if (!row) {
+  if (match.rows.length === 0) {
     const fromWeek = week ? ` from the ${editionLabel(week)} edition` : "";
     return refusal(`You don't own a ${player} card in ${leagueLabel}${fromWeek}.`);
+  }
+
+  // A chosen copy beats the ranking; no choice, and the best one goes. The
+  // pick is scoped to the player's copies, so a stale id from another
+  // player — or from a copy dusted since the picker showed it — is a
+  // refusal, never someone else's card.
+  let row: InventoryRow;
+  if (copy) {
+    const picked = pickCopy(match.rows, copy);
+    if (picked === "ambiguous") return refusal(`"${copy}" fits more than one of your copies — pick one from the list.`);
+    if (!picked) return refusal(`That isn't one of your ${match.rows[0].playerName} copies any more — pick again from the list.`);
+    row = picked;
+  } else {
+    row = bestCopy(match.rows)!;
   }
 
   // One key, one lookup: the denominator is a garnish, and fetchPrintRuns
@@ -298,4 +427,50 @@ async function flexBody(
   return { embeds: [flexEmbed(row, { username, site: siteUrl(), printRun })] };
 }
 
+/**
+ * The picker behind both text options. One collection read, no wallet
+ * provisioning (this fires per keystroke, and ensureUser is a write), and
+ * every failure — no member, no season, a read that throws — is an empty
+ * list: an autocomplete request can only be answered with choices, and the
+ * command the caller eventually submits is where a refusal can explain
+ * itself.
+ */
+async function handleFlexAutocomplete(interaction: DiscordInteraction): Promise<object> {
+  const member = requireMember(interaction);
+  const focused = focusedOption(interaction);
+  if (!member || !focused) return autocomplete([]);
+
+  try {
+    const service = createBettingServiceClient();
+    const league = leagueOf(interaction);
+    const season = await fetchCardSeason(service, league);
+    if (!season) return autocomplete([]);
+
+    const owned = await fetchInventory(service, member.id, season);
+    if (focused.name === "player") return autocomplete(playerChoices(owned, focused.value));
+    if (focused.name !== "copy") return autocomplete([]);
+
+    // The copy list is scoped to the player already chosen (or typed) and
+    // the week, if any — the same narrowing the command itself will do, so
+    // what the picker offers is exactly what a submit will accept. Before a
+    // player is chosen, it is every copy the caller owns, best first, which
+    // is a reasonable "what have I got worth showing" on its own.
+    let pool = owned;
+    const rawWeek = stringOption(interaction, "week");
+    if (rawWeek) {
+      const resolved = resolveRipWeek(rawWeek, await fetchCardEditionWeeks(service, season));
+      if ("week" in resolved) pool = pool.filter((row) => row.editionWeek === resolved.week);
+    }
+    const player = stringOption(interaction, "player");
+    if (player) {
+      const match = matchPlayer(pool, player);
+      pool = "rows" in match ? match.rows : pool.filter((row) => match.names.includes(row.playerName));
+    }
+    return autocomplete(copyChoices(pool, focused.value));
+  } catch {
+    return autocomplete([]);
+  }
+}
+
 commandHandlers.flex = handleFlex;
+autocompleteHandlers.flex = handleFlexAutocomplete;
