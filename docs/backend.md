@@ -438,6 +438,47 @@ Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
 
+### Player renames
+
+A Riot rename moves a player's identity, and this site writes that identity
+down in about twenty places — `raw_stats`, `riot_accounts`, `player_pool`,
+the draft roster, the claim, the art prefs and their signature, every card
+table keyed on the slug, the fantasy lineups, the daily-game candidates.
+
+Do not hand-write a script for it. Use the function:
+
+```sql
+select * from public.preview_player_rename('OldName', 'OLD', 'NewName', 'NEW');
+select * from public.rename_player('OldName', 'OLD', 'NewName', 'NEW');
+```
+
+`rename_player` is idempotent, returns a per-table report, and ends with a
+LEFTOVERS count that must be 0. Wrap it in `begin; … rollback;` to rehearse.
+
+Three things worth knowing:
+
+- **It merges when it has to.** If the new identity already has rows — which
+  is what happens when a stats ingest runs between the rename and the fix,
+  filing the newest games under the new name while the rest stay under the
+  old — the two halves are folded together rather than colliding on
+  `raw_stats_match_summoner_key`.
+- **It refuses when the two are different people**, proven by the one fact
+  that settles it: appearing in the same match on different teams. It also
+  refuses when both identities are claimed by different profiles.
+- **`card_art_prefs` is folded field by field**, not row-wise. Skin and motto
+  usually come from the old side, but a signature may have been inked *after*
+  the rename and exists only on the new one. Ink is not recoverable.
+
+After a rename, re-run the **Archive card edition** workflow with "Rebuild
+every week" ticked: packs mint from `card_editions`, and a week archived while
+the identity was split holds two half-players.
+
+`public.card_slug()` mirrors `cardSlug()` in `src/lib/cards/build.ts`. The two
+are pinned to one shared case table — the pgTAP suite owns it and
+`src/lib/cards/slugBridge.test.ts` reads those cases out of the `.sql` file
+and asserts the TypeScript agrees, so the implementations cannot drift apart
+silently. Add a case in the pgTAP file and both sides pick it up.
+
 ### Forfeits
 
 A series can end without every game being played. `match_reports.forfeit_team_id`
