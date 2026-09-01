@@ -89,11 +89,14 @@ target league home. Premium HQ is the intentional exception: its
 Premier/Academy toggle keeps card and fantasy destinations in the selected
 league.
 
-`SiteNavigation` renders five direct links for the active league—Players,
-Teams, Schedule, Stats, and My Team—and a direct Premium link to the gated
-Premium HQ. Active-league destinations plus Auction Draft remain under League,
-with shared destinations under Info. Premium HQ previews and links Betting, The
-Daily Stu, Player Cards, Draft League, Match Drafter, and the card economy.
+`SiteNavigation` renders three direct links for the active league—Stats, My
+Team, and Cards—where Cards is active across both leagues' collection hubs, the
+single-card share pages, and public binders. Active-league destinations plus
+Auction Draft remain under League, the gated Premium HQ heads a Premium menu
+alongside Betting, The Daily Stu, Match Drafter, FPL'dle, Higher or Lower, and
+Guess the Card, and shared destinations stay under Info. Premium HQ previews and
+links Betting, The Daily Stu, Player Cards, Draft League, Match Drafter, and the
+card economy.
 Admin and Broadcaster are Staff entries within Info, conditionally rendered
 from the server-provided staff tier. Those props do not authorize access:
 `/admin` and `/broadcaster` continue to perform their existing server-side

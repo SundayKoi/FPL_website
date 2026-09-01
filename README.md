@@ -31,15 +31,20 @@ switching and preserves the current paired destination (including supported
 query strings). Premium HQ is the intentional exception: its Premier/Academy
 toggle keeps the selected card and fantasy destinations in the same league.
 
-The header provides five direct links for the active league: **Players**,
-**Teams**, **Schedule**, **Stats**, and **My Team**. The grouped menus are:
+The header provides three direct links for the active league: **Stats**,
+**My Team**, and **Cards**. Cards stays highlighted across both leagues'
+collection hubs, the single-card share pages, and public binders. The grouped
+menus are:
 
 - **League** — Players, Teams, Schedule, and Auction Draft for the active
   league.
+- **Premium** — Premium HQ, Betting, The Daily Stu, Match Drafter, FPL'dle,
+  Higher or Lower, and Guess the Card, with the league-aware entries pointing
+  at the active league.
 - **Info** — Info, Sign Up, League Links, Rulebook, and Support the Devs.
 
-**Premium** is a direct link to the gated Premium HQ for Betting, The Daily
-Stu, Player Cards, Draft League, Match Drafter, and the card economy.
+Premium HQ remains the gated hub for Betting, The Daily Stu, Player Cards,
+Draft League, Match Drafter, and the card economy.
 
 Admin and Broadcaster appear as conditional Staff entries inside Info. Their
 visibility is only a presentation hint: `/admin` and `/broadcaster` retain
