@@ -201,6 +201,61 @@ $$;
 revoke all on function public.swap_roster_players(uuid, uuid) from public;
 grant execute on function public.swap_roster_players(uuid, uuid) to authenticated, service_role;
 
+-- The backfill runs as the trusted postgres migration role. The swap RPC also
+-- runs as its postgres-owned SECURITY DEFINER, after _require_admin() has
+-- authenticated the caller. Permit that trusted path through the existing
+-- captain-decision immutability trigger; ordinary callers still hit the full
+-- admin/service-role/captain checks in the trigger.
+create or replace function public.enforce_player_identity_decision_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if public.is_admin()
+     or coalesce((select auth.jwt()->>'role'), '') = 'service_role'
+     or current_user = 'postgres' then
+    return new;
+  end if;
+
+  if row(
+    new.player_pool_id,
+    new.profile_id,
+    new.league_team_id,
+    new.league,
+    new.season,
+    new.requested_by,
+    new.source,
+    new.requested_at
+  ) is distinct from row(
+    old.player_pool_id,
+    old.profile_id,
+    old.league_team_id,
+    old.league,
+    old.season,
+    old.requested_by,
+    old.source,
+    old.requested_at
+  ) then
+    raise exception 'IDENTITY_DECISION_IMMUTABLE: identity request fields cannot change during captain approval';
+  end if;
+
+  if old.status <> 'pending' or new.status <> 'approved' then
+    raise exception 'IDENTITY_DECISION_TRANSITION: captains may only approve pending identity requests';
+  end if;
+
+  if new.decided_by is distinct from (select auth.uid()) then
+    raise exception 'IDENTITY_DECIDER_MISMATCH: decided_by must identify the approving captain';
+  end if;
+
+  if new.decided_at is null then
+    raise exception 'IDENTITY_DECISION_TIME_REQUIRED: decided_at is required for captain approval';
+  end if;
+
+  return new;
+end
+$$;
+
 -- Repair current-season rows left stale by earlier versions of the swap RPC.
 -- Identity links move only when one canonical player resolves to one active
 -- canonical team. Riot memberships move only when one Riot ID resolves to one
