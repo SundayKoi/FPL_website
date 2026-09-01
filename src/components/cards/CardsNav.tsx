@@ -42,6 +42,7 @@ export function cardsNavGroups({ base }: { base: string }): NavGroup[] {
         { label: "Your Binder", href: `${base}/packs#binder`, blurb: "Six cards on public display" },
         { label: "Roster Sets", href: `${base}/packs#team-sets`, blurb: "Hold a team's five from one week, get paid" },
         { label: "Trades", href: `${base}/trades`, blurb: "Swap copies with other collectors" },
+        { label: "Market", href: `${base}/market`, blurb: "Buy and sell copies for betting dollars" },
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
         { label: "The Draw", href: `${base}/draw`, blurb: "One card wins every week" },
       ],
