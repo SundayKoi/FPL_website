@@ -12,6 +12,12 @@
  * registration) which this task doesn't implement, so `item` just registers
  * as a plain required integer option.
  *
+ * The card commands are this repo's own, with no ancestor in the source
+ * bot: `/rip` (the Daily Rip, src/lib/betting/discord/rip.ts) and `/flex`
+ * (show off an owned copy, src/lib/betting/discord/flex.ts). Discord learns
+ * about a new command only from a run of this script, so adding a handler
+ * is not enough — re-run it after any change to DISCORD_COMMANDS.
+ *
  * PUTs the full command array to Discord's guild-commands endpoint, which
  * is declarative: any command already registered but missing from this
  * array is deleted, same as re-running `tree.sync()` in the source bot.

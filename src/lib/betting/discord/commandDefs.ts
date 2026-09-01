@@ -60,6 +60,40 @@ export const DISCORD_COMMANDS: CommandDef[] = [
       },
     ],
   },
+  {
+    name: "flex",
+    description: "Show off a card you own",
+    options: [
+      {
+        // Part of a name is enough: nobody types "Doug" with the tag, and
+        // the handler answers an ambiguous match with the names it found
+        // rather than picking one of them for you.
+        name: "player",
+        description: "who — part of the name is fine",
+        type: OPTION_TYPE.STRING,
+        required: true,
+      },
+      {
+        name: "league",
+        description: "Which league's collection (default premier)",
+        type: OPTION_TYPE.STRING,
+        required: false,
+        choices: [
+          { name: "Premier", value: "premier" },
+          { name: "Academy", value: "academy" },
+        ],
+      },
+      {
+        // Free text for /rip's reason: the archive grows every Monday and
+        // registration is a CI run. Same resolver, so the two commands
+        // accept the same words.
+        name: "week",
+        description: "an edition week: 1, 2, … or YYYY-MM-DD",
+        type: OPTION_TYPE.STRING,
+        required: false,
+      },
+    ],
+  },
   { name: "daily", description: "Claim your daily bonus (streak escalates!)" },
   { name: "weekly", description: "Claim your weekly bonus (streak escalates!)" },
   {

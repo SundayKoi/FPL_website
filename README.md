@@ -241,6 +241,10 @@ service's dashboard in a browser.
    `https://<site-origin>/api/discord/interactions`. Copy the application's
    public key into `DISCORD_PUBLIC_KEY` and register the commands with
    `npm run register:discord-commands` using the bot/app environment values.
+   That script is the only thing that tells Discord which commands exist, so
+   re-run it after any change to `src/lib/betting/discord/commandDefs.ts` —
+   including the card commands `/rip` (open the free daily pack) and `/flex`
+   (post a card out of your collection, pictured as the copy you own).
 
 ### Step 3 — Vercel
 

@@ -26,6 +26,9 @@ import "@/lib/betting/discord/components";
 // Side-effect import only: rip.ts registers the /rip (Daily Rip) handler —
 // same registration-at-module-load convention as the two imports above.
 import "@/lib/betting/discord/rip";
+// Side-effect import only: flex.ts registers the /flex (show off an owned
+// copy) handler — same registration-at-module-load convention again.
+import "@/lib/betting/discord/flex";
 
 // Exact copy of the old bot's NO_ACCESS_MSG (bot/main.py) — same wording
 // users already saw from the gateway bot's paid-access gate.
