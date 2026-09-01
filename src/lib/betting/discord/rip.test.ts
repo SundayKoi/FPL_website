@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -25,7 +25,7 @@ function pull(name: string, overall: number, extra: Partial<{ foil: boolean; foi
 }
 
 const ok = (cards: ReturnType<typeof pull>[], extra: Partial<Extract<OpenPackResult, { ok: true }>> = {}): OpenPackResult =>
-  ({ ok: true, cards, balance: 500, ...extra });
+  ({ ok: true, cards, balance: 500, editionWeek: "2026-08-24", ...extra });
 
 describe("ripFollowup", () => {
   it("turns a failed rip into a plain error message", () => {
@@ -56,8 +56,10 @@ describe("ripFollowup", () => {
     const body = ripFollowup(ok([pull("Doug", 82), pull("Spies", 61)]), "Doug") as {
       embeds: { image?: { url: string }; color: number }[];
     };
-    expect(body.embeds[1].image?.url).toBe("https://fpl.example/card/doug/card.png");
-    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/spies/card.png");
+    // The week rides the url so the picture is the print that was pulled,
+    // and so Discord cannot serve last week's render for it.
+    expect(body.embeds[1].image?.url).toBe("https://fpl.example/card/doug/card.png?w=2026-08-24");
+    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/spies/card.png?w=2026-08-24");
     // Both test pulls are gold; the stripes should say so.
     expect(body.embeds[1].color).toBe(0xe8c14b);
     delete process.env.SITE_URL;
@@ -97,7 +99,43 @@ describe("ripFollowup", () => {
     };
     expect(body.embeds[1].image).toBeUndefined();
     expect(body.embeds[1].description).toContain("MOMENT");
-    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/doug/card.png");
+    expect(body.embeds[2].image?.url).toBe("https://fpl.example/card/doug/card.png?w=2026-08-24");
     delete process.env.SITE_URL;
+  });
+});
+
+
+describe("the picture is the print that was pulled", () => {
+  // pullEmbed only draws a picture when it knows where the site lives.
+  beforeEach(() => { process.env.SITE_URL = "https://fpl.example"; });
+  afterEach(() => { delete process.env.SITE_URL; });
+
+  // Two bugs, one URL. The image is the card as it stood TODAY rather than
+  // in the week the pack minted from — and because Discord's proxy caches by
+  // URL, /card/doug-na1/card.png being the same string every week meant the
+  // first render Discord ever saw was the one it kept serving. Last week's
+  // picture under this week's text, reported exactly that way.
+  it("stamps the edition week on every card picture", () => {
+    const followup = ripFollowup(ok([pull("Doug", 90)], { editionWeek: "2026-08-24" }), "Doug");
+    const embeds = (followup as { embeds: { image?: { url: string } }[] }).embeds;
+    const picture = embeds.find((embed) => embed.image)?.image?.url;
+    expect(picture).toContain("/card/doug/card.png?w=2026-08-24");
+  });
+
+  it("leaves the url bare when the pack fell back to the live cards", () => {
+    const followup = ripFollowup(ok([pull("Doug", 90)], { editionWeek: null }), "Doug");
+    const embeds = (followup as { embeds: { image?: { url: string } }[] }).embeds;
+    const picture = embeds.find((embed) => embed.image)?.image?.url;
+    expect(picture).toContain("/card/doug/card.png");
+    expect(picture).not.toContain("?w=");
+  });
+
+  it("gives two different weeks two different urls, which is what breaks the cache", () => {
+    const urlFor = (week: string) => {
+      const followup = ripFollowup(ok([pull("Doug", 90)], { editionWeek: week }), "Doug");
+      const embeds = (followup as { embeds: { image?: { url: string } }[] }).embeds;
+      return embeds.find((embed) => embed.image)?.image?.url;
+    };
+    expect(urlFor("2026-08-24")).not.toBe(urlFor("2026-08-31"));
   });
 });

@@ -2,10 +2,23 @@
 // card link is pasted (wired via openGraph.images on the share page), and
 // what the "Download PNG" button serves. A flat re-render of the card
 // (satori has no CSS 3D), built from the same live card data.
+//
+// `?w=YYYY-MM-DD` pictures that week's ARCHIVED print instead of the live
+// card. Two separate things go wrong without it, and /rip hit both:
+//
+//   1. A pull is FROM a week. Ripping a card out of the 18 August edition and
+//      showing today's rating means the picture disagrees with the text of
+//      the very message it sits in.
+//   2. Discord's image proxy caches by URL. /card/doug-na1/card.png is the
+//      same string every week forever, so the first render Discord ever saw
+//      is the one it keeps serving — last week's card under this week's
+//      text, which is exactly how this was reported. Putting the week in the
+//      query string makes each edition its own URL, so correctness and cache
+//      busting are the same change rather than two.
 
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
-import { fetchAllCardSeasons, fetchCardBySlug } from "@/lib/cards/queries";
+import { fetchAllCardSeasons, fetchCardBySlug, fetchEditionCardBySlug } from "@/lib/cards/queries";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import { resolvePrintArtUrl } from "@/lib/packs/skins";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -23,8 +36,12 @@ const TIER_COLORS: Record<PlayerCardData["tier"]["key"], string> = {
   challenger: "#ffd166",
 };
 
-export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  // Validated rather than trusted: this goes straight into a query filter,
+  // and a junk value should picture the live card rather than nothing.
+  const requestedWeek = new URL(request.url).searchParams.get("w");
+  const editionWeek = requestedWeek && /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek) ? requestedWeek : null;
   // Anon client on purpose: this route renders for link unfurlers (Discord,
   // Twitter bots) with no cookies — everything it reads is public data.
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
@@ -33,7 +50,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   // Share URLs span both leagues — try Premier's season, then Academy's.
   let card: PlayerCardData | null = null;
   for (const { season } of await fetchAllCardSeasons(supabase)) {
-    card = await fetchCardBySlug(supabase, season, slug);
+    // An unarchived week falls through to the live card rather than 404ing:
+    // a picture of the right player with the wrong week beats no picture.
+    card = editionWeek ? await fetchEditionCardBySlug(supabase, season, editionWeek, slug) : null;
+    card ??= await fetchCardBySlug(supabase, season, slug);
     if (card) break;
   }
 

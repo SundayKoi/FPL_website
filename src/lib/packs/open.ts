@@ -144,6 +144,10 @@ export type OpenPackResult =
       ok: true;
       cards: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean; inventoryId: number }[];
       balance: number;
+      /** The archived week this pack minted from, or null when it fell back
+       *  to the live cards. A pull is FROM a week, and anything picturing it
+       *  has to say which — see the share PNG's `?w=`. */
+      editionWeek: string | null;
       /** Set on a daily rip: consecutive Eastern days ripped, and the
        *  betting-dollar bonus this rip paid (0 except every 7th day). */
       streak?: number;
@@ -503,6 +507,7 @@ export async function openPackFor(
       inventoryId: ids[index],
     })),
     balance: (profile as { balance: number } | null)?.balance ?? opts.fallbackBalance ?? 0,
+    editionWeek,
     streak,
     streakBonus,
     // Free packs left after this open, when one paid for it — the shop
@@ -707,6 +712,9 @@ export async function openChampionsPack(
 
   return {
     ok: true,
+    // A Champions relic is minted live rather than drawn from an archived
+    // week, so there is no edition for a picture to ask for.
+    editionWeek: null,
     cards: [
       {
         card,
