@@ -45,3 +45,24 @@ export function cardImageUrl(
     : `v=${mondayOf(now)}`;
   return `${site}/card/${slug}/card.png?${key}`;
 }
+
+/**
+ * The URL of one OWNED copy's PNG (`/copy/{id}/card.png`), keyed so a cache
+ * cannot outlive what it pictures.
+ *
+ * A copy is frozen: its ratings, its parallel, its ink and its edition were
+ * all decided at mint and never move again. That makes the id ALMOST a
+ * sufficient key on its own — which is exactly the reasoning that produced
+ * the /rip bug, so it does not get to stand unexamined. There is one thing
+ * on a copy that changes after it exists: an expedition mark, stamped when
+ * a deployed card comes home and replaceable upward (trail < sigil <
+ * legend). That is the whole mutable surface, so that is the key.
+ *
+ * `mark` is the copy's `card.expedition?.mark`, or null for a card that has
+ * never been on one. "none" rather than an empty value because an empty
+ * query parameter is the sort of thing a proxy is entitled to drop, and a
+ * dropped key is no key.
+ */
+export function copyImageUrl(site: string, copy: { id: number; expeditionMark?: string | null }): string {
+  return `${site}/copy/${copy.id}/card.png?m=${encodeURIComponent(copy.expeditionMark ?? "none")}`;
+}
