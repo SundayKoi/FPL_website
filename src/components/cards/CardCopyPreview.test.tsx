@@ -151,3 +151,85 @@ describe("CardCopyPreview", () => {
     expect(renderedCards()).toHaveLength(0);
   });
 });
+
+describe("CardCopyPreview print numbers", () => {
+  it("prints the serial against its run when the caller knows both", async () => {
+    renderPreview({ caption: { ...caption, printNumber: 7, printRun: 43 } });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(screen.getByText("#7 of 43")).toBeTruthy();
+  });
+
+  it("prints neither half alone", async () => {
+    // A serial with no denominator, and a run size belonging to no copy,
+    // are both numbers nobody can read.
+    renderPreview({ caption: { ...caption, printNumber: 7 } });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
+
+    cleanup();
+
+    renderPreview({ caption: { ...caption, printRun: 43 } });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
+  });
+});
+
+describe("CardCopyPreview provenance", () => {
+  it("has no panel at all for a caller that didn't ask for one", async () => {
+    renderPreview();
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(screen.queryByTestId("provenance")).toBeNull();
+  });
+
+  it("reads the chain on first open and shows it in order", async () => {
+    const loadProvenance = vi
+      .fn()
+      .mockResolvedValue(["Pulled by Doug · Aug 24", "Traded to Spies · Aug 30"]);
+    renderPreview({ loadProvenance });
+
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(loadProvenance).toHaveBeenCalledTimes(1);
+    const panel = screen.getByTestId("provenance");
+    expect(panel.textContent).toContain("Pulled by Doug · Aug 24");
+    expect(panel.textContent).toContain("Traded to Spies · Aug 30");
+  });
+
+  it("keeps the chain across re-opens — a copy's history is settled", async () => {
+    const loadProvenance = vi.fn().mockResolvedValue(["Pulled by Doug · Aug 24"]);
+    renderPreview({ loadProvenance });
+
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+    await click(screen.getByRole("button", { name: "Close card preview" }));
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(loadProvenance).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("provenance").textContent).toContain("Pulled by Doug · Aug 24");
+  });
+
+  it("says the history couldn't be read rather than showing an empty panel", async () => {
+    renderPreview({ loadProvenance: vi.fn().mockResolvedValue(null) });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(screen.getByText("Its history couldn't be read.")).toBeTruthy();
+  });
+
+  it("distinguishes a refusal from a copy with nothing recorded", async () => {
+    renderPreview({ loadProvenance: vi.fn().mockResolvedValue([]) });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(screen.getByText("Nothing recorded for this copy.")).toBeTruthy();
+  });
+
+  it("survives a rejected read", async () => {
+    renderPreview({ loadProvenance: vi.fn().mockRejectedValue(new Error("nope")) });
+    await click(screen.getByRole("button", { name: "View Canny card" }));
+
+    expect(screen.getByText("Its history couldn't be read.")).toBeTruthy();
+    // The card itself is unaffected — the chain is something shown as well
+    // as the copy, never instead of it.
+    expect(renderedCards()).toHaveLength(1);
+  });
+});

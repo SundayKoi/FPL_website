@@ -77,6 +77,7 @@ function makeCopy(
     card: makeCard(playerName, role),
     packOpenId: null,
     acquiredAt: "2026-08-25T00:00:00.000Z",
+    printNumber: null,
     ...extra,
   };
 }

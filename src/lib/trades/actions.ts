@@ -19,6 +19,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchProvenance, type ProvenanceEvent } from "@/lib/cards/provenance";
 import { ECLIPSE_FOIL_TYPE, MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
 import { patronActive } from "@/lib/patron/flames";
 
@@ -65,6 +66,8 @@ type PartnerCard = Pick<
 type PartnerInventoryResult = { ok: true; cards: PartnerCard[] } | { ok: false; error: string };
 
 type InventoryCardResult = { ok: true; card: PlayerCardData } | { ok: false; error: string };
+
+type ProvenanceResult = { ok: true; events: ProvenanceEvent[] } | { ok: false; error: string };
 
 interface OwnedCardRow {
   id: number;
@@ -449,6 +452,32 @@ export async function fetchInventoryCardAction(inventoryId: number): Promise<Inv
   const row = data as { id: number; card: PlayerCardData | null } | null;
   if (!row?.card) return { ok: false, error: "That card is no longer available." };
   return { ok: true, card: row.card };
+}
+
+/**
+ * One copy's chain of custody, for the preview's provenance panel.
+ *
+ * Sits beside fetchInventoryCardAction because it answers the other half of
+ * the same question — that one is "what does this copy look like", this one
+ * is "where has it been" — and it is gated identically and for identical
+ * reasons: a members-only endpoint so the league's ownership history isn't
+ * an open read for the whole internet, but not scoped to an owner, because
+ * the chain of a copy you are being OFFERED names people who are not you
+ * and that is precisely what you want to see before saying yes.
+ *
+ * Fetched on demand rather than shipped with the card: almost no copy ever
+ * gets its history opened, and a collection page that prefetched every
+ * chain would pay for hundreds of reads to render a handful of lines.
+ */
+export async function fetchProvenanceAction(inventoryId: number): Promise<ProvenanceResult> {
+  if (!Number.isInteger(inventoryId)) return { ok: false, error: "That card doesn't exist." };
+
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+
+  const service = createBettingServiceClient();
+  return { ok: true, events: await fetchProvenance(service, inventoryId) };
 }
 
 /**

@@ -37,6 +37,10 @@ export interface InventoryRow {
   card: PlayerCardData;
   packOpenId: number | null;
   acquiredAt: string;
+  /** This copy's stamp within its print run — 1 for the first ever pulled.
+   *  Null only on a copy written before print numbering existed in this
+   *  environment; the database assigns one to everything minted since. */
+  printNumber: number | null;
 }
 
 interface InventoryDbRow {
@@ -54,13 +58,14 @@ interface InventoryDbRow {
   card: PlayerCardData;
   pack_open_id: number | null;
   acquired_at: string;
+  print_number: number | null;
 }
 
 /** The columns a collection read needs. Named once because two functions
  *  select exactly the same shape and a drift between them would hand one
  *  caller a row the mapper can't read. */
 const INVENTORY_COLUMNS =
-  "id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at";
+  "id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card, pack_open_id, acquired_at, print_number";
 
 /**
  * PostgREST caps a response at max_rows (1000 in config.toml, and the same
@@ -183,6 +188,7 @@ function mapInventoryRow(row: InventoryDbRow, card: PlayerCardData): InventoryRo
     card,
     packOpenId: row.pack_open_id,
     acquiredAt: row.acquired_at,
+    printNumber: row.print_number ?? null,
   };
 }
 
@@ -404,4 +410,76 @@ export async function fetchOwnedSlugs(
     if (batch.length < INVENTORY_PAGE) break;
   }
   return [...slugs];
+}
+
+/** A print's key in the map fetchPrintRuns returns. Exported so a caller
+ *  building a lookup and a caller reading one can't disagree about the
+ *  separator — `week|slug`, and neither half can contain a pipe. */
+export function printRunKey(editionWeek: string, slug: string): string {
+  return `${editionWeek}|${slug}`;
+}
+
+/** Slugs per request. A print run row is tiny, so the limit that matters is
+ *  the URL: PostgREST puts an `in.(…)` list in the query string, and a few
+ *  hundred slugs of ~20 characters is already a long one. */
+const PRINT_RUN_CHUNK = 120;
+const PRINT_RUN_PAGE = 1000;
+const PRINT_RUN_MAX_PAGES = 20;
+
+/**
+ * How many copies each named print has ever stamped — the "of 43" half of
+ * "#7 of 43".
+ *
+ * Takes the (week, slug) pairs a page is actually rendering rather than a
+ * season, because a season's counter table has a row for every card in
+ * every edition week — thousands — while a collection names a few dozen
+ * prints. Asking for the whole season would page through most of the table
+ * to answer a question about 40 rows of it.
+ *
+ * Queried by slug and filtered back down to the requested pairs: a slug is
+ * one `in.()` list, whereas a pair list would need one filter per pair.
+ * That over-fetches a card's other weeks, which is why the chunk read is
+ * ALSO paged — 120 slugs across a season's worth of weeks can pass a
+ * thousand rows, and an unpaged select would silently return the first
+ * thousand of them (fetchInventory's bug, in a table where the missing rows
+ * would show up as a copy with no denominator).
+ *
+ * Errors return what has been read so far: a missing print run makes a chip
+ * disappear, which is the right failure for a garnish.
+ */
+export async function fetchPrintRuns(
+  supabase: SupabaseClient,
+  season: string,
+  keys: { editionWeek: string; slug: string }[],
+): Promise<Map<string, number>> {
+  const minted = new Map<string, number>();
+  if (keys.length === 0) return minted;
+
+  const wanted = new Set(keys.map((key) => printRunKey(key.editionWeek, key.slug)));
+  const slugs = [...new Set(keys.map((key) => key.slug))];
+
+  for (let start = 0; start < slugs.length; start += PRINT_RUN_CHUNK) {
+    const chunk = slugs.slice(start, start + PRINT_RUN_CHUNK);
+    for (let page = 0; page < PRINT_RUN_MAX_PAGES; page += 1) {
+      const from = page * PRINT_RUN_PAGE;
+      const { data, error } = await supabase
+        .from("card_print_runs")
+        .select("edition_week, slug, minted")
+        .eq("season", season)
+        .in("slug", chunk)
+        // The primary key's own order, so a page boundary can't repeat or
+        // skip a row the way an ordering with ties would.
+        .order("slug")
+        .order("edition_week")
+        .range(from, from + PRINT_RUN_PAGE - 1);
+      if (error) return minted;
+      const batch = (data as { edition_week: string; slug: string; minted: number }[]) ?? [];
+      for (const row of batch) {
+        const key = printRunKey(row.edition_week, row.slug);
+        if (wanted.has(key)) minted.set(key, row.minted);
+      }
+      if (batch.length < PRINT_RUN_PAGE) break;
+    }
+  }
+  return minted;
 }

@@ -35,6 +35,7 @@ import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
+import { provenanceLinesFor } from "./provenanceLines";
 
 /** One owned copy: the flat fields the value table and the labels read, plus
  *  the frozen print itself — the only place a copy's art, ink and holograph
@@ -47,6 +48,11 @@ export interface DustCopy {
   signed: boolean;
   editionWeek: string;
   card: PlayerCardData;
+  /** This copy's stamp and the size of its print run, when the shelf above
+   *  knows them. Optional: a page that hasn't read the counters shows the
+   *  same drawer, minus one chip. */
+  printNumber?: number | null;
+  printRun?: number | null;
 }
 
 /** The art this copy printed in — the signature champion in whichever skin
@@ -213,6 +219,10 @@ export default function DustControls({
                 <CardCopyPreview
                   card={copy.card}
                   foil={copy.foil}
+                  // The drawer is where a collector looks hardest at one
+                  // copy — it is the last screen before destroying it — so
+                  // it is where the chain of custody belongs.
+                  loadProvenance={() => provenanceLinesFor(copy.id)}
                   caption={{
                     playerName,
                     editionWeek: copy.editionWeek,
@@ -220,6 +230,8 @@ export default function DustControls({
                     foil: copy.foil,
                     signed: copy.signed,
                     altArt: copy.card.artSkin > 0,
+                    printNumber: copy.printNumber ?? null,
+                    printRun: copy.printRun ?? null,
                   }}
                   label={`Look at the ${describe}`}
                   className="shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] font-bold text-steel transition hover:border-coral hover:text-coral"
