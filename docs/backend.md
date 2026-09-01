@@ -164,7 +164,7 @@ Postgres database and public schema:
 | League and identity | `profiles`, `league_settings`, `league_teams`, `teams`, `riot_accounts`, `roster_memberships`, `league_team_captains`, `player_identity_links`, `fixtures` | Season, tier, roster, canonical player/profile identity, captain, team, and schedule configuration. |
 | Auction draft | `drafts`, `players`, `lots`, `bids` | Nomination, bidding, countdown settlement, admin overrides, roster assignment, chat, and Nemesis picks are protected by RPCs and RLS. |
 | Canonical players and free agency | `player_pool`, `free_agency_avg_bids`, `signups`, `info_resources` | Cross-draft player metadata, free-agency data, signups, and editable information resources. |
-| Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. |
+| Match reporting and stats | `match_reports`, `match_report_games`, `match_codes`, `raw_stats`, `stats_*` views | Captains report series; the Riot ingester writes raw rows; views provide player, team, champion, record, and game-log aggregates. A series that ended early carries `match_reports.forfeit_team_id` — see "Forfeits" below. |
 | Betting | `betting_profiles`, `betting_teams`, `betting_events`, `betting_markets`, `betting_bets`, `betting_ledger`, pick'em/store/season tables | Service-role RPCs handle wallet, bet, lock, resolve, cancel, and audit transitions after app-layer Discord/staff checks. Schedule-linked events identify the reusable Premier/Academy season catalog entries; generated markets retain `fixture_id` for idempotent retries. |
 | Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. |
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
@@ -414,7 +414,7 @@ change and update their local state.
 
 | Workflow | Entry point | Writes/side effects |
 | --- | --- | --- |
-| Nightly match stats | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` | Reads pending reports, fetches Riot matches, writes `raw_stats` with the service key, resolves sides, and marks report games ingested/failed. |
+| Nightly match stats | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` | Reads pending reports, fetches Riot matches, writes `raw_stats` with the service key, resolves sides, and marks report games ingested/failed. A report with no games settles as `forfeit` when one is declared and fails loud when one is not. |
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, and posts movement/showcase content to Discord. |
@@ -437,6 +437,39 @@ generator never resolves, cancels, or recreates weekly events.
 Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
+
+### Forfeits
+
+A series can end without every game being played. `match_reports.forfeit_team_id`
+names the side that conceded (constrained to one of the two teams in the
+series) and `forfeit_note` carries the human reason.
+
+The rule that matters everywhere downstream: **a forfeit removes the games
+nobody played, not the ones they did.** Report the series score as the
+forfeit result and list only the games with real Riot match ids. Those games
+ingest normally into `raw_stats`, so player stats, cards, fantasy points and
+the leaderboards all see exactly what was actually played. Never invent game
+rows to make the games list add up to the score — the gap between them IS the
+forfeit, and `compute_score_warning` knows to expect it.
+
+Two knock-on behaviours in `scripts/riot_stats_ingest.py`:
+
+- `compute_score_warning` takes a `forfeit_side`. Without a forfeit it demands
+  the tallied wins equal the reported score; with one it only complains about
+  what is still impossible — a side showing more real wins than the score
+  credits it, or the conceding team being reported as the winner.
+- `rollup_report_status` rolls an empty game set up to `forfeit` when one is
+  declared and `failed` when it is not. `forfeit` is deliberately not
+  `ingested`: nothing was verified, because there was nothing to verify. It is
+  still terminal, and `sync_fixture_score` treats it as such, so the result
+  reaches `/schedule`.
+
+Not gated behind admin approval, deliberately: a captain can already push a
+self-declared score onto a fixture by reporting one real game with an invented
+series score, so a zero-game forfeit removes the last verifiable game rather
+than the first. The existing controls still apply — `sync_fixture_score` writes
+only while the fixture's score is null, and `/schedule`'s editor is the
+correction path.
 
 ## Agent workflow by task type
 

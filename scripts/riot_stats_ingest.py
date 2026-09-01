@@ -1419,7 +1419,9 @@ def sync_fixture_score(cfg, report, team_names=None):
     the score is not written at all, because a silently reversed result is
     worse than an empty one."""
     fixture_id = report.get("fixture_id")
-    if report.get("status") != "ingested" or not fixture_id:
+    # 'forfeit' is as final as 'ingested' — a no-show series is settled, it
+    # just settled without any games. The schedule wants the result either way.
+    if report.get("status") not in ("ingested", "forfeit") or not fixture_id:
         return False
 
     score_a = report.get("score_a")
@@ -1471,18 +1473,43 @@ def sync_fixture_score(cfg, report, team_names=None):
     return False
 
 
-def rollup_report_status(game_statuses):
+def forfeit_side_of(report):
+    """'a', 'b' or None — which side of THIS report conceded. Resolved by id
+    rather than trusted as given: a forfeit_team_id naming neither team is a
+    data bug, and treating it as "no forfeit" fails safe (the ordinary strict
+    score check applies and staff see the mismatch) instead of quietly
+    relaxing the cross-check on a report nobody can interpret."""
+    team = report.get("forfeit_team_id")
+    if not team:
+        return None
+    if team == report.get("team_a_id"):
+        return "a"
+    if team == report.get("team_b_id"):
+        return "b"
+    return None
+
+
+def rollup_report_status(game_statuses, forfeited=False):
     """Pure status-rollup (spec step 7): all games ingested -> 'ingested';
     any needs_side -> 'needs_sides'; any failed -> 'failed' (a hard
-    failure outranks an unresolved side). A report with zero games rolls
-    up to 'failed', not 'ingested' -- there is nothing to have actually
-    verified, so an empty match_report_games set must never read as a
-    completed ingest. `ingest_report` also guards this explicitly (with a
-    meaningful error_text) before it ever reaches this function; the check
-    here is defense in depth."""
+    failure outranks an unresolved side).
+
+    A report with zero games rolls up to 'failed', not 'ingested' -- there
+    is nothing to have actually verified, so an empty match_report_games set
+    must never read as a completed ingest. `ingest_report` also guards this
+    explicitly (with a meaningful error_text) before it ever reaches this
+    function; the check here is defense in depth.
+
+    UNLESS a forfeit was declared, which is the one case where an empty game
+    set is the correct and complete answer: a team no-showed and the series
+    never happened. That rolls up to 'forfeit' -- deliberately NOT 'ingested',
+    so the invariant above stays literally true and the queue can still tell
+    the two apart at a glance. Games that WERE played still decide the status
+    on their own; a concession after game one is an ordinary ingest that
+    happens to carry a forfeit marker."""
     statuses = set(game_statuses)
     if not statuses:
-        return "failed"
+        return "forfeit" if forfeited else "failed"
     if "failed" in statuses:
         return "failed"
     if "needs_side" in statuses:
@@ -1490,13 +1517,39 @@ def rollup_report_status(game_statuses):
     return "ingested"
 
 
-def compute_score_warning(score_a, score_b, wins_a, wins_b):
+def compute_score_warning(score_a, score_b, wins_a, wins_b, forfeit_side=None):
     """Pure score cross-check (spec step 8): None when the tallied game
     wins match the reported series score, else a human-readable mismatch
-    message, e.g. 'Reported 3-0 but games show 2-1.'"""
-    if (wins_a, wins_b) == (score_a, score_b):
-        return None
-    return f"Reported {score_a}-{score_b} but games show {wins_a}-{wins_b}."
+    message, e.g. 'Reported 3-0 but games show 2-1.'
+
+    A FORFEIT changes what "matching" means. When one side concedes, the
+    played games are a SUBSET of the series — a 2-0 forfeit win after one
+    real game is correct, and warning about it every time trains staff to
+    ignore the field. `forfeit_side` is 'a', 'b' or None, and when it is set
+    the check becomes the things that are still real mistakes:
+
+      * either side showing more real wins than the series credits them,
+      * the conceding side being reported as the winner,
+      * more games played than the series score can account for.
+
+    Everything in between is exactly what a forfeit looks like."""
+    if forfeit_side is None:
+        if (wins_a, wins_b) == (score_a, score_b):
+            return None
+        return f"Reported {score_a}-{score_b} but games show {wins_a}-{wins_b}."
+
+    if wins_a > score_a or wins_b > score_b:
+        return (
+            f"Reported {score_a}-{score_b} as a forfeit, but games already show "
+            f"{wins_a}-{wins_b} — a forfeited series cannot have more games won than reported."
+        )
+    winner_score, loser_score = (score_b, score_a) if forfeit_side == "a" else (score_a, score_b)
+    if winner_score <= loser_score:
+        return (
+            f"A forfeit was declared against the side reported at {loser_score}, "
+            f"but the score {score_a}-{score_b} does not show the other team winning."
+        )
+    return None
 
 
 def _tally_report_wins(cfg, report, match_ids, team_names):
@@ -1563,7 +1616,21 @@ def ingest_report(cfg, report, team_names):
     # delete failing after the report row lands but before its games do)
     # and deliberately (any captain can insert a bare match_reports row via
     # REST). Fail loud instead, before touching the fixture.
+    forfeit_side = forfeit_side_of(report)
+
     if not games:
+        # A declared forfeit is the one empty report that is complete rather
+        # than broken: nobody played, so there is nothing to verify and never
+        # will be. It settles as 'forfeit' and syncs the schedule, so the
+        # result stops being invisible. Everything else still fails loud.
+        if forfeit_side is not None:
+            warning_text = compute_score_warning(
+                report.get("score_a"), report.get("score_b"), 0, 0, forfeit_side
+            )
+            if not cfg.dry_run:
+                update_report_status(cfg, report_id, "forfeit", None, warning_text, _utc_now_iso())
+                sync_fixture_score(cfg, {**report, "status": "forfeit"}, team_names)
+            return {"status": "forfeit", "games": [], "warning": warning_text, "error": None}
         error_text = "Report has no games to ingest."
         if not cfg.dry_run:
             update_report_status(cfg, report_id, "failed", error_text, None, None)
@@ -1644,14 +1711,18 @@ def ingest_report(cfg, report, team_names):
         update_game_status(cfg, game_id, "ingested", None, blue_id)
         game_results.append({"game_id": game_id, "match_id": match_id, "status": "ingested"})
 
-    report_status = rollup_report_status([g["status"] for g in game_results])
+    report_status = rollup_report_status(
+        [g["status"] for g in game_results], forfeited=forfeit_side is not None
+    )
     error_text = "; ".join(g["error"] for g in game_results if g["status"] == "failed" and g.get("error")) or None
 
     warning_text = None
     if report_status == "ingested" and not cfg.dry_run:
         tally = _tally_report_wins(cfg, report, [g["match_id"] for g in games], team_names)
         if tally is not None:
-            warning_text = compute_score_warning(report.get("score_a"), report.get("score_b"), tally[0], tally[1])
+            warning_text = compute_score_warning(
+                report.get("score_a"), report.get("score_b"), tally[0], tally[1], forfeit_side
+            )
 
     ingested_at = _utc_now_iso() if report_status == "ingested" and not cfg.dry_run else None
 

@@ -87,6 +87,12 @@ export interface SubmitReportInput {
   scoreB: number;
   draftUrl: string | null;
   fixtureId: string | null;
+  /** The team that conceded, when the series did not go the distance. The
+   *  `games` list stays what was ACTUALLY played — a forfeit does not invent
+   *  rows for the games nobody turned up for, which is what keeps the stats
+   *  (and the cards built off them) honest. */
+  forfeitTeamId: string | null;
+  forfeitNote: string | null;
   games: { gameNumber: number; matchId: string; blueTeamId: string | null }[];
 }
 
@@ -447,12 +453,18 @@ export async function submitReport(
       score_b: input.scoreB,
       draft_url: input.draftUrl,
       fixture_id: input.fixtureId,
+      forfeit_team_id: input.forfeitTeamId,
+      forfeit_note: input.forfeitNote,
       submitted_by: submittedBy,
     })
     .select("id")
     .single();
   if (reportError) throw reportError;
   const reportId = (report as { id: string }).id;
+
+  // A no-show has no games at all, and inserting an empty array is a
+  // pointless round trip that PostgREST answers with a 201 either way.
+  if (input.games.length === 0) return { reportId };
 
   const gamesPayload = input.games.map((g) => ({
     report_id: reportId,

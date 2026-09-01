@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { LeagueTeam } from "@/lib/matches/types";
 import { fixGameSide, type MyReportRow } from "@/lib/captain/queries";
 import { friendlyErrorMessage } from "@/lib/captain/errors";
-import { FixtureChips, StatusBadge } from "./reportStatus";
+import { FixtureChips, ForfeitLine, StatusBadge } from "./reportStatus";
 
 /**
  * The "My reports" half of the report section: the captain's own reports
@@ -68,6 +68,7 @@ export default function MyReportsList({
                   {r.season_phase} · {r.season}
                 </span>
               </div>
+              <ForfeitLine team={r.forfeit_team_id ? teamAbbr(r.forfeit_team_id) : null} note={r.forfeit_note} />
               {r.error_text && <p className="mt-1 text-xs text-red-400">{r.error_text}</p>}
               {r.warning_text && <p className="mt-1 text-xs text-amber-300">{r.warning_text}</p>}
               <ul className="mt-2 flex flex-col gap-1.5">
