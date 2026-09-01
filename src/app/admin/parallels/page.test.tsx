@@ -29,8 +29,8 @@ const ParallelsPreviewPage = (await import("./page")).default;
 
 afterEach(cleanup);
 
-const card = (name: string, overall: number) =>
-  ({ slug: name.toLowerCase(), name, overall, tier: { key: "gold", label: "Gold" } }) as never;
+const card = (name: string, overall: number, standout = false) =>
+  ({ slug: name.toLowerCase(), name, overall, standout, tier: { key: "gold", label: "Gold" } }) as never;
 
 describe("the parallels preview", () => {
   it("turns away anyone who isn't staff", async () => {
@@ -42,7 +42,7 @@ describe("the parallels preview", () => {
     expect(redirect).toHaveBeenCalledWith("/admin");
   });
 
-  it("shows every parallel, including the one that cannot be pulled", async () => {
+  it("shows every parallel, Eclipse included", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
     fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
     fetchCardEditionWeeks.mockResolvedValue(["2026-08-24"]);
@@ -53,17 +53,37 @@ describe("the parallels preview", () => {
     expect(foils).toEqual(new Set(["prisma", "aurora", "refractor", "ice", "eclipse"]));
   });
 
-  it("says outright that Eclipse cannot be pulled", async () => {
-    // The whole safety claim of this page. If the copy ever stops saying
-    // it, somebody will assume the preview is live.
+  it("states Eclipse's real odds, and no longer claims it cannot be pulled", async () => {
+    // This page is where staff check the odds, so its copy has to track the
+    // config. It used to say a pack could not produce an Eclipse — true when
+    // written, a lie the day the drop rate landed. That is the failure this
+    // test exists to catch, in whichever direction it happens next.
     fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
     fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
     fetchCardEditionWeeks.mockResolvedValue(["2026-08-24"]);
-    fetchEditionCards.mockResolvedValue([card("Doug", 92)]);
+    fetchEditionCards.mockResolvedValue([card("Doug", 92, true)]);
 
     render(await ParallelsPreviewPage());
-    expect(screen.getByText(/cannot be pulled/i)).toBeTruthy();
+    expect(screen.queryByText(/cannot be pulled/i)).toBeNull();
+    expect(screen.getByText(/of Card-of-the-Week pulls/i)).toBeTruthy();
+    expect(screen.getByText(/Card of the Week only/i)).toBeTruthy();
     expect(screen.getByText(/Preview only/i)).toBeTruthy();
+  });
+
+  it("shows Eclipse on a Card of the Week, because that is the only card it can fall on", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: true, isOwner: false, isBroadcaster: false });
+    fetchAllCardSeasons.mockResolvedValue([{ league: "premier", season: "S5" }]);
+    fetchCardEditionWeeks.mockResolvedValue(["2026-08-24"]);
+    // The highest-rated card is NOT crowned here — showing Eclipse over it
+    // would picture a card that can never wear one.
+    fetchEditionCards.mockResolvedValue([card("Uncrowned", 99), card("Crowned", 70, true)]);
+
+    render(await ParallelsPreviewPage());
+    const eclipses = [...screen.getAllByTestId("card")].filter((node) => node.dataset.foil === "eclipse");
+    expect(eclipses.map((node) => node.textContent)).toEqual(["Crowned"]);
+    // ...while the ordinary parallels still show off the best art there is.
+    const prismas = [...screen.getAllByTestId("card")].filter((node) => node.dataset.foil === "prisma");
+    expect(prismas.map((node) => node.textContent)).toContain("Uncrowned");
   });
 
   it("features the best cards, so a parallel is judged over real art", async () => {

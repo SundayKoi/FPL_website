@@ -10,7 +10,14 @@ import {
   fetchCurrentWeekCards,
   fetchEditionCards,
 } from "@/lib/cards/queries";
-import { ALL_FOIL_TYPES, FOIL_TYPE_LABELS, FOIL_TYPE_WEIGHTS, FOIL_CHANCE } from "@/lib/packs/config";
+import {
+  ALL_FOIL_TYPES,
+  ECLIPSE_CHANCE,
+  ECLIPSE_FOIL_TYPE,
+  FOIL_TYPE_LABELS,
+  FOIL_TYPE_WEIGHTS,
+  FOIL_CHANCE,
+} from "@/lib/packs/config";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 
 export const metadata: Metadata = {
@@ -26,10 +33,14 @@ const PLAYERS = 3;
  * the current edition — same PlayerCard3D, same foil layers, same art the
  * shop renders. Nothing here mints and nothing is written.
  *
- * Eclipse (the proposed one-of-one) renders here because it is a real
- * FoilType. It is NOT in FOIL_TYPES, so rollFoilType has no weight to draw
- * it and no pack can produce one — the guarantee is structural, not a
- * setting. How a 1/1 would actually be awarded is undecided.
+ * Eclipse is now mintable, and the page has to say so: it once claimed a
+ * pack could not produce one, which was true when it was written and became
+ * a lie the day the drop rate landed. A preview that misstates the odds is
+ * worse than no preview, because it is the page staff check the odds ON.
+ *
+ * It also only falls on a Card of the Week, so its section features one —
+ * showing it over three arbitrary top-rated cards would misrepresent the
+ * rule the whole parallel hangs on.
  */
 export default async function ParallelsPreviewPage() {
   const supabase = await createServerSupabase();
@@ -53,7 +64,23 @@ export default async function ParallelsPreviewPage() {
   // and the top of the collection is where anyone would want to see it.
   const featured = [...cards].sort((a, b) => b.overall - a.overall).slice(0, PLAYERS);
 
+  // Cards of the Week — the top card in each role, and the only cards an
+  // Eclipse can fall on. Falls back to the featured three if an archived
+  // edition predates the flag, so the section is never empty.
+  const crowned = cards.filter((card) => card.standout);
+  const eclipseFeatured = (crowned.length > 0 ? crowned : featured)
+    .sort((a, b) => b.overall - a.overall)
+    .slice(0, PLAYERS);
+
   const oddsOf = (type: (typeof ALL_FOIL_TYPES)[number]): string => {
+    if (type === ECLIPSE_FOIL_TYPE) {
+      // Derived, never typed: the gate is ~2-4% of slots depending on how
+      // top-heavy the league is, so the honest answer is a range.
+      const perPack = (gate: number) => 1 - (1 - gate * ECLIPSE_CHANCE) ** 5;
+      const rarest = Math.round(1 / perPack(0.021));
+      const likeliest = Math.round(1 / perPack(0.044));
+      return `${(ECLIPSE_CHANCE * 100).toFixed(2)}% of Card-of-the-Week pulls · ~1 in ${likeliest.toLocaleString()}–${rarest.toLocaleString()} packs`;
+    }
     const weights = FOIL_TYPE_WEIGHTS as Partial<Record<string, number>>;
     const weight = weights[type];
     if (weight === undefined) return "cannot be pulled";
@@ -74,9 +101,15 @@ export default async function ParallelsPreviewPage() {
           renders. Hover a card — the foils answer the pointer here exactly as they do in a pack.
         </p>
         <p className="max-w-3xl text-sm text-coral">
-          Preview only. Nothing on this page mints, prices or writes anything. Eclipse is not in{" "}
-          <code className="font-mono text-xs">FOIL_TYPES</code>, so no roll can draw one — a pack cannot
-          produce it even by accident.
+          Preview only. Nothing on this page mints, prices or writes anything.
+        </p>
+        <p className="max-w-3xl text-sm text-steel">
+          Eclipse is live. It falls only on a <strong className="text-gold">Card of the Week</strong> —
+          the top card in each role — at{" "}
+          <code className="font-mono text-xs">{(ECLIPSE_CHANCE * 100).toFixed(2)}%</code> of those pulls,
+          and only one of each print can ever exist (a unique index enforces it, not the roller). It
+          cannot be dusted; it can be traded. An unclaimed one stays claimable forever through that
+          week&apos;s packs.
         </p>
       </header>
 
@@ -92,14 +125,14 @@ export default async function ParallelsPreviewPage() {
               <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-steel">
                 {oddsOf(type)}
               </span>
-              {type === "eclipse" ? (
+              {type === ECLIPSE_FOIL_TYPE ? (
                 <span className="rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">
-                  ★ proposed · one of one
+                  ★ one of one · Card of the Week only
                 </span>
               ) : null}
             </div>
             <div className="flex flex-wrap gap-6">
-              {featured.map((card) => (
+              {(type === ECLIPSE_FOIL_TYPE ? eclipseFeatured : featured).map((card) => (
                 <div key={`${type}-${card.slug}`} className="flex flex-col items-center gap-2">
                   <PlayerCard3D card={card} interactive forceFoil foilType={type} />
                   <span className="text-xs text-steel">
