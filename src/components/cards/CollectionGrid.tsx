@@ -30,7 +30,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { printRunKey, type InventoryRow } from "@/lib/packs/queries";
+import { printRunKey } from "@/lib/packs/printRuns";
+import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
 import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
 import { fmtPoints } from "@/lib/betting/format";

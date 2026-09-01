@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { backfillTeamIdentity, fetchTeamIdentity } from "@/lib/cards/queries";
+import { printRunKey } from "./printRuns";
 import { easternDateOf } from "./week";
 import { patronFlameOf } from "@/lib/patron/flames";
 
@@ -412,12 +413,9 @@ export async function fetchOwnedSlugs(
   return [...slugs];
 }
 
-/** A print's key in the map fetchPrintRuns returns. Exported so a caller
- *  building a lookup and a caller reading one can't disagree about the
- *  separator — `week|slug`, and neither half can contain a pipe. */
-export function printRunKey(editionWeek: string, slug: string): string {
-  return `${editionWeek}|${slug}`;
-}
+// Re-exported for server callers; client components must import it from
+// ./printRuns directly — see the note there.
+export { printRunKey };
 
 /** Slugs per request. A print run row is tiny, so the limit that matters is
  *  the URL: PostgREST puts an `in.(…)` list in the query string, and a few
