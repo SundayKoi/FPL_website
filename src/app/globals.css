@@ -435,6 +435,39 @@ body {
   background-size: 300% 300%;
   animation: cardFrameShift 4.5s linear infinite;
 }
+/* Eclipse gets a frame of its own rather than its tier's, and that is the
+   first thing that has to be true of a one-of-one: it must not look like a
+   Challenger card wearing a filter. Gold leaf over obsidian, and slower than
+   the others — heavy metal moves like heavy metal. */
+@utility card-frame-eclipse {
+  background: linear-gradient(115deg,
+    #0b0d12 0%, #8a6b22 12%, #f7e6b0 22%, #fffaea 26%, #c9a23c 34%,
+    #38290f 46%, #0b0d12 56%, #7d611e 70%, #f4e2ab 82%, #2e2210 93%, #0b0d12 100%);
+  background-size: 320% 320%;
+  animation: cardFrameShift 9s linear infinite;
+}
+/* Its halo does not breathe on the tier clock — it holds low and floods at
+   totality, on the same 13s as the card face. See the Eclipse block below. */
+@utility card-glow-eclipse {
+  background: radial-gradient(ellipse at center,
+    rgb(255 214 120 / 0.8), rgb(158 102 22 / 0.35) 52%, transparent 76%);
+  opacity: 0.3;
+  animation: eclipseTotalityGlow 13s ease-in-out infinite;
+}
+/* The hallmark. On a real card the serial is what sells the rarity, so it is
+   struck rather than printed: dark type on moving leaf, double-ruled. */
+@utility card-eclipse-seal {
+  background: linear-gradient(115deg,
+    #6d5114, #ffeab0 20%, #fffaea 28%, #d9ad38 44%, #6d5114 66%, #ffe49a 86%, #7d611e);
+  background-size: 300% 300%;
+  animation: cardFrameShift 6s linear infinite;
+  color: #120d04;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.8),
+    0 0 0 2px rgb(255 232 168 / 0.7),
+    0 2px 10px rgb(0 0 0 / 0.55);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.35);
+}
 /* ── Pack foil ──────────────────────────────────────────────────────
    Two things a tier holo can never do, both driven from the same rAF as
    the tilt (PlayerCard3D.writeTilt), both gated on how far the pointer
@@ -912,27 +945,47 @@ body {
 }
 
 /* ── Eclipse — the one-of-one. ────────────────────────────────────────
-   Every parallel above ADDS colour over the art. This one takes it away
-   and puts back exactly two things: light bleeding around the edge of the
-   card, and a bead of liquid gold. At the top of a ladder, restraint
-   outranks addition — a fifth rainbow would just be a louder Cracked Ice.
+   Everything above is a film laid over an otherwise ordinary card. This one
+   is a different object, and it gets to be, because of an argument that only
+   holds for a card at the very top: EXACTLY ONE OF THESE WILL EVER EXIST.
+   Every other treatment on this site has to survive forty-on-a-shelf, so it
+   is rationed — sparse stars, opacity-only halos, no filter passes. Eclipse
+   is never on a shelf. It can spend what nothing else can.
 
-   THE CARD IS THE OCCLUDING BODY. That is the whole idea, and it is the
-   second version of it: the first drew the corona as a ring in the middle
-   of the card, and a hard-edged circle sitting on a player's face reads as
-   a shape someone drew on the print, not as light. Moving the light to the
-   perimeter fixes it — nothing is drawn over the subject, the eclipse is
-   the card itself, and the frame gets the glow. It also lets the interior
-   go properly dark, which is where this parallel wants to be.
+   So it spends it on five things:
 
-   Three layers instead of the usual one, and the split matters:
+     the frame     is its own (card-frame-eclipse), not its tier's — gold
+                   leaf on obsidian, so it does not read as a Challenger
+                   card wearing a filter.
+     the hallmark  is struck into the chrome: 1 OF 1, in the badge slot.
+     the drain     takes the colour and the light out of the artwork. THE
+                   CARD IS THE OCCLUDING BODY: light bleeds around its rim
+                   rather than being drawn as a ring on the player's face,
+                   which is what the first cut got wrong.
+     the bead      of liquid gold rakes across it with the pointer.
+     TOTALITY      is the one that matters. Every 13 seconds the card runs
+                   an eclipse: the rim breaks, a diamond ring flares off
+                   one corner, the light floods the face — and the COLOUR
+                   COMES BACK for about a second, the only time this card is
+                   ever in colour — then the disc closes and it goes black
+                   again. A card that does something on its own, unprompted,
+                   while you are looking at something else, is the thing
+                   people stop and watch.
+
+   The four face layers, and why the split matters:
 
      desat + ground  sit OUTSIDE the tilt-swung wrapper, at constant
-                     opacity. Inside it they would fade to 30% at rest and
-                     deepen on tilt, so the card would gain its colour back
-                     whenever nobody was touching it.
+                     opacity, and BELOW the type — the eclipse falls across
+                     the photograph, never across the name.
+     flare           sits ABOVE the type, because light floods a card; it
+                     does not politely stop at the text. It is at zero for
+                     eleven seconds out of thirteen.
      eclipse         is the FOIL_LAYERS entry, so it swings and tracks the
                      pointer like every other parallel's highlight.
+
+   All four run the same 13s clock with the same keyframe percentages, which
+   is what keeps totality a single event rather than four things happening
+   near each other.
 
    `mix-blend-mode: saturation` over a grey does the draining. The obvious
    tool is backdrop-filter, which is a real cost on a shelf painting forty
@@ -942,10 +995,13 @@ body {
   inset: 0;
   background: #6f7378;
   mix-blend-mode: saturation;
-  /* Not a full kill. At opacity 1 the art goes to true greyscale and every
-     Eclipse looks like the same card; held back a little, team colour and
-     skin tone survive as a tint and each print still reads as its player. */
+  /* Held at 0.8 rather than a full kill: at 1.0 the art is true greyscale
+     and every Eclipse looks like the same card, where a little surviving
+     team colour and skin tone keeps the print recognisable as its player.
+     The animation is the good part — this is what drops to 0.12 at totality
+     and hands the card its colour back for a beat. */
   opacity: 0.8;
+  animation: eclipseTotalityColour 13s ease-in-out infinite;
 }
 
 @utility card-foil-eclipse-ground {
@@ -953,15 +1009,15 @@ body {
   inset: 0;
   background-image:
     /* Guilloche — engine-turned line work, the way a banknote is secured.
-       Straight and full-bleed now: struck from the centre it threw spokes,
-       which only reinforced the circle this version is getting rid of. */
+       Straight and full-bleed: struck from the centre it threw spokes, which
+       only reinforced the ring this design got rid of. */
     repeating-linear-gradient(58deg,
       rgb(232 193 75 / 0.055) 0 1px, transparent 1px 5px),
     /* The shadow, and it is meant to be heavy. The type, the badges and the
        stat rail all paint ABOVE this layer, so the card can go dark without
        going unreadable — the only thing losing light here is the artwork.
        Smooth two-stop falloff on purpose: any intermediate stop shows up as
-       a band, and a band in the middle of a card is a drawn circle again. */
+       a band, and a band across the middle of a card is a drawn circle. */
     radial-gradient(ellipse 82% 64% at 50% 36%,
       rgb(4 6 10 / 0.68), rgb(1 3 5 / 0.88) 100%);
   background-blend-mode: overlay, normal;
@@ -972,13 +1028,62 @@ body {
     inset 0 0 0 1px rgb(255 240 202 / 0.5),
     inset 0 0 30px -9px rgb(240 205 105 / 0.55),
     inset 0 0 3px 0 rgb(255 233 175 / 0.28);
-  animation: eclipseCorona 7s ease-in-out infinite;
+  /* Lifts to 0.42 at totality — the shadow thinning as the disc slips. */
+  animation: eclipseTotalityGround 13s ease-in-out infinite;
 }
 
-/* The bleed breathes. Slow enough to be caught rather than watched. */
-@keyframes eclipseCorona {
-  0%, 100% { opacity: 0.94; }
-  50% { opacity: 1; }
+/* Totality. Held at zero for eleven of every thirteen seconds, which is what
+   makes it an event: a thing that is always happening is wallpaper.
+   The diamond ring is off-centre at 78%/12% and the flood is thrown from the
+   same point, so the light has a direction and a source rather than being a
+   white-out. Rendered above the type on purpose. */
+@utility card-foil-eclipse-flare {
+  position: absolute;
+  inset: 0;
+  background-image:
+    /* The diamond: the single hot point where the limb breaks. */
+    radial-gradient(circle at 78% 12%,
+      rgb(255 255 255 / 0.98) 0 1.4%,
+      rgb(255 244 206 / 0.6) 3.2%,
+      rgb(255 214 110 / 0.16) 8%,
+      transparent 17%),
+    /* The flood it throws across the face. */
+    radial-gradient(ellipse 125% 100% at 78% 12%,
+      rgb(255 228 156 / 0.42), rgb(232 180 70 / 0.13) 44%, transparent 78%);
+  mix-blend-mode: screen;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 252 238 / 0.9),
+    inset 0 0 50px -6px rgb(255 226 150 / 0.85);
+  opacity: 0;
+  animation: eclipseTotalityFlare 13s ease-in-out infinite;
+}
+
+/* One clock, four layers. The long flat run from 0% to ~70% is the eclipse
+   itself; everything interesting happens in the last quarter and is over
+   inside a second and a half. */
+@keyframes eclipseTotalityGround {
+  0%, 72%, 100% { opacity: 1; }
+  80% { opacity: 0.62; }
+  84% { opacity: 0.42; }
+  92% { opacity: 0.86; }
+}
+@keyframes eclipseTotalityColour {
+  0%, 72%, 100% { opacity: 0.8; }
+  80% { opacity: 0.4; }
+  84% { opacity: 0.12; }
+  92% { opacity: 0.62; }
+}
+@keyframes eclipseTotalityFlare {
+  0%, 70%, 100% { opacity: 0; }
+  78% { opacity: 0.45; }
+  83% { opacity: 1; }
+  88% { opacity: 0.5; }
+  95% { opacity: 0.06; }
+}
+@keyframes eclipseTotalityGlow {
+  0%, 70%, 100% { opacity: 0.3; }
+  83% { opacity: 0.95; }
+  95% { opacity: 0.4; }
 }
 
 /* The bead of liquid gold, in place of Refractor's white bar: slower,
@@ -1000,7 +1105,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-foil-eclipse-ground { animation: none; }
+  /* No totality without motion — the card holds its eclipsed state, which is
+     the one it wears for eleven seconds in every thirteen anyway. */
+  .card-foil-eclipse-ground, .card-foil-eclipse-desat, .card-foil-eclipse-flare,
+  .card-frame-eclipse, .card-glow-eclipse, .card-eclipse-seal { animation: none; }
+  .card-foil-eclipse-flare { opacity: 0; }
+  .card-glow-eclipse { opacity: 0.45; }
 }
 
 @utility card-foil-cosmos {

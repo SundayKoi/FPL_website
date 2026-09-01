@@ -167,6 +167,36 @@ describe("PlayerCard3D", () => {
     }
   });
 
+  it("floods totality over the type, the one layer that is allowed to", () => {
+    // The drain stays under the name; the flare does not. Light crossing a
+    // card crosses the whole card — that beat is the effect.
+    render(<PlayerCard3D card={card} forceFoil foilType="eclipse" />);
+    const [name] = screen.getAllByRole("heading", { name: card.name });
+    const flare = screen.getByTestId("eclipse-flare");
+    expect(flare.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
+  it("gives Eclipse its own frame and halo, over the tier's and over Card of the Week's", () => {
+    // A one-of-one that renders as a Challenger card wearing a filter is not
+    // a one-of-one. It outranks the standout frame too.
+    const { container } = render(
+      <PlayerCard3D card={{ ...card, standout: true }} forceFoil foilType="eclipse" />,
+    );
+    expect(container.querySelector(".card-frame-eclipse")).toBeTruthy();
+    expect(container.querySelector(".card-frame-standout")).toBeNull();
+    expect(container.querySelector(".card-glow-eclipse")).toBeTruthy();
+    expect(container.querySelector(".card-glow-standout")).toBeNull();
+  });
+
+  it("strikes the serial into the chrome instead of a parallel name badge", () => {
+    const { rerender } = render(<PlayerCard3D card={card} forceFoil foilType="eclipse" />);
+    expect(screen.getByTestId("eclipse-seal").textContent).toMatch(/1 of 1/i);
+    // Every other parallel keeps the ordinary name badge.
+    rerender(<PlayerCard3D card={card} forceFoil foilType="ice" />);
+    expect(screen.queryByTestId("eclipse-seal")).toBeNull();
+    expect(screen.getAllByTitle(/Cracked Ice parallel|Ice parallel/i).length).toBeGreaterThan(0);
+  });
+
   it("drives the foil off the pointer, then settles it back at rest", () => {
     const { container } = render(<PlayerCard3D card={card} forceFoil />);
     const frame = screen.getByRole("button");
