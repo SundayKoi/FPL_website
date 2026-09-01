@@ -27,7 +27,13 @@
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
 }
 
-:root { color-scheme: dark; }
+:root {
+  color-scheme: dark;
+  /* How often the Eclipse runs totality. Four layers plus the halo animate
+     off this one clock (see the Eclipse block below); written once here so a
+     change to the cadence cannot leave one layer flaring on the old beat. */
+  --eclipse-cycle: 7s;
+}
 
 .league-brand-mark {
   display: inline-flex;
@@ -447,12 +453,12 @@ body {
   animation: cardFrameShift 9s linear infinite;
 }
 /* Its halo does not breathe on the tier clock — it holds low and floods at
-   totality, on the same 13s as the card face. See the Eclipse block below. */
+   totality, on the same --eclipse-cycle as the card face. See below. */
 @utility card-glow-eclipse {
   background: radial-gradient(ellipse at center,
     rgb(255 214 120 / 0.8), rgb(158 102 22 / 0.35) 52%, transparent 76%);
   opacity: 0.3;
-  animation: eclipseTotalityGlow 13s ease-in-out infinite;
+  animation: eclipseTotalityGlow var(--eclipse-cycle) ease-in-out infinite;
 }
 /* The hallmark. On a real card the serial is what sells the rarity, so it is
    struck rather than printed: dark type on moving leaf, double-ruled. */
@@ -963,14 +969,16 @@ body {
                    rather than being drawn as a ring on the player's face,
                    which is what the first cut got wrong.
      the bead      of liquid gold rakes across it with the pointer.
-     TOTALITY      is the one that matters. Every 13 seconds the card runs
-                   an eclipse: the rim breaks, a diamond ring flares off
+     TOTALITY      is the one that matters. Every --eclipse-cycle the card
+                   runs an eclipse: the rim breaks, a diamond ring flares off
                    one corner, the light floods the face — and the COLOUR
                    COMES BACK for about a second, the only time this card is
                    ever in colour — then the disc closes and it goes black
                    again. A card that does something on its own, unprompted,
                    while you are looking at something else, is the thing
-                   people stop and watch.
+                   people stop and watch — so it is worth catching, and the
+                   cadence is tuned for how long someone actually lingers on
+                   a card rather than for how a real eclipse is paced.
 
    The four face layers, and why the split matters:
 
@@ -979,7 +987,7 @@ body {
                      the photograph, never across the name.
      flare           sits ABOVE the type, because light floods a card; it
                      does not politely stop at the text. It is at zero for
-                     eleven seconds out of thirteen.
+                     the first half of every cycle.
      eclipse         is the FOIL_LAYERS entry, so it swings and tracks the
                      pointer like every other parallel's highlight.
 
@@ -1001,7 +1009,7 @@ body {
      The animation is the good part — this is what drops to 0.12 at totality
      and hands the card its colour back for a beat. */
   opacity: 0.8;
-  animation: eclipseTotalityColour 13s ease-in-out infinite;
+  animation: eclipseTotalityColour var(--eclipse-cycle) ease-in-out infinite;
 }
 
 @utility card-foil-eclipse-ground {
@@ -1029,11 +1037,11 @@ body {
     inset 0 0 30px -9px rgb(240 205 105 / 0.55),
     inset 0 0 3px 0 rgb(255 233 175 / 0.28);
   /* Lifts to 0.42 at totality — the shadow thinning as the disc slips. */
-  animation: eclipseTotalityGround 13s ease-in-out infinite;
+  animation: eclipseTotalityGround var(--eclipse-cycle) ease-in-out infinite;
 }
 
-/* Totality. Held at zero for eleven of every thirteen seconds, which is what
-   makes it an event: a thing that is always happening is wallpaper.
+/* Totality. Held at zero for the first half of every cycle, which is what
+   keeps it an event: a thing that is always happening is wallpaper.
    The diamond ring is off-centre at 78%/12% and the flood is thrown from the
    same point, so the light has a direction and a source rather than being a
    white-out. Rendered above the type on purpose. */
@@ -1055,35 +1063,37 @@ body {
     inset 0 0 0 1px rgb(255 252 238 / 0.9),
     inset 0 0 50px -6px rgb(255 226 150 / 0.85);
   opacity: 0;
-  animation: eclipseTotalityFlare 13s ease-in-out infinite;
+  animation: eclipseTotalityFlare var(--eclipse-cycle) ease-in-out infinite;
 }
 
-/* One clock, four layers. The long flat run from 0% to ~70% is the eclipse
-   itself; everything interesting happens in the last quarter and is over
-   inside a second and a half. */
+/* One clock, four layers. The flat run from 0% to ~50% is the eclipse
+   itself; everything interesting happens in the back half. Percentages, not
+   seconds, so retuning --eclipse-cycle moves the whole event together — but
+   note it also scales the event's DURATION, so a much shorter cycle wants
+   these stops pulled later, not just the clock turned down. */
 @keyframes eclipseTotalityGround {
-  0%, 72%, 100% { opacity: 1; }
-  80% { opacity: 0.62; }
-  84% { opacity: 0.42; }
-  92% { opacity: 0.86; }
+  0%, 52%, 100% { opacity: 1; }
+  66% { opacity: 0.62; }
+  73% { opacity: 0.42; }
+  87% { opacity: 0.86; }
 }
 @keyframes eclipseTotalityColour {
-  0%, 72%, 100% { opacity: 0.8; }
-  80% { opacity: 0.4; }
-  84% { opacity: 0.12; }
-  92% { opacity: 0.62; }
+  0%, 52%, 100% { opacity: 0.8; }
+  66% { opacity: 0.4; }
+  73% { opacity: 0.12; }
+  87% { opacity: 0.62; }
 }
 @keyframes eclipseTotalityFlare {
-  0%, 70%, 100% { opacity: 0; }
-  78% { opacity: 0.45; }
-  83% { opacity: 1; }
-  88% { opacity: 0.5; }
-  95% { opacity: 0.06; }
+  0%, 50%, 100% { opacity: 0; }
+  64% { opacity: 0.45; }
+  72% { opacity: 1; }
+  81% { opacity: 0.5; }
+  93% { opacity: 0.06; }
 }
 @keyframes eclipseTotalityGlow {
-  0%, 70%, 100% { opacity: 0.3; }
-  83% { opacity: 0.95; }
-  95% { opacity: 0.4; }
+  0%, 50%, 100% { opacity: 0.3; }
+  72% { opacity: 0.95; }
+  93% { opacity: 0.4; }
 }
 
 /* The bead of liquid gold, in place of Refractor's white bar: slower,
