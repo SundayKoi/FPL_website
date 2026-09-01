@@ -1,6 +1,7 @@
 import type { LolRole } from "@/lib/draft/types";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { DraftSide, MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
+import type { DraftMatchupView } from "@/lib/match-draft/presentation";
 import type { IngestedScoutingGame, InhousePlayerStats } from "./inhouse";
 
 export type ScoutScope = "recent" | "season" | "all";
@@ -12,7 +13,7 @@ export interface ScoutSource extends ScoutHistory { opponentName: string; /** Te
 export interface ChampionCount { champion: string; count: number; rate?: number; }
 export interface DraftSlot { champion: string | null; skipped: boolean; playerName?: string | null; }
 export interface FullDraftSide { teamName: string | null; picks: DraftSlot[]; banPhaseOne: DraftSlot[]; banPhaseTwo: DraftSlot[]; }
-export interface PastDraft { fixture: ScoutFixtureRow; gameNumber: number; side: DraftSide; winnerTeam: string | null; blue: FullDraftSide; red: FullDraftSide; }
+export interface PastDraft { fixture: ScoutFixtureRow; gameNumber: number; side: DraftSide; winnerTeam: string | null; blue: FullDraftSide; red: FullDraftSide; matchup?: DraftMatchupView; }
 export interface PlayerPoolRow { playerName: string; role: LolRole; champions: ChampionCount[]; distinctChampions: number; totalPicks: number; gamesSampled: number; }
 export interface SideFacts { side: DraftSide; games: number; commonOpening: ChampionCount | null; }
 export interface AdaptationFacts { lossesFollowed: number; changedFirstPick: number; repeatedChampions: number; }

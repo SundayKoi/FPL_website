@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEventHandler, type PointerEventHandler } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import ConnectionBanner from "@/components/system/ConnectionBanner";
@@ -9,8 +9,10 @@ import {
   type LiveConnectionStatus,
 } from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
-import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName, pickOrderBySide } from "@/lib/match-draft/rules";
-import type { DraftActionKind, DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
+import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
+import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/match-draft/presentation";
+import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
+import type { DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
@@ -72,330 +74,8 @@ function TourneyCodeChip({ code }: { code: string }) {
   );
 }
 
-function TeamMark({
-  team,
-  side,
-  online,
-}: {
-  team: MatchDraftState["blueTeam"];
-  side: DraftSide;
-  /** Captain presence dot; undefined hides it (preview mode). */
-  online?: boolean;
-}) {
-  return (
-    <div className={`relative flex items-center gap-3 rounded border px-3 py-2 ${sideClass[side]}`}>
-      {online !== undefined ? (
-        <span
-          title={online ? "Captain connected" : "Captain not connected"}
-          aria-label={`${team.abbreviation} captain ${online ? "connected" : "not connected"}`}
-          className={`absolute right-2 top-2 h-2 w-2 rounded-full ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-line"}`}
-        />
-      ) : null}
-      {team.imageUrl ? (
-        // Team image URLs come from admin-entered Supabase Storage/public URLs.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={team.imageUrl} alt="" className="h-10 w-10 rounded object-contain" />
-      ) : (
-        <span className="flex h-10 w-10 items-center justify-center rounded bg-panel font-display text-sm font-bold not-italic">
-          {team.abbreviation.slice(0, 2)}
-        </span>
-      )}
-      <div className="min-w-0">
-        <p className="font-display text-xl font-bold not-italic">{team.abbreviation}</p>
-        <p className="truncate text-xs text-steel">{team.name}</p>
-      </div>
-    </div>
-  );
-}
-
-function DraftSlot({
-  side,
-  kind,
-  slot,
-  action,
-  active,
-  playerName,
-  imageSize,
-  resolve,
-  intent = null,
-  onRequestChange = null,
-  label,
-  slotClassName = "",
-  emptyLabel = "Open",
-  interactive = false,
-  role,
-  ariaLabel,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-  onPointerCancel,
-  onKeyDown,
-}: {
-  side: DraftSide;
-  kind: DraftActionKind;
-  slot: number;
-  action: MatchDraftAction | null;
-  active: boolean;
-  playerName: string;
-  imageSize: MatchDraftImageSize;
-  resolve: (name: string) => MatchDraftChampion | null;
-  /** Ghost champion the acting side is hovering (not yet locked). */
-  intent?: string | null;
-  onRequestChange?: (() => void) | null;
-  /** Overrides the "pick N" header — role names once roles are confirmed. */
-  label?: string;
-  slotClassName?: string;
-  emptyLabel?: string;
-  interactive?: boolean;
-  role?: "listitem";
-  ariaLabel?: string;
-  onPointerDown?: PointerEventHandler<HTMLDivElement>;
-  onPointerMove?: PointerEventHandler<HTMLDivElement>;
-  onPointerUp?: PointerEventHandler<HTMLDivElement>;
-  onPointerCancel?: PointerEventHandler<HTMLDivElement>;
-  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
-}) {
-  const champion = action?.champion ? resolve(action.champion) : null;
-  const ghost = !action && intent ? resolve(intent) : null;
-  const size = sizeByValue[imageSize];
-  // "Centered" splash art is Riot's horizontal crop with the champion centered,
-  // so it can bleed across the full slot width. Portrait loading art in a wide
-  // slot ends up as a narrow strip hugging one edge.
-  const art = champion ?? ghost;
-  const portraitUrl = art ? art.splashUrl.replace("/champion/splash/", "/champion/centered/") : null;
-  return (
-    <div
-      role={role}
-      tabIndex={interactive ? 0 : undefined}
-      aria-label={ariaLabel}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
-      onKeyDown={onKeyDown}
-      className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
-        active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
-      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral" : ""}`}
-    >
-      {portraitUrl ? (
-        <>
-          {/* Riot Data Dragon centered splash art is served from a fixed CDN URL.
-              The art fills the whole slot; a short wide slot crops it vertically,
-              so bias the window toward the top of the image (object-[center_20%])
-              to keep the champion's head in frame instead of a torso strip. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={portraitUrl}
-            alt=""
-            className={`absolute inset-0 h-full w-full object-cover object-[center_20%] ${champion ? "" : "opacity-40"}`}
-          />
-          {/* Left-edge scrim keeps the slot label and names readable over the art. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
-        </>
-      ) : null}
-      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
-        <span>{label ?? `${kind} ${slot}`}</span>
-        <span className="flex items-center gap-1.5">
-          {onRequestChange ? (
-            <button
-              type="button"
-              title="Request a change to this step"
-              aria-label={`Request change to ${side} ${kind} ${slot}`}
-              onClick={onRequestChange}
-              className="rounded border border-line px-1 leading-tight text-steel transition hover:border-coral hover:text-coral"
-            >
-              ↺
-            </button>
-          ) : null}
-          {side}
-        </span>
-      </div>
-      <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${action?.skipped ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
-        {action ? (action.champion ?? "Skipped") : ghost ? `${ghost.name}?` : emptyLabel}
-      </p>
-      {kind === "pick" && (action?.playerName || playerName) ? (
-        <p className="relative mt-1 truncate text-xs text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{action?.playerName || playerName}</p>
-      ) : null}
-    </div>
-  );
-}
-
 const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support"] as const;
 type RoleOrders = Partial<Record<DraftSide, (string | null)[]>>;
-
-function SlotColumn({
-  side,
-  actions,
-  currentStepIndex,
-  players,
-  imageSize,
-  resolve,
-  intentFor,
-  requestChangeFor,
-  positions = null,
-  slotClassName = "",
-}: {
-  side: DraftSide;
-  actions: MatchDraftAction[];
-  currentStepIndex: number;
-  players: string[];
-  imageSize: MatchDraftImageSize;
-  resolve: (name: string) => MatchDraftChampion | null;
-  intentFor?: (stepIndex: number) => string | null;
-  requestChangeFor?: (stepIndex: number) => (() => void) | null;
-  /** Confirmed role order (top→support). When set, the column re-orders to
-   *  roles instead of draft order. */
-  positions?: (string | null)[] | null;
-  slotClassName?: string;
-}) {
-  if (positions && positions.length === ROLE_LABELS.length) {
-    // Confirming roles re-orders this column top-to-support, which is the
-    // point — but it also used to relabel every slot with its role and
-    // take the pick number off the screen for good. The order was never
-    // lost from the data; it just stopped being shown.
-    const order = pickOrderBySide(actions, side);
-    return (
-      <div className="grid gap-2">
-        {positions.map((champion, index) => {
-          const action = champion
-            ? actions.find(
-                (entry) => entry.kind === "pick" && entry.side === side && entry.champion === champion,
-              ) ?? null
-            : null;
-          const drafted = champion ? order.get(normalizeChampionName(champion)) : undefined;
-          return (
-            <DraftSlot
-              key={`${side}-role-${index}`}
-              side={side}
-              kind="pick"
-              slot={index + 1}
-              label={drafted ? `${ROLE_LABELS[index]} · P${drafted.pick}` : ROLE_LABELS[index]}
-              // The drafted playerName reflects pick order, not roles — the
-              // roster (already top→support) names the row instead.
-              action={action ? { ...action, playerName: null } : null}
-              active={false}
-              playerName={players[index] ?? ""}
-              imageSize={imageSize}
-              resolve={resolve}
-              slotClassName={slotClassName}
-              onRequestChange={action?.stepIndex !== undefined ? requestChangeFor?.(action.stepIndex) ?? null : null}
-            />
-          );
-        })}
-      </div>
-    );
-  }
-  return (
-    <div className="grid gap-2">
-      {LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "pick").map((step) => (
-        <DraftSlot
-          key={`${step.side}-${step.kind}-${step.slot}`}
-          side={step.side}
-          kind={step.kind}
-          slot={step.slot}
-          action={actionForStep(actions, step)}
-          active={step.index === currentStepIndex}
-          playerName={players[step.slot - 1] ?? ""}
-          imageSize={imageSize}
-          resolve={resolve}
-          slotClassName={slotClassName}
-          intent={intentFor?.(step.index) ?? null}
-          onRequestChange={requestChangeFor?.(step.index) ?? null}
-        />
-      ))}
-    </div>
-  );
-}
-
-function BanTile({
-  step,
-  action,
-  active,
-  resolve,
-  imageSize,
-  onRequestChange = null,
-}: {
-  step: (typeof LCS_DRAFT_STEPS)[number];
-  action: MatchDraftAction | null;
-  active: boolean;
-  resolve: (name: string) => MatchDraftChampion | null;
-  imageSize: MatchDraftImageSize;
-  onRequestChange?: (() => void) | null;
-}) {
-  const champion = action?.champion ? resolve(action.champion) : null;
-  return (
-    <div
-      data-testid={`ban-${step.side}-${step.slot}`}
-      title={action ? (action.champion ?? "Skipped") : `Ban ${step.slot}`}
-      className={`relative ${sizeByValue[imageSize].ban} shrink-0 overflow-hidden rounded border ${
-        active ? "border-gold bg-gold/10" : action ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
-      }`}
-    >
-      {champion ? (
-        <>
-          {/* Riot Data Dragon square icon — banned champs render grayscale with a strike. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={champion.iconUrl} alt={champion.name} className="h-full w-full object-cover grayscale-[45%]" loading="lazy" />
-          <span aria-hidden className="absolute left-1/2 top-1/2 h-[145%] w-[3px] -translate-x-1/2 -translate-y-1/2 rotate-45 bg-red-500/80" />
-          <span className="absolute inset-x-0 bottom-0 truncate bg-black/80 px-0.5 text-center text-[8px] font-semibold leading-tight text-white">
-            {champion.name}
-          </span>
-        </>
-      ) : action?.skipped ? (
-        <span className="flex h-full items-center justify-center font-mono text-[10px] font-semibold uppercase text-red-400/80">Skip</span>
-      ) : (
-        <span className="flex h-full items-center justify-center font-mono text-xs font-semibold text-steel">B{step.slot}</span>
-      )}
-      {onRequestChange ? (
-        <button
-          type="button"
-          title="Request a change to this ban"
-          aria-label={`Request change to ${step.side} ban ${step.slot}`}
-          onClick={onRequestChange}
-          className="absolute right-0.5 top-0.5 rounded border border-line bg-navy/80 px-1 text-[10px] leading-tight text-steel transition hover:border-coral hover:text-coral"
-        >
-          ↺
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function BanRow({
-  side,
-  actions,
-  currentStepIndex,
-  resolve,
-  imageSize,
-  requestChangeFor,
-  reverse = false,
-}: {
-  side: DraftSide;
-  actions: MatchDraftAction[];
-  currentStepIndex: number;
-  resolve: (name: string) => MatchDraftChampion | null;
-  imageSize: MatchDraftImageSize;
-  requestChangeFor?: (stepIndex: number) => (() => void) | null;
-  reverse?: boolean;
-}) {
-  const banSteps = LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === "ban");
-  return (
-    <div className={`flex flex-wrap items-center gap-1.5 ${side === "red" ? "justify-end" : ""}`}>
-      <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
-      {(reverse ? [...banSteps].reverse() : banSteps).map((step) => (
-        <BanTile
-          key={`${step.side}-ban-${step.slot}`}
-          step={step}
-          action={actionForStep(actions, step)}
-          active={step.index === currentStepIndex}
-          resolve={resolve}
-          imageSize={imageSize}
-          onRequestChange={requestChangeFor?.(step.index) ?? null}
-        />
-      ))}
-    </div>
-  );
-}
 
 /** Short sine ping for "it's your turn". Best-effort: browsers may refuse
  *  audio before any user gesture, and that's fine. */
@@ -1453,17 +1133,24 @@ export default function MatchDraftBoard({
                             normalizeChampionName(entry.champion) === normalizeChampionName(champion),
                         ) ?? null
                       : null;
+                    const pick: DraftMatchupPickView = {
+                      side,
+                      slot: index + 1,
+                      pickNumber: action?.slot ?? null,
+                      stepIndex: action?.stepIndex ?? null,
+                      champion: action?.champion ?? null,
+                      playerName: roster[index] ?? action?.playerName ?? null,
+                      role: ROLE_LABELS[index],
+                      state: action ? action.skipped || !action.champion ? "skipped" : "recorded" : "missing",
+                    };
                     const dragging = roleDrag?.side === side && roleDrag.index === index;
                     const interactive = editable && (!confirmed || roleModalOpen);
                     return (
-                      <DraftSlot
+                      <DraftPickSlot
                         key={`${side}-role-modal-${index}`}
                         side={side}
-                        kind="pick"
-                        slot={index + 1}
-                        action={action ? { ...action, playerName: null } : null}
+                        pick={pick}
                         active={false}
-                        playerName={roster[index] ?? ""}
                         imageSize="md"
                         resolve={resolveChampion}
                         label={ROLE_LABELS[index]}
@@ -1798,46 +1485,37 @@ export default function MatchDraftBoard({
     </div>
   );
 
+  const matchupView = draftMatchupViewFromState(state, { secondsLeft, clockRunning });
+
   const stage = (
-    // Phones: the timer strip sits on top and the two team columns share a
-    // row (halving the scroll to the champion pool); lg restores the
-    // broadcast-style blue | clock | red arrangement.
     <section className="flex flex-col gap-4" aria-label="Stage draft layout">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
-        <div className="order-2 flex min-w-0 flex-col gap-3 lg:order-1">
-          <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-          <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
-          <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
-        </div>
-        <div className="order-1 col-span-2 lg:order-2 lg:col-span-1">{timerCard}</div>
-        <div className="order-3 flex min-w-0 flex-col gap-3">
-          <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-          <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
-          <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
-        </div>
-      </div>
+      <DraftMatchupBoard
+        view={matchupView}
+        imageSize={imageSize}
+        resolve={resolveChampion}
+        intentFor={intentFor}
+        requestChangeFor={requestChangeFor}
+        online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
+        renderRail={() => timerCard}
+      />
       {championPool}
     </section>
   );
 
   const board = (
-    // Below xl the sidebars pair up above a full-width pool instead of
-    // stacking into one long column.
     <section className="flex flex-col gap-4" aria-label="Board draft layout">
-      <div className="flex justify-center">{timerCard}</div>
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
-      <aside className="order-1 flex min-w-0 flex-col gap-3">
-        <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-        <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.blue ?? null} />
-        <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
-      </aside>
-      <div className="order-3 col-span-2 min-w-0 xl:order-2 xl:col-span-1">{championPool}</div>
-      <aside className="order-2 flex min-w-0 flex-col gap-3 xl:order-3">
-        <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-        <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize={imageSize} resolve={resolveChampion} intentFor={intentFor} requestChangeFor={requestChangeFor} positions={state.positions?.red ?? null} />
-        <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize={imageSize} requestChangeFor={requestChangeFor} />
-      </aside>
-      </div>
+      <DraftMatchupBoard
+        view={matchupView}
+        layout="columns"
+        imageSize={imageSize}
+        resolve={resolveChampion}
+        intentFor={intentFor}
+        requestChangeFor={requestChangeFor}
+        online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
+        renderRail={() => timerCard}
+      >
+        {championPool}
+      </DraftMatchupBoard>
     </section>
   );
 
@@ -1845,31 +1523,28 @@ export default function MatchDraftBoard({
     // OBS browser source: teams, picks, bans, and the clock — nothing else.
     return (
       <main className={`flex w-full flex-col gap-4 p-4 text-white ${overlayTransparent ? "bg-transparent" : "bg-navy"}`}>
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
-          <div className="flex flex-col gap-3">
-            <TeamMark team={state.blueTeam} side="blue" online={captainOnline("blue")} />
-            <SlotColumn side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("blue")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.blue ?? null} slotClassName="w-[350px]" />
-            <BanRow side="blue" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" />
-          </div>
-          <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
-            <span className="label-dash">Game {state.gameNumber}</span>
-            <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-              {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-            </span>
-            <span className="mt-1 text-xs uppercase text-steel">
-              {state.status === "complete"
-                ? "draft complete"
-                : clockRunning
-                  ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-                  : "waiting for ready check"}
-            </span>
-          </div>
-          <div className="flex flex-col gap-3">
-            <TeamMark team={state.redTeam} side="red" online={captainOnline("red")} />
-            <SlotColumn side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} players={playersForSide("red")} imageSize="lg" resolve={resolveChampion} positions={state.positions?.red ?? null} slotClassName="w-[350px] justify-self-end" />
-            <BanRow side="red" actions={state.actions} currentStepIndex={state.currentStepIndex} resolve={resolveChampion} imageSize="lg" reverse />
-          </div>
-        </div>
+        <DraftMatchupBoard
+          view={matchupView}
+          imageSize="lg"
+          resolve={resolveChampion}
+          online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
+          slotClassName={(pick) => pick.side === "red" ? "w-[350px] justify-self-end" : "w-[350px]"}
+          renderRail={() => (
+            <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+              <span className="label-dash">Game {state.gameNumber}</span>
+              <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
+                {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
+              </span>
+              <span className="mt-1 text-xs uppercase text-steel">
+                {state.status === "complete"
+                  ? "draft complete"
+                  : clockRunning
+                    ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
+                    : "waiting for ready check"}
+              </span>
+            </div>
+          )}
+        />
       </main>
     );
   }

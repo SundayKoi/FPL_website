@@ -1,6 +1,6 @@
 import { stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
-import type { DraftStep, MatchDraftAction, MatchDraftLink, DraftSide} from "./types";
+import type { DraftActionKind, DraftStep, MatchDraftAction, MatchDraftLink, DraftSide } from "./types";
 
 export const DRAFT_TURN_SECONDS = 30;
 
@@ -33,6 +33,16 @@ export const LCS_DRAFT_STEPS: DraftStep[] = [
   step(18, "blue", "pick", 5),
   step(19, "red", "pick", 5),
 ];
+
+/**
+ * The action sequence is the source of truth for persistence and turn
+ * handling. This is the single presentation-order seam: blue reads naturally
+ * from B1/P1 to B5/P5, while red is mirrored for a face-to-face board.
+ */
+export function draftDisplayOrder(side: DraftSide, kind: DraftActionKind): DraftStep[] {
+  const steps = LCS_DRAFT_STEPS.filter((step) => step.side === side && step.kind === kind);
+  return side === "red" ? steps.reverse() : steps;
+}
 
 /** How many games the drafter offers for a fixture — regular-season series
  *  are Bo3 fearless regardless of the fixture row's best_of. */

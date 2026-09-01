@@ -1,4 +1,5 @@
 import { actionForStep, LCS_DRAFT_STEPS, normalizeChampionName } from "@/lib/match-draft/rules";
+import { createDraftMatchupView } from "@/lib/match-draft/presentation";
 import { championDisplayName } from "@/lib/match-draft/champions";
 import type { DraftSide, MatchDraftAction } from "@/lib/match-draft/types";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
@@ -248,6 +249,22 @@ export function deriveScoutData(
     confirmed.forEach((champion, index) => { if (!champion || !ROLE_LABELS[ROLE_ORDER[index]]) return; const key = normalizeChampionName(championDisplayName(champion)); const roles = flexCounts.get(key) ?? new Set<string>(); roles.add(ROLE_LABELS[ROLE_ORDER[index]]); flexCounts.set(key, roles); });
   }
   const flexes = [...flexCounts.entries()].filter(([, roles]) => roles.size > 1).map(([key, roles]) => ({ champion: championDisplayName(key), roles: [...roles].sort((a, b) => ROLE_ORDER.indexOf(a.toLowerCase() as typeof ROLE_ORDER[number]) - ROLE_ORDER.indexOf(b.toLowerCase() as typeof ROLE_ORDER[number])) })).sort((a, b) => a.champion.localeCompare(b.champion));
-  const pastDrafts: PastDraft[] = games.map((game) => ({ fixture: game.fixture, gameNumber: game.draft.game_number, side: game.side, winnerTeam: game.winnerTeam, blue: sideDraft(game.draft, "blue"), red: sideDraft(game.draft, "red") }));
+  const pastDrafts: PastDraft[] = games.map((game) => ({
+    fixture: game.fixture,
+    gameNumber: game.draft.game_number,
+    side: game.side,
+    winnerTeam: game.winnerTeam,
+    blue: sideDraft(game.draft, "blue"),
+    red: sideDraft(game.draft, "red"),
+    matchup: createDraftMatchupView({
+      gameNumber: game.draft.game_number,
+      blueTeam: { name: teamNameForSide(game.draft, game.fixture, "blue") },
+      redTeam: { name: teamNameForSide(game.draft, game.fixture, "red") },
+      actions: game.draft.actions,
+      positions: game.draft.positions,
+      winnerTeam: game.winnerTeam,
+      metadata: { railNote: `Scouted team: ${game.side === "blue" ? "Blue side" : "Red side"}` },
+    }),
+  }));
   return { gamesSampled: games.length, blueGames: games.filter((game) => game.side === "blue").length, distinctChampions: picked.size, firstPicks: rank(first, games.length), bannedAgainst: rank(against, games.length), banPhaseOne: rank(p1, games.length), banPhaseTwo: rank(p2, games.length), openings: rankNames(openingCounts), pairings: rankNames(pairingCounts).filter((row) => row.count >= 3), sideFacts, adaptation: { lossesFollowed, changedFirstPick, repeatedChampions }, flexes, playerPools, pastDrafts };
 }

@@ -8,7 +8,7 @@ import {
   matchDraftBestOf,
   matchDraftGameLinks,
   matchDraftHref,
-  matchDraftOverlayHref, pickOrderBySide, normalizeChampionName} from "./rules";
+  matchDraftOverlayHref, pickOrderBySide, normalizeChampionName, draftDisplayOrder} from "./rules";
 import type { FixtureRow } from "@/lib/schedule/types";
 
 const fixture: FixtureRow = {
@@ -178,5 +178,16 @@ describe("pickOrderBySide", () => {
 
   it("survives an unfinished draft", () => {
     expect(pickOrderBySide([], "blue").size).toBe(0);
+  });
+});
+
+describe("draftDisplayOrder", () => {
+  it("mirrors red presentation without changing the stored action sequence", () => {
+    const stored = [...LCS_DRAFT_STEPS];
+    expect(draftDisplayOrder("blue", "pick").map((step) => step.slot)).toEqual([1, 2, 3, 4, 5]);
+    expect(draftDisplayOrder("red", "pick").map((step) => step.slot)).toEqual([5, 4, 3, 2, 1]);
+    expect(draftDisplayOrder("blue", "ban").map((step) => step.slot)).toEqual([1, 2, 3, 4, 5]);
+    expect(draftDisplayOrder("red", "ban").map((step) => step.slot)).toEqual([5, 4, 3, 2, 1]);
+    expect(LCS_DRAFT_STEPS).toEqual(stored);
   });
 });
