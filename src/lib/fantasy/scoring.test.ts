@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { WeeklyRawStatRow } from "@/lib/stats/weekly";
-import { scoreLineup, weeklyScoresBySlug, type StoredSlots } from "./scoring";
+import {
+  currentIdentity,
+  inventoryIdsIn,
+  scoreLineup,
+  weeklyScoresBySlug,
+  type StoredSlots,
+} from "./scoring";
 
 /** A raw_stats row with everything the aggregation reads set to a neutral
  *  zero, so a test only has to name the fields it cares about. */
@@ -44,8 +50,8 @@ function statRow(over: Partial<WeeklyRawStatRow>): WeeklyRawStatRow {
   };
 }
 
-function slot(playerName: string, slug: string, overall = 70) {
-  return { inventoryId: 1, slug, playerName, overall, editionWeek: "2026-08-17", foil: false };
+function slot(playerName: string, slug: string, overall = 70, inventoryId = 1) {
+  return { inventoryId, slug, playerName, overall, editionWeek: "2026-08-17", foil: false };
 }
 
 describe("weeklyScoresBySlug", () => {
@@ -130,5 +136,50 @@ describe("scoreLineup", () => {
 
   it("scores an all-absent lineup as zero", () => {
     expect(scoreLineup(slots, new Map()).score).toBe(0);
+  });
+});
+
+
+describe("a Riot rename must not zero the lineup that fielded him", () => {
+  // Imperialarcher#ezpz became Archêr#ezpz. The slot kept the slug it was
+  // filed under; weeklyScoresBySlug rebuilt its keys from raw_stats, which
+  // the rename HAD moved. The two never met: the lineup took a zero for the
+  // week and Archêr's real points sat in the map with nobody asking for
+  // them. The card copy is the link — inventoryId does not move.
+  const filedUnderTheOldName: StoredSlots = {
+    Top: slot("Imperialarcher", "imperialarcher-ezpz", 70, 4242),
+  };
+  const thisWeek = new Map([["archer-ezpz", 81.5]]);
+
+  it("scores zero with no identity map — the bug, kept visible", () => {
+    expect(scoreLineup(filedUnderTheOldName, thisWeek).score).toBe(0);
+  });
+
+  it("finds his points once the copy resolves the new slug", () => {
+    const identities = new Map([[4242, { slug: "archer-ezpz", playerName: "Archêr" }]]);
+    const result = scoreLineup(filedUnderTheOldName, thisWeek, identities);
+    expect(result.score).toBe(81.5);
+    // And the breakdown prints who he is NOW, not a name that exists
+    // nowhere else on the site any more.
+    expect(result.breakdown.Top).toEqual({ slug: "archer-ezpz", playerName: "Archêr", points: 81.5 });
+  });
+
+  it("falls back to the frozen slug when the copy is gone", () => {
+    // Dusted, or traded away, or a hand-written row. A missing lookup costs
+    // nothing more than the old behaviour.
+    const stillOldSlug = new Map([["imperialarcher-ezpz", 40]]);
+    expect(scoreLineup(filedUnderTheOldName, stillOldSlug, new Map()).score).toBe(40);
+    expect(currentIdentity(filedUnderTheOldName.Top!, new Map())).toEqual({
+      slug: "imperialarcher-ezpz",
+      playerName: "Imperialarcher",
+    });
+  });
+
+  it("collects every fielded copy id, deduped, for the lookup", () => {
+    const ids = inventoryIdsIn([
+      { slots: { Top: slot("A", "a-na1", 70, 1), Mid: slot("B", "b-na1", 70, 2) } },
+      { slots: { Top: slot("A", "a-na1", 70, 1), Bot: slot("C", "c-na1", 70, 3) } },
+    ]);
+    expect(ids.sort((x, y) => x - y)).toEqual([1, 2, 3]);
   });
 });
