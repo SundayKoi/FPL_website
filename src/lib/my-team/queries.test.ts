@@ -242,6 +242,24 @@ describe("loadMyTeamDashboard", () => {
     expect(result).toMatchObject({ kind: "ready", team: academyOne, isCaptain: false });
   });
 
+  it("uses transferred player's new team for next-opponent context", async () => {
+    resolvePlayerIdentity.mockResolvedValue(identity({
+      leagueTeamId: academyTwo.id,
+      playerPoolId: "pool-2",
+    }));
+
+    const result = await loadMyTeamDashboard(fakeClient() as never, "academy");
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      team: academyTwo,
+      nextFixture: { id: upcoming.id },
+      opponent: { name: academyOne.name },
+    });
+    expect(fetchMyRoster).toHaveBeenCalledWith(expect.anything(), academyTwo.id, "A1", "academy");
+    expect(fetchMyRoster).toHaveBeenCalledWith(expect.anything(), academyOne.id, "A1", "academy");
+  });
+
   it("uses a captain's validated team and ignores a forged override", async () => {
     resolvePlayerIdentity.mockResolvedValue(identity({
       status: "unlinked",
