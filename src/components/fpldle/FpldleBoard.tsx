@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import type {
   FpldleFeedback,
@@ -330,6 +331,8 @@ export default function FpldleBoard({
   const [pending, startTransition] = useTransition();
   const [resetting, startResetTransition] = useTransition();
   const playerPickerRef = useRef<HTMLDivElement | null>(null);
+  const expiryRefreshDate = useRef<string | null>(null);
+  const { refresh } = useRouter();
   const showDivision = league === "premier";
 
   useEffect(() => {
@@ -376,6 +379,25 @@ export default function FpldleBoard({
     }, 1000);
     return () => window.clearInterval(timer);
   }, [game.expiresAt]);
+
+  useEffect(() => {
+    const expiresAt = new Date(game.expiresAt).getTime();
+    if (!Number.isFinite(expiresAt)) return;
+
+    const refreshExpiredPuzzle = () => {
+      if (expiryRefreshDate.current === game.date) return;
+      expiryRefreshDate.current = game.date;
+      refresh();
+    };
+    const delay = expiresAt - Date.now();
+    if (delay <= 0) {
+      refreshExpiredPuzzle();
+      return;
+    }
+
+    const timer = window.setTimeout(refreshExpiredPuzzle, delay);
+    return () => window.clearTimeout(timer);
+  }, [game.date, game.expiresAt, refresh]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

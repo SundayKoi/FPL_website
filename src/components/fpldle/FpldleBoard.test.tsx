@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FpldleCandidate, FpldleFeedback, FpldleGame, FpldleStreakSnapshot, FpldleSubmission } from "@/lib/fpldle/server";
 import FpldleBoard from "./FpldleBoard";
 
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 const date = "2026-08-28";
 
 function candidate(index: number): FpldleCandidate {
@@ -77,9 +80,21 @@ beforeEach(() => window.localStorage.clear());
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.useRealTimers();
 });
 
 describe("FpldleBoard", () => {
+  it("refreshes the route when the current puzzle expires", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-28T23:59:58.000Z"));
+    refresh.mockClear();
+
+    render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
+    vi.advanceTimersByTime(2_000);
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the next reset in the browser's local timezone", async () => {
     render(<FpldleBoard game={game()} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 

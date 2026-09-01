@@ -18,5 +18,5 @@ export default async function AcademyFpldlePage() {
     if (error instanceof FpldleError && error.code === "FORBIDDEN") redirect("/premium?league=academy");
     return <FpldleUnavailable league="Academy" />;
   }
-  return <FpldleBoard game={game} league="academy" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;
+  return <FpldleBoard key={game.date} game={game} league="academy" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;
 }
