@@ -44,6 +44,14 @@ export default function PatronPerks({
             </span>
             {" — "}
             {perk.blurb}
+            {perk.href ? (
+              <>
+                {" "}
+                <Link href={perk.href} className="text-coral underline-offset-4 hover:underline">
+                  Have a look →
+                </Link>
+              </>
+            ) : null}
           </li>
         ))}
       </ul>

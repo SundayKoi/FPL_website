@@ -26,6 +26,8 @@ export interface PatronPerk {
   blurb: string;
   /** True for the handful the cards hub shows in its short form. */
   headline: boolean;
+  /** Where the perk lives, when it is a page rather than an effect. */
+  href?: string;
 }
 
 /** Launches per Eastern day, patron vs not.
@@ -117,6 +119,16 @@ export const PATRON_PERKS: PatronPerk[] = [
       `Every copy you melt pays a fifth more. Dusting still returns less than a pack costs, so it sweetens ` +
       `the salvage without ever becoming an income.`,
     headline: true,
+  },
+  {
+    key: "design-table",
+    icon: "🎨",
+    title: "A seat at the design table",
+    blurb:
+      "See what's being considered for the cards before it ships, drawn on real cards — the skin-line " +
+      "parallels first — and have your say before anything mints.",
+    headline: false,
+    href: "/skin-lines",
   },
   {
     key: "roll",

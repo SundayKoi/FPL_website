@@ -13,6 +13,13 @@ describe("PatronPerks", () => {
     expect(screen.getByText("Patronage increases listed recurring wallet rewards. It never changes betting odds, pack odds, ratings, match results, Fantasy scoring, or Gauntlet placement.")).toBeTruthy();
   });
 
+  it("links the design-table perk to the skin-line preview", () => {
+    render(<PatronPerks />);
+
+    expect(screen.getByText("A seat at the design table")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /have a look/i }).getAttribute("href")).toBe("/skin-lines");
+  });
+
   it("includes the same headline perk in the compact cards preview", () => {
     render(<PatronPerks variant="compact" />);
 

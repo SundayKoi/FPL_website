@@ -591,7 +591,11 @@ the job; the registration is the other half.
 
 ### Skin-line parallels (proposal)
 
-`/admin/skin-lines` is a staff-gated mockup of a patron's proposal: draw each
+`/skin-lines` is a mockup of a patron's proposal, open to staff and to
+active patrons (`fetchPatronActive`, a `betting_profiles.patron_until` read;
+the Premium Discord role does not open it, and everyone else is sent to
+`/support-devs`). It is listed as a patron perk in `src/lib/patron/perks.ts`
+and linked from the admin hub. The proposal: draw each
 season's foils in one League skin line, a new line every season, with four
 tiers inside it (Standard, Chroma, Prestige, Ultimate) sitting on the rungs —
 and therefore the weights and dust multipliers — of Prisma, Aurora, Refractor

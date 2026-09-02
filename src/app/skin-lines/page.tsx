@@ -5,6 +5,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCurrentWeekCards, fetchEditionCards } from "@/lib/cards/queries";
+import { readViewerDiscordId } from "@/lib/cards/viewer";
 import {
   EXAMPLE_SEASON_SET,
   LINE_TIERS,
@@ -15,10 +16,11 @@ import {
   type SkinLine,
 } from "@/lib/cards/skinLines";
 import { FOIL_CHANCE, FOIL_TYPE_LABELS, FOIL_TYPE_WEIGHTS, FOIL_TYPES } from "@/lib/packs/config";
+import { fetchPatronActive } from "@/lib/patron/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Skin-line parallels — FPL Admin",
+  title: "Skin-line parallels — FPL Cards",
 };
 
 /** Two players: enough to judge a look over two different pieces of art,
@@ -50,18 +52,27 @@ function previewOf(line: SkinLine, tier: LineTier) {
 }
 
 /**
- * PREVIEW ONLY. A staff-gated mockup of the skin-line parallel proposal on
- * REAL cards from the current edition, through the same PlayerCard3D the
- * shop renders. The treatments are drawn by CSS that no minted copy can
- * reach (`preview` is a prop only this page passes), so nothing here can
- * leak onto a shelf, and nothing is written.
+ * PREVIEW ONLY. A mockup of the skin-line parallel proposal on REAL cards
+ * from the current edition, through the same PlayerCard3D the shop renders.
+ * The treatments are drawn by CSS that no minted copy can reach (`preview`
+ * is a prop only this page passes), so nothing here can leak onto a shelf,
+ * and nothing is written.
+ *
+ * Who sees it: staff, and active patrons — the idea came from a patron,
+ * and a seat at the design table is one of the things patronage buys.
+ * The Premium role is a different product and does not open this door.
  */
 export default async function SkinLinesPreviewPage() {
   const supabase = await createServerSupabase();
-  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
-  if (!isAdmin && !isOwner) redirect("/admin");
-
   const service = createBettingServiceClient();
+  const { isAdmin, isOwner } = await fetchStaffTier(supabase);
+  const staff = isAdmin || isOwner;
+  if (!staff) {
+    const discordId = await readViewerDiscordId(supabase);
+    const patron = discordId ? await fetchPatronActive(service, discordId) : false;
+    if (!patron) redirect("/support-devs");
+  }
+
   const seasons = await fetchAllCardSeasons(service);
   const season = seasons.find((entry) => entry.league === "premier")?.season ?? seasons[0]?.season ?? null;
   const weeks = season ? await fetchCardEditionWeeks(service, season) : [];
@@ -77,9 +88,10 @@ export default async function SkinLinesPreviewPage() {
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-12 px-6 py-16">
       <header className="flex flex-col gap-3">
-        <Link href="/admin" className="label-dash w-fit hover:text-coral">
-          ← Admin
+        <Link href={staff ? "/admin" : "/cards"} className="label-dash w-fit hover:text-coral">
+          {staff ? "← Admin" : "← Cards"}
         </Link>
+        <span className="label-dash text-gold">Patrons &amp; staff · design table</span>
         <h1 className="type-display text-4xl sm:text-5xl">Skin-line parallels</h1>
         <p className="max-w-3xl text-sm text-steel">
           A patron&apos;s idea: the parallel ladder is hard to tell apart at a glance and says nothing about
@@ -88,7 +100,8 @@ export default async function SkinLinesPreviewPage() {
           line, four tiers on today&apos;s four rates, so a season&apos;s pulls are not all the same pull.
           Everything below is drawn on real cards from{" "}
           {weeks[0] ? `the ${weeks[0]} edition` : "the live build"} by the same component the shop uses.
-          Hover a card.
+          Hover a card. Patrons see this because the idea came from one; say what you think in the
+          patron channel.
         </p>
         <p className="max-w-3xl text-sm text-coral">
           Preview only. Nothing on this page mints, prices or writes anything, and no pack can produce
