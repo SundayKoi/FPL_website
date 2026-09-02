@@ -17,6 +17,8 @@ export type TierKey = (typeof TIER_ORDER)[number];
 /** The slice of a card the game reads. `id` tells two copies apart. */
 export interface ShowdownCard {
   id: string;
+  /** The player's name, for the felt. Not read by the evaluator. */
+  name?: string;
   role: Role;
   team: string;
   tier: TierKey;

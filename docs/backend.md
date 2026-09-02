@@ -666,8 +666,32 @@ version, then public and secret state, every seat's chips and status, the
 rake row and the history row — and it refuses any commit where the seats'
 chips plus the pot do not balance before and after. Chips at a table have
 left the wallet; the pot lives in the public state; the rake is chips
-never credited back. pgTAP: `0087_showdown_test.sql`. Server actions,
-realtime and the felt follow. Patronage never touches any of it.
+never credited back. pgTAP: `0087_showdown_test.sql`.
+
+`src/lib/showdown/server.ts` is the transition layer (Higher-Lower's
+shape; `actions.ts` is the thin `"use server"` adapter): `createTable`,
+`sitDown` (validates the buy-in and the stack — ten owned copies of this
+season, no relics or plates, under the cap — or deals a house stack with
+`dealHouseStack`, calls `showdown_sit`, then commits the seat into public
+and secret state and deals if the table can), `standUp` (mid-hand the seat
+is marked leaving and auto-folds when asked to act; once out of the hand
+`showdown_stand` returns the chips and the seat leaves the state), `act`,
+and `syncTable` (any client: fold whoever ran out of clock, deal if
+possible, return the view). Every transition is `transition()`: read the
+row and the secret, run one engine step, `showdown_commit` against the
+version read, and on "stale table version" read again, up to three times.
+The identity is always the session's `getBettingUser()`; the client only
+names a table and a move. `loadTableView` returns `viewFor`'s per-viewer
+snapshot: everyone's public state plus your own hole cards and stack.
+The felt (`src/components/showdown/ShowdownTable.tsx`) subscribes to
+`postgres_changes` on the table's row and its seats and, on any change,
+asks `syncTable` for a fresh view — hole cards never travel over the
+channel — and runs a 500 ms clock on the server's time that calls the same
+sync once a deadline is a second gone. `/cards/showdown` is the lobby and
+`/cards/showdown/[id]` a table; anyone can watch. Card copies at a table
+are locked by the guard trigger, so dusting, listing and trading refuse
+them without any change to those features. Patronage never touches any of
+it.
 
 ### Card motion at rest
 
