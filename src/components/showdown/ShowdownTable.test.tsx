@@ -9,7 +9,7 @@ vi.mock("@/lib/showdown/actions", () => ({
   showdownActAction: vi.fn(),
   sitDownAction: vi.fn(),
   standUpAction: vi.fn(),
-  syncShowdownTableAction: vi.fn(async () => view()),
+  syncShowdownTableAction: vi.fn(async () => ({ ok: true, value: view() })),
 }));
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({

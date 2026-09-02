@@ -23,12 +23,12 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
   const open = () => {
     setError(null);
     start(async () => {
-      try {
-        const id = await createShowdownTableAction({ name, bracket, private: isPrivate });
-        router.push(`/cards/showdown/${id}`);
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Could not open the table.");
+      const result = await createShowdownTableAction({ name, bracket, private: isPrivate });
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      router.push(`/cards/showdown/${result.value}`);
     });
   };
 
