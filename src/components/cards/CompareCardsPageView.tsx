@@ -49,7 +49,7 @@ export async function CompareCardsPageView({
           <span className="label-dash">
             Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl">Card vs Card</h1>
+          <h1 className="type-display mt-2 text-4xl">Compare</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Put any two cards head to head — the better number lights up green. The URL follows your
             picks, so paste it into Discord for match-night arguments.

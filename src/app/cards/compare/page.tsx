@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { CompareCardsPageView } from "@/components/cards/CompareCardsPageView";
 
 export const metadata: Metadata = {
-  title: "Compare Cards — FPL",
+  title: "Compare — FPL",
   description: "Two player cards head to head.",
 };
 

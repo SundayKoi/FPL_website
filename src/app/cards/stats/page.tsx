@@ -13,7 +13,7 @@ import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/conf
 const EXPEDITION_TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
 
 export const metadata: Metadata = {
-  title: "Card Ledger — FPL",
+  title: "Card stats — FPL",
   description: "Every pack opened, dollar spent, and rare pull in the league's card economy.",
 };
 
@@ -56,7 +56,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           <span className="label-dash">
             {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Ledger</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Stats</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Everything the league has opened, spent and is holding this season. Card counts are what

@@ -10,7 +10,7 @@ import { easternDateOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Card Expeditions — FPL",
+  title: "Expeditions — FPL",
   description: "Send three cards out for a few hours and collect what they bring back.",
 };
 
@@ -120,7 +120,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
           <span className="label-dash">
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Expeditions</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Expeditions</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Send three cards out into the field. They are away for hours, not spent — while a squad is
             out its cards can&apos;t be dusted or traded, and when the clock runs out they come home with

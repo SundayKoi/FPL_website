@@ -6,7 +6,7 @@ import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Team Cards — FPL",
+  title: "Team cards — FPL",
   description: "Every roster as a composite card, rated by its five best players.",
 };
 
@@ -50,7 +50,7 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
           <span className="label-dash">
             Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team Cards</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team cards</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Every roster as one card: five panels, one per role, each wearing that player&apos;s most-played
             champion and washed in the team&apos;s own colours. Team OVR is the average of its five best

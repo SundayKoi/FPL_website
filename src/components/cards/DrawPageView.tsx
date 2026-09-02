@@ -68,7 +68,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
           <span className="label-dash">
             {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Weekly Draw</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Weekly Draw</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
           <p className="mt-3 max-w-2xl text-sm text-steel">
             {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the

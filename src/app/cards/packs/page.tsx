@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import PackShop from "@/components/cards/PackShop";
+import ThisWeekStrip from "@/components/cards/ThisWeekStrip";
+import { weekNotices } from "@/lib/packs/weekNotices";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
@@ -21,7 +23,7 @@ import {
 } from "@/lib/packs/queries";
 
 export const metadata: Metadata = {
-  title: "Card Packs — FPL",
+  title: "Packs — FPL",
   description: "Spend betting dollars on packs of player cards and build a collection.",
 };
 
@@ -108,7 +110,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
           <span className="label-dash">
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Packs</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Packs</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
             ratings — every card is stamped with the week it was pulled, so a player you open twice in
@@ -118,62 +120,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         </div>
       </header>
 
-      {liveWindow ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-400/50 bg-red-500/10 px-4 py-3">
-          <span className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-red-300">
-            <span aria-hidden className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-400" />
-            Live drops
-          </span>
-          <span className="text-sm text-white">{liveWindow.label}</span>
-          <span className="text-xs text-steel">
-            Foil odds boosted until{" "}
-            {new Date(liveWindow.until).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}{" "}
-            ET · every card stamped LIVE
-          </span>
-        </div>
-      ) : null}
-      {championComps > 0 ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-[#ffb08a]/70 bg-gradient-to-r from-[#d61f2c]/25 to-[#d61f2c]/5 px-4 py-3">
-          <span className="text-sm font-black uppercase tracking-[0.14em] text-[#ffb08a]">🏆 Champion&apos;s Tribute</span>
-          <span className="text-sm text-white">
-            You were part of the S4 Faceless squad — {championComps} free Faceless Pack{championComps === 1 ? "" : "s"}{" "}
-            {championComps === 1 ? "is" : "are"} yours, on the house.
-          </span>
-          {championsWindow ? (
-            <span className="text-xs text-steel">The Faceless Pack button below won&apos;t charge you until they&apos;re spent.</span>
-          ) : (
-            <span className="text-xs text-steel">They unlock the moment the vault opens.</span>
-          )}
-        </div>
-      ) : null}
-      {championsWindow ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#d61f2c]/60 bg-[#d61f2c]/10 px-4 py-3">
-          <span className="text-sm font-bold uppercase tracking-[0.14em] text-[#ff6b76]">🂡 The Faceless Drop</span>
-          <span className="text-sm text-white">
-            Season Four&apos;s champions as The Hand — K, A, Q, 7 and the Joker, one card per pack.
-          </span>
-          <span className="text-xs text-steel">
-            Vault shuts{" "}
-            {new Date(championsWindow.until).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}{" "}
-            — then what was pulled is all there will ever be.
-          </span>
-        </div>
-      ) : null}
-      {chase ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-gold/10 px-4 py-3">
-          <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">★ This week&apos;s chase</span>
-          <span className="text-sm text-white">{chase.title}</span>
-          {chase.claimedBy ? (
-            <span className="text-xs text-steel">
-              Taken by <span className="font-semibold text-white">{chase.claimedBy}</span>
-            </span>
-          ) : (
-            <span className="text-xs text-steel">
-              First to pull it{chase.bounty > 0 ? ` wins ${chase.bounty} betting dollars and` : ""} takes the CHASE stamp
-            </span>
-          )}
-        </div>
-      ) : null}
+      <ThisWeekStrip notices={weekNotices({ liveWindow, chase, championsWindow, championComps })} />
 
       <PackShop
         league={league}
