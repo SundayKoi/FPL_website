@@ -1966,6 +1966,36 @@ body {
    sparkles, the drifting frame gradient (which animates background-position,
    a repaint) — are decoration that nobody can read while the card is edge-on,
    and on a phone they were stealing frames from the motion that matters. */
+/* A card at rest does not move. PlayerCard3D stamps data-motion="rest" on
+   its root until the pointer arrives (or a finger lands), and "live" while it
+   is there — and always on an Eclipse, the one card allowed to breathe on a
+   shelf nobody is touching. Everything that loops on a card is paused at
+   rest: the tier halos, the drifting frames, the patron flame and champion
+   embers, the signature blink, and a skin line's own motion and tier
+   layers. Paused, not removed, so it resumes mid-cycle rather than jumping.
+   The foils themselves cost nothing here: they are pointer-driven already. */
+[data-motion="rest"] .card-glow-diamond,
+[data-motion="rest"] .card-glow-master,
+[data-motion="rest"] .card-glow-challenger,
+[data-motion="rest"] .card-glow-standout,
+[data-motion="rest"] .card-frame-challenger,
+[data-motion="rest"] .card-frame-standout,
+[data-motion="rest"] .card-sparkle,
+[data-motion="rest"] .patron-flame-spark,
+[data-motion="rest"] .patron-flame-embers::before,
+[data-motion="rest"] .champ-embers::before,
+[data-motion="rest"] .champ-embers::after,
+[data-motion="rest"] .sig-rec,
+[data-motion="rest"] .card-foil-line-harrowing,
+[data-motion="rest"] .card-foil-line-arcade,
+[data-motion="rest"] .card-foil-line-arcana,
+[data-motion="rest"] .card-foil-line-battlecast,
+[data-motion="rest"] .card-foil-tier-chroma-sheen,
+[data-motion="rest"] .card-foil-tier-prestige-frame,
+[data-motion="rest"] .card-foil-tier-ultimate-embers {
+  animation-play-state: paused;
+}
+
 .pack-flip-turning .card-glow-diamond,
 .pack-flip-turning .card-glow-master,
 .pack-flip-turning .card-glow-challenger,

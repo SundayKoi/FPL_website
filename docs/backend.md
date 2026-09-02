@@ -620,6 +620,18 @@ the tier overlays to the pointer like the parallel layer, give the flat PNG
 render an accent and badge per tier, and leave Eclipse and every minted copy
 exactly as they are.
 
+### Card motion at rest
+
+`PlayerCard3D` stamps `data-motion="rest"` on its root until the pointer
+arrives (or a finger lands) and `"live"` while it is there; an Eclipse is
+always live. A rule in globals.css pauses every looping decoration on a
+resting card — tier halos, drifting frames, patron flame and champion
+embers, the signature blink, and a skin line's motion and tier layers —
+with `animation-play-state: paused`, so a forty-card shelf idles for free
+and resumes mid-cycle on hover. The foils themselves are pointer-driven
+already and cost nothing at rest. Add any new looping card decoration to
+that selector list.
+
 ### Pack odds, measured
 
 Every roll in a pack — class, card within class, foil, parallel, autograph,
