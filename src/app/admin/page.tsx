@@ -142,8 +142,8 @@ export default async function AdminPage() {
       label: "Skin-line parallels",
       stat: "Proposal preview",
       statTone: "text-gold",
-      description: "A proposal on real cards: parallels named for League skin lines, three new ones a season.",
-      href: "/admin/skin-lines",
+      description: "A proposal on real cards: one League skin line a season, four tiers inside it. Patrons can see it too.",
+      href: "/skin-lines",
     },
     {
       label: "Gauntlet balance",

@@ -1,15 +1,20 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchStaffTier, redirect, fetchAllCardSeasons, fetchCardEditionWeeks, fetchEditionCards } = vi.hoisted(() => ({
-  fetchStaffTier: vi.fn(),
-  redirect: vi.fn(),
-  fetchAllCardSeasons: vi.fn(),
-  fetchCardEditionWeeks: vi.fn(),
-  fetchEditionCards: vi.fn(),
-}));
+const { fetchStaffTier, redirect, fetchAllCardSeasons, fetchCardEditionWeeks, fetchEditionCards, readViewerDiscordId, fetchPatronActive } =
+  vi.hoisted(() => ({
+    fetchStaffTier: vi.fn(),
+    redirect: vi.fn(),
+    readViewerDiscordId: vi.fn(),
+    fetchPatronActive: vi.fn(),
+    fetchAllCardSeasons: vi.fn(),
+    fetchCardEditionWeeks: vi.fn(),
+    fetchEditionCards: vi.fn(),
+  }));
 
 vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("@/lib/cards/viewer", () => ({ readViewerDiscordId }));
+vi.mock("@/lib/patron/queries", () => ({ fetchPatronActive }));
 vi.mock("@/lib/auth/staffTier", () => ({ fetchStaffTier }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient: vi.fn(() => ({})) }));
@@ -43,6 +48,10 @@ vi.mock("@/components/cards/PlayerCard3D", () => ({
 const SkinLinesPreviewPage = (await import("./page")).default;
 
 afterEach(cleanup);
+beforeEach(() => {
+  redirect.mockClear();
+  fetchPatronActive.mockClear();
+});
 
 const card = (name: string, overall: number) =>
   ({ slug: name.toLowerCase(), name, overall, standout: false, tier: { key: "gold", label: "Gold" } }) as never;
@@ -57,11 +66,40 @@ function staff() {
 const previewed = () => screen.getAllByTestId("card").filter((node) => node.getAttribute("data-preview"));
 
 describe("the skin-line mockup page", () => {
-  it("turns away anyone who isn't staff", async () => {
+  it("sends anyone who is neither staff nor a patron to the support desk", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
+    readViewerDiscordId.mockResolvedValue("111");
+    fetchPatronActive.mockResolvedValue(false);
     fetchAllCardSeasons.mockResolvedValue([]);
     await SkinLinesPreviewPage();
-    expect(redirect).toHaveBeenCalledWith("/admin");
+    expect(redirect).toHaveBeenCalledWith("/support-devs");
+  });
+
+  it("sends a signed-out visitor to the support desk without asking about patronage", async () => {
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
+    readViewerDiscordId.mockResolvedValue(null);
+    fetchAllCardSeasons.mockResolvedValue([]);
+    await SkinLinesPreviewPage();
+    expect(fetchPatronActive).not.toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/support-devs");
+  });
+
+  it("lets an active patron in, and points them back at the cards rather than the admin hub", async () => {
+    staff();
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
+    readViewerDiscordId.mockResolvedValue("111");
+    fetchPatronActive.mockResolvedValue(true);
+    render(await SkinLinesPreviewPage());
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "← Cards" }).getAttribute("href")).toBe("/cards");
+    expect(screen.queryByRole("link", { name: "← Admin" })).toBeNull();
+  });
+
+  it("never asks about patronage when the viewer is staff", async () => {
+    staff();
+    render(await SkinLinesPreviewPage());
+    expect(fetchPatronActive).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "← Admin" }).getAttribute("href")).toBe("/admin");
   });
 
   it("draws every candidate line at all four tiers, on real cards, never as a minted type", async () => {
