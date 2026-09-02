@@ -698,7 +698,21 @@ bracket's buy-in is the play-chip stack in front of you, `showdown_sit`
 and `showdown_stand` skip the wallet and the ledger on a free bracket, and
 `rakeFor` returns zero. `PRACTICE_ONLY` in `config.ts` is what keeps the
 lobby from opening Low or Open tables; turn it off to allow real stakes,
-with no database change. Patronage never touches any of it.
+with no database change.
+
+The sweep, `sweepTables` in `server.ts`, runs the two transitions a
+watching client would (fold whoever ran out of clock, deal if the table
+can) for every table `fetchTablesDue` finds: a hand whose deadline is a
+second gone, or a waiting table with two active seats. It is the only
+Vercel cron in the app (`vercel.json`, every minute, `/api/showdown/sweep`)
+and the route refuses without `CRON_SECRET`. The week's board on the
+lobby page is `aggregateWeek` over `showdown_hands` since Monday
+(`fetchHandsSince`); every hand record carries `players` (seat to person)
+so the board reads by person. A settled Foil Royal posts to the cards
+webhook from inside `transition`, after the commit and best-effort. Cards
+on the felt carry an `art` path — `/copy/<id>/card.png` for an owned copy,
+`/card/<slug>/card.png?w=<week>` for an edition card — and `MiniCard`
+draws it. Patronage never touches any of it.
 
 ### Card motion at rest
 

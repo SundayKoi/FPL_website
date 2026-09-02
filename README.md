@@ -305,6 +305,9 @@ service's dashboard in a browser.
      supported as a fallback)
    - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` if the live-channel status
      feature is used
+   - `CRON_SECRET` (any random string) so the Vercel cron in `vercel.json`
+     can call Showdown's sweep every minute; without it the sweep refuses
+     to run and a table nobody has open only moves when someone opens it
 3. Deploy.
 4. Go back to Step 2's URL Configuration and set **Site URL** to the
    resulting Vercel production URL.

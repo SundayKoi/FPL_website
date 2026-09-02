@@ -23,6 +23,7 @@ function tierOf(key: string): TierKey {
 export function cardFromInventory(row: InventoryRow): ShowdownCard {
   return {
     id: String(row.id),
+    art: `/copy/${row.id}/card.png`,
     name: row.card.name ?? row.playerName,
     role: roleOf(row.card.role ?? row.role),
     team: row.card.teamName ?? "—",
@@ -37,6 +38,7 @@ export function cardFromInventory(row: InventoryRow): ShowdownCard {
 export function cardFromEdition(card: PlayerCardData, week: string): ShowdownCard {
   return {
     id: `${card.slug}@${week}`,
+    art: `/card/${card.slug}/card.png?w=${week}`,
     name: card.name,
     role: roleOf(card.role),
     team: card.teamName ?? "—",
