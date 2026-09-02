@@ -6,16 +6,17 @@
 // game. League's skin lines do both jobs already — PROJECT is orange
 // circuitry, Harrowing is green fog, Arcade is pixels and scanlines — and
 // every player knows them. So instead of four abstract shines, each season
-// mints three parallels named for skin lines, new ones every season, so a
-// Season 5 PROJECT card can only have come from Season 5.
+// mints its foils in one skin line, a new one every season, so a Season 5
+// PROJECT card can only have come from Season 5 — and inside the line, four
+// tiers on today's four rates, so a season's pulls are not all the same
+// pull.
 //
 // Everything here is the design surface of that idea: the candidate lines,
 // what each looks like, and where it would sit on the ladder. The CSS that
-// draws each one lives in globals.css as `card-foil-line-<key>`; the odds
-// and the frozen-copy rules do not change, because the rungs do not — a
-// line takes over a rung's weight, name and dust multiplier.
-
-export type LadderRung = "aurora" | "refractor" | "ice";
+// draws each one lives in globals.css as `card-foil-line-<key>`, and the
+// tier overlays as `card-foil-tier-<key>`; the odds and the frozen-copy
+// rules do not change, because the rungs do not — a tier takes over a
+// rung's weight, name and dust multiplier.
 
 export interface SkinLine {
   key: string;
@@ -95,29 +96,60 @@ export const SKIN_LINES: SkinLine[] = [
   },
 ];
 
-/** The recommended shape: three lines a season on the three rungs above
- *  the base. Prisma stays the base and Eclipse stays above everything;
- *  neither is a skin line and neither rotates. */
+/** The recommended shape: ONE line a season, and four tiers inside it on
+ *  the four rates the ladder already has. Eclipse stays above everything;
+ *  it is not a tier of anything and does not rotate. */
 export interface SeasonSet {
   season: string;
-  /** Which line takes which rung, rarest last. */
-  rungs: Record<LadderRung, SkinLine["key"]>;
+  /** The line every foil that season is drawn in. */
+  line: SkinLine["key"];
 }
 
-/** A worked example for the mockup page — Season 5 as it might look. The
- *  order is by how loud the treatment is: the rarest rung gets the one you
- *  cannot mistake for anything else. */
-export const EXAMPLE_SEASON_SET: SeasonSet = {
-  season: "S5",
-  rungs: { aurora: "academy", refractor: "project", ice: "battlecast" },
-};
-
-export const RUNG_LABELS: Record<LadderRung, string> = {
-  aurora: "2nd rung · replaces Aurora",
-  refractor: "3rd rung · replaces Refractor",
-  ice: "top rung · replaces Cracked Ice",
-};
+/** A worked example for the mockup page — Season 5 as it might look. */
+export const EXAMPLE_SEASON_SET: SeasonSet = { season: "S5", line: "project" };
 
 export function skinLineByKey(key: string): SkinLine | undefined {
   return SKIN_LINES.find((line) => line.key === key);
+}
+
+/**
+ * The four tiers inside one season's line, on today's four rates.
+ *
+ * One line a season with a single look would make every foil that season
+ * the same pull, which is the boredom the ladder exists to prevent. So the
+ * line is the motif and the tier is how much of it you got: Standard is
+ * the line as drawn; Chroma, Prestige and Ultimate are League's own words
+ * for "more of the same skin, rarer", laid over it. Each tier sits on the
+ * rung — and the weight, and the dust multiplier — of the parallel it
+ * replaces, so nothing about the odds moves.
+ */
+export type LineTierKey = "standard" | "chroma" | "prestige" | "ultimate";
+
+export interface LineTier {
+  key: LineTierKey;
+  /** Empty on Standard: the base tier wears the line's name alone, as
+   *  Prisma wears no badge today. */
+  label: string;
+  /** Today's parallel whose rung, weight and dust multiplier it takes. */
+  replaces: "prisma" | "aurora" | "refractor" | "ice";
+  /** The overlay utilities drawn over the line's own layer. */
+  layers: string[];
+}
+
+export const LINE_TIERS: LineTier[] = [
+  { key: "standard", label: "", replaces: "prisma", layers: [] },
+  { key: "chroma", label: "Chroma", replaces: "aurora", layers: ["card-foil-tier-chroma"] },
+  { key: "prestige", label: "Prestige", replaces: "refractor", layers: ["card-foil-tier-prestige"] },
+  {
+    key: "ultimate",
+    label: "Ultimate",
+    replaces: "ice",
+    layers: ["card-foil-tier-chroma", "card-foil-tier-prestige", "card-foil-tier-ultimate"],
+  },
+];
+
+/** What the badge says for a line at a tier — "PROJECT", then "PROJECT
+ *  Chroma", "PROJECT Prestige", "PROJECT Ultimate". */
+export function lineTierLabel(line: SkinLine, tier: LineTier): string {
+  return tier.label ? `${line.label} ${tier.label}` : line.label;
 }

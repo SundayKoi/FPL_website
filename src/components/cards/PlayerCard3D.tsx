@@ -122,7 +122,7 @@ function PlayerCardFace({
    *  a minted parallel would be — the admin mockup pages use this to show
    *  a proposed look on real art before anything can mint it. Requires
    *  forceFoil; ignored otherwise. Nothing outside /admin should pass it. */
-  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string } | null;
+  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string; layers?: string[] } | null;
   /** false renders the static front only (grids, previews). */
   interactive?: boolean;
   /** Start face-down and flip up shortly after mount (share pages). */
@@ -712,6 +712,19 @@ function PlayerCardFace({
                 style={{ opacity: FOIL_REST_OPACITY }}
               >
                 <div ref={holoRef} className={foilLayer.className} style={{ mixBlendMode: foilLayer.blend }} />
+                {/* A previewed tier's overlays, coloured by the line's accent.
+                    Static — they do not swing with the pointer — which is
+                    fine for a mockup and would be wired like holoRef if it
+                    ever ships. */}
+                {forceFoil && preview?.layers?.length
+                  ? preview.layers.map((layer) => (
+                      <div
+                        key={layer}
+                        className={layer}
+                        style={{ mixBlendMode: "screen", ["--line-accent" as string]: preview.accent }}
+                      />
+                    ))
+                  : null}
                 <div ref={cosmosRef} className="card-foil-cosmos" style={{ mixBlendMode: "screen" }} />
               </div>
             ) : style.foil || card.standout ? (
@@ -1048,7 +1061,7 @@ export default function PlayerCard3D(props: {
   className?: string;
   /** See PlayerCardFace: a proposed treatment drawn as a parallel would be.
    *  Admin mockup pages only. */
-  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string } | null;
+  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string; layers?: string[] } | null;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
   // the binder and the pack reveal all carry it without changes — but it is
