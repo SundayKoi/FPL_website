@@ -31,7 +31,7 @@ export const TIMEOUTS_TO_SIT_OUT = 3;
 export const RAKE_PCT = 0.03;
 export const RAKE_CAP_BIG_BLINDS = 5;
 
-export type BracketKey = "low" | "open";
+export type BracketKey = "free" | "low" | "open";
 
 export interface Bracket {
   key: BracketKey;
@@ -42,18 +42,33 @@ export interface Bracket {
   maxBuyIn: number;
   /** The ten overalls in a stack, added together, may not exceed this. */
   stackCap: number;
+  /** Play chips: the buy-in is the stack in front of you, nothing leaves
+   *  or enters a wallet, and pots are not raked. */
+  free: boolean;
 }
 
 export const BRACKETS: Record<BracketKey, Bracket> = {
-  low: { key: "low", label: "Low", smallBlind: 5, bigBlind: 10, minBuyIn: 200, maxBuyIn: 1000, stackCap: 650 },
-  open: { key: "open", label: "Open", smallBlind: 25, bigBlind: 50, minBuyIn: 1000, maxBuyIn: 5000, stackCap: 720 },
+  free: { key: "free", label: "Practice", smallBlind: 25, bigBlind: 50, minBuyIn: 1000, maxBuyIn: 1000, stackCap: 720, free: true },
+  low: { key: "low", label: "Low", smallBlind: 5, bigBlind: 10, minBuyIn: 200, maxBuyIn: 1000, stackCap: 650, free: false },
+  open: { key: "open", label: "Open", smallBlind: 25, bigBlind: 50, minBuyIn: 1000, maxBuyIn: 5000, stackCap: 720, free: false },
 };
 
 export const BRACKET_KEYS = Object.keys(BRACKETS) as BracketKey[];
 
-/** Rake owed on a pot at a table, in points. Zero before the flop. */
+/**
+ * While the game is being tried out, only practice tables can be opened.
+ * Turn this off to let Low and Open tables be opened; nothing in the
+ * database changes, and practice tables stay available.
+ */
+export const PRACTICE_ONLY = true;
+
+/** The brackets a table can be opened at right now. */
+export const OPENABLE_BRACKETS: BracketKey[] = PRACTICE_ONLY ? ["free"] : BRACKET_KEYS;
+
+/** Rake owed on a pot at a table, in dollars. Zero before the flop, and
+ *  zero on play chips. */
 export function rakeFor(pot: number, bracket: Bracket, sawFlop: boolean): number {
-  if (!sawFlop || pot <= 0) return 0;
+  if (bracket.free || !sawFlop || pot <= 0) return 0;
   return Math.min(Math.floor(pot * RAKE_PCT), RAKE_CAP_BIG_BLINDS * bracket.bigBlind);
 }
 

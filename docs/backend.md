@@ -690,8 +690,15 @@ channel — and runs a 500 ms clock on the server's time that calls the same
 sync once a deadline is a second gone. `/cards/showdown` is the lobby and
 `/cards/showdown/[id]` a table; anyone can watch. Card copies at a table
 are locked by the guard trigger, so dusting, listing and trading refuse
-them without any change to those features. Patronage never touches any of
-it.
+them without any change to those features.
+
+While the game is being tried out every table is a **practice** table
+(`20260913000002_showdown_practice.sql`, pgTAP `0088`): the `free`
+bracket's buy-in is the play-chip stack in front of you, `showdown_sit`
+and `showdown_stand` skip the wallet and the ledger on a free bracket, and
+`rakeFor` returns zero. `PRACTICE_ONLY` in `config.ts` is what keeps the
+lobby from opening Low or Open tables; turn it off to allow real stakes,
+with no database change. Patronage never touches any of it.
 
 ### Card motion at rest
 

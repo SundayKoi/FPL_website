@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { fmtPoints } from "@/lib/betting/format";
 import { createShowdownTableAction } from "@/lib/showdown/actions";
-import { BRACKET_KEYS, BRACKETS, SEATS_MAX, type BracketKey } from "@/lib/showdown/config";
+import { BRACKETS, OPENABLE_BRACKETS, PRACTICE_ONLY, SEATS_MAX, type BracketKey } from "@/lib/showdown/config";
 import type { fetchOpenTables } from "@/lib/showdown/queries";
 
 type LobbyTable = Awaited<ReturnType<typeof fetchOpenTables>>[number];
@@ -15,7 +15,7 @@ type LobbyTable = Awaited<ReturnType<typeof fetchOpenTables>>[number];
 export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: LobbyTable[]; seatedAt: number | null; signedIn: boolean }) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [bracket, setBracket] = useState<BracketKey>("low");
+  const [bracket, setBracket] = useState<BracketKey>(OPENABLE_BRACKETS[0]);
   const [isPrivate, setPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -59,6 +59,7 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
                       <span className="type-display text-lg text-white">{table.name}</span>
                       <span className="text-xs text-steel">
                         {b.label} · blinds {fmtPoints(b.smallBlind)} / {fmtPoints(b.bigBlind)} · cap {b.stackCap}
+                        {b.free ? " · play chips" : ""}
                       </span>
                     </span>
                     <span className="flex items-center gap-3 text-xs">
@@ -91,15 +92,23 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
         </label>
         <fieldset className="flex flex-col gap-1 text-xs text-steel">
           <legend>Stakes</legend>
-          {BRACKET_KEYS.map((key) => {
+          {OPENABLE_BRACKETS.map((key) => {
             const b = BRACKETS[key];
             return (
               <label key={key} className="flex items-center gap-2 text-sm text-white">
                 <input type="radio" name="bracket" checked={bracket === key} onChange={() => setBracket(key)} />
-                {b.label} · {fmtPoints(b.smallBlind)} / {fmtPoints(b.bigBlind)} · buy-in {fmtPoints(b.minBuyIn)} to {fmtPoints(b.maxBuyIn)}
+                {b.free
+                  ? `${b.label} · ${fmtPoints(b.smallBlind)} / ${fmtPoints(b.bigBlind)} · ${fmtPoints(b.minBuyIn)} in play chips`
+                  : `${b.label} · ${fmtPoints(b.smallBlind)} / ${fmtPoints(b.bigBlind)} · buy-in ${fmtPoints(b.minBuyIn)} to ${fmtPoints(b.maxBuyIn)}`}
               </label>
             );
           })}
+          {PRACTICE_ONLY ? (
+            <p className="mt-1 text-xs text-steel">
+              While Showdown is being tried out, every table is practice: play chips, nothing won or lost, no
+              rake. Real stakes come later.
+            </p>
+          ) : null}
         </fieldset>
         <label className="flex items-center gap-2 text-sm text-white">
           <input type="checkbox" checked={isPrivate} onChange={(event) => setPrivate(event.target.checked)} />

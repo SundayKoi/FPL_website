@@ -88,6 +88,21 @@ describe("sitting down", () => {
   });
 });
 
+describe("practice tables", () => {
+  it("only the practice bracket can be opened while the game is being tried out", async () => {
+    await expect(createTable({ bracket: "open", name: "Felt" })).rejects.toThrow(/cannot be opened right now/);
+  });
+
+  it("seats a player with no dollars at all, and asks the RPC for the play chips", async () => {
+    getBettingUser.mockResolvedValue({ ...member, balance: 0 });
+    fetchTable.mockResolvedValue(table({ bracket: "free" }));
+    rpc.mockResolvedValue({ data: 1, error: null });
+    const view = await sitDown({ tableId: 3, seatNo: 0, buyIn: 1000, house: true });
+    expect(rpc).toHaveBeenCalledWith("showdown_sit", expect.objectContaining({ p_user: "u1", p_buy_in: 1000, p_house: true, p_cards: [] }));
+    expect(view.viewer?.balance).toBe(0);
+  });
+});
+
 describe("standing up", () => {
   it("refuses when you are not at the table", async () => {
     await expect(standUp({ tableId: 3 })).rejects.toThrow(/not at this table/);

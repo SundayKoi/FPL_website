@@ -122,6 +122,7 @@ describe("the table config", () => {
     expect(rakeFor(20000, BRACKETS.open, true)).toBe(250);
     expect(rakeFor(1000, BRACKETS.low, true)).toBe(30);
     expect(rakeFor(5000, BRACKETS.low, true)).toBe(50);
+    expect(rakeFor(5000, BRACKETS.free, true)).toBe(0);
   });
 
   it("holds a stack to ten cards under the bracket's cap", () => {
