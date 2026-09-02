@@ -606,6 +606,11 @@ and prints the expected rates beside what `card_inventory` actually holds,
 by edition. The Eclipse rate is per crowned PULL: how often a crowned card
 turns up depends on how many cards share its rarity class, so a thin top
 class makes the same crowned card — and therefore Eclipses — cluster.
+`scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
+file (the only players a signed copy can be of), signed copies per player
+against all their copies, every signed copy and every Eclipse in pull order
+with the gap to the previous one, the Eclipse rate against crowned pulls per
+edition, and a duplicate check that must return no rows.
 
 ### Eclipse, the one-of-one
 
