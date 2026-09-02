@@ -23,7 +23,7 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
 /** Which game a sub-tab href is, so its status line can find it. */
 function gameOf(href: string): PlayGame | null {
   const leaf = href.slice(href.lastIndexOf("/") + 1);
-  if (leaf === "fantasy" || leaf === "gauntlet" || leaf === "expeditions" || leaf === "stats") return leaf;
+  if (leaf === "fantasy" || leaf === "gauntlet" || leaf === "showdown" || leaf === "expeditions" || leaf === "stats") return leaf;
   if (leaf === "draw") return "draw";
   return null;
 }
@@ -45,7 +45,14 @@ const TONE: Record<PlayTone, string> = {
 async function loadStatuses(league: CardLeague, discordId: string | null, season: string | null) {
   const now = new Date();
   if (!discordId || !season) {
-    return playStatuses({ now, fantasyLineupIn: null, gauntlet: league === "premier" ? { active: false, bestScore: 0, attempts: 0 } : null, expeditions: [], copies: 0 });
+    return playStatuses({
+      now,
+      fantasyLineupIn: null,
+      gauntlet: league === "premier" ? { active: false, bestScore: 0, attempts: 0 } : null,
+      showdown: league === "premier" ? { seated: false, openTables: 0 } : null,
+      expeditions: [],
+      copies: 0,
+    });
   }
   try {
     const service = createBettingServiceClient();
@@ -60,6 +67,8 @@ async function loadStatuses(league: CardLeague, discordId: string | null, season
       now,
       fantasyLineupIn: lineup !== null,
       gauntlet: league === "premier" ? { active: activeRun !== null, bestScore: weekStats?.bestScore ?? 0, attempts: weekStats?.attempts ?? 0 } : null,
+      // No tables yet: the status is the "read the rules" line until PR C.
+      showdown: league === "premier" ? { seated: false, openTables: 0 } : null,
       expeditions,
       copies,
     });

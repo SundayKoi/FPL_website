@@ -25,6 +25,10 @@ export interface PlayStatusInput {
   fantasyLineupIn: boolean | null;
   /** The Gauntlet, premier only: null when there is no such game here. */
   gauntlet: { active: boolean; bestScore: number; attempts: number } | null;
+  /** Showdown, premier only: null where there is no such game. `seated`
+   *  is whether the viewer has a seat right now; `openTables` how many
+   *  tables are dealing. Both zero until the tables land. */
+  showdown: { seated: boolean; openTables: number } | null;
   expeditions: ExpeditionRun[];
   /** Copies held — every one is a draw ticket. */
   copies: number;
@@ -40,9 +44,9 @@ function eastern(date: Date): string {
   });
 }
 
-export type PlayGame = "fantasy" | "gauntlet" | "expeditions" | "draw" | "stats";
+export type PlayGame = "fantasy" | "gauntlet" | "showdown" | "expeditions" | "draw" | "stats";
 
-export function playStatuses({ now, fantasyLineupIn, gauntlet, expeditions, copies }: PlayStatusInput): Partial<Record<PlayGame, PlayStatus>> {
+export function playStatuses({ now, fantasyLineupIn, gauntlet, showdown, expeditions, copies }: PlayStatusInput): Partial<Record<PlayGame, PlayStatus>> {
   const statuses: Partial<Record<PlayGame, PlayStatus>> = {};
 
   const week = currentFantasyWeek(now);
@@ -65,6 +69,19 @@ export function playStatuses({ now, fantasyLineupIn, gauntlet, expeditions, copi
       };
     } else {
       statuses.gauntlet = { text: "No runs this week yet", tone: "quiet" };
+    }
+  }
+
+  if (showdown) {
+    if (showdown.seated) {
+      statuses.showdown = { text: "You have a seat — back to the table", tone: "open" };
+    } else if (showdown.openTables > 0) {
+      statuses.showdown = {
+        text: `${showdown.openTables} table${showdown.openTables === 1 ? "" : "s"} dealing now`,
+        tone: "waiting",
+      };
+    } else {
+      statuses.showdown = { text: "Tables open soon — read the rules", tone: "quiet" };
     }
   }
 
