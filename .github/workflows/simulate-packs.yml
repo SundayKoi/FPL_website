@@ -1,0 +1,42 @@
+name: Simulate packs
+
+# Manual only, read-only. Rolls a real archived edition through the shop's
+# own pack code and prints the expected rates beside what card_inventory
+# actually holds — the answer to "is everyone hitting rare things" in
+# numbers. Nothing is written.
+on:
+  workflow_dispatch:
+    inputs:
+      league:
+        description: "Which league's cards"
+        type: choice
+        options: [premier, academy]
+        default: premier
+      packs:
+        description: "How many packs to simulate"
+        type: string
+        default: "100000"
+      week:
+        description: "Edition week to simulate (YYYY-MM-DD; blank = newest)"
+        type: string
+        default: ""
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: |
+          npx tsx scripts/simulate-packs.ts \
+            --league="${{ inputs.league }}" \
+            --packs="${{ inputs.packs }}" \
+            ${{ inputs.week != '' && format('--week={0}', inputs.week) || '' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
