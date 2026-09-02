@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "settle:higher-lower": "tsx scripts/higher-lower-settlement.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "register:discord-commands": "tsx scripts/register-discord-commands.ts"
+    "register:discord-commands": "tsx scripts/register-discord-commands.ts",
+    "simulate:packs": "tsx scripts/simulate-packs.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

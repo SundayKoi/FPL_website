@@ -50,6 +50,46 @@ import PlayerCard3D from "./PlayerCard3D";
 
 type VariantFilter = "all" | "foil" | "signed" | "alt";
 
+/** How the shelf can be ordered. "best" is the showcase order the shelf
+ *  always had — Eclipse, ink, overall, foil. The rest are the questions a
+ *  collector actually asks of a big shelf: is it here (name), what did
+ *  last week's packs give me (newest / week), what is my top end (rating). */
+export type ShelfSort = "best" | "name" | "newest" | "rating" | "week";
+
+export const SHELF_SORTS: { key: ShelfSort; label: string }[] = [
+  { key: "best", label: "Best first" },
+  { key: "name", label: "Name A–Z" },
+  { key: "newest", label: "Newest pull" },
+  { key: "rating", label: "Highest rating" },
+  { key: "week", label: "Newest edition" },
+];
+
+/** A comparator for the chosen order. Ties fall back to the showcase order
+ *  so two same-named or same-rated copies still line up by quality. */
+export function copyOrder(sort: ShelfSort): (a: InventoryRow, b: InventoryRow) => number {
+  switch (sort) {
+    case "name":
+      return (a, b) => a.playerName.localeCompare(b.playerName) || showcaseOrder(a, b);
+    case "newest":
+      return (a, b) => b.acquiredAt.localeCompare(a.acquiredAt) || b.id - a.id;
+    case "rating":
+      return (a, b) => b.overall - a.overall || showcaseOrder(a, b);
+    case "week":
+      return (a, b) => b.editionWeek.localeCompare(a.editionWeek) || showcaseOrder(a, b);
+    default:
+      return showcaseOrder;
+  }
+}
+
+/** Name and week, the two things typed or picked into the finder. The
+ *  name match is a substring, case-blind — nobody types a tag. */
+export function matchesFinder(row: InventoryRow, query: string, week: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (needle && !row.playerName.toLowerCase().includes(needle)) return false;
+  if (week && row.editionWeek !== week) return false;
+  return true;
+}
+
 const FILTERS: { key: VariantFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "foil", label: "✦ Foils" },
@@ -372,6 +412,11 @@ export default function CollectionGrid({
 }) {
   const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
+  // Finding a card on a big shelf: a name, a week, an order. Each is a
+  // different shelf, so changing any of them starts the paging over.
+  const [query, setQuery] = useState("");
+  const [week, setWeek] = useState<string>("");
+  const [sort, setSort] = useState<ShelfSort>("best");
   // Which players have their print strip open. A Set rather than a single
   // slug: comparing two players' prints side by side is the point.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -386,6 +431,18 @@ export default function CollectionGrid({
   // rather than inheriting however far down the last one was opened.
   function chooseFilter(next: VariantFilter) {
     setFilter(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseQuery(next: string) {
+    setQuery(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseWeek(next: string) {
+    setWeek(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseSort(next: ShelfSort) {
+    setSort(next);
     setLimit(PAGE_SIZE);
   }
 
@@ -471,12 +528,55 @@ export default function CollectionGrid({
     return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
   }
 
+  // Every week the shelf holds copies from, newest first — the week picker.
+  const heldWeeks = [...new Set(inventory.map((row) => row.editionWeek))].sort().reverse();
+  const visible = inventory.filter((row) => matchesFinder(row, query, week));
+
   const counts: Record<VariantFilter, number> = {
-    all: inventory.length,
-    foil: inventory.filter(MATCHES.foil).length,
-    signed: inventory.filter(MATCHES.signed).length,
-    alt: inventory.filter(MATCHES.alt).length,
+    all: visible.length,
+    foil: visible.filter(MATCHES.foil).length,
+    signed: visible.filter(MATCHES.signed).length,
+    alt: visible.filter(MATCHES.alt).length,
   };
+
+  const finder = (
+    <div className="flex flex-wrap items-end gap-3" role="search" aria-label="Find a card">
+      <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
+        Search your cards
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => chooseQuery(event.target.value)}
+          placeholder="Player name"
+          className="input-brand px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Week
+        <select value={week} onChange={(event) => chooseWeek(event.target.value)} className="input-brand px-3 py-2 text-sm">
+          <option value="">All weeks</option>
+          {heldWeeks.map((held) => (
+            <option key={held} value={held}>
+              {editionLabel(held)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Sort
+        <select value={sort} onChange={(event) => chooseSort(event.target.value as ShelfSort)} className="input-brand px-3 py-2 text-sm">
+          {SHELF_SORTS.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <span className="text-xs text-steel">
+        {visible.length} of {inventory.length} {inventory.length === 1 ? "copy" : "copies"}
+      </span>
+    </div>
+  );
 
   const selectToggle = (
     <button
@@ -492,6 +592,8 @@ export default function CollectionGrid({
   );
 
   const chips = (
+    <>
+    {finder}
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Variant filter">
       {FILTERS.map(({ key, label }) => (
         <button
@@ -511,6 +613,7 @@ export default function CollectionGrid({
       ))}
       {selectToggle}
     </div>
+    </>
   );
 
   if (selecting) {
@@ -518,7 +621,7 @@ export default function CollectionGrid({
     // whole job here is picking specific copies out of the pile. The
     // variant chips still narrow it, which is how "dust my spare commons"
     // is a two-tap job.
-    const shown = (filter === "all" ? inventory : inventory.filter(MATCHES[filter])).slice().sort(showcaseOrder);
+    const shown = (filter === "all" ? visible : visible.filter(MATCHES[filter])).slice().sort(copyOrder(sort));
     const total = shown.filter((row) => picked.has(row.id)).reduce((sum, row) => sum + valueOf(row), 0);
     return (
       <div className="flex flex-col gap-4">
@@ -587,7 +690,7 @@ export default function CollectionGrid({
   }
 
   if (filter !== "all") {
-    const shown = inventory.filter(MATCHES[filter]).sort(showcaseOrder);
+    const shown = visible.filter(MATCHES[filter]).sort(copyOrder(sort));
     return (
       <div className="flex flex-col gap-4">
         {chips}
@@ -610,7 +713,7 @@ export default function CollectionGrid({
   }
 
   const groups = new Map<string, InventoryRow[]>();
-  for (const row of inventory) {
+  for (const row of visible) {
     const copies = groups.get(row.slug) ?? [];
     copies.push(row);
     groups.set(row.slug, copies);
@@ -662,7 +765,7 @@ export default function CollectionGrid({
           .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
       };
     })
-    .sort((a, b) => b.best.overall - a.best.overall);
+    .sort((a, b) => copyOrder(sort)(a.best, b.best) || a.best.playerName.localeCompare(b.best.playerName));
 
   function togglePrints(slug: string) {
     setExpanded((current) => {
@@ -675,6 +778,11 @@ export default function CollectionGrid({
   return (
     <div className="flex flex-col gap-4">
       {chips}
+      {owned.length === 0 ? (
+        <p className="text-sm text-steel">
+          Nothing on your shelf matches{query ? ` “${query}”` : ""}{week ? ` in ${editionLabel(week)}` : ""}.
+        </p>
+      ) : null}
       {/* card-cell skips the paint for shelves scrolled out of view; it brings its
           own padding, so the gaps come down by that much to sit where they did. */}
       <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">

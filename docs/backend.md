@@ -589,6 +589,24 @@ three-second deadline. Both take an optional free-text `week`, resolved by
 which PUTs `DISCORD_COMMANDS` from `commandDefs.ts`). Adding a handler is half
 the job; the registration is the other half.
 
+### Pack odds, measured
+
+Every roll in a pack — class, card within class, foil, parallel, autograph,
+moment, team plate, Eclipse — draws from node's CSPRNG (`randomBytes(6)` over
+2^48) through the pure functions in `src/lib/packs/rng.ts`,
+`signatures.ts` and `eclipse.ts` (`rollEclipseCandidates`). Besides the
+scripted-`rand` tests that pin the order of the roll, `src/lib/packs/odds.test.ts`
+rolls the real random source tens of thousands of times and expects every
+configured rate back within five standard errors, including that the Eclipse
+gate opens on `ECLIPSE_CHANCE` of Card-of-the-Week pulls and never on
+anything else, and that a foil does not make the next slot more likely to
+foil. `npm run simulate:packs` (`scripts/simulate-packs.ts`, read-only,
+needs the service key) rolls a real archived edition through the same code
+and prints the expected rates beside what `card_inventory` actually holds,
+by edition. The Eclipse rate is per crowned PULL: how often a crowned card
+turns up depends on how many cards share its rarity class, so a thin top
+class makes the same crowned card — and therefore Eclipses — cluster.
+
 ### Eclipse, the one-of-one
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in

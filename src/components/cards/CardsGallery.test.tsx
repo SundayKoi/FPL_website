@@ -64,3 +64,17 @@ describe("CardsGallery", () => {
     expect(screen.getAllByRole("link", { name: "View & customize →" })).toHaveLength(2);
   });
 });
+
+describe("CardsGallery sort", () => {
+  it("reorders the wall by name or team without touching the Cards of the Week strip", () => {
+    render(<CardsGallery cards={[makeCard("Chaseworthy", "Mid", 92, true), makeCard("Commonly", "Support", 62), makeCard("Bystander", "Top", 75)]} />);
+    const wall = () =>
+      screen
+        .getAllByRole("button", { name: /player card/ })
+        .map((node) => node.getAttribute("aria-label")?.split(" player card")[0]);
+    // The strip shows the crowned card first, then the wall best-first.
+    expect(wall()).toEqual(["Chaseworthy", "Chaseworthy", "Bystander", "Commonly"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "name" } });
+    expect(wall()).toEqual(["Chaseworthy", "Bystander", "Chaseworthy", "Commonly"]);
+  });
+});
