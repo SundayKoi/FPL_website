@@ -20,12 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # tsconfig includes .next/types, where Next generates the route types
+      # (LayoutProps, PageProps). A fresh checkout has none, so generate them
+      # without paying for a build.
+      - name: Generate route types
+        run: npx next typegen
       - name: Type-check
         run: npx tsc --noEmit -p .
       - name: Lint
