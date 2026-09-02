@@ -3,6 +3,7 @@ import Link from "next/link";
 import CardsPageHeader from "@/components/cards/CardsPageHeader";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchTicketCount } from "@/lib/cards/draw-queries";
+import { countOpenTables, fetchViewerSeat } from "@/lib/showdown/queries";
 import { playStatuses, type PlayGame, type PlayStatus, type PlayTone } from "@/lib/cards/playStatus";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { cardsSections } from "@/lib/cards/sections";
@@ -56,19 +57,20 @@ async function loadStatuses(league: CardLeague, discordId: string | null, season
   }
   try {
     const service = createBettingServiceClient();
-    const [lineup, activeRun, weekStats, expeditions, copies] = await Promise.all([
+    const [lineup, activeRun, weekStats, expeditions, copies, showdownSeat, showdownOpen] = await Promise.all([
       fetchLineup(service, discordId, season, currentFantasyWeek(now)),
       league === "premier" ? fetchActiveGauntletRun(service, discordId) : Promise.resolve(null),
       league === "premier" ? fetchGauntletWeekStats(service, discordId, currentWeek()) : Promise.resolve(null),
       fetchRuns(service, discordId, season),
       fetchTicketCount(service, discordId, season),
+      league === "premier" ? fetchViewerSeat(service, discordId) : Promise.resolve(null),
+      league === "premier" ? countOpenTables(service, season) : Promise.resolve(0),
     ]);
     return playStatuses({
       now,
       fantasyLineupIn: lineup !== null,
       gauntlet: league === "premier" ? { active: activeRun !== null, bestScore: weekStats?.bestScore ?? 0, attempts: weekStats?.attempts ?? 0 } : null,
-      // No tables yet: the status is the "read the rules" line until PR C.
-      showdown: league === "premier" ? { seated: false, openTables: 0 } : null,
+      showdown: league === "premier" ? { seated: showdownSeat !== null, openTables: showdownOpen } : null,
       expeditions,
       copies,
     });

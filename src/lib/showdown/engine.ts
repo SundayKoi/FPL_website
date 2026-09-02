@@ -294,7 +294,14 @@ function open(pub: PublicState, secret: SecretState, ctx: EngineContext): Step {
 
   if (hand.pending.length === 0) return nextStreet(pub, secret, ctx);
 
-  hand.toAct = hand.pending[0];
+  // A seat that asked to leave folds the moment it is asked to act.
+  const next = seatOf(pub, hand.pending[0]);
+  if (next.status === "leaving") {
+    hand.toAct = next.seatNo;
+    return act(pub, secret, ctx, next.seatNo, { type: "fold" }, false);
+  }
+
+  hand.toAct = next.seatNo;
   hand.deadlineAt = deadline(ctx);
   return { pub, secret, rake: 0, settled: null };
 }
