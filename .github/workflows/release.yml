@@ -1,0 +1,76 @@
+name: Release to production
+
+# `main` is what Vercel deploys; `develop` is where every pull request
+# lands. Nothing is built on the way in — the Ignored Build Step skips
+# non-production branches — so the site deploys once per release rather
+# than once per merge. This workflow is the release: it merges develop
+# into main with a merge commit, which Vercel then builds.
+#
+# Runs every Monday at 13:00 UTC (09:00 New York in summer, 08:00 in
+# winter) and on demand from the Actions tab. It refuses to release a
+# develop whose CI is not green, and does nothing when develop has
+# nothing main lacks.
+on:
+  schedule:
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: read
+  checks: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Anything to release?
+        id: diff
+        run: |
+          git fetch origin develop
+          behind=$(git rev-list --count main..origin/develop)
+          echo "commits=$behind" >> "$GITHUB_OUTPUT"
+          if [ "$behind" = "0" ]; then
+            echo "main already has everything on develop."
+          else
+            echo "develop is $behind commit(s) ahead of main."
+          fi
+
+      - name: Require green CI on develop
+        if: steps.diff.outputs.commits != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse origin/develop)
+          # The CI workflow's job is named "checks". Its latest run for this
+          # exact commit must have succeeded; anything else blocks the
+          # release and says why.
+          conclusion=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs?check_name=checks" \
+            --jq '.check_runs | sort_by(.completed_at) | last | .conclusion // "none"')
+          echo "CI on develop (${sha:0:7}): ${conclusion}"
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::Refusing to release: CI on develop is '${conclusion}', not 'success'."
+            exit 1
+          fi
+
+      - name: Merge develop into main
+        if: steps.diff.outputs.commits != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # A merge commit, never a fast-forward: the Ignored Build Step
+          # diffs the deployment against HEAD^, and with a merge commit
+          # HEAD^ is the previous release, so a batch whose last commit was
+          # docs-only still deploys the code before it.
+          git merge --no-ff origin/develop -m "Release $(date -u +%Y-%m-%d): ${{ steps.diff.outputs.commits }} commit(s) from develop"
+          git push origin main

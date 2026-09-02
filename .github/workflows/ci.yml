@@ -1,15 +1,16 @@
 name: CI
 
 # The checks that used to run only on whoever's machine pushed. Type-check,
-# lint and the Vitest suite on every pull request and every push to main,
-# so Vercel does not have to be the place a type error is discovered — and
-# so `typescript.ignoreBuildErrors` can be turned on in next.config.ts once
-# this check is required on main, taking the type-check out of the billed
-# build minute.
+# lint and the Vitest suite on every pull request and every push to develop
+# or main, so Vercel does not have to be the place a type error is
+# discovered — and so `typescript.ignoreBuildErrors` can be turned on in
+# next.config.ts once this check is required, taking the type-check out of
+# the billed build minute. The release workflow reads this job's result on
+# develop before it will merge to main.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ci-${{ github.ref }}

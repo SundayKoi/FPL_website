@@ -22,8 +22,17 @@ if [ "${VERCEL_ENV:-}" != "production" ]; then
   exit 0
 fi
 
-if ! git rev-parse --verify --quiet 'HEAD^' >/dev/null; then
-  echo "Building: no parent commit to compare against."
+# Compare against the commit Vercel deployed last when the clone has it,
+# and against the parent commit otherwise. Releases are merge commits
+# (see .github/workflows/release.yml), so the parent of a release is the
+# previous release and the diff covers the whole week's batch either way.
+BASE=""
+if [ -n "${VERCEL_GIT_PREVIOUS_SHA:-}" ] && git cat-file -e "${VERCEL_GIT_PREVIOUS_SHA}^{commit}" 2>/dev/null; then
+  BASE="${VERCEL_GIT_PREVIOUS_SHA}"
+elif git rev-parse --verify --quiet 'HEAD^' >/dev/null; then
+  BASE='HEAD^'
+else
+  echo "Building: no earlier commit to compare against."
   exit 1
 fi
 
@@ -40,8 +49,8 @@ SHIPPED=(
   vercel.json
 )
 
-if git diff --quiet 'HEAD^' HEAD -- "${SHIPPED[@]}"; then
-  echo "Skipping: nothing the site ships changed since the last deployment."
+if git diff --quiet "${BASE}" HEAD -- "${SHIPPED[@]}"; then
+  echo "Skipping: nothing the site ships changed since ${BASE}."
   exit 0
 fi
 
