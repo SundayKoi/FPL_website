@@ -528,3 +528,16 @@ describe("ExpeditionBoard — the claim ceremony", () => {
     expect(screen.getByRole("button", { name: "Claim the Deep Raid" })).toBeTruthy();
   });
 });
+
+describe("ExpeditionBoard — a copy the shelf named", () => {
+  it("starts the squad with ?send='s copy, unless it is away", () => {
+    const copies = [makeCopy(1, "Alba", "gold"), makeCopy(2, "Bex", "gold")];
+    render(<ExpeditionBoard copies={copies} runs={[]} deployedIds={new Set()} today={TODAY} initialPick={2} />);
+    expect(screen.getByRole("button", { name: /^Bex — / }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /^Alba — / }).getAttribute("aria-pressed")).toBe("false");
+    cleanup();
+
+    render(<ExpeditionBoard copies={copies} runs={[]} deployedIds={new Set([2])} today={TODAY} initialPick={2} />);
+    expect(screen.getByRole("button", { name: /^Bex — / }).getAttribute("aria-pressed")).toBe("false");
+  });
+});

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import type { CardLeague } from "@/lib/cards/queries";
 import { submitLineupAction } from "@/lib/fantasy/actions";
@@ -140,11 +141,7 @@ export default function LineupBuilder({
   }
 
   if (inventory.length === 0) {
-    return (
-      <div className="card-brand p-5 text-sm text-steel">
-        You don&apos;t own any cards yet — open a pack to start building a lineup.
-      </div>
-    );
+    return <EmptyShelf base={league === "academy" ? "/academy/cards" : "/cards"} goal="build a lineup" />;
   }
 
   return (

@@ -26,6 +26,7 @@
 // skin it wears, and you can't weigh that against $120 by reading it.
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -67,14 +68,51 @@ function copyArtUrl(card: PlayerCardData): string | null {
   return card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
 }
 
+/** What one copy can go and do, each on the page that does it, with the
+ *  copy already chosen there. The four pages exist; what was missing was
+ *  the way from the card to them. */
+function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
+  const actions = [
+    { label: "Sell", href: `${base}/market?sell=${copy.id}` },
+    { label: "Trade", href: `${base}/trades?offer=${copy.id}` },
+    { label: "Send out", href: `${base}/expeditions?send=${copy.id}` },
+    { label: "Field", href: `${base}/fantasy?field=${copy.id}` },
+  ];
+  return (
+    <details className="relative shrink-0">
+      <summary
+        aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`}
+        className="cursor-pointer list-none rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+      >
+        Use ▾
+      </summary>
+      <ul className="absolute right-0 z-10 mt-1 flex min-w-28 flex-col rounded-md border border-line bg-navy p-1 shadow-lg">
+        {actions.map((action) => (
+          <li key={action.label}>
+            <Link
+              href={action.href}
+              className="block rounded px-2 py-1 text-[11px] text-steel hover:bg-line/40 hover:text-white"
+            >
+              {action.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default function DustControls({
   playerName,
   copies,
   patron = false,
   deployedIds,
+  base = "/cards",
 }: {
   playerName: string;
   copies: DustCopy[];
+  /** "/cards" or "/academy/cards" — where the per-copy actions lead. */
+  base?: string;
   /** Active patron — shows the weekly art re-roll die on each copy. */
   patron?: boolean;
   /** Copies currently away on an expedition. A courtesy layer only:
@@ -246,6 +284,7 @@ export default function DustControls({
                 >
                   ⤢
                 </CardCopyPreview>
+                {deployed ? null : <CopyActions copy={copy} base={base} />}
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}

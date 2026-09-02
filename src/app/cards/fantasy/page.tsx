@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
 import FantasyLeaderboard, {
   type FantasySeasonRow,
@@ -69,7 +70,14 @@ function Gate({ title, body, signIn }: { title: string; body: string; signIn?: s
  * people who have one. Premier and Academy share this view; they differ only
  * by season code, same as every other card page.
  */
-export async function FantasyPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function FantasyPageView({
+  league = "premier",
+  field,
+}: {
+  league?: CardLeague;
+  /** ?field=<inventory id> — drop this copy into its role's slot. */
+  field?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
   if (!user) {
@@ -133,6 +141,13 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
     const slot = myLineup?.slots?.[role as FantasyRole];
     if (slot && ownedIds.has(slot.inventoryId)) initialSlots[role] = slot.inventoryId;
   }
+  // The shelf's "Field" action names a copy; it goes into its role's slot,
+  // displacing whatever was saved there, but only if it is still owned.
+  const fieldId = parseInventoryId(field);
+  const fieldCard = fieldId !== null ? options.find((option) => option.id === fieldId) : undefined;
+  if (fieldCard && (FANTASY_ROLES as readonly string[]).includes(fieldCard.role)) {
+    initialSlots[fieldCard.role as FantasyRole] = fieldCard.id;
+  }
 
   // Ranks belong to scored entries only — fetchWeekLineups already sorts the
   // scored ones to the front, so a running counter is the whole ranking.
@@ -188,6 +203,7 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
   );
 }
 
-export default async function FantasyPage() {
-  return FantasyPageView({ league: "premier" });
+export default async function FantasyPage({ searchParams }: { searchParams: Promise<{ field?: string }> }) {
+  const { field } = await searchParams;
+  return FantasyPageView({ league: "premier", field });
 }

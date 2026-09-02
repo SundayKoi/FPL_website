@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "Trade Academy player cards and betting dollars with other collectors.",
 };
 
-export default async function AcademyTradesPage() {
-  return TradesPageView({ league: "academy" });
+export default async function AcademyTradesPage({ searchParams }: { searchParams: Promise<{ offer?: string }> }) {
+  const { offer } = await searchParams;
+  return TradesPageView({ league: "academy", offer });
 }

@@ -132,6 +132,7 @@ export default async function CollectionSections({
           flame={flame}
           deployedIds={deployedIds}
           printRuns={printRuns}
+          base={base}
         />
       </section>
 

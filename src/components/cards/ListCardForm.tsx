@@ -14,6 +14,7 @@
 // error renders inline rather than being pre-empted by a disabled button.
 
 import { useMemo, useState, useTransition } from "react";
+import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import { editionLabel } from "@/lib/packs/week";
@@ -51,15 +52,29 @@ export default function ListCardForm({
   inventory,
   deployedIds,
   listedIds,
+  initialInventoryId = null,
+  base = "/cards",
 }: {
   inventory: TradeCardOption[];
   /** Your copies out on an expedition — they cannot change hands. */
   deployedIds?: ReadonlySet<number>;
   /** Your copies already on the market — one open listing per copy. */
   listedIds?: ReadonlySet<number>;
+  /** The copy to open the form on — the shelf's "Sell" action lands here
+   *  with ?sell=<id>. A hint, not a permission: ignored unless the copy is
+   *  yours and free to list. */
+  initialInventoryId?: number | null;
+  /** "/cards" or "/academy/cards", for the empty shelf's pack link. */
+  base?: string;
 }) {
   const router = useRouter();
-  const [chosen, setChosen] = useState<number | null>(null);
+  const [chosen, setChosen] = useState<number | null>(() =>
+    initialInventoryId !== null &&
+    inventory.some((card) => card.id === initialInventoryId) &&
+    !unavailableReason(initialInventoryId, deployedIds, listedIds)
+      ? initialInventoryId
+      : null,
+  );
   const [ask, setAsk] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +116,7 @@ export default function ListCardForm({
   return (
     <div className="card-brand flex flex-col gap-4 p-5" data-testid="list-card-form">
       {cards.length === 0 ? (
-        <p className="text-sm text-steel">You don&apos;t own any cards this season — open a pack first.</p>
+        <EmptyShelf base={base} goal="put one up for sale" />
       ) : (
         <>
           <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1" data-testid="sell-picker">

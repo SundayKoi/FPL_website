@@ -138,6 +138,17 @@ or the week's best, a squad out and when it is back, tickets held — from the
 pure `playStatuses()` in `src/lib/cards/playStatus.ts`, with the viewer
 resolved read-only by `readViewerDiscordId()` (never `getBettingUser()`).
 
+A copy acts from where it sits. In My Collection each copy's row (the
+"Manage copies" drawer) has a Use menu — Sell, Trade, Send out, Field — that
+opens Market, Trades, Expeditions or Fantasy with that copy already chosen,
+via `?sell=`, `?offer=`, `?send=` and `?field=` (`parseInventoryId` in
+`src/lib/cards/params.ts`). Those are hints, never permissions: each form
+selects the copy only if it is the viewer's and available, and a junk value
+opens the form empty. The share page `/card/[slug]` shows the viewer how
+many copies they hold and how many are for sale, read-only. Every game and
+the market share one empty state, `EmptyShelf`, with the pack shop as the
+one button.
+
 Gating within Cards uses one wording, `CardsGate` with `PREMIUM_GATE_TITLE`
 and `PREMIUM_GATE_BODY`, whichever check a page runs: `premiumAccess()` (the
 premium role) and `getBettingUser().allowed` (the wallet) both resolve the
