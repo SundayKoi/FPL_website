@@ -27,7 +27,7 @@ const row = (overrides: Partial<InventoryRow> & { card?: Partial<InventoryRow["c
 describe("cards for the engine", () => {
   it("reads a copy you own by its inventory id, so two copies are two cards", () => {
     const card = cardFromInventory(row());
-    expect(card).toEqual({ id: "7", name: "Doug", role: "Mid", team: "Gamblers", tier: "diamond", overall: 88, foil: true });
+    expect(card).toEqual({ id: "7", art: "/copy/7/card.png", name: "Doug", role: "Mid", team: "Gamblers", tier: "diamond", overall: 88, foil: true });
     expect(cardFromInventory(row({ id: 8 })).id).toBe("8");
   });
 
@@ -44,6 +44,7 @@ describe("cards for the engine", () => {
   it("stamps an edition card with its week so the same player from two weeks stays two cards", () => {
     const card = cardFromEdition(row().card, "2026-08-31");
     expect(card.id).toBe("doug-na1@2026-08-31");
+    expect(card.art).toBe("/card/doug-na1/card.png?w=2026-08-31");
     expect(cardFromEdition(row().card, "2026-09-07").id).not.toBe(card.id);
     expect(card.foil).toBe(false);
   });

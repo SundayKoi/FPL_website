@@ -28,12 +28,31 @@ export default function MiniCard({ card, faceDown = false, dim = false }: { card
       </div>
     );
   }
+  const title = `${card.name ?? ""} · ${card.team} · ${card.role} · ${card.tier} ${card.overall}${card.foil ? " · foil" : ""}`;
+  if (card.art) {
+    // The real card, from the same renderer the share images use, with
+    // the overall the game reads pinned over it.
+    return (
+      <div
+        className={`relative h-[4.6rem] w-[3.4rem] overflow-hidden rounded-md border bg-panel ${
+          card.foil ? "border-gold shadow-[0_0_0_1px_rgb(245_182_46_/_0.4)]" : "border-line"
+        } ${dim ? "opacity-50" : ""}`}
+        title={title}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- a rendered PNG from our own route, no remote host to configure */}
+        <img src={card.art} alt={title} className="h-full w-full object-cover object-top" loading="lazy" />
+        <span className={`absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 type-display text-xs leading-tight ${TIER_TONE[card.tier] ?? "text-white"}`}>
+          {card.overall}
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       className={`flex h-[4.6rem] w-[3.4rem] flex-col justify-between rounded-md border bg-panel px-1 py-1 text-left ${
         card.foil ? "border-gold shadow-[0_0_0_1px_rgb(245_182_46_/_0.4)]" : "border-line"
       } ${dim ? "opacity-50" : ""}`}
-      title={`${card.name ?? ""} · ${card.team} · ${card.role} · ${card.tier} ${card.overall}${card.foil ? " · foil" : ""}`}
+      title={title}
     >
       <span className={`type-display text-lg leading-none ${TIER_TONE[card.tier] ?? "text-white"}`}>{card.overall}</span>
       <span className="truncate text-[9px] font-semibold leading-tight text-white">{card.name ?? card.team}</span>
