@@ -1195,18 +1195,35 @@ body {
    line owns a streak. Refractor already has the diagonal rake and Cracked
    Ice the shards, so a skin line that sweeps a bar across the art reads as
    another refractor — the first cut of these did, and it was confusing.
-   Now: PROJECT is a circuit grid and a visor, Harrowing is a crescent moon
-   in fog, Academy is gilded page corners and a wax seal, Arcade is a coarse
-   pixel mosaic, Arcana is a sunburst inside a ring, Battlecast is a
-   targeting reticle. Different shapes, not different tints.
+   Now: PROJECT is a glitching hologram lit from its edge, Harrowing is a
+   crescent moon in fog, Academy is gilded page corners and a wax seal,
+   Arcade is a coarse pixel mosaic over a rolling rainbow, Arcana is a
+   sunburst inside a ring, Battlecast is a targeting reticle. Different
+   shapes, not different tints.
 
    Every colour in a line is read from three triplets, --m1/--m2/--m3, so
    the TIER can restate the same shape in another material without redrawing
    it (see the tier block below). Each line also declares its Chroma
    palette, --c1/--c2/--c3: the recolour League itself sells. ───────── */
 
-/* PROJECT — an orthogonal circuit grid, nodes at the crossings, one thin
-   visor slit of hot light across the eyes. Chroma: the cyan Hunters set. */
+/* PROJECT — a glitching hologram: CRT scanlines, a raster band walking
+   down the screen, horizontal signal tears that jitter sideways, one thin
+   visor slit of hot light across the eyes, and the whole card lit orange
+   from inside its edge. Chroma: the cyan Hunters set. */
+@keyframes lineProjectSignal {
+  0%   { background-position: 0 0, 0 -50%, 0 0, 0 0, 0 0, 0 0; }
+  18%  { background-position: 0 0, 0 -14%, 0 0, 0 0, 0 0, 0 0; }
+  19%  { background-position: 0 0, 0 -12%, -7px 0, 0 0, 0 0, 0 0; }
+  27%  { background-position: 0 0, 0 4%, -7px 0, 0 0, 0 0, 0 0; }
+  28%  { background-position: 0 0, 0 6%, 5px 0, 0 0, 0 0, 0 0; }
+  33%  { background-position: 0 0, 0 16%, 5px 0, 0 0, 0 0, 0 0; }
+  34%  { background-position: 0 0, 0 18%, 0 0, 0 0, 0 0, 0 0; }
+  61%  { background-position: 0 0, 0 72%, 0 0, 0 0, 0 0, 0 0; }
+  62%  { background-position: 0 0, 0 74%, 9px 0, 0 0, 0 0, 0 0; }
+  66%  { background-position: 0 0, 0 82%, 9px 0, 0 0, 0 0, 0 0; }
+  67%  { background-position: 0 0, 0 84%, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 0 0, 0 150%, 0 0, 0 0, 0 0, 0 0; }
+}
 @utility card-foil-line-project {
   --m1: 255 122 26;
   --m2: 255 232 205;
@@ -1216,14 +1233,20 @@ body {
   --c3: 0 22 36;
   position: absolute;
   inset: 0;
+  border-radius: 12px;
   background-image:
     linear-gradient(180deg, transparent 0 27%, rgb(var(--m1) / 0.75) 29.4%, rgb(var(--m2) / 0.95) 30.4%, rgb(var(--m1) / 0.75) 31.4%, transparent 34% 100%),
-    radial-gradient(circle, rgb(var(--m2) / 0.9) 0 1.4px, rgb(var(--m1) / 0.65) 2.4px, transparent 4px),
-    repeating-linear-gradient(0deg, rgb(var(--m1) / 0.3) 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, rgb(var(--m1) / 0.3) 0 1px, transparent 1px 28px),
+    linear-gradient(180deg, transparent 0 35%, rgb(var(--m2) / 0.4) 50%, transparent 65% 100%),
+    repeating-linear-gradient(180deg, transparent 0 41px, rgb(var(--m1) / 0.5) 41px 44px, transparent 44px 97px, rgb(var(--m2) / 0.35) 97px 99px, transparent 99px 151px, rgb(var(--m1) / 0.3) 151px 156px, transparent 156px 233px),
+    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.26) 0 2px, transparent 2px 4px),
+    repeating-linear-gradient(90deg, rgb(var(--m1) / 0.14) 0 1px, transparent 1px 28px),
     linear-gradient(180deg, rgb(var(--m3) / 0.45), rgb(var(--m3) / 0.15));
-  background-size: 100% 100%, 28px 28px, 100% 100%, 100% 100%, 100% 100%;
-  background-position: 0 0, 14px 14px, 0 0, 0 0, 0 0;
+  background-size: 100% 100%, 100% 50%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat, repeat, repeat, repeat, no-repeat;
+  box-shadow:
+    inset 0 0 30px 6px rgb(var(--m1) / 0.6),
+    inset 0 0 8px 1px rgb(var(--m2) / 0.45);
+  animation: lineProjectSignal 5.5s linear infinite;
 }
 
 /* Harrowing — a crescent moon top-right with a green halo, violet fog
@@ -1278,30 +1301,35 @@ body {
   background-repeat: no-repeat;
 }
 
-/* Arcade — an 8-bit mosaic of coarse pixels, CRT scanlines, and one slow
-   raster band walking down the screen. Chroma: the green-and-yellow
-   Final Boss set. */
-@keyframes lineArcadeScan {
-  0% { background-position: 0 -40%, 0 0, 0 0, 0 0; }
-  100% { background-position: 0 140%, 0 0, 0 0, 0 0; }
+/* Arcade — an 8-bit mosaic of coarse pixels over a rainbow that rolls
+   across the card. Five colours, not three, so the roll reads as a
+   rainbow and not a two-tone; Prestige gilds all five. Chroma: the
+   green-and-yellow Final Boss set. */
+@keyframes lineArcadeRoll {
+  0% { background-position: 0 0, 8px 12px, 0% 50%; }
+  100% { background-position: 0 0, 8px 12px, 100% 50%; }
 }
 @utility card-foil-line-arcade {
   --m1: 255 60 172;
   --m2: 53 241 255;
   --m3: 255 230 80;
+  --m4: 60 255 140;
+  --m5: 140 80 255;
   --c1: 120 255 60;
   --c2: 255 230 80;
   --c3: 60 120 255;
+  --c4: 255 120 40;
+  --c5: 200 60 255;
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, transparent 0 40%, rgb(255 255 255 / 0.5) 50%, transparent 60% 100%),
-    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.25) 0 2px, transparent 2px 4px),
-    conic-gradient(from 90deg at 50% 50%, rgb(var(--m1) / 0.55) 0 25%, rgb(var(--m2) / 0.55) 0 50%, rgb(var(--m3) / 0.45) 0 75%, transparent 0),
-    linear-gradient(120deg, rgb(var(--m1) / 0.3), rgb(var(--m2) / 0.3));
-  background-size: 100% 60%, 100% 100%, 18px 18px, 100% 100%;
-  background-repeat: no-repeat, repeat, repeat, no-repeat;
-  animation: lineArcadeScan 3.2s linear infinite;
+    conic-gradient(from 90deg at 50% 50%, rgb(255 255 255 / 0.22) 0 25%, transparent 0 50%, rgb(0 0 0 / 0.3) 0 75%, transparent 0),
+    conic-gradient(from 90deg at 50% 50%, rgb(0 0 0 / 0.26) 0 25%, transparent 0 50%, rgb(255 255 255 / 0.18) 0 75%, transparent 0),
+    linear-gradient(120deg, rgb(var(--m1) / 0.75), rgb(var(--m3) / 0.75), rgb(var(--m4) / 0.75), rgb(var(--m2) / 0.75), rgb(var(--m5) / 0.75), rgb(var(--m1) / 0.75));
+  background-size: 24px 24px, 40px 40px, 220% 220%;
+  background-position: 0 0, 8px 12px, 0% 50%;
+  background-repeat: repeat, repeat, no-repeat;
+  animation: lineArcadeRoll 9s linear infinite alternate;
 }
 
 /* Arcana — a sunburst turning slowly inside a fixed ring, indigo night
@@ -1375,11 +1403,15 @@ body {
   --m1: var(--c1);
   --m2: var(--c2);
   --m3: var(--c3);
+  --m4: var(--c4, var(--c1));
+  --m5: var(--c5, var(--c2));
 }
 @utility card-foil-tier-prestige {
   --m1: 240 196 90;
   --m2: 255 244 214;
   --m3: 130 84 12;
+  --m4: 255 214 130;
+  --m5: 190 140 40;
 }
 @utility card-foil-tier-ultimate {
   filter: saturate(1.4) brightness(1.08);
@@ -1440,7 +1472,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast,
+  .card-foil-line-project, .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast,
   .card-foil-tier-chroma-sheen, .card-foil-tier-prestige-frame, .card-foil-tier-ultimate-embers { animation: none; }
   .card-foil-tier-prestige-frame { box-shadow: inset 0 0 0 3px rgb(255 244 214 / 0.4), inset 0 0 16px rgb(240 196 90 / 0.6); }
   .card-foil-tier-ultimate-embers { box-shadow: inset 0 0 0 2px var(--line-accent), inset 0 0 20px color-mix(in srgb, var(--line-accent) 60%, transparent); }
@@ -1986,6 +2018,7 @@ body {
 [data-motion="rest"] .champ-embers::before,
 [data-motion="rest"] .champ-embers::after,
 [data-motion="rest"] .sig-rec,
+[data-motion="rest"] .card-foil-line-project,
 [data-motion="rest"] .card-foil-line-harrowing,
 [data-motion="rest"] .card-foil-line-arcade,
 [data-motion="rest"] .card-foil-line-arcana,
