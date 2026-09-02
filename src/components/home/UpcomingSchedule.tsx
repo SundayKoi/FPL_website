@@ -34,12 +34,12 @@ export default function UpcomingSchedule({
           <h2 id="upcoming-schedule-title" className="type-display mt-2 text-3xl sm:text-4xl">
             {meta?.label ?? "Regular season complete"}
           </h2>
-          {meta ? <p className="mt-1 text-sm text-steel">{meta.note}</p> : null}
+          {meta ? <p className="mt-1 text-sm text-muted">{meta.note}</p> : null}
         </div>
         {scheduleHref ? (
           <Link
             href={scheduleHref}
-            className="shrink-0 font-semibold text-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+            className="shrink-0 font-semibold text-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
             View full schedule <span aria-hidden>→</span>
           </Link>
@@ -47,15 +47,15 @@ export default function UpcomingSchedule({
       </div>
 
       {activeStage === null ? (
-        <p className="border-t border-line/60 px-5 py-5 text-sm leading-6 text-steel sm:px-6">
+        <p className="border-t border-border/60 px-5 py-5 text-sm leading-6 text-muted sm:px-6">
           The regular season is complete. Check the full schedule for the postseason bracket.
         </p>
       ) : schedule.fixtures.length === 0 ? (
-        <p className="border-t border-line/60 px-5 py-5 text-sm leading-6 text-steel sm:px-6">
+        <p className="border-t border-border/60 px-5 py-5 text-sm leading-6 text-muted sm:px-6">
           Schedule coming soon — matchups for {meta?.label} have not been announced yet.
         </p>
       ) : (
-        <div className="border-t border-line/60">
+        <div className="border-t border-border/60">
           {schedule.fixtures.map((fixture) => (
             <FixtureCard key={fixture.id} fixture={fixture} identities={identities} teamBasePath={teamBasePath} />
           ))}

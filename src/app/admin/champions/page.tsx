@@ -94,7 +94,7 @@ export default async function ChampionsPreviewPage() {
       <header>
         <span className="label-dash">OWNERS ONLY · PREVIEW — NOT PULLABLE</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">The Faceless Drop</h1>
-        <p className="mt-2 max-w-[62ch] text-sm text-steel">
+        <p className="mt-2 max-w-[62ch] text-sm text-muted">
           {CHAMPIONS_TEAM} — {CHAMPIONS_SEASON} champions, printed as the Dealer&apos;s Hand. Real splash art, the
           production foil layers, and the ink placement. Nothing mints from this page; the pack drop ships after
           sign-off.
@@ -109,7 +109,7 @@ export default async function ChampionsPreviewPage() {
 
       <section aria-label="Luck rolls" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Foiled &amp; signed</h2>
-        <p className="max-w-[62ch] text-sm text-steel">
+        <p className="max-w-[62ch] text-sm text-muted">
           The Q♠ through every parallel, plus the autograph. Ink is REAL only: the mint rolls signatures solely
           for champions whose drawn ink is on file (the script shown here is the preview stand-in). Champions who
           can&apos;t currently sign simply never come signed — until they do.
@@ -118,21 +118,21 @@ export default async function ChampionsPreviewPage() {
           {(["prisma", "aurora", "refractor", "ice"] as const).map((type) => (
             <figure key={type} className="flex w-60 flex-col items-center gap-2">
               <ChampionsCard card={queen} foil foilType={type} />
-              <figcaption className="text-xs uppercase tracking-[0.16em] text-steel">{type}</figcaption>
+              <figcaption className="text-xs uppercase tracking-[0.16em] text-muted">{type}</figcaption>
             </figure>
           ))}
           <figure className="flex w-60 flex-col items-center gap-2">
             {/* Signed always prints foil (base Prisma when the parallel
                 didn't roll on its own) — same rule as player cards. */}
             <ChampionsCard card={queen} foil foilType="prisma" signed />
-            <figcaption className="text-xs uppercase tracking-[0.16em] text-steel">autographed · always foil</figcaption>
+            <figcaption className="text-xs uppercase tracking-[0.16em] text-muted">autographed · always foil</figcaption>
           </figure>
         </div>
       </section>
 
       <section aria-label="Signing links" className="flex flex-col gap-4">
         <h2 className="type-display text-2xl">Signing links</h2>
-        <p className="max-w-[62ch] text-sm text-steel">
+        <p className="max-w-[62ch] text-sm text-muted">
           For champions who aren&apos;t site members: mint a one-time link, DM it, and they draw their signature
           on their phone — no account needed. The ink lands under their {CHAMPIONS_SEASON} riot account, and
           from then on their card can roll autographed.

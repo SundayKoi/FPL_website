@@ -35,7 +35,7 @@ export function LockCountdown({ lockAt, status }: { lockAt: string; status: stri
   if (secs <= 0) return <span className="text-xs font-semibold text-red-400">Locking…</span>;
   return (
     <span
-      className={"text-xs font-semibold " + (secs <= 300 ? "text-red-400" : "text-steel")}
+      className={"text-xs font-semibold " + (secs <= 300 ? "text-red-400" : "text-muted")}
       title="Betting locks"
     >
       ⏱ Locks in <b>{fmt(secs)}</b>

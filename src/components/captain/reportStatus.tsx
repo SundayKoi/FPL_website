@@ -2,20 +2,20 @@
 // by ReportBox's "My reports" list and AdminReportsQueue.
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "border-steel/50 text-steel",
-  ingested: "border-mint/50 text-mint",
+  pending: "border-muted/50 text-muted",
+  ingested: "border-success/50 text-success",
   needs_sides: "border-amber-400/60 text-amber-300",
   needs_side: "border-amber-400/60 text-amber-300",
   failed: "border-red-400/60 text-red-400",
   // Settled, but not by playing. Gold rather than mint: it is a finished
   // result, and it is also the one staff most often want to eyeball.
-  forfeit: "border-gold/60 text-gold",
+  forfeit: "border-prestige/60 text-prestige",
 };
 
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STATUS_STYLES[status] ?? "border-line text-steel"}`}
+      className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${STATUS_STYLES[status] ?? "border-border text-muted"}`}
     >
       {status.replace("_", " ")}
     </span>
@@ -37,11 +37,11 @@ export function FixtureChips({ fixtureId, status }: { fixtureId: string | null; 
   if (!fixtureId) return null;
   return (
     <>
-      <span className="rounded-full border border-steel/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel">
+      <span className="rounded-full border border-muted/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted">
         Schedule
       </span>
       {(status === "ingested" || status === "forfeit") && (
-        <span className="rounded-full border border-mint/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-mint">
+        <span className="rounded-full border border-success/50 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-success">
           Synced
         </span>
       )}
@@ -61,7 +61,7 @@ export function FixtureChips({ fixtureId, status }: { fixtureId: string | null; 
 export function ForfeitLine({ team, note }: { team: string | null; note: string | null }) {
   if (!team) return null;
   return (
-    <p className="mt-1 text-xs text-gold">
+    <p className="mt-1 text-xs text-prestige">
       {team} forfeited{note ? ` — ${note}` : ""}. Any games listed below were played and still count.
     </p>
   );

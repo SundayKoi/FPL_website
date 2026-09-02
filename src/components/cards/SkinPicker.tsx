@@ -95,14 +95,14 @@ export default function SkinPicker({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+        className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
       >
         {open ? "Close customizer" : "Customize card"}
       </button>
       {open ? (
         <div className="flex w-full flex-col items-center gap-4">
           <div className="flex w-full max-w-md flex-col gap-1">
-            <label htmlFor="card-motto" className="text-xs text-steel">
+            <label htmlFor="card-motto" className="text-xs text-muted">
               Motto — one line on the card back ({MOTTO_MAX} characters max)
             </label>
             <div className="flex gap-2">
@@ -118,7 +118,7 @@ export default function SkinPicker({
                 type="button"
                 disabled={saving || (currentMotto ?? "") === motto.trim()}
                 onClick={() => void saveMotto()}
-                className="btn-coral px-4 py-2 text-xs disabled:opacity-40"
+                className="btn-primary px-4 py-2 text-xs disabled:opacity-40"
               >
                 Save
               </button>
@@ -127,14 +127,14 @@ export default function SkinPicker({
 
           <div className="flex w-full flex-col items-center gap-2">
             <span className="label-dash">Signature</span>
-            <p className="text-center text-xs text-steel">
+            <p className="text-center text-xs text-muted">
               Sign your card — roughly 1 in 100 of your pulls comes out autographed.
             </p>
             <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} patronInks={patronInks} />
           </div>
 
           <div className="flex flex-col items-center gap-2">
-            <p className="text-xs text-steel">Pick which {champion} art this card wears.</p>
+            <p className="text-xs text-muted">Pick which {champion} art this card wears.</p>
             {/* Champions with 60+ skins would otherwise push the save
                 controls off the page — the grid scrolls instead of dropping
                 entries, so every skin stays reachable. */}
@@ -154,7 +154,7 @@ export default function SkinPicker({
                         onClick={() => void save({ skin })}
                         aria-pressed={active}
                         className={`relative h-16 w-28 shrink-0 overflow-hidden rounded border transition ${
-                          active ? "border-coral ring-2 ring-coral/60" : "border-line hover:border-coral"
+                          active ? "border-coral ring-2 ring-primary/60" : "border-border hover:border-primary"
                         } disabled:cursor-default`}
                         title={skin === 0 ? "Base splash" : `Skin ${skin}`}
                       >

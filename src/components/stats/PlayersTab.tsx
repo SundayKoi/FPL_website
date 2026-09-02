@@ -88,13 +88,12 @@ export default function PlayersTab({
         />
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="label-dash">Role</span>
-          <FilterPill accent="coral" active={roleFilter === null} onClick={() => setRoleFilter(null)}>
+          <FilterPill active={roleFilter === null} onClick={() => setRoleFilter(null)}>
             All
           </FilterPill>
           {ROLES.map((r) => (
             <FilterPill
               key={r}
-              accent="coral"
               active={roleFilter === r}
               onClick={() => setRoleFilter((cur) => (cur === r ? null : r))}
               uppercase
@@ -114,22 +113,22 @@ export default function PlayersTab({
               key={playerKey(row)}
               type="button"
               onClick={() => onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag })}
-              className="card-neon group flex flex-col gap-2 p-3 text-left transition hover:border-cyan/60"
+              className="card-neon group flex flex-col gap-2 p-3 text-left transition hover:border-primary/60"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold text-white group-hover:text-cyan">
+                <span className="truncate text-sm font-semibold text-white group-hover:text-primary">
                   {row.summoner_name}
-                  <span className="text-steel">#{row.tag}</span>
+                  <span className="text-muted">#{row.tag}</span>
                 </span>
                 <RoleChip role={row.role_mode} />
               </div>
               <div className="flex items-center gap-2">
                 <StatBar value={row.winrate_pct} max={100} color={roleColor(row.role_mode)} />
-                <span className="shrink-0 font-mono text-xs text-steel">
+                <span className="shrink-0 font-mono text-xs text-muted">
                   {row.winrate_pct.toFixed(0)}%
                 </span>
               </div>
-              <span className="font-mono text-[11px] text-steel">
+              <span className="font-mono text-[11px] text-muted">
                 {row.games}G · {row.kda.toFixed(2)} KDA
               </span>
             </button>

@@ -55,11 +55,11 @@ export default function DraftScheduleEditor({
   return (
     <section className="card-brand flex flex-col gap-4 p-5" aria-labelledby="draft-schedule-title">
       <div>
-        <span className="label-dash text-coral">SCHEDULE</span>
+        <span className="label-dash text-league-accent">SCHEDULE</span>
         <h2 id="draft-schedule-title" className="type-display mt-2 text-2xl text-white">
           Draft start time
         </h2>
-        <p className="mt-2 text-sm leading-6 text-steel">
+        <p className="mt-2 text-sm leading-6 text-muted">
           Set when the spectator preview should become draft night. Times are entered in Eastern Time.
         </p>
       </div>
@@ -78,7 +78,7 @@ export default function DraftScheduleEditor({
           <button
             type="submit"
             disabled={saving}
-            className="btn-coral px-4 py-2 text-sm"
+            className="btn-primary px-4 py-2 text-sm"
           >
             Save schedule
           </button>
@@ -86,14 +86,14 @@ export default function DraftScheduleEditor({
             type="button"
             disabled={saving || !startsAt}
             onClick={() => void save(null)}
-            className="rounded border border-line px-4 py-2 text-sm font-semibold text-steel hover:border-coral hover:text-coral disabled:opacity-40"
+            className="rounded border border-border px-4 py-2 text-sm font-semibold text-muted hover:border-primary hover:text-primary disabled:opacity-40"
           >
             Clear schedule
           </button>
         </div>
       </form>
 
-      {startsAt && <p className="text-xs text-steel">Current: {formatEasternDateTime(startsAt)}</p>}
+      {startsAt && <p className="text-xs text-muted">Current: {formatEasternDateTime(startsAt)}</p>}
       {message && <p className="text-sm text-mint">{message}</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
     </section>

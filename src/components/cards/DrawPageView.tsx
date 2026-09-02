@@ -73,7 +73,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Weekly Draw</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the
             same — a Bronze common has exactly the odds a Challenger foil does. Every Tuesday one copy
             comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and the winning
@@ -81,7 +81,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
           </p>
           <Link
             href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
           >
             ← Back to player cards
           </Link>
@@ -90,7 +90,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
       </header>
 
       {history.length === 0 ? (
-        <p className="text-sm text-steel">{DRAW_EMPTY_HEADLINE}</p>
+        <p className="text-sm text-muted">{DRAW_EMPTY_HEADLINE}</p>
       ) : (
         <section aria-label="Every draw winner" className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {history.map((draw) => (
@@ -103,7 +103,7 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
                 <span className="text-sm font-semibold text-white">
                   {names.get(draw.discordId) ?? draw.discordId}
                 </span>
-                <span className="text-xs text-steel">
+                <span className="text-xs text-muted">
                   {draw.card.name} · {fmtPoints(draw.pot)} and a free pack
                 </span>
               </figcaption>

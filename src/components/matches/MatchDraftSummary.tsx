@@ -16,10 +16,10 @@ export interface DraftSummaryGame {
 export function ChampionIcon({ name, banned = false, size = "h-9 w-9" }: { name: string | null; banned?: boolean; size?: string }) {
   const src = name ? championIconUrl(name) : null;
   if (!src) {
-    return <span className={`${size} rounded border border-dashed border-line/60 bg-navy/40`} title={name ?? "Skipped"} />;
+    return <span className={`${size} rounded border border-dashed border-border/60 bg-canvas/40`} title={name ?? "Skipped"} />;
   }
   return (
-    <span className={`relative inline-block ${size} overflow-hidden rounded border border-line/60`} title={name ?? undefined}>
+    <span className={`relative inline-block ${size} overflow-hidden rounded border border-border/60`} title={name ?? undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={name ?? ""} className={`h-full w-full object-cover ${banned ? "opacity-60 grayscale" : ""}`} loading="lazy" />
       {banned && (

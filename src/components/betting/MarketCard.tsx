@@ -10,12 +10,12 @@ function TeamRow({ team, pct, odds }: { team: BettingTeam; pct: number; odds: st
     <div className="mt-1.5">
       <div className="flex items-center gap-2" style={{ "--team-color": team.color } as CSSProperties}>
         <span className="truncate text-sm text-white">{team.name}</span>
-        <span className="font-mono text-xs text-steel">{odds}</span>
+        <span className="font-mono text-xs text-muted">{odds}</span>
         <span className="ml-auto text-sm font-semibold" style={{ color: team.color }}>
           {pct}%
         </span>
       </div>
-      <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-navy">
+      <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-canvas">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: team.color }} />
       </div>
     </div>
@@ -33,17 +33,17 @@ export function MarketCard({ market }: { market: MarketCardData }) {
     <Link
       href={`/betting/market/${market.id}`}
       className={
-        "block rounded-lg border border-line bg-panel p-4 transition hover:border-coral" +
+        "block rounded-lg border border-border bg-surface p-4 transition hover:border-primary" +
         (live ? " shadow-[0_0_0_1px_rgba(245,182,46,0.08)]" : "")
       }
     >
       <div className="flex items-center justify-between gap-2">
         <StatusPill status={market.status} />
-        <span className="font-mono text-xs text-steel">VOL {fmtPoints(total)}</span>
+        <span className="font-mono text-xs text-muted">VOL {fmtPoints(total)}</span>
       </div>
       <TeamRow team={market.team_a} pct={pctA} odds={americanOdds(shareA)} />
       <TeamRow team={market.team_b} pct={100 - pctA} odds={americanOdds(1 - shareA)} />
-      <div className="mt-3 flex items-center justify-between border-t border-line pt-2 text-xs text-steel">
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-xs text-muted">
         <span>
           {new Date(market.game_at).toLocaleString(undefined, {
             month: "short",

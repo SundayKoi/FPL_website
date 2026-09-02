@@ -36,20 +36,20 @@ function FixtureLine({ fixture, teamName }: { fixture: FixtureRow; teamName: str
 
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-      <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">
+      <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">
         {stageMeta(fixture.stage).label}
       </span>
       <span className="min-w-0 flex-1 truncate font-semibold text-white">
         vs {opponentName(fixture, teamName)}
       </span>
       {result ? (
-        <span className={`shrink-0 font-semibold ${result.outcome === "W" ? "text-mint" : "text-steel"}`}>
+        <span className={`shrink-0 font-semibold ${result.outcome === "W" ? "text-success" : "text-muted"}`}>
           {result.outcome} {result.myScore}–{result.opponentScore}
         </span>
       ) : (
-        <span className="shrink-0 text-xs text-steel">Bo{fixture.best_of}</span>
+        <span className="shrink-0 text-xs text-muted">Bo{fixture.best_of}</span>
       )}
-      <span className="w-full pl-[4.75rem] text-xs text-steel sm:w-auto sm:pl-0">
+      <span className="w-full pl-[4.75rem] text-xs text-muted sm:w-auto sm:pl-0">
         {formatKickoff(fixture.scheduled_at)}
       </span>
     </li>
@@ -69,33 +69,33 @@ export default function TeamSchedule({
 
   return (
     <details className="card-brand group overflow-hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
         <span role="heading" aria-level={2} className="label-dash">Team schedule</span>
-        <span aria-hidden className="text-xl leading-none text-coral transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-xl leading-none text-primary transition group-open:rotate-45">+</span>
       </summary>
-      <section aria-label="Team schedule" className="border-t border-line px-5 pb-5 pt-4">
+      <section aria-label="Team schedule" className="border-t border-border px-5 pb-5 pt-4">
       {fixtures.length === 0 ? (
-        <p className="mt-3 text-sm text-steel">No team fixtures are scheduled yet.</p>
+        <p className="mt-3 text-sm text-muted">No team fixtures are scheduled yet.</p>
       ) : (
         <div className="mt-3 grid gap-5 lg:grid-cols-2">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gold">Upcoming</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-prestige">Upcoming</h3>
             {upcoming.length > 0 ? (
-              <ul className="mt-1 flex flex-col divide-y divide-line/60">
+              <ul className="mt-1 flex flex-col divide-y divide-border/60">
                 {upcoming.map((fixture) => <FixtureLine key={fixture.id} fixture={fixture} teamName={teamName} />)}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-steel">No upcoming matches scheduled.</p>
+              <p className="mt-2 text-sm text-muted">No upcoming matches scheduled.</p>
             )}
           </div>
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gold">Recent results</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-prestige">Recent results</h3>
             {recent.length > 0 ? (
-              <ul className="mt-1 flex flex-col divide-y divide-line/60">
+              <ul className="mt-1 flex flex-col divide-y divide-border/60">
                 {recent.map((fixture) => <FixtureLine key={fixture.id} fixture={fixture} teamName={teamName} />)}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-steel">No results posted yet.</p>
+              <p className="mt-2 text-sm text-muted">No results posted yet.</p>
             )}
           </div>
         </div>

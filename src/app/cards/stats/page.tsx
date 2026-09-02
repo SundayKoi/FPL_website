@@ -24,7 +24,7 @@ function Figure({ value, label, note }: { value: string; label: string; note?: s
     <div className="card-brand flex flex-col gap-1 p-5">
       <span className="font-display text-4xl font-bold tabular-nums text-white sm:text-5xl">{value}</span>
       <span className="label-dash">{label}</span>
-      {note ? <span className="text-xs leading-5 text-steel">{note}</span> : null}
+      {note ? <span className="text-xs leading-5 text-muted">{note}</span> : null}
     </div>
   );
 }
@@ -61,7 +61,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Ledger</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Everything the league has opened, spent and is holding this season. Card counts are what
             exists right now — dusting destroys a copy, so a card someone melted down is gone from
             these figures as well as from their collection.
@@ -74,7 +74,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               </>
             ) : null}
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
             ← Back to player cards
           </Link>
         </div>
@@ -82,7 +82,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
       </header>
 
       {!stats || stats.cardsPulled === 0 ? (
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Nothing opened yet this season. The ledger fills up as packs get bought.
         </p>
       ) : (
@@ -183,7 +183,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
                 {stats.teams.byTeam.map((team) => (
                   <li key={team.teamName} className="flex items-center justify-between gap-4 px-5 py-3">
                     <span className="truncate text-sm font-semibold text-white">{team.teamName}</span>
-                    <span className="text-sm tabular-nums text-steel">
+                    <span className="text-sm tabular-nums text-muted">
                       {team.copies.toLocaleString()} held
                     </span>
                   </li>
@@ -241,7 +241,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               <div className="card-brand flex flex-col gap-1 p-5">
                 <span className="label-dash">Best card pulled</span>
                 <span className="font-display text-2xl font-bold text-white">{stats.bestPull.playerName}</span>
-                <span className="text-sm text-steel">
+                <span className="text-sm text-muted">
                   {stats.bestPull.overall} OVR · {tierLabel(stats.bestPull.tier)}
                 </span>
               </div>
@@ -250,7 +250,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               <div className="card-brand flex flex-col gap-1 p-5">
                 <span className="label-dash">Most pulled player</span>
                 <span className="font-display text-2xl font-bold text-white">{stats.mostPulled.playerName}</span>
-                <span className="text-sm text-steel">
+                <span className="text-sm text-muted">
                   {stats.mostPulled.copies.toLocaleString()} cop{stats.mostPulled.copies === 1 ? "y" : "ies"} in circulation
                 </span>
               </div>
@@ -258,7 +258,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           </section>
 
           {stats.truncated ? (
-            <p className="text-xs text-steel">
+            <p className="text-xs text-muted">
               These figures are a floor — the season has more rows than this page reads in one pass.
             </p>
           ) : null}

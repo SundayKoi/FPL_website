@@ -30,7 +30,7 @@ export default function TeamCardsSection({
       {showHeading ? (
         <div>
           <span className="label-dash">Team cards</span>
-          <p className="mt-1 text-sm text-steel">Rosters rated by their five best cards.</p>
+          <p className="mt-1 text-sm text-muted">Rosters rated by their five best cards.</p>
         </div>
       ) : null}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -40,12 +40,12 @@ export default function TeamCardsSection({
             <ul className="flex flex-col gap-1">
               {team.players.slice(0, 7).map((player) => (
                 <li key={player.slug} className="flex items-center gap-2 text-sm">
-                  <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-steel">
+                  <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">
                     {player.role}
                   </span>
                   <a
                     href={`/card/${player.slug}`}
-                    className="min-w-0 flex-1 truncate font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
+                    className="min-w-0 flex-1 truncate font-semibold text-white underline-offset-4 hover:text-primary hover:underline"
                   >
                     {player.name}
                   </a>
@@ -55,7 +55,7 @@ export default function TeamCardsSection({
                     </span>
                   ) : null}
                   <span
-                    className="rounded border border-line px-1.5 font-mono text-xs font-bold"
+                    className="rounded border border-border px-1.5 font-mono text-xs font-bold"
                     style={{ color: team.bannerColor, filter: "brightness(1.5)" }}
                   >
                     {player.overall}

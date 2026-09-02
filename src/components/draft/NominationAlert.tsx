@@ -33,7 +33,7 @@ export default function NominationAlert({
       role="dialog"
       aria-modal="true"
       aria-labelledby="nomination-alert-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-navy/80 p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-6 backdrop-blur-sm"
     >
       <div className="card-brand relative w-full max-w-md overflow-hidden p-8 text-center">
         <div
@@ -51,7 +51,7 @@ export default function NominationAlert({
         <h2 id="nomination-alert-title" className="type-display mt-2 text-3xl text-white">
           Your nomination
         </h2>
-        <p className="mt-3 text-sm text-steel">
+        <p className="mt-3 text-sm text-muted">
           Round {round} — opening bids start at{" "}
           <span className="font-display font-semibold not-italic text-gold">{minimumBid}</span>. Pick a
           player and put them on the block.

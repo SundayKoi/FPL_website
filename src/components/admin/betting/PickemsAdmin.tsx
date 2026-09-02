@@ -54,7 +54,7 @@ function CreatePickemForm({
     >
       <h2 className="label-dash">New pick&apos;em</h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Event
           <select
             value={eventId}
@@ -68,7 +68,7 @@ function CreatePickemForm({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Title
           <input
             value={title}
@@ -79,9 +79,9 @@ function CreatePickemForm({
         </label>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-steel">Series (pick at least 2 OPEN, non-draw markets)</span>
+        <span className="text-xs text-muted">Series (pick at least 2 OPEN, non-draw markets)</span>
         {legOptions.length === 0 ? (
-          <p className="text-xs text-steel">No eligible markets — create one on the Markets page first.</p>
+          <p className="text-xs text-muted">No eligible markets — create one on the Markets page first.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {legOptions.map((leg) => (
@@ -89,7 +89,7 @@ function CreatePickemForm({
                 key={leg.id}
                 className={
                   "cursor-pointer rounded border px-2 py-1 text-xs " +
-                  (selected.includes(leg.id) ? "border-coral bg-coral/10 text-coral" : "border-line text-steel")
+                  (selected.includes(leg.id) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted")
                 }
               >
                 <input type="checkbox" className="mr-1" checked={selected.includes(leg.id)} onChange={() => toggle(leg.id)} />
@@ -102,7 +102,7 @@ function CreatePickemForm({
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start btn-coral px-4 py-2 text-sm"
+        className="self-start btn-primary px-4 py-2 text-sm"
       >
         Create pick&apos;em
       </button>
@@ -125,7 +125,7 @@ export default function PickemsAdmin({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-sm text-steel">
+      <div className="text-sm text-muted">
         Jackpot bank: <span className="font-semibold text-gold">{fmtPoints(bank)}</span>
       </div>
       <ErrorBanner error={error} />
@@ -140,7 +140,7 @@ export default function PickemsAdmin({
       <div className="flex flex-col gap-2">
         <h2 className="label-dash">Pick&apos;ems ({pickems.length})</h2>
         {pickems.length === 0 ? (
-          <p className="text-sm text-steel">No pick&apos;ems yet.</p>
+          <p className="text-sm text-muted">No pick&apos;ems yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {pickems.map((p) => (
@@ -150,7 +150,7 @@ export default function PickemsAdmin({
                     <StatusPill status={p.status} />
                     <span className="truncate font-medium text-white">{p.title}</span>
                   </div>
-                  <div className="text-xs text-steel">
+                  <div className="text-xs text-muted">
                     {p.legCount} legs · Pool {fmtPoints(p.pool)} · {p.legLabels.join(", ")}
                   </div>
                 </div>
@@ -177,7 +177,7 @@ export default function PickemsAdmin({
                           run(() => cancelPickem(p.id));
                         }
                       }}
-                      className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-red-400 hover:text-red-300 disabled:opacity-40"
+                      className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
                     >
                       Cancel
                     </button>

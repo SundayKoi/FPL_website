@@ -67,14 +67,14 @@ export default function NominationPicker({
 
   const chip = (active: boolean) =>
     active
-      ? "rounded-full bg-coral px-3 py-1 text-xs font-semibold text-navy"
-      : "rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold text-steel hover:text-white";
+      ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
+      : "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-muted hover:text-white";
 
   return (
     <section className="card-brand flex flex-col gap-3 p-3">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="label-dash !text-gold">Your turn to nominate</h3>
-        <span className="text-xs text-steel">
+        <span className="text-xs text-muted">
           click a player to nominate · opens at <span className="font-semibold text-gold">{minimum}</span>
         </span>
         <span className="flex items-center gap-1.5">
@@ -102,7 +102,7 @@ export default function NominationPicker({
       </header>
 
       {roles.length === 0 && (
-        <p className="text-sm text-steel">Your roster is already full.</p>
+        <p className="text-sm text-muted">Your roster is already full.</p>
       )}
 
       <div
@@ -116,7 +116,7 @@ export default function NominationPicker({
             <div key={role} className="flex flex-col gap-1.5">
               <h4 className="label-dash">{role}</h4>
               {rows.length === 0 ? (
-                <p className="text-xs text-steel/70">No players match.</p>
+                <p className="text-xs text-muted/70">No players match.</p>
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {rows.map((p) => {
@@ -124,7 +124,7 @@ export default function NominationPicker({
                     return (
                       <li key={p.id}>
                         <button
-                          className="flex w-full items-center justify-between gap-2 rounded border border-line bg-navy px-2.5 py-1.5 text-left text-sm hover:border-coral hover:bg-coral/10 disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-navy"
+                          className="flex w-full items-center justify-between gap-2 rounded border border-border bg-canvas px-2.5 py-1.5 text-left text-sm hover:border-primary hover:bg-primary/10 disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-canvas"
                           disabled={!!blocked}
                           title={blocked ?? `Nominate (opens at ${minimum})`}
                           onClick={() => requestNominate(p)}
@@ -132,7 +132,7 @@ export default function NominationPicker({
                           <span className="sr-only">Nominate </span>
                           <span className="truncate text-white">
                             {p.display_name}
-                            {p.rank ? <span className="ml-1 text-xs text-steel">· {p.rank}</span> : null}
+                            {p.rank ? <span className="ml-1 text-xs text-muted">· {p.rank}</span> : null}
                           </span>
                         </button>
                       </li>
@@ -153,11 +153,11 @@ export default function NominationPicker({
           onCancel={() => setPending(null)}
         >
           <p className="type-display text-2xl">{pending.display_name}</p>
-          <p className="mt-1 text-sm text-steel">
+          <p className="mt-1 text-sm text-muted">
             <span className="uppercase">{pending.role}</span>
             {pending.rank ? ` · ${pending.rank}` : ""}
           </p>
-          <label className="mt-4 flex items-center justify-center gap-2 text-sm text-steel">
+          <label className="mt-4 flex items-center justify-center gap-2 text-sm text-muted">
             Open the bidding at
             <input
               type="text"
@@ -165,11 +165,11 @@ export default function NominationPicker({
               value={opening}
               onChange={(e) => setOpening(e.target.value)}
               aria-label="Opening bid"
-              className="w-20 rounded border border-line bg-navy px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-coral focus:outline-none"
+              className="w-20 rounded border border-border bg-canvas px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-primary focus:outline-none"
             />
             points
           </label>
-          <p className="mt-1 text-xs text-steel">
+          <p className="mt-1 text-xs text-muted">
             minimum {minimum} · your max {cap}
           </p>
         </ConfirmDialog>

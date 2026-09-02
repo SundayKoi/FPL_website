@@ -118,7 +118,7 @@ export default function ChampionsTab({ season, phase, teamNames }: { season: str
         <div className="card-neon overflow-x-auto p-2">
           <table className="w-full min-w-[760px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-cyan/20">
+              <tr className="border-b border-border/70">
                 {COLUMNS.map((col) => (
                   <SortableHeaderCell
                     key={col.key}
@@ -132,7 +132,7 @@ export default function ChampionsTab({ season, phase, teamNames }: { season: str
             </thead>
             <tbody>
               {sorted.map((row) => (
-                <tr key={row.champion} className="border-t border-line/50 transition hover:bg-cyan/5">
+                <tr key={row.champion} className="border-t border-border/50 transition hover:bg-raised/50">
                   {COLUMNS.map((col) => {
                     if (col.key === "presence_pct") {
                       return (
@@ -150,7 +150,7 @@ export default function ChampionsTab({ season, phase, teamNames }: { season: str
                       <td
                         key={col.key}
                         className={`px-2 py-2 ${
-                          col.key === "champion" ? "font-semibold text-white" : "font-mono text-steel"
+                          col.key === "champion" ? "font-semibold text-white" : "font-mono text-muted"
                         }`}
                       >
                         {col.display(row)}

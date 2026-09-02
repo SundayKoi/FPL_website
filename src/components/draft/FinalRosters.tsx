@@ -20,7 +20,7 @@ export default function FinalRosters({
         {teams.map((team) => (
           <div key={team.id} className="flex flex-col gap-1">
             <TeamColumn team={team} players={players} isNominator={false} isMyTeam={myTeamId === team.id} />
-            <p className="text-center text-xs text-steel">
+            <p className="text-center text-xs text-muted">
               Spent: <span className="font-display font-semibold not-italic text-gold">{teamSpent(team)}</span>
             </p>
           </div>

@@ -63,7 +63,7 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
     : null;
   return (
     <div className="card-brand flex flex-wrap items-end gap-3 p-3">
-      <button className="btn-coral px-4 py-2"
+      <button className="btn-primary px-4 py-2"
         type="button" disabled={!!quickBlocked || disarmed} onClick={() => place(quick)}>
         Bid {quick}
       </button>
@@ -76,20 +76,20 @@ export default function BidControls({ team, lot, lotPlayer, players, onError }: 
       }}>
         <div className="flex flex-col gap-1">
           <label className="label-dash">YOUR BID</label>
-          <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-28 rounded border border-line bg-navy p-3 text-lg font-display not-italic text-white placeholder:text-steel/60 focus:border-coral focus:outline-none" value={amountStr}
+  <input type="text" inputMode="numeric" pattern="[0-9]*" className="w-28 rounded border border-border bg-canvas p-3 text-lg font-display not-italic text-white placeholder:text-muted/60 focus:border-primary focus:outline-none" value={amountStr}
             placeholder={String(quick)}
             onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, ""))} />
-          <span className="text-xs text-steel">min {quick} · max {cap}</span>
+          <span className="text-xs text-muted">min {quick} · max {cap}</span>
         </div>
-        <button className="rounded border border-coral px-3 py-2 text-coral hover:bg-coral/10 disabled:opacity-40"
+        <button className="rounded border border-primary px-3 py-2 text-primary hover:bg-primary/10 disabled:opacity-40"
           disabled={!Number.isFinite(amount) || !!typedBlocked}>
           Bid
         </button>
         {typedBlocked && Number.isFinite(amount) && amount < quick && (
-          <span className="text-xs text-steel">Outbid — raise your number</span>
+          <span className="text-xs text-muted">Outbid — raise your number</span>
         )}
       </form>
-      {quickBlocked && <span className="text-sm text-steel">{quickBlocked}</span>}
+      {quickBlocked && <span className="text-sm text-muted">{quickBlocked}</span>}
     </div>
   );
 }

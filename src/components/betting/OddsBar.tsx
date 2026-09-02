@@ -39,7 +39,7 @@ export function OddsBar({
   const style = { "--team-color": team.color } as CSSProperties;
   return (
     <div
-      className="mb-2 rounded-lg border border-line bg-panel p-3"
+      className="mb-2 rounded-lg border border-border bg-surface p-3"
       style={style}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -48,7 +48,7 @@ export function OddsBar({
           <img src={team.logo_url} alt="" width={28} height={28} className="rounded object-contain" />
         ) : (
           <span
-            className="flex h-7 w-7 items-center justify-center rounded bg-navy text-[10px] font-semibold text-steel"
+            className="flex h-7 w-7 items-center justify-center rounded bg-canvas text-[10px] font-semibold text-muted"
             style={{ color: team.color }}
           >
             {team.short_code.slice(0, 3)}
@@ -56,17 +56,17 @@ export function OddsBar({
         )}
         <span className="font-display text-sm not-italic text-white">{team.name}</span>
         {odds && (
-          <span className="font-mono text-xs text-steel" title="moneyline odds">
+          <span className="font-mono text-xs text-muted" title="moneyline odds">
             {odds}
           </span>
         )}
-        <span className="ml-auto font-mono text-xs text-steel">VOL {fmtPoints(volume)}</span>
+        <span className="ml-auto font-mono text-xs text-muted">VOL {fmtPoints(volume)}</span>
         <Movement pct={pct} />
         <span className="font-display text-sm font-bold not-italic" style={{ color: team.color }}>
           {pct}%
         </span>
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-navy">
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-canvas">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: team.color }} />
       </div>
     </div>

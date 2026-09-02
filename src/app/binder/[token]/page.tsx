@@ -64,7 +64,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
           <img
             src={binder.ownerAvatarUrl}
             alt=""
-            className="h-14 w-14 rounded-full border border-line object-cover"
+            className="h-14 w-14 rounded-full border border-border object-cover"
             loading="lazy"
             decoding="async"
           />
@@ -84,7 +84,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
       </header>
 
       {binder.cards.length === 0 ? (
-        <p className="text-sm text-steel">Nothing on display yet.</p>
+        <p className="text-sm text-muted">Nothing on display yet.</p>
       ) : (
         <section aria-label="Cards on display" className="grid gap-8 sm:grid-cols-2 xl:grid-cols-3">
           {binder.cards.map((entry) => (
@@ -98,7 +98,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
                 flame={flame}
                 bloom={Boolean(flame) && entry.slot === 1}
               />
-              <figcaption className="text-center text-xs text-steel">
+              <figcaption className="text-center text-xs text-muted">
                 {entry.playerName} · {tierLabel(entry.tier)}
                 {entry.editionWeek ? ` · ${editionLabel(entry.editionWeek)}` : ""}
                 {entry.foil ? " · Foil" : ""}
@@ -109,7 +109,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         </section>
       )}
 
-      <Link href="/cards" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+      <Link href="/cards" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
         ← FPL player cards
       </Link>
     </main>

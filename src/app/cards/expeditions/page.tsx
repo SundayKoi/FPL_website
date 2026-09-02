@@ -52,7 +52,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card expeditions</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to send a squad out</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Expeditions field cards from your collection and pay into your FPL Better wallet — sign in
           with Discord to check your access.
         </p>
@@ -82,7 +82,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card expeditions</span>
         <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           An expedition pays betting dollars, and only FPL Better members have a wallet to pay into.
           Join the FPL Better role in Discord and come back to send a squad out.
         </p>
@@ -122,7 +122,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Expeditions</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Send three cards out into the field. They are away for hours, not spent — while a squad is
             out its cards can&apos;t be dusted or traded, and when the clock runs out they come home with
             betting dollars, sometimes a free pack, and occasionally a mark that one of them wears for
@@ -130,7 +130,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
           </p>
           <Link
             href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
           >
             ← Back to player cards
           </Link>

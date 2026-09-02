@@ -90,7 +90,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to see the card collection</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Player cards are a perk for premium Discord members — sign in with Discord to check your access.
         </p>
         <Link href={`/login?redirect=${base}`} className="btn-pill mt-2">
@@ -104,7 +104,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Every player gets a living trading card — rating, tier, archetype, and form, rebuilt from the
           stats after every match night. Grab the premium role in the Discord to browse the collection.
           Card links you&apos;ve been sent still work without it.
@@ -176,7 +176,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player Cards</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             The whole league as living trading cards — overall rating, tier, archetype, and form, all
             computed from real season stats and rebuilt automatically after every match night. Hover to
             tilt, click to flip, and share your card straight into Discord.
@@ -196,12 +196,12 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             <p className="type-display mt-1 text-xl sm:text-2xl">Your card — {myClaim.summoner_name}</p>
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            <Link href={`/card/${mySlug}?customize=1`} className="btn-coral px-5 py-2.5 text-sm">
+            <Link href={`/card/${mySlug}?customize=1`} className="btn-primary px-5 py-2.5 text-sm">
               Customize your card →
             </Link>
             <Link
               href={`/card/${mySlug}`}
-              className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+              className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
             >
               View →
             </Link>
@@ -209,14 +209,14 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </section>
       ) : null}
       {myClaim && myClaim.status === "pending" && mySlug ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-5 py-3">
-          <p className="text-sm text-steel">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3">
+          <p className="text-sm text-muted">
             Your claim on <span className="font-semibold text-white">{myClaim.summoner_name}</span> is waiting for a
             captain or admin.
           </p>
           <Link
             href={`/card/${mySlug}`}
-            className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+            className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
           >
             View card →
           </Link>
@@ -235,7 +235,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         <div className="min-w-[16rem] flex-1">
           <span className="label-dash">The Weekly Draw</span>
           <p className="type-display mt-1 text-xl sm:text-2xl">{drawPanel.headline}</p>
-          <p className="mt-1 max-w-xl text-sm text-steel">
+          <p className="mt-1 max-w-xl text-sm text-muted">
             {DRAW_TAGLINE} This week&apos;s pot is {fmtPoints(WEEKLY_DRAW_POT)} and a free pack.
             {latestDraw
               ? drawPanel.isWinner
@@ -258,16 +258,16 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </div>
         <Link
           href={`${base}/draw`}
-          className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
+          className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
         >
           Every winner →
         </Link>
       </section>
       {!myClaim && viewerProfileId && cards.length > 0 ? (
-        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-line bg-panel px-5 py-4">
+        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4">
           <div>
             <span className="label-dash">Claim your card</span>
-            <p className="mt-1 max-w-md text-sm text-steel">
+            <p className="mt-1 max-w-md text-sm text-muted">
               Players own their cards here — find yours and claim it. Once a captain or admin confirms it&apos;s you,
               you pick the art, write the motto, and sign it.
             </p>
@@ -276,7 +276,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </section>
       ) : null}
       {cards.length === 0 ? (
-        <p className="text-sm text-steel">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
+        <p className="text-sm text-muted">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
       ) : (
         <CardsGallery cards={cards} />
       )}

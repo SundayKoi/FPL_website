@@ -34,7 +34,7 @@ export default function TiltHint() {
   const touch = useSyncExternalStore(subscribe, isTouch, serverSnapshot);
 
   return (
-    <p className="text-xs text-steel">
+    <p className="text-xs text-muted">
       {touch ? "Tilt your phone · tap to flip" : "Hover to tilt · click to flip"}
     </p>
   );

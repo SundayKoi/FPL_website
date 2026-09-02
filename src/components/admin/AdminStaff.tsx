@@ -77,7 +77,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
   const row = (p: StaffProfile) => (
     <li
       key={p.id}
-      className="flex items-center justify-between gap-3 rounded border border-line bg-navy/40 px-3 py-2 text-sm"
+      className="flex items-center justify-between gap-3 rounded border border-border bg-canvas/40 px-3 py-2 text-sm"
     >
       <span className="min-w-0 truncate text-white">
         {p.display_name}
@@ -88,7 +88,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
         )}
       </span>
       {p.is_owner ? (
-        <span className="shrink-0 text-xs text-steel">Managed in the database</span>
+        <span className="shrink-0 text-xs text-muted">Managed in the database</span>
       ) : (
         <span className="flex shrink-0 gap-2">
           <button
@@ -99,7 +99,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
             className={`rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
               p.is_admin
                 ? "border border-red-500/60 text-red-400"
-                : "bg-coral text-navy hover:brightness-110"
+                : "bg-primary text-white hover:brightness-110"
             }`}
           >
             {p.is_admin ? "Remove admin" : "Make admin"}
@@ -126,7 +126,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
     <section className="card-brand flex flex-col gap-3 p-4">
       <div>
         <h2 className="label-dash">Staff</h2>
-        <p className="mt-1 text-xs text-steel">
+        <p className="mt-1 text-xs text-muted">
           Owners can grant and revoke admin or broadcaster access. Admins cannot change anyone&apos;s access.
         </p>
       </div>
@@ -134,7 +134,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
 
       <ul className="flex flex-col gap-1">{staff.map(row)}</ul>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Add someone
         <input
           value={query}
@@ -147,7 +147,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
       {needle && (
         <ul className="flex flex-col gap-1">
           {matches.map(row)}
-          {matches.length === 0 && <li className="text-sm text-steel">Nobody matches that.</li>}
+          {matches.length === 0 && <li className="text-sm text-muted">Nobody matches that.</li>}
         </ul>
       )}
     </section>

@@ -47,7 +47,7 @@ function formatStat(value: number, fmt: ScoutingStatLine["fmt"]): string {
 function laningDeltaClass(delta: number): string {
   if (delta > 0) return "text-mint";
   if (delta < 0) return "text-red-400";
-  return "text-steel";
+  return "text-muted";
 }
 
 const CARD_TITLES: Record<"core" | "damage" | "economy" | "vision", string> = {
@@ -206,23 +206,23 @@ export default function PlayerDetail({
       <button
         type="button"
         onClick={onBack}
-        className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-cyan/60 hover:text-cyan"
+        className="flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary/60 hover:text-primary"
       >
         <span aria-hidden="true">←</span> Back
       </button>
 
       {status === "loading" ? (
-        <div className="card-neon p-8 text-center text-steel" role="status">
+        <div className="card-neon p-8 text-center text-muted" role="status">
           Loading player…
         </div>
       ) : status === "error" ? (
-        <div className="card-neon p-8 text-center text-steel">
+        <div className="card-neon p-8 text-center text-muted">
           Couldn&apos;t load this player&apos;s data. Try again shortly.
         </div>
       ) : !myRow || !profile ? (
         <div className="card-neon p-8 text-center">
           <p className="type-display text-2xl">No stats yet</p>
-          <p className="mt-2 text-steel">
+          <p className="mt-2 text-muted">
             {summonerName}#{tag} has no data for this season/phase.
           </p>
         </div>
@@ -234,9 +234,9 @@ export default function PlayerDetail({
               <div>
                 <p className="type-display text-4xl sm:text-5xl">
                   {myRow.summoner_name}
-                  <span className="text-steel">#{myRow.tag}</span>
+                  <span className="text-muted">#{myRow.tag}</span>
                 </p>
-                <p className="mt-2 flex items-center gap-2 text-sm text-steel">
+                <p className="mt-2 flex items-center gap-2 text-sm text-muted">
                   <RoleChip role={myRow.role_mode} />
                   <span className="font-mono">
                     {teams.length > 0 ? teams.join(", ") : "Unknown team"}
@@ -247,7 +247,7 @@ export default function PlayerDetail({
                 <p className="type-display text-3xl text-cyan sm:text-4xl [text-shadow:0_0_18px_rgb(53_230_255/0.4)]">
                   {myRow.winrate_pct.toFixed(1)}%
                 </p>
-                <p className="font-mono text-xs text-steel">
+                <p className="font-mono text-xs text-muted">
                   {myRow.games} games · {myRow.wins}W {myRow.games - myRow.wins}L
                 </p>
               </div>
@@ -274,10 +274,10 @@ export default function PlayerDetail({
               ].map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded border border-line/60 bg-navy/70 p-3 transition hover:border-cyan/50"
+                  className="rounded border border-border/60 bg-canvas/70 p-3 transition hover:border-primary/50"
                 >
                   <p className="font-mono text-lg font-bold text-cyan">{stat.value}</p>
-                  <p className="mt-0.5 text-xs text-steel">{stat.label}</p>
+                  <p className="mt-0.5 text-xs text-muted">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -291,8 +291,8 @@ export default function PlayerDetail({
               </span>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {laning.map((stat) => (
-                  <div key={stat.label} className="rounded border border-line/60 bg-navy p-3 text-center">
-                    <p className="text-xs text-steel">{stat.label}</p>
+                  <div key={stat.label} className="rounded border border-border/60 bg-canvas p-3 text-center">
+                    <p className="text-xs text-muted">{stat.label}</p>
                     <p className="mt-1 text-xl font-bold text-white">
                       {stat.fmt === "int" ? Math.round(stat.mine).toLocaleString() : stat.mine.toFixed(1)}
                     </p>
@@ -300,7 +300,7 @@ export default function PlayerDetail({
                       {stat.delta > 0 ? "+" : ""}
                       {stat.fmt === "int" ? Math.round(stat.delta).toLocaleString() : stat.delta.toFixed(1)}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-steel">
+                    <p className="mt-0.5 text-[11px] text-muted">
                       vs {stat.fmt === "int" ? Math.round(stat.cohort).toLocaleString() : stat.cohort.toFixed(1)} avg
                     </p>
                   </div>
@@ -320,9 +320,9 @@ export default function PlayerDetail({
                   {profile[key].map((line) => (
                     <li
                       key={line.label}
-                      className="flex items-center justify-between gap-3 border-t border-line/60 pt-1.5 first:border-t-0 first:pt-0"
+                      className="flex items-center justify-between gap-3 border-t border-border/60 pt-1.5 first:border-t-0 first:pt-0"
                     >
-                      <span className="text-sm text-steel">{line.label}</span>
+                      <span className="text-sm text-muted">{line.label}</span>
                       <span className="text-sm font-semibold text-white">{formatStat(line.value, line.fmt)}</span>
                     </li>
                   ))}
@@ -340,19 +340,19 @@ export default function PlayerDetail({
                   shared-name pair (e.g. Aura#5950 vs Aura#RGB0) this
                   section belongs to, even though myRecords is already
                   filtered by name AND tag. */}
-              <span className="text-steel">#{tag}</span>
+              <span className="text-muted">#{tag}</span>
             </span>
             {recordsByCategory.size === 0 ? (
-              <p className="mt-3 text-sm text-steel">No records held for this season/phase.</p>
+              <p className="mt-3 text-sm text-muted">No records held for this season/phase.</p>
             ) : (
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from(recordsByCategory.entries()).map(([category, entries]) => (
-                  <div key={category} className="rounded border border-line/60 bg-navy p-3">
+                  <div key={category} className="rounded border border-border/60 bg-canvas p-3">
                     <p className="text-sm font-semibold text-white">{category}</p>
                     {entries
                       .sort((a, b) => a.rank - b.rank)
                       .map(({ entry, rank }) => (
-                        <p key={`${entry.match_id}-${entry.category}`} className="mt-1 text-xs text-steel">
+                        <p key={`${entry.match_id}-${entry.category}`} className="mt-1 text-xs text-muted">
                           <span className="text-gold">#{rank}</span> ·{" "}
                           {formatValue(entry.value)} ·{" "}
                           {formatDate(entry.game_date)}
@@ -368,20 +368,20 @@ export default function PlayerDetail({
           <div className="card-neon overflow-x-auto p-2">
             <span className="mono-label block px-2 pt-2">Recent Games</span>
             {recentGames.length === 0 ? (
-              <p className="p-4 text-sm text-steel">No recent games found.</p>
+              <p className="p-4 text-sm text-muted">No recent games found.</p>
             ) : (
               <table className="mt-2 w-full min-w-[480px] border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">Result</th>
-                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">Champion</th>
-                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">K/D/A</th>
-                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-steel">Date</th>
+                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-muted">Result</th>
+                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-muted">Champion</th>
+                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-muted">K/D/A</th>
+                    <th className="px-2 py-2 text-left text-xs uppercase tracking-wide text-muted">Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentGames.map((game, i) => (
-                    <tr key={`${game.game_date}-${i}`} className="border-t border-line/60">
+                    <tr key={`${game.game_date}-${i}`} className="border-t border-border/60">
                       <td className="px-2 py-1.5">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-bold ${
@@ -392,10 +392,10 @@ export default function PlayerDetail({
                         </span>
                       </td>
                       <td className="px-2 py-1.5 text-white">{game.champion}</td>
-                      <td className="px-2 py-1.5 text-steel">
+                      <td className="px-2 py-1.5 text-muted">
                         {game.kills}/{game.deaths}/{game.assists}
                       </td>
-                      <td className="px-2 py-1.5 text-steel">{formatDate(game.game_date)}</td>
+                      <td className="px-2 py-1.5 text-muted">{formatDate(game.game_date)}</td>
                     </tr>
                   ))}
                 </tbody>

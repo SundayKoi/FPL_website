@@ -169,18 +169,18 @@ export default function SignaturePad({
     <div className="flex w-full max-w-md flex-col items-center gap-2">
       {currentSignature ? (
         <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-steel">On file</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">On file</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={currentSignature}
             alt={`${summonerName}'s signature`}
-            className="h-16 w-auto max-w-full rounded bg-navy object-contain px-2"
+            className="h-16 w-auto max-w-full rounded bg-canvas object-contain px-2"
           />
         </div>
       ) : null}
       {patronInks ? (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-steel">Ink</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Ink</span>
           {(Object.keys(INKS) as InkKey[]).map((key) => (
             <button
               key={key}
@@ -189,14 +189,14 @@ export default function SignaturePad({
               title={`${INKS[key].label} ink`}
               onClick={() => setInk(key)}
               className={`h-5 w-5 rounded-full border-2 transition ${
-                ink === key ? "scale-110 border-white" : "border-line opacity-70 hover:opacity-100"
+                ink === key ? "scale-110 border-white" : "border-border opacity-70 hover:opacity-100"
               }`}
               style={{ background: INKS[key].color }}
             >
               <span className="sr-only">{INKS[key].label} ink</span>
             </button>
           ))}
-          <span className="text-[10px] text-steel">Patron pen case — gold &amp; crimson</span>
+          <span className="text-[10px] text-muted">Patron pen case — gold &amp; crimson</span>
         </div>
       ) : null}
       <canvas
@@ -206,7 +206,7 @@ export default function SignaturePad({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="w-full max-w-full touch-none rounded border border-line bg-navy"
+        className="w-full max-w-full touch-none rounded border border-border bg-canvas"
         style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
       />
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -214,11 +214,11 @@ export default function SignaturePad({
           type="button"
           onClick={clear}
           disabled={saving || !dirty}
-          className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40"
+          className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
         >
           Clear
         </button>
-        <button type="button" onClick={() => void save()} disabled={saving || !dirty} className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40">
+        <button type="button" onClick={() => void save()} disabled={saving || !dirty} className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40">
           Save
         </button>
         {currentSignature ? (
@@ -226,7 +226,7 @@ export default function SignaturePad({
             type="button"
             onClick={() => void write(null)}
             disabled={saving}
-            className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+            className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
           >
             Remove signature
           </button>

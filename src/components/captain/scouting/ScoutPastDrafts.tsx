@@ -41,11 +41,11 @@ export default function ScoutPastDrafts({ drafts }: { drafts: PastDraft[] }) {
               <h3 className="label-dash">{formatKickoff(games[0].fixture.scheduled_at)} · {games[0].fixture.team_a ?? "—"} vs {games[0].fixture.team_b ?? "—"}</h3>
               <div className="mt-2 space-y-2">
                 {[...games].sort((a, b) => a.gameNumber - b.gameNumber).map((draft) => (
-                  <details key={`${draft.fixture.id}-${draft.gameNumber}`} className="group rounded border border-line/70 bg-navy/40 p-3">
+                  <details key={`${draft.fixture.id}-${draft.gameNumber}`} className="group rounded border border-border/70 bg-canvas/40 p-3">
                     <summary className="cursor-pointer list-none font-semibold text-white">
                       Game {draft.gameNumber}
                       <span className="ml-2 text-xs text-cyan">Scouted team: {draft.side === "blue" ? "Blue side" : "Red side"}</span>
-                      <span className="ml-2 text-xs text-steel">{draft.winnerTeam ? `Winner: ${draft.winnerTeam}` : "Unresolved"}</span>
+                      <span className="ml-2 text-xs text-muted">{draft.winnerTeam ? `Winner: ${draft.winnerTeam}` : "Unresolved"}</span>
                     </summary>
                     <div className="mt-4">
                       <DraftMatchupBoard view={draft.matchup ?? legacyView(draft)} imageSize="lg" />
@@ -56,7 +56,7 @@ export default function ScoutPastDrafts({ drafts }: { drafts: PastDraft[] }) {
             </section>
           ))}
         </div>
-      ) : <p className="mt-4 text-sm text-steel">No recorded drafts for this opponent yet</p>}
+      ) : <p className="mt-4 text-sm text-muted">No recorded drafts for this opponent yet</p>}
     </section>
   );
 }

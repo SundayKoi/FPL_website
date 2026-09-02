@@ -65,7 +65,7 @@ const ROLE_META: Record<string, { chip: string; bar: NeonColor }> = {
   UTILITY: { chip: "text-purple border-purple/40 bg-purple/10", bar: "purple" },
 };
 
-const ROLE_FALLBACK = { chip: "text-steel border-line bg-panel", bar: "cyan" as NeonColor };
+const ROLE_FALLBACK = { chip: "text-muted border-border bg-surface", bar: "cyan" as NeonColor };
 
 /** Accent color for a role's bars/values. */
 export function roleColor(role: string): NeonColor {
@@ -89,17 +89,8 @@ export function tierFor(score: number): { label: string; className: string } {
   if (score >= 80) return { label: "S", className: "text-pink" };
   if (score >= 65) return { label: "A", className: "text-gold" };
   if (score >= 50) return { label: "B", className: "text-cyan" };
-  return { label: "C", className: "text-steel" };
+  return { label: "C", className: "text-muted" };
 }
-
-// Active-pill fill per accent. The cyan pills carry the neon glow (and the
-// `transition` class they always had); PlayersTab's coral pills never had
-// either, so the accent also gates those classes to keep each variant
-// byte-identical to its pre-extraction markup.
-const PILL_ACTIVE: Record<"cyan" | "coral", string> = {
-  cyan: "bg-cyan text-navy [box-shadow:0_0_12px_rgb(53_230_255/0.4)]",
-  coral: "bg-coral text-navy",
-};
 
 /** A rounded toggle-pill filter button (Top 10, min-games, role, phase chips). */
 export function FilterPill({
@@ -107,22 +98,20 @@ export function FilterPill({
   onClick,
   children,
   uppercase = false,
-  accent = "cyan",
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
   uppercase?: boolean;
-  accent?: "cyan" | "coral";
 }) {
   return (
     <button
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold${uppercase ? " uppercase" : ""}${
-        accent === "cyan" ? " transition" : ""
-      } ${active ? PILL_ACTIVE[accent] : "border border-line bg-panel text-steel hover:text-white"}`}
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition${uppercase ? " uppercase" : ""} ${
+        active ? "bg-primary text-white" : "border border-border bg-surface text-muted hover:text-white"
+      }`}
     >
       {children}
     </button>
@@ -132,7 +121,7 @@ export function FilterPill({
 /** The tabs' shared "still fetching" card. */
 export function LoadingCard({ label }: { label: string }) {
   return (
-    <div className="card-brand p-8 text-center text-steel" role="status">
+    <div className="card-brand p-8 text-center text-muted" role="status">
       Loading {label}…
     </div>
   );
@@ -141,7 +130,7 @@ export function LoadingCard({ label }: { label: string }) {
 /** The tabs' shared fetch-failure card. */
 export function ErrorCard({ noun }: { noun: string }) {
   return (
-    <div className="card-brand p-8 text-center text-steel">
+    <div className="card-brand p-8 text-center text-muted">
       Couldn&apos;t load {noun} data. Try again shortly.
     </div>
   );
@@ -152,7 +141,7 @@ export function EmptyCard({ title = "No stats yet", message }: { title?: string;
   return (
     <div className="card-brand p-8 text-center">
       <p className="type-display text-2xl">{title}</p>
-      <p className="mt-2 text-steel">{message}</p>
+      <p className="mt-2 text-muted">{message}</p>
     </div>
   );
 }

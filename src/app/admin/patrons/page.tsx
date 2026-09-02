@@ -97,7 +97,7 @@ export default async function AdminPatronsPage() {
       <header>
         <span className="label-dash">OWNERS ONLY</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Patrons</h1>
-        <p className="mt-2 max-w-[60ch] text-sm text-steel">
+        <p className="mt-2 max-w-[60ch] text-sm text-muted">
           Venmo comes in, days go out. Recording a payment grants its days in the same transaction, so the receipt
           book and the flames can never disagree. Nothing here changes odds or ratings — patronage is visibility.
         </p>

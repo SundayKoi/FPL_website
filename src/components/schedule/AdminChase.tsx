@@ -55,7 +55,7 @@ export default function AdminChase({
     <div className="card-brand flex flex-wrap items-end gap-3 p-4">
       <div className="flex flex-col gap-1">
         <span className="label-dash">Weekly chase</span>
-        <span className="text-xs font-semibold text-steel">
+        <span className="text-xs font-semibold text-muted">
           {current
             ? current.claimedBy
               ? `"${current.title}" — taken by ${current.claimedBy}`
@@ -166,7 +166,7 @@ export default function AdminChase({
             type="button"
             disabled={busy}
             onClick={() => void arm()}
-            className="rounded-full border border-gold/60 bg-gold/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold disabled:opacity-50"
+            className="rounded-full border border-prestige/60 bg-prestige/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-prestige disabled:opacity-50"
           >
             Arm &amp; announce
           </button>

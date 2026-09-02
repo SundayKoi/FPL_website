@@ -125,40 +125,40 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
           return (
             <li
               key={row.rank}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-line bg-panel px-4 py-3"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-border bg-surface px-4 py-3"
             >
-              <span className="w-14 shrink-0 font-mono text-sm text-steel">{row.rank}♠</span>
+              <span className="w-14 shrink-0 font-mono text-sm text-muted">{row.rank}♠</span>
               <span className="min-w-32 text-sm font-semibold text-white">{row.name}</span>
               {ink ? (
                 <span className="flex items-center gap-2">
                   {/* The stored ink itself, on the dark ground it prints on —
                       this is where a stray-dot save is caught by eye. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={ink} alt={`${row.name}'s ink on file`} className="h-8 w-24 rounded bg-navy object-contain px-1" />
+                  <img src={ink} alt={`${row.name}'s ink on file`} className="h-8 w-24 rounded bg-canvas object-contain px-1" />
                   <button
                     type="button"
                     onClick={() => void clearInk(row)}
                     disabled={busy !== null}
-                    className="rounded-full border border-line bg-navy px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-steel transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+                    className="rounded-full border border-border bg-canvas px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
                   >
                     {isArmed("clear") ? "Wipe it — sure?" : "Clear ink"}
                   </button>
                 </span>
               ) : (
-                <span className="rounded-full border border-line bg-navy px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
+                <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
                   No ink
                 </span>
               )}
               <span className="ml-auto flex flex-wrap items-center gap-2">
                 {token ? (
                   <>
-                    <code className="max-w-56 truncate rounded bg-navy px-2 py-1 text-[11px] text-steel sm:max-w-72">
+                    <code className="max-w-56 truncate rounded bg-canvas px-2 py-1 text-[11px] text-muted sm:max-w-72">
                       {signUrl(token)}
                     </code>
                     <button
                       type="button"
                       onClick={() => void copy(row.rank, token)}
-                      className="btn-coral px-3 py-1.5 text-xs"
+                      className="btn-primary px-3 py-1.5 text-xs"
                     >
                       {copied === row.rank ? "Copied!" : "Copy link"}
                     </button>
@@ -166,7 +166,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
                       type="button"
                       onClick={() => void voidLink(row, token)}
                       disabled={busy !== null}
-                      className="rounded-full border border-line bg-navy px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+                      className="rounded-full border border-border bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
                     >
                       {isArmed("void") ? "Kill it — sure?" : "Void link"}
                     </button>
@@ -176,7 +176,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
                   type="button"
                   onClick={() => void mint(row)}
                   disabled={busy !== null}
-                  className="rounded-full border border-line bg-navy px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40"
+                  className="rounded-full border border-border bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
                 >
                   {busy === row.rank ? "Working…" : token ? "New link" : "Create link"}
                 </button>
@@ -185,7 +185,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
           );
         })}
       </ul>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         A link signs AS that champion, works once, and dies after {INVITE_DAYS} days — send it straight to the
         person, nowhere public. A spent or botched link can&apos;t be revived: <strong>Void</strong> the old one,{" "}
         <strong>Clear ink</strong> if what got saved isn&apos;t a real signature, and mint a <strong>New link</strong>{" "}

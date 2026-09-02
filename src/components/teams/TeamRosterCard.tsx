@@ -64,7 +64,7 @@ export default function TeamRosterCard({
         </div>
       </div>
 
-      <div className="border-b border-line bg-navy/80 px-4 py-3">
+      <div className="border-b border-border bg-canvas/80 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <h2 id={headingId} className="font-display text-2xl font-semibold text-white">
             {/* Placeholder teams (no featured draft) have synthetic ids and
@@ -75,19 +75,19 @@ export default function TeamRosterCard({
               <Link
                 href={`${league === "academy" ? "/academy/teams" : "/teams"}/${teamSlug(team.name)}`}
                 draggable={false}
-                className="underline-offset-4 transition hover:text-coral hover:underline"
+                className="underline-offset-4 transition hover:text-primary hover:underline"
               >
                 {team.name}
               </Link>
             )}
           </h2>
         </div>
-        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-steel">
+        <p className="mt-1 text-xs uppercase tracking-[0.14em] text-muted">
           Captain {team.captainName}
         </p>
       </div>
 
-      <ul aria-label={`${team.name} roster`} className="divide-y divide-line/80">
+      <ul aria-label={`${team.name} roster`} className="divide-y divide-border/80">
         {team.players.map((player) => {
           const captain = player.acquisition === "captain";
           const freeAgency = player.acquisition === "free_agency";
@@ -112,7 +112,7 @@ export default function TeamRosterCard({
                 editable && !captain && !empty ? "cursor-grab hover:bg-white/5" : ""
               }`}
             >
-              <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-steel">
+              <span className="w-9 shrink-0 text-xs font-display font-semibold not-italic text-muted">
                 {ROLE_LABELS_SHORT[player.role]}
               </span>
               {!empty ? (
@@ -128,18 +128,18 @@ export default function TeamRosterCard({
                     draggable={false}
                     className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"
                   >
-                    <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline group-open/menu:text-coral">
+                    <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 hover:text-primary hover:underline group-open/menu:text-primary">
                       {player.displayName}
                     </span>
-                    <span aria-hidden className="text-[0.55rem] text-steel transition group-open/menu:rotate-180">
+                    <span aria-hidden className="text-[0.55rem] text-muted transition group-open/menu:rotate-180">
                       ▾
                     </span>
                   </summary>
-                  <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-line bg-navy p-1 shadow-lg">
+                  <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border bg-canvas p-1 shadow-lg">
                     <Link
                       href={`/players/${encodeURIComponent(player.displayName)}`}
                       draggable={false}
-                      className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                      className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
                     >
                       Stats profile
                     </Link>
@@ -150,7 +150,7 @@ export default function TeamRosterCard({
                         target="_blank"
                         rel="noopener noreferrer"
                         draggable={false}
-                        className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                        className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
                       >
                         {linkedAccountLabel(url, index)} ↗
                       </a>
@@ -165,7 +165,7 @@ export default function TeamRosterCard({
               {captain || freeAgency ? (
                 <span
                   aria-label={captain ? "Captain, cannot be traded" : "Free agency"}
-                  className="shrink-0 rounded border border-steel/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-steel"
+                  className="shrink-0 rounded border border-muted/50 px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.12em] text-muted"
                 >
                   {captain ? "C" : "FA"}
                 </span>
@@ -174,7 +174,7 @@ export default function TeamRosterCard({
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}
-                  className="shrink-0 rounded border border-line px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-steel transition hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="shrink-0 rounded border border-border px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   aria-label={`Swap with ${player.displayName}`}
                 >
                   Swap with…

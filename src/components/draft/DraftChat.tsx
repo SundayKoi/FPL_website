@@ -137,14 +137,14 @@ export default function DraftChat({
 
   return (
     <section aria-label="Draft chat" className={`card-brand flex min-h-0 flex-col p-0 ${className}`}>
-      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
         <span className="label-dash">CHAT</span>
         {onToggle && (
           <button
             type="button"
             onClick={onToggle}
             aria-label={chatCollapsed ? "Expand chat" : "Collapse chat"}
-            className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-coral hover:text-coral"
+            className="rounded border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted hover:border-primary hover:text-primary"
           >
             {chatCollapsed ? "Expand" : "Collapse"}
           </button>
@@ -155,7 +155,7 @@ export default function DraftChat({
         ref={listRef}
         className="max-h-64 min-h-32 space-y-1.5 overflow-y-auto px-4 py-3 text-sm lg:min-h-0 lg:max-h-none lg:flex-1"
       >
-        {messages.length === 0 && <li className="text-steel">Nothing yet — say something.</li>}
+        {messages.length === 0 && <li className="text-muted">Nothing yet — say something.</li>}
         {messages.map((m) =>
           m.profile_id === null ? (
             <li key={m.id} className="text-center text-xs text-gold/80">
@@ -163,7 +163,7 @@ export default function DraftChat({
             </li>
           ) : (
             <li key={m.id} className="group flex items-baseline gap-2">
-              <span className="shrink-0 font-semibold text-steel">
+              <span className="shrink-0 font-semibold text-muted">
                 {names[m.profile_id] ?? "…"}
               </span>
               <span className="min-w-0 break-words text-white">{m.body}</span>
@@ -183,7 +183,7 @@ export default function DraftChat({
       </ul>
 
       {profileId ? (
-        <div className="border-t border-line p-3">
+        <div className="border-t border-border p-3">
           <div className="mb-2 flex flex-wrap gap-1">
             {QUICK_EMOJI.map((emoji) => (
               <button
@@ -191,7 +191,7 @@ export default function DraftChat({
                 type="button"
                 onClick={() => setInput((v) => v + emoji)}
                 aria-label={`Add ${emoji}`}
-                className="rounded px-1.5 py-0.5 text-base transition hover:bg-line/40"
+                className="rounded px-1.5 py-0.5 text-base transition hover:bg-border/40"
               >
                 {emoji}
               </button>
@@ -207,7 +207,7 @@ export default function DraftChat({
               maxLength={300}
               placeholder="Talk to the room…"
               aria-label="Chat message"
-              className="min-w-0 flex-1 rounded border border-line bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-steel/60"
+              className="min-w-0 flex-1 rounded border border-border bg-transparent px-3 py-1.5 text-sm text-white placeholder:text-muted/60"
             />
             <button
               type="button"
@@ -221,7 +221,7 @@ export default function DraftChat({
           {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
         </div>
       ) : (
-        <div className="border-t border-line px-4 py-3 text-xs text-steel">
+        <div className="border-t border-border px-4 py-3 text-xs text-muted">
           Sign in to join the chat.
         </div>
       )}

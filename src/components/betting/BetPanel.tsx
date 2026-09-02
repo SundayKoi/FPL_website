@@ -49,7 +49,7 @@ export function BetPanel({
   const disabled = !loggedIn || locked || amount <= 0 || tooBig;
 
   return (
-    <div className="rounded-lg border border-line bg-panel p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="font-display text-sm font-bold not-italic uppercase tracking-wide text-white">
         Place Bet
       </div>
@@ -65,14 +65,14 @@ export function BetPanel({
             onClick={() => setSide(DRAW)}
             className={
               "flex-1 rounded border px-2 py-2 text-sm font-semibold transition " +
-              (side === DRAW ? "border-transparent bg-steel text-navy" : "border-line text-steel hover:border-steel")
+              (side === DRAW ? "border-transparent bg-primary text-white" : "border-border text-muted hover:border-primary")
             }
           >
             DRAW
           </button>
         )}
       </div>
-      <label className="mt-4 block text-xs uppercase tracking-wide text-steel" htmlFor="bet-amount">
+      <label className="mt-4 block text-xs uppercase tracking-wide text-muted" htmlFor="bet-amount">
         Amount
       </label>
       <input
@@ -92,7 +92,7 @@ export function BetPanel({
         max={balance}
         value={Math.min(amount, balance)}
         onChange={(e) => setAmount(Math.trunc(Number(e.target.value)))}
-        className="mt-3 w-full accent-coral"
+        className="mt-3 w-full accent-primary"
       />
       <div className="mt-3 flex gap-2">
         {QUICK.map((q) => (
@@ -100,27 +100,27 @@ export function BetPanel({
             key={q}
             type="button"
             onClick={() => setAmount(Math.trunc(balance * q))}
-            className="flex-1 rounded border border-line py-1 text-xs text-steel hover:border-coral hover:text-coral"
+            className="flex-1 rounded border border-border py-1 text-xs text-muted hover:border-primary hover:text-primary"
           >
             {q === 1 ? "MAX" : `${q * 100}%`}
           </button>
         ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-sm" data-testid="payout">
-        <span className="text-steel">Win payout</span>
+        <span className="text-muted">Win payout</span>
         <span className="font-display font-bold not-italic text-mint">+{fmtPoints(profit)}</span>
       </div>
       {tooBig && <div className="mt-2 text-xs text-red-400">Over balance</div>}
       {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
       <button
         type="button"
-        className="mt-3 w-full rounded bg-coral py-3 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-3 w-full rounded bg-primary py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={disabled}
         onClick={() => onBet(side, amount)}
       >
         BUY
       </button>
-      {!loggedIn && <div className="mt-2 text-center text-xs text-steel">Log in to bet</div>}
+      {!loggedIn && <div className="mt-2 text-center text-xs text-muted">Log in to bet</div>}
     </div>
   );
 }

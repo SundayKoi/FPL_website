@@ -18,7 +18,7 @@ export default function ShareCardActions({ slug }: { slug: string }) {
             setTimeout(() => setCopied(false), 1500);
           });
         }}
-        className="btn-coral px-4 py-2 text-xs"
+        className="btn-primary px-4 py-2 text-xs"
       >
         {copied ? "Copied ✓" : "Copy card link"}
       </button>
@@ -27,7 +27,7 @@ export default function ShareCardActions({ slug }: { slug: string }) {
         // this file keeps handing back a card from several restats ago.
         href={cardImageUrl("", slug, null)}
         download={`${slug}-card.png`}
-        className="rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+        className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
       >
         Download PNG
       </a>

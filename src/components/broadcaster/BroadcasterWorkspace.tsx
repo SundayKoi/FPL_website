@@ -76,7 +76,7 @@ export default function BroadcasterWorkspace({
         headToHeadTriggerRef={headToHeadTriggerRef}
       />
 
-      <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-line bg-navy p-1">
+      <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-border bg-canvas p-1">
         {leagueLinks.map((link) => {
           const active = link.league === league;
           return <Link
@@ -84,7 +84,7 @@ export default function BroadcasterWorkspace({
             href={link.href}
             aria-current={active ? "page" : undefined}
             className={`inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
-              active ? "bg-coral font-bold text-navy" : "text-steel/60 hover:bg-panel hover:text-steel"
+              active ? "bg-league-accent font-bold text-white" : "text-muted/60 hover:bg-surface hover:text-muted"
             }`}
           >
             {link.label}
@@ -108,7 +108,7 @@ export default function BroadcasterWorkspace({
               onClick={() => setTab(item.id)}
               onKeyDown={(event) => selectTabFromKeyboard(event, index)}
               className={`rounded px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
-                selected ? "bg-coral text-navy" : "text-steel hover:bg-panel hover:text-white"
+                selected ? "bg-primary text-white" : "text-muted hover:bg-surface hover:text-white"
               }`}
             >
               {item.label}

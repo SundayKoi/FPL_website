@@ -55,15 +55,15 @@ export default function CompareDrawer({
     <div
       role="dialog"
       aria-label="Compare players"
-      className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto border-t border-line bg-panel shadow-[0_-8px_24px_rgb(0_0_0_/_0.45)] sm:inset-x-auto sm:inset-y-0 sm:right-0 sm:max-h-none sm:w-[420px] sm:overflow-y-auto sm:border-l sm:border-t-0"
+      className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto border-t border-border bg-surface shadow-[0_-8px_24px_rgb(0_0_0_/_0.45)] sm:inset-x-auto sm:inset-y-0 sm:right-0 sm:max-h-none sm:w-[420px] sm:overflow-y-auto sm:border-l sm:border-t-0"
     >
-      <div className="relative flex items-center justify-between border-b border-line px-4 py-3">
+      <div className="relative flex items-center justify-between border-b border-border px-4 py-3">
         <hr className="neon-rule absolute inset-x-0 top-0" />
         <span className="mono-label">Compare ({players.length}/3)</span>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-line px-2.5 py-1 text-xs font-semibold text-steel transition hover:border-cyan/60 hover:text-cyan"
+          className="rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted transition hover:border-primary/60 hover:text-primary"
         >
           Close
         </button>
@@ -73,7 +73,7 @@ export default function CompareDrawer({
         <table className="w-full min-w-[480px] border-collapse text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 bg-panel px-2 py-1.5 text-left text-xs uppercase tracking-wide text-steel">
+              <th className="sticky left-0 bg-surface px-2 py-1.5 text-left text-xs uppercase tracking-wide text-muted">
                 Stat
               </th>
               {players.map((p) => (
@@ -81,13 +81,13 @@ export default function CompareDrawer({
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-xs font-semibold text-white">
                       {p.summoner_name}
-                      <span className="text-steel">#{p.tag}</span>
+                      <span className="text-muted">#{p.tag}</span>
                     </span>
                     <button
                       type="button"
                       aria-label={`Remove ${p.summoner_name} from compare`}
                       onClick={() => onRemove(p)}
-                      className="shrink-0 text-steel hover:text-pink"
+                      className="shrink-0 text-muted hover:text-primary"
                     >
                       ×
                     </button>
@@ -98,8 +98,8 @@ export default function CompareDrawer({
           </thead>
           <tbody>
             {STAT_ROWS.map((stat) => (
-              <tr key={stat.label} className="border-t border-line/60">
-                <td className="px-2 py-1.5 text-xs text-steel">{stat.label}</td>
+              <tr key={stat.label} className="border-t border-border/60">
+                <td className="px-2 py-1.5 text-xs text-muted">{stat.label}</td>
                 {players.map((p) => (
                   <td key={`${p.summoner_name}#${p.tag}-${stat.label}`} className="px-2 py-1.5 text-white">
                     {stat.pick(p)}

@@ -113,13 +113,13 @@ export default function PlayerPoolEditor({
           onChange={(e) => setCsv(e.target.value)}
           rows={6}
           placeholder={"Faker,mid,Challenger,https://op.gg/...\nCanyon,jungle"}
-          className="rounded border border-line bg-navy px-2 py-1 font-mono text-xs text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+          className="rounded border border-border bg-canvas px-2 py-1 font-mono text-xs text-white placeholder:text-muted/60 focus:border-primary focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <button
             onClick={handleParse}
             disabled={!csv.trim()}
-            className="rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40"
+            className="rounded border border-muted text-muted px-3 py-1.5 text-xs font-semibold hover:bg-muted/10 disabled:opacity-40"
           >
             Validate
           </button>
@@ -127,7 +127,7 @@ export default function PlayerPoolEditor({
             <button
               onClick={handleImport}
               disabled={busy || validCount === 0}
-              className="btn-coral px-3 py-1.5 text-xs"
+              className="btn-primary px-3 py-1.5 text-xs"
             >
               Import {validCount} valid row{validCount === 1 ? "" : "s"}
             </button>
@@ -144,7 +144,7 @@ export default function PlayerPoolEditor({
                 ))}
               </ul>
             )}
-            <p className="text-steel">
+            <p className="text-muted">
               {validCount} valid, {errorRows.length} invalid
             </p>
           </div>
@@ -156,11 +156,11 @@ export default function PlayerPoolEditor({
           Pool ({pool.length})
         </h3>
         {pool.length === 0 ? (
-          <p className="text-sm text-steel">No pool players yet.</p>
+          <p className="text-sm text-muted">No pool players yet.</p>
         ) : (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wide text-steel">
+              <tr className="text-xs uppercase tracking-wide text-muted">
                 <th className="py-1">Name</th>
                 <th className="py-1">Role</th>
                 <th className="py-1">Rank</th>
@@ -171,16 +171,16 @@ export default function PlayerPoolEditor({
             </thead>
             <tbody>
               {pool.map((p) => (
-                <tr key={p.id} className="border-t border-line">
+                <tr key={p.id} className="border-t border-border">
                   <td className="py-1 text-white">{p.display_name}</td>
-                  <td className="py-1 text-steel">{p.role}</td>
-                  <td className="py-1 text-steel">{p.rank ?? "—"}</td>
+                  <td className="py-1 text-muted">{p.role}</td>
+                  <td className="py-1 text-muted">{p.rank ?? "—"}</td>
                   <td className="py-1 font-display font-semibold not-italic text-gold">
                     {currentPlayerPointValue(p.display_name) ?? "-"}
                   </td>
-                  <td className="py-1 text-steel">
+                  <td className="py-1 text-muted">
                     {p.opgg_url ? (
-                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-coral underline">
+                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-primary underline">
                         link
                       </a>
                     ) : (

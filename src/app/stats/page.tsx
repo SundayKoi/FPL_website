@@ -19,12 +19,12 @@ export default async function StatsPage({
   return (
     <main className="grid-neon flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
+        <header className="border-b border-border pb-8">
           <span className="mono-label">
-            <span className="text-cyan">&gt;</span> League Data
+            <span className="text-league-accent">&gt;</span> League Data
           </span>
           <h1 className="type-display text-neon mt-3 text-5xl sm:text-6xl">Stats</h1>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
             League records, player form, and standings.
           </p>
         </header>

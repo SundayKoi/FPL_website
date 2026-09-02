@@ -80,10 +80,10 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
         <h3 id={`${homepage}-featured-matchup-title`} className="type-display mt-2 text-2xl">
           {label} featured matchup
         </h3>
-        <p className="mt-1 text-sm text-steel">Choose the current fixture and the copy shown above it on the {label} homepage.</p>
+        <p className="mt-1 text-sm text-muted">Choose the current fixture and the copy shown above it on the {label} homepage.</p>
       </summary>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         {label} fixture
         <select
           aria-label={`${label} fixture`}
@@ -99,7 +99,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         {label} known Twitch channel
         <select
           aria-label={`${label} known Twitch channel`}
@@ -115,7 +115,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         {label} Twitch URL
         <input
           type="url"
@@ -128,7 +128,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         {label} title
         <input
           aria-label={`${label} title`}
@@ -139,7 +139,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         {label} description
         <textarea
           aria-label={`${label} description`}
@@ -159,7 +159,7 @@ export default function AdminFeaturedMatchupEditor({ homepage, fixtures, setting
           type="button"
           disabled={busy}
           onClick={() => void save()}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           {busy ? "Saving…" : `Save ${label} featured matchup`}
         </button>

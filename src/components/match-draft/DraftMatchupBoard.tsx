@@ -78,8 +78,8 @@ export function DraftPickSlot({
       onKeyDown={onKeyDown}
       data-testid={`${side}-pick-slot`}
       className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
-        active ? "border-gold bg-gold/10" : pick.state === "recorded" ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
-      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral" : ""}`}
+        active ? "border-gold bg-gold/10" : pick.state === "recorded" ? "border-border bg-canvas/70" : "border-dashed border-border bg-surface/70"
+      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" : ""}`}
     >
       {portraitUrl ? (
         <>
@@ -92,7 +92,7 @@ export function DraftPickSlot({
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
         </>
       ) : null}
-      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
+      <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
         <span>{pick.role ? `${pick.role}${pick.pickNumber ? ` · P${pick.pickNumber}` : ""}` : pickLabel}</span>
         {pick.role ? <span className="sr-only">{pick.role}</span> : null}
         <span className="flex items-center gap-1.5">
@@ -102,7 +102,7 @@ export function DraftPickSlot({
               title="Request a change to this step"
               aria-label={`Request change to ${side} pick ${pick.slot}`}
               onClick={onRequestChange}
-              className="rounded border border-line px-1 leading-tight text-steel transition hover:border-coral hover:text-coral"
+              className="rounded border border-border px-1 leading-tight text-muted transition hover:border-primary hover:text-primary"
             >
               ↺
             </button>
@@ -110,19 +110,19 @@ export function DraftPickSlot({
           {side}
         </span>
       </div>
-      <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-steel" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
+      <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {championLabel}
       </p>
       {pick.pickNumber ? (
         <span
           title={`Pick ${pick.pickNumber}`}
-          className="absolute left-1 top-1 rounded-full border border-line/70 bg-navy/90 px-1 text-[8px] font-bold leading-4 text-steel"
+          className="absolute left-1 top-1 rounded-full border border-border/70 bg-canvas/90 px-1 text-[8px] font-bold leading-4 text-muted"
         >
           P{pick.pickNumber}
           <span className="sr-only">{pick.pickNumber}</span>
         </span>
       ) : null}
-      {pick.playerName ? <p className="relative mt-1 truncate text-xs text-steel [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
+      {pick.playerName ? <p className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
     </div>
   );
 }
@@ -142,7 +142,7 @@ export function DraftTeamHeader({
         <span
           title={online ? "Captain connected" : "Captain not connected"}
           aria-label={`${team.abbreviation} captain ${online ? "connected" : "not connected"}`}
-          className={`absolute top-2 h-2 w-2 rounded-full ${side === "red" ? "left-2" : "right-2"} ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-line"}`}
+          className={`absolute top-2 h-2 w-2 rounded-full ${side === "red" ? "left-2" : "right-2"} ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-border"}`}
         />
       ) : null}
       {team.imageUrl ? (
@@ -150,13 +150,13 @@ export function DraftTeamHeader({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={team.imageUrl} alt="" className="h-10 w-10 rounded object-contain" />
       ) : (
-        <span className="flex h-10 w-10 items-center justify-center rounded bg-panel font-display text-sm font-bold not-italic">
+        <span className="flex h-10 w-10 items-center justify-center rounded bg-surface font-display text-sm font-bold not-italic">
           {team.abbreviation.slice(0, 3)}
         </span>
       )}
       <div className="min-w-0">
         <p className="font-display text-xl font-bold not-italic">{team.abbreviation}</p>
-        <p className="truncate text-xs text-steel">{team.name}</p>
+        <p className="truncate text-xs text-muted">{team.name}</p>
       </div>
     </div>
   );
@@ -183,7 +183,7 @@ function BanTile({
       data-testid={`ban-${side}-${ban.slot}`}
       title={ban.state === "skipped" ? "Skipped" : ban.champion ?? `Ban ${ban.slot}`}
       className={`relative ${imageSizes[imageSize].ban} shrink-0 overflow-hidden rounded border ${
-        active ? "border-gold bg-gold/10" : ban.state === "recorded" ? "border-line bg-navy/70" : "border-dashed border-line bg-panel/70"
+        active ? "border-gold bg-gold/10" : ban.state === "recorded" ? "border-border bg-canvas/70" : "border-dashed border-border bg-surface/70"
       }`}
     >
       {champion ? (
@@ -196,7 +196,7 @@ function BanTile({
       ) : ban.state === "skipped" ? (
         <span className="flex h-full items-center justify-center font-mono text-[10px] font-semibold uppercase text-red-400/80">Skip</span>
       ) : (
-        <span className="flex h-full items-center justify-center font-mono text-xs font-semibold text-steel">B{ban.slot}</span>
+        <span className="flex h-full items-center justify-center font-mono text-xs font-semibold text-muted">B{ban.slot}</span>
       )}
       {onRequestChange ? (
         <button
@@ -204,7 +204,7 @@ function BanTile({
           title="Request a change to this ban"
           aria-label={`Request change to ${side} ban ${ban.slot}`}
           onClick={onRequestChange}
-          className="absolute right-0.5 top-0.5 rounded border border-line bg-navy/80 px-1 text-[10px] leading-tight text-steel transition hover:border-coral hover:text-coral"
+          className="absolute right-0.5 top-0.5 rounded border border-border bg-canvas/80 px-1 text-[10px] leading-tight text-muted transition hover:border-primary hover:text-primary"
         >
           ↺
         </button>
@@ -230,7 +230,7 @@ export function DraftBanStrip({
 }) {
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${side === "red" ? "justify-end" : ""}`}>
-      <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Bans</p>
+      <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Bans</p>
       {view.bans.map((ban, index) => {
         const previous = view.bans[index - 1];
         const phaseBreak = Boolean(previous && previous.slot + ban.slot === 7);
@@ -305,13 +305,13 @@ export function DraftMatchupSidePanel({
 
 function DefaultRail({ view }: { view: DraftMatchupView }) {
   return (
-    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
       <span className="label-dash">Game {view.gameNumber}</span>
       <span className="type-display mt-1 text-2xl text-white">
         {view.outcome.status === "winner" ? `${view.outcome.winnerTeam} win` : "Unresolved"}
       </span>
       {view.metadata.railNote ? <span className="mt-1 text-xs text-cyan">{view.metadata.railNote}</span> : null}
-      {view.metadata.stageLabel ? <span className="mt-1 text-xs uppercase text-steel">{view.metadata.stageLabel}</span> : null}
+      {view.metadata.stageLabel ? <span className="mt-1 text-xs uppercase text-muted">{view.metadata.stageLabel}</span> : null}
     </div>
   );
 }

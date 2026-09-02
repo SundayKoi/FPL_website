@@ -27,7 +27,7 @@ import { tierLabel } from "@/lib/cards/tier";
 import PlayerCard3D from "./PlayerCard3D";
 
 const CHIP =
-  "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
+  "rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted";
 const GOLD_CHIP =
   "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
 
@@ -148,7 +148,7 @@ export default function CardCopyPreview({
               type="button"
               onClick={close}
               aria-label="Close card preview"
-              className="self-end rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-bold text-steel transition hover:border-coral hover:text-coral"
+              className="self-end rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-bold text-muted transition hover:border-primary hover:text-primary"
             >
               ✕
             </button>
@@ -156,7 +156,7 @@ export default function CardCopyPreview({
             {shown ? (
               <PlayerCard3D card={shown} interactive gyro forceFoil={foil} foilType={foilType} />
             ) : (
-              <p className="w-72 rounded-xl border border-line bg-panel p-6 text-center text-sm text-steel">
+              <p className="w-72 rounded-xl border border-border bg-surface p-6 text-center text-sm text-muted">
                 {failed ? "That card couldn't be loaded — it may have moved on." : "Loading the card…"}
               </p>
             )}

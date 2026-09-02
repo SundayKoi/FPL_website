@@ -38,7 +38,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
         {candidates.length > 1 ? (
           <>
             <h1 className="type-display text-2xl text-white">Which {query}?</h1>
-            <p className="mt-2 text-sm text-steel">More than one player has that name — pick one:</p>
+            <p className="mt-2 text-sm text-muted">More than one player has that name — pick one:</p>
             <ul className="mt-4 flex flex-col gap-2">
               {candidates.map((row) => (
                 <li key={`${row.summoner_name}#${row.tag}`}>
@@ -55,7 +55,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
         ) : (
           <>
             <h1 className="type-display text-2xl text-white">No stats for “{query}”</h1>
-            <p className="mt-2 text-sm text-steel">
+            <p className="mt-2 text-sm text-muted">
               Profiles appear once a player has games in the stats ingest. Check the spelling, or browse
               the player list.
             </p>

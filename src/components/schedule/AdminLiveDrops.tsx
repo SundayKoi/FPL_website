@@ -48,7 +48,7 @@ export default function AdminLiveDrops({
     <div className="card-brand flex flex-wrap items-end gap-3 p-4">
       <div className="flex flex-col gap-1">
         <span className="label-dash">Live drops</span>
-        <span className={`text-xs font-semibold ${active ? "text-red-300" : "text-steel"}`}>
+        <span className={`text-xs font-semibold ${active ? "text-red-300" : "text-muted"}`}>
           {active
             ? `LIVE until ${new Date(liveUntil!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET`
             : "Off — packs roll normal foil odds"}
@@ -83,7 +83,7 @@ export default function AdminLiveDrops({
           type="button"
           disabled={busy}
           onClick={() => void write({ end: true })}
-          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel disabled:opacity-50"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
         >
           End now
         </button>

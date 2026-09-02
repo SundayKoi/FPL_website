@@ -91,19 +91,19 @@ export default async function ParallelsPreviewPage() {
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-2">
-        <Link href="/admin" className="label-dash w-fit hover:text-coral">
+        <Link href="/admin" className="label-dash w-fit hover:text-primary">
           ← Admin
         </Link>
         <h1 className="type-display text-4xl sm:text-5xl">Parallels</h1>
-        <p className="max-w-3xl text-sm text-steel">
+        <p className="max-w-3xl text-sm text-muted">
           Every parallel on real cards from{" "}
           {weeks[0] ? `the ${weeks[0]} edition` : "the live build"}, through the same component the shop
           renders. Hover a card — the foils answer the pointer here exactly as they do in a pack.
         </p>
-        <p className="max-w-3xl text-sm text-coral">
+        <p className="max-w-3xl text-sm text-prestige">
           Preview only. Nothing on this page mints, prices or writes anything.
         </p>
-        <p className="max-w-3xl text-sm text-steel">
+        <p className="max-w-3xl text-sm text-muted">
           Eclipse is live. It falls only on a <strong className="text-gold">Card of the Week</strong> —
           the top card in each role — at{" "}
           <code className="font-mono text-xs">{(ECLIPSE_CHANCE * 100).toFixed(2)}%</code> of those pulls,
@@ -114,15 +114,15 @@ export default async function ParallelsPreviewPage() {
       </header>
 
       {featured.length === 0 ? (
-        <p className="text-sm text-steel">No cards in the current edition to preview.</p>
+        <p className="text-sm text-muted">No cards in the current edition to preview.</p>
       ) : (
         ALL_FOIL_TYPES.map((type) => (
           <section key={type} aria-label={FOIL_TYPE_LABELS[type]} className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-baseline gap-3 border-b border-line pb-2">
+            <div className="flex flex-wrap items-baseline gap-3 border-b border-border pb-2">
               <h2 className={`type-display text-2xl ${type === "eclipse" ? "text-gold" : ""}`}>
                 {FOIL_TYPE_LABELS[type]}
               </h2>
-              <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-steel">
+              <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
                 {oddsOf(type)}
               </span>
               {type === ECLIPSE_FOIL_TYPE ? (
@@ -135,7 +135,7 @@ export default async function ParallelsPreviewPage() {
               {(type === ECLIPSE_FOIL_TYPE ? eclipseFeatured : featured).map((card) => (
                 <div key={`${type}-${card.slug}`} className="flex flex-col items-center gap-2">
                   <PlayerCard3D card={card} interactive forceFoil foilType={type} />
-                  <span className="text-xs text-steel">
+                  <span className="text-xs text-muted">
                     {card.name} · {card.overall} {card.tier.label}
                   </span>
                 </div>

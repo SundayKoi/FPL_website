@@ -22,7 +22,7 @@ export default function NextMatchCard({
     return (
       <section className="card-brand p-5">
         <h2 className="label-dash">Next match</h2>
-        <p className="mt-3 text-sm text-steel">No upcoming match scheduled.</p>
+        <p className="mt-3 text-sm text-muted">No upcoming match scheduled.</p>
       </section>
     );
   }
@@ -37,11 +37,11 @@ export default function NextMatchCard({
       <h2 className="label-dash">Next match</h2>
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
         <p className="type-display text-2xl sm:text-3xl">vs {opponent}</p>
-        <span className="rounded-full border border-line bg-panel px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-steel">
+        <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
           Bo{fixture.best_of}
         </span>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-steel">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted">
         <span>{formatKickoff(fixture.scheduled_at)}</span>
         <span aria-hidden="true">·</span>
         <span>{meta.label}</span>
@@ -55,22 +55,22 @@ export default function NextMatchCard({
       {opponentMultiOpggUrl ? (
         <OpggMultiLink href={opponentMultiOpggUrl} label="Opponent OP.GG Multi" className="mt-4" />
       ) : null}
-      <div className="mt-4 rounded border border-line bg-navy/50 p-3">
+      <div className="mt-4 rounded border border-border bg-canvas/50 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-steel">Series drafter</p>
-          <span className="text-[11px] uppercase tracking-wide text-gold">30s turns</span>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Series drafter</p>
+          <span className="text-[11px] uppercase tracking-wide text-prestige">30s turns</span>
         </div>
         <div className="mt-3">
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`${matchDraftHref(fixture)}?layout=board`}
-              className="inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+              className="inline-flex rounded-full border border-primary/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
             >
               Captain&apos;s link →
             </Link>
             <Link
               href={`${matchDraftHref(fixture)}?layout=stage`}
-              className="inline-flex rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+              className="inline-flex rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
             >
               Spectator link →
             </Link>
@@ -81,14 +81,14 @@ export default function NextMatchCard({
                 <span
                   key={game.gameNumber}
                   className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-                    game.status === "complete" ? "border-mint/50 text-mint" : "border-gold/50 text-gold"
+                    game.status === "complete" ? "border-success/50 text-success" : "border-prestige/50 text-prestige"
                   }`}
                 >
                   G{game.gameNumber} {game.status === "complete" ? "drafted ✓" : "drafting ●"}
                 </span>
               ))}
           </div>
-          <p className="mt-2 text-[11px] text-steel">Both links cover the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
+          <p className="mt-2 text-[11px] text-muted">Both links cover the whole series — game tabs, Bo1/Bo3/Bo5 and fearless settings live inside.</p>
         </div>
       </div>
     </section>

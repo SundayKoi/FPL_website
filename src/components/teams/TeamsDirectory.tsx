@@ -32,17 +32,17 @@ export default function TeamsDirectory({
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="flex flex-col gap-6 border-b border-line pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">{leagueLabel.toUpperCase()} LEAGUE ROSTERS</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">{title}</h1>
             <hr className="accent-rule mt-5 w-48 sm:w-64" />
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
               {isPreview
                 ? `Preview the ${leagueLabel.toLowerCase()} roster format with placeholder names and positions.`
                 : `Showing the ${draftName ?? "selected"} ${leagueLabel.toLowerCase()} roster.`}
             </p>
-            <span className="mt-4 inline-flex rounded-full border border-coral/50 bg-coral/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral">
+            <span className="mt-4 inline-flex rounded-full border border-league-accent/50 bg-league-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-league-accent">
               {isPreview ? "PREVIEW DATA" : draftName}
             </span>
           </div>

@@ -34,7 +34,7 @@ export default function BroadcasterPlayerStats({
   layout?: "block" | "rail";
 }) {
   if (!player.averages) {
-    return <p className="text-xs text-steel">Season stats unavailable</p>;
+    return <p className="text-xs text-muted">Season stats unavailable</p>;
   }
 
   const rail = layout === "rail";
@@ -43,8 +43,8 @@ export default function BroadcasterPlayerStats({
     <div
       aria-label={`${player.name} average stats`}
       className={rail
-        ? "w-[4.75rem] shrink-0 rounded-xl border border-cyan/30 bg-navy/70 p-1.5 sm:w-28 sm:p-2"
-        : spotlight ? "rounded-xl border border-cyan/30 bg-navy/70 p-3" : "min-w-[12rem] flex-1"}
+        ? "w-[4.75rem] shrink-0 rounded-xl border border-cyan/30 bg-canvas/70 p-1.5 sm:w-28 sm:p-2"
+        : spotlight ? "rounded-xl border border-cyan/30 bg-canvas/70 p-3" : "min-w-[12rem] flex-1"}
     >
       <p className={spotlight ? "mono-label text-cyan" : "label-dash"}>
         {rail ? "Stats" : `Season averages · ${player.averages.games} games`}
@@ -55,7 +55,7 @@ export default function BroadcasterPlayerStats({
             key={stat.label}
             className={rail ? "rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-1" : spotlight ? "rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2" : undefined}
           >
-            <dt className={rail ? "truncate text-[8px] uppercase tracking-wide text-steel sm:text-[10px] sm:tracking-wider" : "text-[10px] uppercase tracking-wider text-steel"}>{stat.label}</dt>
+            <dt className={rail ? "truncate text-[8px] uppercase tracking-wide text-muted sm:text-[10px] sm:tracking-wider" : "text-[10px] uppercase tracking-wider text-muted"}>{stat.label}</dt>
             <dd className={stat.label === "KDA" && spotlight && !rail ? "mt-0.5 text-2xl font-black text-cyan" : rail ? "text-xs font-black text-white sm:text-sm" : "text-sm font-semibold text-white"}>
               {stat.value}
             </dd>

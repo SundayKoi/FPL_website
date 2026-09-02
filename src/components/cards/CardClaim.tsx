@@ -22,9 +22,9 @@ export type CardClaimState = {
   displayName: string | null;
 };
 
-const CHIP = "rounded-full border border-line bg-panel px-3 py-1 text-xs";
+const CHIP = "rounded-full border border-border bg-surface px-3 py-1 text-xs";
 const ACTION =
-  "rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40";
+  "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
 
 export default function CardClaim({
   season,
@@ -79,7 +79,7 @@ export default function CardClaim({
   const wrap = (children: React.ReactNode) => (
     <div
       className={`flex flex-col items-center gap-1 ${
-        highlight ? "claim-highlight rounded-xl p-3 ring-2 ring-coral" : ""
+        highlight ? "claim-highlight rounded-xl p-3 ring-2 ring-primary" : ""
       }`}
     >
       <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>
@@ -103,7 +103,7 @@ export default function CardClaim({
   if (claim.status === "pending") {
     return wrap(
       <>
-        <span className={`${CHIP} text-steel`}>Claim pending — waiting for a captain or admin</span>
+        <span className={`${CHIP} text-muted`}>Claim pending — waiting for a captain or admin</span>
         {isClaimant ? (
           <button type="button" onClick={() => void drop()} disabled={busy} className={ACTION}>
             Withdraw
@@ -111,7 +111,7 @@ export default function CardClaim({
         ) : null}
         {canModerate ? (
           <>
-            <button type="button" onClick={() => void approve()} disabled={busy} className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40">
+            <button type="button" onClick={() => void approve()} disabled={busy} className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40">
               Approve
             </button>
             <button type="button" onClick={() => void drop()} disabled={busy} className={ACTION}>

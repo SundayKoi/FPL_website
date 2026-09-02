@@ -66,7 +66,7 @@ export function signupPayload(form: FormState, season: string) {
 const inputClass =
   "input-brand px-3 py-2 text-sm";
 const labelClass = "flex flex-col gap-1.5 text-sm font-semibold text-white";
-const hintClass = "text-xs font-normal text-steel";
+const hintClass = "text-xs font-normal text-muted";
 
 export default function SignupForm({
   season,
@@ -114,7 +114,7 @@ export default function SignupForm({
     return (
       <div className="card-brand p-8 text-center">
         <p className="type-display text-3xl">You&apos;re signed up!</p>
-        <p className="mt-3 text-steel">
+        <p className="mt-3 text-muted">
           Your {season} signup is in. Staff will review the player pool — watch Discord for
           next steps.
         </p>
@@ -124,7 +124,7 @@ export default function SignupForm({
             setForm({ ...EMPTY, discord: initialDiscord });
             setStatus({ kind: "idle" });
           }}
-          className="mt-6 rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel hover:text-white"
+          className="mt-6 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:text-white"
         >
           Submit another signup
         </button>

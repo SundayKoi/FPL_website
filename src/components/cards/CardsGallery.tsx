@@ -41,7 +41,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
                 <PlayerCard3D card={card} />
                 <Link
                   href={`/card/${card.slug}`}
-                  className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+                  className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
                 >
                   View &amp; customize →
                 </Link>
@@ -51,7 +51,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
         </div>
       ) : null}
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
+        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
           Search players or teams
           <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-brand px-3 py-2 text-sm" />
         </label>
@@ -63,20 +63,20 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               aria-pressed={role === r}
               onClick={() => setRole((current) => (current === r ? null : r))}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                role === r ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                role === r ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
               }`}
             >
               {r}
             </button>
           ))}
         </div>
-        <span className="text-xs text-steel">
+        <span className="text-xs text-muted">
           {shown.length} of {cards.length} cards
         </span>
       </div>
 
       {shown.length === 0 ? (
-        <p className="text-sm text-steel">No cards match — stats appear after a player&apos;s first ingested game.</p>
+        <p className="text-sm text-muted">No cards match — stats appear after a player&apos;s first ingested game.</p>
       ) : (
         /* card-cell lets the browser skip painting the cards scrolled offscreen —
            this grid is the reason the optimisation exists. Its padding only adds
@@ -88,7 +88,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               <PlayerCard3D card={card} />
               <Link
                 href={`/card/${card.slug}`}
-                className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+                className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
               >
                 View &amp; customize →
               </Link>

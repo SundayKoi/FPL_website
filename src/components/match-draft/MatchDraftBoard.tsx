@@ -44,7 +44,7 @@ function CopyLinkButton({ label, path }: { label: string; path: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+      className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
     >
       {copied ? "Copied ✓" : label}
     </button>
@@ -56,7 +56,7 @@ function CopyLinkButton({ label, path }: { label: string; path: string }) {
 function TourneyCodeChip({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <span className="flex items-center gap-2 rounded border border-line/60 bg-navy/60 px-2.5 py-1.5">
+    <span className="flex items-center gap-2 rounded border border-border/60 bg-canvas/60 px-2.5 py-1.5">
       <code className="font-mono text-sm text-white">{code}</code>
       <button
         type="button"
@@ -66,7 +66,7 @@ function TourneyCodeChip({ code }: { code: string }) {
             setTimeout(() => setCopied(false), 1500);
           });
         }}
-        className="rounded-full border border-line bg-panel px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+        className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
       >
         {copied ? "Copied" : "Copy"}
       </button>
@@ -945,7 +945,7 @@ export default function MatchDraftBoard({
             aria-current={active ? "page" : undefined}
             onClick={() => switchGame(game)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-              active ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              active ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             Game {game.gameNumber}
@@ -963,14 +963,14 @@ export default function MatchDraftBoard({
   const pendingChampion = activePendingPick ? resolveChampion(activePendingPick.champion) : null;
   const lockInBar = activePendingPick ? (
     <div className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4" role="dialog" aria-label="Confirm pick">
-      <div className="flex items-center gap-3 rounded-full border border-coral/60 bg-navy/95 py-2 pl-2 pr-2 shadow-[0_8px_32px_rgb(0_0_0/0.6)] backdrop-blur">
+      <div className="flex items-center gap-3 rounded-full border border-coral/60 bg-canvas/95 py-2 pl-2 pr-2 shadow-[0_8px_32px_rgb(0_0_0/0.6)] backdrop-blur">
         {pendingChampion ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-line object-cover" />
+          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-border object-cover" />
         ) : null}
         <div className="min-w-0">
           <p className="font-display text-sm font-bold not-italic text-white">{activePendingPick.champion}</p>
-          <p className="text-[10px] uppercase tracking-wide text-steel">
+          <p className="text-[10px] uppercase tracking-wide text-muted">
             {currentStep?.side} {currentStep?.kind} {currentStep?.slot}
           </p>
         </div>
@@ -981,7 +981,7 @@ export default function MatchDraftBoard({
             setPendingPick(null);
             sendIntent(null);
           }}
-          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
         >
           Cancel
         </button>
@@ -989,7 +989,7 @@ export default function MatchDraftBoard({
           type="button"
           disabled={saving}
           onClick={() => void lockIn()}
-          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
+          className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40"
         >
           Lock in {activePendingPick.champion}
         </button>
@@ -1009,7 +1009,7 @@ export default function MatchDraftBoard({
       <span className="rounded-full border border-mint/50 bg-mint/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-mint">
         Draft complete
       </span>
-      <span className="text-sm text-steel">
+      <span className="text-sm text-muted">
         All picks and bans are locked in.
         {currentTourneyCode
           ? " Create the custom lobby with this game's tourney code:"
@@ -1023,7 +1023,7 @@ export default function MatchDraftBoard({
           type="button"
           disabled={saving}
           onClick={openRoleConfirmation}
-          className="ml-auto rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40"
+          className="ml-auto rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
         >
           Adjust roles
         </button>
@@ -1046,14 +1046,14 @@ export default function MatchDraftBoard({
             aria-pressed={won}
             onClick={() => void setWinner(team.name)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-line bg-panel text-steel hover:text-white"
+              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             {team.abbreviation} won{won ? " ✓" : ""}
           </button>
         );
       })}
-      <span className="text-sm text-steel">
+      <span className="text-sm text-muted">
         {winsA + winsB > 0
           ? // Just the score, no series call — scrim blocks play every game
             // regardless, and all games stay open either way.
@@ -1083,7 +1083,7 @@ export default function MatchDraftBoard({
           <div>
             <span className="label-dash">Post-draft role confirmation</span>
             <h2 className="type-display mt-1 text-2xl text-white sm:text-3xl">Set your team&apos;s roles</h2>
-            <p className="mt-2 max-w-2xl text-sm text-steel">
+            <p className="mt-2 max-w-2xl text-sm text-muted">
               Drag the champion pick tiles into Top, Jungle, Mid, ADC, and Support order. Both captains must click Ready before the roles are locked in.
             </p>
           </div>
@@ -1092,7 +1092,7 @@ export default function MatchDraftBoard({
               type="button"
               disabled={saving}
               onClick={() => setRoleModalOpen(false)}
-              className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
             >
               Close
             </button>
@@ -1109,9 +1109,9 @@ export default function MatchDraftBoard({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wide">{teamForSide(side).abbreviation}</span>
-                    <p className="mt-1 text-xs text-steel">{teamForSide(side).name}</p>
+                    <p className="mt-1 text-xs text-muted">{teamForSide(side).name}</p>
                   </div>
-                  <span className={`text-[11px] font-semibold uppercase tracking-wide ${confirmed ? "text-mint" : "text-steel"}`}>
+                  <span className={`text-[11px] font-semibold uppercase tracking-wide ${confirmed ? "text-mint" : "text-muted"}`}>
                     {confirmed ? "Ready ✓" : editable ? "Arrange picks" : "Waiting for captain"}
                   </span>
                 </div>
@@ -1216,7 +1216,7 @@ export default function MatchDraftBoard({
             );
           })}
         </div>
-        <p className="mt-4 text-center text-xs uppercase tracking-wide text-steel">
+        <p className="mt-4 text-center text-xs uppercase tracking-wide text-muted">
           {rolesFullyReady ? "Both captains are ready — roles confirmed." : `Waiting on ${(["blue", "red"] as DraftSide[]).filter((side) => !state.positions?.[side]).map((side) => teamForSide(side).abbreviation).join(" and ")} to click Ready.`}
         </p>
       </div>
@@ -1228,7 +1228,7 @@ export default function MatchDraftBoard({
       <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold">
         Change requested
       </span>
-      <span className="text-sm text-steel">
+      <span className="text-sm text-muted">
         {teamForSide(state.changeRequest.side).abbreviation} wants to redo{" "}
         <span className="font-semibold uppercase text-white">{stepLabel(state.changeRequest.stepIndex)}</span>
         {state.changeRequest.champion ? ` (${state.changeRequest.champion})` : " (skipped)"}.
@@ -1257,12 +1257,12 @@ export default function MatchDraftBoard({
           type="button"
           disabled={saving}
           onClick={() => void respondChange(false)}
-          className="rounded-full border border-line px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+          className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
         >
           Withdraw
         </button>
       ) : (
-        <span className="text-xs uppercase tracking-wide text-steel">Waiting for the other team…</span>
+        <span className="text-xs uppercase tracking-wide text-muted">Waiting for the other team…</span>
       )}
     </section>
   ) : null;
@@ -1304,7 +1304,7 @@ export default function MatchDraftBoard({
           );
         })}
       </div>
-      <span className="text-xs uppercase tracking-wide text-steel">
+      <span className="text-xs uppercase tracking-wide text-muted">
         {state.sideChoiceRequired
           ? "Pick which team takes blue side above."
           : bothReady
@@ -1347,9 +1347,9 @@ export default function MatchDraftBoard({
   );
 
   const championPool = (
-    <section className="min-w-0 rounded border border-line bg-navy/60 p-3" aria-label="Champion pool">
+    <section className="min-w-0 rounded border border-border bg-canvas/60 p-3" aria-label="Champion pool">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
+        <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
           Search champions
           <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-brand px-3 py-2 text-sm" />
         </label>
@@ -1359,7 +1359,7 @@ export default function MatchDraftBoard({
             aria-pressed={roleFilter === null}
             onClick={() => setRoleFilter(null)}
             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-              roleFilter === null ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              roleFilter === null ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             All
@@ -1371,7 +1371,7 @@ export default function MatchDraftBoard({
               aria-pressed={roleFilter === role.value}
               onClick={() => setRoleFilter((current) => (current === role.value ? null : role.value))}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                roleFilter === role.value ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                roleFilter === role.value ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
               }`}
             >
               {role.label}
@@ -1382,12 +1382,12 @@ export default function MatchDraftBoard({
           <div className="ml-auto flex items-center gap-2">
             {confirmingPass ? (
               <>
-                <span className="text-[11px] uppercase tracking-wide text-steel">Ban nothing?</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted">Ban nothing?</span>
                 <button
                   type="button"
                   disabled={saving}
                   onClick={() => setConfirmingPassAt(null)}
-                  className="rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-40"
+                  className="rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
                 >
                   Cancel
                 </button>
@@ -1405,7 +1405,7 @@ export default function MatchDraftBoard({
                 type="button"
                 disabled={saving}
                 onClick={() => setConfirmingPassAt(passStepKey)}
-                className="rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
+                className="rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
               >
                 Pass ban
               </button>
@@ -1430,8 +1430,8 @@ export default function MatchDraftBoard({
               aria-label={`${champion.name}${unavailable ? " unavailable" : ""}${fearlessBlocked ? ` — picked in game ${takenInGame}` : ""}`}
               className={`group relative aspect-square overflow-hidden border text-left font-semibold text-white disabled:cursor-not-allowed ${
                 fearlessBlocked
-                  ? "border-red-500/40 bg-panel disabled:opacity-60"
-                  : "border-line bg-panel hover:border-coral disabled:opacity-35"
+                  ? "border-red-500/40 bg-surface disabled:opacity-60"
+                  : "border-border bg-surface hover:border-primary disabled:opacity-35"
               } ${sizeByValue[imageSize].name}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1470,12 +1470,12 @@ export default function MatchDraftBoard({
 
   // The turn clock card — center column on stage, top strip on board.
   const timerCard = (
-    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
       <span className="label-dash">Game {state.gameNumber}</span>
       <span className={`type-display mt-1 text-4xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
         {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
       </span>
-      <span className="mt-1 text-xs uppercase text-steel">
+      <span className="mt-1 text-xs uppercase text-muted">
         {state.status === "complete"
           ? "draft complete"
           : clockRunning
@@ -1522,7 +1522,7 @@ export default function MatchDraftBoard({
   if (overlay) {
     // OBS browser source: teams, picks, bans, and the clock — nothing else.
     return (
-      <main className={`flex w-full flex-col gap-4 p-4 text-white ${overlayTransparent ? "bg-transparent" : "bg-navy"}`}>
+      <main className={`flex w-full flex-col gap-4 p-4 text-white ${overlayTransparent ? "bg-transparent" : "bg-canvas"}`}>
         <DraftMatchupBoard
           view={matchupView}
           imageSize="lg"
@@ -1530,12 +1530,12 @@ export default function MatchDraftBoard({
           online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
           slotClassName={(pick) => pick.side === "red" ? "w-[350px] justify-self-end" : "w-[350px]"}
           renderRail={() => (
-            <div className="flex min-w-32 flex-col items-center justify-center rounded border border-line bg-panel px-4 py-4 text-center">
+            <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
               <span className="label-dash">Game {state.gameNumber}</span>
               <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
                 {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
               </span>
-              <span className="mt-1 text-xs uppercase text-steel">
+              <span className="mt-1 text-xs uppercase text-muted">
                 {state.status === "complete"
                   ? "draft complete"
                   : clockRunning
@@ -1625,7 +1625,7 @@ export default function MatchDraftBoard({
                 aria-pressed={seriesFormat.bestOf === option}
                 onClick={() => (seriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                  seriesFormat.bestOf === option ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                  seriesFormat.bestOf === option ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
                 }`}
               >
                 Bo{option}
@@ -1637,7 +1637,7 @@ export default function MatchDraftBoard({
               aria-pressed={seriesFormat.fearless}
               onClick={() => void saveSeriesFormat({ fearless: !seriesFormat.fearless })}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-line bg-panel text-steel hover:text-white"
+                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border bg-surface text-muted hover:text-white"
               }`}
             >
               Fearless {seriesFormat.fearless ? "on" : "off"}
@@ -1678,13 +1678,13 @@ export default function MatchDraftBoard({
         {!onSave || viewerTeamName !== undefined ? (
           <span
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-              canReset ? "border-gold/50 text-gold" : viewerSide ? sideClass[viewerSide] : "border-line text-steel"
+              canReset ? "border-gold/50 text-gold" : viewerSide ? sideClass[viewerSide] : "border-border text-muted"
             }`}
           >
             {canReset ? "Admin — full control" : viewerSide ? `Drafting for ${teamForSide(viewerSide).abbreviation} (${viewerSide} side)` : "Spectating"}
           </span>
         ) : null}
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
           {currentAction ? <span> · locked {currentAction.champion}</span> : null}
         </p>

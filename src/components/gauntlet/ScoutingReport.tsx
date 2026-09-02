@@ -34,7 +34,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
             ⚠ The wall · round {bossRoundOf(opponent.boss)}
           </span>
           <p className="type-display mt-1 text-2xl text-white sm:text-3xl">{boss.title}</p>
-          <p className="mt-1 text-xs italic text-steel">&ldquo;{boss.flavor}&rdquo;</p>
+          <p className="mt-1 text-xs italic text-muted">&ldquo;{boss.flavor}&rdquo;</p>
           <p className="mt-2.5 text-sm font-semibold leading-5 text-white">{boss.rule}</p>
           <p className="mt-1.5 font-mono text-[11px] leading-4 text-gold">↳ {boss.counter}</p>
         </div>
@@ -48,7 +48,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
             {ghost.bounty ? "★ Bounty · one of last week's best" : "A real run · posted last week"}
           </span>
           <p className="type-display mt-1 text-2xl text-white sm:text-3xl">{ghost.name}</p>
-          <p className="mt-1 text-xs text-steel">
+          <p className="mt-1 text-xs text-muted">
             Their run scored <b className="text-white">{ghost.score.toLocaleString()}</b> · their shelf averaged{" "}
             <b className="text-white">{ghost.trueAvg}</b>, priced here to the round · their five and their build are
             theirs, the ratings are the bracket&rsquo;s.
@@ -65,7 +65,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
               ))}
             </p>
           ) : (
-            <p className="mt-2 text-[11px] italic text-steel">They got here with no relics at all.</p>
+            <p className="mt-2 text-[11px] italic text-muted">They got here with no relics at all.</p>
           )}
           {ghost.bounty ? (
             <p className="mt-2 rounded border border-gold/50 bg-gold/10 px-2 py-1.5 text-[11px] leading-4 text-gold">
@@ -89,14 +89,14 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
             Their game plan · {plan.title}
           </p>
           <p className="mt-1 text-[12px] leading-4 text-white">{plan.tell}</p>
-          <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-steel">↳ {plan.counter}</p>
+          <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-muted">↳ {plan.counter}</p>
         </div>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
         {opponent.cards.map((card) => (
           <div key={card.name} className="w-[104px] rounded-lg border border-[#6b3d47] bg-[#221016] px-2.5 py-2">
-            <p className="text-[8px] uppercase tracking-[0.2em] text-steel">{card.role}</p>
+            <p className="text-[8px] uppercase tracking-[0.2em] text-muted">{card.role}</p>
             <p className="truncate text-[12px] font-bold text-white">{card.name}</p>
             <p className="font-mono text-sm font-extrabold text-[#ff8896]">{card.overall}</p>
           </div>
@@ -109,7 +109,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
             <div key={trait!.key} className="rounded-lg border border-purple/40 bg-purple/5 p-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple">{trait!.title}</p>
               <p className="mt-1 text-[12px] leading-4 text-white">{trait!.blurb}</p>
-              <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-steel">↳ {trait!.counter}</p>
+              <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-muted">↳ {trait!.counter}</p>
             </div>
           ))}
         </div>
@@ -121,7 +121,7 @@ export default function ScoutingReport({ opponent }: { opponent: OpponentTeam })
             Round condition · {condition.title}
           </p>
           <p className="mt-1 text-[12px] leading-4 text-white">{condition.blurb}</p>
-          <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-steel">↳ {condition.tip}</p>
+          <p className="mt-1.5 font-mono text-[10.5px] leading-4 text-muted">↳ {condition.tip}</p>
         </div>
       ) : null}
     </div>

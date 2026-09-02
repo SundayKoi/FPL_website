@@ -11,9 +11,9 @@ import MatchDraftSummary from "@/components/matches/MatchDraftSummary";
 const int = new Intl.NumberFormat("en-US");
 
 function TeamLink({ name }: { name: string }) {
-  if (name === "TBD") return <span className="text-steel">{name}</span>;
+  if (name === "TBD") return <span className="text-muted">{name}</span>;
   return (
-    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-coral hover:underline">
+    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-primary hover:underline">
       {name}
     </Link>
   );
@@ -92,12 +92,12 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </span>
         <h1 className="type-display flex flex-wrap items-center gap-3 text-2xl">
           <TeamLink name={teamA} />
-          <span className="rounded border border-line bg-navy px-3 py-1 text-xl">
+          <span className="rounded border border-border bg-canvas px-3 py-1 text-xl">
             {played ? `${fixture.score_a}–${fixture.score_b}` : "vs"}
           </span>
           <TeamLink name={teamB} />
         </h1>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           {formatKickoff(fixture.scheduled_at)} · Best of {fixture.best_of}
           {games.length > 0 ? ` · ${games.length} game${games.length === 1 ? "" : "s"} on record` : ""}
         </p>
@@ -110,7 +110,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               : " No games were played."}
           </p>
         )}
-        <Link href="/schedule" className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+        <Link href="/schedule" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
           ← Back to the schedule
         </Link>
       </header>
@@ -118,7 +118,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       <MatchDraftSummary games={draftGames} />
 
       {games.length === 0 ? (
-        <section className="card-brand p-6 text-sm text-steel">
+        <section className="card-brand p-6 text-sm text-muted">
           {forfeit
             ? "Nothing was played — this series was settled by forfeit."
             : played
@@ -130,7 +130,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
           <section key={game.matchId} className="card-brand flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="label-dash">Game {game.gameNumber}</h2>
-              <span className="text-xs text-steel">
+              <span className="text-xs text-muted">
                 {game.durationMin != null ? `${game.durationMin.toFixed(0)} min` : ""}
                 {game.sides.length === 2
                   ? ` · ${game.sides.find((s) => s.won)?.teamName ?? "?"} win`
@@ -150,17 +150,17 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   >
                     {side.side}
                   </span>
-                  <span className={side.won ? "font-semibold text-gold" : "text-steel"}>
+                  <span className={side.won ? "font-semibold text-gold" : "text-muted"}>
                     {side.teamName} {side.won ? "· Win" : "· Loss"}
                   </span>
-                  <span className="ml-auto text-xs text-steel">
+                  <span className="ml-auto text-xs text-muted">
                     {side.totals.kills}/{side.totals.deaths}/{side.totals.assists} ·{" "}
                     {int.format(side.totals.gold)}g
                   </span>
                 </div>
                 <table className="w-full min-w-[34rem] text-left text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-wide text-steel">
+                    <tr className="text-[10px] uppercase tracking-wide text-muted">
                       <th className="py-1 pr-2 font-semibold">Player</th>
                       <th className="py-1 pr-2 font-semibold">Champion</th>
                       <th className="py-1 pr-2 font-semibold">KDA</th>
@@ -172,23 +172,23 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   </thead>
                   <tbody>
                     {side.players.map((p) => (
-                      <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-line/60">
+                      <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-border/60">
                         <td className="truncate py-1 pr-2">
                           <Link
                             href={`/players/${encodeURIComponent(p.summonerName)}`}
-                            className="underline-offset-4 hover:text-coral hover:underline"
+                            className="underline-offset-4 hover:text-primary hover:underline"
                           >
                             {p.summonerName}
                           </Link>
                         </td>
-                        <td className="truncate py-1 pr-2 text-steel">{p.champion}</td>
+                        <td className="truncate py-1 pr-2 text-muted">{p.champion}</td>
                         <td className="py-1 pr-2">
                           {p.kills}/{p.deaths}/{p.assists}
                         </td>
-                        <td className="py-1 pr-2 text-steel">{p.cs}</td>
-                        <td className="py-1 pr-2 text-steel">{int.format(p.gold)}</td>
-                        <td className="py-1 pr-2 text-steel">{int.format(p.damage)}</td>
-                        <td className="py-1 text-steel">{p.visionScore}</td>
+                        <td className="py-1 pr-2 text-muted">{p.cs}</td>
+                        <td className="py-1 pr-2 text-muted">{int.format(p.gold)}</td>
+                        <td className="py-1 pr-2 text-muted">{int.format(p.damage)}</td>
+                        <td className="py-1 text-muted">{p.visionScore}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -200,7 +200,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
       )}
 
       {games.length > 0 && Object.keys(record).length > 0 && (
-        <p className="text-center text-xs text-steel">
+        <p className="text-center text-xs text-muted">
           Series by games won:{" "}
           {Object.entries(record)
             .map(([team, wins]) => `${team} ${wins}`)

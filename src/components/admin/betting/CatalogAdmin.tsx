@@ -44,7 +44,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Name
           <input
             value={name}
@@ -52,7 +52,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
             className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Short code
           <input
             value={shortCode}
@@ -61,25 +61,25 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
             className="w-24 input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Color
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-line bg-navy" />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-border bg-canvas" />
         </label>
         <button
           type="submit"
           disabled={busy || !name.trim() || !shortCode.trim()}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Add team
         </button>
       </form>
       <ul className="flex flex-col gap-1.5">
         {teams.map((t) => (
-          <li key={t.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+          <li key={t.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
             <span className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
               <span className="font-medium text-white">{t.name}</span>
-              <span className="text-xs text-steel">{t.short_code}</span>
+              <span className="text-xs text-muted">{t.short_code}</span>
             </span>
             <button
               type="button"
@@ -95,7 +95,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
             </button>
           </li>
         ))}
-        {teams.length === 0 && <p className="text-sm text-steel">No teams yet.</p>}
+        {teams.length === 0 && <p className="text-sm text-muted">No teams yet.</p>}
       </ul>
     </section>
   );
@@ -136,7 +136,7 @@ function EventsSection({
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Event name
           <input
             value={name}
@@ -144,7 +144,7 @@ function EventsSection({
             className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Schedule league
           <select
             aria-label="Schedule league"
@@ -157,7 +157,7 @@ function EventsSection({
             <option value="academy">Academy</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Schedule season
           <input
             aria-label="Schedule season"
@@ -171,19 +171,19 @@ function EventsSection({
         <button
           type="submit"
           disabled={busy || !name.trim() || (!!league && !scheduleSeason.trim())}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Add event
         </button>
       </form>
       <ul className="flex flex-col gap-1.5">
         {events.map((ev) => (
-          <li key={ev.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+          <li key={ev.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
             <div className="flex flex-col gap-1">
               <span className="font-medium text-white">{ev.name}</span>
               {editingId === ev.id ? (
                 <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col gap-1 text-xs text-steel">
+                  <label className="flex flex-col gap-1 text-xs text-muted">
                     Schedule league
                     <select
                       aria-label={`Schedule league for ${ev.name}`}
@@ -196,7 +196,7 @@ function EventsSection({
                       <option value="academy">Academy</option>
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-xs text-steel">
+                  <label className="flex flex-col gap-1 text-xs text-muted">
                     Schedule season
                     <input
                       aria-label={`Schedule season for ${ev.name}`}
@@ -215,7 +215,7 @@ function EventsSection({
                       league: editingLeague || null,
                       scheduleSeason: editingLeague ? editingSeason : null,
                     }), () => setEditingId(null))}
-                    className="btn-coral px-2 py-1 text-xs disabled:opacity-40"
+                    className="btn-primary px-2 py-1 text-xs disabled:opacity-40"
                   >
                     Save schedule binding
                   </button>
@@ -223,13 +223,13 @@ function EventsSection({
                     type="button"
                     disabled={busy}
                     onClick={() => setEditingId(null)}
-                    className="rounded border border-line px-2 py-1 text-xs text-steel"
+                    className="rounded border border-border px-2 py-1 text-xs text-muted"
                   >
                     Cancel binding edit
                   </button>
                 </div>
               ) : (
-                <span className="text-xs text-steel">
+                <span className="text-xs text-muted">
                   {ev.league && ev.schedule_season
                     ? `${ev.league === "premier" ? "Premier" : "Academy"} · ${ev.schedule_season}`
                     : "Not linked to the schedule"}
@@ -244,7 +244,7 @@ function EventsSection({
                 setEditingLeague(ev.league ?? "");
                 setEditingSeason(ev.schedule_season ?? "");
               }}
-              className="rounded border border-line px-2 py-0.5 text-xs text-steel hover:border-coral hover:text-coral disabled:opacity-40"
+              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
             >
               Edit schedule binding
             </button>
@@ -262,7 +262,7 @@ function EventsSection({
             </button>
           </li>
         ))}
-        {events.length === 0 && <p className="text-sm text-steel">No events yet.</p>}
+        {events.length === 0 && <p className="text-sm text-muted">No events yet.</p>}
       </ul>
     </section>
   );
@@ -287,7 +287,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
         }}
         className="flex flex-wrap items-end gap-2"
       >
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Name
           <input
             value={name}
@@ -295,7 +295,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
             className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Cost
           <input
             type="number"
@@ -305,7 +305,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
             className="w-24 input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Type
           <input
             value={type}
@@ -316,17 +316,17 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
         <button
           type="submit"
           disabled={busy || !name.trim() || !type.trim() || cost <= 0}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Add item
         </button>
       </form>
       <ul className="flex flex-col gap-1.5">
         {items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+          <li key={item.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
             <span className="flex items-center gap-2">
               <span className="font-medium text-white">{item.name}</span>
-              <span className="text-xs text-steel">
+              <span className="text-xs text-muted">
                 {fmtPoints(item.cost)} · {item.type} · {item.active ? "active" : "inactive"}
               </span>
             </span>
@@ -337,7 +337,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
                 onClick={() =>
                   run(() => upsertStoreItem({ id: item.id, name: item.name, cost: item.cost, type: item.type, active: !item.active }))
                 }
-                className="rounded border border-line px-2 py-0.5 text-xs text-steel hover:border-coral hover:text-coral disabled:opacity-40"
+                className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
               >
                 {item.active ? "Deactivate" : "Activate"}
               </button>
@@ -356,7 +356,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
             </div>
           </li>
         ))}
-        {items.length === 0 && <p className="text-sm text-steel">No store items yet.</p>}
+        {items.length === 0 && <p className="text-sm text-muted">No store items yet.</p>}
       </ul>
     </section>
   );

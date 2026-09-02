@@ -52,12 +52,12 @@ function YourPosition({
         return (
           <div
             key={key}
-            className="rounded-lg border border-line bg-panel p-3 text-sm"
+            className="rounded-lg border border-border bg-surface p-3 text-sm"
             style={{ "--team-color": team.color } as CSSProperties}
             data-testid="your-position"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wide text-steel">Your bet</span>
+              <span className="text-xs uppercase tracking-wide text-muted">Your bet</span>
               <span className="font-semibold" style={{ color: team.color }}>
                 {fmtPoints(stake)} on {team.short_code}
               </span>
@@ -69,7 +69,7 @@ function YourPosition({
                   type="button"
                   disabled={busy}
                   onClick={() => held_bets.forEach((b) => onCashout(b.id))}
-                  className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-coral hover:text-coral disabled:opacity-40"
+                  className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
                   title="Withdraw this bet (5% fee)"
                 >
                   Cash out −5%
@@ -148,17 +148,17 @@ export function MarketDetail({
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href={`/betting/event/${market.event_id}`}
-              className="text-xs uppercase tracking-wide text-steel hover:text-coral"
+              className="text-xs uppercase tracking-wide text-muted hover:text-primary"
             >
               ← {market.event_name || "Event"}
             </Link>
             <StatusPill status={market.status} />
             <LockCountdown lockAt={market.lock_at} status={market.status} />
-            <span className="text-xs text-steel">{new Date(market.game_at).toLocaleString()}</span>
+            <span className="text-xs text-muted">{new Date(market.game_at).toLocaleString()}</span>
           </div>
           <h1 className="type-display mt-2 text-3xl sm:text-4xl">
             <span style={{ color: market.team_a.color }}>{market.team_a.name}</span>{" "}
-            <span className="text-steel">VS</span>{" "}
+            <span className="text-muted">VS</span>{" "}
             <span style={{ color: market.team_b.color }}>{market.team_b.name}</span>
           </h1>
 
@@ -172,7 +172,7 @@ export function MarketDetail({
 
           <div className="mt-6">
             <h2 className="label-dash">Rules</h2>
-            <div className="mt-2 rounded-lg border border-line bg-panel p-3 text-sm text-steel">
+            <div className="mt-2 rounded-lg border border-border bg-surface p-3 text-sm text-muted">
               {market.rules ?? "No rules provided."}
             </div>
           </div>
@@ -180,7 +180,7 @@ export function MarketDetail({
           <div className="mt-6">
             <h2 className="label-dash">Top Bets</h2>
             {market.top_bets.length === 0 ? (
-              <p className="mt-2 text-sm text-steel">No bets yet — be the first.</p>
+              <p className="mt-2 text-sm text-muted">No bets yet — be the first.</p>
             ) : (
               <ul className="mt-2 flex flex-col gap-1.5">
                 {market.top_bets.map((b) => {
@@ -188,9 +188,9 @@ export function MarketDetail({
                   return (
                     <li
                       key={`${b.discord_id}-${b.team_id ?? "draw"}`}
-                      className="flex items-center justify-between rounded border border-line bg-panel px-3 py-1.5 text-sm"
+                      className="flex items-center justify-between rounded border border-border bg-surface px-3 py-1.5 text-sm"
                     >
-                      <span className="truncate text-steel">{b.username}</span>
+                      <span className="truncate text-muted">{b.username}</span>
                       <span className="font-semibold" style={{ color: team.color }}>
                         {fmtPoints(b.amount)} · {team.short_code}
                       </span>
@@ -217,7 +217,7 @@ export function MarketDetail({
             error={error}
             onBet={handleBet}
           />
-          <div className="mt-3 text-center text-xs text-steel">Total volume {fmtPoints(total)}</div>
+          <div className="mt-3 text-center text-xs text-muted">Total volume {fmtPoints(total)}</div>
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ export default function MomentWall({
 }) {
   if (moments.length === 0) {
     return (
-      <p className="text-sm text-steel">
+      <p className="text-sm text-muted">
         No moments yet. They mint after a week&apos;s games — and only the rarest few of what happened.
       </p>
     );

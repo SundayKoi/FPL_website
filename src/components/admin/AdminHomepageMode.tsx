@@ -40,7 +40,7 @@ export default function AdminHomepageMode({ homepageMode }: { homepageMode: Home
     <div className="card-brand flex flex-col gap-4 p-5">
       <div>
         <span className="label-dash">Homepage display</span>
-        <p className="mt-1 text-sm text-steel">Choose which homepage visitors see. Automatic follows the published season calendar.</p>
+        <p className="mt-1 text-sm text-muted">Choose which homepage visitors see. Automatic follows the published season calendar.</p>
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Homepage display mode">
         {OPTIONS.map((option) => (
@@ -51,14 +51,14 @@ export default function AdminHomepageMode({ homepageMode }: { homepageMode: Home
             disabled={busy}
             onClick={() => void saveMode(option.value)}
             className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition disabled:opacity-50 ${
-              mode === option.value ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              mode === option.value ? "bg-primary text-white" : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             {busy && mode !== option.value ? "Saving…" : option.label}
           </button>
         ))}
       </div>
-      <p className="text-xs text-steel">{OPTIONS.find((option) => option.value === mode)?.description}</p>
+      <p className="text-xs text-muted">{OPTIONS.find((option) => option.value === mode)?.description}</p>
       {error ? <p role="alert" className="text-sm text-red-400">{error}</p> : null}
     </div>
   );

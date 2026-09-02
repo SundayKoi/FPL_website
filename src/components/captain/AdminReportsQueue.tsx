@@ -110,33 +110,33 @@ export default function AdminReportsQueue({
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <span className="label-dash">Admin — all reports ({reports.length})</span>
-        <span aria-hidden="true" className="text-steel">
+        <span aria-hidden="true" className="text-muted">
           {open ? "▴" : "▾"}
         </span>
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-line px-4 py-4">
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
           {error && (
             <p role="alert" className="text-sm text-red-400">
               {error}
             </p>
           )}
           {reports.length === 0 ? (
-            <p className="text-sm text-steel">No reports submitted yet.</p>
+            <p className="text-sm text-muted">No reports submitted yet.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {reports.map((r) => {
                 const busy = busyId === r.id;
                 return (
-                  <li key={r.id} className="rounded border border-line/60 bg-navy/60 p-3">
+                  <li key={r.id} className="rounded border border-border/60 bg-canvas/60 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-white">
                         {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
                       </span>
                       <StatusBadge status={r.status} />
                       <FixtureChips fixtureId={r.fixture_id} status={r.status} />
-                      <span className="text-xs text-steel">
+                      <span className="text-xs text-muted">
                         {r.season_phase} · {r.season}
                       </span>
                       <div className="ml-auto flex gap-1.5">
@@ -151,7 +151,7 @@ export default function AdminReportsQueue({
                                 ? "Settled by forfeit — there are no games to re-ingest"
                                 : undefined
                           }
-                          className="rounded-full border border-line bg-panel px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-50"
+                          className="rounded-full border border-border bg-surface px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
                         >
                           Retry
                         </button>
@@ -171,8 +171,8 @@ export default function AdminReportsQueue({
                     <ul className="mt-2 flex flex-col gap-1.5">
                       {gamesFor(r.id).map((g) => (
                         <li key={g.id} className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="w-16 shrink-0 text-steel">Game {g.game_number}</span>
-                          <code className="text-steel">{g.match_id}</code>
+                          <span className="w-16 shrink-0 text-muted">Game {g.game_number}</span>
+                          <code className="text-muted">{g.match_id}</code>
                           <StatusBadge status={g.status} />
                           {g.error_text && <span className="text-red-400">{g.error_text}</span>}
                           {g.status === "needs_side" && (
@@ -182,7 +182,7 @@ export default function AdminReportsQueue({
                               onChange={(e) => {
                                 if (e.target.value) void handleFixSide(g.id, e.target.value);
                               }}
-                              className="rounded border border-line bg-navy px-1.5 py-0.5 text-xs text-white"
+                              className="rounded border border-border bg-canvas px-1.5 py-0.5 text-xs text-white"
                             >
                               <option value="" disabled>
                                 Which side was blue?

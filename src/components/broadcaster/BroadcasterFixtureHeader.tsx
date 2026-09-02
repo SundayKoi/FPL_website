@@ -36,9 +36,9 @@ export default function BroadcasterFixtureHeader({
     <div>
       <p className="label-dash text-gold">Fixture</p>
       <h1 className="type-display mt-1 text-2xl sm:text-3xl">
-        {fixture.team_a ?? "TBD"} <span className="text-steel">vs</span> {fixture.team_b ?? "TBD"}
+        {fixture.team_a ?? "TBD"} <span className="text-muted">vs</span> {fixture.team_b ?? "TBD"}
       </h1>
-      <p className="mt-2 text-sm text-steel">
+      <p className="mt-2 text-sm text-muted">
         {formatKickoff(fixture.scheduled_at)} · Bo{fixture.best_of} · {meta.label}
         {fixture.division ? ` · ${fixture.division} division` : ""}
       </p>
@@ -53,7 +53,7 @@ export default function BroadcasterFixtureHeader({
       </span>
       <a
         href={matchDraftOverlayHref(fixture)}
-        className="rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+        className="rounded-full border border-primary/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
       >
         Open draft
       </a>
@@ -69,7 +69,7 @@ export default function BroadcasterFixtureHeader({
       <button
         type="button"
         onClick={() => void copyOverlayUrl()}
-        className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-gold hover:text-gold"
+        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
       >
         {copyState === "copied" ? "Copied ✓" : "Copy OBS overlay"}
       </button>
@@ -77,12 +77,12 @@ export default function BroadcasterFixtureHeader({
         href={twitchUrl}
         target="_blank"
         rel="noreferrer"
-        className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-pink hover:text-pink"
+        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
       >
         Watch on Twitch
       </a> : null}
       {copyState === "failed" && (
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           OBS overlay URL
           <input aria-label="OBS overlay URL" readOnly value={fallbackUrl} className="input-brand px-2 py-2" />
         </label>

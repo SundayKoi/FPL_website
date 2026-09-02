@@ -16,7 +16,7 @@ function EventCard({ event }: { event: EventSummary }) {
   return (
     <Link
       href={`/betting/event/${event.id}`}
-      className="card-brand block p-5 transition hover:border-coral"
+      className="card-brand block p-5 transition hover:border-primary"
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="type-display text-2xl">{event.name}</h2>
@@ -26,8 +26,8 @@ function EventCard({ event }: { event: EventSummary }) {
           </span>
         )}
       </div>
-      {event.description && <p className="mt-2 text-sm leading-6 text-steel">{event.description}</p>}
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3 text-xs text-steel">
+      {event.description && <p className="mt-2 text-sm leading-6 text-muted">{event.description}</p>}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-xs text-muted">
         <span className="font-mono">
           {event.open_markets} open · {event.locked_markets} locked
         </span>
@@ -36,7 +36,7 @@ function EventCard({ event }: { event: EventSummary }) {
         ) : (
           !live && <span>No markets open right now</span>
         )}
-        <span className="ml-auto font-semibold uppercase tracking-wide text-coral">Enter →</span>
+        <span className="ml-auto font-semibold uppercase tracking-wide text-primary">Enter →</span>
       </div>
     </Link>
   );
@@ -51,12 +51,12 @@ export default async function BettingIndexPage() {
     <div>
       <span className="label-dash">Franchise Premier League</span>
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">Events</h1>
-      <p className="mt-3 max-w-2xl text-sm text-steel">
+      <p className="mt-3 max-w-2xl text-sm text-muted">
         Pick your event to see its pick&apos;em and open markets.
       </p>
 
       {events.length === 0 ? (
-        <div className="mt-10 rounded-lg border border-line bg-panel p-8 text-center text-sm text-steel">
+        <div className="mt-10 rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
           No betting events exist yet — check back once a season kicks off.
         </div>
       ) : (

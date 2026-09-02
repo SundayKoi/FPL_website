@@ -31,29 +31,29 @@ export default function SupportDevSection({ className = "" }: Props) {
       className={`card-brand ${className} grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)] lg:items-center`}
     >
       <div>
-        <div className="border-b border-line/70 pb-8">
+        <div className="border-b border-border/70 pb-8">
           <span className="label-dash">THE PEOPLE BEHIND THE PLAYS</span>
           <h2 id="meet-the-devs-heading" className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
             Meet the Devs
           </h2>
           <div className="mt-5 grid gap-4">
             {devs.map((dev) => (
-              <article key={dev.handle} className="flex items-center gap-4 rounded-xl border border-line bg-black/10 p-4">
+              <article key={dev.handle} className="flex items-center gap-4 rounded-xl border border-border bg-black/10 p-4">
                 <Image
                   src={dev.avatar}
                   alt={`${dev.name} avatar`}
                   width={80}
                   height={80}
-                  className="h-20 w-20 shrink-0 rounded-full border border-line object-cover"
+                  className="h-20 w-20 shrink-0 rounded-full border border-border object-cover"
                 />
                 <div>
                   <h3 className="font-display text-2xl font-semibold text-white">{dev.name}</h3>
-                  <p className="mt-1 text-sm font-medium tracking-wide text-steel">{dev.handle}</p>
+                  <p className="mt-1 text-sm font-medium tracking-wide text-muted">{dev.handle}</p>
                   <a
                     href={dev.venmoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-coral transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                   >
                     {dev.venmoLabel} <span aria-hidden="true">↗</span>
                   </a>
@@ -68,7 +68,7 @@ export default function SupportDevSection({ className = "" }: Props) {
           <h2 id="support-devs-heading" className="font-display mt-3 text-3xl font-semibold text-white sm:text-4xl">
             Support the Devs
           </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-steel sm:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted sm:text-base">
             If you enjoy the league and want to help keep the site, broadcasts, and tools going,
             you can support Zachari or Matthew at Venmo or PayPal.
           </p>
@@ -81,7 +81,7 @@ export default function SupportDevSection({ className = "" }: Props) {
             href={PATRON_PAYPAL_HREF}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+            className="btn-pill mt-6 inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
             Support via PayPal <span aria-hidden="true">↗</span>
           </a>
@@ -95,7 +95,7 @@ export default function SupportDevSection({ className = "" }: Props) {
           width={1170}
           height={2532}
           sizes="(max-width: 1024px) 80vw, 24rem"
-          className="h-auto max-h-[34rem] w-auto max-w-full rounded-xl border border-line object-contain"
+          className="h-auto max-h-[34rem] w-auto max-w-full rounded-xl border border-border object-contain"
         />
       </div>
     </section>

@@ -395,7 +395,7 @@ export default function LeaderboardTab({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search players…"
-            className="rounded border border-line bg-navy px-2 py-1.5 text-sm text-white placeholder:text-steel/60 focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
+            className="rounded border border-border bg-canvas px-2 py-1.5 text-sm text-white placeholder:text-muted/60 focus:border-primary focus:outline-none focus:[box-shadow:0_0_10px_rgb(47_107_255/0.3)]"
           />
 
           <FilterPill active={pickerOpen} onClick={() => setPickerOpen((open) => !open)}>
@@ -441,20 +441,20 @@ export default function LeaderboardTab({
         </div>
 
         {pickerOpen ? (
-          <div className="flex flex-col gap-3 border-t border-line/60 pt-3">
+          <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="mono-label">Columns</span>
               <button
                 type="button"
                 onClick={() => setShownColumns(COLUMNS.map((col) => col.key))}
-                className="text-[11px] uppercase tracking-wide text-steel underline-offset-4 hover:text-cyan hover:underline"
+                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
               >
                 Show all
               </button>
               <button
                 type="button"
                 onClick={() => setShownColumns(DEFAULT_COLUMNS)}
-                className="text-[11px] uppercase tracking-wide text-steel underline-offset-4 hover:text-cyan hover:underline"
+                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
               >
                 Reset
               </button>
@@ -486,7 +486,7 @@ export default function LeaderboardTab({
                 })}
               </div>
             ))}
-            <p className="text-[11px] text-steel">
+            <p className="text-[11px] text-muted">
               Player and Role always show. Click any header to sort — a second click reverses it.
             </p>
           </div>
@@ -499,11 +499,11 @@ export default function LeaderboardTab({
         <div className="card-neon overflow-x-auto p-2">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-cyan/20">
-                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+              <tr className="border-b border-border/70">
+                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
                   vs
                 </th>
-                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-steel">
+                <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
                   #
                 </th>
                 {visibleColumns.map((col) => (
@@ -515,7 +515,7 @@ export default function LeaderboardTab({
                     onSort={handleSort}
                     // Player column sticks while stats scroll sideways on
                     // phones (solid bg so scrolling cells pass beneath it).
-                    className={col.key === "player" ? "sticky left-0 z-10 bg-panel" : ""}
+                    className={col.key === "player" ? "sticky left-0 z-10 bg-surface" : ""}
                   />
                 ))}
               </tr>
@@ -548,7 +548,7 @@ export default function LeaderboardTab({
                         onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag });
                       }
                     }}
-                    className={`cursor-pointer border-t border-line/50 transition hover:bg-cyan/5 ${rankClass}`}
+                    className={`cursor-pointer border-t border-border/50 transition hover:bg-raised/50 ${rankClass}`}
                   >
                     <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input
@@ -560,7 +560,7 @@ export default function LeaderboardTab({
                         className="h-4 w-4 accent-cyan"
                       />
                     </td>
-                    <td className="px-2 py-1.5 font-mono text-xs text-steel">{i + 1}</td>
+                    <td className="px-2 py-1.5 font-mono text-xs text-muted">{i + 1}</td>
                     {visibleColumns.map((col) => {
                       if (col.key === "role_mode") {
                         return (
@@ -592,8 +592,8 @@ export default function LeaderboardTab({
                           key={col.key}
                           className={`px-2 py-1.5 ${
                             col.key === "player"
-                              ? "sticky left-0 z-10 bg-panel font-semibold text-white"
-                              : "font-mono text-steel"
+                              ? "sticky left-0 z-10 bg-surface font-semibold text-white"
+                              : "font-mono text-muted"
                           }`}
                         >
                           {col.display(row)}

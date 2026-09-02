@@ -30,9 +30,9 @@ export interface FantasySeasonRow {
 
 function rankClass(rank: number | null): string {
   if (rank === 1) return "text-gold";
-  if (rank === 2) return "text-steel";
+  if (rank === 2) return "text-muted";
   if (rank === 3) return "text-amber-600";
-  return "text-steel/60";
+  return "text-muted/60";
 }
 
 /** "Top Rutledge 76.8 · Jng Bandit 60.2 · …" */
@@ -42,7 +42,7 @@ function BreakdownLine({ breakdown }: { breakdown: LineupBreakdown }) {
     return slot ? [`${SHORT_ROLE[role]} ${slot.playerName} ${slot.points.toFixed(1)}`] : [];
   });
   if (parts.length === 0) return null;
-  return <div className="mt-0.5 text-[11px] leading-4 text-steel/70">{parts.join(" · ")}</div>;
+  return <div className="mt-0.5 text-[11px] leading-4 text-muted/70">{parts.join(" · ")}</div>;
 }
 
 /**
@@ -67,18 +67,18 @@ export default function FantasyLeaderboard({
         <span className="label-dash">Week of {weekLabel}</span>
         <h2 className="type-display mt-1 text-2xl">Weekly standings</h2>
         {weekly.length === 0 ? (
-          <p className="mt-4 text-sm text-steel">No lineups were fielded last week.</p>
+          <p className="mt-4 text-sm text-muted">No lineups were fielded last week.</p>
         ) : (
           <>
             {!anyScored && (
-              <p className="mt-2 text-xs text-steel">
+              <p className="mt-2 text-xs text-muted">
                 Last week hasn&apos;t been scored yet — entrants are listed in submission order.
               </p>
             )}
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[380px] text-sm">
                 <thead>
-                  <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-steel">
+                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                     <th className="py-2 pr-2">#</th>
                     <th className="py-2 pr-2">Manager</th>
                     <th className="py-2 pl-2 text-right">Points</th>
@@ -88,14 +88,14 @@ export default function FantasyLeaderboard({
                   {weekly.map((row, index) => (
                     <tr
                       key={`${row.username}-${index}`}
-                      className={`border-b border-line last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
+                      className={`border-b border-border last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
                     >
                       <td className={`py-2 pr-2 align-top font-mono text-sm font-bold ${rankClass(row.rank)}`}>
                         {row.rank === null ? "—" : `#${row.rank}`}
                       </td>
                       <td className="py-2 pr-2">
                         <span className="text-white">{row.username}</span>
-                        <span className="ml-2 font-mono text-[11px] text-steel/70">{row.totalOverall} OVR</span>
+                        <span className="ml-2 font-mono text-[11px] text-muted/70">{row.totalOverall} OVR</span>
                         {row.paidOut !== null && row.paidOut > 0 && (
                           <span className="ml-2 text-[11px] font-semibold text-mint">+{fmtPoints(row.paidOut)}</span>
                         )}
@@ -117,12 +117,12 @@ export default function FantasyLeaderboard({
         <span className="label-dash">Season</span>
         <h2 className="type-display mt-1 text-2xl">Season totals</h2>
         {season.length === 0 ? (
-          <p className="mt-4 text-sm text-steel">No weeks have been scored yet this season.</p>
+          <p className="mt-4 text-sm text-muted">No weeks have been scored yet this season.</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[320px] text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-steel">
+                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
                   <th className="py-2 pr-2">#</th>
                   <th className="py-2 pr-2">Manager</th>
                   <th className="py-2 pl-2 text-right">Weeks</th>
@@ -133,11 +133,11 @@ export default function FantasyLeaderboard({
                 {season.map((row) => (
                   <tr
                     key={`${row.rank}-${row.username}`}
-                    className={`border-b border-line last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
+                    className={`border-b border-border last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
                   >
                     <td className={`py-2 pr-2 font-mono text-sm font-bold ${rankClass(row.rank)}`}>#{row.rank}</td>
                     <td className="py-2 pr-2 text-white">{row.username}</td>
-                    <td className="py-2 pl-2 text-right font-mono text-steel">{row.weeks}</td>
+                    <td className="py-2 pl-2 text-right font-mono text-muted">{row.weeks}</td>
                     <td className="py-2 pl-2 text-right font-mono font-semibold text-white">{row.total.toFixed(1)}</td>
                   </tr>
                 ))}

@@ -37,7 +37,7 @@ export default async function SupportersPage() {
       <header>
         <span className="label-dash">League Patrons</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Flame Holders</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-steel">
+        <p className="mt-4 max-w-2xl text-sm leading-6 text-muted">
           Patrons cover what the league costs to run — hosting, the tools, the AI that helps build it. In
           return they carry the flame: a colour of their choosing burning on every card they own and beside
           their name on the betting leaderboards and the Gauntlet&apos;s weekly board, card backs dealt in that
@@ -47,18 +47,18 @@ export default async function SupportersPage() {
         </p>
         <Link
           href="/support-devs"
-          className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+          className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
         >
           Become a patron →
         </Link>
       </header>
 
       {patrons.length === 0 ? (
-        <p className="text-sm text-steel">No patrons yet — the flame awaits its first holder.</p>
+        <p className="text-sm text-muted">No patrons yet — the flame awaits its first holder.</p>
       ) : (
         <section aria-label="Active patrons" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {patrons.map((patron) => (
-            <div key={patron.username} className="relative flex items-center gap-3 rounded-xl border border-line/60 bg-panel p-4">
+            <div key={patron.username} className="relative flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-4">
               <PatronFlame flame={patron.patron_flame} radius="0.75rem" />
               {patron.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

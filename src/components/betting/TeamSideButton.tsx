@@ -28,7 +28,7 @@ export function TeamSideButton({
       onClick={onClick}
       className={
         "flex-1 rounded border px-2 py-2 text-sm font-semibold transition disabled:cursor-not-allowed " +
-        (selected ? "border-transparent text-navy" : "border-line text-steel hover:border-steel") +
+        (selected ? "border-transparent text-navy" : "border-border text-muted hover:border-muted") +
         (className ? ` ${className}` : "")
       }
       style={

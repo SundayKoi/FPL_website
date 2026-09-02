@@ -43,7 +43,7 @@ export default function AdminChampionsDrop({
     <div className="card-brand flex flex-wrap items-end gap-3 p-4">
       <div className="flex flex-col gap-1">
         <span className="label-dash">The Faceless Drop</span>
-        <span className={`text-xs font-semibold ${active ? "text-[#ff6b76]" : "text-steel"}`}>
+        <span className={`text-xs font-semibold ${active ? "text-[#ff6b76]" : "text-muted"}`}>
           {active
             ? `OPEN — vault shuts ${new Date(until!).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}`
             : "Vault shut — the Hand isn't for sale"}
@@ -65,7 +65,7 @@ export default function AdminChampionsDrop({
           type="button"
           disabled={busy}
           onClick={() => (endArmed ? void write({ end: true }) : setEndArmed(true))}
-          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel disabled:opacity-50"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
         >
           {endArmed ? "Shut the vault — sure?" : "End now"}
         </button>

@@ -37,14 +37,14 @@ function SeasonJourney({ history }: { history: RatingHistoryPoint[] }) {
           const up = index > 0 && point.overall > arc[index - 1].overall;
           return (
             <span key={index} className="flex items-center gap-1.5">
-              {index > 0 && <span aria-hidden className="text-steel">→</span>}
+              {index > 0 && <span aria-hidden className="text-muted">→</span>}
               <span
                 className={`rounded-full border px-2 py-0.5 font-mono font-bold ${
                   tierChanged
                     ? up
                       ? "border-mint/60 text-mint"
                       : "border-red-400/60 text-red-400"
-                    : "border-line text-white"
+                    : "border-border text-white"
                 }`}
                 title={point.tier}
               >
@@ -240,7 +240,7 @@ export default async function CardSharePage({
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl">Card not found</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           No rated player matches this link for the current season — cards exist once a player has
           ingested games.
         </p>
@@ -282,9 +282,9 @@ export default async function CardSharePage({
           patronInks={patronInks}
         />
       ) : null}
-      <p className="max-w-md text-center text-xs text-steel">
+      <p className="max-w-md text-center text-xs text-muted">
         Cards rebuild themselves from the season&apos;s stats after every match night.{" "}
-        <Link href={collectionHref} className="text-coral underline-offset-4 hover:underline">
+        <Link href={collectionHref} className="text-primary underline-offset-4 hover:underline">
           Premium members browse the whole collection →
         </Link>
       </p>

@@ -103,27 +103,27 @@ export default function GuessTheCardBoard({
         <div>
           <span className="label-dash">Daily game · Admin testing</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Guess the Card</h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-steel">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
             Identify the anonymous {leagueLabel} player from one completed game. Five guesses. A new frozen puzzle at midnight UTC.
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-1.5" role="group" aria-label="Guess the Card league">
-            <Link href="/guess-the-card" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
+            <Link href="/guess-the-card" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-navy" : "border border-border bg-surface text-muted"}`}>
               Premier
             </Link>
-            <Link href="/academy/guess-the-card" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-navy" : "border border-line bg-panel text-steel"}`}>
+            <Link href="/academy/guess-the-card" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-navy" : "border border-border bg-surface text-muted"}`}>
               Academy
             </Link>
           </div>
           <div className="text-right">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-steel">Next puzzle</span>
+            <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Next puzzle</span>
             <span aria-label="Next puzzle countdown" className="font-mono text-lg font-bold text-gold">{now === null ? "--:--:--" : countdownLabel(game.expiresAt, now)}</span>
           </div>
         </div>
       </header>
 
-      <div className="rounded border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-steel">
+      <div className="rounded border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-muted">
         <span className="font-bold text-gold">Admin test gate:</span> this daily game is not open to Premium members yet. Progress and rewards still use the real account path.
       </div>
 
@@ -143,10 +143,10 @@ export default function GuessTheCardBoard({
 
           <div className="mt-5 flex flex-wrap gap-2" aria-label="Guessed players">
             {game.guesses.length === 0 ? (
-              <p className="text-sm text-steel">Your guesses appear here as you work through the stat rails.</p>
+              <p className="text-sm text-muted">Your guesses appear here as you work through the stat rails.</p>
             ) : (
               game.guesses.map((guess, index) => (
-                <span key={`${guess.slug}-${index}`} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${guess.correct ? "border-mint/60 bg-mint/10 text-mint" : "border-line bg-navy/60 text-steel line-through"}`}>
+                <span key={`${guess.slug}-${index}`} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${guess.correct ? "border-mint/60 bg-mint/10 text-mint" : "border-border bg-canvas/60 text-muted line-through"}`}>
                   {guess.name}#{guess.tag}
                 </span>
               ))
@@ -155,14 +155,14 @@ export default function GuessTheCardBoard({
 
           {isPlaying ? (
             <form className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
-              <label className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.14em] text-steel" htmlFor="guess-the-card-player">
+              <label className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted" htmlFor="guess-the-card-player">
                 Guess a player
                 <select
                   id="guess-the-card-player"
                   value={selectedSlug}
                   onChange={(event) => setSelectedSlug(event.target.value)}
                   disabled={isPending}
-                  className="mt-2 block w-full rounded border border-line bg-navy px-3 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none transition focus:border-coral disabled:opacity-60"
+                  className="mt-2 block w-full rounded border border-border bg-canvas px-3 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none transition focus:border-coral disabled:opacity-60"
                 >
                   <option value="">Select a player…</option>
                   {game.candidates.map((candidate) => (
@@ -190,7 +190,7 @@ export default function GuessTheCardBoard({
 
           {!isPlaying ? (
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <span className="rounded border border-line bg-navy/50 px-3 py-2 font-mono text-sm text-white">{shareText(game)}</span>
+              <span className="rounded border border-border bg-canvas/50 px-3 py-2 font-mono text-sm text-white">{shareText(game)}</span>
               <button type="button" onClick={handleCopy} className="rounded border border-coral/60 px-3 py-2 text-xs font-bold uppercase tracking-wide text-coral transition hover:bg-coral/10">
                 {copied ? "Copied" : "Copy result"}
               </button>
@@ -198,7 +198,7 @@ export default function GuessTheCardBoard({
           ) : null}
 
           {game.canReset ? (
-            <button type="button" onClick={handleReset} disabled={isPending} className="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-steel underline decoration-line underline-offset-4 transition hover:text-white disabled:opacity-50">
+            <button type="button" onClick={handleReset} disabled={isPending} className="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-muted underline decoration-line underline-offset-4 transition hover:text-white disabled:opacity-50">
               Reset test puzzle
             </button>
           ) : null}
@@ -207,7 +207,7 @@ export default function GuessTheCardBoard({
         </section>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 pt-5 text-xs text-steel">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5 text-xs text-muted">
         <Link href="/premium" className="transition hover:text-white">← Premium HQ</Link>
         <Link href={leaguePath(game.league)} className="transition hover:text-white">Refresh game</Link>
       </div>

@@ -20,7 +20,7 @@ function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: s
     }
   };
   return (
-    <div className="rounded border border-line bg-navy/60 p-3">
+    <div className="rounded border border-border bg-canvas/60 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="label-dash">{label}</span>
         <button type="button" onClick={() => void copy()} className="btn-pill px-3 py-1 text-xs">
@@ -28,7 +28,7 @@ function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: s
         </button>
       </div>
       <p className="mt-1 break-all font-mono text-xs text-white">{url}</p>
-      <p className="mt-1 text-xs text-steel">{hint}</p>
+      <p className="mt-1 text-xs text-muted">{hint}</p>
     </div>
   );
 }
@@ -91,7 +91,7 @@ export default function CreateLobbyForm() {
     return (
       <section className="card-brand flex flex-col gap-3 p-5" aria-label="Lobby links">
         <h2 className="type-display text-xl text-white">Lobby ready — share the links</h2>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Each link is secret: whoever opens a captain link drafts for that team, and anyone with the
           spectator link can watch live. Lobbies expire after 14 days.
         </p>
@@ -105,7 +105,7 @@ export default function CreateLobbyForm() {
           suffix="?overlay=1"
         />
         <div>
-          <a href={`/drafter/${lobby.tokenSpectator}`} className="btn-coral inline-block px-4 py-2 text-sm">
+          <a href={`/drafter/${lobby.tokenSpectator}`} className="btn-primary inline-block px-4 py-2 text-sm">
             Open the lobby
           </a>
         </div>
@@ -116,7 +116,7 @@ export default function CreateLobbyForm() {
   return (
     <section className="card-brand flex flex-col gap-4 p-5" aria-label="Create a draft lobby">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team 1 (blue side, game 1)
           <input
             value={teamA}
@@ -126,7 +126,7 @@ export default function CreateLobbyForm() {
             className="input-brand px-3 py-2 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team 2 (red side, game 1)
           <input
             value={teamB}
@@ -136,7 +136,7 @@ export default function CreateLobbyForm() {
             className="input-brand px-3 py-2 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team 1 players (optional, top → support)
           <input
             value={playersA}
@@ -145,7 +145,7 @@ export default function CreateLobbyForm() {
             className="input-brand px-3 py-2 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team 2 players (optional, top → support)
           <input
             value={playersB}
@@ -164,7 +164,7 @@ export default function CreateLobbyForm() {
             aria-pressed={bestOf === option}
             onClick={() => setBestOf(option)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-              bestOf === option ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+              bestOf === option ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             Bo{option}
@@ -175,14 +175,14 @@ export default function CreateLobbyForm() {
           aria-pressed={fearless}
           onClick={() => setFearless((current) => !current)}
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-            fearless ? "border border-mint/50 bg-mint/15 text-mint" : "border border-line bg-panel text-steel hover:text-white"
+            fearless ? "border border-mint/50 bg-mint/15 text-mint" : "border border-border bg-surface text-muted hover:text-white"
           }`}
         >
           Fearless {fearless ? "on" : "off"}
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" disabled={creating} onClick={() => void create()} className="btn-coral px-5 py-2 text-sm disabled:opacity-40">
+        <button type="button" disabled={creating} onClick={() => void create()} className="btn-primary px-5 py-2 text-sm disabled:opacity-40">
           {creating ? "Creating…" : "Create lobby"}
         </button>
         {error ? <p role="alert" className="text-sm text-red-400">{error}</p> : null}

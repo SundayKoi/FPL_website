@@ -6,7 +6,7 @@ export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boole
       <section className="card-brand flex w-full max-w-2xl flex-col items-center gap-5 p-7 sm:p-10">
         <span className="label-dash">FPL Premium</span>
         <h1 className="type-display text-4xl sm:text-5xl">Premium HQ is locked</h1>
-        <p className="max-w-xl text-sm leading-7 text-steel sm:text-base">
+        <p className="max-w-xl text-sm leading-7 text-muted sm:text-base">
           FPL Premium is only $10. Unlock the live card collection, betting exchange, The Daily Stu, Match
           Drafter, card economy, and more in one member hub.
         </p>
@@ -15,7 +15,7 @@ export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boole
             href={paymentHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-coral inline-flex items-center px-5 py-3 text-sm uppercase tracking-wide"
+            className="btn-primary inline-flex items-center px-5 py-3 text-sm uppercase tracking-wide"
           >
             Get FPL Premium — $10 ↗
           </a>
@@ -25,7 +25,7 @@ export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boole
             </Link>
           ) : null}
         </div>
-        <p className="max-w-lg text-xs leading-5 text-steel">
+        <p className="max-w-lg text-xs leading-5 text-muted">
           After payment, join the FPL Better Discord role and sign in with Discord to check access.
         </p>
       </section>

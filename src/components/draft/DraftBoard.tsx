@@ -46,12 +46,12 @@ export default function DraftBoard({
 
   if (!s.draft)
     return (
-      <main className="flex min-h-screen items-center justify-center bg-navy bg-hash p-8">
+      <main className="flex min-h-screen items-center justify-center bg-canvas bg-hash p-8">
         <div className="card-brand px-10 py-8 text-center">
           {s.loaded ? (
             <>
               <p className="type-display text-xl text-white">Draft not found</p>
-              <p className="mt-2 text-sm text-steel">
+              <p className="mt-2 text-sm text-muted">
                 This draft may have been deleted or the link is out of date.
               </p>
               <Link href="/" className="btn-pill mt-4 inline-block text-sm">
@@ -94,7 +94,7 @@ export default function DraftBoard({
 
       {myTeam && (
         <div className={chatTopReserve}>
-          <div className="card-brand px-4 py-3 text-sm text-steel">
+          <div className="card-brand px-4 py-3 text-sm text-muted">
             You are <span className="type-display text-base not-italic text-white">Team {myTeam.name}</span> —{" "}
             <span className="font-display font-semibold not-italic text-gold">{myTeam.points_remaining} pts</span>,
             max bid{" "}
@@ -157,7 +157,7 @@ export default function DraftBoard({
                     <button
                       type="button"
                       onClick={() => setCollapseAllTeams((current) => !current)}
-                      className="rounded border border-line px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-steel hover:border-coral hover:text-coral"
+                      className="rounded border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted hover:border-primary hover:text-primary"
                     >
                       {collapseAllTeams ? "Expand all" : "Collapse all"}
                     </button>
@@ -239,7 +239,7 @@ export default function DraftBoard({
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(false)}
-                  className="hidden rounded border border-coral px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-coral hover:bg-coral/10 xl:absolute xl:right-0 xl:top-0 xl:block"
+                  className="hidden rounded border border-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary hover:bg-primary/10 xl:absolute xl:right-0 xl:top-0 xl:block"
                 >
                   Open chat
                 </button>

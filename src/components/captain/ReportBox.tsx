@@ -277,7 +277,7 @@ export default function ReportBox({
       <h2 className="label-dash">Report a result</h2>
 
       <div className="mt-3 flex flex-col gap-2">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Paste your Discord report
           <textarea
             value={pasteText}
@@ -292,11 +292,11 @@ export default function ReportBox({
             type="button"
             onClick={handleParse}
             disabled={!pasteText.trim()}
-            className="w-fit rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-50"
+            className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
           >
             Parse paste
           </button>
-          <span className="text-xs text-steel">Fills in the form below — nothing is submitted yet.</span>
+          <span className="text-xs text-muted">Fills in the form below — nothing is submitted yet.</span>
         </div>
         {parseWarnings.length > 0 && (
           <ul className="flex flex-col gap-0.5 text-xs text-amber-300">
@@ -308,7 +308,7 @@ export default function ReportBox({
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Season
           <input
             value={form.season}
@@ -316,7 +316,7 @@ export default function ReportBox({
             className={inputClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Phase
           <select
             value={form.phase}
@@ -330,7 +330,7 @@ export default function ReportBox({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team A
           <select
             value={form.teamAId}
@@ -345,7 +345,7 @@ export default function ReportBox({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team B
           <select
             value={form.teamBId}
@@ -360,7 +360,7 @@ export default function ReportBox({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Score A
           <input
             inputMode="numeric"
@@ -369,7 +369,7 @@ export default function ReportBox({
             className={inputClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Score B
           <input
             inputMode="numeric"
@@ -378,7 +378,7 @@ export default function ReportBox({
             className={inputClass}
           />
         </label>
-        <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
+        <label className="col-span-2 flex flex-col gap-1 text-xs text-muted">
           Forfeit (optional)
           <select
             value={form.forfeitTeamId}
@@ -392,7 +392,7 @@ export default function ReportBox({
         </label>
         {form.forfeitTeamId && (
           <>
-            <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
+            <label className="col-span-2 flex flex-col gap-1 text-xs text-muted">
               Why (optional)
               <input
                 value={form.forfeitNote}
@@ -406,14 +406,14 @@ export default function ReportBox({
                 is to leave the whole series out, or to invent rows for the
                 games nobody played — and the first loses real stats while the
                 second poisons them. */}
-            <p className="col-span-2 text-xs text-gold">
+            <p className="col-span-2 text-xs text-prestige">
               Score the series as the forfeit win, then add only the games that were actually
               played — leave the rest out. Those games still count in full for player stats and
               cards. If nobody played at all, add no games.
             </p>
           </>
         )}
-        <label className="col-span-2 flex flex-col gap-1 text-xs text-steel">
+        <label className="col-span-2 flex flex-col gap-1 text-xs text-muted">
           Draft URL (optional)
           <input
             value={form.draftUrl}
@@ -425,15 +425,15 @@ export default function ReportBox({
       </div>
 
       <div className="mt-4 flex flex-col gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-steel">Games</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Games</p>
         {draftPrefill && (
-          <p className="text-xs text-steel">
+          <p className="text-xs text-muted">
             Blue sides{draftPrefill.scoreA != null ? ", score," : ""} and the draft link are pre-filled from your match
             drafter — double-check them, then add each game&apos;s Riot match id.
           </p>
         )}
         {form.games.length === 0 && (
-          <p className="text-sm text-steel">
+          <p className="text-sm text-muted">
             {form.forfeitTeamId
               ? "No games — reporting this as a forfeit with nothing played."
               : "No games yet — parse a paste or add one."}
@@ -441,7 +441,7 @@ export default function ReportBox({
         )}
         {form.games.map((g) => (
           <div key={g.key} className="flex flex-wrap items-center gap-2">
-            <span className="w-16 shrink-0 text-xs text-steel">Game {g.gameNumber}</span>
+            <span className="w-16 shrink-0 text-xs text-muted">Game {g.gameNumber}</span>
             <input
               value={g.matchId}
               onChange={(e) => updateGame(g.key, { matchId: e.target.value })}
@@ -460,7 +460,7 @@ export default function ReportBox({
             <button
               type="button"
               onClick={() => removeGame(g.key)}
-              className="shrink-0 text-xs font-semibold text-steel hover:text-red-400"
+              className="shrink-0 text-xs font-semibold text-muted hover:text-red-400"
             >
               Remove
             </button>
@@ -469,7 +469,7 @@ export default function ReportBox({
         <button
           type="button"
           onClick={addGame}
-          className="w-fit rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white"
+          className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white"
         >
           + Add game
         </button>
@@ -482,13 +482,13 @@ export default function ReportBox({
           ))}
         </ul>
       )}
-      {success && <p className="mt-3 text-sm font-semibold text-mint">Report submitted.</p>}
+      {success && <p className="mt-3 text-sm font-semibold text-success">Report submitted.</p>}
 
       <button
         type="button"
         onClick={() => void handleSubmit()}
         disabled={submitting}
-        className="mt-4 rounded-full bg-coral px-4 py-2 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+        className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Submit report"}
       </button>

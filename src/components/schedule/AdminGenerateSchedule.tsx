@@ -93,15 +93,15 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
     <section className="card-brand flex flex-col gap-3 p-4">
       <div>
         <h2 className="label-dash">Generate regular season</h2>
-        <p className="mt-1 text-xs text-steel">
+        <p className="mt-1 text-xs text-muted">
           Random draw for {season}. Every team plays each other team in its own division once,
           one match per week.
         </p>
       </div>
       {err && <p className="text-sm text-red-400">{err}</p>}
-      {done && <p className="text-sm text-mint">{done}</p>}
+      {done && <p className="text-sm text-success">{done}</p>}
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Week 1 kickoff (optional)
           <input
             type="datetime-local"
@@ -115,12 +115,12 @@ export default function AdminGenerateSchedule({ season }: { season: string }) {
           type="button"
           disabled={busy}
           onClick={() => void generate()}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           {busy ? "Drawing…" : "Generate schedule"}
         </button>
       </div>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Set the first kickoff in your own time (the league plays Mondays 8pm ET). Later weeks
         fall on the same day and time, seven days apart. Leave it blank to schedule the matchups
         without kickoff times.

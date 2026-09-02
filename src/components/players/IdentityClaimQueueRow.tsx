@@ -5,7 +5,7 @@ import { useState } from "react";
 import { decidePlayerIdentityClaim } from "@/lib/players/identityActions";
 
 const ACTION =
-  "rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40";
+  "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
 
 const SOURCE_LABELS = {
   team: "team page",
@@ -45,17 +45,17 @@ export default function IdentityClaimQueueRow({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
       <div className="min-w-0">
         <p className="font-semibold text-white">{playerName}</p>
-        <p className="mt-0.5 text-xs text-steel">{teamName} · {SOURCE_LABELS[source]} · {requestedLabel}</p>
-        <p className="mt-0.5 text-xs text-steel">claimed by {claimantName}</p>
+        <p className="mt-0.5 text-xs text-muted">{teamName} · {SOURCE_LABELS[source]} · {requestedLabel}</p>
+        <p className="mt-0.5 text-xs text-muted">claimed by {claimantName}</p>
         {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
       </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
+          className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40"
           disabled={busy}
           onClick={() => void decide("approve")}
         >

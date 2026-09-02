@@ -14,6 +14,6 @@ describe("StatusPill", () => {
 
   it("falls back to the neutral style for an unrecognized status", () => {
     render(<StatusPill status="WEIRD" />);
-    expect(screen.getByText("WEIRD").className).toContain("text-steel");
+    expect(screen.getByText("WEIRD").className).toContain("text-muted");
   });
 });

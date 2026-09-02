@@ -30,13 +30,13 @@ export default function CollapsibleAdminSection({
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <span className="label-dash">{title}</span>
-        <span aria-hidden="true" className="text-steel">
+        <span aria-hidden="true" className="text-muted">
           {open ? "▴" : "▾"}
         </span>
       </button>
 
       {open && (
-        <div className={`flex flex-col ${contentGapClass} border-t border-line px-4 py-4`}>
+        <div className={`flex flex-col ${contentGapClass} border-t border-border px-4 py-4`}>
           {children}
         </div>
       )}

@@ -63,7 +63,7 @@ function CreateMarketForm({
     >
       <h2 className="label-dash">New market</h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Event
           <select
             value={eventId}
@@ -77,7 +77,7 @@ function CreateMarketForm({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Title
           <input
             value={title}
@@ -86,7 +86,7 @@ function CreateMarketForm({
             className="input-brand px-2 py-1.5 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team A
           <select
             value={teamAId}
@@ -100,7 +100,7 @@ function CreateMarketForm({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team B
           <select
             value={teamBId}
@@ -114,7 +114,7 @@ function CreateMarketForm({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Game time
           <input
             type="datetime-local"
@@ -122,9 +122,9 @@ function CreateMarketForm({
             onChange={(e) => setGameAt(e.target.value)}
             className="input-brand px-2 py-1.5 text-sm"
           />
-          <span className="text-[10px] text-steel/70">Locks automatically at this time.</span>
+          <span className="text-[10px] text-muted/70">Locks automatically at this time.</span>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Rake (bps)
           <input
             type="number"
@@ -136,14 +136,14 @@ function CreateMarketForm({
           />
         </label>
       </div>
-      <label className="flex items-center gap-2 text-xs text-steel">
+      <label className="flex items-center gap-2 text-xs text-muted">
         <input type="checkbox" checked={drawEnabled} onChange={(e) => setDrawEnabled(e.target.checked)} />
         Allow a draw (3-way market)
       </label>
       <button
         type="submit"
         disabled={!canSubmit || busy}
-        className="self-start btn-coral px-4 py-2 text-sm"
+        className="self-start btn-primary px-4 py-2 text-sm"
       >
         Create market
       </button>
@@ -158,7 +158,7 @@ function ResolveControl({ market, busy, onResolve }: { market: AdminMarketRow; b
       <select
         value={winner}
         onChange={(e) => setWinner(Number(e.target.value))}
-        className="rounded border border-line bg-navy px-2 py-1 text-xs text-white focus:border-coral focus:outline-none"
+        className="rounded border border-border bg-canvas px-2 py-1 text-xs text-white focus:border-primary focus:outline-none"
       >
         <option value={market.team_a.id}>{market.team_a.short_code} wins</option>
         <option value={market.team_b.id}>{market.team_b.short_code} wins</option>
@@ -198,7 +198,7 @@ export default function MarketsAdmin({
       <div className="flex flex-col gap-2">
         <h2 className="label-dash">Markets ({markets.length})</h2>
         {markets.length === 0 ? (
-          <p className="text-sm text-steel">No markets yet.</p>
+          <p className="text-sm text-muted">No markets yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {markets.map((m) => (
@@ -209,9 +209,9 @@ export default function MarketsAdmin({
                     <span className="truncate font-medium text-white">
                       {m.title ?? `${m.team_a.short_code} vs ${m.team_b.short_code}`}
                     </span>
-                    <span className="text-xs text-steel">· {m.event_name}</span>
+                    <span className="text-xs text-muted">· {m.event_name}</span>
                   </div>
-                  <div className="text-xs text-steel">
+                  <div className="text-xs text-muted">
                     {new Date(m.game_at).toLocaleString()} · Volume {fmtPoints(m.volume)}
                     {m.status === "RESOLVED" && (
                       <> · Winner: {m.drawn ? "Draw" : m.winning_team_id === m.team_a.id ? m.team_a.short_code : m.team_b.short_code}</>
@@ -234,7 +234,7 @@ export default function MarketsAdmin({
                             run(() => cancelMarket(m.id));
                           }
                         }}
-                        className="rounded border border-line px-2 py-1 text-xs text-steel hover:border-red-400 hover:text-red-300 disabled:opacity-40"
+                        className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
                       >
                         Cancel
                       </button>

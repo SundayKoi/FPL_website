@@ -69,7 +69,7 @@ export default function TimelineTab({ season, phase, teamNames }: { season: stri
     <div className="flex flex-col gap-4">
       {nights.map((night) => (
         <div key={night.key} className="card-neon flex flex-col gap-3 p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-cyan/20 pb-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/70 pb-2">
             <p className="type-display text-xl">{formatNight(night.key)}</p>
             <span className="mono-label">
               {night.games.length} {night.games.length === 1 ? "game" : "games"}
@@ -79,34 +79,34 @@ export default function TimelineTab({ season, phase, teamNames }: { season: stri
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-line/50">
+                <tr className="border-b border-border/50">
                   <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan">
                     Blue
                   </th>
                   <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-pink">
                     Red
                   </th>
-                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-steel">
+                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                     Winner
                   </th>
-                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-steel">
+                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                     Duration
                   </th>
-                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-steel">
+                  <th className="px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                     Kills
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {night.games.map((game) => (
-                  <tr key={game.match_id} className="border-t border-line/50 transition hover:bg-cyan/5">
+                  <tr key={game.match_id} className="border-t border-border/50 transition hover:bg-raised/50">
                     <td
-                      className={`px-2 py-1.5 ${game.winner_team === game.blue_team ? "font-semibold text-cyan" : "text-steel"}`}
+                      className={`px-2 py-1.5 ${game.winner_team === game.blue_team ? "font-semibold text-cyan" : "text-muted"}`}
                     >
                       {game.blue_team}
                     </td>
                     <td
-                      className={`px-2 py-1.5 ${game.winner_team === game.red_team ? "font-semibold text-pink" : "text-steel"}`}
+                      className={`px-2 py-1.5 ${game.winner_team === game.red_team ? "font-semibold text-pink" : "text-muted"}`}
                     >
                       {game.red_team}
                     </td>
@@ -116,8 +116,8 @@ export default function TimelineTab({ season, phase, teamNames }: { season: stri
                       </span>
                       {game.winner_team}
                     </td>
-                    <td className="px-2 py-1.5 font-mono text-steel">{formatDuration(game.duration_min)}</td>
-                    <td className="px-2 py-1.5 font-mono text-steel">{game.total_kills}</td>
+                    <td className="px-2 py-1.5 font-mono text-muted">{formatDuration(game.duration_min)}</td>
+                    <td className="px-2 py-1.5 font-mono text-muted">{game.total_kills}</td>
                   </tr>
                 ))}
               </tbody>

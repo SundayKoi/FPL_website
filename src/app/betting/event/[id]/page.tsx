@@ -26,12 +26,12 @@ export default async function BettingEventPage({ params }: { params: Promise<{ i
 
   return (
     <div>
-      <Link href="/betting" className="text-xs uppercase tracking-wide text-steel hover:text-coral">
+      <Link href="/betting" className="text-xs uppercase tracking-wide text-muted hover:text-primary">
         ← Events
       </Link>
       <span className="label-dash mt-4 block">Franchise Premier League</span>
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">{event.name}</h1>
-      <p className="mt-3 max-w-2xl text-sm text-steel">
+      <p className="mt-3 max-w-2xl text-sm text-muted">
         {event.description ?? "Pick a match, back a team, and split the pool when they win."}
       </p>
 
@@ -42,7 +42,7 @@ export default async function BettingEventPage({ params }: { params: Promise<{ i
       )}
 
       {markets.length === 0 ? (
-        <div className="mt-10 rounded-lg border border-line bg-panel p-8 text-center text-sm text-steel">
+        <div className="mt-10 rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
           No {event.name} markets are open right now — check back closer to game time.
         </div>
       ) : (

@@ -62,7 +62,7 @@ function TeamOverview({
   const imageUrl = source.teamImageUrl ?? teamImageFromMatchups(matchups, side);
 
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-white/10 bg-navy/75 p-3 shadow-[0_0_28px_rgb(0_0_0_/_0.28)] sm:p-5">
+    <article className="relative overflow-hidden rounded-2xl border border-white/10 bg-canvas/75 p-3 shadow-[0_0_28px_rgb(0_0_0_/_0.28)] sm:p-5">
       <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-coral via-pink to-purple" />
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -88,7 +88,7 @@ function TeamOverview({
           <span className="mono-label text-cyan">Team record</span>
           <span className="text-xl font-black text-white">{record.wins}–{record.losses}</span>
         </div>
-        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-steel">{record.seriesPlayed} series · {source.currentSeason}</p>
+        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted">{record.seriesPlayed} series · {source.currentSeason}</p>
       </div>
       <div className="mt-4">
         <p className="mono-label text-gold">Individual game win rate</p>
@@ -107,7 +107,7 @@ function TeamOverview({
                       {player.gameRecord ? `${player.gameRecord.winratePct.toFixed(0)}% WR` : "No WR"}
                     </span>
                   </div>
-                )) : <span className="text-xs text-steel">Open slot</span>}
+                )) : <span className="text-xs text-muted">Open slot</span>}
               </div>
             </div>
           );
@@ -133,7 +133,7 @@ function OverviewPanel({
       <div>
         <p className="mono-label text-cyan">01 / 06 · Rivalry briefing</p>
         <h3 id={`${OVERVIEW_ID}-title`} className="type-display mt-1 text-4xl text-white sm:text-5xl">Matchup overview</h3>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
           Two rosters. Five pressure points. Set your call before first blood and keep every player card ready for the spotlight.
         </p>
       </div>
@@ -153,7 +153,7 @@ function OverviewPanel({
                 key={matchup.role}
                 type="button"
                 onClick={() => onSelect(index + 1)}
-                className="rounded-full border border-pink/40 bg-navy/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-pink transition hover:border-cyan hover:text-cyan"
+                className="rounded-full border border-pink/40 bg-canvas/70 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-pink transition hover:border-cyan hover:text-cyan"
               >
                 {matchup.label}
               </button>
@@ -175,12 +175,12 @@ function SpotlightPlayer({
   tone: "coral" | "cyan";
 }) {
   return (
-    <article className="space-y-2 rounded-2xl border border-white/10 bg-navy/65 p-2 sm:space-y-3 sm:p-4">
+    <article className="space-y-2 rounded-2xl border border-white/10 bg-canvas/65 p-2 sm:space-y-3 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className={`mono-label ${tone === "coral" ? "text-coral" : "text-cyan"}`}>{team}</p>
           <h4 className="mt-1 truncate text-base font-black text-white sm:text-xl">{player.name}</h4>
-          <p className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-steel sm:text-xs sm:tracking-[0.16em]">{ROLE_LABELS[player.role]} · player card</p>
+          <p className="mt-0.5 text-[9px] uppercase tracking-[0.12em] text-muted sm:text-xs sm:tracking-[0.16em]">{ROLE_LABELS[player.role]} · player card</p>
         </div>
         <span className={`shrink-0 rounded-full border px-1.5 py-1 text-[9px] font-black uppercase tracking-wider sm:px-2 sm:text-[10px] ${tone === "coral" ? "border-coral/50 text-coral" : "border-cyan/50 text-cyan"}`}>
           {player.gameRecord ? `${player.gameRecord.winratePct.toFixed(0)}% WR` : "No WR"}
@@ -195,7 +195,7 @@ function SpotlightPlayer({
         </div>
       ) : (
         <div className={`flex items-start gap-1.5 sm:gap-2 ${tone === "coral" ? "flex-row-reverse" : "flex-row"}`}>
-          <div className="flex aspect-[5/7] min-w-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-line bg-panel/70 p-2 text-center text-[9px] uppercase tracking-[0.12em] text-steel sm:p-6 sm:text-xs sm:tracking-[0.18em]">
+          <div className="flex aspect-[5/7] min-w-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-surface/70 p-2 text-center text-[9px] uppercase tracking-[0.12em] text-muted sm:p-6 sm:text-xs sm:tracking-[0.18em]">
             Player card unavailable
           </div>
           <BroadcasterPlayerStats player={player} spotlight layout="rail" />
@@ -205,11 +205,11 @@ function SpotlightPlayer({
         <p className="mono-label text-gold">Champion pool</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {player.champions.length ? player.champions.slice(0, 4).map((champion) => (
-            <span key={champion.champion} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-panel/80 px-2 py-1">
+            <span key={champion.champion} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/80 px-2 py-1">
               <ChampionDatum champion={champion.champion} />
-              <span className="text-[10px] text-steel">×{champion.count}</span>
+              <span className="text-[10px] text-muted">×{champion.count}</span>
             </span>
-          )) : <span className="text-xs text-steel">No draft picks on record</span>}
+          )) : <span className="text-xs text-muted">No draft picks on record</span>}
         </div>
       </div>
     </article>
@@ -228,7 +228,7 @@ function SpotlightColumn({
   return (
     <div className="space-y-3">
       {players.length ? players.map((player) => <SpotlightPlayer key={player.id} player={player} team={team} tone={tone} />) : (
-        <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-line bg-navy/40 p-6 text-center text-sm text-steel">
+        <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border bg-canvas/40 p-6 text-center text-sm text-muted">
           No rostered player in this role
         </div>
       )}
@@ -242,7 +242,7 @@ function RolePanel({ matchup, teamA, teamB, index }: { matchup: BroadcasterRoleM
       <div>
         <p className="mono-label text-pink">{String(index + 1).padStart(2, "0")} / 06 · Lane collision</p>
         <h3 id={`head-to-head-${matchup.role}-title`} className="type-display mt-1 text-3xl text-white sm:text-5xl">{matchup.label} lane</h3>
-        <p className="mt-2 text-sm text-steel">Cards up. Stats live. Who owns this side of the Rift?</p>
+        <p className="mt-2 text-sm text-muted">Cards up. Stats live. Who owns this side of the Rift?</p>
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)_2.25rem_minmax(0,1fr)] items-start gap-1 sm:grid-cols-[minmax(0,1fr)_3.5rem_minmax(0,1fr)] sm:gap-3">
         <SpotlightColumn team={teamA} players={matchup.teamAPlayers} tone="coral" />
@@ -312,14 +312,14 @@ export default function HeadToHeadDialog({
           <div>
             <p className="mono-label text-coral">Live broadcast tool · {teamAName} vs {teamBName}</p>
             <h2 id="head-to-head-title" className="type-display mt-1 text-2xl text-white sm:text-4xl">Head-to-head</h2>
-            <p className="mt-1 text-[10px] text-steel sm:text-xs">Player cards + season stats for every rivalry on today’s desk.</p>
+            <p className="mt-1 text-[10px] text-muted sm:text-xs">Player cards + season stats for every rivalry on today’s desk.</p>
           </div>
           <button
             ref={closeRef}
             type="button"
             onClick={closeDialog}
             aria-label="Close head-to-head"
-            className="rounded-full border border-line bg-navy/70 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-steel transition hover:border-coral hover:text-coral sm:px-3 sm:text-xs"
+            className="rounded-full border border-border bg-canvas/70 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-primary hover:text-primary sm:px-3 sm:text-xs"
           >
             Close ×
           </button>
@@ -335,7 +335,7 @@ export default function HeadToHeadDialog({
               className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition ${
                 activeIndex === index
                   ? "border-coral bg-coral text-navy shadow-[0_0_18px_rgb(255_107_53_/_0.35)]"
-                  : "border-line bg-navy/60 text-steel hover:border-pink hover:text-pink"
+                  : "border-border bg-canvas/60 text-muted hover:border-pink hover:text-pink"
               }`}
             >
               {section.label}
@@ -356,8 +356,8 @@ export default function HeadToHeadDialog({
           )}
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-navy/70 px-2 py-2 sm:gap-3 sm:px-6 sm:py-3">
-          <p aria-live="polite" className="text-[10px] font-semibold uppercase tracking-[0.12em] text-steel sm:text-xs sm:tracking-[0.16em]">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-canvas/70 px-2 py-2 sm:gap-3 sm:px-6 sm:py-3">
+          <p aria-live="polite" className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted sm:text-xs sm:tracking-[0.16em]">
             {current.label} · {activeIndex + 1} of {sections.length}
           </p>
           <div className="flex items-center gap-2">
@@ -365,7 +365,7 @@ export default function HeadToHeadDialog({
               type="button"
               onClick={() => moveTo(activeIndex - 1)}
               disabled={activeIndex === 0}
-              className="rounded-full border border-line px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-steel transition hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-35 sm:px-3 sm:py-2 sm:text-xs"
+              className="rounded-full border border-border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-35 sm:px-3 sm:py-2 sm:text-xs"
             >
               ← Previous matchup
             </button>

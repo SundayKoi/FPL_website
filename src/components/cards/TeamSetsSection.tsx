@@ -91,11 +91,11 @@ export default function TeamSetsSection({
         <h2 id="team-sets-heading" className="type-display text-2xl sm:text-3xl">
           Roster sets
         </h2>
-        <span className="text-xs uppercase tracking-[0.16em] text-steel">
+        <span className="text-xs uppercase tracking-[0.16em] text-muted">
           {sets.filter((set) => set.complete && !paidFor.has(`${week}|${set.teamName}`)).length} ready to claim
         </span>
       </div>
-      <p className="max-w-2xl text-sm text-steel">
+      <p className="max-w-2xl text-sm text-muted">
         Hold all five players a team fielded in one week and the league pays{" "}
         <span className="font-semibold text-mint">${TEAM_SET_BONUS}</span>. The five are that week&apos;s
         roster, frozen — a card from another week doesn&apos;t fill a slot, and completing a set spends
@@ -116,7 +116,7 @@ export default function TeamSetsSection({
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 option.week === week
                   ? "border-coral bg-coral/15 font-semibold text-white"
-                  : "border-line text-steel hover:border-coral hover:text-white"
+                  : "border-border text-muted hover:border-primary hover:text-white"
               }`}
             >
               {weekLabel(option.week)}
@@ -153,7 +153,7 @@ export default function TeamSetsSection({
                   <img src={set.imageUrl} alt="" aria-hidden className="h-8 w-8 object-contain" />
                 ) : null}
                 <h3 className="type-display flex-1 text-lg">{set.teamName}</h3>
-                <span className="font-mono text-sm tabular-nums text-steel">
+                <span className="font-mono text-sm tabular-nums text-muted">
                   {set.ownedCount}/{set.members.length}
                 </span>
               </div>
@@ -168,14 +168,14 @@ export default function TeamSetsSection({
               </div>
 
               {missing.length > 0 ? (
-                <p className="text-xs leading-5 text-steel">
+                <p className="text-xs leading-5 text-muted">
                   Still need{" "}
                   {missing.map((member, index) => (
                     <span key={member.slug}>
                       {index > 0 ? ", " : ""}
                       <Link
                         href={`/card/${member.slug}`}
-                        className="text-white underline-offset-4 hover:text-coral hover:underline"
+                        className="text-white underline-offset-4 hover:text-primary hover:underline"
                       >
                         {member.name}
                       </Link>
@@ -192,7 +192,7 @@ export default function TeamSetsSection({
                   onClick={() => void claim(set.teamName)}
                   disabled={busy !== null}
                   aria-label={`Claim the ${set.teamName} set`}
-                  className="btn-coral mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn-primary mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busy === set.teamName ? "Claiming…" : `Claim $${TEAM_SET_BONUS}`}
                 </button>

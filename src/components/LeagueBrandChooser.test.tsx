@@ -7,23 +7,23 @@ describe("LeagueBrandChooser", () => {
   it("shows the FPL brand and sends the active Premier league home", () => {
     render(<LeagueBrandChooser pathname="/stats" search="tab=Players" onNavigate={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /fpl, choose league/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /fpl, premier division, choose league/i })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
 
-    expect(screen.getByRole("menuitem", { name: /^FPL$/ }).getAttribute("href")).toBe("/");
+    expect(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }).getAttribute("href")).toBe("/");
   });
 
   it("shows the distinct Academy mark and preserves the paired page", () => {
     render(<LeagueBrandChooser pathname="/academy/stats" search="tab=Players" onNavigate={vi.fn()} />);
 
-    expect(screen.getByRole("button", { name: /fpl academy, choose league/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /fpl academy, academy division, choose league/i })).toBeTruthy();
     expect(screen.getByTestId("academy-mark")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
 
-    expect(screen.getByRole("menuitem", { name: /^FPL$/ }).getAttribute("href")).toBe(
+    expect(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }).getAttribute("href")).toBe(
       "/stats?tab=Players",
     );
-    expect(screen.getByRole("menuitem", { name: /^FPL Academy$/ }).getAttribute("href")).toBe(
+    expect(screen.getByRole("menuitem", { name: /^FPL Academy, Academy division$/ }).getAttribute("href")).toBe(
       "/academy",
     );
   });
@@ -47,7 +47,7 @@ describe("LeagueBrandChooser", () => {
     render(<LeagueBrandChooser pathname="/stats" search="" onNavigate={onNavigate} />);
 
     fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL Academy$/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL Academy, Academy division$/ }));
 
     expect(onNavigate).toHaveBeenCalledTimes(1);
   });
@@ -57,7 +57,7 @@ describe("LeagueBrandChooser", () => {
     render(<LeagueBrandChooser pathname="/stats" search="" onNavigate={onNavigate} />);
 
     fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL$/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }));
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(onNavigate).toHaveBeenCalledTimes(1);

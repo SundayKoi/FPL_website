@@ -33,7 +33,7 @@ export interface TheatreTape {
 const TONE_DOT: Record<MatchEvent["tone"], string> = {
   win: "bg-mint shadow-[0_0_8px_#2ee6a8]",
   loss: "bg-coral shadow-[0_0_8px_#ff6b35]",
-  neutral: "bg-steel",
+  neutral: "bg-muted",
 };
 
 const SPEEDS = [1, 2, 4] as const;
@@ -74,7 +74,7 @@ function GoldGraph({ series, clock, endClock }: { series: GoldSample[]; clock: n
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-steel">Gold difference</span>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-muted">Gold difference</span>
         <span className={`font-mono text-sm font-bold ${current >= 0 ? "text-mint" : "text-coral"}`}>
           {fmtGold(current)} {current >= 0 ? "YOU" : "THEM"}
         </span>
@@ -113,7 +113,7 @@ function Beat({ event, contest, live }: { event: MatchEvent; contest: Contest | 
   const width = margin === null ? 0 : Math.min(48, Math.abs(margin) * 1.7);
   return (
     <div
-      className="relative grid grid-cols-[46px_minmax(0,1fr)] gap-3 border-b border-line/40 py-2 pl-4 last:border-0"
+      className="relative grid grid-cols-[46px_minmax(0,1fr)] gap-3 border-b border-border/40 py-2 pl-4 last:border-0"
       style={{
         opacity: live ? 1 : 0,
         transform: live ? "none" : "translateY(6px)",
@@ -124,7 +124,7 @@ function Beat({ event, contest, live }: { event: MatchEvent; contest: Contest | 
         aria-hidden
         className={`absolute left-0 top-3 h-2 w-2 rounded-full ${TONE_DOT[event.tone]}`}
       />
-      <span className="pt-0.5 font-mono text-[11px] text-steel">
+      <span className="pt-0.5 font-mono text-[11px] text-muted">
         {event.clock === null ? "—" : `${event.clock}:00`}
       </span>
       <div className="min-w-0">
@@ -140,11 +140,11 @@ function Beat({ event, contest, live }: { event: MatchEvent; contest: Contest | 
             </span>
           ) : null}
         </p>
-        {event.detail ? <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">{event.detail}</p> : null}
+        {event.detail ? <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">{event.detail}</p> : null}
         {margin !== null ? (
           <div className="mt-1.5 flex items-center gap-2.5">
-            <span className="relative h-[7px] flex-1 overflow-hidden rounded-[1px] border border-line bg-white/5">
-              <span className="absolute inset-y-0 left-1/2 w-px bg-steel/60" />
+            <span className="relative h-[7px] flex-1 overflow-hidden rounded-[1px] border border-border bg-white/5">
+              <span className="absolute inset-y-0 left-1/2 w-px bg-muted/60" />
               <span
                 className="absolute inset-y-0 rounded-[1px]"
                 style={{
@@ -173,9 +173,9 @@ function Beat({ event, contest, live }: { event: MatchEvent; contest: Contest | 
 function BaronPanel({ baron, clock }: { baron: BaronDance | null | undefined; clock: number }) {
   if (!baron?.attempted) {
     return (
-      <div className="rounded-lg border border-line/70 bg-black/20 p-3">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-steel">Baron pit</p>
-        <p className="mt-2 text-xs text-steel">Not contested yet.</p>
+      <div className="rounded-lg border border-border/70 bg-black/20 p-3">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-muted">Baron pit</p>
+        <p className="mt-2 text-xs text-muted">Not contested yet.</p>
       </div>
     );
   }
@@ -206,7 +206,7 @@ function BaronPanel({ baron, clock }: { baron: BaronDance | null | undefined; cl
           {resolved && baron.taken ? "SLAIN" : resolved ? "STOLEN" : `${Math.max(0, Math.round(hp))}%`}
         </span>
       </div>
-      <p className={`mt-2 font-mono text-[11px] leading-4 ${resolved && !baron.taken ? "text-coral" : "text-steel"}`}>
+      <p className={`mt-2 font-mono text-[11px] leading-4 ${resolved && !baron.taken ? "text-coral" : "text-muted"}`}>
         {started ? (resolved ? baron.note : "Your team is on it…") : "Not contested yet."}
       </p>
     </div>
@@ -283,18 +283,18 @@ export default function MatchTheatre({
     .sort((a, b) => Math.abs(a.margin) - Math.abs(b.margin))[0];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-[#06263f]">
-      <div className="flex items-center justify-between gap-3 border-b border-line bg-black/25 px-4 py-2.5">
+    <div className="overflow-hidden rounded-xl border border-border bg-[#06263f]">
+      <div className="flex items-center justify-between gap-3 border-b border-border bg-black/25 px-4 py-2.5">
         <span className="label-dash">{title}</span>
         <span className="font-mono text-xl font-bold tabular-nums text-white">{fmtClock(Math.min(clock, tape.endClock))}</span>
       </div>
 
-      <div className="border-b border-line px-4 py-3">
+      <div className="border-b border-border px-4 py-3">
         <GoldGraph series={tape.goldSeries} clock={clock} endClock={tape.endClock} />
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <div className="border-b border-line px-4 py-2 lg:border-b-0 lg:border-r">
+        <div className="border-b border-border px-4 py-2 lg:border-b-0 lg:border-r">
           {tape.events.map((event, index) => (
             <Beat
               key={`${event.clock}-${index}`}
@@ -306,26 +306,26 @@ export default function MatchTheatre({
         </div>
         <div className="flex flex-col gap-3 px-4 py-3">
           <BaronPanel baron={tape.baron} clock={clock} />
-          <div className="rounded-lg border border-line/70 bg-black/20 p-3">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-steel">Contest ledger</p>
+          <div className="rounded-lg border border-border/70 bg-black/20 p-3">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted">Contest ledger</p>
             <div className="mt-2 flex justify-between text-xs">
-              <span className="text-steel">Checks won</span>
+              <span className="text-muted">Checks won</span>
               <span className="font-mono tabular-nums text-white">
                 {wonCount} / {settled.length}
               </span>
             </div>
             <div className="mt-1 flex justify-between text-xs">
-              <span className="text-steel">Closest loss</span>
+              <span className="text-muted">Closest loss</span>
               <span className="font-mono tabular-nums text-coral">
                 {closest ? `${Math.abs(closest.margin).toFixed(1)}` : "—"}
               </span>
             </div>
-            {closest ? <p className="mt-1.5 text-[11px] leading-4 text-steel">{closest.label}</p> : null}
+            {closest ? <p className="mt-1.5 text-[11px] leading-4 text-muted">{closest.label}</p> : null}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-line bg-black/25 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border bg-black/25 px-4 py-2.5">
         <button
           type="button"
           onClick={() => {
@@ -342,7 +342,7 @@ export default function MatchTheatre({
         <button
           type="button"
           onClick={() => setSpeed((value) => (value + 1) % SPEEDS.length)}
-          className="rounded-full border border-line bg-panel px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          className="rounded-full border border-border bg-surface px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
         >
           {SPEEDS[speed]}×
         </button>
@@ -353,11 +353,11 @@ export default function MatchTheatre({
             setClock(tape.endClock);
             finish();
           }}
-          className="rounded-full border border-line bg-panel px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          className="rounded-full border border-border bg-surface px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
         >
           Skip
         </button>
-        <span className="ml-auto text-[11px] text-steel">Same seed, same tape — every replay.</span>
+        <span className="ml-auto text-[11px] text-muted">Same seed, same tape — every replay.</span>
       </div>
     </div>
   );

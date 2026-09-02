@@ -54,28 +54,28 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
           <span className="label-dash">Admin</span>
           <span className="type-display mt-2 block text-3xl">Edit linked resources</span>
         </span>
-        <span aria-hidden="true" className="text-steel">{open ? "▴" : "▾"}</span>
+        <span aria-hidden="true" className="text-muted">{open ? "▴" : "▾"}</span>
       </button>
       {open && <div className="mt-5 flex flex-col gap-5">
         {drafts.map((resource) => (
-          <fieldset key={resource.id} className="grid gap-3 border-t border-line pt-4 md:grid-cols-3">
+          <fieldset key={resource.id} className="grid gap-3 border-t border-border pt-4 md:grid-cols-3">
             <legend className="label-dash">{resource.slug}</legend>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Label
               <input value={resource.label} onChange={(event) => update(resource.id, "label", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Description
               <input value={resource.description} onChange={(event) => update(resource.id, "description", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               URL
               <input type="url" value={resource.href} onChange={(event) => update(resource.id, "href", event.target.value)} className="input-brand px-2 py-1.5 text-sm" />
             </label>
           </fieldset>
         ))}
-        {status && <p className="mt-4 text-sm text-steel" role="status">{status}</p>}
-        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50">
+        {status && <p className="mt-4 text-sm text-muted" role="status">{status}</p>}
+        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50">
           {saving ? "Saving…" : "Save resources"}
         </button>
       </div>}

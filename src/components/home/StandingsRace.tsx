@@ -77,7 +77,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             setIndex(0);
             setPlaying(true);
           }}
-          className="shrink-0 rounded-full border border-coral/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral transition hover:bg-coral hover:text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+          className="shrink-0 rounded-full border border-primary/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           ▶ Replay season
         </button>
@@ -96,8 +96,8 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             }}
             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
               frameIndex === index
-                ? "bg-coral text-navy"
-                : "border border-line bg-panel text-steel hover:text-white"
+                ? "bg-primary text-white"
+                : "border border-border bg-surface text-muted hover:text-white"
             }`}
           >
             {frame.label}
@@ -115,11 +115,11 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
               className="absolute inset-x-0 flex items-center gap-3 transition-[top] duration-700 ease-out motion-reduce:transition-none"
               style={{ top: rank * ROW_HEIGHT, height: ROW_HEIGHT }}
             >
-              <span className="w-5 shrink-0 font-mono text-xs font-semibold text-steel">#{rank + 1}</span>
-              <span className="w-10 shrink-0 font-mono text-xs font-bold text-coral">{entry.abbreviation}</span>
-              <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-navy/80">
+              <span className="w-5 shrink-0 font-mono text-xs font-semibold text-muted">#{rank + 1}</span>
+              <span className="w-10 shrink-0 font-mono text-xs font-bold text-league-accent">{entry.abbreviation}</span>
+              <div className="relative h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-canvas/80">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-coral/70 to-coral transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                  className="h-full rounded-full bg-gradient-to-r from-league-accent/70 to-league-accent transition-[width] duration-700 ease-out motion-reduce:transition-none"
                   style={{ width: `${width}%` }}
                 />
               </div>
@@ -131,7 +131,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
         })}
       </div>
 
-      <p className="mt-4 text-[10px] uppercase tracking-[0.1em] text-steel/70">
+      <p className="mt-4 text-[10px] uppercase tracking-[0.1em] text-muted/70">
         Cumulative series records through {week.label}
       </p>
     </article>

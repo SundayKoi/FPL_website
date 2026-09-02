@@ -119,7 +119,7 @@ function CardPicker({
    *  written, sent, and then died in someone else's inbox. */
   deployedIds?: ReadonlySet<number>;
 }) {
-  if (cards.length === 0) return <p className="text-xs text-steel">{empty}</p>;
+  if (cards.length === 0) return <p className="text-xs text-muted">{empty}</p>;
   return (
     <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto pr-1" data-testid={testId}>
       {cards.map((card) => {
@@ -128,8 +128,8 @@ function CardPicker({
         <li key={card.id} className="flex items-stretch gap-1">
           <label
             title={deployed ? "On expedition — back soon." : undefined}
-            className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border border-line bg-panel px-2 py-1 text-[11px] ${
-              deployed ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-coral/60"
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-[11px] ${
+              deployed ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-primary/60"
             }`}
           >
             <input
@@ -142,8 +142,8 @@ function CardPicker({
             />
             <span className="min-w-0 flex-1 truncate font-semibold text-white">{card.playerName}</span>
             <span className="font-mono font-bold text-mint">{card.overall}</span>
-            <span className="text-steel">{tierLabel(card.tier)}</span>
-            <span className="text-steel">{editionLabel(card.editionWeek)}</span>
+            <span className="text-muted">{tierLabel(card.tier)}</span>
+            <span className="text-muted">{editionLabel(card.editionWeek)}</span>
             {card.signed ? (
               <span className="font-black text-gold" title="Autographed copy">
                 ✍
@@ -160,7 +160,7 @@ function CardPicker({
               </span>
             ) : null}
             {deployed ? (
-              <span className="shrink-0 whitespace-nowrap font-semibold uppercase tracking-wide text-steel">
+              <span className="shrink-0 whitespace-nowrap font-semibold uppercase tracking-wide text-muted">
                 On expedition
               </span>
             ) : null}
@@ -183,7 +183,7 @@ function CardPicker({
               altArt: card.altArt,
             }}
             label={`View ${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)} card`}
-            className="shrink-0 rounded-md border border-line bg-panel px-2 text-[11px] text-steel transition hover:border-coral hover:text-coral focus-visible:border-coral focus-visible:outline-none"
+            className="shrink-0 rounded-md border border-border bg-surface px-2 text-[11px] text-muted transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:outline-none"
           >
             <span aria-hidden>⤢</span>
           </CardCopyPreview>
@@ -308,7 +308,7 @@ export default function TradeBuilder({
   return (
     <div className="card-brand flex flex-col gap-4 p-5" data-testid="trade-builder">
       <label className="flex flex-wrap items-center gap-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-steel">Trade with</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted">Trade with</span>
         <select
           className="input-brand min-w-0 flex-1 p-2 text-sm"
           value={partner}
@@ -325,7 +325,7 @@ export default function TradeBuilder({
       </label>
 
       {partner === "" ? (
-        <p className="text-sm text-steel">Pick someone to see what they have.</p>
+        <p className="text-sm text-muted">Pick someone to see what they have.</p>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -341,7 +341,7 @@ export default function TradeBuilder({
                 deployedIds={deployedIds}
               />
               <label className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-steel">Your dollars</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted">Your dollars</span>
                 <input
                   className="input-brand w-28 p-1.5 text-sm"
                   inputMode="numeric"
@@ -357,7 +357,7 @@ export default function TradeBuilder({
             <div className="flex flex-col gap-2">
               <span className="label-dash">You get</span>
               {loading ? (
-                <p className="text-xs text-steel">Loading their collection…</p>
+                <p className="text-xs text-muted">Loading their collection…</p>
               ) : (
                 <CardPicker
                   cards={theirs}
@@ -369,7 +369,7 @@ export default function TradeBuilder({
                 />
               )}
               <label className="flex items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wide text-steel">Their dollars</span>
+                <span className="text-[11px] uppercase tracking-wide text-muted">Their dollars</span>
                 <input
                   className="input-brand w-28 p-1.5 text-sm"
                   inputMode="numeric"
@@ -383,7 +383,7 @@ export default function TradeBuilder({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
             <span className="text-sm text-white" data-testid="trade-summary">
               {sideLabel(giving, offeredDollars ?? 0)} ⇄ {sideLabel(getting, requestedDollars ?? 0)}
             </span>
@@ -391,7 +391,7 @@ export default function TradeBuilder({
               type="button"
               onClick={send}
               disabled={busy}
-              className="btn-coral ml-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary ml-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {sending ? "Sending…" : "Send offer"}
             </button>

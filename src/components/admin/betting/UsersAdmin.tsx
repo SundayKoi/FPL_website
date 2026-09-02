@@ -35,7 +35,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
       }}
       className="card-brand flex flex-wrap items-end gap-2 p-4"
     >
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Discord id
         <input
           value={discordId}
@@ -43,7 +43,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           className="w-40 input-brand px-2 py-1.5 text-sm"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Amount (+/-)
         <input
           type="number"
@@ -52,7 +52,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
           className="w-28 input-brand px-2 py-1.5 text-sm"
         />
       </label>
-      <label className="flex flex-1 min-w-[10rem] flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-1 min-w-[10rem] flex-col gap-1 text-xs text-muted">
         Reason
         <input
           value={reason}
@@ -64,7 +64,7 @@ function GrantForm({ busy, onSubmit }: { busy: boolean; onSubmit: (discordId: st
       <button
         type="submit"
         disabled={busy || !canSubmit}
-        className="btn-coral px-4 py-2 text-sm"
+        className="btn-primary px-4 py-2 text-sm"
       >
         Grant / deduct
       </button>
@@ -101,11 +101,11 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
   return (
     <div className="flex flex-col gap-8">
       <ErrorBanner error={error} />
-      {notice && <p className="rounded border border-coral/40 bg-coral/10 px-3 py-2 text-sm text-coral">{notice}</p>}
+      {notice && <p className="rounded border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{notice}</p>}
 
       <section className="flex flex-col gap-3">
         <h2 className="label-dash">Grant / deduct</h2>
-        <p className="text-xs text-steel">Positive amounts credit the wallet, negative amounts deduct — every change is audited below.</p>
+        <p className="text-xs text-muted">Positive amounts credit the wallet, negative amounts deduct — every change is audited below.</p>
         <GrantForm
           busy={pending}
           onSubmit={(discordId, delta, reason) =>
@@ -133,31 +133,31 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
         </div>
         <ul className="flex flex-col gap-1.5">
           {balances.map((b) => (
-            <li key={b.discord_id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-sm">
+            <li key={b.discord_id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
               <span className="flex items-center gap-2">
                 <span className="font-medium text-white">{b.username}</span>
-                <span className="text-xs text-steel">{b.discord_id}</span>
+                <span className="text-xs text-muted">{b.discord_id}</span>
               </span>
               <span className="font-semibold text-gold">{fmtPoints(b.balance)}</span>
             </li>
           ))}
-          {balances.length === 0 && <p className="text-sm text-steel">No matching wallets.</p>}
+          {balances.length === 0 && <p className="text-sm text-muted">No matching wallets.</p>}
         </ul>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="label-dash">Audit trail</h2>
         {audit.length === 0 ? (
-          <p className="text-sm text-steel">No admin actions logged yet.</p>
+          <p className="text-sm text-muted">No admin actions logged yet.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {audit.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 rounded border border-line bg-panel px-3 py-1.5 text-xs">
-                <span className="text-steel">
+              <li key={a.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-xs">
+                <span className="text-muted">
                   <span className="text-white">{a.actor}</span> · {a.action}
                   {a.target ? ` · ${a.target}` : ""}
                 </span>
-                <span className="shrink-0 text-steel/70">{new Date(a.created_at).toLocaleString()}</span>
+                <span className="shrink-0 text-muted/70">{new Date(a.created_at).toLocaleString()}</span>
               </li>
             ))}
           </ul>

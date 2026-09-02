@@ -416,7 +416,7 @@ function PlayerCardFace({
       >
         {/* ── FRONT ────────────────────────────────────────────────── */}
         <div className={`${face} ${frameClass ?? ""}`} style={{ background: frameStyle, padding: "5px" }}>
-          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-navy">
+          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-canvas">
             {splash ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -518,7 +518,7 @@ function PlayerCardFace({
                 </span>
               ) : forceFoil && parallel !== "prisma" ? (
                 <span
-                  className="rounded-full border border-white/45 bg-navy/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
+                  className="rounded-full border border-white/45 bg-canvas/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
                   title={`${FOIL_TYPE_LABELS[parallel]} parallel`}
                 >
                   {FOIL_TYPE_LABELS[parallel]}
@@ -546,11 +546,11 @@ function PlayerCardFace({
               ) : null}
               <div className="flex flex-col items-end gap-0.5">
                 <div
-                  className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-navy/85 text-center"
+                  className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-canvas/85 text-center"
                   style={{ borderColor: style.ring }}
                 >
                   <CountUp value={card.overall} className="text-xl font-black leading-none text-white" />
-                  <span className="text-[8px] font-bold uppercase tracking-widest text-steel">OVR</span>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-muted">OVR</span>
                 </div>
                 {card.serial > 0 ? (
                   <span className="font-mono text-[9px] font-bold text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]">
@@ -717,22 +717,22 @@ function PlayerCardFace({
 
         {/* ── BACK ─────────────────────────────────────────────────── */}
         <div className={`${face} [transform:rotateY(180deg)] ${frameClass ?? ""}`} style={{ background: frameStyle, padding: "5px" }}>
-          <div className="flex h-full w-full flex-col gap-2 overflow-hidden rounded-xl bg-navy p-4">
+          <div className="flex h-full w-full flex-col gap-2 overflow-hidden rounded-xl bg-canvas p-4">
             <div className="flex items-center justify-between">
               <span className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-navy" style={{ background: style.banner }}>
                 {card.tier.label}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-steel">Season {card.season}</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">Season {card.season}</span>
             </div>
             <h3 className="font-display text-2xl font-bold not-italic text-white">{card.name}</h3>
             {card.motto ? (
-              <p className="-mt-1 truncate text-xs italic text-steel">&ldquo;{card.motto}&rdquo;</p>
+              <p className="-mt-1 truncate text-xs italic text-muted">&ldquo;{card.motto}&rdquo;</p>
             ) : null}
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-steel">Champion pool</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted">Champion pool</span>
               {card.topChampions.length === 0 ? (
-                <p className="text-xs text-steel">No games on record yet.</p>
+                <p className="text-xs text-muted">No games on record yet.</p>
               ) : (
                 card.topChampions.map((champ) => {
                   const icon = championIconUrl(champ.champion);
@@ -744,18 +744,18 @@ function PlayerCardFace({
                         <img
                           src={icon}
                           alt=""
-                          className="h-7 w-7 rounded border border-line object-cover"
+                          className="h-7 w-7 rounded border border-border object-cover"
                           loading="lazy"
                           decoding="async"
                         />
                       ) : (
-                        <span className="h-7 w-7 rounded border border-dashed border-line" />
+                        <span className="h-7 w-7 rounded border border-dashed border-border" />
                       )}
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{champ.champion}</span>
                       <div className="h-1.5 w-14 overflow-hidden rounded-full bg-white/15">
                         <div className="h-full rounded-full" style={{ width: `${wr}%`, background: statTone(wr) }} />
                       </div>
-                      <span className="w-16 text-right font-mono text-[10px] text-steel">
+                      <span className="w-16 text-right font-mono text-[10px] text-muted">
                         {champ.games}G · {wr}%
                       </span>
                     </div>
@@ -766,12 +766,12 @@ function PlayerCardFace({
 
             {card.highlights.length > 0 ? (
               <div className="flex flex-col gap-1">
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-steel">Season highs</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted">Season highs</span>
                 {card.highlights.map((highlight) => (
                   <div key={highlight.label} className="flex items-baseline gap-2 text-[11px]">
-                    <span className="text-steel">{highlight.label}</span>
+                    <span className="text-muted">{highlight.label}</span>
                     <span className="font-mono font-bold text-white">{highlight.value}</span>
-                    {highlight.detail ? <span className="min-w-0 flex-1 truncate text-right text-[10px] text-steel">{highlight.detail}</span> : null}
+                    {highlight.detail ? <span className="min-w-0 flex-1 truncate text-right text-[10px] text-muted">{highlight.detail}</span> : null}
                   </div>
                 ))}
               </div>
@@ -793,10 +793,10 @@ function PlayerCardFace({
             ) : null}
 
             <div className="flex flex-col gap-1">
-              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-steel">Last five</span>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted">Last five</span>
               <div className="flex gap-1.5" aria-label="Recent form, oldest first">
                 {card.form.length === 0 ? (
-                  <span className="text-xs text-steel">—</span>
+                  <span className="text-xs text-muted">—</span>
                 ) : (
                   card.form.map((won, index) => (
                     <span
@@ -812,7 +812,7 @@ function PlayerCardFace({
               </div>
             </div>
 
-            <div className="mt-auto flex items-center justify-between border-t border-line pt-2 text-[11px] font-bold text-steel">
+            <div className="mt-auto flex items-center justify-between border-t border-border pt-2 text-[11px] font-bold text-muted">
               <span>
                 {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR
               </span>

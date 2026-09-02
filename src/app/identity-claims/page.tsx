@@ -39,7 +39,7 @@ export default async function IdentityClaimsPage() {
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review identity claims</h1>
-        <p className="max-w-md text-sm text-steel">Captains see requests for their own team. Admins see every team.</p>
+        <p className="max-w-md text-sm text-muted">Captains see requests for their own team. Admins see every team.</p>
         <Link href="/login?redirect=/identity-claims" className="btn-pill mt-2">Sign in with Discord</Link>
       </main>
     );
@@ -106,20 +106,20 @@ export default async function IdentityClaimsPage() {
       <header>
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Identity claims</h1>
-        <p className="mt-3 text-sm text-steel">
+        <p className="mt-3 text-sm text-muted">
           Approve only a player claiming their own current roster spot. Database policies limit captains to their team.
         </p>
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-steel">
-          <Link href="/admin/claims" className="underline-offset-4 hover:text-coral hover:underline">Card-only claims →</Link>
-          <Link href="/teams" className="underline-offset-4 hover:text-coral hover:underline">Premier teams →</Link>
-          <Link href="/academy/teams" className="underline-offset-4 hover:text-coral hover:underline">Academy teams →</Link>
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
+          <Link href="/admin/claims" className="underline-offset-4 hover:text-primary hover:underline">Card-only claims →</Link>
+          <Link href="/teams" className="underline-offset-4 hover:text-primary hover:underline">Premier teams →</Link>
+          <Link href="/academy/teams" className="underline-offset-4 hover:text-primary hover:underline">Academy teams →</Link>
         </div>
       </header>
 
       {claimsUnavailable ? (
-        <p className="text-sm text-steel">Identity claims are unavailable right now. Refresh to try again.</p>
+        <p className="text-sm text-muted">Identity claims are unavailable right now. Refresh to try again.</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-steel">No pending roster identity claims — all caught up.</p>
+        <p className="text-sm text-muted">No pending roster identity claims — all caught up.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((row) => (

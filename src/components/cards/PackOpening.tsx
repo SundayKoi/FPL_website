@@ -672,14 +672,14 @@ export default function PackOpening({
             onClick={() => setMuted(!muted)}
             aria-pressed={muted}
             aria-label={muted ? "Unmute pack sounds" : "Mute pack sounds"}
-            className="rounded-full border border-line px-3 py-1.5 text-sm text-steel transition-colors hover:border-coral hover:text-white"
+            className="rounded-full border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-primary hover:text-white"
           >
             {muted ? "🔇" : "🔊"}
           </button>
           <button
             type="button"
             onClick={view === "summary" ? onExit : revealAll}
-            className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-steel transition-colors hover:border-coral hover:text-white"
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-primary hover:text-white"
           >
             {view === "summary" ? "Close" : "Skip"}
           </button>
@@ -806,7 +806,7 @@ export default function PackOpening({
                             pack exists for. */}
                         {onSellPack && view === "summary" ? (
                           dustedIds.has(pull.inventoryId) ? (
-                            <span className="w-full rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel">
+                            <span className="w-full rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
                               Dusted
                             </span>
                           ) : (
@@ -818,7 +818,7 @@ export default function PackOpening({
                               className={`w-full rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition disabled:opacity-60 ${
                                 picked.has(pull.inventoryId)
                                   ? "border-gold bg-gold/20 text-gold"
-                                  : "border-line text-steel hover:border-gold hover:text-gold"
+                                  : "border-border text-muted hover:border-gold hover:text-gold"
                               }`}
                             >
                               {picked.has(pull.inventoryId) ? "✓ " : ""}Dust +{fmtPoints(dustValueOfPull(pull))}
@@ -836,7 +836,7 @@ export default function PackOpening({
                 pack can't be skimmed past without being seen. */}
             {solo ? (
               <div className="relative mt-3 flex items-center justify-center gap-4">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-steel">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   {soloIndex + 1} / {count}
                 </span>
                 {soloIndex < count - 1 ? (
@@ -852,14 +852,14 @@ export default function PackOpening({
               </div>
             ) : null}
 
-            <p className="relative mt-6 text-xs uppercase tracking-[0.22em] text-steel">
+            <p className="relative mt-6 text-xs uppercase tracking-[0.22em] text-muted">
               {allFlipped ? "That's the pack" : "Tap a card to turn it over"}
             </p>
             {anyFlipped && !allFlipped ? (
               <button
                 type="button"
                 onClick={() => setAutoFlip(true)}
-                className="relative mt-3 rounded-full border border-line px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-steel transition-colors hover:border-coral hover:text-white"
+                className="relative mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-primary hover:text-white"
               >
                 Flip all
               </button>
@@ -932,7 +932,7 @@ export default function PackOpening({
                   type="button"
                   onClick={() => void handleSell("all")}
                   disabled={selling || pending}
-                  className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-steel transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {selling
                     ? "Dusting…"
@@ -946,14 +946,14 @@ export default function PackOpening({
               type="button"
               onClick={handleOpenAnother}
               disabled={pending || error !== null || selling}
-              className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending ? "Opening…" : `Open another — ${fmtPoints(packCost)}`}
             </button>
             <button
               type="button"
               onClick={onExit}
-              className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-steel transition-colors hover:border-coral hover:text-white"
+              className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-white"
             >
               Done
             </button>
@@ -1001,7 +1001,7 @@ export default function PackOpening({
               event.stopPropagation();
               dismissWalkout();
             }}
-            className="btn-coral relative px-6 py-2.5 text-sm"
+            className="btn-primary relative px-6 py-2.5 text-sm"
           >
             Continue
           </button>

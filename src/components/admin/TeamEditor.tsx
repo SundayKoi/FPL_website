@@ -171,14 +171,14 @@ export default function TeamEditor({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="label-dash">Teams</h2>
-          <p className="mt-1 text-xs text-steel">
+          <p className="mt-1 text-xs text-muted">
             Drag a team by its handle to set the round-one nomination order.
           </p>
         </div>
         <button
           disabled={busy}
           onClick={addTeam}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Add team
         </button>
@@ -223,7 +223,7 @@ export default function TeamEditor({
               }}
               className={`card-brand flex flex-col gap-3 p-4 ${
                 dragIndex === index ? "opacity-50" : ""
-              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-coral" : ""}`}
+              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-primary" : ""}`}
             >
               <div className="flex flex-wrap items-center gap-3">
                 <span
@@ -240,7 +240,7 @@ export default function TeamEditor({
                   }}
                   aria-label={`Drag ${team.name}`}
                   title="Drag to reorder"
-                  className="cursor-grab select-none rounded border border-line px-2 py-1 text-sm leading-none text-steel active:cursor-grabbing"
+                  className="cursor-grab select-none rounded border border-border px-2 py-1 text-sm leading-none text-muted active:cursor-grabbing"
                 >
                   ⠿
                 </span>
@@ -256,7 +256,7 @@ export default function TeamEditor({
                     disabled={busy || index === 0}
                     onClick={() => reorder(index, index - 1)}
                     aria-label={`Move ${team.name} up`}
-                    className="px-1 text-[10px] leading-tight text-steel hover:text-coral disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-muted hover:text-primary disabled:opacity-30"
                   >
                     ▲
                   </button>
@@ -265,7 +265,7 @@ export default function TeamEditor({
                     disabled={busy || index === ordered.length - 1}
                     onClick={() => reorder(index, index + 1)}
                     aria-label={`Move ${team.name} down`}
-                    className="px-1 text-[10px] leading-tight text-steel hover:text-coral disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-muted hover:text-primary disabled:opacity-30"
                   >
                     ▼
                   </button>
@@ -275,7 +275,7 @@ export default function TeamEditor({
                   onChange={(e) => updateTeam(team, { name: e.target.value })}
                   className="w-40 input-brand px-2 py-1 text-sm"
                 />
-                <label className="flex items-center gap-1 text-xs text-steel">
+                <label className="flex items-center gap-1 text-xs text-muted">
                   Budget
                   <input
                     type="number"
@@ -285,7 +285,7 @@ export default function TeamEditor({
                     className="w-20 input-brand px-2 py-1 text-sm"
                   />
                 </label>
-                <label className="flex items-center gap-1 text-xs text-steel">
+                <label className="flex items-center gap-1 text-xs text-muted">
                   Captain
                   <select
                     value={team.captain_profile_id ?? ""}
@@ -302,7 +302,7 @@ export default function TeamEditor({
                     ))}
                   </select>
                 </label>
-                <label className="flex items-center gap-1 text-xs text-steel">
+                <label className="flex items-center gap-1 text-xs text-muted">
                   <span>Second captain (optional)</span>
                   <select
                     aria-label="Second captain"
@@ -336,11 +336,11 @@ export default function TeamEditor({
                   {prefills.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 rounded border border-line bg-navy/40 px-2 py-1 text-sm"
+                      className="flex items-center justify-between gap-2 rounded border border-border bg-canvas/40 px-2 py-1 text-sm"
                     >
                       <span className="text-white">
                         {p.display_name}{" "}
-                        <span className="text-xs text-steel">
+                        <span className="text-xs text-muted">
                           · {p.role}
                           {p.price !== null ? ` · ${p.price} pts` : ""}
                         </span>
@@ -366,7 +366,7 @@ export default function TeamEditor({
             </div>
           );
         })}
-        {teams.length === 0 && <p className="text-sm text-steel">No teams yet.</p>}
+        {teams.length === 0 && <p className="text-sm text-muted">No teams yet.</p>}
       </div>
     </section>
   );
@@ -404,7 +404,7 @@ function ExistingPrefillForm({
       }}
       className="flex flex-wrap items-center gap-2"
     >
-      <label className="flex items-center gap-1 text-xs text-steel">
+      <label className="flex items-center gap-1 text-xs text-muted">
         Existing player
         <select
           value={playerId}
@@ -420,7 +420,7 @@ function ExistingPrefillForm({
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-1 text-xs text-steel">
+      <label className="flex items-center gap-1 text-xs text-muted">
         Acquisition
         <select
           value={selectedAcquisition}
@@ -435,7 +435,7 @@ function ExistingPrefillForm({
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-1 text-xs text-steel">
+      <label className="flex items-center gap-1 text-xs text-muted">
         Point value
         <input
           type="number"
@@ -450,7 +450,7 @@ function ExistingPrefillForm({
       <button
         type="submit"
         disabled={formDisabled || !playerId || !selectedAcquisition || !validPrice}
-        className="btn-coral px-2 py-1 text-xs"
+        className="btn-primary px-2 py-1 text-xs"
       >
         Add existing player
       </button>

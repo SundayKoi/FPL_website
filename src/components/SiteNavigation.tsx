@@ -6,8 +6,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
-import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
+import { leaguePath } from "@/lib/league/links";
 import type { LeagueView } from "@/lib/league/context";
+import { resolveThemeLeague } from "@/lib/league/theme";
 
 type DropdownLink = {
   href: string;
@@ -50,11 +51,11 @@ function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): Dropdo
 }
 
 const linkBase =
-  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
+  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:text-sm lg:text-base";
 
 function topLinkClass(active: boolean, extra = "") {
   return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 py-2 sm:px-0 sm:py-1 ${
-    active ? "text-white sm:text-coral" : "text-steel hover:text-gold hover:bg-line/40 sm:hover:bg-transparent"
+    active ? "text-content sm:text-primary" : "text-muted hover:text-content hover:bg-raised/40 sm:hover:bg-transparent"
   }`;
 }
 
@@ -84,11 +85,9 @@ export default function SiteNavigation({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const league = resolveLeagueFromPath(pathname ?? "/");
-  const premiumHref =
-    league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
-      ? "/premium?league=academy"
-      : "/premium";
+  const search = searchParams?.toString() ?? "";
+  const league = resolveThemeLeague(pathname ?? "/", search);
+  const premiumHref = league === "academy" ? "/premium?league=academy" : "/premium";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
@@ -139,8 +138,7 @@ export default function SiteNavigation({
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-40 border-b border-gold/30 backdrop-blur"
-      style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
+      className="sticky top-0 z-40 border-b border-league-accent/50 bg-canvas/90 backdrop-blur"
     >
       <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
         <LeagueBrandChooser
@@ -155,8 +153,7 @@ export default function SiteNavigation({
           data-open={open}
           className={`${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
-          style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-border bg-surface px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
         >
           {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
@@ -208,7 +205,7 @@ export default function SiteNavigation({
                   <div
                     id={dropdownMenuId}
                     role="menu"
-                    className="flex flex-col gap-1 pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-line sm:bg-navy sm:p-2 sm:shadow-lg"
+                    className="flex flex-col gap-1 bg-surface pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-border sm:p-2 sm:shadow-lg"
                   >
                     {dropdown.links.map((dropdownLink) => (
                       <Link
@@ -219,20 +216,20 @@ export default function SiteNavigation({
                         rel={dropdownLink.rel}
                         aria-current={isActive(pathname, dropdownLink.href) ? "page" : undefined}
                         onClick={closeMenus}
-                        className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                        className={`${linkBase} rounded px-3 py-2 text-muted hover:bg-raised/40 hover:text-content sm:px-3 sm:py-2 sm:text-sm`}
                       >
                         {dropdownLink.label}
                       </Link>
                     ))}
                     {dropdown.key === "info" && showAdmin ? (
-                      <div className="mt-1 border-t border-line pt-1" aria-label="Staff">
+                      <div className="mt-1 border-t border-border pt-1" aria-label="Staff">
                         {showAdmin ? (
                           <Link
                             href="/admin"
                             role="menuitem"
                             aria-current={isActive(pathname, "/admin") ? "page" : undefined}
                             onClick={closeMenus}
-                            className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
+                            className={`${linkBase} rounded px-3 py-2 text-muted hover:bg-raised/40 hover:text-content sm:px-3 sm:py-2 sm:text-sm`}
                           >
                             Admin
                           </Link>
@@ -257,7 +254,7 @@ export default function SiteNavigation({
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border text-muted transition hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:hidden"
           >
             {open ? (
               <svg

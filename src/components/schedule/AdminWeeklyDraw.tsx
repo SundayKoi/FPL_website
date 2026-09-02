@@ -32,7 +32,7 @@ export default function AdminWeeklyDraw() {
     <div className="card-brand flex flex-wrap items-end gap-3 p-4">
       <div className="flex flex-col gap-1">
         <span className="label-dash">The Weekly Draw</span>
-        <span className="text-xs font-semibold text-steel">
+        <span className="text-xs font-semibold text-muted">
           {done
             ? "Ran — see /cards for the week's winner"
             : "Runs itself Tuesdays; press if the cron missed"}
@@ -42,7 +42,7 @@ export default function AdminWeeklyDraw() {
         type="button"
         disabled={busy}
         onClick={() => void run()}
-        className="rounded-full border border-gold/60 bg-gold/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gold disabled:opacity-50"
+        className="rounded-full border border-prestige/60 bg-prestige/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-prestige disabled:opacity-50"
       >
         Run the draw
       </button>

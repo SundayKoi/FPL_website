@@ -21,7 +21,7 @@ function Picker({
   label: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-steel">
+    <label className="flex flex-col gap-1 text-xs text-muted">
       {label}
       <select value={value} onChange={(e) => onChange(e.target.value)} className="input-brand px-2 py-1.5 text-sm">
         <option value="">Select…</option>
@@ -124,14 +124,14 @@ export default function CompareClient({
                 const aWins = comparable && (row.a as number) > (row.b as number);
                 const bWins = comparable && (row.b as number) > (row.a as number);
                 return (
-                  <tr key={row.key} className="border-b border-line/60">
-                    <td className={`py-1.5 pr-2 text-right font-mono font-bold ${aWins ? "text-mint" : "text-steel"}`}>
+                  <tr key={row.key} className="border-b border-border/60">
+                    <td className={`py-1.5 pr-2 text-right font-mono font-bold ${aWins ? "text-mint" : "text-muted"}`}>
                       {row.a ?? "—"}
                     </td>
-                    <td className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-steel">
+                    <td className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted">
                       {row.label}
                     </td>
-                    <td className={`py-1.5 pl-2 text-left font-mono font-bold ${bWins ? "text-mint" : "text-steel"}`}>
+                    <td className={`py-1.5 pl-2 text-left font-mono font-bold ${bWins ? "text-mint" : "text-muted"}`}>
                       {row.b ?? "—"}
                     </td>
                   </tr>
@@ -142,7 +142,7 @@ export default function CompareClient({
           <PlayerCard3D card={cardB} />
         </div>
       ) : (
-        <p className="text-sm text-steel">Pick two players to put their cards head to head.</p>
+        <p className="text-sm text-muted">Pick two players to put their cards head to head.</p>
       )}
     </div>
   );

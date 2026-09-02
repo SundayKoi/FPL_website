@@ -29,9 +29,9 @@ function getServerClockSnapshot() {
 
 function CountdownUnit({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
   return (
-    <div className={`rounded border px-3 py-2 text-center ${accent ? "border-gold/40 bg-gold/10" : "border-line bg-navy/70"}`}>
+    <div className={`rounded border px-3 py-2 text-center ${accent ? "border-gold/40 bg-gold/10" : "border-border bg-canvas/70"}`}>
       <span className={`block font-mono text-2xl font-bold ${accent ? "text-gold" : "text-white"}`}>{value}</span>
-      <span className="text-[10px] uppercase tracking-[0.14em] text-steel">{label}</span>
+      <span className="text-[10px] uppercase tracking-[0.14em] text-muted">{label}</span>
     </div>
   );
 }
@@ -47,7 +47,7 @@ export default function DraftScheduleCountdown({
   const now = clock === 0 ? null : new Date(clock);
 
   if (!startsAt) {
-    return <p className="text-sm text-steel">Not scheduled</p>;
+    return <p className="text-sm text-muted">Not scheduled</p>;
   }
 
   const target = new Date(startsAt);
@@ -58,7 +58,7 @@ export default function DraftScheduleCountdown({
   return (
     <div aria-label="Draft start countdown" className="mt-5">
       {label && <span className="label-dash text-gold">{label}</span>}
-      <p className="mt-2 text-sm text-steel">{formatEasternDateTime(startsAt)}</p>
+      <p className="mt-2 text-sm text-muted">{formatEasternDateTime(startsAt)}</p>
       {complete ? (
         <p className="mt-3 font-display text-xl font-bold not-italic text-mint">Live now</p>
       ) : (

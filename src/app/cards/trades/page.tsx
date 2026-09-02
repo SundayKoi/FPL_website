@@ -78,7 +78,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Trading post</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to trade cards</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Trades move cards and betting dollars between collectors, so they ride on your FPL Better
           wallet — sign in with Discord to check your access.
         </p>
@@ -94,7 +94,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Trading post</span>
         <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Trades can carry betting dollars, and only FPL Better members have a wallet to spend. Join the
           FPL Better role in Discord and come back to start dealing.
         </p>
@@ -143,14 +143,14 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Trading Post</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Trade cards and betting dollars with other collectors — either side of an offer can be cards,
             money, or both. Nothing moves until the other person accepts, and a card fielded in this
             week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
           </p>
           <Link
             href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
           >
             ← Back to player cards
           </Link>

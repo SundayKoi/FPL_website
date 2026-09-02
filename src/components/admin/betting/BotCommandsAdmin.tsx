@@ -30,7 +30,7 @@ export default function BotCommandsAdmin() {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="label-dash">Discord bot</h2>
-      <p className="text-sm text-steel">
+      <p className="text-sm text-muted">
         Publish the current slash-command list to the server the bot runs in. Safe to re-run; commands
         removed from the code disappear from Discord too.
       </p>
@@ -39,12 +39,12 @@ export default function BotCommandsAdmin() {
           type="button"
           onClick={run}
           disabled={pending}
-          className="rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-navy disabled:opacity-50"
+          className="rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50"
         >
           {pending ? "Registering…" : "Register commands"}
         </button>
         {message ? (
-          <p className={`text-sm ${failed ? "text-red-300" : "text-steel"}`} role="status">
+          <p className={`text-sm ${failed ? "text-red-300" : "text-muted"}`} role="status">
             {message}
           </p>
         ) : null}

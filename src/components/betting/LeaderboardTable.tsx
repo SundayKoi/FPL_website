@@ -27,9 +27,9 @@ const MODES: { mode: Mode; label: string }[] = [
 
 function rankClass(rank: number): string {
   if (rank === 1) return "text-gold";
-  if (rank === 2) return "text-steel";
+  if (rank === 2) return "text-muted";
   if (rank === 3) return "text-amber-600";
-  return "text-steel/60";
+  return "text-muted/60";
 }
 
 /** Balance/profit leaderboard, ported from
@@ -58,7 +58,7 @@ export function LeaderboardTable({
             onClick={() => setMode(m.mode)}
             className={
               "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-              (mode === m.mode ? "border-transparent bg-coral text-navy" : "border-line text-steel hover:border-coral hover:text-coral")
+              (mode === m.mode ? "border-transparent bg-primary text-white" : "border-border text-muted hover:border-primary hover:text-primary")
             }
           >
             {m.label}
@@ -66,10 +66,10 @@ export function LeaderboardTable({
         ))}
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-line bg-panel">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface">
         <table className="w-full min-w-[420px] text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-steel">
+            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Player</th>
               <th className="px-4 py-3 text-right">{mode === "balance" ? "Balance" : "Net profit"}</th>
@@ -82,7 +82,7 @@ export function LeaderboardTable({
               return (
                 <tr
                   key={r.discord_id}
-                  className={"border-b border-line last:border-0" + (r.discord_id === meId ? " bg-coral/5" : "")}
+                  className={"border-b border-border last:border-0" + (r.discord_id === meId ? " bg-primary/5" : "")}
                 >
                   <td className={`px-4 py-2.5 font-mono text-sm font-bold ${rankClass(r.rank)}`}>#{r.rank}</td>
                   <td className="px-4 py-2.5">
@@ -108,7 +108,7 @@ export function LeaderboardTable({
             })}
           </tbody>
         </table>
-        {rows.length === 0 && <p className="p-6 text-center text-sm text-steel">No players yet.</p>}
+        {rows.length === 0 && <p className="p-6 text-center text-sm text-muted">No players yet.</p>}
       </div>
     </div>
   );

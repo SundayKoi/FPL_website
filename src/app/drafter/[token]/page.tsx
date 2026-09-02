@@ -107,7 +107,7 @@ export default async function OpenDraftLobbyPage({
       <main className="flex flex-1 items-center justify-center bg-hash p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Lobby not found</h1>
-          <p className="mt-2 text-sm text-steel">
+          <p className="mt-2 text-sm text-muted">
             This draft link is invalid, or the lobby has expired (lobbies last 14 days).
           </p>
           <Link href="/drafter" className="btn-pill mt-4 inline-block px-4 py-2 text-sm">

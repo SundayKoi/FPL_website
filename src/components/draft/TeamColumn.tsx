@@ -37,7 +37,7 @@ export default function TeamColumn({
             aria-expanded={!collapsed}
             aria-label={`${collapsed ? "Expand" : "Collapse"} team ${team.name}`}
             onClick={() => setCollapsed((current) => !current)}
-            className="rounded border border-line px-1.5 py-0.5 text-sm leading-none text-steel hover:border-coral hover:text-coral"
+            className="rounded border border-border px-1.5 py-0.5 text-sm leading-none text-muted hover:border-primary hover:text-primary"
           >
             {collapsed ? "+" : "−"}
           </button>
@@ -53,16 +53,16 @@ export default function TeamColumn({
                 <li
                   key={role}
                   className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${
-                    player ? "border border-line bg-navy/40" : "border border-dashed border-line text-steel/60"
+                    player ? "border border-border bg-canvas/40" : "border border-dashed border-border text-muted/60"
                   }`}
                 >
-                  <span className="w-16 shrink-0 uppercase tracking-wide text-steel">{role}</span>
+                  <span className="w-16 shrink-0 uppercase tracking-wide text-muted">{role}</span>
                   {player ? (
                     <span className="flex flex-1 items-center justify-between gap-2 truncate">
                       <span className="truncate text-white">{player.display_name}</span>
                       <span className="flex shrink-0 items-center gap-1">
                         {player.acquisition && ACQ_BADGE[player.acquisition] && (
-                          <span className="rounded border border-steel/50 px-1 py-0.5 text-[10px] font-bold text-steel">
+                          <span className="rounded border border-muted/50 px-1 py-0.5 text-[10px] font-bold text-muted">
                             {ACQ_BADGE[player.acquisition]}
                           </span>
                         )}
@@ -72,18 +72,18 @@ export default function TeamColumn({
                       </span>
                     </span>
                   ) : (
-                    <span className="flex-1 text-steel/60">—</span>
+                    <span className="flex-1 text-muted/60">—</span>
                   )}
                 </li>
               );
             })}
           </ul>
 
-          <footer className="mt-1 flex items-center justify-between border-t border-line pt-2 text-xs text-steel">
+          <footer className="mt-1 flex items-center justify-between border-t border-border pt-2 text-xs text-muted">
             <span>Budget</span>
             <span className="font-display font-semibold not-italic">
               <span className="text-gold">{team.points_remaining}</span>{" "}
-              <span className="text-steel">/ {team.budget_start}</span>
+              <span className="text-muted">/ {team.budget_start}</span>
             </span>
           </footer>
         </>

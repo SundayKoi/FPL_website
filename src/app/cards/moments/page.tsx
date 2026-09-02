@@ -28,14 +28,14 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Moments</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             A player card is a season average, which is exactly what buries the one night someone went
             off. These are the other half — one game, the real stat line, the date it happened. At most{" "}
             {MOMENTS_PER_WEEK} mint per week, and only the rarest of what actually happened. Each one can
             only be pulled from a pack bought for the week it happened in, at roughly{" "}
             {Math.round(MOMENT_PULL_CHANCE * 100)}% a pack.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
             ← Back to player cards
           </Link>
         </div>

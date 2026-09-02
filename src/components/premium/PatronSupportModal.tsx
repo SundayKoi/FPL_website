@@ -47,7 +47,7 @@ export default function PatronSupportModal() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
-        className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.14em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+        className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.14em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
         Become a patron <span aria-hidden="true">↗</span>
       </button>
@@ -62,13 +62,13 @@ export default function PatronSupportModal() {
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm"
         >
           <div className="card-brand my-auto w-full max-w-3xl p-5 sm:p-7">
-            <header className="flex items-start justify-between gap-4 border-b border-line/70 pb-5">
+            <header className="flex items-start justify-between gap-4 border-b border-border/70 pb-5">
               <div>
                 <span className="label-dash">Keep the league burning</span>
                 <h2 id={titleId} className="type-display mt-2 text-3xl sm:text-4xl">
                   Become a patron
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
                   Support the people building FPL for $3–$5 per month. Pick whatever level feels right; every bit
                   helps cover website costs, hosting, broadcasts, and tools.
                 </p>
@@ -78,7 +78,7 @@ export default function PatronSupportModal() {
                 type="button"
                 onClick={close}
                 aria-label="Close patron details"
-                className="shrink-0 rounded-full border border-line bg-navy/70 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+                className="shrink-0 rounded-full border border-border bg-canvas/70 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
                 Close ×
               </button>
@@ -88,14 +88,14 @@ export default function PatronSupportModal() {
               <PatronPerks variant="full" />
             </div>
 
-            <div className="mt-5 border-t border-line/70 pt-5">
+            <div className="mt-5 border-t border-border/70 pt-5">
               <span className="label-dash">Choose a way to support</span>
               <div className="mt-3 flex flex-wrap gap-3">
                 <a
                   href={PATRON_PAYPAL_HREF}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+                  className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                 >
                   PayPal · Zachari <span aria-hidden="true">↗</span>
                 </a>
@@ -105,13 +105,13 @@ export default function PatronSupportModal() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-line bg-navy/60 px-4 py-2 text-sm font-semibold text-steel transition hover:border-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+                    className="inline-flex items-center gap-2 rounded-full border border-border bg-canvas/60 px-4 py-2 text-sm font-semibold text-muted transition hover:border-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                   >
                     Venmo · {link.name} <span aria-hidden="true">↗</span>
                   </a>
                 ))}
               </div>
-              <p className="mt-3 text-xs leading-5 text-steel">
+              <p className="mt-3 text-xs leading-5 text-muted">
                 After sending support, tell a dev your Discord username so they can light your patron flame.
               </p>
             </div>

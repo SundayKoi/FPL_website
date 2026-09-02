@@ -83,7 +83,7 @@ export default async function TeamsPage({ searchParams }: TeamsPageProps) {
             academyDraftId={academyDraftId}
           />
         ) : isAdmin ? (
-          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
         ) : null
       }
       rosterContent={

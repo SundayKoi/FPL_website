@@ -19,9 +19,9 @@ function roleLabel(role: string): string {
 
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-line bg-navy/70 px-2.5 py-1.5 text-center">
+    <div className="rounded border border-border bg-canvas/70 px-2.5 py-1.5 text-center">
       <p className="font-mono text-sm font-bold text-white">{value}</p>
-      <p className="text-[10px] uppercase tracking-[0.14em] text-steel">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.14em] text-muted">{label}</p>
     </div>
   );
 }
@@ -66,19 +66,19 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
         </div>
 
         {standouts.length === 0 || !featured ? (
-          <p className="mt-5 max-w-md text-sm leading-6 text-steel">
+          <p className="mt-5 max-w-md text-sm leading-6 text-muted">
             Weekly standouts will appear here once the latest match stats are available.
           </p>
         ) : (
           <>
-            <div className="relative mt-6 overflow-hidden rounded-lg border border-line bg-gradient-to-br from-panel to-navy p-5">
+            <div className="relative mt-6 overflow-hidden rounded-lg border border-border bg-gradient-to-br from-surface to-canvas p-5">
               <div className="flex flex-wrap items-center gap-4">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-cyan/60 bg-navy font-mono text-sm font-bold text-cyan">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-cyan/60 bg-canvas font-mono text-sm font-bold text-cyan">
                   {featured.summoner_name.slice(0, 3).toUpperCase()}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xl font-semibold text-white">{featured.summoner_name}</p>
-                  <p className="font-mono text-xs uppercase tracking-[0.12em] text-steel">
+                  <p className="font-mono text-xs uppercase tracking-[0.12em] text-muted">
                     #{index + 1} this week · {roleLabel(featured.role_mode)} · {featured.games} games
                   </p>
                 </div>
@@ -88,7 +88,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
                     decimals={1}
                     className="type-display glow-pulse block text-5xl text-cyan"
                   />
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-steel">Weekly power</p>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-muted">Weekly power</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -107,7 +107,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
                       aria-current={dotIndex === index}
                       onClick={() => setIndex(dotIndex)}
                       className={`h-1.5 rounded-full transition-all ${
-                        dotIndex === index ? "w-6 bg-cyan" : "w-1.5 bg-line hover:bg-steel"
+                        dotIndex === index ? "w-6 bg-cyan" : "w-1.5 bg-border hover:bg-muted"
                       }`}
                     />
                   ))}
@@ -122,14 +122,14 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
                   type="button"
                   onClick={() => setIndex(playerIndex)}
                   aria-current={playerIndex === index}
-                  className={`grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-t border-line/50 px-1 py-2.5 text-left transition first:border-t-0 ${
-                    playerIndex === index ? "bg-cyan/5" : "hover:bg-line/20"
+                  className={`grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-t border-border/50 px-1 py-2.5 text-left transition first:border-t-0 ${
+                    playerIndex === index ? "bg-cyan/5" : "hover:bg-border/20"
                   }`}
                 >
-                  <span className="font-mono text-sm font-semibold text-steel">#{playerIndex + 1}</span>
+                  <span className="font-mono text-sm font-semibold text-muted">#{playerIndex + 1}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-white">{player.summoner_name}</span>
-                    <span className="block font-mono text-xs text-steel">
+                    <span className="block font-mono text-xs text-muted">
                       {roleLabel(player.role_mode)} · {player.games}g · {player.kda.toFixed(2)} KDA
                     </span>
                   </span>
@@ -143,7 +143,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
 
       <Link
         href="/stats"
-        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-coral hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral"
+        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
         View full stats <span aria-hidden>→</span>
       </Link>

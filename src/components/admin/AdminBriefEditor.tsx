@@ -33,7 +33,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
     return (
       <section className="card-brand flex flex-col gap-2 p-4">
         <h2 className="label-dash">This week&apos;s write-up</h2>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Nothing generated yet. The job runs Tuesday mornings once a week of games has been
           played and ingested. Until then the homepage shows the calculated award lists.
         </p>
@@ -63,7 +63,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
     <section className="card-brand flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="label-dash">This week&apos;s write-up</h2>
-        <span className="text-xs text-steel">
+        <span className="text-xs text-muted">
           {brief.model ?? "generated"}
           {brief.week != null ? ` · after week ${brief.week}` : ""}
           {brief.published ? "" : " · not published"}
@@ -73,7 +73,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
       {saved && <p className="text-sm text-mint">Saved.</p>}
 
       {SECTIONS.map(([key, label]) => (
-        <label key={key} className="flex flex-col gap-1 text-xs text-steel">
+        <label key={key} className="flex flex-col gap-1 text-xs text-muted">
           {label}
           <textarea
             value={draft[key]}
@@ -94,7 +94,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             // here does not survive either.
             void save(Object.fromEntries(SECTIONS.map(([key]) => [key, stripAiTells(draft[key])])))
           }
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Save changes
         </button>
@@ -108,7 +108,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             ) return;
             void save({ published: !brief.published });
           }}
-          className="rounded border border-line px-3 py-1.5 text-xs font-semibold text-steel hover:text-coral disabled:opacity-40"
+          className="rounded border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:text-primary disabled:opacity-40"
         >
           {brief.published ? "Unpublish" : "Publish"}
         </button>

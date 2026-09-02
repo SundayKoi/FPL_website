@@ -125,18 +125,18 @@ export default function AdminCodeEditor({
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <span className="label-dash">Admin — tourney codes</span>
-        <span aria-hidden="true" className="text-steel">
+        <span aria-hidden="true" className="text-muted">
           {open ? "▴" : "▾"}
         </span>
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-line px-4 py-4">
+        <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
           {openFixtures.length === 0 ? (
-            <p className="text-sm text-steel">No open fixtures this season to add codes for.</p>
+            <p className="text-sm text-muted">No open fixtures this season to add codes for.</p>
           ) : (
             <>
-              <label className="flex flex-col gap-1 text-xs text-steel">
+              <label className="flex flex-col gap-1 text-xs text-muted">
                 Fixture
                 <select
                   value={fixtureId}
@@ -150,7 +150,7 @@ export default function AdminCodeEditor({
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-steel">
+              <label className="flex flex-col gap-1 text-xs text-muted">
                 Codes, one per line (game 1 first)
                 <textarea
                   value={text}
@@ -160,10 +160,10 @@ export default function AdminCodeEditor({
                   }}
                   rows={5}
                   placeholder={"NA1234\nNA5678\nNA9012"}
-                  className="rounded border border-line bg-navy px-2 py-1.5 font-mono text-sm text-white placeholder:text-steel/60 focus:border-coral focus:outline-none"
+                  className="rounded border border-border bg-canvas px-2 py-1.5 font-mono text-sm text-white placeholder:text-muted/60 focus:border-primary focus:outline-none"
                 />
               </label>
-              <p className="text-xs text-steel">
+              <p className="text-xs text-muted">
                 Saving replaces this fixture&apos;s whole code set — games are numbered 1..N in the order typed
                 above.
               </p>
@@ -173,13 +173,13 @@ export default function AdminCodeEditor({
                 </p>
               )}
               {status.kind === "success" && (
-                <p className="text-sm font-semibold text-mint">{status.message}</p>
+                <p className="text-sm font-semibold text-success">{status.message}</p>
               )}
               <button
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={status.kind === "saving"}
-                className="w-fit rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+                className="w-fit rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
               >
                 {status.kind === "saving" ? "Saving…" : "Save codes"}
               </button>

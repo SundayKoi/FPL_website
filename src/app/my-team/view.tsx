@@ -31,8 +31,8 @@ function Unavailable({ message }: { message: string }) {
         <section className="card-brand p-6 sm:p-8" aria-label="My Team unavailable">
           <span className="label-dash">My Team</span>
           <h1 className="type-display mt-3 text-3xl sm:text-4xl">Temporarily unavailable</h1>
-          <p className="mt-3 text-sm leading-6 text-steel">{message}</p>
-          <p className="mt-2 text-sm leading-6 text-steel">Please refresh and try again.</p>
+          <p className="mt-3 text-sm leading-6 text-muted">{message}</p>
+          <p className="mt-2 text-sm leading-6 text-muted">Please refresh and try again.</p>
         </section>
       </div>
     </main>
@@ -150,7 +150,7 @@ export async function MyTeamPageView({
     <TeamAccentPanel color={dashboard.team.bannerColor}>
       <section className="card-brand p-5" aria-label="Captain tools unavailable">
         <span className="label-dash">Captain tools</span>
-        <p className="mt-3 text-sm text-steel">Captain tools are temporarily unavailable.</p>
+        <p className="mt-3 text-sm text-muted">Captain tools are temporarily unavailable.</p>
       </section>
     </TeamAccentPanel>
   ) : null;
@@ -200,7 +200,7 @@ export async function MyTeamPageView({
 
   const adminTools = adminData ? (
     <TeamAccentPanel color={dashboard.team.bannerColor}>
-      <section className="mt-4 flex flex-col gap-6 border-t border-line pt-8" aria-labelledby="admin-tools-heading">
+      <section className="mt-4 flex flex-col gap-6 border-t border-border pt-8" aria-labelledby="admin-tools-heading">
         <div>
           <span className="label-dash">Admin</span>
           <h2 id="admin-tools-heading" className="type-display mt-2 text-3xl">League admin</h2>
@@ -210,7 +210,7 @@ export async function MyTeamPageView({
         {adminData.isOwner ? (
           <LeagueTeamsEditor teams={dashboard.teams} />
         ) : (
-          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
         )}
         <RosterEditor
           teams={dashboard.activeTeams}
@@ -223,7 +223,7 @@ export async function MyTeamPageView({
     <TeamAccentPanel color={dashboard.team.bannerColor}>
       <section className="card-brand p-5" aria-label="Admin tools unavailable">
         <span className="label-dash">Admin</span>
-        <p className="mt-3 text-sm text-steel">Admin tools are temporarily unavailable.</p>
+        <p className="mt-3 text-sm text-muted">Admin tools are temporarily unavailable.</p>
       </section>
     </TeamAccentPanel>
   ) : null;
@@ -236,7 +236,7 @@ export async function MyTeamPageView({
           <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-6 px-4 sm:px-6">
             {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
               <form action={leaguePath("my-team", league)} method="get" className="flex flex-wrap items-end gap-2">
-                <label htmlFor="my-team-switch" className="flex flex-col gap-1 text-xs text-steel">
+                <label htmlFor="my-team-switch" className="flex flex-col gap-1 text-xs text-muted">
                   Viewing team (admin)
                   <select
                     id="my-team-switch"
@@ -249,7 +249,7 @@ export async function MyTeamPageView({
                     ))}
                   </select>
                 </label>
-                <button type="submit" className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy">
+                <button type="submit" className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
                   Switch
                 </button>
               </form>

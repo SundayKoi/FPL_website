@@ -51,26 +51,26 @@ export default function AdminBangerTitles({ initial }: { initial: BangerBoardSet
     <details className="card-brand flex flex-col gap-5 p-5">
       <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
         <span className="label-dash">The Daily Stu titles</span>
-        <p className="mt-1 text-sm text-steel">Customize the headings shown to every visitor.</p>
+        <p className="mt-1 text-sm text-muted">Customize the headings shown to every visitor.</p>
       </summary>
       <div className="grid gap-4 sm:grid-cols-2">
         {FIELDS.map(({ key, label }) => (
-          <label key={key} className="flex flex-col gap-1.5 text-sm text-steel">
+          <label key={key} className="flex flex-col gap-1.5 text-sm text-muted">
             {label}
             <input
               value={values[key]}
               maxLength={80}
               onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))}
-              className="rounded-lg border border-line bg-panel px-3 py-2 text-white outline-none focus:border-coral"
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-white outline-none focus:border-primary"
             />
           </label>
         ))}
       </div>
       <div className="flex items-center gap-4">
-        <button type="button" onClick={() => void save()} disabled={busy} className="rounded-full bg-coral px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-navy disabled:opacity-50">
+        <button type="button" onClick={() => void save()} disabled={busy} className="rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50">
           {busy ? "Saving…" : "Save titles"}
         </button>
-        {message ? <p className="text-sm text-steel" role="status">{message}</p> : null}
+        {message ? <p className="text-sm text-muted" role="status">{message}</p> : null}
       </div>
     </details>
   );

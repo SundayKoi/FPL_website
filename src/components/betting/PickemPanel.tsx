@@ -25,8 +25,8 @@ function LegRow({
   const resolved = leg.status === "RESOLVED";
   const voided = leg.status === "CANCELLED";
   return (
-    <div className="rounded-lg border border-line bg-panel p-3" data-testid={`pickem-leg-${leg.market_id}`}>
-      <div className="truncate text-xs uppercase tracking-wide text-steel">{leg.title}</div>
+    <div className="rounded-lg border border-border bg-surface p-3" data-testid={`pickem-leg-${leg.market_id}`}>
+      <div className="truncate text-xs uppercase tracking-wide text-muted">{leg.title}</div>
       <div className="mt-2 flex gap-2">
         {[leg.team_a, leg.team_b].map((t) => {
           const chosen = pick === t.id;
@@ -46,7 +46,7 @@ function LegRow({
           );
         })}
       </div>
-      {voided && <div className="mt-1 text-[11px] text-steel">voided</div>}
+      {voided && <div className="mt-1 text-[11px] text-muted">voided</div>}
     </div>
   );
 }
@@ -100,11 +100,11 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
   }
 
   return (
-    <div className="rounded-lg border border-line bg-panel p-4" data-testid="pickem-panel">
+    <div className="rounded-lg border border-border bg-surface p-4" data-testid="pickem-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-display text-lg not-italic text-white">🃏 {pickem.title}</div>
-          <div className="mt-1 text-sm text-steel">
+          <div className="mt-1 text-sm text-muted">
             Pool <b className="font-semibold text-white">{fmtPoints(pickem.pool)}</b> · {pickem.cards} card
             {pickem.cards !== 1 ? "s" : ""}
             {pickem.carryover > 0 && <span className="ml-2 text-gold">💰 {fmtPoints(pickem.carryover)} jackpot!</span>}
@@ -115,7 +115,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
           <LockCountdown lockAt={pickem.lock_at} status={pickem.status} />
         </div>
       </div>
-      <p className="mt-2 text-sm text-steel">
+      <p className="mt-2 text-sm text-muted">
         Call the winner of every series. Perfect cards split the whole pool — if nobody&apos;s perfect, it rolls over
         to the next night.
       </p>
@@ -133,17 +133,17 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
       </div>
 
       {pickem.my_card && (
-        <div className="mt-4 rounded border border-line px-3 py-2 text-sm" data-testid="pickem-mycard">
+        <div className="mt-4 rounded border border-border px-3 py-2 text-sm" data-testid="pickem-mycard">
           {pickem.status === "RESOLVED" ? (
             (pickem.my_card.payout ?? 0) > 0 ? (
               <span className="text-mint">Perfect card! +{fmtPoints(pickem.my_card.payout!)} 🏆</span>
             ) : (
-              <span className="text-steel">
+              <span className="text-muted">
                 Your card: {pickem.my_card.correct}/{liveLegs.length} — better luck next night
               </span>
             )
           ) : (
-            <span className="text-steel">
+            <span className="text-muted">
               Your card: {fmtPoints(pickem.my_card.amount)}
               {locked && ` · ${correctSoFar}/${liveLegs.length} so far`}
             </span>
@@ -166,7 +166,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
             />
             <button
               type="button"
-              className="rounded bg-coral px-4 py-2 text-sm font-bold text-navy hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-primary px-4 py-2 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!complete || amount <= 0 || amount > balance || pending}
               onClick={submit}
             >
@@ -174,7 +174,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
             </button>
           </div>
         ) : (
-          <div className="mt-3 text-xs text-steel">Log in to play the Pick&apos;em.</div>
+          <div className="mt-3 text-xs text-muted">Log in to play the Pick&apos;em.</div>
         ))}
       {msg && <div className="mt-2 text-xs text-mint">{msg}</div>}
       {error && <div className="mt-2 text-xs text-red-400">{error}</div>}

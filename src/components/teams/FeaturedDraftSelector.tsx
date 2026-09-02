@@ -38,14 +38,14 @@ export default function FeaturedDraftSelector({
   };
 
   const draftSelect = (id: string, label: string, value: string | null, column: "featured_draft_id" | "academy_draft_id") => (
-    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-steel" htmlFor={id}>
+    <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted" htmlFor={id}>
       {label}
       <select
         id={id}
         value={value ?? ""}
         disabled={busy}
         onChange={(event) => void selectDraft(column, event.target.value || null)}
-        className="min-w-48 rounded border border-line bg-panel px-3 py-2 text-sm font-semibold normal-case tracking-normal text-white focus:border-coral focus:outline-none focus:ring-1 focus:ring-coral disabled:opacity-50"
+        className="min-w-48 rounded border border-border bg-surface px-3 py-2 text-sm font-semibold normal-case tracking-normal text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
       >
         <option value="">— preview placeholders —</option>
         {drafts.map((draft) => (

@@ -139,7 +139,7 @@ export default function DustControls({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="text-[10px] font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-coral hover:underline"
+        className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
       >
         {open ? "Hide copies" : "Manage copies"}
       </button>
@@ -156,7 +156,7 @@ export default function DustControls({
             return (
               <li
                 key={copy.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-line bg-panel px-2 py-1"
+                className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1"
               >
                 {art ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -165,7 +165,7 @@ export default function DustControls({
                     alt=""
                     aria-hidden
                     loading="lazy"
-                    className="h-7 w-10 shrink-0 rounded-sm border border-line object-cover object-[center_20%]"
+                    className="h-7 w-10 shrink-0 rounded-sm border border-border object-cover object-[center_20%]"
                     onError={(event) => {
                       // Centered art missing → the same skin's regular splash
                       // before giving up. The stage rides the element so a
@@ -183,7 +183,7 @@ export default function DustControls({
                     }}
                   />
                 ) : null}
-                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-[10px] text-steel">
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-[10px] text-muted">
                   <span className="font-semibold uppercase tracking-wide">{editionLabel(copy.editionWeek)}</span>
                   <span>{tierLabel(copy.tier)}</span>
                   {copy.signed ? (
@@ -204,7 +204,7 @@ export default function DustControls({
                     disabled={pending}
                     title="Patron perk: re-roll this copy's art (one per week, skin only — never rarity, foil or ink)"
                     className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold transition disabled:opacity-40 ${
-                      dieArmed === copy.id ? "bg-gold text-navy" : "text-steel hover:text-gold"
+                      dieArmed === copy.id ? "bg-gold text-navy" : "text-muted hover:text-gold"
                     }`}
                   >
                     {dieArmed === copy.id ? "Roll it?" : "🎲"}
@@ -222,7 +222,7 @@ export default function DustControls({
                     altArt: copy.card.artSkin > 0,
                   }}
                   label={`Look at the ${describe}`}
-                  className="shrink-0 rounded-full border border-line px-1.5 py-0.5 text-[10px] font-bold text-steel transition hover:border-coral hover:text-coral"
+                  className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[10px] font-bold text-muted transition hover:border-primary hover:text-primary"
                 >
                   ⤢
                 </CardCopyPreview>
@@ -235,7 +235,7 @@ export default function DustControls({
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60 ${
                     isArmed
                       ? "border-coral bg-coral/20 text-coral"
-                      : "border-line text-steel hover:border-coral hover:text-coral"
+                      : "border-border text-muted hover:border-primary hover:text-primary"
                   }`}
                 >
                   {deployed ? "On expedition" : isArmed ? `Confirm ${fmtPoints(value)}?` : `Dust · ${fmtPoints(value)}`}

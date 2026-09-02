@@ -1,10 +1,10 @@
 const sectionHeadingClass =
-  "scroll-mt-24 border-b border-line pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
+  "scroll-mt-24 border-b border-border pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
 const subsectionHeadingClass =
   "scroll-mt-24 pt-3 font-display text-xl font-semibold text-white";
-const paragraphClass = "max-w-4xl text-steel";
-const listClass = "max-w-4xl list-disc space-y-2 pl-6 text-steel";
-const orderedListClass = "max-w-4xl list-decimal space-y-2 pl-6 text-steel";
+const paragraphClass = "max-w-4xl text-muted";
+const listClass = "max-w-4xl list-disc space-y-2 pl-6 text-muted";
+const orderedListClass = "max-w-4xl list-decimal space-y-2 pl-6 text-muted";
 
 type BracketMatchProps = {
   top: string;
@@ -13,8 +13,8 @@ type BracketMatchProps = {
 
 function BracketMatch({ top, bottom }: BracketMatchProps) {
   return (
-    <div className="overflow-hidden rounded border border-line bg-navy/80">
-      <div className="border-b border-line px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-coral">
+    <div className="overflow-hidden rounded border border-border bg-canvas/80">
+      <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-league-accent">
         {top}
       </div>
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
@@ -32,7 +32,7 @@ type BracketColumnProps = {
 function BracketColumn({ title, matches }: BracketColumnProps) {
   return (
     <div className="space-y-4">
-      <h4 className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-steel">
+      <h4 className="font-display text-sm font-semibold uppercase tracking-[0.14em] text-muted">
         {title}
       </h4>
       <div className="space-y-4">
@@ -48,7 +48,7 @@ function GauntletPlayoffFigure() {
   return (
     <figure
       aria-labelledby="gauntlet-playoff-caption"
-      className="max-w-5xl rounded border border-line bg-panel/70 p-4 sm:p-6"
+      className="max-w-5xl rounded border border-border bg-surface/70 p-4 sm:p-6"
     >
       <div
         aria-label="Gauntlet and playoff bracket showing quarterfinals, semifinals, and grand finals"
@@ -76,7 +76,7 @@ function GauntletPlayoffFigure() {
           matches={[{ top: "Solari #1", bottom: "Lunari #1" }]}
         />
       </div>
-      <figcaption id="gauntlet-playoff-caption" className="mt-5 text-sm text-steel">
+      <figcaption id="gauntlet-playoff-caption" className="mt-5 text-sm text-muted">
         Gauntlet and playoff format and flow.
       </figcaption>
     </figure>

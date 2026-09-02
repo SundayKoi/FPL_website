@@ -81,7 +81,7 @@ export default function AdminAssignmentPanel({
     <section className="card-brand flex flex-col gap-3 p-3">
       <h3 className="label-dash">Direct assignment</h3>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm text-steel">
+        <label className="flex flex-col gap-1 text-sm text-muted">
           Player
           <select
             value={playerId}
@@ -100,7 +100,7 @@ export default function AdminAssignmentPanel({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-steel">
+        <label className="flex flex-col gap-1 text-sm text-muted">
           Team
           <select
             value={teamId}
@@ -117,7 +117,7 @@ export default function AdminAssignmentPanel({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-steel">
+        <label className="flex flex-col gap-1 text-sm text-muted">
           Price
           <input
             type="number"
@@ -133,7 +133,7 @@ export default function AdminAssignmentPanel({
           type="button"
           disabled={busy}
           onClick={() => void assignPlayer()}
-          className="rounded border border-coral px-3 py-1.5 text-sm font-semibold text-coral hover:bg-coral/10 disabled:opacity-40"
+          className="rounded border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-40"
         >
           Assign player
         </button>

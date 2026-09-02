@@ -36,7 +36,7 @@ export default async function AdminDraftPage({
           profiles={(profilesRes.data as Profile[]) ?? []}
         />
       ) : (
-        <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+        <p className="text-sm text-muted">Some league configuration is owner-only.</p>
       )}
     </main>
   );

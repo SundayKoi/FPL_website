@@ -15,7 +15,7 @@ function CopyButton({ code }: { code: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="shrink-0 rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+      className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -34,7 +34,7 @@ function CopyAllButton({ codes }: { codes: MatchCode[] }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="shrink-0 rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+      className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {copied ? "Copied" : "Copy all"}
     </button>
@@ -50,13 +50,13 @@ function CopyAllButton({ codes }: { codes: MatchCode[] }) {
 export default function TourneyCodes({ codes }: { codes: MatchCode[] }) {
   return (
     <details className="card-brand group overflow-hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-coral [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
         <span role="heading" aria-level={2} className="label-dash">Tourney codes</span>
-        <span aria-hidden className="text-xl leading-none text-coral transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-xl leading-none text-primary transition group-open:rotate-45">+</span>
       </summary>
-      <section aria-label="Tourney codes" className="border-t border-line px-5 pb-5 pt-4">
+      <section aria-label="Tourney codes" className="border-t border-border px-5 pb-5 pt-4">
         {codes.length === 0 ? (
-          <p className="mt-3 text-sm text-steel">
+          <p className="mt-3 text-sm text-muted">
             No codes posted yet — a captain or admin will add them before the match.
           </p>
         ) : (
@@ -68,13 +68,13 @@ export default function TourneyCodes({ codes }: { codes: MatchCode[] }) {
               {codes.map((code) => (
                 <li
                   key={code.id}
-                  className="flex flex-wrap items-center gap-3 rounded border border-line/60 bg-navy/60 px-3 py-2"
+                  className="flex flex-wrap items-center gap-3 rounded border border-border/60 bg-canvas/60 px-3 py-2"
                 >
-                  <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">
+                  <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">
                     Game {code.game_number}
                   </span>
                   <code className="min-w-0 flex-1 truncate font-mono text-sm text-white">{code.code}</code>
-                  {code.note && <span className="w-full text-xs text-steel sm:w-auto">{code.note}</span>}
+                  {code.note && <span className="w-full text-xs text-muted sm:w-auto">{code.note}</span>}
                   <CopyButton code={code.code} />
                 </li>
               ))}

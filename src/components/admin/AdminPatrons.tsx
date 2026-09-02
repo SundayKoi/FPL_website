@@ -178,19 +178,19 @@ export default function AdminPatrons({
       <div className="card-brand flex flex-col gap-2 p-4">
         <span className="label-dash">Active patrons · {patrons.length}</span>
         {patrons.length === 0 ? (
-          <p className="text-sm text-steel">Nobody is burning right now.</p>
+          <p className="text-sm text-muted">Nobody is burning right now.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {patrons.map((patron) => (
               <li key={patron.discordId} className="flex items-center justify-between gap-3 text-sm">
                 <span className="font-semibold text-white">{patron.username}</span>
                 <span className="flex items-center gap-3">
-                  <span className="text-steel">until {patron.patronUntil ? dateLabel(patron.patronUntil) : "—"}</span>
+                  <span className="text-muted">until {patron.patronUntil ? dateLabel(patron.patronUntil) : "—"}</span>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => void revoke(patron.discordId)}
-                    className="rounded-full border border-line px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-steel transition-colors hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    className="rounded-full border border-border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition-colors hover:border-red-400 hover:text-red-400 disabled:opacity-50"
                   >
                     {revokeArmed === patron.discordId ? "Sure?" : "Revoke"}
                   </button>
@@ -210,12 +210,12 @@ export default function AdminPatrons({
           </span>
         </div>
         {receipts.length === 0 ? (
-          <p className="text-sm text-steel">No payments recorded yet.</p>
+          <p className="text-sm text-muted">No payments recorded yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[28rem] text-left text-sm">
               <thead>
-                <tr className="text-[0.65rem] uppercase tracking-wide text-steel">
+                <tr className="text-[0.65rem] uppercase tracking-wide text-muted">
                   <th className="py-1 pr-3 font-semibold">Member</th>
                   <th className="py-1 pr-3 font-semibold">Paid</th>
                   <th className="py-1 pr-3 font-semibold">Days</th>
@@ -225,12 +225,12 @@ export default function AdminPatrons({
               </thead>
               <tbody>
                 {receipts.map((receipt) => (
-                  <tr key={receipt.id} className="border-t border-line/50">
+                  <tr key={receipt.id} className="border-t border-border/50">
                     <td className="py-1.5 pr-3 font-semibold text-white">{receipt.username}</td>
                     <td className="py-1.5 pr-3 text-gold">${receipt.amountUsd.toFixed(2)}</td>
-                    <td className="py-1.5 pr-3 text-steel">{receipt.daysGranted}</td>
-                    <td className="py-1.5 pr-3 text-steel">{dateLabel(receipt.paidAt)}</td>
-                    <td className="py-1.5 text-steel">{receipt.note ?? "—"}</td>
+                    <td className="py-1.5 pr-3 text-muted">{receipt.daysGranted}</td>
+                    <td className="py-1.5 pr-3 text-muted">{dateLabel(receipt.paidAt)}</td>
+                    <td className="py-1.5 text-muted">{receipt.note ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

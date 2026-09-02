@@ -76,9 +76,9 @@ export default function BinderEditor({
         <h2 id="binder-heading" className="type-display text-2xl sm:text-3xl">
           Your binder
         </h2>
-        <span className="text-xs uppercase tracking-[0.16em] text-steel">Public by link</span>
+        <span className="text-xs uppercase tracking-[0.16em] text-muted">Public by link</span>
       </div>
-      <p className="max-w-2xl text-sm text-steel">
+      <p className="max-w-2xl text-sm text-muted">
         {slots.length > 6
           ? "Nine copies on display — the patron shelf, and slot 1 gets the pedestal glow on your public page."
           : "Up to six copies on display (patrons shelve nine, with a pedestal on slot 1)."}{" "}
@@ -87,7 +87,7 @@ export default function BinderEditor({
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Binder name
           <input
             value={name}
@@ -105,7 +105,7 @@ export default function BinderEditor({
           href={`/binder/${token}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-full border border-line bg-panel px-4 py-2 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
         >
           View binder ↗
         </a>
@@ -117,7 +117,7 @@ export default function BinderEditor({
               setTimeout(() => setCopied(false), 1500);
             });
           }}
-          className="btn-coral px-4 py-2 text-xs"
+          className="btn-primary px-4 py-2 text-xs"
         >
           {copied ? "Copied ✓" : "Copy share link"}
         </button>
@@ -126,14 +126,14 @@ export default function BinderEditor({
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
       {options.length === 0 ? (
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Nothing to display yet — open a pack and the copies you pull become choosable here.
         </p>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {options.length === 0 ? null : picked.map((inventoryId, index) => (
-          <label key={index} className="flex flex-col gap-1 text-xs text-steel">
+          <label key={index} className="flex flex-col gap-1 text-xs text-muted">
             Slot {index + 1}
             <select
               value={inventoryId ?? ""}

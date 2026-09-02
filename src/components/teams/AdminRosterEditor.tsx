@@ -148,7 +148,7 @@ export default function AdminRosterEditor({
         })}
       </div>
 
-      <div role="status" aria-live="polite" className="mt-5 min-h-5 text-sm text-steel">
+      <div role="status" aria-live="polite" className="mt-5 min-h-5 text-sm text-muted">
         {busy ? "Saving roster swap…" : status}
       </div>
 
@@ -157,13 +157,13 @@ export default function AdminRosterEditor({
           role="dialog"
           aria-modal="true"
           aria-labelledby="swap-dialog-heading"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-canvas/80 p-4 backdrop-blur-sm"
         >
           <div className="card-brand w-full max-w-md p-6">
             <h2 id="swap-dialog-heading" className="font-display text-2xl text-white">
               Swap {keyboardPlayer.display_name}
             </h2>
-            <p className="mt-2 text-sm text-steel">
+            <p className="mt-2 text-sm text-muted">
               Choose another team&apos;s {keyboardPlayer.role} player.
             </p>
             <div className="mt-5 flex flex-col gap-2">
@@ -176,23 +176,23 @@ export default function AdminRosterEditor({
                       type="button"
                       disabled={busy}
                       onClick={() => void requestSwap(keyboardPlayer, target)}
-                      className="flex items-center justify-between rounded border border-line bg-navy px-3 py-2 text-left text-sm text-white hover:border-coral disabled:opacity-50"
+                      className="flex items-center justify-between rounded border border-border bg-canvas px-3 py-2 text-left text-sm text-white hover:border-primary disabled:opacity-50"
                     >
                       <span>{target.display_name}</span>
-                      <span className="text-xs uppercase tracking-[0.12em] text-steel">
+                      <span className="text-xs uppercase tracking-[0.12em] text-muted">
                         {targetTeam?.name ?? "Other team"}
                       </span>
                     </button>
                   );
                 })
               ) : (
-                <p className="text-sm text-steel">No same-position players are available.</p>
+                <p className="text-sm text-muted">No same-position players are available.</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setKeyboardPlayerId(null)}
-              className="mt-5 rounded border border-steel px-3 py-2 text-sm font-semibold text-white hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+              className="mt-5 rounded border border-muted px-3 py-2 text-sm font-semibold text-white hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Cancel
             </button>

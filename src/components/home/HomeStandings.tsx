@@ -10,7 +10,7 @@ function FormDots({ form }: { form: ("W" | "L")[] }) {
         <span
           key={index}
           aria-hidden
-          className={`h-1.5 w-1.5 rounded-full ${result === "W" ? "bg-mint" : "bg-red-400/80"}`}
+          className={`h-1.5 w-1.5 rounded-full ${result === "W" ? "bg-success" : "bg-danger/80"}`}
         />
       ))}
     </span>
@@ -31,7 +31,7 @@ function StandingRow({
   return (
     <div
       tabIndex={0}
-      className={`group border-t border-line/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-line/15 focus-visible:bg-line/15 focus-visible:outline-none ${
+      className={`group border-t border-border/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-border/15 focus-visible:bg-border/15 focus-visible:outline-none ${
         isLeader ? "row-rank-1" : ""
       }`}
     >
@@ -39,28 +39,28 @@ function StandingRow({
         {/* Standings rank -- the list arrives sorted by record
             (deriveSeriesStandings), so position is the rank. The team's
             nomination_position is its DRAFT slot, not standings rank. */}
-        <span className={`font-mono text-xs font-semibold ${isLeader ? "text-gold" : "text-steel"}`}>
+        <span className={`font-mono text-xs font-semibold ${isLeader ? "text-prestige" : "text-muted"}`}>
           #{rank}
         </span>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 font-mono text-xs text-coral">{team.abbreviation}</span>
+          <span className="shrink-0 font-mono text-xs text-league-accent">{team.abbreviation}</span>
           <span className="min-w-0 truncate text-sm font-semibold text-white">{team.name}</span>
         </div>
         <FormDots form={team.form ?? []} />
-        <span className="whitespace-nowrap font-mono text-sm font-semibold text-steel">
+        <span className="whitespace-nowrap font-mono text-sm font-semibold text-muted">
           {team.wins}–{team.losses}
         </span>
         {hasHistoricalStats ? (
           <CountUp
             value={team.winrate_pct ?? 0}
             suffix="%"
-            className="whitespace-nowrap font-mono text-xs font-semibold text-cyan"
+            className="whitespace-nowrap font-mono text-xs font-semibold text-success"
           />
         ) : null}
       </div>
       {team.next_opponent ? (
-        <p className="hidden pl-[1.75rem] pt-1 font-mono text-[11px] text-steel group-hover:block group-focus-visible:block">
-          <span className="text-coral">Next</span> vs {team.next_opponent}
+        <p className="hidden pl-[1.75rem] pt-1 font-mono text-[11px] text-muted group-hover:block group-focus-visible:block">
+          <span className="text-league-accent">Next</span> vs {team.next_opponent}
         </p>
       ) : null}
     </div>
@@ -103,13 +103,13 @@ export default function HomeStandings({
             Team standings
           </h2>
         </div>
-        <span className="shrink-0 rounded-full bg-coral/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral">
+        <span className="shrink-0 rounded-full border border-league-accent/40 bg-league-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-league-accent">
           {hasHistoricalStats ? `${season} standings` : "0–0 start"}
         </span>
       </div>
 
       {teams.length === 0 ? (
-        <p className="mt-5 text-sm leading-6 text-steel">
+        <p className="mt-5 text-sm leading-6 text-muted">
           Standings will appear once the {season} teams are configured.
         </p>
       ) : (
@@ -120,11 +120,11 @@ export default function HomeStandings({
                   key={group.name}
                   role="group"
                   aria-labelledby={`home-standings-${group.name.toLowerCase()}-title`}
-                  className="border-t border-line/60 py-4 first:border-t-0 first:pt-0 last:pb-0"
+                  className="border-t border-border/60 py-4 first:border-t-0 first:pt-0 last:pb-0"
                 >
                   <h3
                     id={`home-standings-${group.name.toLowerCase()}-title`}
-                    className="mb-2 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-coral"
+                    className="mb-2 font-mono text-xs font-semibold uppercase tracking-[0.16em] text-league-accent"
                   >
                     {group.name} division
                   </h3>

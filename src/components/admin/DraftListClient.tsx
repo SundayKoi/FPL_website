@@ -67,7 +67,7 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
         <button
           type="submit"
           disabled={busy || !name.trim()}
-          className="btn-coral px-4 py-2 text-sm"
+          className="btn-primary px-4 py-2 text-sm"
         >
           New draft
         </button>
@@ -75,7 +75,7 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
       {err && <p className="text-sm text-red-400">{err}</p>}
 
       {drafts.length === 0 ? (
-        <p className="text-sm text-steel">No drafts yet.</p>
+        <p className="text-sm text-muted">No drafts yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {drafts.map((draft) => (
@@ -85,7 +85,7 @@ export default function DraftListClient({ initialDrafts }: { initialDrafts: Draf
             >
               <Link href={`/admin/${draft.id}`} className="flex flex-1 items-center justify-between gap-2">
                 <span className="font-medium text-white">{draft.name}</span>
-                <span className="text-xs uppercase tracking-wide text-steel">{draft.status}</span>
+                <span className="text-xs uppercase tracking-wide text-muted">{draft.status}</span>
               </Link>
               <button
                 onClick={() => deleteDraft(draft)}

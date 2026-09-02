@@ -65,7 +65,7 @@ export default function NemesisBoard({
       {state.phase === "not_started" &&
         (isAdmin ? (
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               First team
               <select
                 value={seedTeam}
@@ -80,7 +80,7 @@ export default function NemesisBoard({
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Starting division
               <select
                 value={seedDivision}
@@ -106,19 +106,19 @@ export default function NemesisBoard({
                   })
                 )
               }
-              className="btn-coral px-3 py-1.5 text-xs"
+              className="btn-primary px-3 py-1.5 text-xs"
             >
               Start nemesis draft
             </button>
           </div>
         ) : (
-          <p className="text-sm text-steel">Nemesis draft hasn&apos;t started yet.</p>
+          <p className="text-sm text-muted">Nemesis draft hasn&apos;t started yet.</p>
         ))}
 
       {state.phase !== "not_started" && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {DIVISIONS.map((division) => (
-            <div key={division} className="rounded border border-line bg-navy/40 p-3">
+            <div key={division} className="rounded border border-border bg-canvas/40 p-3">
               <h3 className="label-dash mb-2">{division}</h3>
               <ul className="flex flex-col gap-1">
                 {state.byDivision[division].map((t) => (
@@ -127,7 +127,7 @@ export default function NemesisBoard({
                   </li>
                 ))}
                 {state.byDivision[division].length === 0 && (
-                  <li className="text-sm text-steel">Empty</li>
+                  <li className="text-sm text-muted">Empty</li>
                 )}
               </ul>
             </div>
@@ -164,7 +164,7 @@ export default function NemesisBoard({
       )}
 
       {picks.length > 0 && (
-        <ol className="flex flex-col gap-1 text-xs text-steel">
+        <ol className="flex flex-col gap-1 text-xs text-muted">
           {[...picks]
             .sort((a, b) => a.pick_number - b.pick_number)
             .map((p) => (
@@ -178,7 +178,7 @@ export default function NemesisBoard({
       )}
 
       {isAdmin && state.phase !== "not_started" && (
-        <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
           <button
             type="button"
             disabled={busy}
@@ -186,7 +186,7 @@ export default function NemesisBoard({
               if (!confirm("Undo the last nemesis pick?")) return;
               void run(() => supabase.rpc("nemesis_undo", { p_draft_id: draftId }));
             }}
-            className="rounded border border-line px-2 py-1 text-xs font-semibold text-steel hover:text-coral disabled:opacity-40"
+            className="rounded border border-border px-2 py-1 text-xs font-semibold text-muted hover:text-primary disabled:opacity-40"
           >
             Undo last pick
           </button>

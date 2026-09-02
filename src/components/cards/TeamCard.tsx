@@ -70,7 +70,7 @@ function Panel({ slot, color }: { slot: TeamCardEntry["slots"][number]; color: s
           className="absolute inset-0 h-full w-full object-cover object-[center_18%]"
         />
       ) : (
-        <span aria-hidden className="absolute inset-0 bg-panel" />
+        <span aria-hidden className="absolute inset-0 bg-surface" />
       )}
       {/* The wash — the whole reason this reads as one team. */}
       <span aria-hidden className="absolute inset-0 mix-blend-color" style={{ background: color, opacity: 0.62 }} />
@@ -93,7 +93,7 @@ function Panel({ slot, color }: { slot: TeamCardEntry["slots"][number]; color: s
           {slot.name}
           {slot.standout ? <span className="ml-0.5 text-gold">★</span> : null}
         </span>
-        <span className="block truncate text-[8.5px] text-steel">{slot.champion ?? "—"}</span>
+        <span className="block truncate text-[8.5px] text-muted">{slot.champion ?? "—"}</span>
       </span>
       {/* A signed player signs their OWN panel. A roster where four of the
           five have inked is a different object from one where nobody has,
@@ -130,7 +130,7 @@ export default function TeamCard({
   return (
     <article
       aria-label={`${team.teamName} — ${team.tierLabel} roster, team overall ${team.overall}`}
-      className="relative aspect-[5/7] w-full overflow-hidden rounded-2xl bg-navy p-[4px]"
+      className="relative aspect-[5/7] w-full overflow-hidden rounded-2xl bg-canvas p-[4px]"
       style={{ background: TIER_FRAME[team.tierKey] ?? TIER_FRAME.gold }}
     >
       <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-[#00172a]">
@@ -168,7 +168,7 @@ export default function TeamCard({
           <span className="font-display text-2xl font-black text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
             {team.overall}
           </span>
-          <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-steel">Team OVR</span>
+          <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-muted">Team OVR</span>
         </span>
 
         {/* The engraved plate — a row of the column, not a lid on it. */}
@@ -219,7 +219,7 @@ export default function TeamCard({
             <span className="font-display text-sm font-black text-gold drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)]">
               {signed}/5
             </span>
-            <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-steel">signed</span>
+            <span className="text-[7px] font-bold uppercase tracking-[0.16em] text-muted">signed</span>
           </span>
         ) : null}
 

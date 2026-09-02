@@ -8,7 +8,7 @@ export default function SupportDevsPage() {
           <span className="label-dash">THE SUPPORT DESK</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Support the Devs</h1>
           <hr className="accent-rule mt-5 w-48 sm:w-64" />
-          <p className="mt-4 text-lg leading-8 text-steel">
+          <p className="mt-4 text-lg leading-8 text-muted">
             Help keep the FPL league site, broadcasts, and tools running.
           </p>
         </header>

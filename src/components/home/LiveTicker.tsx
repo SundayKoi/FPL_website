@@ -8,9 +8,9 @@ export type TickerItem = {
 };
 
 const TONE_CLASS: Record<TickerTone, string> = {
-  coral: "text-coral",
-  mint: "text-mint",
-  gold: "text-gold",
+  coral: "text-league-accent",
+  mint: "text-success",
+  gold: "text-prestige",
   cyan: "text-cyan",
   pink: "text-pink",
 };
@@ -32,7 +32,7 @@ export default function LiveTicker({ items }: { items: TickerItem[] }) {
           >
             {item.label}
           </span>
-          <span className="whitespace-nowrap text-steel">{item.text}</span>
+          <span className="whitespace-nowrap text-muted">{item.text}</span>
         </span>
       ))}
     </div>
@@ -41,7 +41,7 @@ export default function LiveTicker({ items }: { items: TickerItem[] }) {
   return (
     <div
       aria-label="League ticker"
-      className="ticker-mask overflow-hidden rounded border border-gold/30 bg-navy/85 py-2"
+    className="ticker-mask overflow-hidden rounded border border-league-accent/30 bg-canvas/85 py-2"
     >
       <div className="ticker-track flex w-max motion-reduce:w-full motion-reduce:overflow-x-auto">
         {half(0)}

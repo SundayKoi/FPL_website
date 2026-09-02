@@ -9,7 +9,7 @@ export default function CardsLeagueToggle({ league, suffix = "" }: { league: Car
       href={href}
       aria-current={league === target ? "page" : undefined}
       className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-        league === target ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+        league === target ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
       }`}
     >
       {label}

@@ -11,8 +11,8 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_CLASS: Record<string, string> = {
   live: "bg-mint/15 text-mint",
   paused: "bg-gold/15 text-gold",
-  complete: "bg-panel text-steel",
-  setup: "bg-panel text-steel",
+  complete: "bg-surface text-muted",
+  setup: "bg-surface text-muted",
 };
 
 export default function DraftHeader({ draft }: { draft: Draft }) {

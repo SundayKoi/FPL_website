@@ -106,7 +106,7 @@ export default async function MatchDraftPage({
       <main className="flex flex-1 items-center justify-center bg-hash p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Match not found</h1>
-          <p className="mt-2 text-sm text-steel">This draft link does not match a scheduled fixture.</p>
+          <p className="mt-2 text-sm text-muted">This draft link does not match a scheduled fixture.</p>
           <Link href="/captain" className="btn-pill mt-4 inline-block px-4 py-2 text-sm">Back to captain</Link>
         </section>
       </main>

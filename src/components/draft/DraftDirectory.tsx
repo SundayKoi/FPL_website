@@ -19,13 +19,13 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
             <h1 id="draft-central-title" className="type-display mt-2 text-4xl sm:text-5xl">
               Draft Central
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-steel">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
               Get ready for the next room, follow active boards, and revisit every completed draft.
             </p>
           </div>
           <Link
             href="/admin"
-            className="text-sm text-steel underline underline-offset-4 hover:text-white focus-visible:text-white"
+            className="text-sm text-muted underline underline-offset-4 hover:text-white focus-visible:text-white"
           >
             Admin
           </Link>
@@ -46,7 +46,7 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
         )}
 
         {drafts.length === 0 ? (
-          <p className="text-sm text-steel">No drafts yet.</p>
+          <p className="text-sm text-muted">No drafts yet.</p>
         ) : (
           <section aria-labelledby="all-drafts-title">
             <div className="mb-4">
@@ -58,10 +58,10 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
               <li key={draft.id}>
                 <Link
                   href={`/draft/${draft.id}`}
-                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-steel focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   <span className="type-display text-xl">{draft.name}</span>
-                  <span className="text-sm uppercase tracking-wide text-steel">
+                  <span className="text-sm uppercase tracking-wide text-muted">
                     {draft.status}
                   </span>
                   <span className="label-dash">VIEW BOARD →</span>

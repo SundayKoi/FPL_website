@@ -193,7 +193,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <Link
           href={league === "academy" ? "/academy/teams" : "/teams"}
-          className="flex w-fit items-center gap-1.5 rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          className="flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
         >
           <span aria-hidden="true">←</span> All teams
         </Link>
@@ -203,7 +203,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
           style={{ borderTopColor: team.bannerColor }}
         >
           <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-navy/60 p-2 shadow-lg">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-canvas/60 p-2 shadow-lg">
               {team.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -241,7 +241,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                 href={multiOpggUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-coral/80 bg-coral/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+                className="mt-3 inline-flex rounded-full border border-primary/80 bg-primary/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
               >
                 Team OP.GG Multi
               </a>
@@ -257,17 +257,17 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             className="card-brand border-t-2"
             style={{ borderTopColor: team.bannerColor }}
           >
-            <h2 id="roster-heading" className="border-b border-line px-4 py-3 type-display text-xl">
+            <h2 id="roster-heading" className="border-b border-border px-4 py-3 type-display text-xl">
               Roster
             </h2>
-            <ul className="divide-y divide-line/80">
+            <ul className="divide-y divide-border/80">
               {team.players.map((player) => (
                 <li key={player.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-9 shrink-0 font-display text-xs font-semibold not-italic text-steel">
+                  <span className="w-9 shrink-0 font-display text-xs font-semibold not-italic text-muted">
                     {ROLE_LABELS_SHORT[player.role]}
                   </span>
                   {player.isEmpty ? (
-                    <span className="min-w-0 flex-1 truncate text-sm text-steel/70">
+                    <span className="min-w-0 flex-1 truncate text-sm text-muted/70">
                       {player.displayName}
                     </span>
                   ) : (
@@ -276,17 +276,17 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                     // account sheet, falling back to the stored roster link).
                     <details name="player-account-menu" className="group relative min-w-0 flex-1">
                       <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-                        <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-coral group-hover:text-coral group-hover:underline">
+                        <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-primary group-hover:text-primary group-hover:underline">
                           {player.displayName}
                         </span>
-                        <span aria-hidden className="text-[0.55rem] text-steel transition group-open:rotate-180">
+                        <span aria-hidden className="text-[0.55rem] text-muted transition group-open:rotate-180">
                           ▾
                         </span>
                       </summary>
-                      <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-line bg-navy p-1 shadow-lg">
+                      <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border bg-canvas p-1 shadow-lg">
                         <Link
                           href={`/players/${encodeURIComponent(player.displayName)}`}
-                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
                         >
                           Stats profile
                         </Link>
@@ -301,7 +301,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:bg-line/40 hover:text-white"
+                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
                           >
                             {linkedAccountLabel(url, index)} ↗
                           </a>
@@ -335,23 +335,23 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             >
               <h2
                 id="upcoming-heading"
-                className="border-b border-line px-4 py-3 type-display text-xl"
+                className="border-b border-border px-4 py-3 type-display text-xl"
               >
                 Upcoming
               </h2>
               {upcoming.length === 0 ? (
-                <p className="px-4 py-4 text-sm text-steel">No scheduled matches.</p>
+                <p className="px-4 py-4 text-sm text-muted">No scheduled matches.</p>
               ) : (
-                <ul className="divide-y divide-line/60">
+                <ul className="divide-y divide-border/60">
                   {upcoming.slice(0, 5).map((f) => (
                     <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-steel">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                         {stageMeta(f.stage).label}
                       </span>
                       <span className="text-sm font-semibold text-white">
                         vs {opponentOf(f, team.name)}
                       </span>
-                      <span className="ml-auto text-xs text-steel">
+                      <span className="ml-auto text-xs text-muted">
                         {formatKickoff(f.scheduled_at)}
                       </span>
                     </li>
@@ -367,14 +367,14 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             >
               <h2
                 id="results-heading"
-                className="border-b border-line px-4 py-3 type-display text-xl"
+                className="border-b border-border px-4 py-3 type-display text-xl"
               >
                 Results
               </h2>
               {results.length === 0 ? (
-                <p className="px-4 py-4 text-sm text-steel">No results reported yet.</p>
+                <p className="px-4 py-4 text-sm text-muted">No results reported yet.</p>
               ) : (
-                <ul className="divide-y divide-line/60">
+                <ul className="divide-y divide-border/60">
                   {results.map((f) => {
                     const won = didWin(f, team.name);
                     return (
@@ -382,9 +382,9 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         <span
                           className={`w-6 shrink-0 rounded text-center text-xs font-bold ${
                             won === null
-                              ? "text-steel"
+                              ? "text-muted"
                               : won
-                                ? "bg-mint/15 text-mint"
+                                ? "bg-success/15 text-success"
                                 : "bg-red-500/15 text-red-400"
                           }`}
                         >
@@ -392,14 +392,14 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         </span>
                         <Link
                           href={`/match/${f.id}`}
-                          className="text-sm font-semibold text-white underline-offset-4 hover:text-coral hover:underline"
+                          className="text-sm font-semibold text-white underline-offset-4 hover:text-primary hover:underline"
                         >
                           vs {opponentOf(f, team.name)}
                         </Link>
-                        <span className="rounded border border-line bg-navy px-2 py-0.5 text-xs font-bold text-white">
+                        <span className="rounded border border-border bg-canvas px-2 py-0.5 text-xs font-bold text-white">
                           {f.score_a}–{f.score_b}
                         </span>
-                        <span className="ml-auto text-xs text-steel">
+                        <span className="ml-auto text-xs text-muted">
                           {stageMeta(f.stage).label}
                         </span>
                       </li>

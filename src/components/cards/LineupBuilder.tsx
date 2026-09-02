@@ -141,7 +141,7 @@ export default function LineupBuilder({
 
   if (inventory.length === 0) {
     return (
-      <div className="card-brand p-5 text-sm text-steel">
+      <div className="card-brand p-5 text-sm text-muted">
         You don&apos;t own any cards yet — open a pack to start building a lineup.
       </div>
     );
@@ -151,7 +151,7 @@ export default function LineupBuilder({
     <div className="card-brand p-5" data-testid="lineup-builder">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="type-display text-2xl">Week of {monthDay(week)}</h2>
-        <span className="text-xs text-steel">
+        <span className="text-xs text-muted">
           {lockIn === "Locked" ? "Locked" : lockIn ? <>Locks in <b className="text-white">{lockIn}</b></> : " "}
         </span>
       </div>
@@ -161,7 +161,7 @@ export default function LineupBuilder({
           const options = optionsByRole[role];
           return (
             <label key={role} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">{role}</span>
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">{role}</span>
               <select
                 className="input-brand min-w-0 flex-1 p-2 text-sm"
                 value={slots[role] ?? ""}
@@ -184,14 +184,14 @@ export default function LineupBuilder({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
         <span className={`font-mono text-sm font-bold ${overCap ? "text-red-400" : "text-mint"}`}>
           {totalOverall}/{SALARY_CAP}
         </span>
-        <span className="text-xs text-steel">salary cap</span>
+        <span className="text-xs text-muted">salary cap</span>
         <button
           type="button"
-          className="btn-coral ml-auto px-4 py-2 text-sm"
+          className="btn-primary ml-auto px-4 py-2 text-sm"
           disabled={pending || !complete}
           onClick={submit}
         >
@@ -200,7 +200,7 @@ export default function LineupBuilder({
       </div>
 
       {preview && !error && <p className="mt-2 text-xs text-red-400">{preview}</p>}
-      {!complete && <p className="mt-2 text-xs text-steel">Fill all five roles to submit.</p>}
+      {!complete && <p className="mt-2 text-xs text-muted">Fill all five roles to submit.</p>}
       {msg && <p className="mt-2 text-xs text-mint">{msg}</p>}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
     </div>

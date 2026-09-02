@@ -94,11 +94,11 @@ export default async function SchedulePage({
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
+        <header className="border-b border-border pb-8">
           <div>
             <span className="label-dash">LEAGUE CALENDAR</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Schedule</h1>
-            <p className="mt-4 max-w-2xl text-lg leading-8 text-steel">
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
               Bo3 fearless, Mondays at 8:00pm ET — regular season, gauntlet, then playoffs.
             </p>
           </div>
@@ -124,8 +124,8 @@ export default async function SchedulePage({
                 aria-current={s === season ? "page" : undefined}
                 className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                   s === season
-                    ? "bg-coral text-navy"
-                    : "border border-line bg-panel text-steel hover:text-white"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-surface text-muted hover:text-white"
                 }`}
               >
                 {s}
@@ -154,7 +154,7 @@ export default async function SchedulePage({
                 )}
               </>
             ) : (
-              <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+              <p className="text-sm text-muted">Some league configuration is owner-only.</p>
             )}
             <AdminFixturesEditor fixtures={fixtures} season={season} isOwner={isOwner} />
           </div>
@@ -176,7 +176,7 @@ export default async function SchedulePage({
                       initiallyOpen={defaultOpenStages.has(meta.stage)}
                     >
                       {stageFixtures.length === 0 ? (
-                        <p className="px-4 py-4 text-sm text-steel">
+                        <p className="px-4 py-4 text-sm text-muted">
                           Matchups TBD — check back once they&apos;re announced.
                         </p>
                       ) : (

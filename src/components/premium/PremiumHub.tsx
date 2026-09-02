@@ -36,7 +36,7 @@ function LeagueToggle({ league }: { league: CardLeague }) {
           href={target.key === "academy" ? "/premium?league=academy" : "/premium"}
           aria-current={league === target.key ? "page" : undefined}
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-            league === target.key ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+            league === target.key ? "bg-league-accent text-white" : "border border-border bg-surface text-muted hover:text-white"
           }`}
         >
           {target.label}
@@ -48,7 +48,7 @@ function LeagueToggle({ league }: { league: CardLeague }) {
 
 function PreviewFallback({ result }: { result: PreviewFailure<unknown> }) {
   return (
-    <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-line bg-navy/50 p-5 text-center text-sm text-steel">
+    <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-border bg-canvas/50 p-5 text-center text-sm text-muted">
       {resultMessage(result)}
     </div>
   );
@@ -74,7 +74,7 @@ function SectionHeading({
         </div>
         {action}
       </div>
-      {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">{description}</p> : null}
+      {description ? <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{description}</p> : null}
     </div>
   );
 }
@@ -96,16 +96,16 @@ function FeatureCard({
   external?: boolean;
   className?: string;
 }) {
-  const cardClass = `card-brand flex h-full flex-col gap-4 p-5 transition hover:border-coral/60 ${className}`;
+  const cardClass = `card-brand flex h-full flex-col gap-4 p-5 transition hover:border-primary/60 ${className}`;
   const cardContent = (
     <>
       <header>
         <span className="label-dash">{eyebrow}</span>
         <h3 className="type-display mt-2 text-2xl">{title}</h3>
-        <p className="mt-2 text-sm leading-6 text-steel">{description}</p>
+        <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
       </header>
       <div className="flex-1">{children}</div>
-      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-coral">
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
         Open {title} {external ? "↗" : "→"}
       </span>
     </>
@@ -124,12 +124,12 @@ function FeatureCard({
 
 function DraftLeaguePreview() {
   return (
-    <div className="flex min-h-28 flex-col justify-between rounded-lg border border-line bg-gradient-to-br from-coral/15 via-navy/70 to-gold/10 p-5">
+    <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border bg-gradient-to-br from-league-accent/15 via-canvas/70 to-league-secondary/10 p-5">
       <div className="flex items-center justify-between">
         <span className="font-display text-lg font-bold text-white">DRAFT LEAGUE</span>
         <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">External</span>
       </div>
-      <p className="mt-5 text-sm leading-6 text-steel">The companion league experience, linked from your Premium HQ.</p>
+      <p className="mt-5 text-sm leading-6 text-muted">The companion league experience, linked from your Premium HQ.</p>
     </div>
   );
 }
@@ -137,7 +137,7 @@ function DraftLeaguePreview() {
 function BettingGamePreview({ market }: { market: MarketCardData | null }) {
   if (!market) {
     return (
-      <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-line bg-navy/50 p-5 text-center text-sm text-steel">
+      <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed border-border bg-canvas/50 p-5 text-center text-sm text-muted">
         No bettable games are open right now.
       </div>
     );
@@ -155,31 +155,31 @@ function BettingGamePreview({ market }: { market: MarketCardData | null }) {
   });
 
   return (
-    <div className="rounded-lg border border-line bg-navy/60 p-3">
+    <div className="rounded-lg border border-border bg-canvas/60 p-3">
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1 rounded border p-3" style={{ borderColor: `${market.team_a.color}66` }}>
           <span className="font-mono text-xs font-semibold" style={{ color: market.team_a.color }}>
             {market.team_a.short_code}
           </span>
           <p className="mt-2 truncate text-sm font-semibold text-white">{market.team_a.name}</p>
-          <p className="mt-1 font-mono text-xs text-steel">{americanOdds(shareA)}</p>
+          <p className="mt-1 font-mono text-xs text-muted">{americanOdds(shareA)}</p>
         </div>
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-steel">vs</span>
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">vs</span>
         <div className="min-w-0 flex-1 rounded border p-3" style={{ borderColor: `${market.team_b.color}66` }}>
           <span className="font-mono text-xs font-semibold" style={{ color: market.team_b.color }}>
             {market.team_b.short_code}
           </span>
           <p className="mt-2 truncate text-sm font-semibold text-white">{market.team_b.name}</p>
-          <p className="mt-1 font-mono text-xs text-steel">{americanOdds(1 - shareA)}</p>
+          <p className="mt-1 font-mono text-xs text-muted">{americanOdds(1 - shareA)}</p>
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-steel">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted">
         <span className={market.status === "OPEN" ? "font-semibold text-mint" : "font-semibold text-gold"}>
           {market.status === "OPEN" ? "Betting open" : "Market locked"}
         </span>
         <span>{fmtPoints(totalPool)} pool</span>
       </div>
-      <p className="mt-2 truncate text-xs text-steel">
+      <p className="mt-2 truncate text-xs text-muted">
         {market.event_name} · {gameTime}
       </p>
     </div>
@@ -194,15 +194,15 @@ function MiniHigherLowerCard({ card, concealed = false }: { card: PlayerCardData
           <PlayerCard3D card={card} interactive={false} />
         </div>
       ) : (
-        <div className="flex h-full w-full flex-col justify-between rounded-xl border-2 border-coral/70 bg-gradient-to-br from-coral/20 via-navy to-cyan/10 p-2">
-          <span className="text-[0.45rem] font-black uppercase tracking-[0.18em] text-coral">{concealed ? "Challenger" : "Reference"}</span>
+        <div className="flex h-full w-full flex-col justify-between rounded-xl border-2 border-league-accent/70 bg-gradient-to-br from-league-accent/20 via-canvas to-league-secondary/10 p-2">
+          <span className="text-[0.45rem] font-black uppercase tracking-[0.18em] text-league-accent">{concealed ? "Challenger" : "Reference"}</span>
           <span className="self-center font-display text-2xl font-bold text-white">{concealed ? "?" : "OVR"}</span>
-          <span className="text-center text-[0.45rem] font-black uppercase tracking-[0.16em] text-steel">Higher or Lower</span>
+          <span className="text-center text-[0.45rem] font-black uppercase tracking-[0.16em] text-muted">Higher or Lower</span>
         </div>
       )}
       {concealed ? (
-        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-navy/55">
-          <span className="rounded-full border border-coral/70 bg-navy/80 px-2 py-1 font-display text-lg font-bold text-coral">?</span>
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-canvas/55">
+          <span className="rounded-full border border-league-accent/70 bg-canvas/80 px-2 py-1 font-display text-lg font-bold text-league-accent">?</span>
         </div>
       ) : null}
     </div>
@@ -214,11 +214,11 @@ function HigherLowerPreview({ referenceCard, challengerCard }: { referenceCard: 
     <div
       role="img"
       aria-label="Higher or Lower game preview"
-      className="flex min-h-36 items-center justify-center overflow-hidden rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-3"
+      className="flex min-h-36 items-center justify-center overflow-hidden rounded-lg border border-border bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-3"
     >
       <div className="flex items-center gap-2">
         <MiniHigherLowerCard card={referenceCard} />
-        <div className="flex shrink-0 flex-col items-center justify-center text-coral" aria-hidden="true">
+        <div className="flex shrink-0 flex-col items-center justify-center text-league-accent" aria-hidden="true">
           <span className="font-display text-2xl leading-5">↑</span>
           <span className="font-display text-2xl leading-5">↓</span>
         </div>
@@ -240,7 +240,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
-      <aside aria-label="New feature announcement" className="rounded border border-coral/50 bg-coral/10 px-4 py-3 text-sm text-steel">
+      <aside aria-label="New feature announcement" className="rounded border border-league-accent/50 bg-league-accent/10 px-4 py-3 text-sm text-muted">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="label-dash">New feature announcement</span>
@@ -249,10 +249,10 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Link href={fpldleHref} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
+            <Link href={fpldleHref} className="rounded border border-primary/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10">
               Play FPL&apos;dle →
             </Link>
-            <Link href={higherLowerHref} className="rounded border border-coral/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral/10">
+            <Link href={higherLowerHref} className="rounded border border-primary/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary/10">
               Play Higher or Lower →
             </Link>
           </div>
@@ -260,9 +260,9 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
       </aside>
       <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PREMIUM_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className="rounded-lg border border-line bg-panel/60 p-4 transition hover:border-coral/60">
+          <Link key={link.href} href={link.href} className="rounded-lg border border-border bg-surface/60 p-4 transition hover:border-primary/60">
             <span className="block text-sm font-semibold text-white">{link.label}</span>
-            <span className="mt-1 block text-xs text-steel">{link.note}</span>
+            <span className="mt-1 block text-xs text-muted">{link.note}</span>
           </Link>
         ))}
       </nav>
@@ -270,7 +270,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <div>
           <span className="label-dash">FPL Premium · {leagueLabel}</span>
           <h1 className="type-display mt-2 text-4xl sm:text-6xl">Premium HQ</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-steel sm:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
             Your cards, match-night tools, league markets, and collector economy — live in one place.
           </p>
         </div>
@@ -294,7 +294,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             className="lg:col-span-6"
           >
             {snapshot.cards.status === "ready" ? (
-              <div className="flex flex-wrap items-center gap-5 rounded-lg border border-line bg-navy/50 p-3 sm:p-5">
+              <div className="flex flex-wrap items-center gap-5 rounded-lg border border-border bg-canvas/50 p-3 sm:p-5">
                 <div className="flex h-[19rem] w-[13rem] shrink-0 items-start justify-center overflow-hidden sm:w-[14rem]">
                   <div className="origin-top scale-[0.67]">
                     <PlayerCard3D card={snapshot.cards.data.card} interactive={false} />
@@ -303,7 +303,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
                 <div className="min-w-44 flex-1">
                   <span className="label-dash">{snapshot.cards.data.selection === "own" ? "Your card" : "Featured card"}</span>
                   <p className="mt-2 font-display text-2xl font-bold text-white">{snapshot.cards.data.card.name}</p>
-                  <p className="mt-1 text-sm text-steel">
+                  <p className="mt-1 text-sm text-muted">
                     {snapshot.cards.data.card.tier.label} · {snapshot.cards.data.card.overall} OVR · {snapshot.cards.data.count} cards in {snapshot.cards.data.season}
                   </p>
                 </div>
@@ -323,12 +323,12 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
                 <BettingGamePreview market={snapshot.betting.data.market} />
                 <div className="mt-5 border-t border-gold/20 pt-3">
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs uppercase tracking-[0.16em] text-steel">Wallet</span>
+                    <span className="text-xs uppercase tracking-[0.16em] text-muted">Wallet</span>
                     <p className="font-display text-2xl font-bold text-gold">
                       {snapshot.betting.data.balance === null ? "—" : fmtPoints(snapshot.betting.data.balance)}
                     </p>
                   </div>
-                  <p className="mt-2 text-xs text-steel">
+                  <p className="mt-2 text-xs text-muted">
                     {snapshot.betting.data.event.name} · {snapshot.betting.data.event.open_markets} open markets
                   </p>
                 </div>
@@ -345,20 +345,20 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           >
             <>
               {snapshot.banger.status === "ready" ? (
-                <div className="rounded-lg border border-line bg-navy/60 p-4">
+                <div className="rounded-lg border border-border bg-canvas/60 p-4">
                   <blockquote className="line-clamp-4 text-sm leading-6 text-white">“{snapshot.banger.data.post.text}”</blockquote>
                   <div className="mt-5">
                     <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
                       <span className="text-mint">{snapshot.banger.data.score}% banger</span>
-                      <span className="text-steel">{snapshot.banger.data.post.bangerVotes + snapshot.banger.data.post.midVotes + snapshot.banger.data.post.stinkerVotes} votes</span>
+                      <span className="text-muted">{snapshot.banger.data.post.bangerVotes + snapshot.banger.data.post.midVotes + snapshot.banger.data.post.stinkerVotes} votes</span>
                     </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-line">
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
                       <div className="h-full rounded-full bg-mint" style={{ width: `${snapshot.banger.data.score}%` }} />
                     </div>
                   </div>
                 </div>
               ) : <PreviewFallback result={snapshot.banger} />}
-              <p className="mt-3 text-[10px] leading-4 text-steel">
+              <p className="mt-3 text-[10px] leading-4 text-muted">
                 FPL does not condone or endorse any tweets made by Stu.
               </p>
             </>
@@ -371,8 +371,8 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             href="/drafter"
             className="lg:col-span-6"
           >
-            <div className="flex min-h-28 items-center rounded-lg border border-line bg-navy/60 p-5">
-              <p className="text-sm leading-6 text-steel">
+            <div className="flex min-h-28 items-center rounded-lg border border-border bg-canvas/60 p-5">
+              <p className="text-sm leading-6 text-muted">
                 Secret team links, ready checks, change requests, and live spectator view — all in one
                 match-night workspace.
               </p>
@@ -407,8 +407,8 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             href={snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle"}
             className="lg:col-span-4"
           >
-            <div className="flex min-h-28 items-center rounded-lg border border-line bg-gradient-to-br from-coral/15 via-navy/70 to-gold/10 p-5">
-              <p className="text-sm leading-6 text-steel">
+            <div className="flex min-h-28 items-center rounded-lg border border-border bg-gradient-to-br from-league-accent/15 via-canvas/70 to-league-secondary/10 p-5">
+              <p className="text-sm leading-6 text-muted">
                 One shared puzzle for every {leagueLabel} Premium member, refreshed at midnight UTC.
               </p>
             </div>
@@ -429,12 +429,12 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
             href={guessTheCardHref}
             className="lg:col-span-4"
           >
-            <div className="flex min-h-28 flex-col justify-between rounded-lg border border-line bg-gradient-to-br from-cyan/10 via-navy/70 to-coral/10 p-5">
+            <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-5">
               <div className="flex items-center justify-between gap-3">
                 <span className="font-display text-lg font-bold text-white">?????#????</span>
                 <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
               </div>
-              <p className="mt-5 text-sm leading-6 text-steel">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
+              <p className="mt-5 text-sm leading-6 text-muted">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
             </div>
           </FeatureCard>
         </div>

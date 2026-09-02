@@ -65,11 +65,11 @@ export default function AdminForceNominate({
   return (
     <div className="flex flex-col gap-2">
       <h3 className="label-dash">Force nominate</h3>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Opens the auction for {nominatorTeam.name}, who are on the clock. Everyone still bids.
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1 text-xs text-steel">
+        <label className="flex items-center gap-1 text-xs text-muted">
           Player
           <select
             value={playerId}
@@ -85,7 +85,7 @@ export default function AdminForceNominate({
             ))}
           </select>
         </label>
-        <label className="flex items-center gap-1 text-xs text-steel">
+        <label className="flex items-center gap-1 text-xs text-muted">
           Opens at
           <input
             type="text"
@@ -102,7 +102,7 @@ export default function AdminForceNominate({
           type="button"
           onClick={() => void nominate()}
           disabled={busy || !playerId}
-          className="btn-coral px-3 py-1.5 text-xs"
+          className="btn-primary px-3 py-1.5 text-xs"
         >
           Nominate for {nominatorTeam.name}
         </button>

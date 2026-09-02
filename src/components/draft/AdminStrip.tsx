@@ -7,7 +7,7 @@ import AdminForceNominate from "./AdminForceNominate";
 import { friendly } from "./Toast";
 
 const BTN_STEEL =
-  "rounded border border-steel text-steel px-3 py-1.5 text-xs font-semibold hover:bg-steel/10 disabled:opacity-40";
+  "rounded border border-muted text-muted px-3 py-1.5 text-xs font-semibold hover:bg-muted/10 disabled:opacity-40";
 const BTN_DANGER =
   "rounded border border-red-500/60 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40";
 
@@ -90,7 +90,7 @@ export default function AdminStrip({
 
         <button
           disabled={busy}
-          className="rounded border border-coral text-coral px-3 py-1.5 text-xs font-semibold hover:bg-coral/10 disabled:opacity-40"
+          className="rounded border border-primary text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/10 disabled:opacity-40"
           onClick={() =>
             run(undoLabel, () => supabase.rpc("undo_last_sale", { p_draft_id: draft.id }))
           }
@@ -128,7 +128,7 @@ export default function AdminStrip({
 
       {!isComplete && (
         <div className="flex items-center gap-2">
-          <label htmlFor="countdown-seconds" className="text-xs text-steel">
+          <label htmlFor="countdown-seconds" className="text-xs text-muted">
             Countdown (s)
           </label>
           <input

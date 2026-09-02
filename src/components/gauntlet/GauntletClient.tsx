@@ -69,13 +69,13 @@ const BEATS: Record<CompStyle, CompStyle> = { poke: "dive", dive: "protect", pro
 function MomentumBar({ value }: { value: number }) {
   return (
     <div>
-      <div className="h-2.5 overflow-hidden rounded-full border border-line bg-[#3a2030]">
+      <div className="h-2.5 overflow-hidden rounded-full border border-border bg-[#3a2030]">
         <div
           className="h-full rounded-full bg-gradient-to-r from-[#2b6cb0] to-mint transition-all"
           style={{ width: `${value}%` }}
         />
       </div>
-      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-steel">Momentum · {value}%</p>
+      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted">Momentum · {value}%</p>
     </div>
   );
 }
@@ -86,9 +86,9 @@ function LineupRow({ lineup }: { lineup: GauntletRunRow["lineup"] }) {
       {lineup.map((card) => (
         <div
           key={`${card.role}-${card.inventoryId ?? "trialist"}`}
-          className={`w-[104px] rounded-lg border px-2.5 py-2 ${card.trialist ? "border-dashed border-line bg-panel/60" : "border-[#3d4a6b] bg-[#141c30]"}`}
+          className={`w-[104px] rounded-lg border px-2.5 py-2 ${card.trialist ? "border-dashed border-border bg-surface/60" : "border-[#3d4a6b] bg-[#141c30]"}`}
         >
-          <p className="text-[8px] uppercase tracking-[0.2em] text-steel">{card.role}</p>
+          <p className="text-[8px] uppercase tracking-[0.2em] text-muted">{card.role}</p>
           <p className="truncate text-[12px] font-bold text-white">{card.name}</p>
           <p className="font-mono text-sm font-extrabold text-mint">
             {card.overall}
@@ -137,23 +137,23 @@ function CompReadout({ cards }: { cards: GauntletCard[] }) {
   const shape = lineupShapeOf(cards);
   const { profile, style } = shape;
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-line/60 bg-panel/40 p-3">
+    <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-surface/40 p-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-steel">Comp readout</span>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-muted">Comp readout</span>
         {(["poke", "dive", "protect"] as CompStyle[]).map((key) => (
-          <span key={key} className={`font-mono text-xs ${key === style ? "font-bold text-mint" : "text-steel"}`}>
+          <span key={key} className={`font-mono text-xs ${key === style ? "font-bold text-mint" : "text-muted"}`}>
             {key} {profile[key]}
           </span>
         ))}
       </div>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Reads as <b className="uppercase text-white">{style}</b> — wins the draft read into{" "}
         <b className="uppercase">{BEATS[style]}</b>, loses it to <b className="uppercase">{BEATS[BEATS[style]]}</b>.
       </p>
 
-      <div className="grid gap-2 border-t border-line/50 pt-2.5 sm:grid-cols-2">
+      <div className="grid gap-2 border-t border-border/50 pt-2.5 sm:grid-cols-2">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-muted">
             Commitment <span className="font-mono text-white">{shape.commitment}</span>
           </p>
           <p className="mt-0.5 text-xs">
@@ -162,21 +162,21 @@ function CompReadout({ cards }: { cards: GauntletCard[] }) {
                 +{shape.focusBonus.toFixed(1)} on {FOCUS_LABEL[style]}
               </span>
             ) : (
-              <span className="text-steel">
+              <span className="text-muted">
                 Nothing yet — five bests with nothing in common commit to nothing. Lean the shape.
               </span>
             )}
           </p>
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-steel">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-muted">
             Chemistry <span className="font-mono text-white">{shape.chemistry}/5</span>
           </p>
           <p className="mt-0.5 text-xs">
             {shape.chemistryBonus > 0 ? (
               <span className="text-mint">+{shape.chemistryBonus.toFixed(1)} on every check</span>
             ) : (
-              <span className="text-steel">No real-life teammates fielded.</span>
+              <span className="text-muted">No real-life teammates fielded.</span>
             )}
           </p>
         </div>
@@ -398,7 +398,7 @@ export default function GauntletClient({
       <section className="card-brand flex flex-col gap-5 p-6">
         <div>
           <span className="label-dash">Draft your five</span>
-          <p className="mt-2 max-w-2xl text-sm text-steel">
+          <p className="mt-2 max-w-2xl text-sm text-muted">
             One per role, from your shelf. 🌱 marks this week&apos;s prints — they fight at +{FRESH_LEGS_BONUS}. A
             role you can&apos;t cover fields a 55-rated trialist (and taxes your score). The bracket mostly
             scales to your average, so a stronger shelf helps a little — but <b className="text-white">a
@@ -410,7 +410,7 @@ export default function GauntletClient({
           {GAUNTLET_ROLES.map((role, index) => {
             const card = draftCards[index];
             return (
-              <label key={role} className="flex flex-col gap-1 text-xs text-steel">
+              <label key={role} className="flex flex-col gap-1 text-xs text-muted">
                 <span className="label-dash">{role}</span>
                 <select
                   className="input-brand px-2 py-2 text-sm"
@@ -433,12 +433,12 @@ export default function GauntletClient({
                     </option>
                   ))}
                 </select>
-                <span className="font-mono text-[10px] text-steel">
+                <span className="font-mono text-[10px] text-muted">
                   {card.trialist
                     ? "warm body · −40 score/round"
                     : `${LANE_KEY[role]} ${card.stats[LANE_KEY[role]] ?? "~" + Math.max(30, card.overall - 5)} · combat ${card.stats.combat ?? "~" + Math.max(30, card.overall - 5)} · damage ${card.stats.damage ?? "~" + Math.max(30, card.overall - 5)}`}
                 </span>
-                {card.team ? <span className="truncate text-[10px] text-steel/80">{card.team}</span> : null}
+                {card.team ? <span className="truncate text-[10px] text-muted/80">{card.team}</span> : null}
               </label>
             );
           })}
@@ -447,7 +447,7 @@ export default function GauntletClient({
         {heirlooms.length > 0 ? (
           <div className="flex flex-col gap-2">
             <span className="label-dash">Bring a relic — optional</span>
-            <p className="text-xs text-steel">
+            <p className="text-xs text-muted">
               A moment or a roster plate can come along. It takes no role and never fights; it hands the run a
               small edge and stays on the shelf afterwards. The bracket is priced off your five, so this is an
               edge rather than a tax.
@@ -458,7 +458,7 @@ export default function GauntletClient({
                 aria-pressed={heirloomId === null}
                 onClick={() => setHeirloomId(null)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  heirloomId === null ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                  heirloomId === null ? "bg-gold text-navy" : "border border-border bg-surface text-muted hover:text-white"
                 }`}
               >
                 Bring nothing
@@ -472,7 +472,7 @@ export default function GauntletClient({
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     heirloomId === option.inventoryId
                       ? "bg-gold text-navy"
-                      : "border border-line bg-panel text-steel hover:text-white"
+                      : "border border-border bg-surface text-muted hover:text-white"
                   }`}
                 >
                   {option.kind === "moment" ? "✦ " : "▦ "}
@@ -492,16 +492,16 @@ export default function GauntletClient({
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-4">
-          <button type="button" onClick={start} disabled={pending || short || repeatsLast} className="btn-coral px-5 py-2.5 text-sm disabled:opacity-50">
+          <button type="button" onClick={start} disabled={pending || short || repeatsLast} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
             {pending ? "Entering…" : `Enter the Gauntlet — ${fmtPoints(GAUNTLET_ENTRY_FEE)}`}
           </button>
-          <span className="text-xs text-steel">
+          <span className="text-xs text-muted">
             Lineup average {draftAvg} · bracket starts just under it, ends well over
             {short ? ` · your wallet is short (${fmtPoints(balance)})` : ""}
           </span>
         </div>
         {weekBest > 0 ? (
-          <p className="text-xs text-steel">Your best this week: <b className="text-white">{weekBest.toLocaleString()}</b> — a new run can beat it.</p>
+          <p className="text-xs text-muted">Your best this week: <b className="text-white">{weekBest.toLocaleString()}</b> — a new run can beat it.</p>
         ) : null}
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </section>
@@ -548,7 +548,7 @@ export default function GauntletClient({
               : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
-          <span className="text-xs text-steel">run score</span>
+          <span className="text-xs text-muted">run score</span>
           {run.relics.length > 0 ? (
             <span className="ml-auto flex flex-wrap gap-1.5">
               {run.relics.map((key) => (
@@ -559,16 +559,16 @@ export default function GauntletClient({
         </div>
         <LineupRow lineup={run.lineup} />
         {!over ? (
-          <div className="flex flex-wrap items-center gap-3 border-t border-line/40 pt-3">
+          <div className="flex flex-wrap items-center gap-3 border-t border-border/40 pt-3">
             <button
               type="button"
               onClick={reset}
               disabled={pending}
-              className="rounded-full border border-line bg-panel px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
+              className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-50"
             >
               Walk away — keep nothing
             </button>
-            <span className="text-[11px] text-steel">
+            <span className="text-[11px] text-muted">
               Ends the run for no reward — the fee stays in the pot. Score is board points, never dollars;
               the only money the Gauntlet pays is Monday&apos;s pot, to the top of the board.
             </span>
@@ -592,14 +592,14 @@ export default function GauntletClient({
             onFinish={() => setTapeDone(true)}
           />
           {!tapeDone ? (
-            <p className="text-xs text-steel">
+            <p className="text-xs text-muted">
               The scoreboard, the read, and what comes next unlock when the tape ends — or hit Skip.
             </p>
           ) : null}
           {tapeDone ? (
             <div className="flex flex-col gap-4">
               {lastFight.won ? (
-                <p className="text-xs text-steel">
+                <p className="text-xs text-muted">
                   MVP <b className="text-white">{lastFight.mvp}</b> · +{lastFight.score.toLocaleString()} score
                   {lastFight.daring > 0 ? (
                     <span className="text-gold"> (of which {lastFight.daring} daring — the call landed)</span>
@@ -620,7 +620,7 @@ export default function GauntletClient({
           <span className="label-dash">
             {run.status === "cleared" ? "🏆 FULL CLEAR" : run.status === "banked" ? "You walked away" : "The run ends here"}
           </span>
-          <p className="text-sm text-steel">
+          <p className="text-sm text-muted">
             {run.status === "cleared"
               ? "Eight rounds, no falls. The board will remember."
               : run.status === "banked"
@@ -635,7 +635,7 @@ export default function GauntletClient({
               setPicks({});
               router.refresh();
             }}
-            className="btn-coral px-5 py-2.5 text-sm"
+            className="btn-primary px-5 py-2.5 text-sm"
           >
             Draft a new run — {fmtPoints(GAUNTLET_ENTRY_FEE)}
           </button>
@@ -666,7 +666,7 @@ export default function GauntletClient({
               <p className="mt-1 text-sm leading-5 text-white">
                 <b>{theirCall.choice.label}</b> — {theirCall.choice.description}
               </p>
-              <p className="mt-1 font-mono text-[10.5px] leading-4 text-steel">
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">
                 ↳ the call they made at this point in their own run. Knowing it does not make the answer free —
                 you still have to be able to afford it.
               </p>
@@ -689,7 +689,7 @@ export default function GauntletClient({
                   type="button"
                   onClick={() => choose(choice.key)}
                   disabled={pending}
-                  className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-line bg-panel/60"}`}
+                  className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-border bg-surface/60"}`}
                 >
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="type-display text-lg text-white">{choice.label}</span>
@@ -707,7 +707,7 @@ export default function GauntletClient({
                         your {choice.yourKeys.join("+")} <b className="text-mint">{preview.yourVal}</b> vs their{" "}
                         {choice.theirKeys.join("+")} <b className="text-coral">{preview.theirVal}</b>
                       </span>
-                      <span className="mt-1 font-mono text-[10px] text-steel">
+                      <span className="mt-1 font-mono text-[10px] text-muted">
                         lands <span className="text-mint">+{choice.win}</span> · fails{" "}
                         <span className="text-coral">{choice.lose}</span> momentum
                       </span>
@@ -717,18 +717,18 @@ export default function GauntletClient({
                       </span>
                     </>
                   ) : (
-                    <span className="mt-3 font-mono text-[10px] text-steel">
+                    <span className="mt-3 font-mono text-[10px] text-muted">
                       no roll · a sure +{choice.win} momentum · no daring
                     </span>
                   )}
-                  <span className="mt-2.5 border-t border-line/60 pt-2 text-[11px] leading-4 text-steel">
+                  <span className="mt-2.5 border-t border-border/60 pt-2 text-[11px] leading-4 text-muted">
                     ↳ {choice.consequence.note}
                   </span>
                 </button>
               );
             })}
           </div>
-          <p className="text-[11px] leading-4 text-steel">
+          <p className="text-[11px] leading-4 text-muted">
             <b className="text-white">Daring pays by risk, not by stat.</b> A call you&apos;re favoured to land
             pays a fraction of its listed score; a coin flip pays it in full; a long shot pays up to double. The
             safe play never pays daring at all — so the call you&apos;re best at is the cheap one. The second
@@ -739,7 +739,7 @@ export default function GauntletClient({
         <div className="card-brand flex flex-col gap-4 p-6">
           <div>
             <span className="label-dash text-coral">ROUND {run.round - 1} CLEARED · CHOOSE YOUR RELIC</span>
-            <p className="mt-1 text-xs text-steel">
+            <p className="mt-1 text-xs text-muted">
               One of three, run-scoped. The other two are burned — choosing is the game. Rares get likelier
               the deeper you go, and the offer leans toward what you are already building — never so far
               that it stops offering you a way out of it.
@@ -757,7 +757,7 @@ export default function GauntletClient({
                 {runHeirloom.title}
               </span>
               {runHeirloomBlurb ? (
-                <span className="font-mono text-[10.5px] leading-4 text-steel">{runHeirloomBlurb}</span>
+                <span className="font-mono text-[10.5px] leading-4 text-muted">{runHeirloomBlurb}</span>
               ) : null}
             </div>
           ) : null}
@@ -801,13 +801,13 @@ export default function GauntletClient({
                   </span>
                   <span className="type-display mt-1 text-xl text-white">{relic.title}</span>
                   <span className="mt-2 text-xs leading-5 text-[#cfc9d6]">{relic.effect}</span>
-                  <span className="mt-3 text-[10px] italic text-steel">“{relic.flavor}”</span>
+                  <span className="mt-3 text-[10px] italic text-muted">“{relic.flavor}”</span>
                 </button>
               );
             })}
           </div>
           {canSwap ? (
-            <div className="flex flex-wrap items-end gap-2 border-t border-line/60 pt-3">
+            <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
               <span className="label-dash">The sixth man</span>
               <select className="input-brand px-2 py-1.5 text-xs" value={swapOut} onChange={(e) => { setSwapOut(e.target.value === "" ? "" : Number(e.target.value)); setSwapIn(""); }}>
                 <option value="">Bench…</option>
@@ -845,10 +845,10 @@ export default function GauntletClient({
           </div>
           {run.next_opponent ? <ScoutingReport opponent={run.next_opponent} /> : null}
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" onClick={fight} disabled={pending} className="btn-coral px-6 py-2.5 text-sm disabled:opacity-50">
+            <button type="button" onClick={fight} disabled={pending} className="btn-primary px-6 py-2.5 text-sm disabled:opacity-50">
               {pending ? "The game is live…" : `FIGHT ROUND ${run.round}`}
             </button>
-            <span className="text-xs text-steel">The game pauses at 20:00 for your call — scout them first.</span>
+            <span className="text-xs text-muted">The game pauses at 20:00 for your call — scout them first.</span>
           </div>
         </div>
       )}

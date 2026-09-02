@@ -74,23 +74,23 @@ export default function CardsNav(props: { base: string }) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`group flex flex-col rounded-lg border border-transparent px-3 py-2 transition hover:border-line hover:bg-navy/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral ${
+                  className={`group flex flex-col rounded-lg border border-transparent px-3 py-2 transition hover:border-border hover:bg-canvas/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                     item.accent ? "hover:border-gold/60" : ""
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <span
                       className={`text-sm font-semibold ${
-                        item.accent ? "text-gold" : "text-white group-hover:text-coral"
+                        item.accent ? "text-gold" : "text-white group-hover:text-primary"
                       }`}
                     >
                       {item.label}
                     </span>
-                    <span aria-hidden className="ml-auto text-xs text-steel transition group-hover:translate-x-0.5">
+                    <span aria-hidden className="ml-auto text-xs text-muted transition group-hover:translate-x-0.5">
                       →
                     </span>
                   </span>
-                  <span className="mt-0.5 text-xs leading-5 text-steel">{item.blurb}</span>
+                  <span className="mt-0.5 text-xs leading-5 text-muted">{item.blurb}</span>
                 </Link>
               </li>
             ))}

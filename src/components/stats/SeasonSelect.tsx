@@ -37,7 +37,7 @@ export default function SeasonSelect({
           id="stats-season"
           value={season}
           onChange={(e) => onSeasonChange(e.target.value)}
-          className="rounded border border-line bg-navy px-3 py-1.5 text-sm font-semibold text-white focus:border-cyan focus:outline-none focus:[box-shadow:0_0_10px_rgb(53_230_255/0.3)]"
+          className="rounded border border-border bg-canvas px-3 py-1.5 text-sm font-semibold text-white focus:border-primary focus:outline-none focus:[box-shadow:0_0_10px_rgb(47_107_255/0.3)]"
         >
           {allowAllSeasons ? <option value={ALL_SEASONS}>All seasons</option> : null}
           {seasons.map((s) => (

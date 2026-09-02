@@ -92,7 +92,7 @@ function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
   return Number(b.signed) - Number(a.signed) || b.overall - a.overall || a.id - b.id;
 }
 
-const CHIP = "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
+const CHIP = "rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted";
 const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
 
 /** The line under a single copy: whose it is, which print run it came from,
@@ -114,7 +114,7 @@ function CopyCaption({
     <div className="flex flex-col items-center gap-1.5 text-center">
       <span className="text-sm font-semibold text-white">
         {row.playerName}
-        {count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{count}</span> : null}
+        {count > 1 ? <span className="ml-1.5 text-xs font-bold text-muted">×{count}</span> : null}
       </span>
       <div className="flex flex-wrap justify-center gap-1">
         <span className={CHIP}>{editionLabel(row.editionWeek)}</span>
@@ -193,11 +193,11 @@ function PickCell({
         <PlayerCard3D card={row.card} forceFoil={row.foil} foilType={row.foilType} flame={flame} />
         <span className="flex w-full items-center justify-center gap-1.5 text-xs">
           <span className="truncate font-semibold text-white">{row.playerName}</span>
-          <span className={picked ? "font-bold text-gold" : "text-steel"}>
+          <span className={picked ? "font-bold text-gold" : "text-muted"}>
             {picked ? "✓ " : ""}+{fmtPoints(value)}
           </span>
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-steel">
+        <span className="text-[10px] uppercase tracking-wide text-muted">
           {locked ? "On expedition" : editionLabel(row.editionWeek)}
         </span>
       </button>
@@ -231,7 +231,7 @@ function ShowMore({
       <button type="button" onClick={onMore} className="btn-pill px-5 py-2 text-sm">
         Show more
       </button>
-      <span className="text-xs text-steel">
+      <span className="text-xs text-muted">
         {shown.toLocaleString()} of {total.toLocaleString()} {noun}
         {total === 1 ? "" : "s"} · {left.toLocaleString()} more
       </span>
@@ -356,7 +356,7 @@ export default function CollectionGrid({
   }
 
   if (inventory.length === 0) {
-    return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
+    return <p className="text-sm text-muted">No cards yet — open your first pack.</p>;
   }
 
   const counts: Record<VariantFilter, number> = {
@@ -372,7 +372,7 @@ export default function CollectionGrid({
       onClick={() => (selecting ? leaveSelectMode() : setSelecting(true))}
       aria-pressed={selecting}
       className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-        selecting ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
+        selecting ? "bg-gold text-navy" : "border border-border bg-surface text-muted hover:text-white"
       }`}
     >
       {selecting ? "Cancel" : "Select to dust"}
@@ -391,7 +391,7 @@ export default function CollectionGrid({
           // cleared state here has a name.
           onClick={() => chooseFilter(filter === key && key !== "all" ? "all" : key)}
           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-            filter === key ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+            filter === key ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
           }`}
         >
           {label} · {counts[key]}
@@ -411,7 +411,7 @@ export default function CollectionGrid({
     return (
       <div className="flex flex-col gap-4">
         {chips}
-        <p className="text-xs text-steel">
+        <p className="text-xs text-muted">
           Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup or out on an
           expedition can&apos;t be dusted and the shelf will say so.
         </p>
@@ -442,17 +442,17 @@ export default function CollectionGrid({
         ) : null}
         {/* Sticky, because the selection is made by scrolling and a button
             at the bottom of four hundred cards is a button nobody finds. */}
-        <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-navy/95 px-4 py-3 shadow-lg">
+        <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-canvas/95 px-4 py-3 shadow-lg">
           <span className="text-sm font-semibold text-white">
             {picked.size} selected
-            {picked.size >= MAX_DUST_BATCH ? <span className="ml-1 text-xs text-steel">(max)</span> : null}
+            {picked.size >= MAX_DUST_BATCH ? <span className="ml-1 text-xs text-muted">(max)</span> : null}
           </span>
           <span className="text-sm font-bold text-gold">+{fmtPoints(total)}</span>
           {picked.size > 0 ? (
             <button
               type="button"
               onClick={() => setPicked(new Set())}
-              className="text-xs font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-white hover:underline"
+              className="text-xs font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-white hover:underline"
             >
               Clear
             </button>
@@ -480,7 +480,7 @@ export default function CollectionGrid({
       <div className="flex flex-col gap-4">
         {chips}
         {shown.length === 0 ? (
-          <p className="text-sm text-steel">{EMPTY_COPY[filter]}</p>
+          <p className="text-sm text-muted">{EMPTY_COPY[filter]}</p>
         ) : (
           <>
             {/* card-cell carries its own padding, so the gaps come down by
@@ -560,7 +560,7 @@ export default function CollectionGrid({
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="text-sm font-semibold text-white">
                 {entry.best.playerName}
-                {entry.count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{entry.count}</span> : null}
+                {entry.count > 1 ? <span className="ml-1.5 text-xs font-bold text-muted">×{entry.count}</span> : null}
               </span>
               <div className="flex flex-wrap justify-center gap-1">
                 {entry.editions.map((week) => (
@@ -587,7 +587,7 @@ export default function CollectionGrid({
                   type="button"
                   onClick={() => togglePrints(entry.best.slug)}
                   aria-expanded={expanded.has(entry.best.slug)}
-                  className="text-[10px] font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-coral hover:underline"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
                 >
                   {expanded.has(entry.best.slug) ? "Hide prints" : `View prints (${entry.prints.length})`}
                 </button>

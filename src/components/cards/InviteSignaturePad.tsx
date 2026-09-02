@@ -129,7 +129,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
       <div className="flex w-full max-w-md flex-col items-center gap-2 text-center">
         <span className="text-2xl">🖋️</span>
         <p className="text-sm font-semibold text-white">Signature saved.</p>
-        <p className="text-xs text-steel">
+        <p className="text-xs text-muted">
           Your ink is on file — from now on, your champions card can come out of the pack autographed.
         </p>
       </div>
@@ -145,7 +145,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="w-full max-w-full touch-none rounded border border-line bg-navy"
+        className="w-full max-w-full touch-none rounded border border-border bg-canvas"
         style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
       />
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -153,7 +153,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
           type="button"
           onClick={clear}
           disabled={saving || !dirty}
-          className="rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40"
+          className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
         >
           Clear
         </button>
@@ -161,12 +161,12 @@ export default function InviteSignaturePad({ token }: { token: string }) {
           type="button"
           onClick={() => void save()}
           disabled={saving || !dirty}
-          className="btn-coral px-4 py-1.5 text-xs disabled:opacity-40"
+          className="btn-primary px-4 py-1.5 text-xs disabled:opacity-40"
         >
           {saving ? "Saving…" : saveArmed ? "Happy with it? Tap again" : "Sign it"}
         </button>
       </div>
-      <p className="text-[11px] text-steel">One save only — the link retires once your signature lands.</p>
+      <p className="text-[11px] text-muted">One save only — the link retires once your signature lands.</p>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
     </div>
   );

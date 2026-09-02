@@ -18,8 +18,8 @@ export default function CenterStage({
 }) {
   if (!lot || !player) {
     return (
-      <section className="card-brand flex flex-col items-center justify-center gap-2 border-2 border-dashed border-line p-8 text-center">
-        <p className="text-sm text-steel">
+      <section className="card-brand flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border p-8 text-center">
+        <p className="text-sm text-muted">
           Waiting for {nominatorTeam?.name ?? "the next team"} to nominate…
         </p>
       </section>
@@ -33,7 +33,7 @@ export default function CenterStage({
     >
       <div>
         <h2 className="type-display text-3xl text-white">{player.display_name}</h2>
-        <p className="text-xs uppercase tracking-wide text-steel">
+        <p className="text-xs uppercase tracking-wide text-muted">
           {player.role}
           {player.rank ? ` · ${player.rank}` : ""}
         </p>
@@ -42,7 +42,7 @@ export default function CenterStage({
             href={player.opgg_url}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-steel underline"
+            className="text-xs text-muted underline"
           >
             op.gg
           </a>
@@ -50,8 +50,8 @@ export default function CenterStage({
       </div>
 
       <div className="type-display text-5xl text-gold">{lot.current_bid}</div>
-      <p className="text-sm text-steel">
-        Leading: <span className="text-steel">{leadingTeam?.name ?? "—"}</span>
+      <p className="text-sm text-muted">
+        Leading: <span className="text-muted">{leadingTeam?.name ?? "—"}</span>
       </p>
 
       <div

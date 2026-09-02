@@ -33,7 +33,7 @@ export default function SeasonsAdmin({ seasons }: { seasons: SeasonRow[] }) {
         }}
         className="card-brand flex flex-wrap items-end gap-2 p-4"
       >
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           New season name
           <input
             value={name}
@@ -47,7 +47,7 @@ export default function SeasonsAdmin({ seasons }: { seasons: SeasonRow[] }) {
           type="submit"
           disabled={pending || !name.trim() || hasActive}
           title={hasActive ? "Close the active season first" : undefined}
-          className="btn-coral px-4 py-2 text-sm"
+          className="btn-primary px-4 py-2 text-sm"
         >
           Start season
         </button>
@@ -56,21 +56,21 @@ export default function SeasonsAdmin({ seasons }: { seasons: SeasonRow[] }) {
       <div className="flex flex-col gap-2">
         <h2 className="label-dash">Seasons ({seasons.length})</h2>
         {seasons.length === 0 ? (
-          <p className="text-sm text-steel">No seasons yet.</p>
+          <p className="text-sm text-muted">No seasons yet.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {seasons.map((s) => (
               <li key={s.id} className="card-brand flex flex-wrap items-center justify-between gap-3 p-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium text-white">{s.name}</span>
-                  <span className="text-xs text-steel">
+                  <span className="text-xs text-muted">
                     {s.status} · started {new Date(s.started_at).toLocaleDateString()}
                     {s.closed_at ? ` · closed ${new Date(s.closed_at).toLocaleDateString()}` : ""}
                   </span>
                 </div>
                 {s.status === "ACTIVE" && (
                   <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 text-xs text-steel">
+                    <label className="flex items-center gap-1 text-xs text-muted">
                       Reset balances to
                       <input
                         type="number"

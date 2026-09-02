@@ -18,13 +18,13 @@ function Finding({
   accent: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-line bg-panel/40 p-4">
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface/40 p-4">
       <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>
         {tag}
         {finding.clock > 0 ? ` · ${finding.clock}:00` : ""}
       </span>
       <h4 className="type-display text-base leading-snug text-white">{finding.headline}</h4>
-      <p className="text-xs leading-5 text-steel">{finding.detail}</p>
+      <p className="text-xs leading-5 text-muted">{finding.detail}</p>
       {finding.counter ? (
         <p className="mt-1 border-t border-dashed border-gold/40 pt-2 font-mono text-[11px] leading-4 text-gold">
           ↳ {finding.counter}
@@ -48,8 +48,8 @@ export function AutopsyPanel({ autopsy, won }: { autopsy: Autopsy; won: boolean 
       >
         <span className="label-dash">The read</span>
         <p className="type-display mt-1.5 text-2xl leading-tight text-white sm:text-3xl">{autopsy.verdict}</p>
-        <p className="mt-2 max-w-2xl text-sm text-steel">{autopsy.detail}</p>
-        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] text-steel">
+        <p className="mt-2 max-w-2xl text-sm text-muted">{autopsy.detail}</p>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[11px] text-muted">
           <span>
             fights <b className="text-white">{autopsy.stats.fightsWon}/{autopsy.stats.fightsTotal}</b>
           </span>
@@ -86,10 +86,10 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
     (a, b) => b.contestsLost * 2 + b.deaths - b.contestsWon * 2 - b.kills - (a.contestsLost * 2 + a.deaths - a.contestsWon * 2 - a.kills),
   )[0];
   return (
-    <div className="overflow-x-auto rounded-xl border border-line">
+    <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full min-w-[560px] border-collapse text-left text-[13px]">
         <thead>
-          <tr className="bg-black/25 text-[10px] uppercase tracking-[0.16em] text-steel">
+          <tr className="bg-black/25 text-[10px] uppercase tracking-[0.16em] text-muted">
             <th className="px-3 py-2 font-semibold">Role</th>
             <th className="px-3 py-2 font-semibold">Card</th>
             <th className="px-3 py-2 text-right font-semibold">K / D / A</th>
@@ -102,8 +102,8 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
           {players.map((player) => {
             const isWorst = worst && player.role === worst.role && player.contestsLost > player.contestsWon;
             return (
-              <tr key={player.role} className="border-t border-line/50">
-                <td className="px-3 py-2 text-steel">{player.role}</td>
+              <tr key={player.role} className="border-t border-border/50">
+                <td className="px-3 py-2 text-muted">{player.role}</td>
                 <td className="px-3 py-2">
                   <span className={player.name === mvp ? "font-semibold text-gold" : "text-white"}>{player.name}</span>
                   {player.name === mvp ? <span className="ml-1.5 text-[10px] text-gold">MVP</span> : null}
@@ -111,7 +111,7 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
                 <td className="px-3 py-2 text-right font-mono tabular-nums">
                   {player.kills} / {player.deaths} / {player.assists}
                 </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums text-steel">
+                <td className="px-3 py-2 text-right font-mono tabular-nums text-muted">
                   {player.gold.toLocaleString()}
                 </td>
                 <td className="px-3 py-2">
@@ -123,13 +123,13 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
                         background: isWorst ? "#ff6b35" : "#35e6ff",
                       }}
                     />
-                    <span className="font-mono tabular-nums text-steel">{player.damageShare}%</span>
+                    <span className="font-mono tabular-nums text-muted">{player.damageShare}%</span>
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right font-mono tabular-nums">
                   <span className="text-mint">{player.contestsWon}</span>
-                  <span className="text-steel"> · </span>
-                  <span className={player.contestsLost > player.contestsWon ? "text-coral" : "text-steel"}>
+                  <span className="text-muted"> · </span>
+                  <span className={player.contestsLost > player.contestsWon ? "text-coral" : "text-muted"}>
                     {player.contestsLost}
                   </span>
                 </td>

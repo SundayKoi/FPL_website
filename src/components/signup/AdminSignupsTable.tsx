@@ -13,7 +13,7 @@ function formatDate(iso: string): string {
 }
 
 const headClass =
-  "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-steel";
+  "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-muted";
 
 /** Staff view of the player pool — the sheet, but on the site. */
 export default function AdminSignupsTable({ signups }: { signups: SignupRow[] }) {
@@ -58,7 +58,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
 
   return (
     <div className="card-brand overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <span className="label-dash">
           Admin — signups ({visible.length}
           {seasonFilter === "all" ? " total" : ` in ${seasonFilter}`})
@@ -68,7 +68,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
             <button
               type="button"
               onClick={() => void handleCopyCsv()}
-              className="rounded-full border border-line bg-panel px-3 py-1 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+              className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
             >
               {copied ? "Copied!" : "Copy CSV"}
             </button>
@@ -78,7 +78,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
               value={seasonFilter}
               onChange={(e) => setSeasonFilter(e.target.value)}
               aria-label="Filter signups by season"
-              className="rounded border border-line bg-navy px-2 py-1 text-xs font-semibold text-white focus:border-coral focus:outline-none"
+              className="rounded border border-border bg-canvas px-2 py-1 text-xs font-semibold text-white focus:border-primary focus:outline-none"
             >
               <option value="all">All seasons</option>
               {seasons.map((s) => (
@@ -98,7 +98,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
       )}
 
       {visible.length === 0 ? (
-        <p className="px-4 py-4 text-sm text-steel">No signups yet.</p>
+        <p className="px-4 py-4 text-sm text-muted">No signups yet.</p>
       ) : (
         <div className="overflow-x-auto p-2">
           <table className="w-full min-w-[1000px] border-collapse text-sm">
@@ -121,14 +121,14 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
               {visible.map((s) => (
                 <tr
                   key={s.id}
-                  className={`border-t border-line/60 align-top ${
+                  className={`border-t border-border/60 align-top ${
                     duplicates.has(s.id) ? "bg-red-500/5" : ""
                   }`}
                 >
-                  <td className="whitespace-nowrap px-2 py-1.5 text-xs text-steel">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-xs text-muted">
                     {formatDate(s.created_at)}
                   </td>
-                  <td className="px-2 py-1.5 text-steel">{s.season}</td>
+                  <td className="px-2 py-1.5 text-muted">{s.season}</td>
                   <td className="px-2 py-1.5 font-semibold text-white">
                     {s.discord}
                     {duplicates.has(s.id) && (
@@ -140,7 +140,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                       </span>
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-steel">{s.riot_id}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-muted">{s.riot_id}</td>
                   <td className="max-w-[16rem] px-2 py-1.5">
                     {/* First link only in the cell; full text in the title tooltip. */}
                     <a
@@ -148,7 +148,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                       target="_blank"
                       rel="noreferrer"
                       title={s.opgg}
-                      className="block truncate text-coral hover:underline"
+                      className="block truncate text-primary hover:underline"
                     >
                       {s.opgg}
                     </a>
@@ -164,13 +164,13 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                       {s.player_status === "returning" ? "RET" : "NEW"}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-steel">{s.current_rank}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-steel">{s.peak_rank}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 uppercase text-steel">
+                  <td className="whitespace-nowrap px-2 py-1.5 text-muted">{s.current_rank}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-muted">{s.peak_rank}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 uppercase text-muted">
                     {s.primary_role}
                     {s.secondary_role ? ` / ${s.secondary_role}` : ""}
                   </td>
-                  <td className="px-2 py-1.5 text-steel">{s.captain_interest ? "Yes" : "No"}</td>
+                  <td className="px-2 py-1.5 text-muted">{s.captain_interest ? "Yes" : "No"}</td>
                   <td className="px-2 py-1.5">
                     <button
                       type="button"

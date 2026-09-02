@@ -21,10 +21,10 @@ const FLAG_STYLE: Record<BalanceFlag, string> = {
   trap: "bg-coral/20 text-coral border-coral/40",
   sleeper: "bg-gold/20 text-gold border-gold/40",
   dominant: "bg-white/10 text-chalk border-white/20",
-  ignored: "bg-white/10 text-steel border-white/20",
+  ignored: "bg-white/10 text-muted border-white/20",
   strong: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  weak: "bg-white/10 text-steel border-white/20",
-  thin: "bg-transparent text-steel/60 border-white/10",
+  weak: "bg-white/10 text-muted border-white/20",
+  thin: "bg-transparent text-muted/60 border-white/10",
 };
 
 function Flags({ flags }: { flags: BalanceFlag[] }) {
@@ -65,11 +65,11 @@ export default async function GauntletBalancePage() {
   return (
     <main className="bg-hash mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-16">
       <header className="flex flex-col gap-2">
-        <Link href="/admin" className="label-dash w-fit hover:text-coral">
+        <Link href="/admin" className="label-dash w-fit hover:text-primary">
           ← Admin
         </Link>
         <h1 className="type-display text-4xl sm:text-5xl">Gauntlet balance</h1>
-        <p className="max-w-2xl text-sm text-steel">
+        <p className="max-w-2xl text-sm text-muted">
           The last {WINDOW_WEEKS} weeks of tape, from {since}. {report.rounds.toLocaleString()} rounds across{" "}
           {report.runs.toLocaleString()} runs and {report.offers.toLocaleString()} relic offers. Nothing here tunes
           anything — it says what to go change by hand.
@@ -91,7 +91,7 @@ export default async function GauntletBalancePage() {
       <section aria-label="Findings" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Findings</h2>
         {report.headlines.length === 0 ? (
-          <p className="text-sm text-steel">
+          <p className="text-sm text-muted">
             Nothing crossed the bar. Either the mode is in a decent place or the sample is still thin — check the
             round counts below before reading that as good news.
           </p>
@@ -108,13 +108,13 @@ export default async function GauntletBalancePage() {
 
       <section aria-label="Baseline" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Baseline by round</h2>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Every lift below is measured against this, not against a flat average — a relic taken at round six only ever
           fights the hardest rounds anyone reaches.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-sm tabular-nums">
-            <thead className="text-left text-xs uppercase tracking-wide text-steel">
+            <thead className="text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="py-1">Round</th>
                 <th className="py-1">Fought</th>
@@ -138,14 +138,14 @@ export default async function GauntletBalancePage() {
 
       <section aria-label="Enemy plans" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Their game plans</h2>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Nobody chooses which enemy they meet, so there is no take rate here — only whether a disposition is
           pulling its weight. Each is priced to be worth nothing on aggregate; a plan that measures strong or
           weak against the round baseline means the weights in <code>foe.ts</code> want re-measuring.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm tabular-nums">
-            <thead className="text-left text-xs uppercase tracking-wide text-steel">
+            <thead className="text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="py-1">Plan</th>
                 <th className="py-1">Rounds</th>
@@ -175,13 +175,13 @@ export default async function GauntletBalancePage() {
 
       <section aria-label="Relics" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Relics</h2>
-        <p className="text-sm text-steel">
+        <p className="text-sm text-muted">
           Take rate is against the times the relic was actually on the table. Lift is win rate minus the baseline of
           the same rounds, in points.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm tabular-nums">
-            <thead className="text-left text-xs uppercase tracking-wide text-steel">
+            <thead className="text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="py-1">Relic</th>
                 <th className="py-1">Offered</th>
@@ -198,7 +198,7 @@ export default async function GauntletBalancePage() {
                 <tr key={relic.key} className="border-t border-white/10">
                   <td className="py-1.5">
                     <span className="font-semibold text-chalk">{relic.title}</span>
-                    <span className="ml-2 text-xs text-steel">
+                    <span className="ml-2 text-xs text-muted">
                       {relic.family} · {relic.rarity}
                     </span>
                   </td>
@@ -226,13 +226,13 @@ export default async function GauntletBalancePage() {
           <div key={situation.key} className="card-brand flex flex-col gap-2 p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="type-display text-xl">{situation.title}</h3>
-              <span className="text-xs uppercase tracking-wide text-steel">
+              <span className="text-xs uppercase tracking-wide text-muted">
                 momentum {situation.band[0]}–{situation.band[1]} · seen {situation.seen.toLocaleString()}
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm tabular-nums">
-                <thead className="text-left text-xs uppercase tracking-wide text-steel">
+                <thead className="text-left text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th className="py-1">Call</th>
                     <th className="py-1">Taken</th>
@@ -250,7 +250,7 @@ export default async function GauntletBalancePage() {
                       <td className="py-1.5 text-chalk">{choice.label}</td>
                       <td className="py-1.5">{choice.taken}</td>
                       <td className="py-1.5">{pct(choice.takeRate)}</td>
-                      <td className="py-1.5 text-steel">{pct(choice.fairShare)}</td>
+                      <td className="py-1.5 text-muted">{pct(choice.fairShare)}</td>
                       <td className="py-1.5">{pct(choice.winRate)}</td>
                       <td className={`py-1.5 ${choice.lift >= 0 ? "text-emerald-300" : "text-coral"}`}>
                         {lift(choice.lift)}

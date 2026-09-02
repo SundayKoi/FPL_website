@@ -115,7 +115,7 @@ export default function AdminSeasonSettings({
                 setSaved(false);
               }}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                phase === p ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
+                phase === p ? "bg-primary text-white" : "border border-border bg-surface text-muted hover:text-white"
               }`}
             >
               {p}
@@ -128,19 +128,19 @@ export default function AdminSeasonSettings({
         type="button"
         onClick={() => void handleSave()}
         disabled={busy}
-        className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+        className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save"}
       </button>
 
-      {saved && <span className="text-xs font-semibold text-mint">Saved</span>}
+      {saved && <span className="text-xs font-semibold text-success">Saved</span>}
       {error && (
         <p role="alert" className="w-full text-sm text-red-400">
           {error}
         </p>
       )}
 
-      <p className="w-full text-xs text-steel">
+      <p className="w-full text-xs text-muted">
         Stats ingestion runs without <code>--season</code>/<code>--phase</code> flags use these
         values, so automated match imports get labeled correctly. Academy rows carry the Academy
         season instead, which is what keeps the two leagues&apos; stats and season pickers apart.

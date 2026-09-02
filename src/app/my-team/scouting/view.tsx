@@ -17,11 +17,11 @@ function ScoutingUnavailable({ core = false }: { core?: boolean }) {
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section className="card-brand p-5" aria-label={core ? "My Team unavailable" : "Scouting unavailable"}>
-          <span className="label-dash text-gold">Premium · Scouting</span>
-          <p className="mt-2 text-sm text-steel">
+          <span className="label-dash text-prestige">Premium · Scouting</span>
+          <p className="mt-2 text-sm text-muted">
             {core ? "My Team is temporarily unavailable." : "Scouting data is temporarily unavailable."}
           </p>
-          <p className="mt-2 text-sm text-steel">Please refresh and try again.</p>
+          <p className="mt-2 text-sm text-muted">Please refresh and try again.</p>
         </section>
       </div>
     </main>
@@ -94,17 +94,17 @@ export async function MyTeamScoutingPageView({
   return (
     <main className="bg-hash flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-line pb-8">
+        <header className="border-b border-border pb-8">
           <div>
             <span className="label-dash">My Team · {dashboard.season}</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Scouting</h1>
-            <p className="mt-4 text-lg leading-8 text-steel">Review your next opponent&apos;s draft history.</p>
+            <p className="mt-4 text-lg leading-8 text-muted">Review your next opponent&apos;s draft history.</p>
           </div>
         </header>
 
         {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
           <form action={leaguePath("scouting", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
-            <label htmlFor="scouting-team-switch" className="flex flex-col gap-1 text-xs text-steel">
+            <label htmlFor="scouting-team-switch" className="flex flex-col gap-1 text-xs text-muted">
               Viewing team (admin)
               <select
                 id="scouting-team-switch"
@@ -117,7 +117,7 @@ export async function MyTeamScoutingPageView({
                 ))}
               </select>
             </label>
-            <button type="submit" className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy">
+            <button type="submit" className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
               Switch
             </button>
           </form>
@@ -125,15 +125,15 @@ export async function MyTeamScoutingPageView({
 
         {!nextFixture || !opponent ? (
           <section className="card-brand mt-8 p-5">
-            <span className="label-dash text-gold">Premium · Scouting</span>
-            <p className="mt-2 text-sm text-steel">No upcoming opponent to scout.</p>
+            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <p className="mt-2 text-sm text-muted">No upcoming opponent to scout.</p>
           </section>
         ) : scoutingSource ? (
           <OpponentScout source={scoutingSource} />
         ) : scoutingError ? (
           <section className="card-brand mt-8 p-5" aria-label="Scouting unavailable">
-            <span className="label-dash text-gold">Premium · Scouting</span>
-            <p className="mt-2 text-sm text-steel">Scouting data is temporarily unavailable.</p>
+            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <p className="mt-2 text-sm text-muted">Scouting data is temporarily unavailable.</p>
           </section>
         ) : null}
       </div>

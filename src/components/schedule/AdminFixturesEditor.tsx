@@ -127,7 +127,7 @@ function FixtureFields({
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Season
         <input
           type="text"
@@ -137,7 +137,7 @@ function FixtureFields({
           className={inputClass}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Stage
         <select
           value={form.stage}
@@ -157,7 +157,7 @@ function FixtureFields({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Division
         <select
           value={form.division}
@@ -172,7 +172,7 @@ function FixtureFields({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Team A
         <input
           type="text"
@@ -182,7 +182,7 @@ function FixtureFields({
           className={inputClass}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Team B
         <input
           type="text"
@@ -192,7 +192,7 @@ function FixtureFields({
           className={inputClass}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Date &amp; time (ET)
         <input
           type="datetime-local"
@@ -201,7 +201,7 @@ function FixtureFields({
           className={inputClass}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Best of
         <select
           value={form.bestOf}
@@ -215,7 +215,7 @@ function FixtureFields({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Score A
         <input
           type="text"
@@ -226,7 +226,7 @@ function FixtureFields({
           className={inputClass}
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Score B
         <input
           type="text"
@@ -330,13 +330,13 @@ export default function AdminFixturesEditor({
                 type="button"
                 onClick={handleAdd}
                 disabled={addStatus.kind === "saving"}
-                className={`${buttonClass} w-fit bg-coral text-navy`}
+                className={`${buttonClass} w-fit bg-primary text-white`}
               >
                 {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
               </button>
             </div>
           ) : (
-            <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+            <p className="text-sm text-muted">Some league configuration is owner-only.</p>
           )}
 
           {fixtures.length > 0 && (
@@ -346,9 +346,9 @@ export default function AdminFixturesEditor({
                 const meta = stageMeta(fixture.stage);
                 const isEditing = editingId === fixture.id;
                 return (
-                  <div key={fixture.id} className="rounded border border-line/60 bg-navy/60 p-3">
+                  <div key={fixture.id} className="rounded border border-border/60 bg-canvas/60 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-sm text-steel">
+                      <span className="text-sm text-muted">
                         <span className="font-semibold text-white">{meta.label}</span>
                         {" · "}
                         {fixture.team_a ?? "TBD"} vs {fixture.team_b ?? "TBD"}
@@ -365,7 +365,7 @@ export default function AdminFixturesEditor({
                               setEditStatus({ kind: "idle" });
                             }
                           }}
-                          className={`${buttonClass} border border-line bg-panel text-steel hover:text-white`}
+                          className={`${buttonClass} border border-border bg-surface text-muted hover:text-white`}
                         >
                           {isEditing ? "Cancel" : "Edit"}
                         </button>
@@ -393,7 +393,7 @@ export default function AdminFixturesEditor({
                           type="button"
                           onClick={handleSave}
                           disabled={editStatus.kind === "saving"}
-                          className={`${buttonClass} w-fit bg-coral text-navy`}
+                          className={`${buttonClass} w-fit bg-primary text-white`}
                         >
                           {editStatus.kind === "saving" ? "Saving…" : "Save fixture"}
                         </button>

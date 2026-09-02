@@ -86,7 +86,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
                   {i === 0 && <span className="mr-1.5 font-mono text-gold">#1</span>}
                   {row.team_name}
                 </h3>
-                <p className="mt-0.5 font-mono text-xs text-steel">
+                <p className="mt-0.5 font-mono text-xs text-muted">
                   <span className="text-mint">{row.wins}W</span>
                   {" · "}
                   <span className="text-pink">{row.losses}L</span>
@@ -118,7 +118,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
             <dl className="flex flex-col gap-1.5">
               {RATES.map((rate) => (
                 <div key={rate.label} className="flex items-center gap-2">
-                  <dt className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-steel">
+                  <dt className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
                     {rate.label}
                   </dt>
                   <dd className="flex flex-1 items-center gap-2">
@@ -131,7 +131,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
               ))}
             </dl>
 
-            <div className="flex justify-between border-t border-line/50 pt-2 font-mono text-xs text-steel">
+            <div className="flex justify-between border-t border-border/50 pt-2 font-mono text-xs text-muted">
               <span>
                 <span className="text-white">{row.avg_team_kills.toFixed(1)}</span> kills/game
               </span>

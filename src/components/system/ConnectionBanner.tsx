@@ -14,7 +14,7 @@ export default function ConnectionBanner({
       <div
         role="status"
         aria-live="polite"
-        className="rounded border border-line bg-panel px-3 py-2 text-center text-xs text-steel"
+        className="rounded border border-border bg-surface px-3 py-2 text-center text-xs text-muted"
       >
         Connecting to live updates…
       </div>
@@ -30,7 +30,7 @@ export default function ConnectionBanner({
       <button
         type="button"
         onClick={onRetry}
-        className="rounded-full border border-red-400/60 px-3 py-1 font-semibold uppercase tracking-wide text-red-200 transition hover:bg-red-500/15 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+        className="rounded-full border border-red-400/60 px-3 py-1 font-semibold uppercase tracking-wide text-red-200 transition hover:bg-red-500/15 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Retry now
       </button>

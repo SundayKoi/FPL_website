@@ -12,7 +12,7 @@ export default async function LeagueLinksPage() {
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">League Links</h1>
-          <p className="mt-4 text-lg leading-8 text-steel">
+          <p className="mt-4 text-lg leading-8 text-muted">
             The shared league resources for payments, reference docs, and season operations.
           </p>
         </header>

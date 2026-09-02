@@ -58,7 +58,7 @@ export async function PacksPageView({
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card packs</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to open packs</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Packs are bought with betting dollars, so they ride on your FPL Better wallet — sign in with
           Discord to check your access.
         </p>
@@ -74,7 +74,7 @@ export async function PacksPageView({
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card packs</span>
         <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Packs are paid for with betting dollars, and only FPL Better members have a wallet to spend.
           Join the FPL Better role in Discord and come back to start a collection.
         </p>
@@ -140,13 +140,13 @@ export async function PacksPageView({
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Packs</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
             ratings — every card is stamped with the week it was pulled, so a player you open twice in
             different weeks is two different prints. Every copy comes printed in a random skin of that
             player&apos;s signature champion, and foils are a rare pull on any tier.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
             ← Back to player cards
           </Link>
         </div>
@@ -160,7 +160,7 @@ export async function PacksPageView({
             Live drops
           </span>
           <span className="text-sm text-white">{liveWindow.label}</span>
-          <span className="text-xs text-steel">
+          <span className="text-xs text-muted">
             Foil odds boosted until{" "}
             {new Date(liveWindow.until).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}{" "}
             ET · every card stamped LIVE
@@ -175,9 +175,9 @@ export async function PacksPageView({
             {championComps === 1 ? "is" : "are"} yours, on the house.
           </span>
           {championsWindow ? (
-            <span className="text-xs text-steel">The Faceless Pack button below won&apos;t charge you until they&apos;re spent.</span>
+            <span className="text-xs text-muted">The Faceless Pack button below won&apos;t charge you until they&apos;re spent.</span>
           ) : (
-            <span className="text-xs text-steel">They unlock the moment the vault opens.</span>
+            <span className="text-xs text-muted">They unlock the moment the vault opens.</span>
           )}
         </div>
       ) : null}
@@ -187,7 +187,7 @@ export async function PacksPageView({
           <span className="text-sm text-white">
             Season Four&apos;s champions as The Hand — K, A, Q, 7 and the Joker, one card per pack.
           </span>
-          <span className="text-xs text-steel">
+          <span className="text-xs text-muted">
             Vault shuts{" "}
             {new Date(championsWindow.until).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}{" "}
             — then what was pulled is all there will ever be.
@@ -199,11 +199,11 @@ export async function PacksPageView({
           <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">★ This week&apos;s chase</span>
           <span className="text-sm text-white">{chase.title}</span>
           {chase.claimedBy ? (
-            <span className="text-xs text-steel">
+            <span className="text-xs text-muted">
               Taken by <span className="font-semibold text-white">{chase.claimedBy}</span>
             </span>
           ) : (
-            <span className="text-xs text-steel">
+            <span className="text-xs text-muted">
               First to pull it{chase.bounty > 0 ? ` wins ${chase.bounty} betting dollars and` : ""} takes the CHASE stamp
             </span>
           )}

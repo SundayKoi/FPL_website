@@ -106,7 +106,7 @@ export default async function PlayerClaimsPage() {
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player claims</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review player claims</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Approving a claim is a captain and admin job — sign in with Discord to see the ones waiting on you.
         </p>
         <Link href="/login?redirect=/admin/claims" className="btn-pill mt-2">
@@ -129,20 +129,20 @@ export default async function PlayerClaimsPage() {
       <header>
         <span className="label-dash">Admin · Player claims</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player claims</h1>
-        <p className="mt-3 text-sm text-steel">
+        <p className="mt-3 text-sm text-muted">
           Approving links a Discord account to a player card so the player can customize it — the skin, the motto,
           the signature. Approve only people claiming their own card.
         </p>
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-steel">
-          <Link href="/admin" className="underline-offset-4 hover:text-coral hover:underline">← Back to admin</Link>
-          <Link href="/identity-claims" className="underline-offset-4 hover:text-coral hover:underline">
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
+          <Link href="/admin" className="underline-offset-4 hover:text-primary hover:underline">← Back to admin</Link>
+          <Link href="/identity-claims" className="underline-offset-4 hover:text-primary hover:underline">
             Roster identity claims →
           </Link>
         </div>
       </header>
 
       {totalPending === 0 ? (
-        <p className="text-sm text-steel">No pending player claims — all caught up.</p>
+        <p className="text-sm text-muted">No pending player claims — all caught up.</p>
       ) : (
         sections
           .filter((section) => section.actionable.length > 0 || section.otherCount > 0)
@@ -163,7 +163,7 @@ export default async function PlayerClaimsPage() {
                 />
               ))}
               {section.otherCount > 0 ? (
-                <p className="text-xs text-steel">
+                <p className="text-xs text-muted">
                   {section.otherCount} more pending {section.otherCount === 1 ? "claim needs" : "claims need"} their
                   team&apos;s captain.
                 </p>

@@ -67,8 +67,8 @@ export interface InboxTrade {
 const STATUS_CHIP: Record<TradeStatus, string> = {
   pending: "border-gold/50 bg-gold/10 text-gold",
   accepted: "border-mint/50 bg-mint/10 text-mint",
-  declined: "border-line bg-panel text-steel",
-  cancelled: "border-line bg-panel text-steel",
+  declined: "border-border bg-surface text-muted",
+  cancelled: "border-border bg-surface text-muted",
 };
 
 /** "Canny 77 · WK Aug 17 ✦ ALT" — a card as one line of a trade, and the way
@@ -77,7 +77,7 @@ const STATUS_CHIP: Record<TradeStatus, string> = {
 function CardChip({ card }: { card: InboxCard }) {
   if (card.stale || !card.card) {
     return (
-      <span className="rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-steel">
+      <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted">
         <s>{card.playerName}</s> <span className="text-red-400">no longer available</span>
       </span>
     );
@@ -96,10 +96,10 @@ function CardChip({ card }: { card: InboxCard }) {
         altArt: card.altArt,
       }}
       label={`View ${card.playerName} ${card.overall}${edition} card`}
-      className="rounded-full border border-line bg-panel px-2 py-0.5 text-[11px] text-white transition hover:border-coral/70 hover:text-coral focus-visible:border-coral focus-visible:outline-none"
+      className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-white transition hover:border-primary/70 hover:text-primary focus-visible:border-primary focus-visible:outline-none"
     >
-      {card.playerName} <b className="font-mono text-steel">{card.overall}</b>
-      {card.editionWeek ? <span className="text-steel"> · {editionLabel(card.editionWeek)}</span> : null}
+      {card.playerName} <b className="font-mono text-muted">{card.overall}</b>
+      {card.editionWeek ? <span className="text-muted"> · {editionLabel(card.editionWeek)}</span> : null}
       {card.signed ? <span className="font-black text-gold" title="Autographed copy"> ✍</span> : null}
       {card.foil ? <span className="font-black text-gold" title="Foil copy"> ✦</span> : null}
       {card.altArt ? (
@@ -107,7 +107,7 @@ function CardChip({ card }: { card: InboxCard }) {
           ALT
         </span>
       ) : null}
-      <span aria-hidden className="ml-1 text-steel">
+      <span aria-hidden className="ml-1 text-muted">
         ⤢
       </span>
     </CardCopyPreview>
@@ -121,7 +121,7 @@ function TradeSide({ label, cards, dollars }: { label: string; cards: InboxCard[
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <span className="label-dash">{label}</span>
       {cards.length === 0 && dollars === 0 ? (
-        <span className="text-xs text-steel">Nothing</span>
+        <span className="text-xs text-muted">Nothing</span>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
           {cards.map((card) => (
@@ -177,7 +177,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
     <li className="card-brand flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-white">
-          {trade.fromUsername} <span className="text-steel">→</span> {trade.toUsername}
+          {trade.fromUsername} <span className="text-muted">→</span> {trade.toUsername}
         </span>
         <span
           className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_CHIP[trade.status]}`}
@@ -195,7 +195,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
           cards={trade.offered}
           dollars={trade.offeredDollars}
         />
-        <span className="shrink-0 self-center text-lg text-steel" aria-hidden>
+        <span className="shrink-0 self-center text-lg text-muted" aria-hidden>
           ⇄
         </span>
         <TradeSide
@@ -206,14 +206,14 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
       </div>
 
       {isPending ? (
-        <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
           {incoming ? (
             <>
               <button
                 type="button"
                 onClick={() => respond(true)}
                 disabled={pending || trade.stale}
-                className="btn-coral px-4 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn-primary px-4 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {armed ? `Confirm — ${fmtPoints(dollarsOut)} leaves your wallet?` : "Accept"}
               </button>
@@ -221,7 +221,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
                 type="button"
                 onClick={() => respond(false)}
                 disabled={pending}
-                className="rounded-full border border-line px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Decline
               </button>
@@ -231,7 +231,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
               type="button"
               onClick={() => respond(false)}
               disabled={pending}
-              className="rounded-full border border-line px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel offer
             </button>
@@ -259,7 +259,7 @@ export default function TradeInbox({
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Incoming offers</h2>
         {incoming.length === 0 ? (
-          <p className="text-sm text-steel">Nobody has offered you a trade yet.</p>
+          <p className="text-sm text-muted">Nobody has offered you a trade yet.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {incoming.map((trade) => (
@@ -272,7 +272,7 @@ export default function TradeInbox({
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Your offers</h2>
         {outgoing.length === 0 ? (
-          <p className="text-sm text-steel">You haven&apos;t sent any offers yet.</p>
+          <p className="text-sm text-muted">You haven&apos;t sent any offers yet.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {outgoing.map((trade) => (

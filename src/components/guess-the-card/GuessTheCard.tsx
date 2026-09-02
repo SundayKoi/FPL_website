@@ -76,8 +76,8 @@ function FrontFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: boo
   const final = reveal.final;
   const identity = final ? `${final.name}#${final.tag}` : "?????#????";
   return (
-    <div aria-hidden={hidden} className="absolute inset-0 overflow-hidden rounded-[1.1rem] border-2 border-coral/70 bg-gradient-to-br from-coral/25 via-navy to-cyan/15 p-[5px] [backface-visibility:hidden]">
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[0.8rem] bg-navy/95 p-4">
+    <div aria-hidden={hidden} className="absolute inset-0 overflow-hidden rounded-[1.1rem] border-2 border-coral/70 bg-gradient-to-br from-coral/25 via-canvas to-cyan/15 p-[5px] [backface-visibility:hidden]">
+      <div className="relative flex h-full flex-col overflow-hidden rounded-[0.8rem] bg-canvas/95 p-4">
         {reveal.champion?.artUrl ? (
           // Champion art is intentionally added only after the first miss.
           // eslint-disable-next-line @next/next/no-img-element
@@ -137,8 +137,8 @@ function BackFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: bool
   const back = reveal.cardBack;
   if (!back || !reveal.final) return null;
   return (
-    <div aria-hidden={hidden} className="absolute inset-0 overflow-hidden rounded-[1.1rem] border-2 border-gold/70 bg-gradient-to-br from-gold/30 via-navy to-coral/15 p-[5px] [backface-visibility:hidden] [transform:rotateY(180deg)]">
-      <div className="flex h-full flex-col overflow-hidden rounded-[0.8rem] bg-navy/95 p-4">
+    <div aria-hidden={hidden} className="absolute inset-0 overflow-hidden rounded-[1.1rem] border-2 border-gold/70 bg-gradient-to-br from-gold/30 via-canvas to-coral/15 p-[5px] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+      <div className="flex h-full flex-col overflow-hidden rounded-[0.8rem] bg-canvas/95 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className="label-dash">COMPLETED</span>
@@ -146,7 +146,7 @@ function BackFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: bool
           </div>
           <span className="rounded-full bg-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-navy">{reveal.final.result}</span>
         </div>
-        <p className="mt-1 truncate text-xs text-steel">{reveal.final.name}#{reveal.final.tag} · {reveal.final.team}</p>
+        <p className="mt-1 truncate text-xs text-muted">{reveal.final.name}#{reveal.final.tag} · {reveal.final.team}</p>
         <div className="mt-4 grid grid-cols-2 gap-x-4">
           <StatRow label="Vision score" value={number(back.visionScore, 1)} />
           <StatRow label="Objectives" value={number(back.objectives)} />
@@ -202,7 +202,7 @@ export default function GuessTheCard({ reveal }: { reveal: GuessTheCardReveal })
         {canFlip ? (
           <button
             type="button"
-            className="absolute right-3 top-3 z-20 rounded-full border border-white/30 bg-navy/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
+            className="absolute right-3 top-3 z-20 rounded-full border border-white/30 bg-canvas/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white transition hover:border-gold hover:text-gold"
             onClick={() => setFlipped((current) => !current)}
             aria-label={flipped ? "Show Guess the Card front" : "Show Guess the Card back"}
           >

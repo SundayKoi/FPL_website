@@ -55,7 +55,7 @@ export default function TopCards({
         </div>
         <Link
           href={basePath}
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-coral underline-offset-4 hover:text-white hover:underline"
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-primary underline-offset-4 hover:text-white hover:underline"
         >
           All cards →
         </Link>
@@ -68,25 +68,25 @@ export default function TopCards({
             <li key={card.slug}>
               <Link
                 href={`/card/${card.slug}`}
-                className="flex items-center gap-3 rounded-xl border border-line bg-navy/60 px-3 py-2.5 transition hover:border-coral/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                className="flex items-center gap-3 rounded-xl border border-border bg-canvas/60 px-3 py-2.5 transition hover:border-primary/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                <span className="w-5 shrink-0 text-center font-mono text-sm font-bold text-steel">{index + 1}</span>
+                <span className="w-5 shrink-0 text-center font-mono text-sm font-bold text-muted">{index + 1}</span>
                 <span
                   className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-full border-2 tabular-nums"
                   style={{ borderColor: tint }}
                 >
                   <span className="text-sm font-black leading-none text-white">{card.overall}</span>
-                  <span className="text-[8px] uppercase tracking-[0.1em] text-steel">OVR</span>
+                  <span className="text-[8px] uppercase tracking-[0.1em] text-muted">OVR</span>
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-display text-base font-semibold text-white">{card.name}</span>
-                  <span className="block truncate text-[11px] uppercase tracking-[0.14em] text-steel">
+                  <span className="block truncate text-[11px] uppercase tracking-[0.14em] text-muted">
                     {roleLabel(card.role)}
                     {card.teamAbbr || card.teamName ? ` · ${card.teamAbbr ?? card.teamName}` : ""}
                   </span>
                 </span>
                 <span
-                  className="hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-navy sm:block"
+                  className="hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white sm:block"
                   style={{ background: tint }}
                 >
                   {card.tier.label}

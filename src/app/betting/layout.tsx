@@ -21,7 +21,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
         <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
           <span className="label-dash">FPL Better</span>
           <h1 className="type-display text-3xl sm:text-4xl">Sign in to place bets</h1>
-          <p className="max-w-md text-sm text-steel">
+          <p className="max-w-md text-sm text-muted">
             The betting arena is a perk for FPL Better Discord members — sign in with Discord to check your access.
           </p>
           <Link href="/login?redirect=/betting" className="btn-pill mt-2">
@@ -41,7 +41,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
         <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
           <span className="label-dash">FPL Better</span>
           <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-          <p className="max-w-md text-sm text-steel">
+          <p className="max-w-md text-sm text-muted">
             Betting is a perk for FPL Better Discord members. Join the FPL Better role in Discord and come back.
           </p>
         </main>
@@ -54,19 +54,19 @@ export default async function BettingLayout({ children }: { children: ReactNode 
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6">
         <PremiumBackLink />
       </div>
-      <nav className="border-b border-line bg-panel/60">
+      <nav className="border-b border-border bg-surface/60">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-4 px-4 py-3 sm:px-6">
           <Link href="/betting" className="type-display text-lg not-italic text-white">
             Betting
           </Link>
-          <div className="flex gap-4 text-sm text-steel">
-            <Link href="/betting" className="hover:text-coral">
+          <div className="flex gap-4 text-sm text-muted">
+            <Link href="/betting" className="hover:text-primary">
               Events
             </Link>
-            <Link href="/betting/leaderboard" className="hover:text-coral">
+            <Link href="/betting/leaderboard" className="hover:text-primary">
               Leaderboard
             </Link>
-            <Link href="/betting/profile" className="hover:text-coral">
+            <Link href="/betting/profile" className="hover:text-primary">
               Profile
             </Link>
           </div>
@@ -74,7 +74,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
             {user.staff && (
               <Link
                 href="/admin/betting"
-                className="rounded-full border border-line px-3 py-1 text-sm text-steel transition hover:border-coral/40 hover:text-coral"
+                className="rounded-full border border-border px-3 py-1 text-sm text-muted transition hover:border-primary/40 hover:text-primary"
               >
                 Admin
               </Link>

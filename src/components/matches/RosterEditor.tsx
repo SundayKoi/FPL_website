@@ -154,7 +154,7 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncTeams()}
           disabled={syncTeamsStatus.kind === "saving"}
-          className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
+          className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white disabled:opacity-50"
         >
           {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
         </button>
@@ -162,7 +162,7 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncAcademy()}
           disabled={academySyncStatus.kind === "saving"}
-          className="rounded-full border border-steel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-50"
+          className="rounded-full border border-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-50"
         >
           {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
         </button>
@@ -170,16 +170,16 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncCaptains()}
           disabled={syncStatus.kind === "saving"}
-          className="rounded-full border border-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy disabled:opacity-50"
+          className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white disabled:opacity-50"
         >
           {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
         </button>
       </div>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Run teams first, then captains.
       </p>
       <StatusMessage status={syncTeamsStatus} />
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Sync reads the featured draft&apos;s captains and adds a league_team_captains row for each one whose
         team name matches — without this, captains can&apos;t submit reports for their team.
       </p>
@@ -364,7 +364,7 @@ export default function RosterEditor({
   return (
     <CollapsibleAdminSection title="Admin — rosters">
           <DraftSyncControls season={season}>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Season
               <input
                 list="roster-editor-seasons"
@@ -378,7 +378,7 @@ export default function RosterEditor({
                 ))}
               </datalist>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-steel">
+            <label className="flex flex-col gap-1 text-xs text-muted">
               Team
               <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={inputClass}>
                 {teams.map((t) => (
@@ -391,7 +391,7 @@ export default function RosterEditor({
           </DraftSyncControls>
 
           {teams.length === 0 ? (
-            <p className="text-sm text-steel">Add a league team first.</p>
+            <p className="text-sm text-muted">Add a league team first.</p>
           ) : (
             <>
               <div>
@@ -404,7 +404,7 @@ export default function RosterEditor({
                   </p>
                 )}
                 {visible.length === 0 ? (
-                  <p className="mt-2 text-sm text-steel">No Riot IDs on this roster yet for this season.</p>
+                  <p className="mt-2 text-sm text-muted">No Riot IDs on this roster yet for this season.</p>
                 ) : (
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {visible.map((m) => {
@@ -412,17 +412,17 @@ export default function RosterEditor({
                       return (
                         <li
                           key={m.id}
-                          className="flex flex-wrap items-center gap-2 rounded border border-line/60 bg-navy/60 px-3 py-1.5 text-sm"
+                          className="flex flex-wrap items-center gap-2 rounded border border-border/60 bg-canvas/60 px-3 py-1.5 text-sm"
                         >
                           <code className="font-mono text-white">
                             {account ? `${account.game_name}#${account.tag_line}` : "(deleted Riot account)"}
                           </code>
-                          {account?.display_name && <span className="text-steel">({account.display_name})</span>}
+                          {account?.display_name && <span className="text-muted">({account.display_name})</span>}
                           <button
                             type="button"
                             disabled={busyId === m.id}
                             onClick={() => void handleRemove(m.id)}
-                            className="ml-auto text-xs font-semibold text-steel hover:text-red-400 disabled:opacity-50"
+                            className="ml-auto text-xs font-semibold text-muted hover:text-red-400 disabled:opacity-50"
                           >
                             Remove
                           </button>
@@ -433,8 +433,8 @@ export default function RosterEditor({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-end gap-2 border-t border-line pt-3">
-                <label className="flex flex-col gap-1 text-xs text-steel">
+              <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+                <label className="flex flex-col gap-1 text-xs text-muted">
                   Add Riot ID
                   <input
                     value={addText}
@@ -450,15 +450,15 @@ export default function RosterEditor({
                   type="button"
                   disabled={addStatus.kind === "saving" || !addText.trim()}
                   onClick={() => void handleAddOne()}
-                  className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-navy disabled:opacity-50"
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
                 >
                   {addStatus.kind === "saving" ? "Adding…" : "Add"}
                 </button>
               </div>
               <StatusMessage status={addStatus} />
 
-              <div className="flex flex-col gap-2 border-t border-line pt-3">
-                <label className="flex flex-col gap-1 text-xs text-steel">
+              <div className="flex flex-col gap-2 border-t border-border pt-3">
+                <label className="flex flex-col gap-1 text-xs text-muted">
                   Bulk add — one Name#TAG per line
                   <textarea
                     value={bulkText}
@@ -475,7 +475,7 @@ export default function RosterEditor({
                   type="button"
                   disabled={bulkStatus.kind === "saving" || !bulkText.trim()}
                   onClick={() => void handleBulkAdd()}
-                  className="w-fit rounded-full border border-line bg-panel px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-white disabled:opacity-50"
+                  className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
                 >
                   {bulkStatus.kind === "saving" ? "Adding…" : "Bulk add"}
                 </button>

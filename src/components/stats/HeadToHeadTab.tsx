@@ -85,7 +85,7 @@ export default function HeadToHeadTab({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Team
           <select
             value={team}
@@ -106,7 +106,7 @@ export default function HeadToHeadTab({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs text-steel">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           Player
           <select value={player} onChange={(event) => setPlayer(event.target.value)} className={selectClass}>
             <option value="">All players</option>
@@ -119,7 +119,7 @@ export default function HeadToHeadTab({
         </label>
 
         {player ? (
-          <label className="flex flex-col gap-1 text-xs text-steel">
+          <label className="flex flex-col gap-1 text-xs text-muted">
             Min games
             <input
               type="number"
@@ -131,7 +131,7 @@ export default function HeadToHeadTab({
           </label>
         ) : null}
 
-        <p className="ml-auto text-xs text-steel">
+        <p className="ml-auto text-xs text-muted">
           Each cell is the <span className="text-white">row</span> player&apos;s record against the{" "}
           <span className="text-white">column</span> player.
         </p>
@@ -140,22 +140,22 @@ export default function HeadToHeadTab({
       {columns.length === 0 ? (
         <EmptyCard message="No opponents met that often — lower the minimum." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="min-w-full border-separate border-spacing-0 text-xs">
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 bg-panel px-3 py-2 text-left font-semibold text-steel">Player</th>
+                <th className="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-semibold text-muted">Player</th>
                 {columns.map((name) => (
                   <th
                     key={name}
                     scope="col"
-                    className="min-w-[3.5rem] max-w-[3.5rem] truncate px-1 py-2 text-center font-semibold text-steel"
+                    className="min-w-[3.5rem] max-w-[3.5rem] truncate px-1 py-2 text-center font-semibold text-muted"
                     title={name}
                   >
                     {name.slice(0, 6)}
                   </th>
                 ))}
-                <th className="px-3 py-2 text-right font-semibold text-steel">Overall</th>
+                <th className="px-3 py-2 text-right font-semibold text-muted">Overall</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +165,7 @@ export default function HeadToHeadTab({
                   <tr key={rowName}>
                     <th
                       scope="row"
-                      className="sticky left-0 z-10 max-w-[10rem] truncate bg-panel px-3 py-1.5 text-left font-semibold text-white"
+                      className="sticky left-0 z-10 max-w-[10rem] truncate bg-surface px-3 py-1.5 text-left font-semibold text-white"
                       title={rowName}
                     >
                       {rowName}
@@ -173,7 +173,7 @@ export default function HeadToHeadTab({
                     {columns.map((colName) => {
                       if (colName === rowName) {
                         return (
-                          <td key={colName} className="bg-navy/60 text-center text-steel">
+                          <td key={colName} className="bg-canvas/60 text-center text-muted">
                             —
                           </td>
                         );
@@ -182,7 +182,7 @@ export default function HeadToHeadTab({
                       const played = cell ? cell.wins + cell.losses : 0;
                       if (!cell || played === 0) {
                         return (
-                          <td key={colName} className="text-center text-steel/40" title="Never met">
+                          <td key={colName} className="text-center text-muted/40" title="Never met">
                             ·
                           </td>
                         );
@@ -191,7 +191,7 @@ export default function HeadToHeadTab({
                       return (
                         <td
                           key={colName}
-                          className="border border-navy px-1 py-1.5 text-center font-mono font-bold tabular-nums"
+                          className="border border-border px-1 py-1.5 text-center font-mono font-bold tabular-nums"
                           style={cellStyle(rate)}
                           title={`${rowName} ${cell.wins}-${cell.losses} vs ${colName}`}
                         >
@@ -199,7 +199,7 @@ export default function HeadToHeadTab({
                         </td>
                       );
                     })}
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums text-steel">
+                    <td className="px-3 py-1.5 text-right font-mono tabular-nums text-muted">
                       {total.wins}-{total.losses}
                     </td>
                   </tr>

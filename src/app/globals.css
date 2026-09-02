@@ -1,20 +1,38 @@
 @import "tailwindcss";
 
 @theme {
-  --color-navy: #001f34;
-  --color-panel: #0a2a47;
-  --color-line: #1b4263;
-  --color-steel: #a7c0d8;
+  /* Concept 1 semantic roles. Feature palette tokens below stay explicit while
+     shared call sites move to these names by meaning. */
+  --color-canvas: #080d12;
+  --color-surface: #111820;
+  --color-raised: #18232e;
+  --color-border: #2a3947;
+  --color-content: #f4f7fb;
+  --color-muted: #9baab8;
+  --color-primary: #2f6bff;
+  --color-success: #2ee6a8;
+  --color-prestige: #f5b62e;
+  --color-danger: #ff5c6c;
+
+  /* Deprecated neutral aliases retained for protected feature internals. New
+     shared/core call sites must use the semantic names above. */
+  --color-navy: var(--color-canvas);
+  --color-panel: var(--color-surface);
+  --color-line: var(--color-border);
+  --color-steel: var(--color-muted);
+
+  /* Premier identity: purple/cyan. Academy overrides these at the scope. */
+  --color-league-accent: #b06bff;
+  --color-league-secondary: #35e6ff;
+  --color-league-wash: rgb(176 107 255 / 0.1);
+
   --color-gold: #f5b62e;
-  /* Action accents — coral drives interactive elements (buttons, links,
-     tabs, focus rings); mint marks success/live/positive states. Gold is
-     reserved for value & prestige: money, ranks, winners, awards. */
+  /* Legacy feature accent. Shared actions use primary; status colors keep
+     their meaning instead of inheriting league identity. */
   --color-coral: #ff6b35;
   --color-mint: #2ee6a8;
-  /* Neon accent set — layered over the navy brand base for the stats
-     "command center" look. Bare color names (no numeric scale) so they read
-     as text-cyan / bg-pink/10 / border-purple/40 without clobbering
-     Tailwind's built-in numbered cyan/pink/purple color scales. */
+  /* Feature palette only: data visualization, collectible art and game
+     effects. These are not Academy identity tokens. */
   --color-cyan: #35e6ff;
   --color-pink: #ff3d84;
   --color-purple: #b06bff;
@@ -25,6 +43,12 @@
   --font-body: var(--font-saira), "Segoe UI", sans-serif;
   --font-engrave: var(--font-cinzel), Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "Consolas", monospace;
+}
+
+[data-league="academy"] {
+  --color-league-accent: #ff6b35;
+  --color-league-secondary: #ff4f82;
+  --color-league-wash: rgb(255 107 53 / 0.1);
 }
 
 :root {
@@ -48,17 +72,32 @@
   width: 1.25rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--color-cyan);
+  border: 1px solid var(--color-league-accent);
   border-radius: 0.25rem;
-  color: var(--color-cyan);
+  color: var(--color-league-secondary);
   font-size: 0.75rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .league-brand-menu {
-  background: var(--color-navy);
+  background: var(--color-surface);
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.45);
+}
+
+.league-brand-copy {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.league-brand-division {
+  color: var(--color-league-accent);
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 html {
@@ -73,18 +112,17 @@ html {
 }
 
 body {
-  background-color: var(--color-navy);
-  color: #fff;
+  background-color: var(--color-canvas);
+  color: var(--color-content);
   font-family: var(--font-body);
 }
 
 @utility bg-hash {
-  /* Gold-tinted hash lines — a faint warm shimmer over the navy base so
-     page backgrounds stop reading as wall-to-wall blue. */
+  /* Low-opacity league wash over neutral canvas. */
   background-image: repeating-linear-gradient(
     135deg,
-    rgb(245 182 46 / 0.04) 0px,
-    rgb(245 182 46 / 0.04) 1px,
+    var(--color-league-wash) 0px,
+    var(--color-league-wash) 1px,
     transparent 1px,
     transparent 14px
   );
@@ -104,20 +142,20 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: var(--color-steel);
-  &::before { content: "— "; color: var(--color-gold); }
+  color: var(--color-muted);
+  &::before { content: "— "; color: var(--color-league-accent); }
 }
 
 @utility btn-pill {
   border-radius: 9999px;
-  background: var(--color-coral);
-  color: var(--color-navy);
+  background: var(--color-primary);
+  color: white;
   font-weight: 600;
   padding: 0.5rem 1.25rem;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
   &:hover {
-    background: #ff824f;
-    box-shadow: 0 0 18px rgb(255 107 53 / 0.35);
+    background: color-mix(in srgb, var(--color-primary) 82%, white);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 35%, transparent);
   }
 }
 
@@ -152,11 +190,11 @@ body {
   .btn-rivalry { animation: none; }
 }
 
-/* Rectangular coral CTA (admin/draft actions) — size classes stay inline. */
-@utility btn-coral {
+/* Semantic primary CTA — size classes stay inline. */
+@utility btn-primary {
   border-radius: 0.25rem;
-  background: var(--color-coral);
-  color: var(--color-navy);
+  background: var(--color-primary);
+  color: white;
   font-family: var(--font-display);
   font-weight: 700;
   font-style: normal;
@@ -168,74 +206,68 @@ body {
    inline. */
 @utility input-brand {
   border-radius: 0.25rem;
-  border: 1px solid var(--color-line);
-  background: var(--color-navy);
-  color: #fff;
-  &::placeholder { color: rgb(167 192 216 / 0.6); }
-  &:focus { border-color: var(--color-coral); outline: none; }
+  border: 1px solid var(--color-border);
+  background: var(--color-canvas);
+  color: var(--color-content);
+  &::placeholder { color: color-mix(in srgb, var(--color-muted) 60%, transparent); }
+  &:focus { border-color: var(--color-primary); outline: none; }
+  &:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent); }
 }
 
 @utility card-brand {
-  background: var(--color-panel);
-  /* Gold-warmed border + top hairline + a faint warm wash from the top —
-     cards used to be blue boxes with blue borders on a blue page; the warm
-     trim is what separates them from the background now. */
-  border: 1px solid rgb(245 182 46 / 0.28);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
   background-image:
     linear-gradient(
       90deg,
       transparent,
-      rgb(245 182 46 / 0.55) 30%,
-      rgb(245 182 46 / 0.55) 70%,
+      color-mix(in srgb, var(--color-league-accent) 55%, transparent) 30%,
+      color-mix(in srgb, var(--color-league-secondary) 55%, transparent) 70%,
       transparent
     ),
-    linear-gradient(180deg, rgb(245 182 46 / 0.05), transparent 45%);
+    linear-gradient(180deg, var(--color-league-wash), transparent 45%);
   background-size: 100% 1px, 100% 100%;
   background-position: top, top;
   background-repeat: no-repeat;
 }
 
-/* Coral→gold→mint hairline for underlining major section headers. */
+/* League identity hairline for major section headers. */
 @utility accent-rule {
   height: 1px;
   border: 0;
   background: linear-gradient(
     90deg,
     transparent,
-    var(--color-coral),
-    var(--color-gold),
-    var(--color-mint),
+    var(--color-league-accent),
+    var(--color-league-secondary),
     transparent
   );
 }
 
-/* ─────────────────────────────────────────────────────────────
-   Neon-brand stats surface — cyan/pink accents on the navy base.
-   Scoped to the stats page via these opt-in utilities; the rest of
-   the site keeps the plain brand look.
-   ───────────────────────────────────────────────────────────── */
+/* Stats chrome uses league identity. Series and result colors below remain
+   explicit feature palettes because they encode data, not league context. */
 
 /* Faint cyberpunk grid backdrop for the stats section. */
 @utility grid-neon {
-  background-color: var(--color-navy);
+  background-color: var(--color-canvas);
   background-image:
-    linear-gradient(90deg, rgb(53 230 255 / 0.04) 1px, transparent 1px),
-    linear-gradient(0deg, rgb(53 230 255 / 0.04) 1px, transparent 1px);
+    linear-gradient(90deg, color-mix(in srgb, var(--color-league-secondary) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-league-secondary) 10%, transparent) 1px, transparent 1px);
   background-size: 46px 46px;
 }
 
-/* Cyan→pink→cyan hairline used to underline section headers. */
+/* League hairline used to underline stats section headers. */
 @utility neon-rule {
   height: 1px;
   border: 0;
   background: linear-gradient(
     90deg,
     transparent,
-    var(--color-cyan),
-    var(--color-pink),
-    var(--color-cyan),
+    var(--color-league-accent),
+    var(--color-league-secondary),
+    var(--color-league-accent),
     transparent
   );
 }
@@ -245,9 +277,9 @@ body {
   background: linear-gradient(
     120deg,
     #ffffff 0%,
-    var(--color-cyan) 42%,
-    var(--color-pink) 74%,
-    var(--color-purple) 100%
+    var(--color-league-accent) 42%,
+    var(--color-league-secondary) 74%,
+    var(--color-league-accent) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -261,15 +293,15 @@ body {
   font-size: 0.625rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--color-steel);
+  color: var(--color-muted);
 }
 
 /* Card with a neon top accent + soft glow, built on the brand panel. */
 @utility card-neon {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, #0b2c49, #061a2c);
-  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
   &::before {
@@ -279,7 +311,7 @@ body {
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--color-cyan), var(--color-pink), transparent);
+    background: linear-gradient(90deg, transparent, var(--color-league-accent), var(--color-league-secondary), transparent);
     opacity: 0.55;
   }
 }
@@ -355,13 +387,13 @@ body {
 }
 
 /* Deep-linked attention: /card/[slug]?claim=1 sends a player to one control
-   on a page full of them, so that control breathes a coral halo three times
+   on a page full of them, so that control breathes a league-accent halo three times
    and then settles. Finite on purpose — it's a signpost, not a decoration.
    The ring itself is a static class on the element, so the reduced-motion
    fallback below still leaves the eye somewhere to land. */
 @keyframes claimPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgb(255 107 53 / 0); }
-  50% { box-shadow: 0 0 0 7px rgb(255 107 53 / 0.28); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-league-accent) 0%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-league-accent) 28%, transparent); }
 }
 @utility claim-highlight {
   animation: claimPulse 1.3s ease-in-out 3;
@@ -1250,7 +1282,7 @@ body {
   filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.55));
   &:active { cursor: grabbing; }
   &:focus-visible {
-    outline: 2px solid var(--color-coral);
+    outline: 2px solid var(--color-primary);
     outline-offset: 6px;
     border-radius: 1rem;
   }
@@ -1377,7 +1409,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.34em;
   text-transform: uppercase;
-  color: var(--color-steel);
+  color: var(--color-muted);
 }
 @utility pack-mark-rule {
   width: 60%;
@@ -1401,7 +1433,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--color-steel);
+  color: var(--color-muted);
 }
 
 /* The burst. A radial flash in the aura color plus a handful of ✦ thrown
@@ -1695,7 +1727,7 @@ body {
       0 0 46px -4px var(--pack-aura, #cfe0f0);
   }
   &:focus-visible {
-    outline: 2px solid var(--color-coral);
+    outline: 2px solid var(--color-primary);
     outline-offset: 4px;
   }
 }
@@ -1799,7 +1831,7 @@ body {
 @utility pack-summary {
   position: relative;
   z-index: 2;
-  border-top: 1px solid var(--color-line);
+  border-top: 1px solid var(--color-border);
   background: linear-gradient(180deg, rgb(10 42 71 / 0.88), rgb(0 20 34 / 0.97));
   backdrop-filter: blur(6px);
   animation: packSummaryUp 420ms cubic-bezier(0.2, 0.8, 0.3, 1) both;

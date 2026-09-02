@@ -179,15 +179,15 @@ export default async function AdminPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-coral"
+            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-primary"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-display text-2xl group-hover:text-coral">{card.label}</span>
+              <span className="type-display text-2xl group-hover:text-primary">{card.label}</span>
               <span className={`text-xs font-bold uppercase tracking-wide ${card.statTone}`}>
                 {card.stat}
               </span>
             </div>
-            <p className="text-sm text-steel">{card.description}</p>
+            <p className="text-sm text-muted">{card.description}</p>
           </Link>
         ))}
       </section>}
@@ -209,7 +209,7 @@ export default async function AdminPage() {
         {isOwner ? (
           <AdminHomepageMode homepageMode={settings?.homepage_mode ?? "auto"} />
         ) : (
-          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
         )}
       </section>
 
@@ -223,7 +223,7 @@ export default async function AdminPage() {
         {isOwner ? (
           <DraftListClient initialDrafts={drafts} />
         ) : (
-          <p className="text-sm text-steel">Some league configuration is owner-only.</p>
+          <p className="text-sm text-muted">Some league configuration is owner-only.</p>
         )}
       </section>}
 

@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 
 const buttonStyle = {
-  border: "1px solid #ff8066",
+  border: "1px solid #2f6bff",
   borderRadius: "999px",
-  color: "#00121f",
-  background: "#ff8066",
+  color: "#f4f7fb",
+  background: "#2f6bff",
   cursor: "pointer",
   fontSize: "0.75rem",
   fontWeight: 700,
@@ -31,8 +31,8 @@ export default function GlobalError({
       <body
         style={{
           alignItems: "center",
-          background: "#00121f",
-          color: "white",
+          background: "#080d12",
+          color: "#f4f7fb",
           display: "flex",
           fontFamily: "system-ui, sans-serif",
           justifyContent: "center",
@@ -45,8 +45,8 @@ export default function GlobalError({
         <main
           role="alert"
           style={{
-            background: "#071d2c",
-            border: "1px solid #244052",
+            background: "#111820",
+            border: "1px solid #2a3947",
             borderRadius: "0.75rem",
             maxWidth: "34rem",
             padding: "2rem",
@@ -54,11 +54,11 @@ export default function GlobalError({
           }}
         >
           <title>Something went wrong — FPL</title>
-          <p style={{ color: "#ff9b87", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+          <p style={{ color: "#ff5c6c", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" }}>
             FPL temporarily unavailable
           </p>
           <h1 style={{ fontSize: "2rem", margin: "0.75rem 0" }}>Couldn&apos;t load the site</h1>
-          <p style={{ color: "#9eb0bf", lineHeight: 1.6, margin: "0 auto 1.5rem" }}>
+          <p style={{ color: "#9baab8", lineHeight: 1.6, margin: "0 auto 1.5rem" }}>
             The problem may be temporary. Try loading the site again.
           </p>
           <button type="button" onClick={retry} style={buttonStyle}>

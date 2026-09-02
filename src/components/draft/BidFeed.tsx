@@ -25,13 +25,13 @@ export default function BidFeed({
       <h3 className="label-dash">Bid feed</h3>
       <ul className="flex max-h-96 flex-col gap-1 overflow-y-auto text-xs">
         {sorted.map((bid) => (
-          <li key={bid.id} className="border-b border-line/50 px-1 py-1.5">
+          <li key={bid.id} className="border-b border-border/50 px-1 py-1.5">
             <span className="font-semibold text-white">{teamName(bid.team_id)}</span> bid{" "}
             <span className="font-display font-semibold not-italic text-gold">{bid.amount}</span> on{" "}
-            <span className="text-steel">{playerName(bid.lot_id)}</span>
+            <span className="text-muted">{playerName(bid.lot_id)}</span>
           </li>
         ))}
-        {sorted.length === 0 && <li className="py-4 text-center text-steel">No bids yet.</li>}
+        {sorted.length === 0 && <li className="py-4 text-center text-muted">No bids yet.</li>}
       </ul>
     </section>
   );

@@ -1,4 +1,4 @@
-/** The coral OP.GG multi-search pill shared by NextMatchCard and MyRoster. */
+/** The shared primary OP.GG multi-search pill used by NextMatchCard and MyRoster. */
 export default function OpggMultiLink({
   href,
   label,
@@ -13,7 +13,7 @@ export default function OpggMultiLink({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className={`inline-flex w-fit rounded-full border border-coral/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy${className ? ` ${className}` : ""}`}
+      className={`inline-flex w-fit rounded-full border border-primary/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white${className ? ` ${className}` : ""}`}
     >
       {label}
     </a>

@@ -28,7 +28,7 @@ export default function ClaimFinder({ cards }: { cards: ClaimFinderCard[] }) {
 
   return (
     <div className="flex w-full flex-col gap-2 sm:max-w-sm">
-      <label className="flex flex-col gap-1 text-xs text-steel">
+      <label className="flex flex-col gap-1 text-xs text-muted">
         Find your card
         <input
           value={query}
@@ -38,7 +38,7 @@ export default function ClaimFinder({ cards }: { cards: ClaimFinderCard[] }) {
         />
       </label>
       {q && shown.length === 0 ? (
-        <p className="text-xs text-steel">No player matches that — cards exist once you&apos;ve played a game.</p>
+        <p className="text-xs text-muted">No player matches that — cards exist once you&apos;ve played a game.</p>
       ) : null}
       {shown.length > 0 ? (
         <ul className="flex flex-col gap-1">
@@ -46,10 +46,10 @@ export default function ClaimFinder({ cards }: { cards: ClaimFinderCard[] }) {
             <li key={card.slug}>
               <Link
                 href={`/card/${card.slug}?claim=1`}
-                className="flex items-center justify-between gap-2 rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs text-white transition hover:border-coral hover:text-coral"
+                className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-white transition hover:border-primary hover:text-primary"
               >
                 <span className="truncate font-semibold">{card.name}</span>
-                <span className="shrink-0 text-[10px] uppercase tracking-wide text-steel">
+                <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">
                   {card.role}
                   {card.teamName ? ` · ${card.teamName}` : ""}
                 </span>

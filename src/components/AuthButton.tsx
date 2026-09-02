@@ -15,7 +15,7 @@ export default async function AuthButton() {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-2">
-        <span className="hidden text-sm text-steel sm:inline">
+        <span className="hidden text-sm text-muted sm:inline">
           {profile?.display_name ?? user.email}
         </span>
         {bettingUser?.allowed ? (

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Bangers, Chakra_Petch, Cinzel, Pinyon_Script, Saira } from "next/font/google";
 import AuthButton from "@/components/AuthButton";
+import LeagueThemeScope from "@/components/LeagueThemeScope";
 import SiteNavigation from "@/components/SiteNavigation";
 import SupportDevButton from "@/components/SupportDevButton";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -60,14 +62,30 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${chakra.variable} ${saira.variable} ${cinzel.variable} ${bangers.variable} ${pinyon.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-navy text-white font-body antialiased">
-        <SiteNavigation
-          authSlot={<AuthButton />}
-          showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
-          showBroadcaster={canAccessBroadcaster(tier)}
-        />
-        {children}
-        <SupportDevButton />
+      <body className="min-h-full flex flex-col bg-canvas text-content font-body antialiased">
+        <Suspense
+          fallback={
+            <div data-league="premier" className="contents">
+              <SiteNavigation
+                authSlot={<AuthButton />}
+                showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
+                showBroadcaster={canAccessBroadcaster(tier)}
+              />
+              {children}
+              <SupportDevButton />
+            </div>
+          }
+        >
+          <LeagueThemeScope>
+            <SiteNavigation
+              authSlot={<AuthButton />}
+              showAdmin={tier.isAdmin || tier.isOwner || tier.isBroadcaster}
+              showBroadcaster={canAccessBroadcaster(tier)}
+            />
+            {children}
+            <SupportDevButton />
+          </LeagueThemeScope>
+        </Suspense>
       </body>
     </html>
   );

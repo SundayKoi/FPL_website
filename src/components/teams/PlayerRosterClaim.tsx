@@ -17,7 +17,7 @@ export type PlayerRosterClaimState =
   | "mine-approved";
 
 const ACTION =
-  "rounded-full border border-line px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral disabled:opacity-40";
+  "rounded-full border border-border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
 
 export default function PlayerRosterClaim({
   playerPoolId,
@@ -61,20 +61,20 @@ export default function PlayerRosterClaim({
   let content: React.ReactNode;
   if (unavailable) {
     content = (
-      <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-steel">
+      <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted">
         Claim status unavailable — try again
       </span>
     );
   } else if (state === "claimed") {
-    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-mint">Claimed</span>;
+    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-success">Claimed</span>;
   } else if (state === "pending") {
-    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-steel">Pending</span>;
+    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted">Pending</span>;
   } else if (state === "mine-approved") {
-    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-mint">This is you</span>;
+    content = <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-success">This is you</span>;
   } else if (state === "mine-pending") {
     content = (
       <div className="flex items-center gap-2">
-        <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-steel">Your claim is pending</span>
+        <span className="text-[0.7rem] font-semibold uppercase tracking-wide text-muted">Your claim is pending</span>
         {claimLinkId ? (
           <button
             type="button"

@@ -39,25 +39,25 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
   }
 
   return (
-    <li className="rounded-lg border border-line bg-panel p-4">
+    <li className="rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-semibold text-white">{s.question}</span>
-        <span className="text-sm text-steel">
+        <span className="text-sm text-muted">
           {s.side_a} / {s.side_b}
         </span>
-        <span className="ml-auto text-xs text-steel">
+        <span className="ml-auto text-xs text-muted">
           by {s.username} · {new Date(s.created_at).toLocaleString()}
         </span>
       </div>
-      {s.note && <p className="mt-1 text-xs text-steel">Note: {s.note}</p>}
+      {s.note && <p className="mt-1 text-xs text-muted">Note: {s.note}</p>}
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <label className="grid gap-1 text-xs text-steel">
+        <label className="grid gap-1 text-xs text-muted">
           Event
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-line bg-panel px-2 py-1.5 text-sm text-white"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm text-white"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -66,13 +66,13 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs text-steel">
+        <label className="grid gap-1 text-xs text-muted">
           Game time (locks 5 min before)
           <input
             type="datetime-local"
             value={gameAt}
             onChange={(e) => setGameAt(e.target.value)}
-            className="rounded border border-line bg-panel px-2 py-1.5 text-sm text-white"
+            className="rounded border border-border bg-surface px-2 py-1.5 text-sm text-white"
           />
         </label>
         <button
@@ -83,14 +83,14 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
         >
           Approve → market
         </button>
-        <label className="grid flex-1 basis-48 gap-1 text-xs text-steel">
+        <label className="grid flex-1 basis-48 gap-1 text-xs text-muted">
           Rejection reason (optional)
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             maxLength={200}
             placeholder="Too ambiguous to settle"
-            className="rounded border border-line bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-steel/60"
+            className="rounded border border-border bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-muted/60"
           />
         </label>
         <button
@@ -116,7 +116,7 @@ export default function PropsAdmin({
 }) {
   if (suggestions.length === 0) {
     return (
-      <div className="rounded-lg border border-line bg-panel p-8 text-center text-sm text-steel">
+      <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
         No pending suggestions — the queue is clear.
       </div>
     );

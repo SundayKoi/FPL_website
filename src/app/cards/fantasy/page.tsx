@@ -51,7 +51,7 @@ function Gate({ title, body, signIn }: { title: string; body: string; signIn?: s
     <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
       <span className="label-dash">Fantasy</span>
       <h1 className="type-display text-3xl sm:text-4xl">{title}</h1>
-      <p className="max-w-md text-sm text-steel">{body}</p>
+      <p className="max-w-md text-sm text-muted">{body}</p>
       {signIn && (
         <Link href={`/login?redirect=${signIn}`} className="btn-pill mt-2">
           Sign in with Discord
@@ -162,20 +162,20 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
             FPL Better · {LEAGUE_LABELS[league]} · Season {season}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Fantasy</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Field one card you own in every role — Top, Jungle, Mid, Bot, Support — with their combined
             OVR at or under {SALARY_CAP}. Each card scores its player&apos;s real power rating for that
             week&apos;s games, and the five add up to your total. The top three managers take{" "}
             {WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars. Lineups lock
             Mondays at {lockLabelEastern(week)} — after that the week is played out and scored.
           </p>
-          <p className="mt-2 text-sm text-steel">
+          <p className="mt-2 text-sm text-muted">
             Balance <b className="font-semibold text-white">{fmtPoints(user.balance)}</b> · {options.length} card
             {options.length === 1 ? "" : "s"} in your collection.
           </p>
           <Link
             href={base}
-            className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
           >
             ← Back to player cards
           </Link>

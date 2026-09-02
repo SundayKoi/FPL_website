@@ -16,7 +16,7 @@ export default async function LeaderboardPage() {
     <div>
       <span className="label-dash">Hall of Fame</span>
       <h1 className="type-display mt-2 text-4xl sm:text-5xl">Leaderboard</h1>
-      <p className="mt-3 max-w-2xl text-sm text-steel">Richest wallets and biggest lifetime net winners.</p>
+      <p className="mt-3 max-w-2xl text-sm text-muted">Richest wallets and biggest lifetime net winners.</p>
       <LeaderboardTable byBalance={byBalance} byProfit={byProfit} meId={user?.discordId ?? null} />
     </div>
   );

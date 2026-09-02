@@ -53,7 +53,7 @@ export default function RecordsTab({ season, phase, teamNames }: { season: strin
 
   // Medal accent for the top three of each record category.
   const rankColor = (i: number) =>
-    i === 0 ? "text-gold" : i === 1 ? "text-steel" : i === 2 ? "text-[#cd7f32]" : "text-steel/70";
+    i === 0 ? "text-gold" : i === 1 ? "text-muted" : i === 2 ? "text-[#cd7f32]" : "text-muted/70";
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -68,7 +68,7 @@ export default function RecordsTab({ season, phase, teamNames }: { season: strin
               {entries.map((entry, i) => (
                 <li
                   key={`${entry.match_id}-${entry.summoner_name}-${i}`}
-                  className="flex items-center justify-between gap-3 border-t border-line/50 pt-2 first:border-t-0 first:pt-0"
+                  className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 first:border-t-0 first:pt-0"
                 >
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-semibold text-white">
@@ -78,9 +78,9 @@ export default function RecordsTab({ season, phase, teamNames }: { season: strin
                           distinct tags (different real players, e.g.
                           Aura#5950 vs Aura#RGB0) — show #tag so viewers can
                           tell them apart without opening the detail page. */}
-                      <span className="text-steel">#{entry.tag}</span>
+                      <span className="text-muted">#{entry.tag}</span>
                     </span>
-                    <span className="truncate font-mono text-xs text-steel">
+                    <span className="truncate font-mono text-xs text-muted">
                       {entry.champion} · {formatDate(entry.game_date)}
                     </span>
                   </div>

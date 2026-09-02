@@ -25,7 +25,7 @@ export async function CompareCardsPageView({
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Compare cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-steel">
+        <p className="max-w-md text-sm text-muted">
           Card comparisons are part of the premium card collection.
           {access.signedIn ? " Grab the premium role in the Discord to use them." : " Sign in with Discord to check your access."}
         </p>
@@ -51,11 +51,11 @@ export async function CompareCardsPageView({
             Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
           </span>
           <h1 className="type-display mt-2 text-4xl">Card vs Card</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
+          <p className="mt-3 max-w-2xl text-sm text-muted">
             Put any two cards head to head — the better number lights up green. The URL follows your
             picks, so paste it into Discord for match-night arguments.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-steel underline-offset-4 hover:text-coral hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
             ← Back to the collection
           </Link>
         </div>

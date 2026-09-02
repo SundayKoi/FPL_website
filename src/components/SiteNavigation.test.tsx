@@ -24,7 +24,7 @@ describe("SiteNavigation", () => {
 
     expect(screen.queryByRole("link", { name: /^Home$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /fpl home/i })).toBeNull();
-    expect(screen.getByRole("button", { name: /fpl, choose league/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /fpl, premier division, choose league/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /premier menu/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /academy menu/i })).toBeNull();
     expect(screen.getByRole("link", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
@@ -66,7 +66,7 @@ describe("SiteNavigation", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     fireEvent.click(screen.getByRole("button", { name: /choose league/i }));
-    expect(screen.getByRole("menuitem", { name: /^FPL$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("menuitem", { name: /^FPL, Premier division$/ }).getAttribute("aria-current")).toBe("page");
   });
 
   it("marks FPL'dle as a Premium page, not a League destination", () => {
@@ -196,7 +196,7 @@ describe("SiteNavigation", () => {
     expect(headerRow?.className).toContain("sm:py-4");
     expect(headerRow?.className).toContain("lg:px-10");
 
-    const brandButton = screen.getByRole("button", { name: /fpl, choose league/i });
+    const brandButton = screen.getByRole("button", { name: /fpl, premier division, choose league/i });
     expect(brandButton.className).toContain("gap-2");
 
     const logo = brandButton.querySelector("img");

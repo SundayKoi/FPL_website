@@ -19,13 +19,13 @@ export default function BidBoard() {
     <section aria-label="Free Agency bid board" className="card-brand mt-10 overflow-x-auto p-4 sm:p-6">
       <h2 className="type-display text-2xl text-white">Bid Board</h2>
       <div className="mt-4 min-w-[1100px]">
-        <div className="grid grid-cols-[minmax(12rem,1.2fr)_repeat(12,minmax(5.5rem,1fr))] gap-px bg-line text-center text-[0.6rem] font-bold uppercase tracking-[0.08em] text-steel">
-          <span className="bg-navy px-2 py-2 text-left">Captain</span>
+        <div className="grid grid-cols-[minmax(12rem,1.2fr)_repeat(12,minmax(5.5rem,1fr))] gap-px bg-border text-center text-[0.6rem] font-bold uppercase tracking-[0.08em] text-muted">
+          <span className="bg-canvas px-2 py-2 text-left">Captain</span>
           {FREE_AGENCY_BID_BOARD_HEADERS.map((header, index) => (
-            <span key={`${header}-${index}`} className="bg-navy px-2 py-2">{header}</span>
+            <span key={`${header}-${index}`} className="bg-canvas px-2 py-2">{header}</span>
           ))}
           {FREE_AGENCY_BID_BOARD.flatMap((row) => [
-            <span key={`${row.captain}-name`} className="bg-panel px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
+            <span key={`${row.captain}-name`} className="bg-surface px-2 py-3 text-left font-semibold text-white">{row.captain}</span>,
             ...row.bids.map((player, index) => {
               // Voided bid (player removed from the league): keep
               // the slot as an empty cell so later bids stay in
@@ -35,7 +35,7 @@ export default function BidBoard() {
                   <span
                     key={`${row.captain}-${index}`}
                     aria-label="Voided bid"
-                    className="bg-panel/60 px-2 py-3"
+                    className="bg-surface/60 px-2 py-3"
                   />
                 );
               }
@@ -54,10 +54,10 @@ export default function BidBoard() {
                         : player,
                     )
                   }
-                  className={`bg-panel px-2 py-3 text-left transition-colors hover:bg-coral/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-coral ${
+                  className={`bg-surface px-2 py-3 text-left transition-colors hover:bg-primary/20 focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
                     isHighlighted
-                      ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-coral)]"
-                      : "font-medium text-steel"
+                      ? "font-extrabold text-white [box-shadow:inset_0_0_0_2px_var(--color-primary)]"
+                      : "font-medium text-muted"
                   }`}
                 >
                   {player}

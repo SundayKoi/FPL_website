@@ -45,7 +45,7 @@ export default function MyReportsList({
   };
 
   return (
-    <div className="mt-6 border-t border-line pt-4">
+    <div className="mt-6 border-t border-border pt-4">
       <h3 className="label-dash">My reports</h3>
       {fixerError && (
         <p role="alert" className="mt-2 text-sm text-red-400">
@@ -53,18 +53,18 @@ export default function MyReportsList({
         </p>
       )}
       {myReports.length === 0 ? (
-        <p className="mt-3 text-sm text-steel">No reports submitted yet.</p>
+        <p className="mt-3 text-sm text-muted">No reports submitted yet.</p>
       ) : (
         <ul className="mt-3 flex flex-col gap-3">
           {myReports.map((r) => (
-            <li key={r.id} className="rounded border border-line/60 bg-navy/60 p-3">
+            <li key={r.id} className="rounded border border-border/60 bg-canvas/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-white">
                   {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
                 </span>
                 <StatusBadge status={r.status} />
                 <FixtureChips fixtureId={r.fixture_id} status={r.status} />
-                <span className="text-xs text-steel">
+                <span className="text-xs text-muted">
                   {r.season_phase} · {r.season}
                 </span>
               </div>
@@ -74,8 +74,8 @@ export default function MyReportsList({
               <ul className="mt-2 flex flex-col gap-1.5">
                 {r.games.map((g) => (
                   <li key={g.id} className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="w-16 shrink-0 text-steel">Game {g.game_number}</span>
-                    <code className="text-steel">{g.match_id}</code>
+                    <span className="w-16 shrink-0 text-muted">Game {g.game_number}</span>
+                    <code className="text-muted">{g.match_id}</code>
                     <StatusBadge status={g.status} />
                     {g.status === "needs_side" && (
                       <select
@@ -84,7 +84,7 @@ export default function MyReportsList({
                         onChange={(e) => {
                           if (e.target.value) void handleFixSide(g.id, e.target.value);
                         }}
-                        className="rounded border border-line bg-navy px-1.5 py-0.5 text-xs text-white"
+                        className="rounded border border-border bg-canvas px-1.5 py-0.5 text-xs text-white"
                       >
                         <option value="" disabled>
                           Which side was blue?

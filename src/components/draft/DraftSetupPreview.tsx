@@ -17,19 +17,19 @@ export default function DraftSetupPreview({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="card-brand overflow-hidden border-cyan/40 bg-gradient-to-br from-cyan/10 via-panel to-panel p-5 sm:p-8">
+      <section className="card-brand overflow-hidden border-cyan/40 bg-gradient-to-br from-cyan/10 via-surface to-surface p-5 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div>
             <span className="label-dash text-cyan">SPECTATOR PREVIEW · SETUP</span>
             <h2 className="type-display mt-3 text-4xl text-white sm:text-5xl">The room is being set.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-steel">
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
               This read-only preview shows the teams, order, budgets, and player pool before nominations and bidding begin.
             </p>
             <DraftScheduleCountdown startsAt={startsAt} label="Draft start countdown" />
           </div>
           <Link
             href="/draft"
-            className="rounded border border-line px-3 py-2 text-sm font-semibold text-steel hover:border-coral hover:text-coral focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+            className="rounded border border-border px-3 py-2 text-sm font-semibold text-muted hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             ← Draft Central
           </Link>
@@ -42,7 +42,7 @@ export default function DraftSetupPreview({
             <span className="label-dash">THE PLAYER POOL</span>
             <h3 id="preview-pool-title" className="type-display mt-2 text-2xl text-white">Available players</h3>
           </div>
-          <span className="text-xs uppercase tracking-wide text-steel">{availablePlayers.length} available</span>
+          <span className="text-xs uppercase tracking-wide text-muted">{availablePlayers.length} available</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {ROLE_ORDER.map((role) => {
@@ -56,16 +56,16 @@ export default function DraftSetupPreview({
                 return left.display_name.toLowerCase().localeCompare(right.display_name.toLowerCase());
               });
             return (
-              <section key={role} className="overflow-hidden rounded border border-line">
-                <h4 className="border-b border-line bg-navy px-3 py-2 text-xs font-bold uppercase tracking-wide text-steel">{ROLE_LABELS[role]}</h4>
-                <ul className="divide-y divide-line/60">
+              <section key={role} className="overflow-hidden rounded border border-border">
+                <h4 className="border-b border-border bg-canvas px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">{ROLE_LABELS[role]}</h4>
+                <ul className="divide-y divide-border/60">
                   {rolePlayers.map((player) => (
-                    <li key={player.id} className="flex items-center justify-between gap-2 bg-panel px-3 py-2 text-xs">
+                    <li key={player.id} className="flex items-center justify-between gap-2 bg-surface px-3 py-2 text-xs">
                       <span className="min-w-0 truncate font-semibold text-white">{player.display_name}</span>
-                      <span className="shrink-0 text-[10px] uppercase text-steel">{player.rank ?? "Unranked"}</span>
+                      <span className="shrink-0 text-[10px] uppercase text-muted">{player.rank ?? "Unranked"}</span>
                     </li>
                   ))}
-                  {rolePlayers.length === 0 && <li className="bg-panel px-3 py-3 text-center text-[10px] text-steel">No players</li>}
+                  {rolePlayers.length === 0 && <li className="bg-surface px-3 py-3 text-center text-[10px] text-muted">No players</li>}
                 </ul>
               </section>
             );
@@ -79,7 +79,7 @@ export default function DraftSetupPreview({
             <span className="label-dash">THE FRANCHISES</span>
             <h3 id="preview-teams-title" className="type-display mt-2 text-2xl text-white">Draft order & budgets</h3>
           </div>
-          <span className="text-xs uppercase tracking-wide text-steel">{teams.length} teams ready</span>
+          <span className="text-xs uppercase tracking-wide text-muted">{teams.length} teams ready</span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[...teams].sort((left, right) => left.nomination_position - right.nomination_position).map((team) => (
@@ -88,7 +88,7 @@ export default function DraftSetupPreview({
               <div className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="font-mono text-xs font-semibold text-steel">#{team.nomination_position} · {team.abbreviation}</span>
+                    <span className="font-mono text-xs font-semibold text-muted">#{team.nomination_position} · {team.abbreviation}</span>
                     <h4 className="mt-1 text-lg font-semibold text-white">{team.name}</h4>
                     {team.captain_profile_id_2 && (
                       <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-cyan">
@@ -100,7 +100,7 @@ export default function DraftSetupPreview({
                     {team.captain_profile_id ? "Captain assigned" : "Captain pending"}
                   </span>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-steel">
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
                   <span>Budget remaining</span>
                   <span className="font-mono font-bold text-gold">{team.points_remaining} / {team.budget_start}</span>
                 </div>
@@ -110,19 +110,19 @@ export default function DraftSetupPreview({
                     return (
                     <li
                       key={role}
-                      className={`rounded px-2 py-1.5 text-xs ${rosterPlayer ? "border border-line bg-navy/40 text-white" : "border border-dashed border-line text-steel/70"}`}
+                      className={`rounded px-2 py-1.5 text-xs ${rosterPlayer ? "border border-border bg-canvas/40 text-white" : "border border-dashed border-border text-muted/70"}`}
                     >
                       <span className="uppercase tracking-wide">{ROLE_LABELS[role]}</span>
                       {rosterPlayer ? (
                         <span className="mt-1 flex items-center justify-between gap-2">
                           <span className="min-w-0 truncate font-semibold">
                             {rosterPlayer.display_name}
-                            <span className="ml-1 font-normal text-steel">· {rosterPlayer.rank ?? "Unranked"}</span>
+                            <span className="ml-1 font-normal text-muted">· {rosterPlayer.rank ?? "Unranked"}</span>
                           </span>
                           <span className="shrink-0 font-mono text-[10px] text-gold">{rosterPlayer.price ?? 0}</span>
                         </span>
                       ) : (
-                        <span className="ml-1 text-steel">—</span>
+                        <span className="ml-1 text-muted">—</span>
                       )}
                     </li>
                     );
@@ -134,9 +134,9 @@ export default function DraftSetupPreview({
         </div>
       </section>
 
-      <section className="card-brand border-dashed border-line p-6 text-center">
+      <section className="card-brand border-dashed border-border p-6 text-center">
         <span className="label-dash text-gold">LIVE DRAFT CENTER</span>
-        <p className="mt-3 text-sm text-steel">Nominations, bids, and the live board will appear here when the admin starts the draft.</p>
+        <p className="mt-3 text-sm text-muted">Nominations, bids, and the live board will appear here when the admin starts the draft.</p>
       </section>
     </div>
   );

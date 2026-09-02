@@ -96,9 +96,9 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
   return (
     <div className="flex flex-col gap-5">
       <div className="card-brand flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-steel">Point values</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted">Point values</span>
         {TARIFF_CHIPS.map((chip) => (
-          <span key={chip.label} className="text-xs text-steel">
+          <span key={chip.label} className="text-xs text-muted">
             {chip.label} <b className="text-white">{chip.value}</b>
           </span>
         ))}
@@ -118,15 +118,15 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
       <div className="card-brand overflow-x-auto p-0">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-cyan/20">
+            <tr className="border-b border-border/70">
               {["#", "Player", ...(seasonView ? ["WKS"] : []), "GP", "W", "Pts", ...(seasonView ? ["Pts/wk"] : [])].map(
                 (label, index) => (
                   <th
                     key={label}
                     title={label === "Pts" ? (seasonView ? "Sum of the weekly scores" : "Average of this week's games") : undefined}
-                    className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-steel ${
+                    className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted ${
                       index < 2 ? "text-left" : "text-right"
-                    } ${index === 1 ? "sticky left-0 z-10 bg-panel" : ""}`}
+                    } ${index === 1 ? "sticky left-0 z-10 bg-surface" : ""}`}
                   >
                     {label}
                   </th>
@@ -136,22 +136,22 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
           </thead>
           <tbody>
             {shown.map((player, index) => (
-              <tr key={player.key} className="border-b border-line/60 last:border-0">
-                <td className="px-3 py-2 font-mono text-xs text-steel">{index + 1}</td>
-                <td className="sticky left-0 z-10 bg-panel px-3 py-2 font-semibold text-white">
+              <tr key={player.key} className="border-b border-border/60 last:border-0">
+                <td className="px-3 py-2 font-mono text-xs text-muted">{index + 1}</td>
+                <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-semibold text-white">
                   {player.name}
-                  <span className="ml-1 text-xs font-normal text-steel">#{player.tag}</span>
+                  <span className="ml-1 text-xs font-normal text-muted">#{player.tag}</span>
                 </td>
                 {seasonView ? (
-                  <td className="px-3 py-2 text-right tabular-nums text-steel">{player.weeks}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted">{player.weeks}</td>
                 ) : null}
-                <td className="px-3 py-2 text-right tabular-nums text-steel">{player.games}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-steel">{player.wins}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-muted">{player.games}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-muted">{player.wins}</td>
                 <td className="px-3 py-2 text-right font-bold tabular-nums text-cyan">{player.points}</td>
                 {/* The fair comparison over a season: people miss different
                     weeks, and a missed week is a zero nobody chose. */}
                 {seasonView ? (
-                  <td className="px-3 py-2 text-right tabular-nums text-steel">{player.secondary}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted">{player.secondary}</td>
                 ) : null}
               </tr>
             ))}
@@ -159,12 +159,12 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
         </table>
       </div>
 
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         A week scores the <b className="text-white">average</b> of the games played in it, so four games and two
         games are both one week. The season total is the <b className="text-white">sum of those weekly scores</b>
         {" "}— turning up for another week earns another score.
       </p>
-      <p className="text-xs text-steel">
+      <p className="text-xs text-muted">
         Separate from the Fantasy card game&rsquo;s lineup scoring, which ranks a lineup by Power Ranking against
         the week&rsquo;s field. This table is the flat tariff above, applied to every game played.
       </p>
