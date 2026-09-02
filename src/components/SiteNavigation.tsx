@@ -32,17 +32,13 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
   },
 ];
 
-function premiumDropdownLinks(view: LeagueView, premiumHref: string): DropdownLink[] {
-  const prefix = view === "academy" ? "/academy" : "";
-
+function premiumDropdownLinks(premiumHref: string): DropdownLink[] {
   return [
     { href: premiumHref, label: "Premium HQ" },
     { href: "/betting", label: "Betting" },
     { href: "/bangers", label: "The Daily Stu" },
     { href: "/drafter", label: "Match Drafter" },
-    { href: `${prefix}/fpldle`, label: "FPL'dle" },
-    { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
-    { href: `${prefix}/guess-the-card`, label: "Guess the Card" },
+    { href: `${premiumHref}#daily-games`, label: "Daily Games" },
   ];
 }
 
@@ -78,9 +74,25 @@ function isActive(pathname: string | null, href: string) {
   return pathname === path || (pathname?.startsWith(`${path}/`) ?? false);
 }
 
+function isPremiumActive(pathname: string | null) {
+  return PREMIUM_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
+}
+
 // Cards owns both leagues' collection hubs plus the single-card share page and
 // the public binder view, none of which live under a /cards prefix.
 const CARDS_ACTIVE_PREFIXES = ["/cards", "/academy/cards", "/card", "/binder"];
+const PREMIUM_ACTIVE_PREFIXES = [
+  "/premium",
+  "/betting",
+  "/bangers",
+  "/drafter",
+  "/fpldle",
+  "/higher-lower",
+  "/guess-the-card",
+  "/academy/fpldle",
+  "/academy/higher-lower",
+  "/academy/guess-the-card",
+];
 
 function isCardsActive(pathname: string | null) {
   return CARDS_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
@@ -109,7 +121,7 @@ export default function SiteNavigation({
   const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
-    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(league, premiumHref) },
+    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];
@@ -202,7 +214,7 @@ export default function SiteNavigation({
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;
-            const active = dropdown.links.some((link) => isActive(pathname, link.href));
+            const active = dropdown.key === "premium" ? isPremiumActive(pathname) : dropdown.links.some((link) => isActive(pathname, link.href));
 
             return (
               <div key={dropdown.key} className="relative flex flex-col sm:items-center">

@@ -238,18 +238,14 @@ describe("SiteNavigation", () => {
       "Betting",
       "The Daily Stu",
       "Match Drafter",
-      "FPL'dle",
-      "Higher or Lower",
-      "Guess the Card",
+      "Daily Games",
     ]);
     expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
       "/premium",
       "/betting",
       "/bangers",
       "/drafter",
-      "/fpldle",
-      "/higher-lower",
-      "/guess-the-card",
+      "/premium#daily-games",
     ]);
 
     cleanup();
@@ -261,9 +257,7 @@ describe("SiteNavigation", () => {
       "/betting",
       "/bangers",
       "/drafter",
-      "/academy/fpldle",
-      "/academy/higher-lower",
-      "/academy/guess-the-card",
+      "/premium?league=academy#daily-games",
     ]);
   });
 

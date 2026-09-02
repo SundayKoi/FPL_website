@@ -392,7 +392,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         </div>
       </section>
 
-      <section aria-labelledby="daily-games-heading" className="flex flex-col gap-5">
+      <section id="daily-games" aria-labelledby="daily-games-heading" className="scroll-mt-24 flex flex-col gap-5">
         <SectionHeading
           eyebrow="Daily games"
           title="Daily games"

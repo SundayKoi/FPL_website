@@ -78,10 +78,12 @@ describe("PremiumHub betting preview", () => {
 
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/guess-the-card");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByText("Admin test")).toBeTruthy();
+    const dailyGames = screen.getByRole("region", { name: "Daily games" });
+    expect(dailyGames.getAttribute("id")).toBe("daily-games");
+    expect(within(dailyGames).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
+    expect(within(dailyGames).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
+    expect(within(dailyGames).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/guess-the-card");
+    expect(within(dailyGames).getByText("Admin test")).toBeTruthy();
     const higherLowerPreview = screen.getByRole("img", { name: "Higher or Lower game preview" });
     expect(within(higherLowerPreview).getAllByTestId("higher-lower-preview-card")).toHaveLength(2);
     expect(within(higherLowerPreview).getByText("↑")).toBeTruthy();
@@ -94,9 +96,11 @@ describe("PremiumHub betting preview", () => {
     const academyAnnouncement = screen.getByRole("complementary", { name: "New feature announcement" });
     expect(within(academyAnnouncement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
     expect(within(academyAnnouncement).getByRole("link", { name: /play higher or lower/i }).getAttribute("href")).toBe("/academy/higher-lower");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/academy/higher-lower");
-    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
+    const academyDailyGames = screen.getByRole("region", { name: "Daily games" });
+    expect(academyDailyGames.getAttribute("id")).toBe("daily-games");
+    expect(within(academyDailyGames).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
+    expect(within(academyDailyGames).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/academy/higher-lower");
+    expect(within(academyDailyGames).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
   });
 
   it("keeps card-specific deep links out of the hub", () => {
