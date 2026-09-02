@@ -75,7 +75,7 @@ export function cardsSections(base: string): CardsSection[] {
           ? []
           : [
               {
-                label: "Gauntlet",
+                label: "The Gauntlet",
                 href: `${base}/gauntlet`,
                 blurb: "Draft five, climb eight rounds, lose once",
                 premierOnly: true,

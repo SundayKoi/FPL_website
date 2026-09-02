@@ -62,7 +62,7 @@ describe("PremiumPageView", () => {
     expect(screen.queryByRole("link", { name: /paypal/i })).toBeNull();
     expect(screen.getByText(/fpl does not condone or endorse any tweets made by stu/i)).toBeTruthy();
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
-    expect(within(destinations).getByRole("link", { name: /Player Cards/ }).getAttribute("href")).toBe("/cards");
+    expect(within(destinations).getByRole("link", { name: /^Cards/ }).getAttribute("href")).toBe("/cards");
     expect(within(destinations).getByRole("link", { name: /Betting Exchange/ }).getAttribute("href")).toBe("/betting");
     expect(within(destinations).getByRole("link", { name: /The Daily Stu/ }).getAttribute("href")).toBe("/bangers");
     expect(within(destinations).getByRole("link", { name: /Match Drafter/ }).getAttribute("href")).toBe("/drafter");

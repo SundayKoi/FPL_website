@@ -116,6 +116,18 @@ academy's Play tab). Pages do not draw their own back links or league
 toggles. Every old URL still resolves; the map decides which tab it lights.
 A page the map does not list (`/cards/claims`, a redirect) lights nothing.
 
+Cards Home (`src/app/cards/page.tsx`) is about the viewer and the week —
+their card or claim, a one-line shelf count with today's free rip, this
+week's notices, the draw, and a "what's where" line per tab — and reads only
+through the read-only `loadHomeExtras` (never `getBettingUser()`, which
+writes). The wall of every card is Browse. Shop-week notices (Live Drops,
+Champion's Tribute, the Faceless Drop, the chase) come from the pure
+`weekNotices()` in `src/lib/packs/weekNotices.ts`, most urgent first, and
+`ThisWeekStrip` draws the first as a full line and the rest as chips, so a
+busy week is one row above the buy button instead of four banners. Page
+titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
+Draw, Team cards); routes did not move.
+
 Gating within Cards uses one wording, `CardsGate` with `PREMIUM_GATE_TITLE`
 and `PREMIUM_GATE_BODY`, whichever check a page runs: `premiumAccess()` (the
 premium role) and `getBettingUser().allowed` (the wallet) both resolve the

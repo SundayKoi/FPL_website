@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { MarketPageView } from "@/app/cards/market/page";
 
 export const metadata: Metadata = {
-  title: "Academy Card Market — FPL",
+  title: "Academy Market — FPL",
   description: "Buy and sell Academy player card copies for betting dollars.",
 };
 

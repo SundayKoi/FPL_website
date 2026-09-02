@@ -15,7 +15,7 @@ const LEAGUES: { key: CardLeague; label: string }[] = [
 ];
 
 const PREMIUM_LINKS = [
-  { label: "Player Cards", href: "/cards", note: "Living ratings for every player" },
+  { label: "Cards", href: "/cards", note: "Your collection, packs, market and games" },
   { label: "Betting Exchange", href: "/betting", note: "Markets, pick'em, and wallet" },
   { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
   { label: "Match Drafter", href: "/drafter", note: "Run a private pick / ban lobby" },
@@ -288,7 +288,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <div className="mt-5 grid gap-5 lg:grid-cols-12">
           <FeatureCard
             eyebrow="Your collection"
-            title="Player Cards"
+            title="Cards"
             description="Season ratings, tiers, form, champion pools, and shareable card identity."
             href={base}
             className="lg:col-span-6"

@@ -21,7 +21,7 @@ import { fetchInventory } from "@/lib/packs/queries";
 import { isAltArt } from "@/lib/trades/queries";
 
 export const metadata: Metadata = {
-  title: "Card Market — FPL",
+  title: "Market — FPL",
   description: "Buy and sell player card copies for betting dollars.",
 };
 
@@ -177,7 +177,7 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
           <span className="label-dash">
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Market</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Market</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Put a copy up at a fixed price and anyone can take it — no haggling, no waiting for an
             answer. A listing stands for {LISTING_DAYS} days. The wanted board is the same market from

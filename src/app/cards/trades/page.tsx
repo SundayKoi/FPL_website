@@ -10,7 +10,7 @@ import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
 
 export const metadata: Metadata = {
-  title: "Trading Post — FPL",
+  title: "Trade offers — FPL",
   description: "Trade player cards and betting dollars with other collectors.",
 };
 
@@ -75,7 +75,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
   if (!user) {
     return (
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Trading post</span>
+        <span className="label-dash">Trade offers</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to trade cards</h1>
         <p className="max-w-md text-sm text-steel">
           Trades move cards and betting dollars between collectors, so they ride on your
@@ -91,7 +91,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
   if (!user.allowed) {
     return (
       <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Trading post</span>
+        <span className="label-dash">Trade offers</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-steel">
           Trades can carry betting dollars, and only premium members have a wallet to spend. Grab the
@@ -141,7 +141,7 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
           <span className="label-dash">
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Trading Post</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Trade offers</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Trade cards and betting dollars with other collectors — either side of an offer can be cards,
             money, or both. Nothing moves until the other person accepts, and a card fielded in this
