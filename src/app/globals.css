@@ -1187,171 +1187,263 @@ body {
   .card-glow-eclipse { opacity: 0.45; }
 }
 
-/* ── Skin-line parallels (PROPOSAL — previewed on /admin/skin-lines, minted
-   by nothing). Each is a film over the art like the parallels above and
-   rides under the same cosmos star field, so a shelf of forty stays cheap:
-   gradients and one animation each, no filter passes. The point of every
-   one is to be recognisable from across the room, which the abstract ladder
-   was not — so each takes ONE unmistakable motif from its skin line and
-   nothing else. ───────────────────────────────────────────────────── */
+/* ── Skin-line parallels (PROPOSAL — previewed on /skin-lines, minted by
+   nothing). Each is a film over the art like the parallels above and rides
+   under the same cosmos star field, so a shelf of forty stays cheap.
 
-/* PROJECT — orange circuit traces on black glass, one hot bar. */
+   The rule that makes them tell apart: each line owns ONE SHAPE, and no
+   line owns a streak. Refractor already has the diagonal rake and Cracked
+   Ice the shards, so a skin line that sweeps a bar across the art reads as
+   another refractor — the first cut of these did, and it was confusing.
+   Now: PROJECT is a circuit grid and a visor, Harrowing is a crescent moon
+   in fog, Academy is gilded page corners and a wax seal, Arcade is a coarse
+   pixel mosaic, Arcana is a sunburst inside a ring, Battlecast is a
+   targeting reticle. Different shapes, not different tints.
+
+   Every colour in a line is read from three triplets, --m1/--m2/--m3, so
+   the TIER can restate the same shape in another material without redrawing
+   it (see the tier block below). Each line also declares its Chroma
+   palette, --c1/--c2/--c3: the recolour League itself sells. ───────── */
+
+/* PROJECT — an orthogonal circuit grid, nodes at the crossings, one thin
+   visor slit of hot light across the eyes. Chroma: the cyan Hunters set. */
 @utility card-foil-line-project {
+  --m1: 255 122 26;
+  --m2: 255 232 205;
+  --m3: 40 12 0;
+  --c1: 40 220 255;
+  --c2: 228 255 255;
+  --c3: 0 22 36;
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(115deg, transparent 0 44%, rgb(255 122 26 / 0.85) 49%, rgb(255 230 200 / 0.95) 50%, rgb(255 122 26 / 0.85) 51%, transparent 56% 100%),
-    repeating-linear-gradient(115deg, rgb(255 122 26 / 0.34) 0 1.5px, transparent 1.5px 22px),
-    repeating-linear-gradient(25deg, rgb(255 90 0 / 0.18) 0 1px, transparent 1px 38px),
-    linear-gradient(180deg, rgb(20 8 0 / 0.35), rgb(60 20 0 / 0.15));
-  background-size: 220% 220%, 100% 100%, 100% 100%, 100% 100%;
+    linear-gradient(180deg, transparent 0 27%, rgb(var(--m1) / 0.75) 29.4%, rgb(var(--m2) / 0.95) 30.4%, rgb(var(--m1) / 0.75) 31.4%, transparent 34% 100%),
+    radial-gradient(circle, rgb(var(--m2) / 0.9) 0 1.4px, rgb(var(--m1) / 0.65) 2.4px, transparent 4px),
+    repeating-linear-gradient(0deg, rgb(var(--m1) / 0.3) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, rgb(var(--m1) / 0.3) 0 1px, transparent 1px 28px),
+    linear-gradient(180deg, rgb(var(--m3) / 0.45), rgb(var(--m3) / 0.15));
+  background-size: 100% 100%, 28px 28px, 100% 100%, 100% 100%, 100% 100%;
+  background-position: 0 0, 14px 14px, 0 0, 0 0, 0 0;
 }
 
-/* Harrowing — violet fog, green wisps, a lantern glow breathing at the rim. */
+/* Harrowing — a crescent moon top-right with a green halo, violet fog
+   drifting under it. The bite is painted in the fog's own violet, so the
+   moon reads as slipping behind cloud. Chroma: the pumpkin-orange
+   Bewitching set. */
 @keyframes lineHarrowingDrift {
-  0% { background-position: 0% 100%, 100% 0%, 50% 50%; }
-  100% { background-position: 100% 0%, 0% 100%, 50% 50%; }
+  0% { background-position: 0 0, 0 0, 0 0, 0% 100%, 100% 0%, 0 0; }
+  100% { background-position: 0 0, 0 0, 0 0, 100% 0%, 0% 100%, 0 0; }
 }
 @utility card-foil-line-harrowing {
+  --m1: 157 246 74;
+  --m2: 150 60 240;
+  --m3: 255 226 140;
+  --c1: 255 150 40;
+  --c2: 70 30 130;
+  --c3: 255 244 210;
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(ellipse 60% 40% at 30% 70%, rgb(157 246 74 / 0.8), transparent 70%),
-    radial-gradient(ellipse 55% 45% at 75% 25%, rgb(150 60 240 / 0.85), transparent 70%),
-    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 50%, rgb(120 255 90 / 0.6) 100%);
-  background-size: 200% 200%, 200% 200%, 100% 100%;
-  filter: blur(3px);
+    radial-gradient(circle at 71% 16%, rgb(var(--m2) / 0.98) 0 8%, rgb(var(--m2) / 0.6) 9.6%, transparent 11.5%),
+    radial-gradient(circle at 78% 20%, rgb(var(--m3) / 0.95) 0 9%, transparent 9.8%),
+    radial-gradient(circle at 78% 20%, transparent 11%, rgb(var(--m1) / 0.55) 12.5%, transparent 24%),
+    radial-gradient(ellipse 60% 40% at 30% 72%, rgb(var(--m1) / 0.7), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 70% 60%, rgb(var(--m2) / 0.8), transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 55%, rgb(var(--m1) / 0.45) 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 200% 200%, 200% 200%, 100% 100%;
   animation: lineHarrowingDrift 9s ease-in-out infinite alternate;
 }
 
-/* Academy — parchment wash, ruled gold lines, a crest of light top-left. */
+/* Academy — gilded page corners top-left and bottom-right, a crimson wax
+   seal, a parchment wash. Chroma: the blue-and-silver prefect set. */
 @utility card-foil-line-academy {
+  --m1: 244 210 122;
+  --m2: 255 242 205;
+  --m3: 150 30 45;
+  --c1: 120 190 255;
+  --c2: 232 244 255;
+  --c3: 30 60 150;
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 12% 10%, rgb(255 240 190 / 0.9) 0 6%, rgb(244 210 122 / 0.5) 12%, transparent 30%),
-    repeating-linear-gradient(0deg, rgb(244 210 122 / 0.3) 0 1px, transparent 1px 14px),
-    linear-gradient(160deg, rgb(255 236 190 / 0.35) 0%, rgb(200 150 60 / 0.25) 50%, rgb(255 236 190 / 0.35) 100%);
-  background-size: 100% 100%, 100% 100%, 240% 240%;
+    linear-gradient(rgb(var(--m1) / 0.95), rgb(var(--m1) / 0.95)),
+    linear-gradient(rgb(var(--m1) / 0.95), rgb(var(--m1) / 0.95)),
+    linear-gradient(rgb(var(--m1) / 0.95), rgb(var(--m1) / 0.95)),
+    linear-gradient(rgb(var(--m1) / 0.95), rgb(var(--m1) / 0.95)),
+    radial-gradient(circle at 84% 80%, rgb(var(--m3) / 0.95) 0 5.8%, rgb(var(--m2) / 0.9) 6.4% 7.2%, transparent 8%),
+    radial-gradient(circle at 84% 80%, rgb(var(--m2) / 0.8) 0 1.2%, transparent 2.5%),
+    linear-gradient(160deg, rgb(var(--m2) / 0.35) 0%, rgb(var(--m1) / 0.25) 50%, rgb(var(--m2) / 0.35) 100%);
+  background-size: 28% 3px, 3px 28%, 28% 3px, 3px 28%, 100% 100%, 100% 100%, 100% 100%;
+  background-position: 7% 7%, 7% 7%, 93% 93%, 93% 93%, 0 0, 0 0, 0 0;
+  background-repeat: no-repeat;
 }
 
-/* Arcade — CRT scanlines, a pixel grid, magenta/cyan signal split. */
+/* Arcade — an 8-bit mosaic of coarse pixels, CRT scanlines, and one slow
+   raster band walking down the screen. Chroma: the green-and-yellow
+   Final Boss set. */
 @keyframes lineArcadeScan {
   0% { background-position: 0 -40%, 0 0, 0 0, 0 0; }
   100% { background-position: 0 140%, 0 0, 0 0, 0 0; }
 }
 @utility card-foil-line-arcade {
+  --m1: 255 60 172;
+  --m2: 53 241 255;
+  --m3: 255 230 80;
+  --c1: 120 255 60;
+  --c2: 255 230 80;
+  --c3: 60 120 255;
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, transparent 0 40%, rgb(255 255 255 / 0.55) 50%, transparent 60% 100%),
+    linear-gradient(180deg, transparent 0 40%, rgb(255 255 255 / 0.5) 50%, transparent 60% 100%),
     repeating-linear-gradient(0deg, rgb(0 0 0 / 0.25) 0 2px, transparent 2px 4px),
-    repeating-linear-gradient(90deg, rgb(255 60 172 / 0.2) 0 3px, rgb(53 241 255 / 0.2) 3px 6px, transparent 6px 9px),
-    linear-gradient(120deg, rgb(255 60 172 / 0.35), rgb(53 241 255 / 0.35));
-  background-size: 100% 60%, 100% 100%, 100% 100%, 100% 100%;
+    conic-gradient(from 90deg at 50% 50%, rgb(var(--m1) / 0.55) 0 25%, rgb(var(--m2) / 0.55) 0 50%, rgb(var(--m3) / 0.45) 0 75%, transparent 0),
+    linear-gradient(120deg, rgb(var(--m1) / 0.3), rgb(var(--m2) / 0.3));
+  background-size: 100% 60%, 100% 100%, 18px 18px, 100% 100%;
   background-repeat: no-repeat, repeat, repeat, no-repeat;
   animation: lineArcadeScan 3.2s linear infinite;
 }
 
-/* Arcana — indigo night, gold sigils, a slow sunburst turning behind. */
+/* Arcana — a sunburst turning slowly inside a fixed ring, indigo night
+   behind it: a tarot card that moves. Chroma: the teal-and-silver set. */
 @keyframes lineArcanaTurn {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 @utility card-foil-line-arcana {
+  --m1: 229 194 107;
+  --m2: 36 18 77;
+  --m3: 255 246 222;
+  --c1: 80 230 200;
+  --c2: 10 40 60;
+  --c3: 240 255 250;
   position: absolute;
   inset: -40%;
   background-image:
-    repeating-conic-gradient(from 0deg, rgb(229 194 107 / 0.42) 0deg 4deg, transparent 4deg 15deg),
-    radial-gradient(circle at 50% 50%, rgb(229 194 107 / 0.55) 0 3%, transparent 12%),
-    radial-gradient(circle at 50% 50%, rgb(36 18 77 / 0.6), rgb(36 18 77 / 0.2) 70%);
+    radial-gradient(circle at 50% 50%, transparent 17.5%, rgb(var(--m3) / 0.85) 18% 18.8%, transparent 19.4%),
+    repeating-conic-gradient(from 0deg, rgb(var(--m1) / 0.42) 0deg 4deg, transparent 4deg 15deg),
+    radial-gradient(circle at 50% 50%, rgb(var(--m3) / 0.6) 0 3%, transparent 12%),
+    radial-gradient(circle at 50% 50%, rgb(var(--m2) / 0.6), rgb(var(--m2) / 0.2) 70%);
   animation: lineArcanaTurn 28s linear infinite;
 }
 
-/* Battlecast — brushed steel, hazard chevrons, a red targeting sweep. */
-@keyframes lineBattlecastSweep {
-  0% { background-position: -40% 0, 0 0, 0 0; }
-  100% { background-position: 140% 0, 0 0, 0 0; }
+/* Battlecast — a targeting reticle: two rings and a crosshair over the
+   face, brushed steel, a hazard strip along the foot. Chroma: the
+   green-and-cyan Creator set. */
+@keyframes lineBattlecastLock {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
 @utility card-foil-line-battlecast {
+  --m1: 255 42 42;
+  --m2: 255 190 40;
+  --m3: 90 95 105;
+  --c1: 80 255 120;
+  --c2: 40 200 255;
+  --c3: 60 70 80;
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(90deg, transparent 0 46%, rgb(255 42 42 / 0.8) 50%, transparent 54% 100%),
-    repeating-linear-gradient(-45deg, rgb(255 190 40 / 0.28) 0 10px, rgb(20 20 20 / 0.35) 10px 20px),
-    repeating-linear-gradient(180deg, rgb(255 255 255 / 0.16) 0 1px, rgb(90 95 105 / 0.28) 1px 3px);
-  background-size: 60% 100%, 100% 12%, 100% 100%;
-  background-repeat: no-repeat, no-repeat, repeat;
-  background-position: -40% 0, 0 0, 0 0;
-  animation: lineBattlecastSweep 2.6s ease-in-out infinite;
+    radial-gradient(circle at 50% 40%, transparent 19%, rgb(var(--m1) / 0.85) 19.5% 20.5%, transparent 21% 29%, rgb(var(--m1) / 0.5) 29.5% 30%, transparent 30.5%),
+    linear-gradient(0deg, transparent 0 59.6%, rgb(var(--m1) / 0.7) 59.8% 60.2%, transparent 60.4% 100%),
+    linear-gradient(90deg, transparent 0 49.7%, rgb(var(--m1) / 0.7) 49.8% 50.2%, transparent 50.3% 100%),
+    repeating-linear-gradient(-45deg, rgb(var(--m2) / 0.85) 0 10px, rgb(20 20 20 / 0.7) 10px 20px),
+    repeating-linear-gradient(180deg, rgb(255 255 255 / 0.14) 0 1px, rgb(var(--m3) / 0.28) 1px 3px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 7%, 100% 100%;
+  background-position: 0 0, 0 0, 0 0, 0 100%, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  animation: lineBattlecastLock 1.8s ease-in-out infinite;
 }
 
-/* The TIERS inside a season's line. A season is one skin line, but a
-   season's foils cannot all look the same or every week's pull is the same
-   pull — so the line is the colour and the motif, and the tier is how much
-   of it you got. Standard is the line's own utility above. The three rungs
-   over it are line-agnostic overlays, coloured by --line-accent so a Chroma
-   PROJECT and a Chroma Arcana read as the same tier of different lines:
+/* The TIERS inside a season's line. A season is one skin line, and a
+   season's foils cannot all look the same — but a tier that lays a new
+   pattern over the line is a different foil, not a rarer one. So a tier
+   never adds a shape. It restates the line's own shape in a richer
+   material, the way League's own tiers do:
 
-     Chroma    a second hue of the line's own colour, cycling across the art
-     Prestige  gold — in League, Prestige IS gold — a gold bar that sweeps
-               and a gold rim, over the line's motif
-     Ultimate  the line's motif with a living spark field over it, and the
-               whole thing breathing. The one you see from across the room. */
-@keyframes tierChromaShift {
-  from { background-position: 0% 50%; }
-  to { background-position: 200% 50%; }
-}
+     Standard  the line as drawn, in its own colours
+     Chroma    the same shape recoloured in the line's chroma palette, with
+               a faint iridescent sheen turning over it
+     Prestige  the same shape gilded — every colour becomes gold — inside a
+               gold frame
+     Ultimate  the same shape at full saturation, embers of the line's own
+               accent rising through it, and the frame lit in that accent
+
+   The first three modifiers sit ON the line's element and only move the
+   --m triplets; the sheen, frame and embers are sibling layers. */
 @utility card-foil-tier-chroma {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--line-accent) 45%, transparent) 0%,
-    transparent 32%,
-    color-mix(in srgb, var(--line-accent) 70%, transparent) 50%,
-    transparent 68%,
-    color-mix(in srgb, var(--line-accent) 45%, transparent) 100%
-  );
-  background-size: 220% 220%;
-  opacity: 0.7;
-  animation: tierChromaShift 6s linear infinite;
-}
-@keyframes tierPrestigeSweep {
-  0% { background-position: -60% 0, 0 0; }
-  100% { background-position: 160% 0, 0 0; }
+  --m1: var(--c1);
+  --m2: var(--c2);
+  --m3: var(--c3);
 }
 @utility card-foil-tier-prestige {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(105deg, transparent 0 42%, rgb(255 215 120 / 0.55) 47%, rgb(255 246 205 / 0.95) 50%, rgb(255 215 120 / 0.55) 53%, transparent 58% 100%),
-    radial-gradient(ellipse 130% 100% at 50% 50%, transparent 58%, rgb(255 200 90 / 0.6) 100%);
-  background-size: 60% 100%, 100% 100%;
-  background-repeat: no-repeat, no-repeat;
-  animation: tierPrestigeSweep 3.4s ease-in-out infinite;
-}
-@keyframes tierUltimateBreathe {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.03); }
+  --m1: 240 196 90;
+  --m2: 255 244 214;
+  --m3: 130 84 12;
 }
 @utility card-foil-tier-ultimate {
+  filter: saturate(1.4) brightness(1.08);
+}
+
+@keyframes tierChromaTurn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@utility card-foil-tier-chroma-sheen {
+  position: absolute;
+  inset: -50%;
+  background-image: conic-gradient(
+    from 0deg,
+    rgb(255 80 80 / 0.5),
+    rgb(255 220 80 / 0.5),
+    rgb(80 255 140 / 0.5),
+    rgb(80 200 255 / 0.5),
+    rgb(160 80 255 / 0.5),
+    rgb(255 80 80 / 0.5)
+  );
+  opacity: 0.22;
+  animation: tierChromaTurn 14s linear infinite;
+}
+
+@keyframes tierPrestigeGlow {
+  0%, 100% { box-shadow: inset 0 0 0 3px rgb(255 244 214 / 0.3), inset 0 0 14px rgb(240 196 90 / 0.5); }
+  50% { box-shadow: inset 0 0 0 3px rgb(255 244 214 / 0.55), inset 0 0 22px rgb(240 196 90 / 0.8); }
+}
+@utility card-foil-tier-prestige-frame {
+  position: absolute;
+  inset: 5px;
+  border: 1.5px solid rgb(240 196 90 / 0.95);
+  border-radius: 10px;
+  animation: tierPrestigeGlow 3s ease-in-out infinite;
+}
+
+@keyframes tierUltimateRise {
+  0% { background-position: 13px 100%, 29px 100%, 5px 100%, 50% 50%; }
+  100% { background-position: 13px 0%, 29px 0%, 5px 0%, 50% 50%; }
+}
+@keyframes tierUltimateFrame {
+  0%, 100% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--line-accent) 70%, transparent), inset 0 0 16px color-mix(in srgb, var(--line-accent) 45%, transparent); }
+  50% { box-shadow: inset 0 0 0 2px var(--line-accent), inset 0 0 28px color-mix(in srgb, var(--line-accent) 80%, transparent); }
+}
+@utility card-foil-tier-ultimate-embers {
   position: absolute;
   inset: 0;
+  border-radius: 10px;
   background-image:
-    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.95) 0 1.6px, transparent 3.2px),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.95) 0 1.4px, transparent 3px),
     radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--line-accent) 85%, white) 0 1.1px, transparent 2.6px),
-    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.7) 0 0.9px, transparent 2px),
-    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 45%, color-mix(in srgb, var(--line-accent) 55%, transparent) 100%);
-  background-size: 96px 96px, 61px 61px, 37px 37px, 100% 100%;
-  background-position: 13px 7px, 29px 41px, 5px 19px, 50% 50%;
-  animation: tierUltimateBreathe 2.6s ease-in-out infinite;
+    radial-gradient(circle at 50% 50%, var(--line-accent) 0 0.9px, transparent 2px),
+    radial-gradient(ellipse 120% 100% at 50% 100%, color-mix(in srgb, var(--line-accent) 45%, transparent), transparent 60%);
+  background-size: 96px 260px, 61px 190px, 37px 140px, 100% 100%;
+  background-repeat: repeat, repeat, repeat, no-repeat;
+  animation: tierUltimateRise 7s linear infinite, tierUltimateFrame 2.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast,
-  .card-foil-tier-chroma, .card-foil-tier-prestige, .card-foil-tier-ultimate { animation: none; }
-  .card-foil-tier-ultimate { opacity: 0.8; }
+  .card-foil-tier-chroma-sheen, .card-foil-tier-prestige-frame, .card-foil-tier-ultimate-embers { animation: none; }
+  .card-foil-tier-prestige-frame { box-shadow: inset 0 0 0 3px rgb(255 244 214 / 0.4), inset 0 0 16px rgb(240 196 90 / 0.6); }
+  .card-foil-tier-ultimate-embers { box-shadow: inset 0 0 0 2px var(--line-accent), inset 0 0 20px color-mix(in srgb, var(--line-accent) 60%, transparent); }
 }
 
 @utility card-foil-cosmos {

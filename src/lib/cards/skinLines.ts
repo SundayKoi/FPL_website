@@ -12,9 +12,12 @@
 // pull.
 //
 // Everything here is the design surface of that idea: the candidate lines,
-// what each looks like, and where it would sit on the ladder. The CSS that
-// draws each one lives in globals.css as `card-foil-line-<key>`, and the
-// tier overlays as `card-foil-tier-<key>`; the odds and the frozen-copy
+// what each looks like, and where it would sit on the ladder. Each line
+// owns ONE shape and no line owns a streak — Refractor has the diagonal
+// rake already, and a line that sweeps a bar reads as another refractor.
+// The CSS that draws each one lives in globals.css as
+// `card-foil-line-<key>`, and the tier modifiers and layers as
+// `card-foil-tier-<key>`; the odds and the frozen-copy
 // rules do not change, because the rungs do not — a tier takes over a
 // rung's weight, name and dust multiplier.
 
@@ -45,7 +48,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-project",
     label: "PROJECT",
     skinLine: "PROJECT",
-    look: "Orange circuit traces on black glass, one hot bar of light that rakes with the pointer.",
+    look: "An orthogonal circuit grid with nodes at the crossings, and one thin visor slit of hot light across the eyes.",
     accent: "#ff7a1a",
     blend: "screen",
   },
@@ -54,7 +57,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-harrowing",
     label: "Harrowing",
     skinLine: "Harrowing (Halloween)",
-    look: "Violet fog and drifting green wisps, a lantern glow that breathes at the edges.",
+    look: "A crescent moon top-right with a green halo, violet fog drifting under it.",
     accent: "#9df64a",
     blend: "screen",
   },
@@ -63,7 +66,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-academy",
     label: "Academy",
     skinLine: "Battle Academia",
-    look: "Warm parchment wash, ruled gold lines, a crest of light in the top corner.",
+    look: "Gilded page corners top-left and bottom-right, a crimson wax seal, a parchment wash.",
     accent: "#f4d27a",
     blend: "screen",
   },
@@ -72,7 +75,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-arcade",
     label: "Arcade",
     skinLine: "Arcade",
-    look: "CRT scanlines, a pixel grid, magenta and cyan split like a bad cabinet signal.",
+    look: "An 8-bit mosaic of coarse pixels under CRT scanlines, one raster band walking down the screen.",
     accent: "#ff3cac",
     blend: "screen",
   },
@@ -81,7 +84,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-arcana",
     label: "Arcana",
     skinLine: "Arcana",
-    look: "Indigo night, gold sigils and a slow-turning sunburst — a tarot card that moves.",
+    look: "A gold sunburst turning slowly inside a fixed ring on indigo night — a tarot card that moves.",
     accent: "#e5c26b",
     blend: "screen",
   },
@@ -90,7 +93,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-battlecast",
     label: "Battlecast",
     skinLine: "Battlecast",
-    look: "Brushed steel, hazard chevrons, a red targeting sweep that locks on with the tilt.",
+    look: "A targeting reticle over the face — two rings and a crosshair — brushed steel, a hazard strip along the foot.",
     accent: "#ff2a2a",
     blend: "color-dodge",
   },
@@ -132,19 +135,50 @@ export interface LineTier {
   label: string;
   /** Today's parallel whose rung, weight and dust multiplier it takes. */
   replaces: "prisma" | "aurora" | "refractor" | "ice";
-  /** The overlay utilities drawn over the line's own layer. */
+  /** A class set ON the line's own layer: it restates the line's colours
+   *  (or, for Ultimate, its intensity) without adding a shape. */
+  modifier: string;
+  /** Sibling layers over the line: the sheen, the frame, the embers. */
   layers: string[];
+  /** What the tier does to the line, in one line — for the mockup page. */
+  does: string;
 }
 
+/** A tier never adds a shape. It restates the line's own shape in a richer
+ *  material, the way League's own tiers do: Chroma recolours it, Prestige
+ *  gilds it, Ultimate sets it alight. */
 export const LINE_TIERS: LineTier[] = [
-  { key: "standard", label: "", replaces: "prisma", layers: [] },
-  { key: "chroma", label: "Chroma", replaces: "aurora", layers: ["card-foil-tier-chroma"] },
-  { key: "prestige", label: "Prestige", replaces: "refractor", layers: ["card-foil-tier-prestige"] },
+  {
+    key: "standard",
+    label: "",
+    replaces: "prisma",
+    modifier: "",
+    layers: [],
+    does: "The line as drawn, in its own colours.",
+  },
+  {
+    key: "chroma",
+    label: "Chroma",
+    replaces: "aurora",
+    modifier: "card-foil-tier-chroma",
+    layers: ["card-foil-tier-chroma-sheen"],
+    does: "The same shape in the line's chroma palette, an iridescent sheen turning over it.",
+  },
+  {
+    key: "prestige",
+    label: "Prestige",
+    replaces: "refractor",
+    modifier: "card-foil-tier-prestige",
+    layers: ["card-foil-tier-prestige-frame"],
+    does: "The same shape gilded — every colour becomes gold — inside a gold frame.",
+  },
   {
     key: "ultimate",
     label: "Ultimate",
     replaces: "ice",
-    layers: ["card-foil-tier-chroma", "card-foil-tier-prestige", "card-foil-tier-ultimate"],
+    modifier: "card-foil-tier-ultimate",
+    layers: ["card-foil-tier-ultimate-embers"],
+    does: "The same shape at full saturation, embers of its own accent rising, the frame lit.",
   },
 ];
 
