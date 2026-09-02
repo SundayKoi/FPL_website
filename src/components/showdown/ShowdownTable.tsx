@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { fmtPoints } from "@/lib/betting/format";
-import { showdownActAction, sitDownAction, standUpAction, syncShowdownTableAction } from "@/lib/showdown/actions";
+import { showdownActAction, sitDownAction, standUpAction, syncShowdownTableAction, type ShowdownResult } from "@/lib/showdown/actions";
 import { SEATS_MAX } from "@/lib/showdown/config";
 import type { PublicSeat } from "@/lib/showdown/engine";
 import type { StackOption, TableView } from "@/lib/showdown/server";
@@ -41,11 +41,13 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
     if (syncing.current) return;
     syncing.current = true;
     try {
-      const next = await syncShowdownTableAction({ tableId });
-      skew.current = new Date(next.serverNow).getTime() - Date.now();
-      setView(next);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Lost the table.");
+      const result = await syncShowdownTableAction({ tableId });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      skew.current = new Date(result.value.serverNow).getTime() - Date.now();
+      setView(result.value);
     } finally {
       syncing.current = false;
     }
@@ -88,14 +90,15 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
   const serverNow = clock ? clock.now + clock.skew : null;
   const secondsLeft = deadline !== null && serverNow !== null ? Math.max(0, Math.ceil((deadline - serverNow) / 1000)) : null;
 
-  const run = (work: () => Promise<TableView>) => {
+  const run = (work: () => Promise<ShowdownResult<TableView>>) => {
     setError(null);
     start(async () => {
-      try {
-        setView(await work());
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "That did not go through.");
+      const result = await work();
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      setView(result.value);
     });
   };
 
@@ -213,9 +216,9 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
           onCancel={() => setChoosingSeat(null)}
           onSit={(input) => {
             run(async () => {
-              const next = await sitDownAction({ tableId, ...input });
-              setChoosingSeat(null);
-              return next;
+              const result = await sitDownAction({ tableId, ...input });
+              if (result.ok) setChoosingSeat(null);
+              return result;
             });
           }}
         />
@@ -229,7 +232,7 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
             onClick={() =>
               run(async () => {
                 const result = await standUpAction({ tableId });
-                return result.view;
+                return result.ok ? { ok: true, value: result.value.view } : result;
               })
             }
             className="text-coral underline-offset-4 hover:underline disabled:opacity-50"
