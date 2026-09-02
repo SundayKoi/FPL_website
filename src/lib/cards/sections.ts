@@ -81,6 +81,12 @@ export function cardsSections(base: string): CardsSection[] {
                 blurb: "Draft five, climb eight rounds, lose once",
                 premierOnly: true,
               },
+              {
+                label: "Showdown",
+                href: `${base}/showdown`,
+                blurb: "Hold'em with your cards, for betting dollars",
+                premierOnly: true,
+              },
             ]),
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
         { label: "Weekly Draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week" },

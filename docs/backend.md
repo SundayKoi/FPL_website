@@ -620,6 +620,28 @@ the tier overlays to the pointer like the parallel layer, give the flat PNG
 render an accent and badge per tier, and leave Eclipse and every minted copy
 exactly as they are.
 
+### Showdown (Hold'em with the cards)
+
+Showdown is Texas Hold'em played with player cards for betting dollars.
+Hole cards come from a player's own ten-card stack, the board from the
+current week's edition, and only dollars are ever at stake: a card sits at
+a table and is never won, lost or put up. `src/lib/showdown/config.ts` is
+the one source for every number (seats, stack size, brackets with blinds,
+buy-ins and stack caps, the 3% rake capped at five big blinds with "no
+flop, no drop", the 45-second clock); `src/lib/showdown/hands.ts` is the
+pure evaluator (role is the suit, team pairs, tier makes the Ladder,
+overall breaks ties; nine ranks from High Card to Foil Royal, with no plain
+flush because five from one team is already a full roster) and exports
+`HAND_RANKS`, which the rules panel `src/components/showdown/ShowdownRules.tsx`
+renders so the rules a player reads cannot drift from what settles a hand.
+`/cards/showdown` is premier-only and, until the tables land, is the
+rulebook. Tables, seats, the per-action RPC state machine (Higher-Lower
+model: the database is the sole settler, every transition retryable), the
+wallet doors (`showdown_*` modelled on `gauntlet_enter`/`gauntlet_payout`,
+reasons whitelisted), realtime via `postgres_changes` with hole cards
+withheld per viewer server-side, and the timeout sweep follow in later PRs.
+Patronage never touches any of it.
+
 ### Card motion at rest
 
 `PlayerCard3D` stamps `data-motion="rest"` on its root until the pointer
