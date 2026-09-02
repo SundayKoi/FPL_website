@@ -4,6 +4,7 @@ import TeamCardsSection from "@/components/cards/TeamCardsSection";
 import { fetchCardSeason, fetchCurrentWeekCards, fetchLatestGameWeek, fetchTeamIdentity, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "Team cards — FPL",
@@ -45,20 +46,12 @@ export async function TeamCardsPageView({ league = "premier" }: { league?: CardL
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Team cards</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Every roster as one card: five panels, one per role, each wearing that player&apos;s most-played
-            champion and washed in the team&apos;s own colours. Team OVR is the average of its five best
-            cards, so the frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s
-            Card of the Week.
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="Team cards">
+        Every roster as one card: five panels, one per role, each wearing that player&apos;s most-played
+        champion and washed in the team&apos;s own colours. Team OVR is the average of its five best cards,
+        so the frame upgrades as the roster levels up. ★ marks a player holding this week&apos;s Card of the
+        Week.
+      </CardsPageHeader>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — team cards appear once this season&apos;s first games are ingested.</p>
       ) : (

@@ -9,6 +9,7 @@ import { groupUnclaimedByWeek, vaultTotals, type FoundEclipse, type VaultData } 
 import { fetchVault } from "@/lib/cards/vaultQueries";
 import { ECLIPSE_FOIL_TYPE } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "The Vault — FPL",
@@ -125,21 +126,12 @@ export async function VaultPageView({ league = "premier" }: { league?: CardLeagu
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Vault</h1>
-          <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            An Eclipse can only fall on a Card of the Week, and only one of each will ever exist. This is
-            the register: every one that has been found, who holds it now and everywhere it has been —
-            and, below, every crowned print still waiting for somebody to pull it. An unclaimed one stays
-            claimable forever through its own week&apos;s packs, so the board only ever grows.
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="The Vault">
+        An Eclipse can only fall on a Card of the Week, and only one of each will ever exist. This is the
+        register: every one that has been found, who holds it now and everywhere it has been — and, below,
+        every crowned print still waiting for somebody to pull it. An unclaimed one stays claimable forever
+        through its own week&apos;s packs, so the board only ever grows.
+      </CardsPageHeader>
 
       <p className="text-sm text-steel">
         <span className="font-display text-2xl font-bold tabular-nums text-gold">{totals.found}</span> found ·{" "}

@@ -3,6 +3,7 @@ import CompareClient from "@/components/cards/CompareClient";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 function firstParam(value: string | string[] | undefined): string | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
@@ -44,18 +45,10 @@ export async function CompareCardsPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            Premium · {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl">Compare</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Put any two cards head to head — the better number lights up green. The URL follows your
-            picks, so paste it into Discord for match-night arguments.
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="Compare">
+        Put any two cards head to head — the better number lights up green. The URL follows your picks, so
+        paste it into Discord for match-night arguments.
+      </CardsPageHeader>
       <CompareClient cards={cards} initialA={firstParam(query.a)} initialB={firstParam(query.b)} basePath={`${base}/compare`} />
     </main>
   );

@@ -60,7 +60,8 @@ export function cardsSections(base: string): CardsSection[] {
       href: `${base}/market`,
       blurb: "Buy, sell, and swap copies with other collectors",
       children: [
-        { label: "Listings & bounties", href: `${base}/market`, blurb: "Copies for sale, and cards people are hunting" },
+        { label: "Listings", href: `${base}/market`, blurb: "Copies for sale at a fixed price" },
+        { label: "Bounties", href: `${base}/market/bounties`, blurb: "Cards people are hunting, and what they'll pay" },
         { label: "Trade offers", href: `${base}/trades`, blurb: "Swap copies one to one" },
       ],
     },
@@ -107,9 +108,12 @@ export function activeCardsSection(
       if (pathname === section.href) return { section, child: null };
       continue;
     }
-    for (const child of section.children ?? []) {
-      if (isUnder(pathname, child.href)) return { section, child };
-    }
+    // The most specific child wins: /cards/market/bounties is under
+    // /cards/market too, and the first-listed sub-tab is the shortest href.
+    const child = (section.children ?? [])
+      .filter((candidate) => isUnder(pathname, candidate.href))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+    if (child) return { section, child };
     if (isUnder(pathname, section.href)) return { section, child: null };
   }
   return { section: null, child: null };

@@ -62,7 +62,8 @@ describe("activeCardsSection", () => {
 
   it("lights the first sub-tab on the tab's own page", () => {
     const market = activeCardsSection(sections, "/cards/market");
-    expect(market.child?.label).toBe("Listings & bounties");
+    expect(market.child?.label).toBe("Listings");
+    expect(activeCardsSection(sections, "/cards/market/bounties").child?.label).toBe("Bounties");
   });
 
   it("lights nothing on a page the map does not know", () => {

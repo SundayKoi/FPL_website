@@ -6,6 +6,6 @@ export const metadata: Metadata = {
   description: "Fantasy, expeditions, and the weekly draw for the Academy collection.",
 };
 
-export default function AcademyPlayPage() {
+export default async function AcademyPlayPage() {
   return PlayPageView({ league: "academy" });
 }
