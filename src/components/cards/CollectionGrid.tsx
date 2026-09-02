@@ -348,8 +348,11 @@ export default function CollectionGrid({
   flame = null,
   deployedIds,
   printRuns,
+  base = "/cards",
 }: {
   inventory: InventoryRow[];
+  /** "/cards" or "/academy/cards" — where a copy's actions lead. */
+  base?: string;
   /** Copies already on display, so the shelf can show which ones are in
    *  the binder without a second round trip per card. */
   pinnedIds?: number[];
@@ -731,6 +734,7 @@ export default function CollectionGrid({
                 copies={entry.copies}
                 patron={Boolean(flame)}
                 deployedIds={deployedIds}
+                base={base}
               />
             </div>
             {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (

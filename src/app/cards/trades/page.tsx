@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
 import TradeBuilder, { type TradeCardOption } from "@/components/cards/TradeBuilder";
 import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";
@@ -67,7 +68,14 @@ function toInboxTrade(trade: TradeRow): InboxTrade {
  * Discord id comes from the session, so this page can only ever ask for the
  * signed-in collector's trades.
  */
-export async function TradesPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function TradesPageView({
+  league = "premier",
+  offer,
+}: {
+  league?: CardLeague;
+  /** ?offer=<inventory id> — start the offer with this copy on your side. */
+  offer?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
 
@@ -154,12 +162,14 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
           viewerDiscordId={user.discordId}
           league={league}
           deployedIds={deployedIds}
+          initialGive={parseInventoryId(offer)}
         />
       </section>
     </main>
   );
 }
 
-export default async function TradesPage() {
-  return TradesPageView({ league: "premier" });
+export default async function TradesPage({ searchParams }: { searchParams: Promise<{ offer?: string }> }) {
+  const { offer } = await searchParams;
+  return TradesPageView({ league: "premier", offer });
 }

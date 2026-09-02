@@ -6,6 +6,7 @@ import MarketBoard from "@/components/cards/MarketBoard";
 import MyListings from "@/components/cards/MyListings";
 import type { CardLeague } from "@/lib/cards/queries";
 import { LISTING_DAYS } from "@/lib/market/config";
+import { parseInventoryId } from "@/lib/cards/params";
 import { loadMarket } from "./load";
 
 export const metadata: Metadata = {
@@ -16,7 +17,14 @@ export const metadata: Metadata = {
 /** The market's selling side: copies for sale, the form that lists one, and
  *  your own listings. Bounties — the same market from the buying side — are
  *  the next sub-tab. */
-export async function MarketPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function MarketPageView({
+  league = "premier",
+  sell,
+}: {
+  league?: CardLeague;
+  /** ?sell=<inventory id> — open the sell form on this copy. */
+  sell?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const market = await loadMarket(league);
 
@@ -49,7 +57,13 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
 
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Sell a card</h2>
-        <ListCardForm inventory={market.myInventory} deployedIds={market.deployedIds} listedIds={market.listedIds} />
+        <ListCardForm
+          inventory={market.myInventory}
+          deployedIds={market.deployedIds}
+          listedIds={market.listedIds}
+          initialInventoryId={parseInventoryId(sell)}
+          base={base}
+        />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -60,6 +74,7 @@ export async function MarketPageView({ league = "premier" }: { league?: CardLeag
   );
 }
 
-export default async function MarketPage() {
-  return MarketPageView({ league: "premier" });
+export default async function MarketPage({ searchParams }: { searchParams: Promise<{ sell?: string }> }) {
+  const { sell } = await searchParams;
+  return MarketPageView({ league: "premier", sell });
 }

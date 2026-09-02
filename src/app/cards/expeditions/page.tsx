@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
 import { bettingAccess } from "@/lib/betting/access";
@@ -37,7 +38,14 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
  * has no public RLS policy, and the Discord id came from the session, so
  * this page can only ever ask for the signed-in collector's shelf.
  */
-export async function ExpeditionsPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function ExpeditionsPageView({
+  league = "premier",
+  send,
+}: {
+  league?: CardLeague;
+  /** ?send=<inventory id> — start the squad with this copy. */
+  send?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const supabase = await createServerSupabase();
   const { data: auth } = await supabase.auth.getUser().then(
@@ -134,6 +142,8 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
         copies={copies}
         runs={runs}
         deployedIds={deployedIds}
+        initialPick={parseInventoryId(send)}
+        base={base}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
         // scored against rather than whatever the reader's clock says.
@@ -143,6 +153,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
   );
 }
 
-export default async function ExpeditionsPage() {
-  return ExpeditionsPageView({ league: "premier" });
+export default async function ExpeditionsPage({ searchParams }: { searchParams: Promise<{ send?: string }> }) {
+  const { send } = await searchParams;
+  return ExpeditionsPageView({ league: "premier", send });
 }

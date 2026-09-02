@@ -107,3 +107,27 @@ describe("ListCardForm", () => {
     expect(await screen.findByText("That card is already on the market.")).toBeTruthy();
   });
 });
+
+describe("opening on a copy the shelf named", () => {
+  it("pre-selects the copy from ?sell=, unless it is not free to list", () => {
+    const inventory = [option(1, "Doug"), option(2, "Spies")];
+    render(<ListCardForm inventory={inventory} initialInventoryId={2} />);
+    expect((screen.getByRole("radio", { name: /Spies/ }) as HTMLInputElement).checked).toBe(true);
+    cleanup();
+
+    // A copy already on the market cannot be listed twice — the hint is
+    // dropped rather than the form opening on a card it will refuse.
+    render(<ListCardForm inventory={inventory} initialInventoryId={2} listedIds={new Set([2])} />);
+    expect((screen.getByRole("radio", { name: /Spies/ }) as HTMLInputElement).checked).toBe(false);
+    cleanup();
+
+    // Not yours: nothing selected, nothing said.
+    render(<ListCardForm inventory={inventory} initialInventoryId={99} />);
+    expect(screen.queryByRole("radio", { checked: true })).toBeNull();
+  });
+
+  it("sends an empty shelf to the pack shop", () => {
+    render(<ListCardForm inventory={[]} base="/academy/cards" />);
+    expect(screen.getByRole("link", { name: "Open a pack →" }).getAttribute("href")).toBe("/academy/cards/packs");
+  });
+});

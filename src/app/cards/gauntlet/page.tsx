@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import EmptyShelf from "@/components/cards/EmptyShelf";
 import GauntletClient from "@/components/gauntlet/GauntletClient";
 import GauntletRules from "@/components/gauntlet/GauntletRules";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -111,6 +112,7 @@ export default async function GauntletPage() {
         </div>
       </header>
 
+      {inventory.length === 0 ? <EmptyShelf base="/cards" goal="draft a run" /> : null}
       <GauntletClient
         initialRun={activeRun}
         options={options}

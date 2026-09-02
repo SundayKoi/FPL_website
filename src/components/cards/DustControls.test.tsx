@@ -217,3 +217,24 @@ describe("a one-of-one in the drawer", () => {
     expect(screen.queryByText(/Dust · /)).toBeNull();
   });
 });
+
+describe("what a copy can go and do", () => {
+  it("offers Sell, Trade, Send out and Field, each landing with the copy chosen", () => {
+    render(<DustControls playerName="Chaseworthy" copies={copies} base="/academy/cards" />);
+    fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
+    const menu = screen.getAllByText("Use ▾")[0].closest("details")!;
+    const hrefs = [...menu.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]);
+    expect(hrefs).toEqual([
+      ["Sell", "/academy/cards/market?sell=1"],
+      ["Trade", "/academy/cards/trades?offer=1"],
+      ["Send out", "/academy/cards/expeditions?send=1"],
+      ["Field", "/academy/cards/fantasy?field=1"],
+    ]);
+  });
+
+  it("offers nothing for a copy that is away", () => {
+    render(<DustControls playerName="Chaseworthy" copies={copies} deployedIds={new Set([1, 2, 3])} />);
+    fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
+    expect(screen.queryByText("Use ▾")).toBeNull();
+  });
+});

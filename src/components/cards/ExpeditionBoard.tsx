@@ -20,6 +20,7 @@
 // inline rather than being pre-empted.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import CountUp from "@/components/home/CountUp";
 import { fmtPoints } from "@/lib/betting/format";
@@ -249,7 +250,14 @@ export default function ExpeditionBoard({
   runs,
   deployedIds,
   today,
+  initialPick = null,
+  base = "/cards",
 }: {
+  /** A copy to start the squad with — the shelf's "Send out" action lands
+   *  here with ?send=<id>. A hint: ignored unless it is yours and home. */
+  initialPick?: number | null;
+  /** "/cards" or "/academy/cards", for the empty shelf's pack link. */
+  base?: string;
   /** The viewer's shelf for the season being browsed. */
   copies: CardCopy[];
   /** Their runs this season, newest launch first — away and finished both. */
@@ -263,7 +271,14 @@ export default function ExpeditionBoard({
   today: string;
 }) {
   const router = useRouter();
-  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  const [picked, setPicked] = useState<ReadonlySet<number>>(
+    () =>
+      new Set(
+        initialPick !== null && copies.some((copy) => copy.id === initialPick) && !deployedIds.has(initialPick)
+          ? [initialPick]
+          : [],
+      ),
+  );
   // Two error slots, not one: a refused launch belongs under the tier cards
   // the player just clicked, and a refused claim belongs beside the run it
   // refused. One shared slot puts half of them off the bottom of the fold.
@@ -502,7 +517,7 @@ export default function ExpeditionBoard({
           ) : null}
         </div>
         {copies.length === 0 ? (
-          <p className="text-sm text-steel">No cards to send yet — open a pack.</p>
+          <EmptyShelf base={base} goal="send a squad out" />
         ) : (
           <ul className="flex flex-wrap gap-2">
             {sorted.map((copy) => {
