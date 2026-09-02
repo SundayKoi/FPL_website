@@ -30,7 +30,7 @@ describe("CardsTabs", () => {
     render(<CardsTabs league="premier" />);
     expect(tabs().getByRole("link", { name: "Market" }).getAttribute("aria-current")).toBe("page");
     expect(tabs().getByRole("link", { name: "Trade offers" }).getAttribute("aria-current")).toBe("page");
-    expect(tabs().getByRole("link", { name: "Listings & bounties" }).getAttribute("href")).toBe("/cards/market");
+    expect(tabs().getByRole("link", { name: "Listings" }).getAttribute("href")).toBe("/cards/market");
   });
 
   it("shows no second row where a tab has nothing under it", () => {

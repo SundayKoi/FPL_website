@@ -4,13 +4,12 @@ import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/c
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "All Players — FPL",
   description: "Every player in the league as a living trading card, rated from this season's stats.",
 };
-
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /** The wall of every player's card — what "Player Cards" always meant,
  *  given its own page so it opens at the top instead of five panels down
@@ -38,17 +37,11 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">
-          Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-        </span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">All players</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          The whole league as living trading cards — overall rating, tier, archetype, and form, rebuilt
-          from real season stats after every match night. Hover to tilt, click to flip, and open a card
-          to share it straight into Discord.
-        </p>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="All players">
+        The whole league as living trading cards — overall rating, tier, archetype, and form, rebuilt from
+        real season stats after every match night. Hover to tilt, click to flip, and open a card to share
+        it straight into Discord.
+      </CardsPageHeader>
       {cards.length === 0 ? (
         <p className="text-sm text-steel">No rated players yet — cards appear once this season&apos;s first games are ingested.</p>
       ) : (

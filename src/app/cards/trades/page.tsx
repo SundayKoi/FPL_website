@@ -8,13 +8,12 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "Trade offers — FPL",
   description: "Trade player cards and betting dollars with other collectors.",
 };
-
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /**
  * A hydrated trade card as the inbox takes it — frozen `card` json and all.
@@ -136,20 +135,11 @@ export async function TradesPageView({ league = "premier" }: { league?: CardLeag
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Trade offers</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Trade cards and betting dollars with other collectors — either side of an offer can be cards,
-            money, or both. Nothing moves until the other person accepts, and a card fielded in this
-            week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
-          </p>
-        </div>
-      </header>
-
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers">
+        Trade cards and betting dollars with other collectors — either side of an offer can be cards,
+        money, or both. Nothing moves until the other person accepts, and a card fielded in this
+        week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
+      </CardsPageHeader>
       <TradeInbox
         incoming={trades.incoming.map(toInboxTrade)}
         outgoing={trades.outgoing.map(toInboxTrade)}

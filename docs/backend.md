@@ -128,6 +128,16 @@ busy week is one row above the buy button instead of four banners. Page
 titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
 Draw, Team cards); routes did not move.
 
+Under a tab, pages share `CardsPageHeader` (eyebrow "Browse · Premier ·
+Season S5", the sub-tab's own name as the title, one paragraph). The Market
+tab is three pages on one loader (`src/app/cards/market/load.ts`): Listings
+(`/market`), Bounties (`/market/bounties`) and Trade offers (`/trades`), so
+what a copy may do is the same answer on each. The Play index reports each
+game's state for the viewer — lineup in and when it locks, a run in progress
+or the week's best, a squad out and when it is back, tickets held — from the
+pure `playStatuses()` in `src/lib/cards/playStatus.ts`, with the viewer
+resolved read-only by `readViewerDiscordId()` (never `getBettingUser()`).
+
 Gating within Cards uses one wording, `CardsGate` with `PREMIUM_GATE_TITLE`
 and `PREMIUM_GATE_BODY`, whichever check a page runs: `premiumAccess()` (the
 premium role) and `getBettingUser().allowed` (the wallet) both resolve the

@@ -34,6 +34,7 @@ vi.mock("@/lib/trades/actions", () => ({ fetchInventoryCardAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { MarketPageView } from "./page";
+import { BountiesPageView } from "./bounties/page";
 
 beforeEach(() => {
   getBettingUser.mockReset();
@@ -65,7 +66,7 @@ describe("MarketPageView", () => {
     expect(createBettingServiceClient).not.toHaveBeenCalled();
   });
 
-  it("renders both boards for a member, and no league toggle of its own", async () => {
+  it("renders the selling side for a member, and no league toggle of its own", async () => {
     getBettingUser.mockResolvedValue({ discordId: "42", allowed: true });
 
     render(await MarketPageView({ league: "premier" }));
@@ -73,9 +74,24 @@ describe("MarketPageView", () => {
     expect(screen.getByTestId("market-board")).toBeTruthy();
     expect(screen.getByTestId("list-card-form")).toBeTruthy();
     expect(screen.getByTestId("my-listings")).toBeTruthy();
-    expect(screen.getByTestId("wants-board")).toBeTruthy();
+    // Bounties are the next sub-tab, not a fourth section here.
+    expect(screen.queryByTestId("wants-board")).toBeNull();
     // The league switcher lives in the cards tab bar now (CardsTabs, from
     // the layout) — the page must not draw a second one.
     expect(screen.queryByRole("link", { name: "Academy" })).toBeNull();
+  });
+
+  it("renders the buying side on Bounties, behind the same gate", async () => {
+    getBettingUser.mockResolvedValue({ discordId: "42", allowed: true });
+    render(await BountiesPageView({ league: "academy" }));
+    expect(screen.getByTestId("wants-board")).toBeTruthy();
+    expect(screen.queryByTestId("market-board")).toBeNull();
+    cleanup();
+
+    getBettingUser.mockResolvedValue(null);
+    render(await BountiesPageView({ league: "academy" }));
+    expect(screen.getByRole("link", { name: /sign in with discord/i }).getAttribute("href")).toBe(
+      "/login?redirect=/academy/cards/market/bounties",
+    );
   });
 });
