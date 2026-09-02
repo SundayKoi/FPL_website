@@ -29,9 +29,12 @@ describe("cardsSections", () => {
     }
   });
 
-  it("leaves the Gauntlet off the academy's Play tab, which has no such page", () => {
+  it("leaves the Gauntlet and Showdown off the academy's Play tab, which has no such pages", () => {
     const play = cardsSections("/academy/cards").find((section) => section.key === "play")!;
     expect(play.children?.map((child) => child.label)).not.toContain("Gauntlet");
+    expect(play.children?.map((child) => child.label)).not.toContain("Showdown");
+    const premier = cardsSections("/cards").find((section) => section.key === "play")!;
+    expect(premier.children?.map((child) => child.href)).toContain("/cards/showdown");
   });
 
   it("gives every tab and sub-tab a line saying what it is", () => {

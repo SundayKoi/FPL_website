@@ -19,7 +19,7 @@ function run(overrides: Partial<ExpeditionRun>): ExpeditionRun {
   } as ExpeditionRun;
 }
 
-const quiet = { now, fantasyLineupIn: false, gauntlet: null, expeditions: [], copies: 0 };
+const quiet = { now, fantasyLineupIn: false, gauntlet: null, showdown: null, expeditions: [], copies: 0 };
 
 describe("playStatuses", () => {
   it("says whether the lineup is in, and when the week locks, on the league's clock", () => {
@@ -53,6 +53,16 @@ describe("playStatuses", () => {
     expect(playStatuses({ ...quiet, expeditions: [out] }).expeditions?.text).toBe("A squad is out · back Wed 4:30 PM");
     // Collected runs are history, not status.
     expect(playStatuses({ ...quiet, expeditions: [run({ ...back, claimedAt: "2026-08-26T14:00:00Z" })] }).expeditions?.tone).toBe("quiet");
+  });
+
+  it("reports a seat, then open tables, then the rules, and nothing where there is no Showdown", () => {
+    expect(playStatuses({ ...quiet, showdown: { seated: true, openTables: 3 } }).showdown?.tone).toBe("open");
+    expect(playStatuses({ ...quiet, showdown: { seated: false, openTables: 1 } }).showdown?.text).toBe("1 table dealing now");
+    expect(playStatuses({ ...quiet, showdown: { seated: false, openTables: 0 } }).showdown).toEqual({
+      text: "Tables open soon — read the rules",
+      tone: "quiet",
+    });
+    expect(playStatuses(quiet).showdown).toBeUndefined();
   });
 
   it("counts every copy as a ticket", () => {

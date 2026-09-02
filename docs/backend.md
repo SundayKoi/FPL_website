@@ -620,6 +620,86 @@ the tier overlays to the pointer like the parallel layer, give the flat PNG
 render an accent and badge per tier, and leave Eclipse and every minted copy
 exactly as they are.
 
+### Showdown (Hold'em with the cards)
+
+Showdown is Texas Hold'em played with player cards for betting dollars.
+Hole cards come from a player's own ten-card stack, the board from the
+current week's edition, and only dollars are ever at stake: a card sits at
+a table and is never won, lost or put up. `src/lib/showdown/config.ts` is
+the one source for every number (seats, stack size, brackets with blinds,
+buy-ins and stack caps, the 3% rake capped at five big blinds with "no
+flop, no drop", the 45-second clock); `src/lib/showdown/hands.ts` is the
+pure evaluator (role is the suit, team pairs, tier makes the Ladder,
+overall breaks ties; nine ranks from High Card to Foil Royal, with no plain
+flush because five from one team is already a full roster) and exports
+`HAND_RANKS`, which the rules panel `src/components/showdown/ShowdownRules.tsx`
+renders so the rules a player reads cannot drift from what settles a hand.
+`/cards/showdown` is premier-only and, until the tables land, is the
+rulebook.
+
+The engine is `src/lib/showdown/engine.ts`, a pure reducer over a table's
+public state (seats, chips, board, pot, whose turn, the log) and secret
+state (each seat's stack, hole cards, the rest of the deck): `startHand`
+deals and posts blinds (heads up, the dealer is the small blind), `applyAction`
+validates turn and legality (min-raise, short all-ins do not reopen the
+action), streets advance when nobody is owed an action, `buildPots` makes
+one side pot per contribution level, and settlement takes the rake off the
+main pot first, splits ties with odd chips to the seat left of the dealer,
+retires leavers and busted stacks, and returns the `HandResult`. `viewFor`
+is the per-viewer snapshot: everyone's public state plus only your own
+hole cards. It takes a random source, so tests script it.
+
+The schema is `20260913000001_showdown.sql`: `showdown_brackets` (seeded
+from config and held to it by `brackets.test.ts`), `showdown_tables`
+(public state, a version, a deadline; publicly readable and in the
+realtime publication), `showdown_secrets` (deny-all, never published),
+`showdown_seats` (public; one seat per person anywhere), `showdown_seated_cards`
+with a definer-rights guard trigger on `card_inventory` that refuses to
+delete or re-own a seated copy ("card is at a table", the expedition lock
+again), `showdown_hands` (history) and `showdown_rake` (the burn). Three
+service-role RPCs: `showdown_sit` checks the buy-in range and the stack
+(ten owned cards under the cap, or a house stack), debits the wallet,
+seats and locks in one transaction; `showdown_stand` credits chips back
+and releases the cards, refused mid-hand unless the seat is sitting out;
+`showdown_commit` is the engine's one write — compare-and-swap on the
+version, then public and secret state, every seat's chips and status, the
+rake row and the history row — and it refuses any commit where the seats'
+chips plus the pot do not balance before and after. Chips at a table have
+left the wallet; the pot lives in the public state; the rake is chips
+never credited back. pgTAP: `0087_showdown_test.sql`.
+
+`src/lib/showdown/server.ts` is the transition layer (Higher-Lower's
+shape; `actions.ts` is the thin `"use server"` adapter): `createTable`,
+`sitDown` (validates the buy-in and the stack — ten owned copies of this
+season, no relics or plates, under the cap — or deals a house stack with
+`dealHouseStack`, calls `showdown_sit`, then commits the seat into public
+and secret state and deals if the table can), `standUp` (mid-hand the seat
+is marked leaving and auto-folds when asked to act; once out of the hand
+`showdown_stand` returns the chips and the seat leaves the state), `act`,
+and `syncTable` (any client: fold whoever ran out of clock, deal if
+possible, return the view). Every transition is `transition()`: read the
+row and the secret, run one engine step, `showdown_commit` against the
+version read, and on "stale table version" read again, up to three times.
+The identity is always the session's `getBettingUser()`; the client only
+names a table and a move. `loadTableView` returns `viewFor`'s per-viewer
+snapshot: everyone's public state plus your own hole cards and stack.
+The felt (`src/components/showdown/ShowdownTable.tsx`) subscribes to
+`postgres_changes` on the table's row and its seats and, on any change,
+asks `syncTable` for a fresh view — hole cards never travel over the
+channel — and runs a 500 ms clock on the server's time that calls the same
+sync once a deadline is a second gone. `/cards/showdown` is the lobby and
+`/cards/showdown/[id]` a table; anyone can watch. Card copies at a table
+are locked by the guard trigger, so dusting, listing and trading refuse
+them without any change to those features.
+
+While the game is being tried out every table is a **practice** table
+(`20260913000002_showdown_practice.sql`, pgTAP `0088`): the `free`
+bracket's buy-in is the play-chip stack in front of you, `showdown_sit`
+and `showdown_stand` skip the wallet and the ledger on a free bracket, and
+`rakeFor` returns zero. `PRACTICE_ONLY` in `config.ts` is what keeps the
+lobby from opening Low or Open tables; turn it off to allow real stakes,
+with no database change. Patronage never touches any of it.
+
 ### Card motion at rest
 
 `PlayerCard3D` stamps `data-motion="rest"` on its root until the pointer

@@ -3,6 +3,7 @@ import Link from "next/link";
 import CardsPageHeader from "@/components/cards/CardsPageHeader";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchTicketCount } from "@/lib/cards/draw-queries";
+import { countOpenTables, fetchViewerSeat } from "@/lib/showdown/queries";
 import { playStatuses, type PlayGame, type PlayStatus, type PlayTone } from "@/lib/cards/playStatus";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { cardsSections } from "@/lib/cards/sections";
@@ -23,7 +24,7 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
 /** Which game a sub-tab href is, so its status line can find it. */
 function gameOf(href: string): PlayGame | null {
   const leaf = href.slice(href.lastIndexOf("/") + 1);
-  if (leaf === "fantasy" || leaf === "gauntlet" || leaf === "expeditions" || leaf === "stats") return leaf;
+  if (leaf === "fantasy" || leaf === "gauntlet" || leaf === "showdown" || leaf === "expeditions" || leaf === "stats") return leaf;
   if (leaf === "draw") return "draw";
   return null;
 }
@@ -45,21 +46,31 @@ const TONE: Record<PlayTone, string> = {
 async function loadStatuses(league: CardLeague, discordId: string | null, season: string | null) {
   const now = new Date();
   if (!discordId || !season) {
-    return playStatuses({ now, fantasyLineupIn: null, gauntlet: league === "premier" ? { active: false, bestScore: 0, attempts: 0 } : null, expeditions: [], copies: 0 });
+    return playStatuses({
+      now,
+      fantasyLineupIn: null,
+      gauntlet: league === "premier" ? { active: false, bestScore: 0, attempts: 0 } : null,
+      showdown: league === "premier" ? { seated: false, openTables: 0 } : null,
+      expeditions: [],
+      copies: 0,
+    });
   }
   try {
     const service = createBettingServiceClient();
-    const [lineup, activeRun, weekStats, expeditions, copies] = await Promise.all([
+    const [lineup, activeRun, weekStats, expeditions, copies, showdownSeat, showdownOpen] = await Promise.all([
       fetchLineup(service, discordId, season, currentFantasyWeek(now)),
       league === "premier" ? fetchActiveGauntletRun(service, discordId) : Promise.resolve(null),
       league === "premier" ? fetchGauntletWeekStats(service, discordId, currentWeek()) : Promise.resolve(null),
       fetchRuns(service, discordId, season),
       fetchTicketCount(service, discordId, season),
+      league === "premier" ? fetchViewerSeat(service, discordId) : Promise.resolve(null),
+      league === "premier" ? countOpenTables(service, season) : Promise.resolve(0),
     ]);
     return playStatuses({
       now,
       fantasyLineupIn: lineup !== null,
       gauntlet: league === "premier" ? { active: activeRun !== null, bestScore: weekStats?.bestScore ?? 0, attempts: weekStats?.attempts ?? 0 } : null,
+      showdown: league === "premier" ? { seated: showdownSeat !== null, openTables: showdownOpen } : null,
       expeditions,
       copies,
     });
