@@ -7,6 +7,7 @@ import {
   ACTION_SECONDS,
   BRACKET_KEYS,
   BRACKETS,
+  PRACTICE_ONLY,
   HOLE_CARDS,
   RAKE_CAP_BIG_BLINDS,
   RAKE_PCT,
@@ -85,6 +86,12 @@ export default function ShowdownRules() {
       </Section>
 
       <Section title="Sitting down">
+        {PRACTICE_ONLY ? (
+          <p>
+            <b className="text-white">For now, every table is a practice table.</b> Play chips, nothing won or
+            lost, no rake — the game is being tried out. Real stakes come later.
+          </p>
+        ) : null}
         <p>
           A table seats {SEATS_TO_DEAL} to {SEATS_MAX}. You bring dollars to bet with and a stack of{" "}
           <b className="text-white">{STACK_SIZE} cards</b> from your collection, any edition week of the current
@@ -96,8 +103,11 @@ export default function ShowdownRules() {
             return (
               <li key={key}>
                 <b className="text-white">{bracket.label} table</b> · blinds {fmtPoints(bracket.smallBlind)} /{" "}
-                {fmtPoints(bracket.bigBlind)} · buy-in {fmtPoints(bracket.minBuyIn)} to {fmtPoints(bracket.maxBuyIn)} ·
-                stack cap {bracket.stackCap} overall
+                {fmtPoints(bracket.bigBlind)} ·{" "}
+                {bracket.free
+                  ? `${fmtPoints(bracket.minBuyIn)} in play chips, nothing won or lost, no rake`
+                  : `buy-in ${fmtPoints(bracket.minBuyIn)} to ${fmtPoints(bracket.maxBuyIn)}`}{" "}
+                · stack cap {bracket.stackCap} overall
               </li>
             );
           })}

@@ -16,7 +16,7 @@ import { fetchCardSeason, fetchCurrentWeekCards, fetchEditionCards } from "@/lib
 import { fetchInventory, fetchInventoryByIds } from "@/lib/packs/queries";
 import { mondayOf } from "@/lib/packs/week";
 import { cardFromEdition, cardFromInventory, dealHouseStack } from "./cards";
-import { BRACKET_KEYS, BRACKETS, SEATS_MAX, STACK_SIZE, stackFits, type Bracket, type BracketKey } from "./config";
+import { BRACKETS, OPENABLE_BRACKETS, SEATS_MAX, STACK_SIZE, stackFits, type Bracket, type BracketKey } from "./config";
 import {
   applyAction,
   applyTimeout,
@@ -240,8 +240,8 @@ export async function loadStackOptions(): Promise<StackOption[]> {
 export async function createTable(input: unknown): Promise<number> {
   const user = await requirePlayer();
   if (!isRecord(input)) throw new ShowdownActionError("Bad request.");
-  const bracket = typeof input.bracket === "string" && (BRACKET_KEYS as string[]).includes(input.bracket) ? (input.bracket as BracketKey) : null;
-  if (!bracket) throw new ShowdownActionError("Pick a bracket.");
+  const bracket = typeof input.bracket === "string" && (OPENABLE_BRACKETS as string[]).includes(input.bracket) ? (input.bracket as BracketKey) : null;
+  if (!bracket) throw new ShowdownActionError("That table cannot be opened right now.");
   const name = typeof input.name === "string" ? input.name.trim().slice(0, 40) : "";
   if (name.length < 2) throw new ShowdownActionError("Give the table a name.");
   const isPrivate = input.private === true;
@@ -280,7 +280,7 @@ export async function sitDown(input: unknown): Promise<TableView> {
   if (buyIn < bracket.minBuyIn || buyIn > bracket.maxBuyIn) {
     throw new ShowdownActionError(`Buy-in at this table is ${bracket.minBuyIn} to ${bracket.maxBuyIn}.`);
   }
-  if (buyIn > user.balance) throw new ShowdownActionError("You do not have that many dollars.");
+  if (!bracket.free && buyIn > user.balance) throw new ShowdownActionError("You do not have that many dollars.");
 
   let stack: ShowdownCard[];
   if (house) {
@@ -320,7 +320,7 @@ export async function sitDown(input: unknown): Promise<TableView> {
     return { pub, secret: nextSecret, rake: 0, settled: null };
   });
   const dealt = await transition(service, tableId, (fresh, secret) => dealIfReady(service, fresh, secret));
-  return buildView(dealt ?? updated, await fetchSecret(service, tableId), { ...user, balance: user.balance - buyIn });
+  return buildView(dealt ?? updated, await fetchSecret(service, tableId), { ...user, balance: bracket.free ? user.balance : user.balance - buyIn });
 }
 
 function friendlySitError(message: string): string {

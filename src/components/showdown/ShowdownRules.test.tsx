@@ -17,7 +17,7 @@ describe("the Showdown rulebook", () => {
 
   it("reads the stakes, the cap and the rake from config, not from copy", () => {
     render(<ShowdownRules />);
-    expect(screen.getByText(new RegExp(`stack cap ${BRACKETS.open.stackCap} overall`))).toBeTruthy();
+    expect(screen.getAllByText(new RegExp(`stack cap ${BRACKETS.open.stackCap} overall`)).length).toBeGreaterThan(0);
     expect(screen.getByText(new RegExp(`\\$${BRACKETS.open.minBuyIn.toLocaleString("en-US")} to`))).toBeTruthy();
     expect(screen.getByText(new RegExp(`capped at ${RAKE_CAP_BIG_BLINDS} big blinds`))).toBeTruthy();
     expect(screen.getAllByText(new RegExp(`${STACK_SIZE} cards`)).length).toBeGreaterThan(0);

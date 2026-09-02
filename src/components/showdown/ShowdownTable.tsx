@@ -118,6 +118,7 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
         <Link href="/cards/showdown" className="label-dash hover:text-coral">← Tables</Link>
         <span>
           {view.bracket.label} · blinds {fmtPoints(view.bracket.smallBlind)} / {fmtPoints(view.bracket.bigBlind)} · cap {view.bracket.stackCap}
+          {view.bracket.free ? " · play chips, nothing won or lost" : ""}
           {view.table.code ? " · unlisted" : ""}
         </span>
       </div>
@@ -233,7 +234,11 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
             }
             className="text-coral underline-offset-4 hover:underline disabled:opacity-50"
           >
-            {me.status === "leaving" ? "Leaving after this hand…" : me.status === "sitting_out" && view.table.status === "hand" ? "Stand up" : "Stand up and take your chips"}
+            {me.status === "leaving"
+              ? "Leaving after this hand…"
+              : (me.status === "sitting_out" && view.table.status === "hand") || view.bracket.free
+                ? "Stand up"
+                : "Stand up and take your chips"}
           </button>
         ) : view.viewer ? (
           <span>Pick an empty seat to sit down.</span>

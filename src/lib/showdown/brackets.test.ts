@@ -14,7 +14,7 @@ describe("the seeded brackets", () => {
     const sql = readFileSync(join(dir, files[files.length - 1]), "utf8");
     for (const key of BRACKET_KEYS) {
       const b = BRACKETS[key];
-      const row = new RegExp(`\\('${key}',\\s*${b.smallBlind},\\s*${b.bigBlind},\\s*${b.minBuyIn},\\s*${b.maxBuyIn},\\s*${b.stackCap}\\)`);
+      const row = new RegExp(`\\('${key}',\\s*${b.smallBlind},\\s*${b.bigBlind},\\s*${b.minBuyIn},\\s*${b.maxBuyIn},\\s*${b.stackCap},\\s*${b.free}\\)`);
       expect(sql, `the ${key} bracket seed disagrees with config.ts`).toMatch(row);
     }
   });

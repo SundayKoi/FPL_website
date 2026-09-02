@@ -28,7 +28,7 @@ export default function StackBuilder({
 }) {
   const [house, setHouse] = useState(options.length < STACK_SIZE);
   const [chosen, setChosen] = useState<number[]>([]);
-  const [buyIn, setBuyIn] = useState(Math.min(bracket.minBuyIn, balance));
+  const [buyIn, setBuyIn] = useState(bracket.free ? bracket.minBuyIn : Math.min(bracket.minBuyIn, balance));
   const [query, setQuery] = useState("");
 
   const sorted = useMemo(() => [...options].sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name)), [options]);
@@ -39,7 +39,7 @@ export default function StackBuilder({
   const total = chosen.reduce((sum, id) => sum + (options.find((option) => option.id === id)?.overall ?? 0), 0);
   const overCap = total > bracket.stackCap;
   const stackReady = house || (chosen.length === STACK_SIZE && !overCap);
-  const buyInOk = Number.isInteger(buyIn) && buyIn >= bracket.minBuyIn && buyIn <= bracket.maxBuyIn && buyIn <= balance;
+  const buyInOk = Number.isInteger(buyIn) && buyIn >= bracket.minBuyIn && buyIn <= bracket.maxBuyIn && (bracket.free || buyIn <= balance);
 
   const toggle = (id: number) =>
     setChosen((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : current.length < STACK_SIZE ? [...current, id] : current));
@@ -111,18 +111,25 @@ export default function StackBuilder({
         </div>
       ) : null}
 
-      <label className="flex flex-col gap-1 text-xs text-steel">
-        Buy-in · {fmtPoints(bracket.minBuyIn)} to {fmtPoints(bracket.maxBuyIn)} · you have {fmtPoints(balance)}
-        <input
-          type="number"
-          min={bracket.minBuyIn}
-          max={Math.min(bracket.maxBuyIn, balance)}
-          step={bracket.bigBlind}
-          value={buyIn}
-          onChange={(event) => setBuyIn(Number(event.target.value))}
-          className="w-40 rounded-md border border-line bg-black/20 px-3 py-2 text-sm text-white"
-        />
-      </label>
+      {bracket.free ? (
+        <p className="text-xs text-steel">
+          Practice table: you sit down with {fmtPoints(bracket.minBuyIn)} in play chips. Nothing leaves your wallet and
+          nothing comes back.
+        </p>
+      ) : (
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Buy-in · {fmtPoints(bracket.minBuyIn)} to {fmtPoints(bracket.maxBuyIn)} · you have {fmtPoints(balance)}
+          <input
+            type="number"
+            min={bracket.minBuyIn}
+            max={Math.min(bracket.maxBuyIn, balance)}
+            step={bracket.bigBlind}
+            value={buyIn}
+            onChange={(event) => setBuyIn(Number(event.target.value))}
+            className="w-40 rounded-md border border-line bg-black/20 px-3 py-2 text-sm text-white"
+          />
+        </label>
+      )}
 
       <button
         type="button"
@@ -130,7 +137,7 @@ export default function StackBuilder({
         onClick={() => onSit({ seatNo, buyIn, house, cardIds: house ? [] : chosen })}
         className="btn-pill w-fit px-4 py-1.5 text-xs disabled:opacity-50"
       >
-        {pending ? "Sitting down…" : `Sit down with ${fmtPoints(buyIn)}`}
+        {pending ? "Sitting down…" : bracket.free ? "Sit down" : `Sit down with ${fmtPoints(buyIn)}`}
       </button>
     </section>
   );
