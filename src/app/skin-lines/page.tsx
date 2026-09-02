@@ -132,9 +132,9 @@ export default async function SkinLinesPreviewPage() {
           <p>
             <strong className="text-white">One shape each, and no streaks.</strong> Refractor already owns
             the diagonal rake and Cracked Ice the shards, so no line sweeps a bar across the art. PROJECT is
-            a circuit grid and a visor, Harrowing a crescent moon in fog, Academy gilded corners and a wax
-            seal, Arcade a pixel mosaic, Arcana a sunburst in a ring, Battlecast a targeting reticle.
-            Different shapes, not different tints.
+            a glitching hologram lit from its edge, Harrowing a crescent moon in fog, Academy gilded corners
+            and a wax seal, Arcade coarse pixels over a rolling rainbow, Arcana a sunburst in a ring,
+            Battlecast a targeting reticle. Different shapes, not different tints.
           </p>
           <p>
             <strong className="text-white">Eclipse is untouched.</strong> The one-of-ones stay above the
