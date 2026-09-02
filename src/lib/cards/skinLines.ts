@@ -15,6 +15,9 @@
 // what each looks like, and where it would sit on the ladder. Each line
 // owns ONE shape and no line owns a streak — Refractor has the diagonal
 // rake already, and a line that sweeps a bar reads as another refractor.
+// PROJECT owns the glitch (scanlines, tears, a raster band) and Arcade owns
+// the pixels and the rainbow; they were the other way round once and read
+// as one line in two colours.
 // The CSS that draws each one lives in globals.css as
 // `card-foil-line-<key>`, and the tier modifiers and layers as
 // `card-foil-tier-<key>`; the odds and the frozen-copy
@@ -48,7 +51,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-project",
     label: "PROJECT",
     skinLine: "PROJECT",
-    look: "An orthogonal circuit grid with nodes at the crossings, and one thin visor slit of hot light across the eyes.",
+    look: "A glitching hologram: scanlines, a raster band, signal tears that jitter, a visor slit across the eyes, and the edge of the card lit orange from inside.",
     accent: "#ff7a1a",
     blend: "screen",
   },
@@ -75,7 +78,7 @@ export const SKIN_LINES: SkinLine[] = [
     className: "card-foil-line-arcade",
     label: "Arcade",
     skinLine: "Arcade",
-    look: "An 8-bit mosaic of coarse pixels under CRT scanlines, one raster band walking down the screen.",
+    look: "An 8-bit mosaic of coarse pixels over a rainbow that rolls across the card.",
     accent: "#ff3cac",
     blend: "screen",
   },
