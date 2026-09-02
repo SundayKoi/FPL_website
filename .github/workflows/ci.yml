@@ -1,0 +1,39 @@
+name: CI
+
+# The checks that used to run only on whoever's machine pushed. Type-check,
+# lint and the Vitest suite on every pull request and every push to main,
+# so Vercel does not have to be the place a type error is discovered — and
+# so `typescript.ignoreBuildErrors` can be turned on in next.config.ts once
+# this check is required on main, taking the type-check out of the billed
+# build minute.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # tsconfig includes .next/types, where Next generates the route types
+      # (LayoutProps, PageProps). A fresh checkout has none, so generate them
+      # without paying for a build.
+      - name: Generate route types
+        run: npx next typegen
+      - name: Type-check
+        run: npx tsc --noEmit -p .
+      - name: Lint
+        run: npm run lint
+      - name: Unit and component tests
+        run: npm test

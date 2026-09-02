@@ -187,6 +187,25 @@ For database or authorization changes, run the pgTAP suite as well as the
 relevant Vitest tests. For realtime or multi-user changes, run the auction or
 match-draft Playwright coverage when the local stack is available.
 
+### CI and what Vercel builds
+
+`.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
+on every pull request and every push to `main`. Make it a required check on
+`main`; once it is, `typescript.ignoreBuildErrors: true` in `next.config.ts`
+takes the type-check out of the Vercel build minute, since CI has already
+run it.
+
+Vercel builds are billed per CPU-minute rounded up, and most builds here
+were building nothing anyone looked at, so `vercel.json` points the Ignored
+Build Step at `scripts/vercel-ignore.sh`:
+
+- **Previews are off.** A push to a normal branch does not build. Push a
+  branch named `preview/<anything>` when you want a preview URL.
+- **Production builds only when shipped files changed.** A merge to `main`
+  that only touches docs, migrations, scripts or workflows keeps the
+  deployment it already has. The list of shipped paths is in the script;
+  add to it if a new root config file starts feeding `next build`.
+
 ## Deploy runbook
 
 This app needs its own Supabase cloud project, a Discord OAuth app, and a
