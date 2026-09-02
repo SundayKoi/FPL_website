@@ -187,6 +187,19 @@ For database or authorization changes, run the pgTAP suite as well as the
 relevant Vitest tests. For realtime or multi-user changes, run the auction or
 match-draft Playwright coverage when the local stack is available.
 
+### Branches and releases
+
+- **`develop`** is where work lands. Every pull request targets it. Vercel
+  never builds it (see below), so merging there costs nothing.
+- **`main`** is what Vercel deploys. Nobody merges to it by hand.
+- **Releasing** is `.github/workflows/release.yml`: every Monday at 13:00
+  UTC, and on demand from the Actions tab (**Release to production → Run
+  workflow**), it merges `develop` into `main` with a merge commit and
+  Vercel builds once. It refuses when CI on `develop` is not green, and
+  does nothing when `develop` has nothing `main` lacks.
+- **A hotfix** that cannot wait for Monday is the same thing run by hand:
+  merge to `develop`, then run the release workflow.
+
 ### CI and what Vercel builds
 
 `.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
@@ -199,12 +212,13 @@ Vercel builds are billed per CPU-minute rounded up, and most builds here
 were building nothing anyone looked at, so `vercel.json` points the Ignored
 Build Step at `scripts/vercel-ignore.sh`:
 
-- **Previews are off.** A push to a normal branch does not build. Push a
-  branch named `preview/<anything>` when you want a preview URL.
-- **Production builds only when shipped files changed.** A merge to `main`
-  that only touches docs, migrations, scripts or workflows keeps the
-  deployment it already has. The list of shipped paths is in the script;
-  add to it if a new root config file starts feeding `next build`.
+- **Previews are off.** A push to a normal branch, `develop` included, does
+  not build. Push a branch named `preview/<anything>` when you want a
+  preview URL.
+- **Production builds only when shipped files changed.** A release that
+  only touches docs, migrations, scripts or workflows keeps the deployment
+  it already has. The list of shipped paths is in the script; add to it if
+  a new root config file starts feeding `next build`.
 
 ## Deploy runbook
 
