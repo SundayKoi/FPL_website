@@ -1222,8 +1222,72 @@ body {
   animation: lineBattlecastSweep 2.6s ease-in-out infinite;
 }
 
+/* The TIERS inside a season's line. A season is one skin line, but a
+   season's foils cannot all look the same or every week's pull is the same
+   pull — so the line is the colour and the motif, and the tier is how much
+   of it you got. Standard is the line's own utility above. The three rungs
+   over it are line-agnostic overlays, coloured by --line-accent so a Chroma
+   PROJECT and a Chroma Arcana read as the same tier of different lines:
+
+     Chroma    a second hue of the line's own colour, cycling across the art
+     Prestige  gold — in League, Prestige IS gold — a gold bar that sweeps
+               and a gold rim, over the line's motif
+     Ultimate  the line's motif with a living spark field over it, and the
+               whole thing breathing. The one you see from across the room. */
+@keyframes tierChromaShift {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+@utility card-foil-tier-chroma {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--line-accent) 45%, transparent) 0%,
+    transparent 32%,
+    color-mix(in srgb, var(--line-accent) 70%, transparent) 50%,
+    transparent 68%,
+    color-mix(in srgb, var(--line-accent) 45%, transparent) 100%
+  );
+  background-size: 220% 220%;
+  opacity: 0.7;
+  animation: tierChromaShift 6s linear infinite;
+}
+@keyframes tierPrestigeSweep {
+  0% { background-position: -60% 0, 0 0; }
+  100% { background-position: 160% 0, 0 0; }
+}
+@utility card-foil-tier-prestige {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(105deg, transparent 0 42%, rgb(255 215 120 / 0.55) 47%, rgb(255 246 205 / 0.95) 50%, rgb(255 215 120 / 0.55) 53%, transparent 58% 100%),
+    radial-gradient(ellipse 130% 100% at 50% 50%, transparent 58%, rgb(255 200 90 / 0.6) 100%);
+  background-size: 60% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
+  animation: tierPrestigeSweep 3.4s ease-in-out infinite;
+}
+@keyframes tierUltimateBreathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+@utility card-foil-tier-ultimate {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.95) 0 1.6px, transparent 3.2px),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--line-accent) 85%, white) 0 1.1px, transparent 2.6px),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0.7) 0 0.9px, transparent 2px),
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 45%, color-mix(in srgb, var(--line-accent) 55%, transparent) 100%);
+  background-size: 96px 96px, 61px 61px, 37px 37px, 100% 100%;
+  background-position: 13px 7px, 29px 41px, 5px 19px, 50% 50%;
+  animation: tierUltimateBreathe 2.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast { animation: none; }
+  .card-foil-line-harrowing, .card-foil-line-arcade, .card-foil-line-arcana, .card-foil-line-battlecast,
+  .card-foil-tier-chroma, .card-foil-tier-prestige, .card-foil-tier-ultimate { animation: none; }
+  .card-foil-tier-ultimate { opacity: 0.8; }
 }
 
 @utility card-foil-cosmos {

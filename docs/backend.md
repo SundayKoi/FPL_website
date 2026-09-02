@@ -591,16 +591,23 @@ the job; the registration is the other half.
 
 ### Skin-line parallels (proposal)
 
-`/admin/skin-lines` is a staff-gated mockup of a patron's proposal: name the
-three parallels above Prisma for League skin lines and mint three new ones a
-season. `src/lib/cards/skinLines.ts` holds the six candidate lines (label,
-look, accent, blend, utility) and a worked Season 5 set; the treatments are
-`card-foil-line-<key>` utilities in globals.css, drawn on real cards through
-`PlayerCard3D`'s `preview` prop, which only admin mockup pages pass. Nothing
-mints them: `foil_type` still only admits the ladder, the roller only walks
-`FOIL_TYPES`, and the page says so. If adopted: widen the check constraint,
-add a per-season set to the ladder config, give the flat PNG render an
-accent and badge per line, and leave every minted copy exactly as it is.
+`/admin/skin-lines` is a staff-gated mockup of a patron's proposal: draw each
+season's foils in one League skin line, a new line every season, with four
+tiers inside it (Standard, Chroma, Prestige, Ultimate) sitting on the rungs —
+and therefore the weights and dust multipliers — of Prisma, Aurora, Refractor
+and Cracked Ice. Eclipse is not a tier of anything, keeps its name and look,
+and does not rotate. `src/lib/cards/skinLines.ts` holds the six candidate
+lines (label, look, accent, blend, utility), the tier ladder (`LINE_TIERS`,
+`lineTierLabel`) and a worked Season 5 set; the treatments are
+`card-foil-line-<key>` and `card-foil-tier-<key>` utilities in globals.css,
+drawn on real cards through `PlayerCard3D`'s `preview` prop (`layers` carries
+the tier overlays, coloured by `--line-accent`), which only admin mockup pages
+pass. Nothing mints them: `foil_type` still only admits the ladder, the roller
+only walks `FOIL_TYPES`, and the page says so. If adopted: widen the check
+constraint to the tier keys, add a per-season line to the ladder config, wire
+the tier overlays to the pointer like the parallel layer, give the flat PNG
+render an accent and badge per tier, and leave Eclipse and every minted copy
+exactly as they are.
 
 ### Pack odds, measured
 
