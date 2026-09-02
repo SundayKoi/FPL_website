@@ -17,11 +17,11 @@ import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/momen
 import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { cardImageUrl } from "@/lib/cards/shareImage";
-import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_CHANCE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
-import { applyEclipse, isEclipseEligible } from "./eclipse";
+import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
@@ -361,7 +361,7 @@ export async function openPackFor(
   // validation happens here, before the copy is written. Sequential on
   // purpose: five pulls of one champion then share the validity cache
   // instead of racing duplicate HEAD requests.
-  const prints = [];
+  const prints: EclipsePrint[] = [];
   for (const pull of pulls) {
     const champion = pull.card.signature?.champion;
     // the autograph rides inside the card too, so this copy keeps the
@@ -400,10 +400,7 @@ export async function openPackFor(
   // Read AFTER the pack is rolled, and only when something eligible
   // actually came out — the overwhelming majority of packs contain no
   // Card of the Week at all and pay nothing for this.
-  const eclipseCandidates = prints
-    .map((print, index) => ({ print, index }))
-    .filter(({ print }) => isEclipseEligible(print.card))
-    .filter(() => rand() < ECLIPSE_CHANCE);
+  const eclipseCandidates = rollEclipseCandidates(prints, rand).map((index) => ({ print: prints[index], index }));
   if (eclipseCandidates.length > 0) {
     const { data: alreadyMinted } = await service
       .from("card_inventory")

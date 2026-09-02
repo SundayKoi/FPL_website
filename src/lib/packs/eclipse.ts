@@ -7,7 +7,7 @@
 // pinned by tests, not inferred from the middle of a 700-line opener.
 
 import type { PlayerCardData } from "@/lib/cards/build";
-import { ECLIPSE_FOIL_TYPE } from "./config";
+import { ECLIPSE_CHANCE, ECLIPSE_FOIL_TYPE } from "./config";
 
 /** The shape the opener carries a rolled copy in, narrowed to what these
  *  rules touch. */
@@ -63,4 +63,24 @@ export function applyEclipse(print: EclipsePrint, ink: string | null): EclipsePr
     // ink it was pulled with even if the player redraws later.
     card: { ...print.card, autograph },
   };
+}
+
+/**
+ * Which pulls in a pack pass the Eclipse gate, by index.
+ *
+ * One rand per ELIGIBLE pull, and none for the rest — a pack with no Card
+ * of the Week in it consumes nothing here. Whether a winner actually mints
+ * is decided afterwards against the database (has this print's Eclipse
+ * already been claimed?), which is the half that cannot be pure.
+ *
+ * Exported and pure so the rate can be measured against the real random
+ * source rather than asserted from a comment: odds.test.ts rolls this a
+ * hundred thousand times and expects ECLIPSE_CHANCE back.
+ */
+export function rollEclipseCandidates(prints: { card: PlayerCardData }[], rand: () => number): number[] {
+  const hits: number[] = [];
+  prints.forEach((print, index) => {
+    if (isEclipseEligible(print.card) && rand() < ECLIPSE_CHANCE) hits.push(index);
+  });
+  return hits;
 }

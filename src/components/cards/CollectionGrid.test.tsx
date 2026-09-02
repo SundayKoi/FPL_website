@@ -154,8 +154,11 @@ describe("CollectionGrid", () => {
     // Each is holographed, and the alternate print says so in its caption.
     expect(screen.getAllByTestId("foil")).toHaveLength(2);
     expect(screen.getByText("Alt art")).toBeTruthy();
-    expect(screen.getByText("WK Aug 24")).toBeTruthy();
-    expect(screen.getByText("WK Aug 31")).toBeTruthy();
+    // The week picker lists the same labels as options; the captions are
+    // the ones that are not.
+    const caption = (label: string) => screen.getAllByText(label).filter((node) => node.tagName !== "OPTION");
+    expect(caption("WK Aug 24")).toHaveLength(1);
+    expect(caption("WK Aug 31")).toHaveLength(1);
     // A display case, not a workbench.
     expect(screen.queryAllByRole("button", { name: "Manage copies" })).toHaveLength(0);
   });
@@ -438,5 +441,51 @@ describe("a one-of-one on the shelf", () => {
   it("names a parallel on its chip instead of a bare ✦", () => {
     render(<CollectionGrid inventory={[makeRow(3, "Chaseworthy", 88, "2026-08-31", { foil: true, foilType: "ice" })]} />);
     expect(screen.getByText("Cracked Ice")).toBeTruthy();
+  });
+});
+
+describe("finding a card on the shelf", () => {
+  const shelf = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17"),
+    makeRow(2, "Commonly", 60, "2026-08-24"),
+    makeRow(3, "Bystander", 75, "2026-08-24", { foil: true, foilType: "prisma" }),
+  ];
+
+  it("narrows by part of a name, case-blind, and says how many are left", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search your cards" }), { target: { value: "COMM" } });
+    expect(cardsFor("Commonly")).toHaveLength(1);
+    expect(cardsFor("Chaseworthy")).toHaveLength(0);
+    expect(screen.getByText("1 of 3 copies")).toBeTruthy();
+  });
+
+  it("narrows to one edition week, and the variant counts follow", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Week" }), { target: { value: "2026-08-24" } });
+    expect(cardsFor("Chaseworthy")).toHaveLength(0);
+    expect(cardsFor("Bystander")).toHaveLength(1);
+    // The foil chip counts only what the week shows.
+    expect(screen.getByRole("button", { name: /Foils · 1/ })).toBeTruthy();
+  });
+
+  it("says so when nothing matches, instead of an empty wall", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search your cards" }), { target: { value: "zzz" } });
+    expect(screen.getByText(/Nothing on your shelf matches “zzz”/)).toBeTruthy();
+  });
+
+  it("orders the shelf by name, rating, or edition on request", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    const names = () =>
+      screen
+        .getAllByRole("button", { name: /player card/ })
+        .map((node) => node.getAttribute("aria-label")?.split(" player card")[0]);
+    // Default: best first — by rating here, since nothing is signed or one-of-one.
+    expect(names()).toEqual(["Chaseworthy", "Bystander", "Commonly"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "name" } });
+    expect(names()).toEqual(["Bystander", "Chaseworthy", "Commonly"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "week" } });
+    // Newest edition first; ties fall back to the showcase order.
+    expect(names()).toEqual(["Bystander", "Commonly", "Chaseworthy"]);
   });
 });

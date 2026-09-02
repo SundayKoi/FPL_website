@@ -12,16 +12,29 @@ import PlayerCard3D from "./PlayerCard3D";
 
 const ROLE_FILTERS = ["Top", "Jungle", "Mid", "Bot", "Support"] as const;
 
+type GallerySort = "rating" | "name" | "team";
+
+/** The cards arrive best first; the other two orders are for finding a
+ *  card rather than ranking it. */
+const GALLERY_ORDER: Record<GallerySort, (a: PlayerCardData, b: PlayerCardData) => number> = {
+  rating: (a, b) => b.overall - a.overall || a.name.localeCompare(b.name),
+  name: (a, b) => a.name.localeCompare(b.name),
+  team: (a, b) => (a.teamName ?? "~").localeCompare(b.teamName ?? "~") || b.overall - a.overall,
+};
+
 export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<string | null>(null);
+  const [sort, setSort] = useState<GallerySort>("rating");
 
   const q = query.trim().toLowerCase();
-  const shown = cards.filter(
-    (card) =>
-      (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
-      (!role || card.role === role),
-  );
+  const shown = cards
+    .filter(
+      (card) =>
+        (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
+        (!role || card.role === role),
+    )
+    .sort(GALLERY_ORDER[sort]);
   // One Card of the Week per role, in on-Rift order.
   const roleOrder = ["Top", "Jungle", "Mid", "Bot", "Support"];
   const standouts = cards
@@ -70,6 +83,14 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
             </button>
           ))}
         </div>
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Sort
+          <select value={sort} onChange={(e) => setSort(e.target.value as GallerySort)} className="input-brand px-3 py-2 text-sm">
+            <option value="rating">Highest rating</option>
+            <option value="name">Name A–Z</option>
+            <option value="team">Team</option>
+          </select>
+        </label>
         <span className="text-xs text-steel">
           {shown.length} of {cards.length} cards
         </span>
