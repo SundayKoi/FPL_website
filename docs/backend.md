@@ -635,12 +635,39 @@ flush because five from one team is already a full roster) and exports
 `HAND_RANKS`, which the rules panel `src/components/showdown/ShowdownRules.tsx`
 renders so the rules a player reads cannot drift from what settles a hand.
 `/cards/showdown` is premier-only and, until the tables land, is the
-rulebook. Tables, seats, the per-action RPC state machine (Higher-Lower
-model: the database is the sole settler, every transition retryable), the
-wallet doors (`showdown_*` modelled on `gauntlet_enter`/`gauntlet_payout`,
-reasons whitelisted), realtime via `postgres_changes` with hole cards
-withheld per viewer server-side, and the timeout sweep follow in later PRs.
-Patronage never touches any of it.
+rulebook.
+
+The engine is `src/lib/showdown/engine.ts`, a pure reducer over a table's
+public state (seats, chips, board, pot, whose turn, the log) and secret
+state (each seat's stack, hole cards, the rest of the deck): `startHand`
+deals and posts blinds (heads up, the dealer is the small blind), `applyAction`
+validates turn and legality (min-raise, short all-ins do not reopen the
+action), streets advance when nobody is owed an action, `buildPots` makes
+one side pot per contribution level, and settlement takes the rake off the
+main pot first, splits ties with odd chips to the seat left of the dealer,
+retires leavers and busted stacks, and returns the `HandResult`. `viewFor`
+is the per-viewer snapshot: everyone's public state plus only your own
+hole cards. It takes a random source, so tests script it.
+
+The schema is `20260913000001_showdown.sql`: `showdown_brackets` (seeded
+from config and held to it by `brackets.test.ts`), `showdown_tables`
+(public state, a version, a deadline; publicly readable and in the
+realtime publication), `showdown_secrets` (deny-all, never published),
+`showdown_seats` (public; one seat per person anywhere), `showdown_seated_cards`
+with a definer-rights guard trigger on `card_inventory` that refuses to
+delete or re-own a seated copy ("card is at a table", the expedition lock
+again), `showdown_hands` (history) and `showdown_rake` (the burn). Three
+service-role RPCs: `showdown_sit` checks the buy-in range and the stack
+(ten owned cards under the cap, or a house stack), debits the wallet,
+seats and locks in one transaction; `showdown_stand` credits chips back
+and releases the cards, refused mid-hand unless the seat is sitting out;
+`showdown_commit` is the engine's one write — compare-and-swap on the
+version, then public and secret state, every seat's chips and status, the
+rake row and the history row — and it refuses any commit where the seats'
+chips plus the pot do not balance before and after. Chips at a table have
+left the wallet; the pot lives in the public state; the rake is chips
+never credited back. pgTAP: `0087_showdown_test.sql`. Server actions,
+realtime and the felt follow. Patronage never touches any of it.
 
 ### Card motion at rest
 
