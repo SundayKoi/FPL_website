@@ -284,11 +284,21 @@ async function main() {
   // exactly how many copies were dusted, and the foil rate among survivors
   // is bounded by "dusting was foil-blind" below and "no foil was ever
   // dusted" above.
+  // card_print_runs only started counting when print numbering shipped and
+  // was backfilled from the rows that existed THEN — everything dusted
+  // before that is invisible to it. card_pack_opens has a row for every
+  // paid or daily pack since the first one, so opens × PACK_SIZE is the
+  // honest floor on how many copies were ever minted (comped and Faceless
+  // packs sit outside it, so the true figure is a little higher still).
+  const { count: opens } = await supabase.from("card_pack_opens").select("id", { count: "exact", head: true }).eq("season", season);
   const { data: runsRows } = await supabase.from("card_print_runs").select("minted").eq("season", season);
-  const minted = ((runsRows ?? []) as { minted: number }[]).reduce((sum, row) => sum + Number(row.minted), 0);
+  const counted = ((runsRows ?? []) as { minted: number }[]).reduce((sum, row) => sum + Number(row.minted), 0);
+  const minted = Math.max(counted, (opens ?? 0) * PACK_SIZE);
   const survival = minted > 0 ? obs.copies / minted : 1;
   const baseFoil = foil / slots;
-  console.log(`\nObserved, from every copy still held this season (${obs.copies.toLocaleString()} surviving of ${minted.toLocaleString()} minted · ${pct(minted - obs.copies, minted)} dusted):`);
+  console.log(
+    `\nObserved, from every copy still held this season (${obs.copies.toLocaleString()} surviving of at least ${minted.toLocaleString()} minted — ${(opens ?? 0).toLocaleString()} pack opens × ${PACK_SIZE} · ${pct(minted - obs.copies, minted)} dusted or traded out):`,
+  );
   console.log(
     `  survivor foil rate if dusting were foil-blind: ${pct(baseFoil, 1)} · if no foil was ever dusted: ${pct(Math.min(1, baseFoil / survival), 1)} — the observed line below should fall between them`,
   );
