@@ -602,11 +602,18 @@ and therefore the weights and dust multipliers — of Prisma, Aurora, Refractor
 and Cracked Ice. Eclipse is not a tier of anything, keeps its name and look,
 and does not rotate. `src/lib/cards/skinLines.ts` holds the six candidate
 lines (label, look, accent, blend, utility), the tier ladder (`LINE_TIERS`,
-`lineTierLabel`) and a worked Season 5 set; the treatments are
-`card-foil-line-<key>` and `card-foil-tier-<key>` utilities in globals.css,
-drawn on real cards through `PlayerCard3D`'s `preview` prop (`layers` carries
-the tier overlays, coloured by `--line-accent`), which only admin mockup pages
-pass. Nothing mints them: `foil_type` still only admits the ladder, the roller
+`lineTierLabel`) and a worked Season 5 set. The treatments are
+`card-foil-line-<key>` utilities in globals.css; each line owns one shape
+(a circuit grid, a crescent moon, gilded corners, a pixel mosaic, a
+sunburst in a ring, a reticle) and no line sweeps a bar, because Refractor
+owns the streak. Every colour in a line is read from `--m1/--m2/--m3`
+triplets, so a tier restates the same shape in another material without
+redrawing it: `card-foil-tier-chroma` swaps in the line's own `--c` palette,
+`card-foil-tier-prestige` turns every colour gold, `card-foil-tier-ultimate`
+saturates; the sheen, gold frame and rising embers are sibling layers
+(`-sheen`, `-frame`, `-embers`). They reach the card through `PlayerCard3D`'s
+`preview` prop (`modifier` on the line layer, `layers` as siblings coloured
+by `--line-accent`), which only mockup pages pass. Nothing mints them: `foil_type` still only admits the ladder, the roller
 only walks `FOIL_TYPES`, and the page says so. If adopted: widen the check
 constraint to the tier keys, add a per-season line to the ladder config, wire
 the tier overlays to the pointer like the parallel layer, give the flat PNG

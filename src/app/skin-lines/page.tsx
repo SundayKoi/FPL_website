@@ -45,6 +45,7 @@ function previewOf(line: SkinLine, tier: LineTier) {
   return {
     label: lineTierLabel(line, tier),
     className: line.className,
+    modifier: tier.modifier,
     blend: line.blend,
     accent: line.accent,
     layers: tier.layers,
@@ -121,11 +122,19 @@ export default async function SkinLinesPreviewPage() {
           </p>
           <p>
             <strong className="text-white">One line, four tiers.</strong> A season of foils that all look
-            the same is boring by week three, so the line is the motif and the tier is how much of it you
-            got. Standard is the line as drawn; Chroma, Prestige and Ultimate are League&apos;s own words for
-            &ldquo;the same skin, rarer,&rdquo; laid over it. Each tier sits on the rung of the parallel it
-            replaces — Prisma, Aurora, Refractor, Cracked Ice — so the odds, the dust values and the
+            the same is boring by week three, so the line is the shape and the tier is the material.
+            Standard is the line as drawn; Chroma recolours it in the line&apos;s own chroma palette; Prestige
+            gilds it inside a gold frame; Ultimate sets it alight. A tier never adds a pattern of its own,
+            so a PROJECT Ultimate is still unmistakably PROJECT. Each tier sits on the rung of the parallel
+            it replaces — Prisma, Aurora, Refractor, Cracked Ice — so the odds, the dust values and the
             print-run rules do not move.
+          </p>
+          <p>
+            <strong className="text-white">One shape each, and no streaks.</strong> Refractor already owns
+            the diagonal rake and Cracked Ice the shards, so no line sweeps a bar across the art. PROJECT is
+            a circuit grid and a visor, Harrowing a crescent moon in fog, Academy gilded corners and a wax
+            seal, Arcade a pixel mosaic, Arcana a sunburst in a ring, Battlecast a targeting reticle.
+            Different shapes, not different tints.
           </p>
           <p>
             <strong className="text-white">Eclipse is untouched.</strong> The one-of-ones stay above the
@@ -151,6 +160,7 @@ export default async function SkinLinesPreviewPage() {
                 <span className="text-xs text-steel">
                   replaces {FOIL_TYPE_LABELS[tier.replaces]} · {oneIn(tier)} · {oddsOfTier(tier)}
                 </span>
+                <span className="basis-full text-xs text-steel/80">{tier.does}</span>
               </li>
             ))}
             <li className="flex flex-wrap items-baseline justify-between gap-2 pb-2">
