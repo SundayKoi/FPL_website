@@ -81,7 +81,12 @@ interface Observed {
   /** Copies pulled inside a Live Drops window, and how many of them foiled —
    *  the split that explains an observed foil rate above the base 6%. */
   live: { copies: number; foil: number };
-  byWeek: Map<string, { copies: number; crowned: number; eclipse: number }>;
+  byWeek: Map<string, { copies: number; crowned: number; eclipse: number; foil: number }>;
+  /** Per calendar day (UTC) the copies were pulled: volume and foil rate,
+   *  to see WHEN an excess happened rather than only that it did. */
+  byDay: Map<string, { copies: number; foil: number }>;
+  /** Per holder: copies and foils, for the heaviest openers. */
+  byHolder: Map<string, { copies: number; foil: number }>;
   /** Per player: every copy, and how many of them came out signed. */
   bySlug: Map<string, { copies: number; signed: number; eclipses: number }>;
   /** Every signed copy and every Eclipse, in pull order. */
@@ -105,6 +110,8 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
     longestFoilRun: 0,
     live: { copies: 0, foil: 0 },
     byWeek: new Map(),
+    byDay: new Map(),
+    byHolder: new Map(),
     bySlug: new Map(),
     signedRows: [],
     eclipseRows: [],
@@ -156,8 +163,18 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
       if (crowned) out.crowned += 1;
       const eclipse = row.foil_type === ECLIPSE_FOIL_TYPE;
       if (eclipse) out.eclipse += 1;
-      const week = out.byWeek.get(row.edition_week) ?? { copies: 0, crowned: 0, eclipse: 0 };
+      const week = out.byWeek.get(row.edition_week) ?? { copies: 0, crowned: 0, eclipse: 0, foil: 0 };
       week.copies += 1;
+      if (row.foil) week.foil += 1;
+      const day = row.acquired_at.slice(0, 10);
+      const dayRow = out.byDay.get(day) ?? { copies: 0, foil: 0 };
+      dayRow.copies += 1;
+      if (row.foil) dayRow.foil += 1;
+      out.byDay.set(day, dayRow);
+      const holder = out.byHolder.get(row.discord_id) ?? { copies: 0, foil: 0 };
+      holder.copies += 1;
+      if (row.foil) holder.foil += 1;
+      out.byHolder.set(row.discord_id, holder);
       if (crowned) week.crowned += 1;
       if (eclipse) week.eclipse += 1;
       out.byWeek.set(row.edition_week, week);
@@ -306,9 +323,17 @@ async function main() {
       obs.duplicateSigned.length === 0 ? "none" : obs.duplicateSigned.map((d) => `pack ${d.packOpenId} ${d.slug} ×${d.copies}`).join(", ")
     }`,
   );
-  console.log(`\n  by edition (copies · crowned · Eclipses):`);
+  console.log(`\n  by edition (copies · crowned · Eclipses · foil):`);
   for (const [w, row] of [...obs.byWeek.entries()].sort()) {
-    console.log(`    ${w}  ${String(row.copies).padStart(7)}  ${String(row.crowned).padStart(5)}  ${String(row.eclipse).padStart(3)}`);
+    console.log(`    ${w}  ${String(row.copies).padStart(7)}  ${String(row.crowned).padStart(5)}  ${String(row.eclipse).padStart(3)}  ${pct(row.foil, row.copies).padStart(8)}`);
+  }
+  console.log(`\n  by day pulled (copies · foil):`);
+  for (const [d, row] of [...obs.byDay.entries()].sort()) {
+    console.log(`    ${d}  ${String(row.copies).padStart(7)}  ${pct(row.foil, row.copies).padStart(8)}`);
+  }
+  console.log(`\n  heaviest holders (copies · foil):`);
+  for (const [id, row] of [...obs.byHolder.entries()].sort((a, b) => b[1].copies - a[1].copies).slice(0, 12)) {
+    console.log(`    ${who(id)}  ${String(row.copies).padStart(7)}  ${pct(row.foil, row.copies).padStart(8)}`);
   }
   console.log(
     `\nReading it: a rate a few tenths of a percent off with fewer than ~10,000 copies is noise. The Eclipse line is the one that matters — ` +
