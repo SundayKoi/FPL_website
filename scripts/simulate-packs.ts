@@ -261,7 +261,20 @@ async function main() {
 
   // ── Observed: what actually came out ────────────────────────────────
   const obs = await observe(supabase, season);
-  console.log(`\nObserved, from every copy minted this season (${obs.copies.toLocaleString()} copies, all editions):`);
+  // Dusting DELETES the row, so card_inventory is the survivors, not the
+  // mints — and people dust plain duplicates far more readily than foils.
+  // card_print_runs.minted never decreases, so minted − surviving is
+  // exactly how many copies were dusted, and the foil rate among survivors
+  // is bounded by "dusting was foil-blind" below and "no foil was ever
+  // dusted" above.
+  const { data: runsRows } = await supabase.from("card_print_runs").select("minted").eq("season", season);
+  const minted = ((runsRows ?? []) as { minted: number }[]).reduce((sum, row) => sum + Number(row.minted), 0);
+  const survival = minted > 0 ? obs.copies / minted : 1;
+  const baseFoil = foil / slots;
+  console.log(`\nObserved, from every copy still held this season (${obs.copies.toLocaleString()} surviving of ${minted.toLocaleString()} minted · ${pct(minted - obs.copies, minted)} dusted):`);
+  console.log(
+    `  survivor foil rate if dusting were foil-blind: ${pct(baseFoil, 1)} · if no foil was ever dusted: ${pct(Math.min(1, baseFoil / survival), 1)} — the observed line below should fall between them`,
+  );
   console.log(`  foil            ${pct(obs.foil, obs.copies).padStart(9)}   (signed copies always print foil, so a touch above config is right)`);
   const quiet = { copies: obs.copies - obs.live.copies, foil: obs.foil - obs.live.foil };
   console.log(
