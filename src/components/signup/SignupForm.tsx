@@ -124,7 +124,7 @@ export default function SignupForm({
             setForm({ ...EMPTY, discord: initialDiscord });
             setStatus({ kind: "idle" });
           }}
-          className="mt-6 rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:text-white"
+          className="mt-6 rounded-full border border-border-subtle bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:text-white"
         >
           Submit another signup
         </button>

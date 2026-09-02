@@ -39,7 +39,7 @@ export default function BotCommandsAdmin() {
           type="button"
           onClick={run}
           disabled={pending}
-          className="rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50"
+          className="rounded-full bg-action-fill px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50"
         >
           {pending ? "Registering…" : "Register commands"}
         </button>

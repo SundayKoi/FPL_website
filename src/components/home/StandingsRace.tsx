@@ -77,7 +77,7 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             setIndex(0);
             setPlaying(true);
           }}
-          className="shrink-0 rounded-full border border-primary/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-primary transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="shrink-0 rounded-full border border-action-text/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-action-text transition hover:bg-action-fill hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           ▶ Replay season
         </button>
@@ -96,8 +96,8 @@ export default function StandingsRace({ race }: { race: RaceWeek[] }) {
             }}
             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
               frameIndex === index
-                ? "bg-primary text-white"
-                : "border border-border bg-surface text-muted hover:text-white"
+                ? "bg-action-fill text-white"
+                : "border border-border-subtle bg-surface text-muted hover:text-white"
             }`}
           >
             {frame.label}

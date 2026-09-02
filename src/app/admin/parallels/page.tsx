@@ -89,9 +89,9 @@ export default async function ParallelsPreviewPage() {
   };
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
       <header className="flex flex-col gap-2">
-        <Link href="/admin" className="label-dash w-fit hover:text-primary">
+        <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin
         </Link>
         <h1 className="type-display text-4xl sm:text-5xl">Parallels</h1>
@@ -118,7 +118,7 @@ export default async function ParallelsPreviewPage() {
       ) : (
         ALL_FOIL_TYPES.map((type) => (
           <section key={type} aria-label={FOIL_TYPE_LABELS[type]} className="flex flex-col gap-4">
-            <div className="flex flex-wrap items-baseline gap-3 border-b border-border pb-2">
+            <div className="flex flex-wrap items-baseline gap-3 border-b border-border-subtle pb-2">
               <h2 className={`type-display text-2xl ${type === "eclipse" ? "text-gold" : ""}`}>
                 {FOIL_TYPE_LABELS[type]}
               </h2>

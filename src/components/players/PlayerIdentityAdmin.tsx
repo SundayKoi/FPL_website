@@ -117,7 +117,7 @@ export default function PlayerIdentityAdmin({
   };
 
   return (
-    <section aria-label="Player identity administration" className="mt-3 rounded border border-border/70 bg-surface/40 p-3">
+    <section aria-label="Player identity administration" className="mt-3 rounded border border-border-subtle/70 bg-surface/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">{status}</p>
         {currentLink ? (
@@ -138,13 +138,13 @@ export default function PlayerIdentityAdmin({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search name or Discord ID"
-          className="rounded border border-border bg-canvas px-3 py-2 text-xs text-white"
+          className="rounded border border-border-subtle bg-canvas px-3 py-2 text-xs text-white"
         />
         <select
           aria-label="Verified Discord profile"
           value={selectedProfileId}
           onChange={(event) => setSelectedProfileId(event.target.value)}
-          className="rounded border border-border bg-canvas px-3 py-2 text-xs text-white"
+          className="rounded border border-border-subtle bg-canvas px-3 py-2 text-xs text-white"
         >
           <option value="">Select a verified profile</option>
           {filteredProfiles.map((profile) => (
@@ -157,7 +157,7 @@ export default function PlayerIdentityAdmin({
           type="button"
           onClick={() => void assignSelectedProfile()}
           disabled={saving || !selectedProfileId || selectedProfileId === currentLink?.profileId}
-          className="rounded border border-primary px-3 py-2 text-xs font-semibold text-primary disabled:opacity-50"
+          className="rounded border border-action-text px-3 py-2 text-xs font-semibold text-action-text disabled:opacity-50"
         >
           {currentLink ? "Replace profile" : "Link profile"}
         </button>

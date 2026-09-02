@@ -33,11 +33,11 @@ export default function MyRoster({
 
   return (
     <details className="card-brand group overflow-hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
         <span role="heading" aria-level={2} className="label-dash">My roster</span>
-        <span aria-hidden className="text-xl leading-none text-primary transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-xl leading-none text-action-text transition group-open:rotate-45">+</span>
       </summary>
-      <section aria-label="My roster" className="border-t border-border px-5 pb-5 pt-4">
+      <section aria-label="My roster" className="border-t border-border-subtle px-5 pb-5 pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {multiOpggUrl ? <OpggMultiLink href={multiOpggUrl} label="My Team OP.GG Multi" /> : null}
       </div>
@@ -45,7 +45,7 @@ export default function MyRoster({
       {byRole.length === 0 ? (
         <p className="mt-3 text-sm text-muted">No draft roster on record yet for this team.</p>
       ) : (
-        <ul className="mt-3 flex flex-col divide-y divide-border/60">
+        <ul className="mt-3 flex flex-col divide-y divide-border-subtle/60">
           {byRole.map((player) => {
             const isViewer = Boolean(playerPoolId && player.canonical_player_id === playerPoolId);
             return (

@@ -7,7 +7,7 @@ export default async function LeagueLinksPage() {
   const leagueResources = resources.filter((resource) => resource.slug !== "rulebook");
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>

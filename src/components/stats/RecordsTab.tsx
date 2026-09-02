@@ -68,7 +68,7 @@ export default function RecordsTab({ season, phase, teamNames }: { season: strin
               {entries.map((entry, i) => (
                 <li
                   key={`${entry.match_id}-${entry.summoner_name}-${i}`}
-                  className="flex items-center justify-between gap-3 border-t border-border/50 pt-2 first:border-t-0 first:pt-0"
+                  className="flex items-center justify-between gap-3 border-t border-border-subtle/50 pt-2 first:border-t-0 first:pt-0"
                 >
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-semibold text-white">

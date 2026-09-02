@@ -66,7 +66,7 @@ export default function FeaturedMatchup({
   const teamB = fixture?.team_b?.trim() || "TBD";
 
   return (
-    <article aria-label="Featured matchup and Franchise Premier League broadcast" className="card-brand overflow-hidden p-5 sm:p-6">
+    <article aria-label="Featured matchup and Franchise Premier League broadcast" className="card-brand card-featured overflow-hidden p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <span className="label-dash">FEATURED MATCHUP · {fixture?.stage?.replace("_", " ") ?? "NEXT"}</span>
@@ -91,12 +91,12 @@ export default function FeaturedMatchup({
       </p>
 
       <div className="mt-5 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-        <div className="rounded-lg border border-border bg-canvas/60 p-4">
+        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
           <span className="block text-[10px] uppercase tracking-[0.16em] text-muted">Team A</span>
           <strong className="mt-2 block text-xl text-white">{teamA}</strong>
         </div>
         <span className="text-center font-mono text-sm font-bold tracking-[0.12em] text-league-accent">VS</span>
-        <div className="rounded-lg border border-border bg-canvas/60 p-4">
+        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
           <span className="block text-[10px] uppercase tracking-[0.16em] text-muted">Team B</span>
           <strong className="mt-2 block text-xl text-white">{teamB}</strong>
         </div>
@@ -107,12 +107,12 @@ export default function FeaturedMatchup({
         {fixture ? <span className="text-muted">Best of {fixture.best_of}</span> : null}
       </div>
 
-      <div className="mt-4 rounded-lg border border-border bg-canvas/70">
+      <div className="mt-4 rounded-lg border border-border-subtle bg-canvas/70">
         <button
           type="button"
           aria-expanded={previewOpen}
           onClick={() => setPreviewOpen((open) => !open)}
-          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
           <span className="flex items-center gap-3">
             <span className="h-2 w-2 rounded-full bg-success shadow-[0_0_0_4px_rgb(46_230_168_/_0.12)]" />
@@ -121,18 +121,18 @@ export default function FeaturedMatchup({
               <span className="mt-1 block text-xs text-muted">Watch the desk, draft room, and live league coverage</span>
             </span>
           </span>
-          <span className="shrink-0 text-xs uppercase tracking-[0.12em] text-primary">
+          <span className="shrink-0 text-xs uppercase tracking-[0.12em] text-action-text">
             {previewOpen ? "Hide preview −" : "Show preview ＋"}
           </span>
         </button>
-        <div className="border-t border-border px-4 py-3 text-right">
-          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary hover:text-white">
+        <div className="border-t border-border-subtle px-4 py-3 text-right">
+          <a href={twitchUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-action-text hover:text-white">
             Open Twitch channel →
           </a>
         </div>
         {previewOpen ? (
-          <div className="border-t border-border p-3">
-            <div className="aspect-video overflow-hidden rounded border border-border bg-black">
+          <div className="border-t border-border-subtle p-3">
+            <div className="aspect-video overflow-hidden rounded border border-border-subtle bg-black">
               {embedSrc ? (
                 <iframe
                   allow="autoplay; fullscreen; picture-in-picture"

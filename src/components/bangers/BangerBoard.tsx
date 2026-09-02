@@ -219,7 +219,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, patron = fal
   }
 
   return (
-    <main className="min-h-screen overflow-hidden bg-jungle bg-hash">
+    <main className="min-h-screen overflow-hidden bg-jungle">
       <section className="relative border-b border-banana/20 px-5 pb-14 pt-14 sm:px-10 sm:pt-20">
         <div className="pointer-events-none absolute -right-8 -top-8 text-[10rem] opacity-[0.08] sm:text-[16rem]" aria-hidden="true">🐒</div>
         <div className="mx-auto max-w-6xl">

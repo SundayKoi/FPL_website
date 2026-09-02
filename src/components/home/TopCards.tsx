@@ -55,7 +55,7 @@ export default function TopCards({
         </div>
         <Link
           href={basePath}
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-primary underline-offset-4 hover:text-white hover:underline"
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-action-text underline-offset-4 hover:text-white hover:underline"
         >
           All cards →
         </Link>
@@ -68,7 +68,7 @@ export default function TopCards({
             <li key={card.slug}>
               <Link
                 href={`/card/${card.slug}`}
-                className="flex items-center gap-3 rounded-xl border border-border bg-canvas/60 px-3 py-2.5 transition hover:border-primary/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="flex items-center gap-3 rounded-xl border border-border-strong bg-canvas/60 px-3 py-2.5 transition hover:border-action-text/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <span className="w-5 shrink-0 text-center font-mono text-sm font-bold text-muted">{index + 1}</span>
                 <span

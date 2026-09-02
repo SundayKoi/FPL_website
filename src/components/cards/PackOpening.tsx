@@ -672,14 +672,14 @@ export default function PackOpening({
             onClick={() => setMuted(!muted)}
             aria-pressed={muted}
             aria-label={muted ? "Unmute pack sounds" : "Mute pack sounds"}
-            className="rounded-full border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-primary hover:text-white"
+            className="rounded-full border border-border-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-action-text hover:text-white"
           >
             {muted ? "🔇" : "🔊"}
           </button>
           <button
             type="button"
             onClick={view === "summary" ? onExit : revealAll}
-            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-primary hover:text-white"
+            className="rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-action-text hover:text-white"
           >
             {view === "summary" ? "Close" : "Skip"}
           </button>
@@ -806,7 +806,7 @@ export default function PackOpening({
                             pack exists for. */}
                         {onSellPack && view === "summary" ? (
                           dustedIds.has(pull.inventoryId) ? (
-                            <span className="w-full rounded-full border border-border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
+                            <span className="w-full rounded-full border border-border-subtle px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
                               Dusted
                             </span>
                           ) : (
@@ -818,7 +818,7 @@ export default function PackOpening({
                               className={`w-full rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition disabled:opacity-60 ${
                                 picked.has(pull.inventoryId)
                                   ? "border-gold bg-gold/20 text-gold"
-                                  : "border-border text-muted hover:border-gold hover:text-gold"
+                                  : "border-border-subtle text-muted hover:border-gold hover:text-gold"
                               }`}
                             >
                               {picked.has(pull.inventoryId) ? "✓ " : ""}Dust +{fmtPoints(dustValueOfPull(pull))}
@@ -859,7 +859,7 @@ export default function PackOpening({
               <button
                 type="button"
                 onClick={() => setAutoFlip(true)}
-                className="relative mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-primary hover:text-white"
+                className="relative mt-3 rounded-full border border-border-strong px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-muted transition-colors hover:border-action-text hover:text-white"
               >
                 Flip all
               </button>
@@ -932,7 +932,7 @@ export default function PackOpening({
                   type="button"
                   onClick={() => void handleSell("all")}
                   disabled={selling || pending}
-                  className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-border-subtle px-5 py-2.5 text-sm font-semibold text-muted transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {selling
                     ? "Dusting…"
@@ -953,7 +953,7 @@ export default function PackOpening({
             <button
               type="button"
               onClick={onExit}
-              className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-white"
+              className="rounded-full border border-border-strong px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-action-text hover:text-white"
             >
               Done
             </button>

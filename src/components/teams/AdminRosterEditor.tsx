@@ -176,7 +176,7 @@ export default function AdminRosterEditor({
                       type="button"
                       disabled={busy}
                       onClick={() => void requestSwap(keyboardPlayer, target)}
-                      className="flex items-center justify-between rounded border border-border bg-canvas px-3 py-2 text-left text-sm text-white hover:border-primary disabled:opacity-50"
+                      className="flex items-center justify-between rounded border border-border-strong bg-canvas px-3 py-2 text-left text-sm text-white hover:border-action-text disabled:opacity-50"
                     >
                       <span>{target.display_name}</span>
                       <span className="text-xs uppercase tracking-[0.12em] text-muted">
@@ -192,7 +192,7 @@ export default function AdminRosterEditor({
             <button
               type="button"
               onClick={() => setKeyboardPlayerId(null)}
-              className="mt-5 rounded border border-muted px-3 py-2 text-sm font-semibold text-white hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="mt-5 rounded border border-muted px-3 py-2 text-sm font-semibold text-white hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
             >
               Cancel
             </button>

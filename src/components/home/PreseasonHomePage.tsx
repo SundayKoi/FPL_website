@@ -7,7 +7,7 @@ export default async function PreseasonHomePage() {
   const data = await fetchPreseasonHomeData();
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section aria-labelledby="preseason-home-title" className="card-brand overflow-hidden p-5 sm:p-8 xl:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
@@ -71,10 +71,10 @@ export default async function PreseasonHomePage() {
                       </div>
                       <span className="text-xs text-muted">of {team.budgetStart} pts</span>
                     </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border">
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border-subtle">
                       <div className="h-full rounded-full bg-prestige" style={{ width: `${Math.max(0, Math.min(100, (team.pointsRemaining / Math.max(team.budgetStart, 1)) * 100))}%` }} />
                     </div>
-                    <div className="mt-5 border-t border-border/60 pt-4">
+                    <div className="mt-5 border-t border-border-subtle/60 pt-4">
                       <div className="flex items-center justify-between gap-3">
                         <span className="label-dash">DRAFTED PLAYERS</span>
                         <span className="text-xs text-muted">{team.rosterCount}/5</span>

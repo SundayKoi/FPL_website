@@ -105,7 +105,7 @@ export default function BinderEditor({
           href={`/binder/${token}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+          className="rounded-full border border-border-strong bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
         >
           View binder ↗
         </a>

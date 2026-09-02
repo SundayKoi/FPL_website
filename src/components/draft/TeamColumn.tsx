@@ -37,7 +37,7 @@ export default function TeamColumn({
             aria-expanded={!collapsed}
             aria-label={`${collapsed ? "Expand" : "Collapse"} team ${team.name}`}
             onClick={() => setCollapsed((current) => !current)}
-            className="rounded border border-border px-1.5 py-0.5 text-sm leading-none text-muted hover:border-primary hover:text-primary"
+            className="rounded border border-border-strong px-1.5 py-0.5 text-sm leading-none text-muted hover:border-action-text hover:text-action-text"
           >
             {collapsed ? "+" : "−"}
           </button>
@@ -53,7 +53,7 @@ export default function TeamColumn({
                 <li
                   key={role}
                   className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${
-                    player ? "border border-border bg-canvas/40" : "border border-dashed border-border text-muted/60"
+                    player ? "border border-border-subtle bg-canvas/40" : "border border-dashed border-border-subtle text-muted/60"
                   }`}
                 >
                   <span className="w-16 shrink-0 uppercase tracking-wide text-muted">{role}</span>
@@ -79,7 +79,7 @@ export default function TeamColumn({
             })}
           </ul>
 
-          <footer className="mt-1 flex items-center justify-between border-t border-border pt-2 text-xs text-muted">
+          <footer className="mt-1 flex items-center justify-between border-t border-border-subtle pt-2 text-xs text-muted">
             <span>Budget</span>
             <span className="font-display font-semibold not-italic">
               <span className="text-gold">{team.points_remaining}</span>{" "}

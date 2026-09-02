@@ -4,7 +4,7 @@ import { fmtPoints } from "@/lib/betting/format";
 
 function StatBox({ label, value, valueClass = "text-white" }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border border-border-subtle bg-surface p-4">
       <div className="text-xs uppercase tracking-wide text-muted">{label}</div>
       <div className={`mt-1 text-2xl font-bold ${valueClass}`}>{value}</div>
     </div>
@@ -48,12 +48,12 @@ export default async function ProfilePage() {
       </div>
 
       <h2 className="label-dash mt-8">Open Bets</h2>
-      <div className="mt-3 rounded-lg border border-border bg-surface">
+      <div className="mt-3 rounded-lg border border-border-subtle bg-surface">
         {open.length === 0 ? (
           <p className="p-4 text-sm text-muted">None.</p>
         ) : (
           open.map((b) => (
-            <div key={b.id} className="flex items-center justify-between border-b border-border px-4 py-2.5 text-sm last:border-0">
+            <div key={b.id} className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5 text-sm last:border-0">
               <span className="text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
               <span className="font-semibold text-white">{fmtPoints(b.amount)}</span>
             </div>
@@ -62,7 +62,7 @@ export default async function ProfilePage() {
       </div>
 
       <h2 className="label-dash mt-8">Recent Settled</h2>
-      <div className="mt-3 rounded-lg border border-border bg-surface">
+      <div className="mt-3 rounded-lg border border-border-subtle bg-surface">
         {settled.length === 0 ? (
           <p className="p-4 text-sm text-muted">None yet.</p>
         ) : (
@@ -70,7 +70,7 @@ export default async function ProfilePage() {
             const won = (b.payout ?? 0) > (b.amount ?? 0);
             const refunded = b.payout === b.amount;
             return (
-              <div key={b.id} className="flex items-center justify-between border-b border-border px-4 py-2.5 text-sm last:border-0">
+              <div key={b.id} className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5 text-sm last:border-0">
                 <span className="text-muted">{b.market_title ?? `Market ${b.market_id}`}</span>
                 <span className={`font-semibold ${refunded ? "text-muted" : won ? "text-mint" : "text-red-400"}`}>
                   {refunded ? `${fmtPoints(b.amount)} refunded` : won ? `+${fmtPoints((b.payout ?? 0) - b.amount)}` : `-${fmtPoints(b.amount)}`}

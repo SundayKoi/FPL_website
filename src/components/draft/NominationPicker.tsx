@@ -67,8 +67,8 @@ export default function NominationPicker({
 
   const chip = (active: boolean) =>
     active
-      ? "rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white"
-      : "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-muted hover:text-white";
+      ? "rounded-full bg-action-fill px-3 py-1 text-xs font-semibold text-white"
+      : "rounded-full border border-border-subtle bg-surface px-3 py-1 text-xs font-semibold text-muted hover:text-white";
 
   return (
     <section className="card-brand flex flex-col gap-3 p-3">
@@ -124,7 +124,7 @@ export default function NominationPicker({
                     return (
                       <li key={p.id}>
                         <button
-                          className="flex w-full items-center justify-between gap-2 rounded border border-border bg-canvas px-2.5 py-1.5 text-left text-sm hover:border-primary hover:bg-primary/10 disabled:opacity-40 disabled:hover:border-border disabled:hover:bg-canvas"
+                          className="flex w-full items-center justify-between gap-2 rounded border border-border-strong bg-canvas px-2.5 py-1.5 text-left text-sm hover:border-action-text hover:bg-action-fill/10 disabled:opacity-40 disabled:hover:border-border-strong disabled:hover:bg-canvas"
                           disabled={!!blocked}
                           title={blocked ?? `Nominate (opens at ${minimum})`}
                           onClick={() => requestNominate(p)}
@@ -165,7 +165,7 @@ export default function NominationPicker({
               value={opening}
               onChange={(e) => setOpening(e.target.value)}
               aria-label="Opening bid"
-              className="w-20 rounded border border-border bg-canvas px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-primary focus:outline-none"
+              className="w-20 rounded border border-border-strong bg-canvas px-2 py-1 text-center font-display font-bold not-italic text-gold focus:border-action-text focus:outline-none"
             />
             points
           </label>

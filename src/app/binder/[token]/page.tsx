@@ -56,7 +56,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
   const flame = await patronFlame(binder.discordId);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className={`relative flex flex-wrap items-center gap-4 ${flame ? "rounded-2xl p-5" : ""}`}>
         {flame ? <PatronFlame flame={flame} /> : null}
         {binder.ownerAvatarUrl ? (
@@ -64,7 +64,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
           <img
             src={binder.ownerAvatarUrl}
             alt=""
-            className="h-14 w-14 rounded-full border border-border object-cover"
+            className="h-14 w-14 rounded-full border border-border-subtle object-cover"
             loading="lazy"
             decoding="async"
           />
@@ -109,7 +109,7 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         </section>
       )}
 
-      <Link href="/cards" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+      <Link href="/cards" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
         ← FPL player cards
       </Link>
     </main>

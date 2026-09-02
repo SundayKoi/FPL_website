@@ -39,7 +39,7 @@ export function OddsBar({
   const style = { "--team-color": team.color } as CSSProperties;
   return (
     <div
-      className="mb-2 rounded-lg border border-border bg-surface p-3"
+      className="mb-2 rounded-lg border border-border-subtle bg-surface p-3"
       style={style}
     >
       <div className="flex flex-wrap items-center gap-2">

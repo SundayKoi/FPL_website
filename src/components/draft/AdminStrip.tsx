@@ -90,7 +90,7 @@ export default function AdminStrip({
 
         <button
           disabled={busy}
-          className="rounded border border-primary text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/10 disabled:opacity-40"
+          className="rounded border border-action-text text-action-text px-3 py-1.5 text-xs font-semibold hover:bg-action-fill/10 disabled:opacity-40"
           onClick={() =>
             run(undoLabel, () => supabase.rpc("undo_last_sale", { p_draft_id: draft.id }))
           }

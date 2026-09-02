@@ -77,7 +77,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
   const row = (p: StaffProfile) => (
     <li
       key={p.id}
-      className="flex items-center justify-between gap-3 rounded border border-border bg-canvas/40 px-3 py-2 text-sm"
+      className="flex items-center justify-between gap-3 rounded border border-border-subtle bg-canvas/40 px-3 py-2 text-sm"
     >
       <span className="min-w-0 truncate text-white">
         {p.display_name}
@@ -99,7 +99,7 @@ export default function AdminStaff({ profiles }: { profiles: StaffProfile[] }) {
             className={`rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${
               p.is_admin
                 ? "border border-red-500/60 text-red-400"
-                : "bg-primary text-white hover:brightness-110"
+                : "bg-action-fill text-white hover:brightness-110"
             }`}
           >
             {p.is_admin ? "Remove admin" : "Make admin"}

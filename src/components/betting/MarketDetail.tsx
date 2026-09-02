@@ -52,7 +52,7 @@ function YourPosition({
         return (
           <div
             key={key}
-            className="rounded-lg border border-border bg-surface p-3 text-sm"
+            className="rounded-lg border border-border-subtle bg-surface p-3 text-sm"
             style={{ "--team-color": team.color } as CSSProperties}
             data-testid="your-position"
           >
@@ -69,7 +69,7 @@ function YourPosition({
                   type="button"
                   disabled={busy}
                   onClick={() => held_bets.forEach((b) => onCashout(b.id))}
-                  className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
+                  className="rounded border border-border-strong px-2 py-1 text-xs text-muted hover:border-action-text hover:text-action-text disabled:opacity-40"
                   title="Withdraw this bet (5% fee)"
                 >
                   Cash out −5%
@@ -148,7 +148,7 @@ export function MarketDetail({
           <div className="flex flex-wrap items-center gap-3">
             <Link
               href={`/betting/event/${market.event_id}`}
-              className="text-xs uppercase tracking-wide text-muted hover:text-primary"
+              className="text-xs uppercase tracking-wide text-muted hover:text-action-text"
             >
               ← {market.event_name || "Event"}
             </Link>
@@ -172,7 +172,7 @@ export function MarketDetail({
 
           <div className="mt-6">
             <h2 className="label-dash">Rules</h2>
-            <div className="mt-2 rounded-lg border border-border bg-surface p-3 text-sm text-muted">
+            <div className="mt-2 rounded-lg border border-border-subtle bg-surface p-3 text-sm text-muted">
               {market.rules ?? "No rules provided."}
             </div>
           </div>
@@ -188,7 +188,7 @@ export function MarketDetail({
                   return (
                     <li
                       key={`${b.discord_id}-${b.team_id ?? "draw"}`}
-                      className="flex items-center justify-between rounded border border-border bg-surface px-3 py-1.5 text-sm"
+                      className="flex items-center justify-between rounded border border-border-subtle bg-surface px-3 py-1.5 text-sm"
                     >
                       <span className="truncate text-muted">{b.username}</span>
                       <span className="font-semibold" style={{ color: team.color }}>

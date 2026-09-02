@@ -168,7 +168,7 @@ export default async function AdminPage() {
   ] as const;
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-16">
       <header>
         <span className="label-dash">STAFF ONLY</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Admin</h1>
@@ -179,10 +179,10 @@ export default async function AdminPage() {
           <Link
             key={card.label}
             href={card.href}
-            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-primary"
+            className="card-brand group flex flex-col gap-1.5 p-5 transition hover:border-action-text"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <span className="type-display text-2xl group-hover:text-primary">{card.label}</span>
+              <span className="type-display text-2xl group-hover:text-action-text">{card.label}</span>
               <span className={`text-xs font-bold uppercase tracking-wide ${card.statTone}`}>
                 {card.stat}
               </span>

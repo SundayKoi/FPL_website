@@ -26,7 +26,7 @@ function first(value: string | string[] | undefined): string | undefined {
 
 function Unavailable({ message }: { message: string }) {
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
         <section className="card-brand p-6 sm:p-8" aria-label="My Team unavailable">
           <span className="label-dash">My Team</span>
@@ -200,7 +200,7 @@ export async function MyTeamPageView({
 
   const adminTools = adminData ? (
     <TeamAccentPanel color={dashboard.team.bannerColor}>
-      <section className="mt-4 flex flex-col gap-6 border-t border-border pt-8" aria-labelledby="admin-tools-heading">
+      <section className="mt-4 flex flex-col gap-6 border-t border-border-subtle pt-8" aria-labelledby="admin-tools-heading">
         <div>
           <span className="label-dash">Admin</span>
           <h2 id="admin-tools-heading" className="type-display mt-2 text-3xl">League admin</h2>
@@ -232,7 +232,7 @@ export async function MyTeamPageView({
     <>
       <MyTeamGate dashboard={dashboard} league={league} />
       {(dashboard.isAdmin || captainTools) ? (
-        <div className="bg-hash pb-12 sm:pb-16">
+        <div className="page-backdrop pb-12 sm:pb-16">
           <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-6 px-4 sm:px-6">
             {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
               <form action={leaguePath("my-team", league)} method="get" className="flex flex-wrap items-end gap-2">
@@ -249,7 +249,7 @@ export async function MyTeamPageView({
                     ))}
                   </select>
                 </label>
-                <button type="submit" className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
+                <button type="submit" className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
                   Switch
                 </button>
               </form>

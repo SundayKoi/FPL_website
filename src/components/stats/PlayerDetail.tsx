@@ -206,7 +206,7 @@ export default function PlayerDetail({
       <button
         type="button"
         onClick={onBack}
-        className="flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary/60 hover:text-primary"
+        className="flex w-fit items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text/60 hover:text-action-text"
       >
         <span aria-hidden="true">←</span> Back
       </button>
@@ -274,7 +274,7 @@ export default function PlayerDetail({
               ].map((stat) => (
                 <div
                   key={stat.label}
-                  className="rounded border border-border/60 bg-canvas/70 p-3 transition hover:border-primary/50"
+                  className="rounded border border-border-strong/60 bg-canvas/70 p-3 transition hover:border-action-text/50"
                 >
                   <p className="font-mono text-lg font-bold text-cyan">{stat.value}</p>
                   <p className="mt-0.5 text-xs text-muted">{stat.label}</p>
@@ -291,7 +291,7 @@ export default function PlayerDetail({
               </span>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {laning.map((stat) => (
-                  <div key={stat.label} className="rounded border border-border/60 bg-canvas p-3 text-center">
+                  <div key={stat.label} className="rounded border border-border-subtle/60 bg-canvas p-3 text-center">
                     <p className="text-xs text-muted">{stat.label}</p>
                     <p className="mt-1 text-xl font-bold text-white">
                       {stat.fmt === "int" ? Math.round(stat.mine).toLocaleString() : stat.mine.toFixed(1)}
@@ -320,7 +320,7 @@ export default function PlayerDetail({
                   {profile[key].map((line) => (
                     <li
                       key={line.label}
-                      className="flex items-center justify-between gap-3 border-t border-border/60 pt-1.5 first:border-t-0 first:pt-0"
+                      className="flex items-center justify-between gap-3 border-t border-border-subtle/60 pt-1.5 first:border-t-0 first:pt-0"
                     >
                       <span className="text-sm text-muted">{line.label}</span>
                       <span className="text-sm font-semibold text-white">{formatStat(line.value, line.fmt)}</span>
@@ -347,7 +347,7 @@ export default function PlayerDetail({
             ) : (
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {Array.from(recordsByCategory.entries()).map(([category, entries]) => (
-                  <div key={category} className="rounded border border-border/60 bg-canvas p-3">
+                  <div key={category} className="rounded border border-border-subtle/60 bg-canvas p-3">
                     <p className="text-sm font-semibold text-white">{category}</p>
                     {entries
                       .sort((a, b) => a.rank - b.rank)
@@ -381,7 +381,7 @@ export default function PlayerDetail({
                 </thead>
                 <tbody>
                   {recentGames.map((game, i) => (
-                    <tr key={`${game.game_date}-${i}`} className="border-t border-border/60">
+                    <tr key={`${game.game_date}-${i}`} className="border-t border-border-subtle/60">
                       <td className="px-2 py-1.5">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-bold ${

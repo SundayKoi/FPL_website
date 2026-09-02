@@ -495,7 +495,7 @@ function PlayerCardFace({
             {/* Tier banner */}
             <div className="relative flex items-center justify-between px-4 pt-3">
               <span
-                className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-navy"
+                className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-canvas"
                 style={{ background: card.standout ? "#f5b62e" : style.banner }}
               >
                 {card.tier.label}
@@ -719,7 +719,7 @@ function PlayerCardFace({
         <div className={`${face} [transform:rotateY(180deg)] ${frameClass ?? ""}`} style={{ background: frameStyle, padding: "5px" }}>
           <div className="flex h-full w-full flex-col gap-2 overflow-hidden rounded-xl bg-canvas p-4">
             <div className="flex items-center justify-between">
-              <span className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-navy" style={{ background: style.banner }}>
+              <span className="rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em] text-canvas" style={{ background: style.banner }}>
                 {card.tier.label}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted">Season {card.season}</span>
@@ -744,12 +744,12 @@ function PlayerCardFace({
                         <img
                           src={icon}
                           alt=""
-                          className="h-7 w-7 rounded border border-border object-cover"
+                          className="h-7 w-7 rounded border border-border-subtle object-cover"
                           loading="lazy"
                           decoding="async"
                         />
                       ) : (
-                        <span className="h-7 w-7 rounded border border-dashed border-border" />
+                        <span className="h-7 w-7 rounded border border-dashed border-border-subtle" />
                       )}
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{champ.champion}</span>
                       <div className="h-1.5 w-14 overflow-hidden rounded-full bg-white/15">
@@ -812,7 +812,7 @@ function PlayerCardFace({
               </div>
             </div>
 
-            <div className="mt-auto flex items-center justify-between border-t border-border pt-2 text-[11px] font-bold text-muted">
+            <div className="mt-auto flex items-center justify-between border-t border-border-subtle pt-2 text-[11px] font-bold text-muted">
               <span>
                 {card.wins}–{card.losses} · {Math.round(card.winratePct)}% WR
               </span>

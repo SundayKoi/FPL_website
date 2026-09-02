@@ -395,7 +395,7 @@ export default function LeaderboardTab({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search players…"
-            className="rounded border border-border bg-canvas px-2 py-1.5 text-sm text-white placeholder:text-muted/60 focus:border-primary focus:outline-none focus:[box-shadow:0_0_10px_rgb(47_107_255/0.3)]"
+            className="rounded border border-border-strong bg-canvas px-2 py-1.5 text-sm text-white placeholder:text-muted/60 focus:border-action-text focus:outline-none focus:[box-shadow:0_0_10px_rgb(111_147_255/0.3)]"
           />
 
           <FilterPill active={pickerOpen} onClick={() => setPickerOpen((open) => !open)}>
@@ -441,20 +441,20 @@ export default function LeaderboardTab({
         </div>
 
         {pickerOpen ? (
-          <div className="flex flex-col gap-3 border-t border-border/60 pt-3">
+          <div className="flex flex-col gap-3 border-t border-border-subtle/60 pt-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="mono-label">Columns</span>
               <button
                 type="button"
                 onClick={() => setShownColumns(COLUMNS.map((col) => col.key))}
-                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
+                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline"
               >
                 Show all
               </button>
               <button
                 type="button"
                 onClick={() => setShownColumns(DEFAULT_COLUMNS)}
-                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
+                className="text-[11px] uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline"
               >
                 Reset
               </button>
@@ -499,7 +499,7 @@ export default function LeaderboardTab({
         <div className="card-neon overflow-x-auto p-2">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border/70">
+              <tr className="border-b border-border-subtle/70">
                 <th className="px-2 py-2 text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
                   vs
                 </th>
@@ -548,7 +548,7 @@ export default function LeaderboardTab({
                         onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag });
                       }
                     }}
-                    className={`cursor-pointer border-t border-border/50 transition hover:bg-raised/50 ${rankClass}`}
+                    className={`cursor-pointer border-t border-border-subtle/50 transition hover:bg-raised/50 ${rankClass}`}
                   >
                     <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input

@@ -217,10 +217,10 @@ function SquadThumb({ copy, id }: { copy: CardCopy | undefined; id: number }) {
           alt=""
           aria-hidden
           loading="lazy"
-          className="h-9 w-14 rounded-sm border border-border object-cover object-[center_20%]"
+          className="h-9 w-14 rounded-sm border border-border-subtle object-cover object-[center_20%]"
         />
       ) : (
-        <span aria-hidden className="grid h-9 w-14 place-content-center rounded-sm border border-border bg-canvas/60 text-[10px] text-muted">
+        <span aria-hidden className="grid h-9 w-14 place-content-center rounded-sm border border-border-subtle bg-canvas/60 text-[10px] text-muted">
           ?
         </span>
       )}
@@ -495,7 +495,7 @@ export default function ExpeditionBoard({
             <button
               type="button"
               onClick={() => setPicked(new Set())}
-              className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
+              className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
             >
               Clear
             </button>
@@ -521,7 +521,7 @@ export default function ExpeditionBoard({
                     className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
                       selected
                         ? "border-coral bg-coral/15"
-                        : "border-border bg-surface hover:border-primary/60 disabled:opacity-40 disabled:hover:border-border"
+                        : "border-border-strong bg-surface hover:border-action-text/60 disabled:opacity-40 disabled:hover:border-border-strong"
                     }`}
                   >
                     <span className="flex min-w-0 flex-col">
@@ -561,7 +561,7 @@ export default function ExpeditionBoard({
             {finished.map((run) => (
               <li
                 key={run.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-surface px-3 py-1.5 text-xs"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border-subtle bg-surface px-3 py-1.5 text-xs"
               >
                 <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier]?.label ?? run.tier}</span>
                 <span className="text-muted">

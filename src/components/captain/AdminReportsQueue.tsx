@@ -116,7 +116,7 @@ export default function AdminReportsQueue({
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
+        <div className="flex flex-col gap-3 border-t border-border-subtle px-4 py-4">
           {error && (
             <p role="alert" className="text-sm text-red-400">
               {error}
@@ -129,7 +129,7 @@ export default function AdminReportsQueue({
               {reports.map((r) => {
                 const busy = busyId === r.id;
                 return (
-                  <li key={r.id} className="rounded border border-border/60 bg-canvas/60 p-3">
+                  <li key={r.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-white">
                         {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
@@ -151,7 +151,7 @@ export default function AdminReportsQueue({
                                 ? "Settled by forfeit — there are no games to re-ingest"
                                 : undefined
                           }
-                          className="rounded-full border border-border bg-surface px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
+                          className="rounded-full border border-border-subtle bg-surface px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
                         >
                           Retry
                         </button>
@@ -182,7 +182,7 @@ export default function AdminReportsQueue({
                               onChange={(e) => {
                                 if (e.target.value) void handleFixSide(g.id, e.target.value);
                               }}
-                              className="rounded border border-border bg-canvas px-1.5 py-0.5 text-xs text-white"
+                              className="rounded border border-border-subtle bg-canvas px-1.5 py-0.5 text-xs text-white"
                             >
                               <option value="" disabled>
                                 Which side was blue?

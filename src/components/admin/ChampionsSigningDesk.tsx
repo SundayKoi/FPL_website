@@ -125,7 +125,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
           return (
             <li
               key={row.rank}
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-border bg-surface px-4 py-3"
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-border-subtle bg-surface px-4 py-3"
             >
               <span className="w-14 shrink-0 font-mono text-sm text-muted">{row.rank}♠</span>
               <span className="min-w-32 text-sm font-semibold text-white">{row.name}</span>
@@ -139,13 +139,13 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
                     type="button"
                     onClick={() => void clearInk(row)}
                     disabled={busy !== null}
-                    className="rounded-full border border-border bg-canvas px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+                    className="rounded-full border border-border-subtle bg-canvas px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
                   >
                     {isArmed("clear") ? "Wipe it — sure?" : "Clear ink"}
                   </button>
                 </span>
               ) : (
-                <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+                <span className="rounded-full border border-border-subtle bg-canvas px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
                   No ink
                 </span>
               )}
@@ -166,7 +166,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
                       type="button"
                       onClick={() => void voidLink(row, token)}
                       disabled={busy !== null}
-                      className="rounded-full border border-border bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+                      className="rounded-full border border-border-subtle bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
                     >
                       {isArmed("void") ? "Kill it — sure?" : "Void link"}
                     </button>
@@ -176,7 +176,7 @@ export default function ChampionsSigningDesk({ rows, season }: { rows: SigningDe
                   type="button"
                   onClick={() => void mint(row)}
                   disabled={busy !== null}
-                  className="rounded-full border border-border bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
+                  className="rounded-full border border-border-strong bg-canvas px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
                 >
                   {busy === row.rank ? "Working…" : token ? "New link" : "Create link"}
                 </button>

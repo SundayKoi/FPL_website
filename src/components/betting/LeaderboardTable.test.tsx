@@ -42,7 +42,7 @@ describe("LeaderboardTable", () => {
     render(<LeaderboardTable byBalance={byBalance} byProfit={byProfit} meId="2" />);
     const rows = screen.getAllByRole("row").slice(1);
     const meRow = rows.find((r) => r.textContent?.includes("Mid"));
-    expect(meRow?.className).toContain("bg-primary/5");
+    expect(meRow?.className).toContain("bg-action-fill/5");
   });
 
   it("shows an empty state when there are no players", () => {

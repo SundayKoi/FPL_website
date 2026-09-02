@@ -11,7 +11,7 @@ function divisionChipClass(division: FixtureRow["division"]): string {
     case "Lunari":
       return "border-muted/50 bg-muted/10 text-muted";
     default:
-      return "border-border bg-surface text-muted";
+      return "border-border-subtle bg-surface text-muted";
   }
 }
 
@@ -56,7 +56,7 @@ function TeamCrest({
       href={`${basePath}/${teamSlug(name)}`}
       title={name}
       aria-label={name}
-      className={`${layout} underline-offset-4 hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+      className={`${layout} underline-offset-4 hover:text-action-text hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
     >
       {body}
     </Link>
@@ -87,7 +87,7 @@ export default function FixtureCard({
   const bWon = played && fixture.score_b! > fixture.score_a!;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 px-4 py-3 first:border-t-0">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border-subtle/60 px-4 py-3 first:border-t-0">
       <span
         className={`inline-flex w-16 shrink-0 justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${divisionChipClass(fixture.division)}`}
       >
@@ -104,7 +104,7 @@ export default function FixtureCard({
           <Link
             href={`/match/${fixture.id}`}
             aria-label={`Post-game for ${teamA} versus ${teamB}`}
-            className="shrink-0 rounded border border-border bg-canvas px-2 py-0.5 font-bold text-white hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="shrink-0 rounded border border-border-strong bg-canvas px-2 py-0.5 font-bold text-white hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             {fixture.score_a}–{fixture.score_b}
           </Link>
@@ -123,12 +123,12 @@ export default function FixtureCard({
         {draftedFixtureIds?.has(fixture.id) ? (
           <Link
             href={`/match/${fixture.id}#draft`}
-            className="rounded-full border border-border bg-surface px-2 py-0.5 font-semibold uppercase hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded-full border border-border-strong bg-surface px-2 py-0.5 font-semibold uppercase hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             Draft
           </Link>
         ) : null}
-        <span className="rounded-full border border-border bg-surface px-2 py-0.5 font-semibold uppercase">
+        <span className="rounded-full border border-border-subtle bg-surface px-2 py-0.5 font-semibold uppercase">
           Bo{fixture.best_of}
         </span>
         <span className="whitespace-nowrap">{formatKickoff(fixture.scheduled_at)}</span>

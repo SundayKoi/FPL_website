@@ -195,7 +195,7 @@ function SpotlightPlayer({
         </div>
       ) : (
         <div className={`flex items-start gap-1.5 sm:gap-2 ${tone === "coral" ? "flex-row-reverse" : "flex-row"}`}>
-          <div className="flex aspect-[5/7] min-w-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-border bg-surface/70 p-2 text-center text-[9px] uppercase tracking-[0.12em] text-muted sm:p-6 sm:text-xs sm:tracking-[0.18em]">
+          <div className="flex aspect-[5/7] min-w-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-border-subtle bg-surface/70 p-2 text-center text-[9px] uppercase tracking-[0.12em] text-muted sm:p-6 sm:text-xs sm:tracking-[0.18em]">
             Player card unavailable
           </div>
           <BroadcasterPlayerStats player={player} spotlight layout="rail" />
@@ -205,7 +205,7 @@ function SpotlightPlayer({
         <p className="mono-label text-gold">Champion pool</p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {player.champions.length ? player.champions.slice(0, 4).map((champion) => (
-            <span key={champion.champion} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/80 px-2 py-1">
+            <span key={champion.champion} className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface/80 px-2 py-1">
               <ChampionDatum champion={champion.champion} />
               <span className="text-[10px] text-muted">×{champion.count}</span>
             </span>
@@ -228,7 +228,7 @@ function SpotlightColumn({
   return (
     <div className="space-y-3">
       {players.length ? players.map((player) => <SpotlightPlayer key={player.id} player={player} team={team} tone={tone} />) : (
-        <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border bg-canvas/40 p-6 text-center text-sm text-muted">
+        <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-border-subtle bg-canvas/40 p-6 text-center text-sm text-muted">
           No rostered player in this role
         </div>
       )}
@@ -319,7 +319,7 @@ export default function HeadToHeadDialog({
             type="button"
             onClick={closeDialog}
             aria-label="Close head-to-head"
-            className="rounded-full border border-border bg-canvas/70 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-primary hover:text-primary sm:px-3 sm:text-xs"
+            className="rounded-full border border-border-strong bg-canvas/70 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-action-text hover:text-action-text sm:px-3 sm:text-xs"
           >
             Close ×
           </button>
@@ -334,8 +334,8 @@ export default function HeadToHeadDialog({
               onClick={() => moveTo(index)}
               className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition ${
                 activeIndex === index
-                  ? "border-coral bg-coral text-navy shadow-[0_0_18px_rgb(255_107_53_/_0.35)]"
-                  : "border-border bg-canvas/60 text-muted hover:border-pink hover:text-pink"
+                  ? "border-coral bg-coral text-canvas shadow-[0_0_18px_rgb(255_107_53_/_0.35)]"
+                  : "border-border-subtle bg-canvas/60 text-muted hover:border-pink hover:text-pink"
               }`}
             >
               {section.label}
@@ -365,7 +365,7 @@ export default function HeadToHeadDialog({
               type="button"
               onClick={() => moveTo(activeIndex - 1)}
               disabled={activeIndex === 0}
-              className="rounded-full border border-border px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-35 sm:px-3 sm:py-2 sm:text-xs"
+              className="rounded-full border border-border-subtle px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted transition hover:border-cyan hover:text-cyan disabled:cursor-not-allowed disabled:opacity-35 sm:px-3 sm:py-2 sm:text-xs"
             >
               ← Previous matchup
             </button>

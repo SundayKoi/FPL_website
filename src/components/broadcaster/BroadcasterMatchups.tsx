@@ -15,9 +15,9 @@ function PremiumCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) 
   return <Link
     href={`/card/${player.card.slug}`}
     aria-label={`View ${player.name}'s premium card`}
-    className="block shrink-0 rounded-md text-center transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+    className="block shrink-0 rounded-md text-center transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
   >
-    <div className="h-[9.8rem] w-[7rem] overflow-hidden rounded-md border border-border/70 bg-black/20">
+    <div className="h-[9.8rem] w-[7rem] overflow-hidden rounded-md border border-border-subtle/70 bg-black/20">
       <div style={{ transform: "scale(0.35)", transformOrigin: "top left" }}>
         <PlayerCard3D card={player.card} interactive={false} />
       </div>
@@ -27,7 +27,7 @@ function PremiumCardThumbnail({ player }: { player: BroadcasterMatchupPlayer }) 
 }
 
 function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
-  return <article className="rounded border border-border/70 bg-canvas/40 p-3">
+  return <article className="rounded border border-border-subtle/70 bg-canvas/40 p-3">
     <div className="flex items-baseline justify-between gap-2">
       <h3 className="font-semibold text-white">{player.name}</h3>
       <span className="text-xs uppercase tracking-wider text-muted">{ROLE_LABELS[player.role]}</span>
@@ -41,17 +41,17 @@ function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
     <p className="mt-3 text-xs text-muted">
       {player.totalPicks} picks · {player.distinctChampions} {player.distinctChampions === 1 ? "champion" : "champions"} · {player.gamesSampled} games
     </p>
-    {player.card || player.averages ? <div className="mt-4 flex flex-wrap items-start gap-4 border-t border-border/50 pt-4">
+    {player.card || player.averages ? <div className="mt-4 flex flex-wrap items-start gap-4 border-t border-border-subtle/50 pt-4">
       <PremiumCardThumbnail player={player} />
       <BroadcasterPlayerStats player={player} />
     </div> : null}
-    {player.inhouse ? <details className="group mt-4 border-t border-border/50 pt-3">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+    {player.inhouse ? <details className="group mt-4 border-t border-border-subtle/50 pt-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
         <span className="flex flex-wrap items-center gap-2">
           <span className="label-dash">In-house stats</span>
           <span className="text-xs text-muted">{player.inhouse.games} in-house games</span>
         </span>
-        <span aria-hidden className="text-base leading-none text-primary transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-base leading-none text-action-text transition group-open:rotate-45">+</span>
       </summary>
       {player.inhouse.champions.length === 0 ? <p className="mt-3 text-sm text-muted">No in-house games found</p> : <div className="mt-3 space-y-2">
         {player.inhouse.champions.slice(0, 5).map((champion) => <div key={champion.champion} className="flex flex-wrap items-center gap-2">
@@ -66,7 +66,7 @@ function PlayerCard({ player }: { player: BroadcasterMatchupPlayer }) {
 function TeamColumn({ teamName, roleLabel, players }: { teamName: string; roleLabel: string; players: BroadcasterMatchupPlayer[] }) {
   return <div aria-label={`${teamName} ${roleLabel} players`} className="space-y-3">
     <p className="label-dash">{teamName}</p>
-    {players.length ? players.map((player) => <PlayerCard key={player.id} player={player} />) : <p className="rounded border border-dashed border-border/70 p-3 text-sm text-muted">No rostered player</p>}
+    {players.length ? players.map((player) => <PlayerCard key={player.id} player={player} />) : <p className="rounded border border-dashed border-border-subtle/70 p-3 text-sm text-muted">No rostered player</p>}
   </div>;
 }
 

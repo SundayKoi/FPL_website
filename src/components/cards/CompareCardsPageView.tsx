@@ -22,7 +22,7 @@ export async function CompareCardsPageView({
   const access = await drafterAccess();
   if (!access.signedIn || !access.allowed) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Compare cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-muted">
@@ -44,7 +44,7 @@ export async function CompareCardsPageView({
   const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
@@ -55,7 +55,7 @@ export async function CompareCardsPageView({
             Put any two cards head to head — the better number lights up green. The URL follows your
             picks, so paste it into Discord for match-night arguments.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
             ← Back to the collection
           </Link>
         </div>

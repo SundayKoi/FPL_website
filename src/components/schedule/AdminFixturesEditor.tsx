@@ -330,7 +330,7 @@ export default function AdminFixturesEditor({
                 type="button"
                 onClick={handleAdd}
                 disabled={addStatus.kind === "saving"}
-                className={`${buttonClass} w-fit bg-primary text-white`}
+                className={`${buttonClass} w-fit bg-action-fill text-white`}
               >
                 {addStatus.kind === "saving" ? "Adding…" : "Add fixture"}
               </button>
@@ -346,7 +346,7 @@ export default function AdminFixturesEditor({
                 const meta = stageMeta(fixture.stage);
                 const isEditing = editingId === fixture.id;
                 return (
-                  <div key={fixture.id} className="rounded border border-border/60 bg-canvas/60 p-3">
+                  <div key={fixture.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-muted">
                         <span className="font-semibold text-white">{meta.label}</span>
@@ -365,7 +365,7 @@ export default function AdminFixturesEditor({
                               setEditStatus({ kind: "idle" });
                             }
                           }}
-                          className={`${buttonClass} border border-border bg-surface text-muted hover:text-white`}
+                          className={`${buttonClass} border border-border-subtle bg-surface text-muted hover:text-white`}
                         >
                           {isEditing ? "Cancel" : "Edit"}
                         </button>
@@ -393,7 +393,7 @@ export default function AdminFixturesEditor({
                           type="button"
                           onClick={handleSave}
                           disabled={editStatus.kind === "saving"}
-                          className={`${buttonClass} w-fit bg-primary text-white`}
+                          className={`${buttonClass} w-fit bg-action-fill text-white`}
                         >
                           {editStatus.kind === "saving" ? "Saving…" : "Save fixture"}
                         </button>

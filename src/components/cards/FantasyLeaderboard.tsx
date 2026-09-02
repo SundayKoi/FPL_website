@@ -78,7 +78,7 @@ export default function FantasyLeaderboard({
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[380px] text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+                  <tr className="border-b border-border-subtle text-left text-xs uppercase tracking-wide text-muted">
                     <th className="py-2 pr-2">#</th>
                     <th className="py-2 pr-2">Manager</th>
                     <th className="py-2 pl-2 text-right">Points</th>
@@ -88,7 +88,7 @@ export default function FantasyLeaderboard({
                   {weekly.map((row, index) => (
                     <tr
                       key={`${row.username}-${index}`}
-                      className={`border-b border-border last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
+                      className={`border-b border-border-subtle last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
                     >
                       <td className={`py-2 pr-2 align-top font-mono text-sm font-bold ${rankClass(row.rank)}`}>
                         {row.rank === null ? "—" : `#${row.rank}`}
@@ -122,7 +122,7 @@ export default function FantasyLeaderboard({
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[320px] text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+                <tr className="border-b border-border-subtle text-left text-xs uppercase tracking-wide text-muted">
                   <th className="py-2 pr-2">#</th>
                   <th className="py-2 pr-2">Manager</th>
                   <th className="py-2 pl-2 text-right">Weeks</th>
@@ -133,7 +133,7 @@ export default function FantasyLeaderboard({
                 {season.map((row) => (
                   <tr
                     key={`${row.rank}-${row.username}`}
-                    className={`border-b border-border last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
+                    className={`border-b border-border-subtle last:border-0 ${row.rank === 1 ? "row-rank-1" : ""}`}
                   >
                     <td className={`py-2 pr-2 font-mono text-sm font-bold ${rankClass(row.rank)}`}>#{row.rank}</td>
                     <td className="py-2 pr-2 text-white">{row.username}</td>

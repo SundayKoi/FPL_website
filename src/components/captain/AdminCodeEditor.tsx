@@ -131,7 +131,7 @@ export default function AdminCodeEditor({
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
+        <div className="flex flex-col gap-3 border-t border-border-subtle px-4 py-4">
           {openFixtures.length === 0 ? (
             <p className="text-sm text-muted">No open fixtures this season to add codes for.</p>
           ) : (
@@ -160,7 +160,7 @@ export default function AdminCodeEditor({
                   }}
                   rows={5}
                   placeholder={"NA1234\nNA5678\nNA9012"}
-                  className="rounded border border-border bg-canvas px-2 py-1.5 font-mono text-sm text-white placeholder:text-muted/60 focus:border-primary focus:outline-none"
+                  className="rounded border border-border-strong bg-canvas px-2 py-1.5 font-mono text-sm text-white placeholder:text-muted/60 focus:border-action-text focus:outline-none"
                 />
               </label>
               <p className="text-xs text-muted">
@@ -179,7 +179,7 @@ export default function AdminCodeEditor({
                 type="button"
                 onClick={() => void handleSave()}
                 disabled={status.kind === "saving"}
-                className="w-fit rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                className="w-fit rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
               >
                 {status.kind === "saving" ? "Saving…" : "Save codes"}
               </button>

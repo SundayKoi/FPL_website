@@ -65,7 +65,7 @@ const ROLE_META: Record<string, { chip: string; bar: NeonColor }> = {
   UTILITY: { chip: "text-purple border-purple/40 bg-purple/10", bar: "purple" },
 };
 
-const ROLE_FALLBACK = { chip: "text-muted border-border bg-surface", bar: "cyan" as NeonColor };
+const ROLE_FALLBACK = { chip: "text-muted border-border-subtle bg-surface", bar: "cyan" as NeonColor };
 
 /** Accent color for a role's bars/values. */
 export function roleColor(role: string): NeonColor {
@@ -110,7 +110,7 @@ export function FilterPill({
       aria-pressed={active}
       onClick={onClick}
       className={`rounded-full px-2.5 py-1 text-xs font-semibold transition${uppercase ? " uppercase" : ""} ${
-        active ? "bg-primary text-white" : "border border-border bg-surface text-muted hover:text-white"
+        active ? "bg-action-fill text-white" : "border border-border-strong bg-surface text-muted hover:border-action-text hover:text-action-text"
       }`}
     >
       {children}

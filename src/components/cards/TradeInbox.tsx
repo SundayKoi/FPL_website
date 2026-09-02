@@ -67,8 +67,8 @@ export interface InboxTrade {
 const STATUS_CHIP: Record<TradeStatus, string> = {
   pending: "border-gold/50 bg-gold/10 text-gold",
   accepted: "border-mint/50 bg-mint/10 text-mint",
-  declined: "border-border bg-surface text-muted",
-  cancelled: "border-border bg-surface text-muted",
+  declined: "border-border-subtle bg-surface text-muted",
+  cancelled: "border-border-subtle bg-surface text-muted",
 };
 
 /** "Canny 77 · WK Aug 17 ✦ ALT" — a card as one line of a trade, and the way
@@ -77,7 +77,7 @@ const STATUS_CHIP: Record<TradeStatus, string> = {
 function CardChip({ card }: { card: InboxCard }) {
   if (card.stale || !card.card) {
     return (
-      <span className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted">
+      <span className="rounded-full border border-border-subtle bg-surface px-2 py-0.5 text-[11px] text-muted">
         <s>{card.playerName}</s> <span className="text-red-400">no longer available</span>
       </span>
     );
@@ -96,7 +96,7 @@ function CardChip({ card }: { card: InboxCard }) {
         altArt: card.altArt,
       }}
       label={`View ${card.playerName} ${card.overall}${edition} card`}
-      className="rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-white transition hover:border-primary/70 hover:text-primary focus-visible:border-primary focus-visible:outline-none"
+      className="rounded-full border border-border-strong bg-surface px-2 py-0.5 text-[11px] text-white transition hover:border-action-text/70 hover:text-action-text focus-visible:border-action-text focus-visible:outline-none"
     >
       {card.playerName} <b className="font-mono text-muted">{card.overall}</b>
       {card.editionWeek ? <span className="text-muted"> · {editionLabel(card.editionWeek)}</span> : null}
@@ -206,7 +206,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
       </div>
 
       {isPending ? (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
           {incoming ? (
             <>
               <button
@@ -221,7 +221,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
                 type="button"
                 onClick={() => respond(false)}
                 disabled={pending}
-                className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-border-strong px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Decline
               </button>
@@ -231,7 +231,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
               type="button"
               onClick={() => respond(false)}
               disabled={pending}
-              className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-border-strong px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel offer
             </button>

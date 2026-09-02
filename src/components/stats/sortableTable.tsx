@@ -81,7 +81,7 @@ export function SortableHeaderCell<T, K extends string>({
         type="button"
         onClick={() => onSort(column.key)}
         className={`flex items-center gap-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition ${
-          active ? "text-primary" : "text-muted hover:text-white"
+          active ? "text-action-text" : "text-muted hover:text-white"
         }`}
       >
         {column.label}

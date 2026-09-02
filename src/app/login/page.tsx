@@ -26,7 +26,7 @@ export default function LoginPage() {
   const redirect = safeNextPath(useSearchParams().get("redirect"));
 
   return (
-    <main className="bg-hash flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
+    <main className="page-backdrop flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
       <div className="flex max-w-sm flex-1 flex-col items-center justify-center gap-6">
         <div className="flex flex-col items-center gap-3">
           <Image src="/fpl-logo.png" width={96} height={96} alt="" />
@@ -56,7 +56,7 @@ export default function LoginPage() {
         </button>
         {isLocal && (
           <form
-            className="flex w-full flex-col gap-2 border-t border-border pt-4"
+            className="flex w-full flex-col gap-2 border-t border-border-subtle pt-4"
             onSubmit={async (e) => {
               e.preventDefault();
               const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -78,7 +78,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="password"
             />
-            <button className="rounded border border-muted text-muted px-4 py-2 hover:bg-muted/10">Sign in</button>
+            <button className="btn-primary rounded px-4 py-2">Sign in</button>
             {err && <p className="text-sm text-red-400">{err}</p>}
           </form>
         )}

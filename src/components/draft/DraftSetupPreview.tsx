@@ -29,7 +29,7 @@ export default function DraftSetupPreview({
           </div>
           <Link
             href="/draft"
-            className="rounded border border-border px-3 py-2 text-sm font-semibold text-muted hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="rounded border border-border-strong px-3 py-2 text-sm font-semibold text-muted hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
             ← Draft Central
           </Link>
@@ -56,9 +56,9 @@ export default function DraftSetupPreview({
                 return left.display_name.toLowerCase().localeCompare(right.display_name.toLowerCase());
               });
             return (
-              <section key={role} className="overflow-hidden rounded border border-border">
-                <h4 className="border-b border-border bg-canvas px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">{ROLE_LABELS[role]}</h4>
-                <ul className="divide-y divide-border/60">
+              <section key={role} className="overflow-hidden rounded border border-border-subtle">
+                <h4 className="border-b border-border-subtle bg-canvas px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted">{ROLE_LABELS[role]}</h4>
+                <ul className="divide-y divide-border-subtle/60">
                   {rolePlayers.map((player) => (
                     <li key={player.id} className="flex items-center justify-between gap-2 bg-surface px-3 py-2 text-xs">
                       <span className="min-w-0 truncate font-semibold text-white">{player.display_name}</span>
@@ -100,7 +100,7 @@ export default function DraftSetupPreview({
                     {team.captain_profile_id ? "Captain assigned" : "Captain pending"}
                   </span>
                 </div>
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
+                <div className="mt-4 flex items-center justify-between border-t border-border-subtle pt-3 text-xs text-muted">
                   <span>Budget remaining</span>
                   <span className="font-mono font-bold text-gold">{team.points_remaining} / {team.budget_start}</span>
                 </div>
@@ -110,7 +110,7 @@ export default function DraftSetupPreview({
                     return (
                     <li
                       key={role}
-                      className={`rounded px-2 py-1.5 text-xs ${rosterPlayer ? "border border-border bg-canvas/40 text-white" : "border border-dashed border-border text-muted/70"}`}
+                      className={`rounded px-2 py-1.5 text-xs ${rosterPlayer ? "border border-border-subtle bg-canvas/40 text-white" : "border border-dashed border-border-subtle text-muted/70"}`}
                     >
                       <span className="uppercase tracking-wide">{ROLE_LABELS[role]}</span>
                       {rosterPlayer ? (
@@ -134,7 +134,7 @@ export default function DraftSetupPreview({
         </div>
       </section>
 
-      <section className="card-brand border-dashed border-border p-6 text-center">
+      <section className="card-brand border-dashed border-border-subtle p-6 text-center">
         <span className="label-dash text-gold">LIVE DRAFT CENTER</span>
         <p className="mt-3 text-sm text-muted">Nominations, bids, and the live board will appear here when the admin starts the draft.</p>
       </section>

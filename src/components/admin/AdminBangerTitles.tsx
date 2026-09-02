@@ -61,13 +61,13 @@ export default function AdminBangerTitles({ initial }: { initial: BangerBoardSet
               value={values[key]}
               maxLength={80}
               onChange={(event) => setValues((current) => ({ ...current, [key]: event.target.value }))}
-              className="rounded-lg border border-border bg-surface px-3 py-2 text-white outline-none focus:border-primary"
+              className="rounded-lg border border-border-strong bg-surface px-3 py-2 text-white outline-none focus:border-action-text"
             />
           </label>
         ))}
       </div>
       <div className="flex items-center gap-4">
-        <button type="button" onClick={() => void save()} disabled={busy} className="rounded-full bg-primary px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50">
+        <button type="button" onClick={() => void save()} disabled={busy} className="rounded-full bg-action-fill px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-white disabled:opacity-50">
           {busy ? "Saving…" : "Save titles"}
         </button>
         {message ? <p className="text-sm text-muted" role="status">{message}</p> : null}

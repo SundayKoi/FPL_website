@@ -108,7 +108,7 @@ export default function AdminBriefEditor({ brief }: { brief: HomepageBrief | nul
             ) return;
             void save({ published: !brief.published });
           }}
-          className="rounded border border-border px-3 py-1.5 text-xs font-semibold text-muted hover:text-primary disabled:opacity-40"
+          className="rounded border border-border-subtle px-3 py-1.5 text-xs font-semibold text-muted hover:text-action-text disabled:opacity-40"
         >
           {brief.published ? "Unpublish" : "Publish"}
         </button>

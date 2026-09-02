@@ -69,11 +69,11 @@ export default function TeamSchedule({
 
   return (
     <details className="card-brand group overflow-hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
         <span role="heading" aria-level={2} className="label-dash">Team schedule</span>
-        <span aria-hidden className="text-xl leading-none text-primary transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-xl leading-none text-action-text transition group-open:rotate-45">+</span>
       </summary>
-      <section aria-label="Team schedule" className="border-t border-border px-5 pb-5 pt-4">
+      <section aria-label="Team schedule" className="border-t border-border-subtle px-5 pb-5 pt-4">
       {fixtures.length === 0 ? (
         <p className="mt-3 text-sm text-muted">No team fixtures are scheduled yet.</p>
       ) : (
@@ -81,7 +81,7 @@ export default function TeamSchedule({
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-prestige">Upcoming</h3>
             {upcoming.length > 0 ? (
-              <ul className="mt-1 flex flex-col divide-y divide-border/60">
+              <ul className="mt-1 flex flex-col divide-y divide-border-subtle/60">
                 {upcoming.map((fixture) => <FixtureLine key={fixture.id} fixture={fixture} teamName={teamName} />)}
               </ul>
             ) : (
@@ -91,7 +91,7 @@ export default function TeamSchedule({
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-prestige">Recent results</h3>
             {recent.length > 0 ? (
-              <ul className="mt-1 flex flex-col divide-y divide-border/60">
+              <ul className="mt-1 flex flex-col divide-y divide-border-subtle/60">
                 {recent.map((fixture) => <FixtureLine key={fixture.id} fixture={fixture} teamName={teamName} />)}
               </ul>
             ) : (

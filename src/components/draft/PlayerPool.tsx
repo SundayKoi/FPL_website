@@ -21,11 +21,11 @@ export default function PlayerPool({
     <section className="card-brand flex flex-col gap-2 p-3">
       <div className="grid gap-2 xl:grid-cols-5">
         {roleSections.map((section) => (
-          <section key={section.role} className="overflow-hidden rounded border border-border">
-            <h3 className="border-b border-border bg-canvas px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+          <section key={section.role} className="overflow-hidden rounded border border-border-subtle">
+            <h3 className="border-b border-border-subtle bg-canvas px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
               {section.label}
             </h3>
-            <ul className="flex flex-col gap-px bg-border/40">
+            <ul className="flex flex-col gap-px bg-border-subtle/40">
               {section.players.map((p) => {
                 const sold = p.team_id !== null;
                 return (

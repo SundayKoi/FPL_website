@@ -27,16 +27,16 @@ export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
   if (rows.length === 0) return null;
   return (
     <section aria-labelledby="recent-drafts-heading" className="card-brand overflow-hidden">
-      <h2 id="recent-drafts-heading" className="border-b border-border px-4 py-3 type-display text-xl">
+      <h2 id="recent-drafts-heading" className="border-b border-border-subtle px-4 py-3 type-display text-xl">
         Recent drafts
       </h2>
-      <ul className="divide-y divide-border/60">
+      <ul className="divide-y divide-border-subtle/60">
         {rows.map((row) => (
           <li key={row.fixtureId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
             <span
               className={`w-14 shrink-0 rounded py-0.5 text-center font-display text-xs font-bold not-italic ${
                 row.won === null
-                  ? "border border-border text-muted"
+                  ? "border border-border-subtle text-muted"
                   : row.won
                     ? "border border-success/40 bg-success/15 text-success"
                     : "border border-red-400/35 bg-red-500/10 text-red-400"
@@ -61,14 +61,14 @@ export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
                       <span
                         aria-hidden
                         title={`Pick ${row.pickNumbers[index]}`}
-                        className="absolute -left-1 -top-1 rounded-full border border-border/70 bg-canvas px-1 text-[8px] font-bold leading-4 text-muted"
+                        className="absolute -left-1 -top-1 rounded-full border border-border-subtle/70 bg-canvas px-1 text-[8px] font-bold leading-4 text-muted"
                       >
                         {row.pickNumbers[index]}
                       </span>
                     ) : null}
                   </span>
                 ))}
-                <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+                <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" />
                 {row.bans.map((champion, index) => (
                   <ChampionIcon key={`ban-${index}`} name={champion} banned size="h-6 w-6" />
                 ))}
@@ -76,7 +76,7 @@ export default function TeamRecentDrafts({ rows }: { rows: TeamDraftRow[] }) {
             </div>
             <Link
               href={`/match/${row.fixtureId}`}
-              className="text-xs font-semibold uppercase tracking-wide text-primary underline-offset-4 hover:underline"
+              className="text-xs font-semibold uppercase tracking-wide text-action-text underline-offset-4 hover:underline"
             >
               Match →
             </Link>

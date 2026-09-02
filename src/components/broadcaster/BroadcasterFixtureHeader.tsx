@@ -53,7 +53,7 @@ export default function BroadcasterFixtureHeader({
       </span>
       <a
         href={matchDraftOverlayHref(fixture)}
-        className="rounded-full border border-primary/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
+        className="rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white"
       >
         Open draft
       </a>
@@ -69,7 +69,7 @@ export default function BroadcasterFixtureHeader({
       <button
         type="button"
         onClick={() => void copyOverlayUrl()}
-        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+        className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
       >
         {copyState === "copied" ? "Copied ✓" : "Copy OBS overlay"}
       </button>
@@ -77,7 +77,7 @@ export default function BroadcasterFixtureHeader({
         href={twitchUrl}
         target="_blank"
         rel="noreferrer"
-        className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+        className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
       >
         Watch on Twitch
       </a> : null}

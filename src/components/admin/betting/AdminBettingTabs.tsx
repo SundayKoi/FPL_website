@@ -20,7 +20,7 @@ function isActive(pathname: string | null, href: string) {
 export default function AdminBettingTabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Betting admin" className="border-b border-border bg-surface/60">
+    <nav aria-label="Betting admin" className="border-b border-border-subtle bg-surface/60">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-1 px-4 py-2 sm:px-6">
         <span className="label-dash mr-3">Betting admin</span>
         {TABS.map((tab) => {
@@ -32,8 +32,8 @@ export default function AdminBettingTabs() {
               aria-current={active ? "page" : undefined}
               className={`rounded px-3 py-1.5 text-sm transition ${
                 active
-                  ? "bg-primary/10 font-semibold text-primary"
-                  : "text-muted hover:bg-border/40 hover:text-white"
+                  ? "bg-action-fill/10 font-semibold text-action-text"
+                  : "text-muted hover:bg-border-subtle/40 hover:text-white"
               }`}
             >
               {tab.label}

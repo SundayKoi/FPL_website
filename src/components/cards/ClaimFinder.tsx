@@ -46,7 +46,7 @@ export default function ClaimFinder({ cards }: { cards: ClaimFinderCard[] }) {
             <li key={card.slug}>
               <Link
                 href={`/card/${card.slug}?claim=1`}
-                className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-white transition hover:border-primary hover:text-primary"
+                className="flex items-center justify-between gap-2 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs text-white transition hover:border-action-text hover:text-action-text"
               >
                 <span className="truncate font-semibold">{card.name}</span>
                 <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted">

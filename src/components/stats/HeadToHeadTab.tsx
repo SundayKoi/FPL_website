@@ -140,7 +140,7 @@ export default function HeadToHeadTab({
       {columns.length === 0 ? (
         <EmptyCard message="No opponents met that often — lower the minimum." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="overflow-x-auto rounded-xl border border-border-subtle">
           <table className="min-w-full border-separate border-spacing-0 text-xs">
             <thead>
               <tr>
@@ -191,7 +191,7 @@ export default function HeadToHeadTab({
                       return (
                         <td
                           key={colName}
-                          className="border border-border px-1 py-1.5 text-center font-mono font-bold tabular-nums"
+                          className="border border-border-subtle px-1 py-1.5 text-center font-mono font-bold tabular-nums"
                           style={cellStyle(rate)}
                           title={`${rowName} ${cell.wins}-${cell.losses} vs ${colName}`}
                         >

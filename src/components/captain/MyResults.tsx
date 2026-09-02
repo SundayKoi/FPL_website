@@ -16,16 +16,16 @@ export default function MyResults({
 }) {
   return (
     <details className="card-brand group overflow-hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
         <span role="heading" aria-level={2} className="label-dash">My results &amp; stats</span>
-        <span aria-hidden className="text-xl leading-none text-primary transition group-open:rotate-45">+</span>
+        <span aria-hidden className="text-xl leading-none text-action-text transition group-open:rotate-45">+</span>
       </summary>
-      <section aria-label="My results &amp; stats" className="border-t border-border px-5 pb-5 pt-4">
+      <section aria-label="My results &amp; stats" className="border-t border-border-subtle px-5 pb-5 pt-4">
 
       {games.length === 0 ? (
         <p className="mt-3 text-sm text-muted">No ingested games yet this season.</p>
       ) : (
-        <ul className="mt-3 flex flex-col divide-y divide-border/60">
+        <ul className="mt-3 flex flex-col divide-y divide-border-subtle/60">
           {games.map((game) => {
             const won = game.winner_team === teamName;
             const opponent = game.blue_team === teamName ? game.red_team : game.blue_team;
@@ -59,7 +59,7 @@ export default function MyResults({
                   <th className="py-1 pr-3 font-semibold">KDA</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border-subtle/60">
                 {players.map((p) => (
                   <tr key={`${p.summoner_name}#${p.tag}`}>
                     <td className="py-1.5 pr-3 font-semibold text-white">

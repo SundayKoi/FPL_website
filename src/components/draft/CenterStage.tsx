@@ -18,7 +18,7 @@ export default function CenterStage({
 }) {
   if (!lot || !player) {
     return (
-      <section className="card-brand flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border p-8 text-center">
+      <section className="card-brand flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border-subtle p-8 text-center">
         <p className="text-sm text-muted">
           Waiting for {nominatorTeam?.name ?? "the next team"} to nominate…
         </p>

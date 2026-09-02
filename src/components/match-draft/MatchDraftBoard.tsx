@@ -44,7 +44,7 @@ function CopyLinkButton({ label, path }: { label: string; path: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+      className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
     >
       {copied ? "Copied ✓" : label}
     </button>
@@ -56,7 +56,7 @@ function CopyLinkButton({ label, path }: { label: string; path: string }) {
 function TourneyCodeChip({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <span className="flex items-center gap-2 rounded border border-border/60 bg-canvas/60 px-2.5 py-1.5">
+    <span className="flex items-center gap-2 rounded border border-border-subtle/60 bg-canvas/60 px-2.5 py-1.5">
       <code className="font-mono text-sm text-white">{code}</code>
       <button
         type="button"
@@ -66,7 +66,7 @@ function TourneyCodeChip({ code }: { code: string }) {
             setTimeout(() => setCopied(false), 1500);
           });
         }}
-        className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+        className="rounded-full border border-border-strong bg-surface px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
       >
         {copied ? "Copied" : "Copy"}
       </button>
@@ -945,12 +945,12 @@ export default function MatchDraftBoard({
             aria-current={active ? "page" : undefined}
             onClick={() => switchGame(game)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-              active ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+              active ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
             }`}
           >
             Game {game.gameNumber}
-            {status === "complete" ? <span aria-label="complete" className={active ? "text-navy" : "text-mint"}>✓</span> : null}
-            {status === "drafting" ? <span aria-label="in progress" className={active ? "text-navy" : "text-gold"}>●</span> : null}
+            {status === "complete" ? <span aria-label="complete" className={active ? "text-canvas" : "text-mint"}>✓</span> : null}
+            {status === "drafting" ? <span aria-label="in progress" className={active ? "text-canvas" : "text-gold"}>●</span> : null}
           </button>
         );
       })}
@@ -966,7 +966,7 @@ export default function MatchDraftBoard({
       <div className="flex items-center gap-3 rounded-full border border-coral/60 bg-canvas/95 py-2 pl-2 pr-2 shadow-[0_8px_32px_rgb(0_0_0/0.6)] backdrop-blur">
         {pendingChampion ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-border object-cover" />
+          <img src={pendingChampion.iconUrl} alt="" className="h-10 w-10 rounded-full border border-border-subtle object-cover" />
         ) : null}
         <div className="min-w-0">
           <p className="font-display text-sm font-bold not-italic text-white">{activePendingPick.champion}</p>
@@ -981,7 +981,7 @@ export default function MatchDraftBoard({
             setPendingPick(null);
             sendIntent(null);
           }}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
+          className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
         >
           Cancel
         </button>
@@ -1023,7 +1023,7 @@ export default function MatchDraftBoard({
           type="button"
           disabled={saving}
           onClick={openRoleConfirmation}
-          className="ml-auto rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
+          className="ml-auto rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
         >
           Adjust roles
         </button>
@@ -1046,7 +1046,7 @@ export default function MatchDraftBoard({
             aria-pressed={won}
             onClick={() => void setWinner(team.name)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-border bg-surface text-muted hover:text-white"
+              won ? "border border-mint/60 bg-mint/15 text-mint" : "border border-border-subtle bg-surface text-muted hover:text-white"
             }`}
           >
             {team.abbreviation} won{won ? " ✓" : ""}
@@ -1068,7 +1068,7 @@ export default function MatchDraftBoard({
       {!lobby && reportHref && seriesWinner ? (
         <a
           href={reportHref}
-          className="ml-auto inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-navy"
+          className="ml-auto inline-flex rounded-full border border-coral/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-coral transition hover:bg-coral hover:text-canvas"
         >
           Report this result →
         </a>
@@ -1092,7 +1092,7 @@ export default function MatchDraftBoard({
               type="button"
               disabled={saving}
               onClick={() => setRoleModalOpen(false)}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
+              className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
             >
               Close
             </button>
@@ -1257,7 +1257,7 @@ export default function MatchDraftBoard({
           type="button"
           disabled={saving}
           onClick={() => void respondChange(false)}
-          className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
+          className="rounded-full border border-border-subtle px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
         >
           Withdraw
         </button>
@@ -1347,7 +1347,7 @@ export default function MatchDraftBoard({
   );
 
   const championPool = (
-    <section className="min-w-0 rounded border border-border bg-canvas/60 p-3" aria-label="Champion pool">
+    <section className="min-w-0 rounded border border-border-subtle bg-canvas/60 p-3" aria-label="Champion pool">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
           Search champions
@@ -1359,7 +1359,7 @@ export default function MatchDraftBoard({
             aria-pressed={roleFilter === null}
             onClick={() => setRoleFilter(null)}
             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-              roleFilter === null ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+              roleFilter === null ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
             }`}
           >
             All
@@ -1371,7 +1371,7 @@ export default function MatchDraftBoard({
               aria-pressed={roleFilter === role.value}
               onClick={() => setRoleFilter((current) => (current === role.value ? null : role.value))}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                roleFilter === role.value ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+                roleFilter === role.value ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
               }`}
             >
               {role.label}
@@ -1387,7 +1387,7 @@ export default function MatchDraftBoard({
                   type="button"
                   disabled={saving}
                   onClick={() => setConfirmingPassAt(null)}
-                  className="rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
+                  className="rounded-full border border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-40"
                 >
                   Cancel
                 </button>
@@ -1405,7 +1405,7 @@ export default function MatchDraftBoard({
                 type="button"
                 disabled={saving}
                 onClick={() => setConfirmingPassAt(passStepKey)}
-                className="rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
+                className="rounded-full border border-border-subtle px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-red-400/60 hover:text-red-300 disabled:opacity-40"
               >
                 Pass ban
               </button>
@@ -1431,7 +1431,7 @@ export default function MatchDraftBoard({
               className={`group relative aspect-square overflow-hidden border text-left font-semibold text-white disabled:cursor-not-allowed ${
                 fearlessBlocked
                   ? "border-red-500/40 bg-surface disabled:opacity-60"
-                  : "border-border bg-surface hover:border-primary disabled:opacity-35"
+                  : "border-border-strong bg-surface hover:border-action-text disabled:opacity-35"
               } ${sizeByValue[imageSize].name}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1470,7 +1470,7 @@ export default function MatchDraftBoard({
 
   // The turn clock card — center column on stage, top strip on board.
   const timerCard = (
-    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
+    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
       <span className="label-dash">Game {state.gameNumber}</span>
       <span className={`type-display mt-1 text-4xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
         {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
@@ -1530,7 +1530,7 @@ export default function MatchDraftBoard({
           online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
           slotClassName={(pick) => pick.side === "red" ? "w-[350px] justify-self-end" : "w-[350px]"}
           renderRail={() => (
-            <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
+            <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
               <span className="label-dash">Game {state.gameNumber}</span>
               <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
                 {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
@@ -1550,7 +1550,7 @@ export default function MatchDraftBoard({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
+    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white">
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <span className="label-dash">
@@ -1625,7 +1625,7 @@ export default function MatchDraftBoard({
                 aria-pressed={seriesFormat.bestOf === option}
                 onClick={() => (seriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                  seriesFormat.bestOf === option ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+                  seriesFormat.bestOf === option ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
                 }`}
               >
                 Bo{option}
@@ -1637,7 +1637,7 @@ export default function MatchDraftBoard({
               aria-pressed={seriesFormat.fearless}
               onClick={() => void saveSeriesFormat({ fearless: !seriesFormat.fearless })}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border bg-surface text-muted hover:text-white"
+                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border-subtle bg-surface text-muted hover:text-white"
               }`}
             >
               Fearless {seriesFormat.fearless ? "on" : "off"}
@@ -1678,7 +1678,7 @@ export default function MatchDraftBoard({
         {!onSave || viewerTeamName !== undefined ? (
           <span
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
-              canReset ? "border-gold/50 text-gold" : viewerSide ? sideClass[viewerSide] : "border-border text-muted"
+              canReset ? "border-gold/50 text-gold" : viewerSide ? sideClass[viewerSide] : "border-border-subtle text-muted"
             }`}
           >
             {canReset ? "Admin — full control" : viewerSide ? `Drafting for ${teamForSide(viewerSide).abbreviation} (${viewerSide} side)` : "Spectating"}

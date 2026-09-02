@@ -14,7 +14,7 @@ export default async function DrafterLandingPage() {
   const access = await drafterAccess();
   if (!access.signedIn) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Drafter</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to create draft lobbies</h1>
         <p className="max-w-md text-sm text-muted">
@@ -29,7 +29,7 @@ export default async function DrafterLandingPage() {
   }
   if (!access.allowed) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Drafter</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-muted">
@@ -40,7 +40,7 @@ export default async function DrafterLandingPage() {
     );
   }
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 bg-hash px-4 py-10 text-white">
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 page-backdrop px-4 py-10 text-white">
       <header>
         <span className="label-dash">Pick / ban tool</span>
         <h1 className="type-display mt-2 text-4xl text-white">Drafter</h1>

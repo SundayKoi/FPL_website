@@ -9,7 +9,7 @@ import type { MyTeamDashboardResult } from "@/lib/my-team/types";
 import TeamAccentPanel, { teamAccentFadeStyle } from "./TeamAccentPanel";
 import TeamSchedule from "./TeamSchedule";
 
-const ACTION = "inline-flex rounded-full border border-primary/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white";
+const ACTION = "inline-flex rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white";
 
 function gatePath(league: LeagueKey): string {
   return league === "academy" ? "/academy/my-team" : "/my-team";
@@ -25,7 +25,7 @@ function teamPath(league: LeagueKey, teamName: string): string {
 
 function GateCard({ children }: { children: React.ReactNode }) {
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
         <section className="card-brand p-6 sm:p-8">{children}</section>
       </div>
@@ -76,10 +76,10 @@ export default function MyTeamGate({
                 <li key={team.id}>
                   <Link
                     href={teamPath(league, team.name)}
-                    className="group flex items-center justify-between rounded border border-border bg-canvas/60 px-3 py-3 text-sm font-semibold text-white transition hover:border-primary/60 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className="group flex items-center justify-between rounded border border-border-strong bg-canvas/60 px-3 py-3 text-sm font-semibold text-white transition hover:border-action-text/60 hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   >
                     <span>{team.name}</span>
-                    <span aria-hidden className="text-lg text-primary transition-transform group-hover:translate-x-1">→</span>
+                    <span aria-hidden className="text-lg text-action-text transition-transform group-hover:translate-x-1">→</span>
                   </Link>
                 </li>
               ))}
@@ -130,7 +130,7 @@ export default function MyTeamGate({
   const teamBrand = dashboard.team;
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header
           className="card-brand flex flex-wrap items-center gap-5 overflow-hidden border-t-4 p-6 sm:p-8"
@@ -179,13 +179,13 @@ export default function MyTeamGate({
               <TeamAccentPanel color={teamBrand.bannerColor}>
                 <Link
                   href={`${scoutingHref}${adminQuery}`}
-                  className="card-brand group block p-5 transition hover:border-primary/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="card-brand group block p-5 transition hover:border-action-text/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   aria-label={`Scout Opponent: ${dashboard.opponent.name}`}
                 >
                   <span className="label-dash text-prestige">Premium · Scouting</span>
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <h2 className="type-display text-2xl">Scout Opponent</h2>
-                    <span aria-hidden className="text-2xl text-primary transition-transform group-hover:translate-x-1">→</span>
+                    <span aria-hidden className="text-2xl text-action-text transition-transform group-hover:translate-x-1">→</span>
                   </div>
                   <p className="mt-2 text-sm text-muted">
                     Draft history and player pools for <span className="font-semibold text-white">{dashboard.opponent.name}</span>.

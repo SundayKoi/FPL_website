@@ -14,7 +14,7 @@ type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 function LeagueLinks({ league }: { league: LeagueView }) {
   return (
-    <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-border bg-canvas p-1">
+    <nav aria-label="League" className="inline-flex gap-1 rounded-md border border-border-strong bg-canvas p-1">
       {([
         { id: "premier" as const, label: "Premier" },
         { id: "academy" as const, label: "Academy" },
@@ -25,8 +25,8 @@ function LeagueLinks({ league }: { league: LeagueView }) {
           aria-current={league === item.id ? "page" : undefined}
           className={`inline-flex items-center justify-center rounded px-4 py-2 text-xs uppercase tracking-[0.14em] transition ${
             league === item.id
-              ? "bg-league-accent font-bold text-white"
-              : "text-muted/60 hover:bg-surface hover:text-muted"
+              ? "bg-action-fill font-bold text-white"
+              : "text-muted/60 hover:bg-surface hover:text-action-text"
           }`}
         >
           {item.label}
@@ -46,9 +46,9 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
 
   if (!context.fixture) {
     return (
-      <main className="bg-hash flex-1">
+      <main className="page-backdrop flex-1">
         <div className="mx-auto w-full max-w-[1800px] space-y-8 px-4 py-12 sm:px-6 sm:py-16">
-          <header className="border-b border-border pb-8">
+          <header className="border-b border-border-subtle pb-8">
             <span className="label-dash">Broadcast desk</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Broadcaster workspace</h1>
           </header>
@@ -57,7 +57,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
             <p className="text-sm text-muted">
               No {league === "academy" ? "Academy" : "Premier"} featured match is available.
             </p>
-            <Link href="/admin" className="mt-4 inline-flex text-sm font-semibold text-primary hover:text-white">
+            <Link href="/admin" className="mt-4 inline-flex text-sm font-semibold text-action-text hover:text-white">
               Choose the featured matchup
             </Link>
           </section>
@@ -75,7 +75,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
 
   if (!scouting) {
     return (
-      <main className="bg-hash flex-1">
+      <main className="page-backdrop flex-1">
         <div className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-12 sm:px-6 sm:py-16">
           <BroadcasterFixtureHeader fixture={context.fixture} twitchUrl={context.settings.twitchUrl} />
           <LeagueLinks league={league} />
@@ -88,7 +88,7 @@ export default async function BroadcasterPage({ searchParams }: { searchParams: 
   }
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <BroadcasterWorkspace
           league={league}

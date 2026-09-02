@@ -2,7 +2,7 @@ import SupportDevSection from "@/components/info/SupportDevSection";
 
 export default function SupportDevsPage() {
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="max-w-3xl">
           <span className="label-dash">THE SUPPORT DESK</span>

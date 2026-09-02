@@ -112,7 +112,7 @@ export default function AdminCodeImporter({
   }
 
   return (
-    <section className="flex flex-col gap-3 border-t border-border pt-3">
+    <section className="flex flex-col gap-3 border-t border-border-subtle pt-3">
       <div className="flex flex-col gap-1">
         <h3 className="label-dash">Bulk code import</h3>
         <p className="text-xs text-muted">
@@ -130,7 +130,7 @@ export default function AdminCodeImporter({
           onChange={(event) => {
             void handleFileChange(event);
           }}
-          className="rounded border border-dashed border-border bg-canvas px-2 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-white"
+          className="rounded border border-dashed border-border-subtle bg-canvas px-2 py-2 text-sm text-white file:mr-3 file:rounded-full file:border-0 file:bg-action-fill file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-wide file:text-white"
         />
       </label>
 
@@ -153,8 +153,8 @@ export default function AdminCodeImporter({
       )}
 
       {preview && (
-        <div className="rounded border border-border/60 bg-canvas/40">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border/60 px-3 py-2 text-xs text-muted">
+        <div className="rounded border border-border-subtle/60 bg-canvas/40">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border-subtle/60 px-3 py-2 text-xs text-muted">
             <span>
               {preview.fixtures.length} fixture{preview.fixtures.length === 1 ? "" : "s"} · {preview.requiredCodeCount} required
               codes
@@ -164,7 +164,7 @@ export default function AdminCodeImporter({
           <div className="overflow-x-auto">
             <table aria-label="Import preview" className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-border/60">
+                <tr className="border-b border-border-subtle/60">
                   <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
                     Fixture
                   </th>
@@ -178,7 +178,7 @@ export default function AdminCodeImporter({
               </thead>
               <tbody>
                 {preview.fixtures.map((fixture) => (
-                  <tr key={fixture.fixtureId} className="border-t border-border/40 align-top">
+                  <tr key={fixture.fixtureId} className="border-t border-border-subtle/40 align-top">
                     <td className="px-3 py-2 text-white">{stageMeta(fixture.stage).label}</td>
                     <td className="px-3 py-2 text-muted">
                       {teamLabel(fixture.teamA)} vs {teamLabel(fixture.teamB)}
@@ -189,12 +189,12 @@ export default function AdminCodeImporter({
               </tbody>
             </table>
           </div>
-          <div className="border-t border-border/60 px-3 py-3">
+          <div className="border-t border-border-subtle/60 px-3 py-3">
             <button
               type="button"
               onClick={() => void handleConfirm()}
               disabled={isBusy}
-              className="w-fit rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+              className="w-fit rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
             >
               {status.kind === "saving" ? "Importing…" : "Confirm import"}
             </button>

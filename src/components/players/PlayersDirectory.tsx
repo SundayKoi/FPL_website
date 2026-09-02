@@ -136,9 +136,9 @@ export default function PlayersDirectory({
   };
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-6 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">PLAYER POOL</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Players</h1>
@@ -157,7 +157,7 @@ export default function PlayersDirectory({
                 id="player-season"
                 value={selectedSeason}
                 onChange={(event) => setSelectedSeason(event.target.value as SeasonKey)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {SEASON_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -175,7 +175,7 @@ export default function PlayersDirectory({
                 id="player-sort"
                 value={sortOption}
                 onChange={(event) => setSortOption(event.target.value as SortOption)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {showMinSort ? <option value="value">{isFreeAgency ? "Avg Bid" : "Min"}</option> : null}
                 <option value="name">Name</option>
@@ -191,7 +191,7 @@ export default function PlayersDirectory({
                 id="player-section"
                 value={selectedSection}
                 onChange={(event) => handleSectionChange(event.target.value as DirectorySection)}
-                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 <option value="player-list">Player List</option>
                 {showFreeAgency ? <option value="free-agency">Free Agency</option> : null}
@@ -207,7 +207,7 @@ export default function PlayersDirectory({
                   id="player-captain"
                   value={selectedCaptain}
                   onChange={(event) => setSelectedCaptain(event.target.value)}
-                  className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="w-full input-brand px-3 py-2 text-sm font-semibold sm:w-44 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   <option value="">No captain</option>
                   {freeAgencyCaptains.map((captain) => (
@@ -222,7 +222,7 @@ export default function PlayersDirectory({
               <button
                 type="button"
                 onClick={() => setEditMode((editing) => !editing)}
-                className="rounded border border-primary px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="rounded border border-action-text px-3 py-2 text-sm font-semibold text-action-text transition hover:bg-action-fill/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
               >
                 {editMode ? "Done Editing" : "Edit Avg Bids"}
               </button>
@@ -273,7 +273,7 @@ export default function PlayersDirectory({
                             href={player.opggUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                               isFreeAgency && selectedCaptain && isAvailable
                                 ? "font-extrabold text-white decoration-white/70"
                                 : "font-semibold"
@@ -292,7 +292,7 @@ export default function PlayersDirectory({
                                 defaultValue={avgBidFor(player.name) ?? ""}
                                 disabled={savingPlayer === (freeAgencyPlayer?.name ?? player.name)}
                                 onBlur={(event) => void saveAvgBid(freeAgencyPlayer?.name ?? player.name, event.target.value)}
-                                className="w-16 rounded border border-border bg-canvas px-1 text-right font-medium text-white focus:border-primary focus:outline-none"
+                                className="w-16 rounded border border-border-strong bg-canvas px-1 text-right font-medium text-white focus:border-action-text focus:outline-none"
                               />
                             ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
                           </span> : null}
@@ -310,7 +310,7 @@ export default function PlayersDirectory({
 
         {isAdmin && !isFreeAgency ? (
           <>
-            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-primary px-3 py-2 text-sm font-semibold text-primary">
+            <button type="button" onClick={() => setPoolEditMode((editing) => !editing)} className="rounded border border-action-text px-3 py-2 text-sm font-semibold text-action-text">
               {poolEditMode ? "Done Editing Players" : "Edit Player Pool"}
             </button>
             {poolEditMode ? <PlayerPoolAdmin seasonKey={activePoolSeasonKey} players={adminPlayers} onPlayersChange={handlePoolPlayersChange} identityLeague={identityLeague} identitySeason={identitySeason} identityLinks={identityLinks} identityProfiles={identityProfiles} /> : null}

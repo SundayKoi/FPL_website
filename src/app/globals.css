@@ -6,20 +6,16 @@
   --color-canvas: #080d12;
   --color-surface: #111820;
   --color-raised: #18232e;
-  --color-border: #2a3947;
+  --color-border-subtle: #2a3947;
+  --color-border-strong: #526678;
   --color-content: #f4f7fb;
   --color-muted: #9baab8;
-  --color-primary: #2f6bff;
+  --color-action-fill: #294fca;
+  --color-action-text: #6f93ff;
+  --color-focus: #6f93ff;
   --color-success: #2ee6a8;
   --color-prestige: #f5b62e;
   --color-danger: #ff5c6c;
-
-  /* Deprecated neutral aliases retained for protected feature internals. New
-     shared/core call sites must use the semantic names above. */
-  --color-navy: var(--color-canvas);
-  --color-panel: var(--color-surface);
-  --color-line: var(--color-border);
-  --color-steel: var(--color-muted);
 
   /* Premier identity: purple/cyan. Academy overrides these at the scope. */
   --color-league-accent: #b06bff;
@@ -27,7 +23,7 @@
   --color-league-wash: rgb(176 107 255 / 0.1);
 
   --color-gold: #f5b62e;
-  /* Legacy feature accent. Shared actions use primary; status colors keep
+  /* Legacy feature accent. Shared actions use action roles; status colors keep
      their meaning instead of inheriting league identity. */
   --color-coral: #ff6b35;
   --color-mint: #2ee6a8;
@@ -117,15 +113,14 @@ body {
   font-family: var(--font-body);
 }
 
-@utility bg-hash {
-  /* Low-opacity league wash over neutral canvas. */
-  background-image: repeating-linear-gradient(
-    135deg,
-    var(--color-league-wash) 0px,
-    var(--color-league-wash) 1px,
-    transparent 1px,
-    transparent 14px
+@utility page-backdrop {
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(
+    ellipse 80% 32rem at 50% -10rem,
+    color-mix(in srgb, var(--color-league-accent) 8%, transparent),
+    transparent 72%
   );
+  background-repeat: no-repeat;
 }
 
 @utility type-display {
@@ -148,14 +143,18 @@ body {
 
 @utility btn-pill {
   border-radius: 9999px;
-  background: var(--color-primary);
+  background: var(--color-action-fill);
   color: white;
   font-weight: 600;
   padding: 0.5rem 1.25rem;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
   &:hover {
-    background: color-mix(in srgb, var(--color-primary) 82%, white);
-    box-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 35%, transparent);
+    background: color-mix(in srgb, var(--color-action-fill) 82%, white);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--color-action-fill) 35%, transparent);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
   }
 }
 
@@ -193,12 +192,16 @@ body {
 /* Semantic primary CTA — size classes stay inline. */
 @utility btn-primary {
   border-radius: 0.25rem;
-  background: var(--color-primary);
+  background: var(--color-action-fill);
   color: white;
   font-family: var(--font-display);
   font-weight: 700;
   font-style: normal;
   &:hover { filter: brightness(1.1); }
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 3px;
+  }
   &:disabled { opacity: 0.4; }
 }
 
@@ -206,28 +209,36 @@ body {
    inline. */
 @utility input-brand {
   border-radius: 0.25rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   background: var(--color-canvas);
   color: var(--color-content);
   &::placeholder { color: color-mix(in srgb, var(--color-muted) 60%, transparent); }
-  &:focus { border-color: var(--color-primary); outline: none; }
-  &:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 35%, transparent); }
+  &:focus { border-color: var(--color-focus); outline: none; }
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 30%, transparent);
+  }
 }
 
 @utility card-brand {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 0.5rem;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+/* Opt-in league identity treatment for hero, live and context surfaces. */
+@utility card-featured {
   background-image:
     linear-gradient(
       90deg,
       transparent,
-      color-mix(in srgb, var(--color-league-accent) 55%, transparent) 30%,
-      color-mix(in srgb, var(--color-league-secondary) 55%, transparent) 70%,
+      color-mix(in srgb, var(--color-league-accent) 45%, transparent) 30%,
+      color-mix(in srgb, var(--color-league-secondary) 45%, transparent) 70%,
       transparent
     ),
-    linear-gradient(180deg, var(--color-league-wash), transparent 45%);
+    linear-gradient(180deg, color-mix(in srgb, var(--color-league-accent) 6%, transparent), transparent 45%);
   background-size: 100% 1px, 100% 100%;
   background-position: top, top;
   background-repeat: no-repeat;
@@ -253,9 +264,9 @@ body {
 @utility grid-neon {
   background-color: var(--color-canvas);
   background-image:
-    linear-gradient(90deg, color-mix(in srgb, var(--color-league-secondary) 10%, transparent) 1px, transparent 1px),
-    linear-gradient(0deg, color-mix(in srgb, var(--color-league-secondary) 10%, transparent) 1px, transparent 1px);
-  background-size: 46px 46px;
+    linear-gradient(90deg, color-mix(in srgb, var(--color-league-secondary) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-league-secondary) 6%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
 }
 
 /* League hairline used to underline stats section headers. */
@@ -301,7 +312,7 @@ body {
   position: relative;
   overflow: hidden;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 0.6rem;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.45);
   &::before {
@@ -1282,7 +1293,7 @@ body {
   filter: drop-shadow(0 18px 30px rgb(0 0 0 / 0.55));
   &:active { cursor: grabbing; }
   &:focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-focus);
     outline-offset: 6px;
     border-radius: 1rem;
   }
@@ -1727,7 +1738,7 @@ body {
       0 0 46px -4px var(--pack-aura, #cfe0f0);
   }
   &:focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--color-focus);
     outline-offset: 4px;
   }
 }
@@ -1831,7 +1842,7 @@ body {
 @utility pack-summary {
   position: relative;
   z-index: 2;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-subtle);
   background: linear-gradient(180deg, rgb(10 42 71 / 0.88), rgb(0 20 34 / 0.97));
   backdrop-filter: blur(6px);
   animation: packSummaryUp 420ms cubic-bezier(0.2, 0.8, 0.3, 1) both;

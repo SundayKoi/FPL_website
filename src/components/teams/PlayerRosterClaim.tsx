@@ -17,7 +17,7 @@ export type PlayerRosterClaimState =
   | "mine-approved";
 
 const ACTION =
-  "rounded-full border border-border px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
+  "rounded-full border border-border-strong px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";
 
 export default function PlayerRosterClaim({
   playerPoolId,

@@ -61,7 +61,7 @@ function clueClass(value: ClueStatus) {
   const isMatch = value === "match" || value === "equal";
   return isMatch
     ? "border-mint/60 bg-mint/15 text-mint"
-    : "border-border bg-canvas/60 text-muted";
+    : "border-border-subtle bg-canvas/60 text-muted";
 }
 
 function positionText(position: string): string {
@@ -134,7 +134,7 @@ function FpldleLeagueToggle({ league }: { league: FpldleLeague }) {
         href="/fpldle"
         aria-current={league === "premier" ? "page" : undefined}
         className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-          league === "premier" ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+          league === "premier" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
         }`}
       >
         Premier
@@ -143,7 +143,7 @@ function FpldleLeagueToggle({ league }: { league: FpldleLeague }) {
         href="/academy/fpldle"
         aria-current={league === "academy" ? "page" : undefined}
         className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-          league === "academy" ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+          league === "academy" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
         }`}
       >
         Academy
@@ -210,9 +210,9 @@ function StreakLeaderboard({ snapshot }: { snapshot: FpldleStreakSnapshot }) {
         <span className="text-xs text-muted">Current first · best breaks ties</span>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-5 rounded border border-border/60 bg-canvas/30 px-4 py-5 text-center text-sm text-muted">No active streaks yet.</p>
+        <p className="mt-5 rounded border border-border-subtle/60 bg-canvas/30 px-4 py-5 text-center text-sm text-muted">No active streaks yet.</p>
       ) : (
-        <div className="mt-4 overflow-hidden rounded border border-border">
+        <div className="mt-4 overflow-hidden rounded border border-border-subtle">
           <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem] gap-2 bg-canvas/60 px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-muted">
             <span>Rank</span>
             <span>Player</span>
@@ -223,7 +223,7 @@ function StreakLeaderboard({ snapshot }: { snapshot: FpldleStreakSnapshot }) {
             <div
               key={row.profileId}
               data-testid={row.isCurrentUser ? "fpldle-current-leaderboard-row" : undefined}
-              className={`grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem] gap-2 border-t border-border/70 px-3 py-2.5 text-sm ${
+              className={`grid grid-cols-[2.5rem_minmax(0,1fr)_5rem_5rem] gap-2 border-t border-border-subtle/70 px-3 py-2.5 text-sm ${
                 row.isCurrentUser ? "bg-coral/10 text-white" : "bg-surface/60 text-muted"
               } ${index > 0 && row.rank !== null && row.rank > 5 ? "border-t-2 border-t-gold/50" : ""}`}
             >
@@ -246,10 +246,10 @@ function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null;
   const gridClass = boardGridClass(showDivision);
   if (!feedback) {
     return (
-      <div className={`${gridClass} rounded border border-border/60 bg-canvas/30 p-2 text-sm text-muted`}>
+      <div className={`${gridClass} rounded border border-border-subtle/60 bg-canvas/30 p-2 text-sm text-muted`}>
         <span className="flex min-w-0 items-center px-2">—</span>
         {Array.from({ length: showDivision ? 5 : 4 }, (_, index) => (
-          <span key={index} className="flex min-w-0 min-h-12 items-center justify-center rounded border border-border/40 px-1">
+          <span key={index} className="flex min-w-0 min-h-12 items-center justify-center rounded border border-border-subtle/40 px-1">
             —
           </span>
         ))}
@@ -265,7 +265,7 @@ function GuessRow({ feedback, showDivision }: { feedback: FpldleFeedback | null;
     ...(showDivision ? [{ label: "Division", status: feedback.division }] : []),
   ];
   return (
-    <div className={`${gridClass} overflow-hidden rounded border border-border bg-surface p-2 text-sm`}>
+    <div className={`${gridClass} overflow-hidden rounded border border-border-subtle bg-surface p-2 text-sm`}>
       <span className="flex min-w-0 min-h-12 items-center px-2 font-semibold text-white">
         <span className="min-w-0 truncate">{feedback.player.name}</span>
         <span className="ml-1 shrink-0 text-xs font-normal text-muted">#{feedback.player.tag}</span>
@@ -538,7 +538,7 @@ export default function FpldleBoard({
   const finished = status !== "playing";
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
         <span className="label-dash">Daily reward</span>
         <p className="mt-2 text-white">Complete any daily game to claim one shared reward: $200 betting dollars, or $300 while your patron flame is active. FPL&apos;dle pays when you solve within five guesses.</p>
@@ -557,7 +557,7 @@ export default function FpldleBoard({
         <div className="flex flex-wrap items-end justify-end gap-3">
           <FpldleLeagueToggle league={league} />
           <PersonalStreakCard snapshot={streaks} />
-          <div className="rounded border border-border bg-surface px-4 py-3 text-right">
+          <div className="rounded border border-border-subtle bg-surface px-4 py-3 text-right">
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted">Next puzzle</span>
             <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
             <span data-testid="fpldle-local-reset" className="block text-xs text-muted">
@@ -586,8 +586,8 @@ export default function FpldleBoard({
                     aria-pressed={active}
                     onClick={() => setRoleFilter((current) => (current === group.key ? null : group.key))}
                     className={active
-                      ? "rounded-full bg-coral px-3 py-1 text-xs font-semibold text-navy"
-                      : "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold text-muted hover:text-white"}
+                      ? "rounded-full bg-coral px-3 py-1 text-xs font-semibold text-canvas"
+                      : "rounded-full border border-border-subtle bg-surface px-3 py-1 text-xs font-semibold text-muted hover:text-white"}
                   >
                     {group.label}
                   </button>
@@ -622,10 +622,10 @@ export default function FpldleBoard({
                 }}
               />
               {listOpen ? (
-                <div id="fpldle-player-list" role="listbox" className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded border border-border bg-canvas p-1 shadow-xl">
+                <div id="fpldle-player-list" role="listbox" className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded border border-border-subtle bg-canvas p-1 shadow-xl">
                   {candidateGroups.length > 0 ? candidateGroups.map((group) => (
                     <div key={group.key} role="group" aria-labelledby={`fpldle-role-${group.key}`}>
-                      <div id={`fpldle-role-${group.key}`} className="border-b border-border/60 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-gold">
+                      <div id={`fpldle-role-${group.key}`} className="border-b border-border-subtle/60 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-gold">
                         {group.label}
                       </div>
                       {group.candidates.map((candidate) => (
@@ -665,7 +665,7 @@ export default function FpldleBoard({
                 <p className="mt-1 text-sm text-muted">Answer: {answer ? `${answer.name}#${answer.tag}` : "answer reveal unavailable"}</p>
               ) : <p className="mt-1 text-sm text-muted">New puzzle at 00:00 UTC.</p>}
             </div>
-            {guesses.length > 0 ? <button type="button" onClick={() => void copyShareGrid()} className="rounded border border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:border-primary hover:text-white">{shared ? "Copied" : "Copy share grid"}</button> : null}
+            {guesses.length > 0 ? <button type="button" onClick={() => void copyShareGrid()} className="rounded border border-border-strong px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:border-action-text hover:text-white">{shared ? "Copied" : "Copy share grid"}</button> : null}
           </div>
         )}
       </section>

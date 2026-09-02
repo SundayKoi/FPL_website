@@ -573,7 +573,7 @@ describe("MatchDraftBoard", () => {
     );
     const main = container.querySelector("main");
     expect(main?.className).toContain("bg-transparent");
-    expect(main?.className).not.toContain("bg-navy");
+    expect(main?.className).not.toContain("bg-canvas");
   });
 
   it("renders red-side overlay bans from right to left", () => {

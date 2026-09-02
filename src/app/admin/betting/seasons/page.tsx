@@ -19,7 +19,7 @@ export default async function AdminBettingSeasonsPage() {
   const seasons = (data as SeasonRow[] | null) ?? [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-16">
       <header>
         <span className="label-dash">STAFF ONLY</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Betting — Seasons</h1>

@@ -49,7 +49,7 @@ export function BetPanel({
   const disabled = !loggedIn || locked || amount <= 0 || tooBig;
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border border-border-subtle bg-surface p-4">
       <div className="font-display text-sm font-bold not-italic uppercase tracking-wide text-white">
         Place Bet
       </div>
@@ -65,7 +65,7 @@ export function BetPanel({
             onClick={() => setSide(DRAW)}
             className={
               "flex-1 rounded border px-2 py-2 text-sm font-semibold transition " +
-              (side === DRAW ? "border-transparent bg-primary text-white" : "border-border text-muted hover:border-primary")
+              (side === DRAW ? "border-transparent bg-action-fill text-white" : "border-border-strong text-muted hover:border-action-text")
             }
           >
             DRAW
@@ -100,7 +100,7 @@ export function BetPanel({
             key={q}
             type="button"
             onClick={() => setAmount(Math.trunc(balance * q))}
-            className="flex-1 rounded border border-border py-1 text-xs text-muted hover:border-primary hover:text-primary"
+            className="flex-1 rounded border border-border-strong py-1 text-xs text-muted hover:border-action-text hover:text-action-text"
           >
             {q === 1 ? "MAX" : `${q * 100}%`}
           </button>
@@ -114,7 +114,7 @@ export function BetPanel({
       {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
       <button
         type="button"
-        className="mt-3 w-full rounded bg-primary py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-3 w-full rounded bg-action-fill py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={disabled}
         onClick={() => onBet(side, amount)}
       >

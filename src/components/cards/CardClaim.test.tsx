@@ -123,7 +123,7 @@ describe("CardClaim", () => {
 
     const ringed = container.querySelector(".claim-highlight");
     expect(ringed).toBeTruthy();
-    expect(ringed?.className).toContain("ring-primary");
+    expect(ringed?.className).toContain("ring-focus");
 
     // Off by default: the ring is for the one visit the link sent.
     rerender(<CardClaim {...card} viewerProfileId="player-1" canModerate={false} claim={null} />);

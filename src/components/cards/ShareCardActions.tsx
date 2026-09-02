@@ -27,7 +27,7 @@ export default function ShareCardActions({ slug }: { slug: string }) {
         // this file keeps handing back a card from several restats ago.
         href={cardImageUrl("", slug, null)}
         download={`${slug}-card.png`}
-        className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+        className="rounded-full border border-border-strong bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
       >
         Download PNG
       </a>

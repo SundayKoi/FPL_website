@@ -6,7 +6,7 @@ import { suggestProp } from "@/lib/betting/actions";
 import type { PropSuggestion } from "@/lib/betting/types";
 
 const STATUS_STYLE: Record<PropSuggestion["status"], string> = {
-  PENDING: "border-border text-muted",
+  PENDING: "border-border-subtle text-muted",
   APPROVED: "border-mint/40 text-mint",
   REJECTED: "border-red-400/40 text-red-400",
 };
@@ -44,7 +44,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
   }
 
   return (
-    <section className="rounded-lg border border-border bg-surface p-4">
+    <section className="rounded-lg border border-border-subtle bg-surface p-4">
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <h2 className="font-semibold text-white">Custom bets</h2>
@@ -73,7 +73,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={200}
               placeholder="How much will Chime go for in the draft?"
-              className="rounded border border-border bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
+              className="rounded border border-border-subtle bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
             />
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -84,7 +84,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
                 onChange={(e) => setSideA(e.target.value)}
                 maxLength={40}
                 placeholder="Over 500"
-                className="rounded border border-border bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
+                className="rounded border border-border-subtle bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
               />
             </label>
             <label className="grid gap-1 text-xs text-muted">
@@ -94,7 +94,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
                 onChange={(e) => setSideB(e.target.value)}
                 maxLength={40}
                 placeholder="Under 500"
-                className="rounded border border-border bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
+                className="rounded border border-border-subtle bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
               />
             </label>
           </div>
@@ -105,7 +105,7 @@ export function SuggestBetPanel({ suggestions }: { suggestions: PropSuggestion[]
               onChange={(e) => setNote(e.target.value)}
               maxLength={300}
               placeholder="Lock when the draft starts; settle on final sale price"
-              className="rounded border border-border bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
+              className="rounded border border-border-subtle bg-transparent px-3 py-2 text-sm text-white placeholder:text-muted/60"
             />
           </label>
           {error && <p className="text-sm text-red-400">{error}</p>}

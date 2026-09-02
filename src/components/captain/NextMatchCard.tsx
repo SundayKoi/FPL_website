@@ -37,7 +37,7 @@ export default function NextMatchCard({
       <h2 className="label-dash">Next match</h2>
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">
         <p className="type-display text-2xl sm:text-3xl">vs {opponent}</p>
-        <span className="rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
+        <span className="rounded-full border border-border-subtle bg-surface px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
           Bo{fixture.best_of}
         </span>
       </div>
@@ -55,7 +55,7 @@ export default function NextMatchCard({
       {opponentMultiOpggUrl ? (
         <OpggMultiLink href={opponentMultiOpggUrl} label="Opponent OP.GG Multi" className="mt-4" />
       ) : null}
-      <div className="mt-4 rounded border border-border bg-canvas/50 p-3">
+      <div className="mt-4 rounded border border-border-subtle bg-canvas/50 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Series drafter</p>
           <span className="text-[11px] uppercase tracking-wide text-prestige">30s turns</span>
@@ -64,13 +64,13 @@ export default function NextMatchCard({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`${matchDraftHref(fixture)}?layout=board`}
-              className="inline-flex rounded-full border border-primary/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
+              className="inline-flex rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white"
             >
               Captain&apos;s link →
             </Link>
             <Link
               href={`${matchDraftHref(fixture)}?layout=stage`}
-              className="inline-flex rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+              className="inline-flex rounded-full border border-border-strong px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
             >
               Spectator link →
             </Link>

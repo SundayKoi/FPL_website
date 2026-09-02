@@ -36,7 +36,7 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (!invite) {
     return (
-      <main className="flex flex-1 items-center justify-center bg-hash p-8">
+      <main className="flex flex-1 items-center justify-center page-backdrop p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Link not found</h1>
           <p className="mt-2 text-sm text-muted">
@@ -49,7 +49,7 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (invite.used_at) {
     return (
-      <main className="flex flex-1 items-center justify-center bg-hash p-8">
+      <main className="flex flex-1 items-center justify-center page-backdrop p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Already signed</h1>
           <p className="mt-2 text-sm text-muted">
@@ -63,7 +63,7 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
 
   if (inviteExpired(invite.expires_at)) {
     return (
-      <main className="flex flex-1 items-center justify-center bg-hash p-8">
+      <main className="flex flex-1 items-center justify-center page-backdrop p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Link expired</h1>
           <p className="mt-2 text-sm text-muted">
@@ -75,7 +75,7 @@ export default async function SigningInvitePage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-hash p-8">
+    <main className="flex flex-1 items-center justify-center page-backdrop p-8">
       <section className="card-brand flex w-full max-w-lg flex-col items-center gap-4 p-6 text-center">
         <span className="label-dash">THE FACELESS DROP</span>
         <h1 className="type-display text-3xl text-white">Sign your card, {invite.display_name}</h1>

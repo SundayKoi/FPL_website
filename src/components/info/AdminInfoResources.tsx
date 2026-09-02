@@ -58,7 +58,7 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
       </button>
       {open && <div className="mt-5 flex flex-col gap-5">
         {drafts.map((resource) => (
-          <fieldset key={resource.id} className="grid gap-3 border-t border-border pt-4 md:grid-cols-3">
+          <fieldset key={resource.id} className="grid gap-3 border-t border-border-subtle pt-4 md:grid-cols-3">
             <legend className="label-dash">{resource.slug}</legend>
             <label className="flex flex-col gap-1 text-xs text-muted">
               Label
@@ -75,7 +75,7 @@ export default function AdminInfoResources({ resources }: { resources: InfoResou
           </fieldset>
         ))}
         {status && <p className="mt-4 text-sm text-muted" role="status">{status}</p>}
-        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50">
+        <button type="button" onClick={() => void save()} disabled={saving} className="mt-5 rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50">
           {saving ? "Saving…" : "Save resources"}
         </button>
       </div>}

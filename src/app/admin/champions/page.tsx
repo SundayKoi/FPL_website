@@ -90,7 +90,7 @@ export default async function ChampionsPreviewPage() {
   });
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-6 py-16">
       <header>
         <span className="label-dash">OWNERS ONLY · PREVIEW — NOT PULLABLE</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">The Faceless Drop</h1>

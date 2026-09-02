@@ -33,7 +33,7 @@ export default async function SupportersPage() {
   const patrons = (data as PatronRow[] | null) ?? [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12 text-white sm:px-6">
       <header>
         <span className="label-dash">League Patrons</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Flame Holders</h1>
@@ -47,7 +47,7 @@ export default async function SupportersPage() {
         </p>
         <Link
           href="/support-devs"
-          className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
+          className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
         >
           Become a patron →
         </Link>
@@ -58,7 +58,7 @@ export default async function SupportersPage() {
       ) : (
         <section aria-label="Active patrons" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {patrons.map((patron) => (
-            <div key={patron.username} className="relative flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-4">
+            <div key={patron.username} className="relative flex items-center gap-3 rounded-xl border border-border-subtle/60 bg-surface p-4">
               <PatronFlame flame={patron.patron_flame} radius="0.75rem" />
               {patron.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element

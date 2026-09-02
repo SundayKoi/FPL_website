@@ -129,7 +129,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                     <th className="py-1 font-semibold" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody className="divide-y divide-border-subtle/60">
                   {teams.map((team) => {
                     const form = formForRow(team);
                     const status = rowStatus[team.id] ?? { kind: "idle" };
@@ -152,7 +152,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                             maxLength={5}
                             aria-label={`${team.name} abbreviation`}
                             onChange={(e) => patchRow(team, { abbreviation: e.target.value.toUpperCase() })}
-                            className="w-20 rounded border border-border bg-canvas px-2 py-1 uppercase text-white focus:border-primary focus:outline-none disabled:opacity-50"
+                            className="w-20 rounded border border-border-strong bg-canvas px-2 py-1 uppercase text-white focus:border-action-text focus:outline-none disabled:opacity-50"
                           />
                         </td>
                         <td className="py-1.5 pr-3">
@@ -171,7 +171,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                               type="button"
                               disabled={busy}
                               onClick={() => void handleSave(team)}
-                              className="rounded-full border border-border bg-surface px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted hover:text-white disabled:opacity-50"
+                              className="rounded-full border border-border-subtle bg-surface px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted hover:text-white disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -198,7 +198,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+          <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-3">
             <label className="flex flex-col gap-1 text-xs text-muted">
               New team name
               <input
@@ -213,7 +213,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
                 value={addForm.abbreviation}
                 onChange={(e) => setAddForm((f) => ({ ...f, abbreviation: e.target.value.toUpperCase() }))}
                 maxLength={5}
-                className="w-20 rounded border border-border bg-canvas px-2 py-1.5 text-sm uppercase text-white focus:border-primary focus:outline-none"
+                className="w-20 rounded border border-border-strong bg-canvas px-2 py-1.5 text-sm uppercase text-white focus:border-action-text focus:outline-none"
               />
             </label>
             <label className="flex items-center gap-1.5 pb-1.5 text-xs text-muted">
@@ -229,7 +229,7 @@ export default function LeagueTeamsEditor({ teams }: { teams: LeagueTeam[] }) {
               type="button"
               disabled={addStatus.kind === "saving"}
               onClick={() => void handleAdd()}
-              className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+              className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
             >
               {addStatus.kind === "saving" ? "Adding…" : "Add team"}
             </button>

@@ -87,7 +87,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const access = await drafterAccess();
   if (!access.signedIn) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to see the card collection</h1>
         <p className="max-w-md text-sm text-muted">
@@ -101,7 +101,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   }
   if (!access.allowed) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
         <p className="max-w-md text-sm text-muted">
@@ -169,7 +169,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
   const drawPanel = drawPanelState(latestDraw, drawViewerId);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
@@ -201,7 +201,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
             </Link>
             <Link
               href={`/card/${mySlug}`}
-              className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
+              className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-action-text"
             >
               View →
             </Link>
@@ -209,14 +209,14 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </section>
       ) : null}
       {myClaim && myClaim.status === "pending" && mySlug ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-5 py-3">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-5 py-3">
           <p className="text-sm text-muted">
             Your claim on <span className="font-semibold text-white">{myClaim.summoner_name}</span> is waiting for a
             captain or admin.
           </p>
           <Link
             href={`/card/${mySlug}`}
-            className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
+            className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-action-text"
           >
             View card →
           </Link>
@@ -258,13 +258,13 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </div>
         <Link
           href={`${base}/draw`}
-          className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-primary"
+          className="text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-action-text"
         >
           Every winner →
         </Link>
       </section>
       {!myClaim && viewerProfileId && cards.length > 0 ? (
-        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border bg-surface px-5 py-4">
+        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border-subtle bg-surface px-5 py-4">
           <div>
             <span className="label-dash">Claim your card</span>
             <p className="mt-1 max-w-md text-sm text-muted">

@@ -158,7 +158,7 @@ function ResolveControl({ market, busy, onResolve }: { market: AdminMarketRow; b
       <select
         value={winner}
         onChange={(e) => setWinner(Number(e.target.value))}
-        className="rounded border border-border bg-canvas px-2 py-1 text-xs text-white focus:border-primary focus:outline-none"
+        className="rounded border border-border-strong bg-canvas px-2 py-1 text-xs text-white focus:border-action-text focus:outline-none"
       >
         <option value={market.team_a.id}>{market.team_a.short_code} wins</option>
         <option value={market.team_b.id}>{market.team_b.short_code} wins</option>
@@ -234,7 +234,7 @@ export default function MarketsAdmin({
                             run(() => cancelMarket(m.id));
                           }
                         }}
-                        className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
+                        className="rounded border border-border-subtle px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
                       >
                         Cancel
                       </button>

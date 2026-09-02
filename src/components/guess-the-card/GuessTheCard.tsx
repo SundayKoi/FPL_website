@@ -144,7 +144,7 @@ function BackFace({ reveal, hidden }: { reveal: GuessTheCardReveal; hidden: bool
             <span className="label-dash">COMPLETED</span>
             <h3 className="mt-2 font-display text-2xl font-bold text-white">Completed game stats</h3>
           </div>
-          <span className="rounded-full bg-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-navy">{reveal.final.result}</span>
+          <span className="rounded-full bg-gold px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-canvas">{reveal.final.result}</span>
         </div>
         <p className="mt-1 truncate text-xs text-muted">{reveal.final.name}#{reveal.final.tag} · {reveal.final.team}</p>
         <div className="mt-4 grid grid-cols-2 gap-x-4">

@@ -8,7 +8,7 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
     .sort((left, right) => new Date(left.starts_at!).getTime() - new Date(right.starts_at!).getTime());
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <section
         className="mx-auto w-full max-w-7xl px-6 py-10 sm:py-16"
         aria-labelledby="draft-central-title"
@@ -58,7 +58,7 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
               <li key={draft.id}>
                 <Link
                   href={`/draft/${draft.id}`}
-                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="card-brand flex h-full flex-col gap-2 px-5 py-4 transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   <span className="type-display text-xl">{draft.name}</span>
                   <span className="text-sm uppercase tracking-wide text-muted">

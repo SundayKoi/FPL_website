@@ -39,7 +39,7 @@ export default function ConfirmDialog({
         <div className="mt-3 text-white">{children}</div>
         <div className="mt-6 flex justify-center gap-3">
           <button
-            className="rounded border border-border px-4 py-2 text-sm text-muted hover:bg-muted/10 hover:text-white"
+            className="rounded border border-border-subtle px-4 py-2 text-sm text-muted hover:bg-muted/10 hover:text-white"
             onClick={onCancel}
           >
             Cancel

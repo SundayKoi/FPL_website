@@ -115,7 +115,7 @@ export default function AdminSeasonSettings({
                 setSaved(false);
               }}
               className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                phase === p ? "bg-primary text-white" : "border border-border bg-surface text-muted hover:text-white"
+                phase === p ? "bg-action-fill text-white" : "border border-border-subtle bg-surface text-muted hover:text-white"
               }`}
             >
               {p}
@@ -128,7 +128,7 @@ export default function AdminSeasonSettings({
         type="button"
         onClick={() => void handleSave()}
         disabled={busy}
-        className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+        className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
       >
         {busy ? "Saving…" : "Save"}
       </button>

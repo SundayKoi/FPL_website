@@ -41,7 +41,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
                 <PlayerCard3D card={card} />
                 <Link
                   href={`/card/${card.slug}`}
-                  className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+                  className="rounded-full border border-border-strong bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
                 >
                   View &amp; customize →
                 </Link>
@@ -63,7 +63,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               aria-pressed={role === r}
               onClick={() => setRole((current) => (current === r ? null : r))}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                role === r ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+                role === r ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
               }`}
             >
               {r}
@@ -88,7 +88,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               <PlayerCard3D card={card} />
               <Link
                 href={`/card/${card.slug}`}
-                className="rounded-full border border-border bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+                className="rounded-full border border-border-strong bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
               >
                 View &amp; customize →
               </Link>

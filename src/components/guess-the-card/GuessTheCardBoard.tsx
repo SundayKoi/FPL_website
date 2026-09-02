@@ -98,7 +98,7 @@ export default function GuessTheCardBoard({
   }
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-8 text-white sm:px-6 lg:px-8">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-8 text-white sm:px-6 lg:px-8">
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <span className="label-dash">Daily game · Admin testing</span>
@@ -109,10 +109,10 @@ export default function GuessTheCardBoard({
         </div>
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-1.5" role="group" aria-label="Guess the Card league">
-            <Link href="/guess-the-card" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-navy" : "border border-border bg-surface text-muted"}`}>
+            <Link href="/guess-the-card" aria-current={game.league === "premier" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "premier" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted"}`}>
               Premier
             </Link>
-            <Link href="/academy/guess-the-card" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-navy" : "border border-border bg-surface text-muted"}`}>
+            <Link href="/academy/guess-the-card" aria-current={game.league === "academy" ? "page" : undefined} className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${game.league === "academy" ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted"}`}>
               Academy
             </Link>
           </div>
@@ -146,7 +146,7 @@ export default function GuessTheCardBoard({
               <p className="text-sm text-muted">Your guesses appear here as you work through the stat rails.</p>
             ) : (
               game.guesses.map((guess, index) => (
-                <span key={`${guess.slug}-${index}`} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${guess.correct ? "border-mint/60 bg-mint/10 text-mint" : "border-border bg-canvas/60 text-muted line-through"}`}>
+                <span key={`${guess.slug}-${index}`} className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${guess.correct ? "border-mint/60 bg-mint/10 text-mint" : "border-border-subtle bg-canvas/60 text-muted line-through"}`}>
                   {guess.name}#{guess.tag}
                 </span>
               ))
@@ -162,7 +162,7 @@ export default function GuessTheCardBoard({
                   value={selectedSlug}
                   onChange={(event) => setSelectedSlug(event.target.value)}
                   disabled={isPending}
-                  className="mt-2 block w-full rounded border border-border bg-canvas px-3 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none transition focus:border-coral disabled:opacity-60"
+                  className="mt-2 block w-full rounded border border-border-subtle bg-canvas px-3 py-3 text-sm font-normal normal-case tracking-normal text-white outline-none transition focus:border-coral disabled:opacity-60"
                 >
                   <option value="">Select a player…</option>
                   {game.candidates.map((candidate) => (
@@ -172,7 +172,7 @@ export default function GuessTheCardBoard({
                   ))}
                 </select>
               </label>
-              <button type="submit" disabled={!selectedSlug || isPending} className="rounded bg-coral px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-navy transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="submit" disabled={!selectedSlug || isPending} className="rounded bg-coral px-5 py-3 text-xs font-black uppercase tracking-[0.14em] text-canvas transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">
                 {isPending ? "Checking…" : "Lock guess"}
               </button>
             </form>
@@ -190,7 +190,7 @@ export default function GuessTheCardBoard({
 
           {!isPlaying ? (
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <span className="rounded border border-border bg-canvas/50 px-3 py-2 font-mono text-sm text-white">{shareText(game)}</span>
+              <span className="rounded border border-border-subtle bg-canvas/50 px-3 py-2 font-mono text-sm text-white">{shareText(game)}</span>
               <button type="button" onClick={handleCopy} className="rounded border border-coral/60 px-3 py-2 text-xs font-bold uppercase tracking-wide text-coral transition hover:bg-coral/10">
                 {copied ? "Copied" : "Copy result"}
               </button>
@@ -207,7 +207,7 @@ export default function GuessTheCardBoard({
         </section>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5 text-xs text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle/70 pt-5 text-xs text-muted">
         <Link href="/premium" className="transition hover:text-white">← Premium HQ</Link>
         <Link href={leaguePath(game.league)} className="transition hover:text-white">Refresh game</Link>
       </div>

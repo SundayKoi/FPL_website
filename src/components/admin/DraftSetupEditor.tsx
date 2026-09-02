@@ -56,7 +56,7 @@ export default function DraftSetupEditor({
     return (
       <div className="card-brand p-6 text-sm text-muted">
         This draft is already <span className="font-semibold text-white">{draft.status}</span>.{" "}
-      <a href={`/draft/${draft.id}`} className="text-primary underline">
+      <a href={`/draft/${draft.id}`} className="text-action-text underline">
           Go to the board
         </a>
         .

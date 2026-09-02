@@ -189,11 +189,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <Link
           href={league === "academy" ? "/academy/teams" : "/teams"}
-          className="flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+          className="flex w-fit items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
         >
           <span aria-hidden="true">←</span> All teams
         </Link>
@@ -241,7 +241,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                 href={multiOpggUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex rounded-full border border-primary/80 bg-primary/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white"
+                className="mt-3 inline-flex rounded-full border border-action-text/80 bg-action-fill/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white"
               >
                 Team OP.GG Multi
               </a>
@@ -257,10 +257,10 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             className="card-brand border-t-2"
             style={{ borderTopColor: team.bannerColor }}
           >
-            <h2 id="roster-heading" className="border-b border-border px-4 py-3 type-display text-xl">
+            <h2 id="roster-heading" className="border-b border-border-subtle px-4 py-3 type-display text-xl">
               Roster
             </h2>
-            <ul className="divide-y divide-border/80">
+            <ul className="divide-y divide-border-subtle/80">
               {team.players.map((player) => (
                 <li key={player.id} className="flex items-center gap-3 px-4 py-2.5">
                   <span className="w-9 shrink-0 font-display text-xs font-semibold not-italic text-muted">
@@ -276,17 +276,17 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                     // account sheet, falling back to the stored roster link).
                     <details name="player-account-menu" className="group relative min-w-0 flex-1">
                       <summary className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-                        <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-primary group-hover:text-primary group-hover:underline">
+                        <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 group-open:text-action-text group-hover:text-action-text group-hover:underline">
                           {player.displayName}
                         </span>
                         <span aria-hidden className="text-[0.55rem] text-muted transition group-open:rotate-180">
                           ▾
                         </span>
                       </summary>
-                      <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border bg-canvas p-1 shadow-lg">
+                      <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border-subtle bg-canvas p-1 shadow-lg">
                         <Link
                           href={`/players/${encodeURIComponent(player.displayName)}`}
-                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
+                          className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
                         >
                           Stats profile
                         </Link>
@@ -301,7 +301,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
+                            className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
                           >
                             {linkedAccountLabel(url, index)} ↗
                           </a>
@@ -335,14 +335,14 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             >
               <h2
                 id="upcoming-heading"
-                className="border-b border-border px-4 py-3 type-display text-xl"
+                className="border-b border-border-subtle px-4 py-3 type-display text-xl"
               >
                 Upcoming
               </h2>
               {upcoming.length === 0 ? (
                 <p className="px-4 py-4 text-sm text-muted">No scheduled matches.</p>
               ) : (
-                <ul className="divide-y divide-border/60">
+                <ul className="divide-y divide-border-subtle/60">
                   {upcoming.slice(0, 5).map((f) => (
                     <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
                       <span className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -367,14 +367,14 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
             >
               <h2
                 id="results-heading"
-                className="border-b border-border px-4 py-3 type-display text-xl"
+                className="border-b border-border-subtle px-4 py-3 type-display text-xl"
               >
                 Results
               </h2>
               {results.length === 0 ? (
                 <p className="px-4 py-4 text-sm text-muted">No results reported yet.</p>
               ) : (
-                <ul className="divide-y divide-border/60">
+                <ul className="divide-y divide-border-subtle/60">
                   {results.map((f) => {
                     const won = didWin(f, team.name);
                     return (
@@ -392,11 +392,11 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                         </span>
                         <Link
                           href={`/match/${f.id}`}
-                          className="text-sm font-semibold text-white underline-offset-4 hover:text-primary hover:underline"
+                          className="text-sm font-semibold text-white underline-offset-4 hover:text-action-text hover:underline"
                         >
                           vs {opponentOf(f, team.name)}
                         </Link>
-                        <span className="rounded border border-border bg-canvas px-2 py-0.5 text-xs font-bold text-white">
+                        <span className="rounded border border-border-subtle bg-canvas px-2 py-0.5 text-xs font-bold text-white">
                           {f.score_a}–{f.score_b}
                         </span>
                         <span className="ml-auto text-xs text-muted">

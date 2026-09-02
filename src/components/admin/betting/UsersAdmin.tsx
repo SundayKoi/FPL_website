@@ -133,7 +133,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
         </div>
         <ul className="flex flex-col gap-1.5">
           {balances.map((b) => (
-            <li key={b.discord_id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
+            <li key={b.discord_id} className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-surface px-3 py-1.5 text-sm">
               <span className="flex items-center gap-2">
                 <span className="font-medium text-white">{b.username}</span>
                 <span className="text-xs text-muted">{b.discord_id}</span>
@@ -152,7 +152,7 @@ export default function UsersAdmin({ balances: initialBalances, audit }: { balan
         ) : (
           <ul className="flex flex-col gap-1">
             {audit.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-xs">
+              <li key={a.id} className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-surface px-3 py-1.5 text-xs">
                 <span className="text-muted">
                   <span className="text-white">{a.actor}</span> · {a.action}
                   {a.target ? ` · ${a.target}` : ""}

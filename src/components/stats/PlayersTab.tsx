@@ -113,10 +113,10 @@ export default function PlayersTab({
               key={playerKey(row)}
               type="button"
               onClick={() => onSelectPlayer({ summonerName: row.summoner_name, tag: row.tag })}
-              className="card-neon group flex flex-col gap-2 p-3 text-left transition hover:border-primary/60"
+              className="card-neon group flex flex-col gap-2 p-3 text-left transition hover:border-action-text/60"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold text-white group-hover:text-primary">
+                <span className="truncate text-sm font-semibold text-white group-hover:text-action-text">
                   {row.summoner_name}
                   <span className="text-muted">#{row.tag}</span>
                 </span>

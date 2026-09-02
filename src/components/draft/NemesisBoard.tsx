@@ -118,7 +118,7 @@ export default function NemesisBoard({
       {state.phase !== "not_started" && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {DIVISIONS.map((division) => (
-            <div key={division} className="rounded border border-border bg-canvas/40 p-3">
+            <div key={division} className="rounded border border-border-subtle bg-canvas/40 p-3">
               <h3 className="label-dash mb-2">{division}</h3>
               <ul className="flex flex-col gap-1">
                 {state.byDivision[division].map((t) => (
@@ -178,7 +178,7 @@ export default function NemesisBoard({
       )}
 
       {isAdmin && state.phase !== "not_started" && (
-        <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+        <div className="flex flex-wrap gap-2 border-t border-border-subtle pt-3">
           <button
             type="button"
             disabled={busy}
@@ -186,7 +186,7 @@ export default function NemesisBoard({
               if (!confirm("Undo the last nemesis pick?")) return;
               void run(() => supabase.rpc("nemesis_undo", { p_draft_id: draftId }));
             }}
-            className="rounded border border-border px-2 py-1 text-xs font-semibold text-muted hover:text-primary disabled:opacity-40"
+            className="rounded border border-border-subtle px-2 py-1 text-xs font-semibold text-muted hover:text-action-text disabled:opacity-40"
           >
             Undo last pick
           </button>

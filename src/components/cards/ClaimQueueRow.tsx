@@ -16,7 +16,7 @@ import { approveCardClaim } from "@/lib/cards/claimActions";
 import { createClient } from "@/lib/supabase/client";
 
 const ACTION =
-  "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
+  "rounded-full border border-border-strong bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";
 
 export default function ClaimQueueRow({
   season,
@@ -70,9 +70,9 @@ export default function ClaimQueueRow({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-3">
       <div className="min-w-0">
-        <Link href={`/card/${slug}`} className="font-semibold text-white underline-offset-4 hover:text-primary hover:underline">
+        <Link href={`/card/${slug}`} className="font-semibold text-white underline-offset-4 hover:text-action-text hover:underline">
           {summonerName}
           <span className="text-muted">#{tag}</span>
         </Link>

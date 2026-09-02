@@ -292,7 +292,7 @@ export default function ReportBox({
             type="button"
             onClick={handleParse}
             disabled={!pasteText.trim()}
-            className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
+            className="w-fit rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
           >
             Parse paste
           </button>
@@ -469,7 +469,7 @@ export default function ReportBox({
         <button
           type="button"
           onClick={addGame}
-          className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white"
+          className="w-fit rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white"
         >
           + Add game
         </button>
@@ -488,7 +488,7 @@ export default function ReportBox({
         type="button"
         onClick={() => void handleSubmit()}
         disabled={submitting}
-        className="mt-4 rounded-full bg-primary px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+        className="mt-4 rounded-full bg-action-fill px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Submit report"}
       </button>

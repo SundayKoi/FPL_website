@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function PremiumGate({ signedIn, paymentHref }: { signedIn: boolean; paymentHref: string }) {
   return (
-    <main className="bg-hash flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
+    <main className="page-backdrop flex flex-1 flex-col items-center justify-center px-6 py-20 text-center">
       <section className="card-brand flex w-full max-w-2xl flex-col items-center gap-5 p-7 sm:p-10">
         <span className="label-dash">FPL Premium</span>
         <h1 className="type-display text-4xl sm:text-5xl">Premium HQ is locked</h1>

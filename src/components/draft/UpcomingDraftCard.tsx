@@ -24,7 +24,7 @@ export default function UpcomingDraftCard({ draft }: { draft: Draft }) {
       <Link
         href={`/draft/${draft.id}`}
         aria-label={`Preview draft board for ${draft.name}`}
-        className="mt-5 inline-flex rounded border border-primary/60 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="mt-5 inline-flex rounded border border-action-text/60 px-4 py-2 text-sm font-semibold text-action-text transition hover:bg-action-fill/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         Preview draft board →
       </Link>

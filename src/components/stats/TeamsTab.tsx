@@ -131,7 +131,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
               ))}
             </dl>
 
-            <div className="flex justify-between border-t border-border/50 pt-2 font-mono text-xs text-muted">
+            <div className="flex justify-between border-t border-border-subtle/50 pt-2 font-mono text-xs text-muted">
               <span>
                 <span className="text-white">{row.avg_team_kills.toFixed(1)}</span> kills/game
               </span>

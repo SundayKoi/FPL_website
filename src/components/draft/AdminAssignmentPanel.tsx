@@ -133,7 +133,7 @@ export default function AdminAssignmentPanel({
           type="button"
           disabled={busy}
           onClick={() => void assignPlayer()}
-          className="rounded border border-primary px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-40"
+          className="rounded border border-action-text px-3 py-1.5 text-sm font-semibold text-action-text hover:bg-action-fill/10 disabled:opacity-40"
         >
           Assign player
         </button>

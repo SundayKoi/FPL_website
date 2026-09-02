@@ -113,7 +113,7 @@ export default function PlayerPoolEditor({
           onChange={(e) => setCsv(e.target.value)}
           rows={6}
           placeholder={"Faker,mid,Challenger,https://op.gg/...\nCanyon,jungle"}
-          className="rounded border border-border bg-canvas px-2 py-1 font-mono text-xs text-white placeholder:text-muted/60 focus:border-primary focus:outline-none"
+          className="rounded border border-border-strong bg-canvas px-2 py-1 font-mono text-xs text-white placeholder:text-muted/60 focus:border-action-text focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <button
@@ -171,7 +171,7 @@ export default function PlayerPoolEditor({
             </thead>
             <tbody>
               {pool.map((p) => (
-                <tr key={p.id} className="border-t border-border">
+                <tr key={p.id} className="border-t border-border-subtle">
                   <td className="py-1 text-white">{p.display_name}</td>
                   <td className="py-1 text-muted">{p.role}</td>
                   <td className="py-1 text-muted">{p.rank ?? "—"}</td>
@@ -180,7 +180,7 @@ export default function PlayerPoolEditor({
                   </td>
                   <td className="py-1 text-muted">
                     {p.opgg_url ? (
-                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-primary underline">
+                      <a href={p.opgg_url} target="_blank" rel="noreferrer" className="text-action-text underline">
                         link
                       </a>
                     ) : (

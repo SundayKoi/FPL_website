@@ -39,7 +39,7 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
   }
 
   return (
-    <li className="rounded-lg border border-border bg-surface p-4">
+    <li className="rounded-lg border border-border-subtle bg-surface p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <span className="font-semibold text-white">{s.question}</span>
         <span className="text-sm text-muted">
@@ -57,7 +57,7 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
           <select
             value={eventId}
             onChange={(e) => setEventId(Number(e.target.value))}
-            className="rounded border border-border bg-surface px-2 py-1.5 text-sm text-white"
+            className="rounded border border-border-subtle bg-surface px-2 py-1.5 text-sm text-white"
           >
             {events.map((ev) => (
               <option key={ev.id} value={ev.id}>
@@ -72,7 +72,7 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
             type="datetime-local"
             value={gameAt}
             onChange={(e) => setGameAt(e.target.value)}
-            className="rounded border border-border bg-surface px-2 py-1.5 text-sm text-white"
+            className="rounded border border-border-subtle bg-surface px-2 py-1.5 text-sm text-white"
           />
         </label>
         <button
@@ -90,7 +90,7 @@ function SuggestionCard({ s, events }: { s: PendingSuggestionRow; events: { id: 
             onChange={(e) => setReason(e.target.value)}
             maxLength={200}
             placeholder="Too ambiguous to settle"
-            className="rounded border border-border bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-muted/60"
+            className="rounded border border-border-subtle bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-muted/60"
           />
         </label>
         <button
@@ -116,7 +116,7 @@ export default function PropsAdmin({
 }) {
   if (suggestions.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
+      <div className="rounded-lg border border-border-subtle bg-surface p-8 text-center text-sm text-muted">
         No pending suggestions — the queue is clear.
       </div>
     );

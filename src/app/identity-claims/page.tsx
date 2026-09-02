@@ -36,7 +36,7 @@ export default async function IdentityClaimsPage() {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user?.id) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review identity claims</h1>
         <p className="max-w-md text-sm text-muted">Captains see requests for their own team. Admins see every team.</p>
@@ -102,7 +102,7 @@ export default async function IdentityClaimsPage() {
     .map((row) => [row.id, row.display_name ?? "a signed-in player"]));
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header>
         <span className="label-dash">Roster identities</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Identity claims</h1>
@@ -110,9 +110,9 @@ export default async function IdentityClaimsPage() {
           Approve only a player claiming their own current roster spot. Database policies limit captains to their team.
         </p>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
-          <Link href="/admin/claims" className="underline-offset-4 hover:text-primary hover:underline">Card-only claims →</Link>
-          <Link href="/teams" className="underline-offset-4 hover:text-primary hover:underline">Premier teams →</Link>
-          <Link href="/academy/teams" className="underline-offset-4 hover:text-primary hover:underline">Academy teams →</Link>
+          <Link href="/admin/claims" className="underline-offset-4 hover:text-action-text hover:underline">Card-only claims →</Link>
+          <Link href="/teams" className="underline-offset-4 hover:text-action-text hover:underline">Premier teams →</Link>
+          <Link href="/academy/teams" className="underline-offset-4 hover:text-action-text hover:underline">Academy teams →</Link>
         </div>
       </header>
 

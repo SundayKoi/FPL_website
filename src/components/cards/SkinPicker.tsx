@@ -95,7 +95,7 @@ export default function SkinPicker({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+        className="rounded-full border border-border-strong bg-surface px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
       >
         {open ? "Close customizer" : "Customize card"}
       </button>
@@ -154,7 +154,7 @@ export default function SkinPicker({
                         onClick={() => void save({ skin })}
                         aria-pressed={active}
                         className={`relative h-16 w-28 shrink-0 overflow-hidden rounded border transition ${
-                          active ? "border-coral ring-2 ring-primary/60" : "border-border hover:border-primary"
+                          active ? "border-coral ring-2 ring-focus/60" : "border-border-strong hover:border-action-text"
                         } disabled:cursor-default`}
                         title={skin === 0 ? "Base splash" : `Skin ${skin}`}
                       >
@@ -180,7 +180,7 @@ export default function SkinPicker({
                           }}
                         />
                         {active ? (
-                          <span className="absolute inset-x-0 bottom-0 bg-coral/90 text-[9px] font-bold uppercase text-navy">In use</span>
+                          <span className="absolute inset-x-0 bottom-0 bg-coral/90 text-[9px] font-bold uppercase text-canvas">In use</span>
                         ) : null}
                       </button>
                     );

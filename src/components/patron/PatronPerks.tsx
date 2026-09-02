@@ -16,13 +16,13 @@ export default function PatronPerks({
   const perks = compact ? HEADLINE_PATRON_PERKS : PATRON_PERKS;
 
   return (
-    <div className={`rounded-xl border border-border bg-black/10 p-4 ${className}`}>
+    <div className={`rounded-xl border border-border-subtle bg-black/10 p-4 ${className}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <span className="label-dash">{compact ? "The Patron Flame" : "What patrons carry"}</span>
         {compact ? (
           <Link
             href="/support-devs"
-            className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
+            className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
           >
             All {PATRON_PERKS.length} perks →
           </Link>
@@ -57,7 +57,7 @@ export default function PatronPerks({
           </Link>
           <Link
             href="/supporters"
-            className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
+            className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
           >
             See the Flame Holders →
           </Link>

@@ -154,7 +154,7 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncTeams()}
           disabled={syncTeamsStatus.kind === "saving"}
-          className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white disabled:opacity-50"
+          className="rounded-full border border-action-text px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white disabled:opacity-50"
         >
           {syncTeamsStatus.kind === "saving" ? "Syncing…" : "Sync teams from draft"}
         </button>
@@ -162,7 +162,7 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncAcademy()}
           disabled={academySyncStatus.kind === "saving"}
-          className="rounded-full border border-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-50"
+          className="rounded-full border border-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
         >
           {academySyncStatus.kind === "saving" ? "Syncing…" : "Sync Academy teams"}
         </button>
@@ -170,7 +170,7 @@ function DraftSyncControls({ season, children }: { season: string; children: Rea
           type="button"
           onClick={() => void handleSyncCaptains()}
           disabled={syncStatus.kind === "saving"}
-          className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary transition hover:bg-primary hover:text-white disabled:opacity-50"
+          className="rounded-full border border-action-text px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white disabled:opacity-50"
         >
           {syncStatus.kind === "saving" ? "Syncing…" : "Sync captains from draft"}
         </button>
@@ -412,7 +412,7 @@ export default function RosterEditor({
                       return (
                         <li
                           key={m.id}
-                          className="flex flex-wrap items-center gap-2 rounded border border-border/60 bg-canvas/60 px-3 py-1.5 text-sm"
+                          className="flex flex-wrap items-center gap-2 rounded border border-border-subtle/60 bg-canvas/60 px-3 py-1.5 text-sm"
                         >
                           <code className="font-mono text-white">
                             {account ? `${account.game_name}#${account.tag_line}` : "(deleted Riot account)"}
@@ -433,7 +433,7 @@ export default function RosterEditor({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-end gap-2 border-t border-border pt-3">
+              <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle pt-3">
                 <label className="flex flex-col gap-1 text-xs text-muted">
                   Add Riot ID
                   <input
@@ -450,14 +450,14 @@ export default function RosterEditor({
                   type="button"
                   disabled={addStatus.kind === "saving" || !addText.trim()}
                   onClick={() => void handleAddOne()}
-                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
+                  className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-50"
                 >
                   {addStatus.kind === "saving" ? "Adding…" : "Add"}
                 </button>
               </div>
               <StatusMessage status={addStatus} />
 
-              <div className="flex flex-col gap-2 border-t border-border pt-3">
+              <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
                 <label className="flex flex-col gap-1 text-xs text-muted">
                   Bulk add — one Name#TAG per line
                   <textarea
@@ -475,7 +475,7 @@ export default function RosterEditor({
                   type="button"
                   disabled={bulkStatus.kind === "saving" || !bulkText.trim()}
                   onClick={() => void handleBulkAdd()}
-                  className="w-fit rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
+                  className="w-fit rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:text-white disabled:opacity-50"
                 >
                   {bulkStatus.kind === "saving" ? "Adding…" : "Bulk add"}
                 </button>

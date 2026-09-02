@@ -46,7 +46,7 @@ export default function DraftBoard({
 
   if (!s.draft)
     return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas bg-hash p-8">
+      <main className="flex min-h-screen items-center justify-center bg-canvas page-backdrop p-8">
         <div className="card-brand px-10 py-8 text-center">
           {s.loaded ? (
             <>
@@ -76,7 +76,7 @@ export default function DraftBoard({
     !openLot;
 
   return (
-    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 bg-hash px-4 py-6 text-white">
+    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white">
       <div className={chatTopReserve}>
         <DraftHeader draft={draft} />
       </div>
@@ -157,7 +157,7 @@ export default function DraftBoard({
                     <button
                       type="button"
                       onClick={() => setCollapseAllTeams((current) => !current)}
-                      className="rounded border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted hover:border-primary hover:text-primary"
+                      className="rounded border border-border-strong px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted hover:border-action-text hover:text-action-text"
                     >
                       {collapseAllTeams ? "Expand all" : "Collapse all"}
                     </button>
@@ -239,7 +239,7 @@ export default function DraftBoard({
                 <button
                   type="button"
                   onClick={() => setChatCollapsed(false)}
-                  className="hidden rounded border border-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary hover:bg-primary/10 xl:absolute xl:right-0 xl:top-0 xl:block"
+                  className="hidden rounded border border-action-text px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-action-text hover:bg-action-fill/10 xl:absolute xl:right-0 xl:top-0 xl:block"
                 >
                   Open chat
                 </button>

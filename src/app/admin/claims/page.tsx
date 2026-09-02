@@ -103,7 +103,7 @@ export default async function PlayerClaimsPage() {
 
   if (!viewerProfileId) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player claims</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to review player claims</h1>
         <p className="max-w-md text-sm text-muted">
@@ -125,7 +125,7 @@ export default async function PlayerClaimsPage() {
   const totalPending = sections.reduce((sum, section) => sum + section.actionable.length + section.otherCount, 0);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header>
         <span className="label-dash">Admin · Player claims</span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">Player claims</h1>
@@ -134,8 +134,8 @@ export default async function PlayerClaimsPage() {
           the signature. Approve only people claiming their own card.
         </p>
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted">
-          <Link href="/admin" className="underline-offset-4 hover:text-primary hover:underline">← Back to admin</Link>
-          <Link href="/identity-claims" className="underline-offset-4 hover:text-primary hover:underline">
+          <Link href="/admin" className="underline-offset-4 hover:text-action-text hover:underline">← Back to admin</Link>
+          <Link href="/identity-claims" className="underline-offset-4 hover:text-action-text hover:underline">
             Roster identity claims →
           </Link>
         </div>

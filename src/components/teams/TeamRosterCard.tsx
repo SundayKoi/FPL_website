@@ -64,7 +64,7 @@ export default function TeamRosterCard({
         </div>
       </div>
 
-      <div className="border-b border-border bg-canvas/80 px-4 py-3">
+      <div className="border-b border-border-subtle bg-canvas/80 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <h2 id={headingId} className="font-display text-2xl font-semibold text-white">
             {/* Placeholder teams (no featured draft) have synthetic ids and
@@ -75,7 +75,7 @@ export default function TeamRosterCard({
               <Link
                 href={`${league === "academy" ? "/academy/teams" : "/teams"}/${teamSlug(team.name)}`}
                 draggable={false}
-                className="underline-offset-4 transition hover:text-primary hover:underline"
+                className="underline-offset-4 transition hover:text-action-text hover:underline"
               >
                 {team.name}
               </Link>
@@ -87,7 +87,7 @@ export default function TeamRosterCard({
         </p>
       </div>
 
-      <ul aria-label={`${team.name} roster`} className="divide-y divide-border/80">
+      <ul aria-label={`${team.name} roster`} className="divide-y divide-border-subtle/80">
         {team.players.map((player) => {
           const captain = player.acquisition === "captain";
           const freeAgency = player.acquisition === "free_agency";
@@ -128,18 +128,18 @@ export default function TeamRosterCard({
                     draggable={false}
                     className="flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden"
                   >
-                    <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 hover:text-primary hover:underline group-open/menu:text-primary">
+                    <span className="min-w-0 truncate text-sm font-semibold text-white underline-offset-4 hover:text-action-text hover:underline group-open/menu:text-action-text">
                       {player.displayName}
                     </span>
                     <span aria-hidden className="text-[0.55rem] text-muted transition group-open/menu:rotate-180">
                       ▾
                     </span>
                   </summary>
-                  <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border bg-canvas p-1 shadow-lg">
+                  <div className="absolute left-0 top-full z-20 mt-1 flex min-w-48 flex-col rounded border border-border-subtle bg-canvas p-1 shadow-lg">
                     <Link
                       href={`/players/${encodeURIComponent(player.displayName)}`}
                       draggable={false}
-                      className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
+                      className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
                     >
                       Stats profile
                     </Link>
@@ -150,7 +150,7 @@ export default function TeamRosterCard({
                         target="_blank"
                         rel="noopener noreferrer"
                         draggable={false}
-                        className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border/40 hover:text-white"
+                        className="rounded px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:bg-border-subtle/40 hover:text-white"
                       >
                         {linkedAccountLabel(url, index)} ↗
                       </a>
@@ -174,7 +174,7 @@ export default function TeamRosterCard({
                 <button
                   type="button"
                   onClick={() => onKeyboardSwap?.(player)}
-                  className="shrink-0 rounded border border-border px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="shrink-0 rounded border border-border-strong px-1.5 py-1 text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-muted transition hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   aria-label={`Swap with ${player.displayName}`}
                 >
                   Swap with…

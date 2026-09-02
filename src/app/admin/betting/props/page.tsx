@@ -19,7 +19,7 @@ export default async function AdminBettingPropsPage() {
   const events = (eventsRes.data as { id: number; name: string }[] | null) ?? [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-16">
       <header>
         <span className="label-dash">STAFF ONLY</span>
         <h1 className="type-display mt-3 text-4xl sm:text-5xl">Betting — Prop Suggestions</h1>

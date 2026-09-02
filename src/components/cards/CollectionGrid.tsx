@@ -92,7 +92,7 @@ function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
   return Number(b.signed) - Number(a.signed) || b.overall - a.overall || a.id - b.id;
 }
 
-const CHIP = "rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted";
+const CHIP = "rounded-full border border-border-subtle bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted";
 const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
 
 /** The line under a single copy: whose it is, which print run it came from,
@@ -372,7 +372,7 @@ export default function CollectionGrid({
       onClick={() => (selecting ? leaveSelectMode() : setSelecting(true))}
       aria-pressed={selecting}
       className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-        selecting ? "bg-gold text-navy" : "border border-border bg-surface text-muted hover:text-white"
+        selecting ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
       }`}
     >
       {selecting ? "Cancel" : "Select to dust"}
@@ -391,7 +391,7 @@ export default function CollectionGrid({
           // cleared state here has a name.
           onClick={() => chooseFilter(filter === key && key !== "all" ? "all" : key)}
           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-            filter === key ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+            filter === key ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
           }`}
         >
           {label} · {counts[key]}
@@ -587,7 +587,7 @@ export default function CollectionGrid({
                   type="button"
                   onClick={() => togglePrints(entry.best.slug)}
                   aria-expanded={expanded.has(entry.best.slug)}
-                  className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-primary hover:underline"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline"
                 >
                   {expanded.has(entry.best.slug) ? "Hide prints" : `View prints (${entry.prints.length})`}
                 </button>

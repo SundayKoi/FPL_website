@@ -63,7 +63,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted">
           Color
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-border bg-canvas" />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-14 rounded border border-border-subtle bg-canvas" />
         </label>
         <button
           type="submit"
@@ -75,7 +75,7 @@ function TeamsSection({ teams, busy, run }: { teams: BettingTeam[]; busy: boolea
       </form>
       <ul className="flex flex-col gap-1.5">
         {teams.map((t) => (
-          <li key={t.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
+          <li key={t.id} className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-surface px-3 py-1.5 text-sm">
             <span className="flex items-center gap-2">
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.color }} />
               <span className="font-medium text-white">{t.name}</span>
@@ -178,7 +178,7 @@ function EventsSection({
       </form>
       <ul className="flex flex-col gap-1.5">
         {events.map((ev) => (
-          <li key={ev.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
+          <li key={ev.id} className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-surface px-3 py-1.5 text-sm">
             <div className="flex flex-col gap-1">
               <span className="font-medium text-white">{ev.name}</span>
               {editingId === ev.id ? (
@@ -223,7 +223,7 @@ function EventsSection({
                     type="button"
                     disabled={busy}
                     onClick={() => setEditingId(null)}
-                    className="rounded border border-border px-2 py-1 text-xs text-muted"
+                    className="rounded border border-border-subtle px-2 py-1 text-xs text-muted"
                   >
                     Cancel binding edit
                   </button>
@@ -244,7 +244,7 @@ function EventsSection({
                 setEditingLeague(ev.league ?? "");
                 setEditingSeason(ev.schedule_season ?? "");
               }}
-              className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
+              className="rounded border border-border-strong px-2 py-0.5 text-xs text-muted hover:border-action-text hover:text-action-text disabled:opacity-40"
             >
               Edit schedule binding
             </button>
@@ -323,7 +323,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
       </form>
       <ul className="flex flex-col gap-1.5">
         {items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-3 py-1.5 text-sm">
+          <li key={item.id} className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-surface px-3 py-1.5 text-sm">
             <span className="flex items-center gap-2">
               <span className="font-medium text-white">{item.name}</span>
               <span className="text-xs text-muted">
@@ -337,7 +337,7 @@ function StoreSection({ items, busy, run }: { items: StoreItemRow[]; busy: boole
                 onClick={() =>
                   run(() => upsertStoreItem({ id: item.id, name: item.name, cost: item.cost, type: item.type, active: !item.active }))
                 }
-                className="rounded border border-border px-2 py-0.5 text-xs text-muted hover:border-primary hover:text-primary disabled:opacity-40"
+                className="rounded border border-border-strong px-2 py-0.5 text-xs text-muted hover:border-action-text hover:text-action-text disabled:opacity-40"
               >
                 {item.active ? "Deactivate" : "Activate"}
               </button>

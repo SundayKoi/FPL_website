@@ -31,7 +31,7 @@ function StandingRow({
   return (
     <div
       tabIndex={0}
-      className={`group border-t border-border/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-border/15 focus-visible:bg-border/15 focus-visible:outline-none ${
+      className={`group border-t border-border-subtle/50 py-3 transition first:border-t-0 first:pt-0 last:pb-0 hover:bg-border-subtle/15 focus-visible:bg-border-subtle/15 focus-visible:outline-none ${
         isLeader ? "row-rank-1" : ""
       }`}
     >
@@ -120,7 +120,7 @@ export default function HomeStandings({
                   key={group.name}
                   role="group"
                   aria-labelledby={`home-standings-${group.name.toLowerCase()}-title`}
-                  className="border-t border-border/60 py-4 first:border-t-0 first:pt-0 last:pb-0"
+                  className="border-t border-border-subtle/60 py-4 first:border-t-0 first:pt-0 last:pb-0"
                 >
                   <h3
                     id={`home-standings-${group.name.toLowerCase()}-title`}

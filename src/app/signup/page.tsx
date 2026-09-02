@@ -40,9 +40,9 @@ export default async function SignupPage() {
   const signups = (signupsResult.data as SignupRow[]) ?? [];
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-border pb-8">
+        <header className="border-b border-border-subtle pb-8">
           <span className="label-dash">JOIN THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Sign Up</h1>
           <hr className="accent-rule mt-5 w-48 sm:w-64" />

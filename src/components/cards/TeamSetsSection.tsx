@@ -116,7 +116,7 @@ export default function TeamSetsSection({
               className={`rounded-full border px-3 py-1 text-xs transition ${
                 option.week === week
                   ? "border-coral bg-coral/15 font-semibold text-white"
-                  : "border-border text-muted hover:border-primary hover:text-white"
+                  : "border-border-strong text-muted hover:border-action-text hover:text-white"
               }`}
             >
               {weekLabel(option.week)}
@@ -175,7 +175,7 @@ export default function TeamSetsSection({
                       {index > 0 ? ", " : ""}
                       <Link
                         href={`/card/${member.slug}`}
-                        className="text-white underline-offset-4 hover:text-primary hover:underline"
+                        className="text-white underline-offset-4 hover:text-action-text hover:underline"
                       >
                         {member.name}
                       </Link>

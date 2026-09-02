@@ -68,8 +68,8 @@ export default function HomeDashboard({
   });
 
   return (
-    <main className="bg-hash flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+    <main className="page-backdrop flex-1">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10">
         <section aria-label={ariaLabel} className="space-y-6">
           <LiveTicker items={tickerItems} />
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">

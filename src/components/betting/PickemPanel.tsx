@@ -25,7 +25,7 @@ function LegRow({
   const resolved = leg.status === "RESOLVED";
   const voided = leg.status === "CANCELLED";
   return (
-    <div className="rounded-lg border border-border bg-surface p-3" data-testid={`pickem-leg-${leg.market_id}`}>
+    <div className="rounded-lg border border-border-subtle bg-surface p-3" data-testid={`pickem-leg-${leg.market_id}`}>
       <div className="truncate text-xs uppercase tracking-wide text-muted">{leg.title}</div>
       <div className="mt-2 flex gap-2">
         {[leg.team_a, leg.team_b].map((t) => {
@@ -100,7 +100,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4" data-testid="pickem-panel">
+    <div className="rounded-lg border border-border-subtle bg-surface p-4" data-testid="pickem-panel">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-display text-lg not-italic text-white">🃏 {pickem.title}</div>
@@ -133,7 +133,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
       </div>
 
       {pickem.my_card && (
-        <div className="mt-4 rounded border border-border px-3 py-2 text-sm" data-testid="pickem-mycard">
+        <div className="mt-4 rounded border border-border-subtle px-3 py-2 text-sm" data-testid="pickem-mycard">
           {pickem.status === "RESOLVED" ? (
             (pickem.my_card.payout ?? 0) > 0 ? (
               <span className="text-mint">Perfect card! +{fmtPoints(pickem.my_card.payout!)} 🏆</span>
@@ -166,7 +166,7 @@ export function PickemPanel({ pickem, balance, loggedIn }: { pickem: PickemData;
             />
             <button
               type="button"
-              className="rounded bg-primary px-4 py-2 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded bg-action-fill px-4 py-2 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!complete || amount <= 0 || amount > balance || pending}
               onClick={submit}
             >

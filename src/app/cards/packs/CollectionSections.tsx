@@ -106,13 +106,13 @@ export default async function CollectionSections({
       <section id="collection" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Your collection</h2>
-          <Link href={`${base}/trades`} className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+          <Link href={`${base}/trades`} className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
             Trading post →
           </Link>
-          <a href="#binder" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+          <a href="#binder" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
             Your binder →
           </a>
-          <a href="#team-sets" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+          <a href="#team-sets" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
             Roster sets →
           </a>
         </div>
@@ -145,7 +145,7 @@ export function CollectionSectionsFallback() {
       <div aria-hidden className="flex flex-wrap justify-center gap-x-0 gap-y-4">
         {Array.from({ length: 6 }, (_, index) => (
           <div key={index} className="card-cell">
-            <div className="h-[28rem] w-80 animate-pulse rounded-2xl border border-border bg-surface/60" />
+            <div className="h-[28rem] w-80 animate-pulse rounded-2xl border border-border-subtle bg-surface/60" />
           </div>
         ))}
       </div>

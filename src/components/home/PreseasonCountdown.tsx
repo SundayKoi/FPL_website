@@ -44,15 +44,15 @@ export default function PreseasonCountdown({ targetAt }: { targetAt: string }) {
         <span className="block font-mono text-2xl font-bold text-prestige">{now ? countdown.days : "—"}</span>
         <span className="text-[10px] uppercase tracking-[0.14em] text-muted">Days</span>
       </div>
-      <div className="rounded border border-border bg-canvas/70 px-3 py-2 text-center">
+      <div className="rounded border border-border-subtle bg-canvas/70 px-3 py-2 text-center">
         <span className="block font-mono text-2xl font-bold text-white">{now ? String(countdown.hours).padStart(2, "0") : "—"}</span>
         <span className="text-[10px] uppercase tracking-[0.14em] text-muted">Hours</span>
       </div>
-      <div className="rounded border border-border bg-canvas/70 px-3 py-2 text-center">
+      <div className="rounded border border-border-subtle bg-canvas/70 px-3 py-2 text-center">
         <span className="block font-mono text-2xl font-bold text-white">{now ? String(countdown.minutes).padStart(2, "0") : "—"}</span>
         <span className="text-[10px] uppercase tracking-[0.14em] text-muted">Minutes</span>
       </div>
-      <div className="rounded border border-border bg-canvas/70 px-3 py-2 text-center">
+      <div className="rounded border border-border-subtle bg-canvas/70 px-3 py-2 text-center">
         <span className="block font-mono text-2xl font-bold text-league-secondary">{now ? String(countdown.seconds).padStart(2, "0") : "—"}</span>
         <span className="text-[10px] uppercase tracking-[0.14em] text-muted">Seconds</span>
       </div>

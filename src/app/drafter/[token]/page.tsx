@@ -104,7 +104,7 @@ export default async function OpenDraftLobbyPage({
   const info = infoData as OpenDraftLobbyInfo | null;
   if (!info) {
     return (
-      <main className="flex flex-1 items-center justify-center bg-hash p-8">
+      <main className="flex flex-1 items-center justify-center page-backdrop p-8">
         <section className="card-brand max-w-md p-6 text-center">
           <h1 className="type-display text-2xl text-white">Lobby not found</h1>
           <p className="mt-2 text-sm text-muted">

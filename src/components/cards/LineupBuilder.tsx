@@ -184,7 +184,7 @@ export default function LineupBuilder({
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border-subtle pt-3">
         <span className={`font-mono text-sm font-bold ${overCap ? "text-red-400" : "text-mint"}`}>
           {totalOverall}/{SALARY_CAP}
         </span>

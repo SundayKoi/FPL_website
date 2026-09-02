@@ -36,7 +36,7 @@ export default function CollapsibleAdminSection({
       </button>
 
       {open && (
-        <div className={`flex flex-col ${contentGapClass} border-t border-border px-4 py-4`}>
+        <div className={`flex flex-col ${contentGapClass} border-t border-border-subtle px-4 py-4`}>
           {children}
         </div>
       )}

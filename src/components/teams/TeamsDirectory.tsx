@@ -30,9 +30,9 @@ export default function TeamsDirectory({
   ];
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="flex flex-col gap-6 border-b border-border pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <header className="flex flex-col gap-6 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <span className="label-dash">{leagueLabel.toUpperCase()} LEAGUE ROSTERS</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">{title}</h1>

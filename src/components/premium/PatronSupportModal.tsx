@@ -47,7 +47,7 @@ export default function PatronSupportModal() {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
-        className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.14em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.14em] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
       >
         Become a patron <span aria-hidden="true">↗</span>
       </button>
@@ -62,7 +62,7 @@ export default function PatronSupportModal() {
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm"
         >
           <div className="card-brand my-auto w-full max-w-3xl p-5 sm:p-7">
-            <header className="flex items-start justify-between gap-4 border-b border-border/70 pb-5">
+            <header className="flex items-start justify-between gap-4 border-b border-border-subtle/70 pb-5">
               <div>
                 <span className="label-dash">Keep the league burning</span>
                 <h2 id={titleId} className="type-display mt-2 text-3xl sm:text-4xl">
@@ -78,7 +78,7 @@ export default function PatronSupportModal() {
                 type="button"
                 onClick={close}
                 aria-label="Close patron details"
-                className="shrink-0 rounded-full border border-border bg-canvas/70 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                className="shrink-0 rounded-full border border-border-strong bg-canvas/70 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
               >
                 Close ×
               </button>
@@ -88,14 +88,14 @@ export default function PatronSupportModal() {
               <PatronPerks variant="full" />
             </div>
 
-            <div className="mt-5 border-t border-border/70 pt-5">
+            <div className="mt-5 border-t border-border-subtle/70 pt-5">
               <span className="label-dash">Choose a way to support</span>
               <div className="mt-3 flex flex-wrap gap-3">
                 <a
                   href={PATRON_PAYPAL_HREF}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                  className="btn-pill inline-flex items-center gap-2 px-4 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
                 >
                   PayPal · Zachari <span aria-hidden="true">↗</span>
                 </a>
@@ -105,7 +105,7 @@ export default function PatronSupportModal() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full border border-border bg-canvas/60 px-4 py-2 text-sm font-semibold text-muted transition hover:border-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                    className="inline-flex items-center gap-2 rounded-full border border-border-strong bg-canvas/60 px-4 py-2 text-sm font-semibold text-muted transition hover:border-action-text hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
                   >
                     Venmo · {link.name} <span aria-hidden="true">↗</span>
                   </a>

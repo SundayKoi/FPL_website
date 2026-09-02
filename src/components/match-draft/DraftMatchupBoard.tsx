@@ -78,8 +78,8 @@ export function DraftPickSlot({
       onKeyDown={onKeyDown}
       data-testid={`${side}-pick-slot`}
       className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
-        active ? "border-gold bg-gold/10" : pick.state === "recorded" ? "border-border bg-canvas/70" : "border-dashed border-border bg-surface/70"
-      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" : ""}`}
+        active ? "border-gold bg-gold/10" : pick.state === "recorded" ? "border-border-subtle bg-canvas/70" : "border-dashed border-border-subtle bg-surface/70"
+      } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus" : ""}`}
     >
       {portraitUrl ? (
         <>
@@ -102,7 +102,7 @@ export function DraftPickSlot({
               title="Request a change to this step"
               aria-label={`Request change to ${side} pick ${pick.slot}`}
               onClick={onRequestChange}
-              className="rounded border border-border px-1 leading-tight text-muted transition hover:border-primary hover:text-primary"
+              className="rounded border border-border-strong px-1 leading-tight text-muted transition hover:border-action-text hover:text-action-text"
             >
               ↺
             </button>
@@ -116,7 +116,7 @@ export function DraftPickSlot({
       {pick.pickNumber ? (
         <span
           title={`Pick ${pick.pickNumber}`}
-          className="absolute left-1 top-1 rounded-full border border-border/70 bg-canvas/90 px-1 text-[8px] font-bold leading-4 text-muted"
+          className="absolute left-1 top-1 rounded-full border border-border-subtle/70 bg-canvas/90 px-1 text-[8px] font-bold leading-4 text-muted"
         >
           P{pick.pickNumber}
           <span className="sr-only">{pick.pickNumber}</span>
@@ -142,7 +142,7 @@ export function DraftTeamHeader({
         <span
           title={online ? "Captain connected" : "Captain not connected"}
           aria-label={`${team.abbreviation} captain ${online ? "connected" : "not connected"}`}
-          className={`absolute top-2 h-2 w-2 rounded-full ${side === "red" ? "left-2" : "right-2"} ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-border"}`}
+          className={`absolute top-2 h-2 w-2 rounded-full ${side === "red" ? "left-2" : "right-2"} ${online ? "bg-mint shadow-[0_0_6px_rgb(46_230_168/0.8)]" : "bg-border-subtle"}`}
         />
       ) : null}
       {team.imageUrl ? (
@@ -183,7 +183,7 @@ function BanTile({
       data-testid={`ban-${side}-${ban.slot}`}
       title={ban.state === "skipped" ? "Skipped" : ban.champion ?? `Ban ${ban.slot}`}
       className={`relative ${imageSizes[imageSize].ban} shrink-0 overflow-hidden rounded border ${
-        active ? "border-gold bg-gold/10" : ban.state === "recorded" ? "border-border bg-canvas/70" : "border-dashed border-border bg-surface/70"
+        active ? "border-gold bg-gold/10" : ban.state === "recorded" ? "border-border-subtle bg-canvas/70" : "border-dashed border-border-subtle bg-surface/70"
       }`}
     >
       {champion ? (
@@ -204,7 +204,7 @@ function BanTile({
           title="Request a change to this ban"
           aria-label={`Request change to ${side} ban ${ban.slot}`}
           onClick={onRequestChange}
-          className="absolute right-0.5 top-0.5 rounded border border-border bg-canvas/80 px-1 text-[10px] leading-tight text-muted transition hover:border-primary hover:text-primary"
+          className="absolute right-0.5 top-0.5 rounded border border-border-strong bg-canvas/80 px-1 text-[10px] leading-tight text-muted transition hover:border-action-text hover:text-action-text"
         >
           ↺
         </button>
@@ -305,7 +305,7 @@ export function DraftMatchupSidePanel({
 
 function DefaultRail({ view }: { view: DraftMatchupView }) {
   return (
-    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border bg-surface px-4 py-4 text-center">
+    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
       <span className="label-dash">Game {view.gameNumber}</span>
       <span className="type-display mt-1 text-2xl text-white">
         {view.outcome.status === "winner" ? `${view.outcome.winnerTeam} win` : "Unresolved"}

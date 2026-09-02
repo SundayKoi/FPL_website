@@ -58,7 +58,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
 
   return (
     <div className="card-brand overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
         <span className="label-dash">
           Admin — signups ({visible.length}
           {seasonFilter === "all" ? " total" : ` in ${seasonFilter}`})
@@ -68,7 +68,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
             <button
               type="button"
               onClick={() => void handleCopyCsv()}
-              className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary"
+              className="rounded-full border border-border-strong bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
             >
               {copied ? "Copied!" : "Copy CSV"}
             </button>
@@ -78,7 +78,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
               value={seasonFilter}
               onChange={(e) => setSeasonFilter(e.target.value)}
               aria-label="Filter signups by season"
-              className="rounded border border-border bg-canvas px-2 py-1 text-xs font-semibold text-white focus:border-primary focus:outline-none"
+              className="rounded border border-border-strong bg-canvas px-2 py-1 text-xs font-semibold text-white focus:border-action-text focus:outline-none"
             >
               <option value="all">All seasons</option>
               {seasons.map((s) => (
@@ -121,7 +121,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
               {visible.map((s) => (
                 <tr
                   key={s.id}
-                  className={`border-t border-border/60 align-top ${
+                  className={`border-t border-border-subtle/60 align-top ${
                     duplicates.has(s.id) ? "bg-red-500/5" : ""
                   }`}
                 >
@@ -148,7 +148,7 @@ export default function AdminSignupsTable({ signups }: { signups: SignupRow[] })
                       target="_blank"
                       rel="noreferrer"
                       title={s.opgg}
-                      className="block truncate text-primary hover:underline"
+                      className="block truncate text-action-text hover:underline"
                     >
                       {s.opgg}
                     </a>

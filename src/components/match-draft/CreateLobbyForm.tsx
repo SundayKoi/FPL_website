@@ -20,7 +20,7 @@ function LobbyLink({ label, hint, token, suffix = "" }: { label: string; hint: s
     }
   };
   return (
-    <div className="rounded border border-border bg-canvas/60 p-3">
+    <div className="rounded border border-border-subtle bg-canvas/60 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="label-dash">{label}</span>
         <button type="button" onClick={() => void copy()} className="btn-pill px-3 py-1 text-xs">
@@ -164,7 +164,7 @@ export default function CreateLobbyForm() {
             aria-pressed={bestOf === option}
             onClick={() => setBestOf(option)}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-              bestOf === option ? "bg-coral text-navy" : "border border-border bg-surface text-muted hover:text-white"
+              bestOf === option ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
             }`}
           >
             Bo{option}
@@ -175,7 +175,7 @@ export default function CreateLobbyForm() {
           aria-pressed={fearless}
           onClick={() => setFearless((current) => !current)}
           className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
-            fearless ? "border border-mint/50 bg-mint/15 text-mint" : "border border-border bg-surface text-muted hover:text-white"
+            fearless ? "border border-mint/50 bg-mint/15 text-mint" : "border border-border-subtle bg-surface text-muted hover:text-white"
           }`}
         >
           Fearless {fearless ? "on" : "off"}

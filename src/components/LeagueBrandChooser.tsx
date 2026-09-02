@@ -71,13 +71,13 @@ export default function LeagueBrandChooser({ pathname, search, onNavigate }: Lea
         aria-haspopup="menu"
         aria-label={`${LABELS[current]}, ${DIVISIONS[current]}, choose league`}
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 transition hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex items-center gap-2 rounded-md border border-border-strong bg-surface px-3 py-2 transition hover:border-action-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         <BrandMark league={current} />
         <span aria-hidden="true" className="text-xs text-muted">▾</span>
       </button>
       {open ? (
-        <div role="menu" aria-label="League chooser" className="league-brand-menu absolute left-0 top-[calc(100%+0.5rem)] z-50 min-w-52 rounded-md border border-border p-1 shadow-xl">
+        <div role="menu" aria-label="League chooser" className="league-brand-menu absolute left-0 top-[calc(100%+0.5rem)] z-50 min-w-52 rounded-md border border-border-subtle p-1 shadow-xl">
           {(["premier", "academy"] as LeagueView[]).map((league) => (
             <Link
               key={league}

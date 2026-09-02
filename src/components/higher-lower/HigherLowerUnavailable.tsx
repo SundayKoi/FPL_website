@@ -1,6 +1,6 @@
 export default function HigherLowerUnavailable({ league }: { league: string }) {
   return (
-    <main className="bg-hash flex flex-1 items-center justify-center px-6 py-20">
+    <main className="page-backdrop flex flex-1 items-center justify-center px-6 py-20">
       <section className="card-brand w-full max-w-2xl p-8 text-center sm:p-12">
         <span className="label-dash">{league} Daily</span>
         <h1 className="type-display mt-2 text-4xl">Higher or Lower is resting</h1>

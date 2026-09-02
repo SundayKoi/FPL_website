@@ -128,8 +128,8 @@ function CardPicker({
         <li key={card.id} className="flex items-stretch gap-1">
           <label
             title={deployed ? "On expedition — back soon." : undefined}
-            className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-[11px] ${
-              deployed ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-primary/60"
+            className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border-subtle bg-surface px-2 py-1 text-[11px] ${
+              deployed ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:border-action-text/60"
             }`}
           >
             <input
@@ -183,7 +183,7 @@ function CardPicker({
               altArt: card.altArt,
             }}
             label={`View ${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)} card`}
-            className="shrink-0 rounded-md border border-border bg-surface px-2 text-[11px] text-muted transition hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:outline-none"
+            className="shrink-0 rounded-md border border-border-strong bg-surface px-2 text-[11px] text-muted transition hover:border-action-text hover:text-action-text focus-visible:border-action-text focus-visible:outline-none"
           >
             <span aria-hidden>⤢</span>
           </CardCopyPreview>
@@ -383,7 +383,7 @@ export default function TradeBuilder({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle pt-3">
             <span className="text-sm text-white" data-testid="trade-summary">
               {sideLabel(giving, offeredDollars ?? 0)} ⇄ {sideLabel(getting, requestedDollars ?? 0)}
             </span>

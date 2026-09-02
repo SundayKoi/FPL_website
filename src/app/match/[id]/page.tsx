@@ -13,7 +13,7 @@ const int = new Intl.NumberFormat("en-US");
 function TeamLink({ name }: { name: string }) {
   if (name === "TBD") return <span className="text-muted">{name}</span>;
   return (
-    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-primary hover:underline">
+    <Link href={`/teams/${teamSlug(name)}`} className="hover:text-action-text hover:underline">
       {name}
     </Link>
   );
@@ -84,7 +84,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
   const played = hasResult(fixture);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 text-white">
+    <main className="page-backdrop mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10 text-white">
       <header className="card-brand flex flex-col gap-2 p-5">
         <span className="label-dash">
           {stageMeta(fixture.stage).label}
@@ -92,7 +92,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
         </span>
         <h1 className="type-display flex flex-wrap items-center gap-3 text-2xl">
           <TeamLink name={teamA} />
-          <span className="rounded border border-border bg-canvas px-3 py-1 text-xl">
+          <span className="rounded border border-border-subtle bg-canvas px-3 py-1 text-xl">
             {played ? `${fixture.score_a}–${fixture.score_b}` : "vs"}
           </span>
           <TeamLink name={teamB} />
@@ -110,7 +110,7 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
               : " No games were played."}
           </p>
         )}
-        <Link href="/schedule" className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+        <Link href="/schedule" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
           ← Back to the schedule
         </Link>
       </header>
@@ -172,11 +172,11 @@ export default async function MatchPage({ params }: { params: Promise<{ id: stri
                   </thead>
                   <tbody>
                     {side.players.map((p) => (
-                      <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-border/60">
+                      <tr key={`${p.summonerName}-${p.champion}`} className="border-t border-border-subtle/60">
                         <td className="truncate py-1 pr-2">
                           <Link
                             href={`/players/${encodeURIComponent(p.summonerName)}`}
-                            className="underline-offset-4 hover:text-primary hover:underline"
+                            className="underline-offset-4 hover:text-action-text hover:underline"
                           >
                             {p.summonerName}
                           </Link>

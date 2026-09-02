@@ -33,7 +33,7 @@ export function MarketCard({ market }: { market: MarketCardData }) {
     <Link
       href={`/betting/market/${market.id}`}
       className={
-        "block rounded-lg border border-border bg-surface p-4 transition hover:border-primary" +
+        "block rounded-lg border border-border-strong bg-surface p-4 transition hover:border-action-text" +
         (live ? " shadow-[0_0_0_1px_rgba(245,182,46,0.08)]" : "")
       }
     >
@@ -43,7 +43,7 @@ export function MarketCard({ market }: { market: MarketCardData }) {
       </div>
       <TeamRow team={market.team_a} pct={pctA} odds={americanOdds(shareA)} />
       <TeamRow team={market.team_b} pct={100 - pctA} odds={americanOdds(1 - shareA)} />
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-2 text-xs text-muted">
+      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2 text-xs text-muted">
         <span>
           {new Date(market.game_at).toLocaleString(undefined, {
             month: "short",

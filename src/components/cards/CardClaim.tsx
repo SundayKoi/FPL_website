@@ -22,9 +22,9 @@ export type CardClaimState = {
   displayName: string | null;
 };
 
-const CHIP = "rounded-full border border-border bg-surface px-3 py-1 text-xs";
+const CHIP = "rounded-full border border-border-subtle bg-surface px-3 py-1 text-xs";
 const ACTION =
-  "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
+  "rounded-full border border-border-strong bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";
 
 export default function CardClaim({
   season,
@@ -79,7 +79,7 @@ export default function CardClaim({
   const wrap = (children: React.ReactNode) => (
     <div
       className={`flex flex-col items-center gap-1 ${
-        highlight ? "claim-highlight rounded-xl p-3 ring-2 ring-primary" : ""
+        highlight ? "claim-highlight rounded-xl p-3 ring-2 ring-focus" : ""
       }`}
     >
       <div className="flex flex-wrap items-center justify-center gap-2">{children}</div>

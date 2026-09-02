@@ -21,7 +21,7 @@ const infoDestinations = [
 
 export default async function InfoPage() {
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>
@@ -38,11 +38,11 @@ export default async function InfoPage() {
               key={destination.href}
               href={destination.href}
               aria-label={destination.label}
-              className="card-brand group flex h-full flex-col p-6 transition hover:border-primary/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+              className="card-brand group flex h-full flex-col p-6 transition hover:border-action-text/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
             >
               <h2 className="font-display text-3xl font-semibold text-white">{destination.label}</h2>
               <p className="mt-3 flex-1 text-sm leading-6 text-muted">{destination.description}</p>
-              <span className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-primary transition group-hover:text-white">
+              <span className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-action-text transition group-hover:text-white">
                 Open page
               </span>
             </Link>

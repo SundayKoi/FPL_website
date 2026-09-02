@@ -189,7 +189,7 @@ export default function SignaturePad({
               title={`${INKS[key].label} ink`}
               onClick={() => setInk(key)}
               className={`h-5 w-5 rounded-full border-2 transition ${
-                ink === key ? "scale-110 border-white" : "border-border opacity-70 hover:opacity-100"
+                ink === key ? "scale-110 border-white" : "border-border-subtle opacity-70 hover:opacity-100"
               }`}
               style={{ background: INKS[key].color }}
             >
@@ -206,7 +206,7 @@ export default function SignaturePad({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="w-full max-w-full touch-none rounded border border-border bg-canvas"
+        className="w-full max-w-full touch-none rounded border border-border-subtle bg-canvas"
         style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
       />
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -214,7 +214,7 @@ export default function SignaturePad({
           type="button"
           onClick={clear}
           disabled={saving || !dirty}
-          className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
+          className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
         >
           Clear
         </button>
@@ -226,7 +226,7 @@ export default function SignaturePad({
             type="button"
             onClick={() => void write(null)}
             disabled={saving}
-            className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
+            className="rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-red-400 hover:text-red-400 disabled:opacity-40"
           >
             Remove signature
           </button>

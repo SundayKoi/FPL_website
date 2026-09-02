@@ -118,7 +118,7 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
       <div className="card-brand overflow-x-auto p-0">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
-            <tr className="border-b border-border/70">
+            <tr className="border-b border-border-subtle/70">
               {["#", "Player", ...(seasonView ? ["WKS"] : []), "GP", "W", "Pts", ...(seasonView ? ["Pts/wk"] : [])].map(
                 (label, index) => (
                   <th
@@ -136,7 +136,7 @@ export default function FantasyPointsTab({ season, phase }: { season: string; ph
           </thead>
           <tbody>
             {shown.map((player, index) => (
-              <tr key={player.key} className="border-b border-border/60 last:border-0">
+              <tr key={player.key} className="border-b border-border-subtle/60 last:border-0">
                 <td className="px-3 py-2 font-mono text-xs text-muted">{index + 1}</td>
                 <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-semibold text-white">
                   {player.name}

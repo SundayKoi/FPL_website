@@ -63,9 +63,9 @@ export default async function GauntletBalancePage() {
   const report = buildBalanceReport(tape.rounds, tape.offers);
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-16">
+    <main className="page-backdrop mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-16">
       <header className="flex flex-col gap-2">
-        <Link href="/admin" className="label-dash w-fit hover:text-primary">
+        <Link href="/admin" className="label-dash w-fit hover:text-action-text">
           ← Admin
         </Link>
         <h1 className="type-display text-4xl sm:text-5xl">Gauntlet balance</h1>

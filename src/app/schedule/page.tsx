@@ -92,9 +92,9 @@ export default async function SchedulePage({
   const groups = ["Regular Season", "Gauntlet", "Playoffs"] as const;
 
   return (
-    <main className="bg-hash flex-1">
+    <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-border pb-8">
+        <header className="border-b border-border-subtle pb-8">
           <div>
             <span className="label-dash">LEAGUE CALENDAR</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Schedule</h1>
@@ -124,8 +124,8 @@ export default async function SchedulePage({
                 aria-current={s === season ? "page" : undefined}
                 className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                   s === season
-                    ? "bg-primary text-white"
-                    : "border border-border bg-surface text-muted hover:text-white"
+                    ? "bg-action-fill text-white"
+                    : "border border-border-subtle bg-surface text-muted hover:text-white"
                 }`}
               >
                 {s}

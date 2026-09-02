@@ -18,7 +18,7 @@ function Finding({
   accent: string;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface/40 p-4">
+    <div className="flex flex-col gap-2 rounded-xl border border-border-subtle bg-surface/40 p-4">
       <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>
         {tag}
         {finding.clock > 0 ? ` · ${finding.clock}:00` : ""}
@@ -86,7 +86,7 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
     (a, b) => b.contestsLost * 2 + b.deaths - b.contestsWon * 2 - b.kills - (a.contestsLost * 2 + a.deaths - a.contestsWon * 2 - a.kills),
   )[0];
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="overflow-x-auto rounded-xl border border-border-subtle">
       <table className="w-full min-w-[560px] border-collapse text-left text-[13px]">
         <thead>
           <tr className="bg-black/25 text-[10px] uppercase tracking-[0.16em] text-muted">
@@ -102,7 +102,7 @@ export function Scoreboard({ players, mvp }: { players: PlayerLine[]; mvp: strin
           {players.map((player) => {
             const isWorst = worst && player.role === worst.role && player.contestsLost > player.contestsWon;
             return (
-              <tr key={player.role} className="border-t border-border/50">
+              <tr key={player.role} className="border-t border-border-subtle/50">
                 <td className="px-3 py-2 text-muted">{player.role}</td>
                 <td className="px-3 py-2">
                   <span className={player.name === mvp ? "font-semibold text-gold" : "text-white"}>{player.name}</span>

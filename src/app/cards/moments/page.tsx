@@ -20,7 +20,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
   const moments = season ? await fetchSeasonMoments(supabase, season) : [];
 
   return (
-    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
@@ -35,7 +35,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
             only be pulled from a pack bought for the week it happened in, at roughly{" "}
             {Math.round(MOMENT_PULL_CHANCE * 100)}% a pack.
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-primary hover:underline">
+          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
             ← Back to player cards
           </Link>
         </div>

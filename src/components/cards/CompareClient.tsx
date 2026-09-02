@@ -124,7 +124,7 @@ export default function CompareClient({
                 const aWins = comparable && (row.a as number) > (row.b as number);
                 const bWins = comparable && (row.b as number) > (row.a as number);
                 return (
-                  <tr key={row.key} className="border-b border-border/60">
+                  <tr key={row.key} className="border-b border-border-subtle/60">
                     <td className={`py-1.5 pr-2 text-right font-mono font-bold ${aWins ? "text-mint" : "text-muted"}`}>
                       {row.a ?? "—"}
                     </td>

@@ -45,7 +45,7 @@ export default function MyReportsList({
   };
 
   return (
-    <div className="mt-6 border-t border-border pt-4">
+    <div className="mt-6 border-t border-border-subtle pt-4">
       <h3 className="label-dash">My reports</h3>
       {fixerError && (
         <p role="alert" className="mt-2 text-sm text-red-400">
@@ -57,7 +57,7 @@ export default function MyReportsList({
       ) : (
         <ul className="mt-3 flex flex-col gap-3">
           {myReports.map((r) => (
-            <li key={r.id} className="rounded border border-border/60 bg-canvas/60 p-3">
+            <li key={r.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold text-white">
                   {teamAbbr(r.team_a_id)} {r.score_a}–{r.score_b} {teamAbbr(r.team_b_id)}
@@ -84,7 +84,7 @@ export default function MyReportsList({
                         onChange={(e) => {
                           if (e.target.value) void handleFixSide(g.id, e.target.value);
                         }}
-                        className="rounded border border-border bg-canvas px-1.5 py-0.5 text-xs text-white"
+                        className="rounded border border-border-subtle bg-canvas px-1.5 py-0.5 text-xs text-white"
                       >
                         <option value="" disabled>
                           Which side was blue?

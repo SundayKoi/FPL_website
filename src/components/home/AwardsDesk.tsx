@@ -15,8 +15,8 @@ function winnerMeta(award: HomepageAward): string {
 
 function AwardRow({ award, icon }: { award: HomepageAward; icon: string }) {
   return (
-    <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border/60 py-3 first:border-t-2 first:border-prestige/70 first:bg-prestige/5">
-      <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs font-bold text-prestige">
+    <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-t border-border-subtle/60 py-3 first:border-t-2 first:border-prestige/70 first:bg-prestige/5">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border-subtle text-xs font-bold text-prestige">
         {icon}
       </span>
       <div className="min-w-0">
@@ -32,7 +32,7 @@ function AwardRow({ award, icon }: { award: HomepageAward; icon: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-border/60 py-2.5">
+    <div className="flex items-center justify-between gap-3 border-t border-border-subtle/60 py-2.5">
       <span className="text-sm text-muted">{label}</span>
       <span className="font-mono text-sm font-semibold text-prestige">{value}</span>
     </div>
@@ -58,7 +58,7 @@ export default function AwardsDesk({ awards }: AwardsDeskProps) {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <article className="relative overflow-hidden rounded-lg border border-border bg-gradient-to-br from-surface to-canvas p-5">
+        <article className="relative overflow-hidden rounded-lg border border-border-subtle bg-gradient-to-br from-surface to-canvas p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <span className="label-dash">INDIVIDUAL HONOR</span>
             <span className="rounded-full border border-prestige/50 bg-prestige/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-prestige">
@@ -84,7 +84,7 @@ export default function AwardsDesk({ awards }: AwardsDeskProps) {
           </div>
         </article>
 
-        <article className="rounded-lg border border-border bg-surface p-5">
+        <article className="rounded-lg border border-border-subtle bg-surface p-5">
           <span className="label-dash">FRANCHISE HONOR</span>
           <h3 className="type-display mt-3 text-3xl">{awards.teamOfWeek.title}</h3>
           <div className="mt-4">
@@ -96,7 +96,7 @@ export default function AwardsDesk({ awards }: AwardsDeskProps) {
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-canvas/60 p-4">
+        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
           <span className="label-dash">INDIVIDUAL HONORS</span>
           <h3 className="mt-2 text-xl font-semibold uppercase tracking-tight text-white">Players setting the pace</h3>
           <div className="mt-3">
@@ -106,7 +106,7 @@ export default function AwardsDesk({ awards }: AwardsDeskProps) {
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-canvas/60 p-4">
+        <div className="rounded-lg border border-border-subtle bg-canvas/60 p-4">
           <span className="label-dash">TEAM HONORS</span>
           <h3 className="mt-2 text-xl font-semibold uppercase tracking-tight text-white">Franchises on the move</h3>
           <div className="mt-3">

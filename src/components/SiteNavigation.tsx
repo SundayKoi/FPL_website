@@ -51,11 +51,11 @@ function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): Dropdo
 }
 
 const linkBase =
-  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:text-sm lg:text-base";
+  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus sm:text-sm lg:text-base";
 
 function topLinkClass(active: boolean, extra = "") {
   return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 py-2 sm:px-0 sm:py-1 ${
-    active ? "text-content sm:text-primary" : "text-muted hover:text-content hover:bg-raised/40 sm:hover:bg-transparent"
+    active ? "text-content sm:text-action-text" : "text-muted hover:text-content hover:bg-raised/40 sm:hover:bg-transparent"
   }`;
 }
 
@@ -153,7 +153,7 @@ export default function SiteNavigation({
           data-open={open}
           className={`${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-border bg-surface px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-border-subtle bg-surface px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
         >
           {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
@@ -205,7 +205,7 @@ export default function SiteNavigation({
                   <div
                     id={dropdownMenuId}
                     role="menu"
-                    className="flex flex-col gap-1 bg-surface pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-border sm:p-2 sm:shadow-lg"
+                    className="flex flex-col gap-1 bg-surface pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-border-subtle sm:p-2 sm:shadow-lg"
                   >
                     {dropdown.links.map((dropdownLink) => (
                       <Link
@@ -222,7 +222,7 @@ export default function SiteNavigation({
                       </Link>
                     ))}
                     {dropdown.key === "info" && showAdmin ? (
-                      <div className="mt-1 border-t border-border pt-1" aria-label="Staff">
+                      <div className="mt-1 border-t border-border-subtle pt-1" aria-label="Staff">
                         {showAdmin ? (
                           <Link
                             href="/admin"
@@ -254,7 +254,7 @@ export default function SiteNavigation({
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border text-muted transition hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-subtle text-muted transition hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:hidden"
           >
             {open ? (
               <svg

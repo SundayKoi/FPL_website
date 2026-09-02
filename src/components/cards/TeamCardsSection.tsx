@@ -45,7 +45,7 @@ export default function TeamCardsSection({
                   </span>
                   <a
                     href={`/card/${player.slug}`}
-                    className="min-w-0 flex-1 truncate font-semibold text-white underline-offset-4 hover:text-primary hover:underline"
+                    className="min-w-0 flex-1 truncate font-semibold text-white underline-offset-4 hover:text-action-text hover:underline"
                   >
                     {player.name}
                   </a>
@@ -55,7 +55,7 @@ export default function TeamCardsSection({
                     </span>
                   ) : null}
                   <span
-                    className="rounded border border-border px-1.5 font-mono text-xs font-bold"
+                    className="rounded border border-border-subtle px-1.5 font-mono text-xs font-bold"
                     style={{ color: team.bannerColor, filter: "brightness(1.5)" }}
                   >
                     {player.overall}

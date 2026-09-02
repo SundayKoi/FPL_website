@@ -44,7 +44,7 @@ function SeasonJourney({ history }: { history: RatingHistoryPoint[] }) {
                     ? up
                       ? "border-mint/60 text-mint"
                       : "border-red-400/60 text-red-400"
-                    : "border-border text-white"
+                    : "border-border-subtle text-white"
                 }`}
                 title={point.tier}
               >
@@ -237,7 +237,7 @@ export default async function CardSharePage({
 
   if (!card) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Player cards</span>
         <h1 className="type-display text-3xl">Card not found</h1>
         <p className="max-w-md text-sm text-muted">
@@ -250,7 +250,7 @@ export default async function CardSharePage({
   }
 
   return (
-    <main className="bg-hash flex flex-1 flex-col items-center gap-6 px-4 py-12 text-white">
+    <main className="page-backdrop flex flex-1 flex-col items-center gap-6 px-4 py-12 text-white">
       <header className="text-center">
         <span className="label-dash">FPL player card · Season {card.season}</span>
         <h1 className="type-display mt-2 text-4xl">{card.name}</h1>
@@ -284,7 +284,7 @@ export default async function CardSharePage({
       ) : null}
       <p className="max-w-md text-center text-xs text-muted">
         Cards rebuild themselves from the season&apos;s stats after every match night.{" "}
-        <Link href={collectionHref} className="text-primary underline-offset-4 hover:underline">
+        <Link href={collectionHref} className="text-action-text underline-offset-4 hover:underline">
           Premium members browse the whole collection →
         </Link>
       </p>

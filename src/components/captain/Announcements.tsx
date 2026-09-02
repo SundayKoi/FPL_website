@@ -17,10 +17,10 @@ export default function Announcements({ announcements }: { announcements: Announ
       ) : (
         <ul className="mt-3 flex flex-col gap-4">
           {announcements.map((a) => (
-            <li key={a.id} className="rounded border border-border/60 bg-canvas/60 p-3">
+            <li key={a.id} className="rounded border border-border-subtle/60 bg-canvas/60 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 {a.pinned && (
-                  <span className="rounded-full bg-primary px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
+                  <span className="rounded-full bg-action-fill px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide text-white">
                     Pinned
                   </span>
                 )}
@@ -33,11 +33,11 @@ export default function Announcements({ announcements }: { announcements: Announ
         </ul>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-4 border-t border-border pt-4 text-xs font-semibold uppercase tracking-wide">
-        <Link href="/info" className="text-muted hover:text-primary">
+      <div className="mt-4 flex flex-wrap gap-4 border-t border-border-subtle pt-4 text-xs font-semibold uppercase tracking-wide">
+        <Link href="/info" className="text-muted hover:text-action-text">
           Rulebook →
         </Link>
-        <Link href="/schedule" className="text-muted hover:text-primary">
+        <Link href="/schedule" className="text-muted hover:text-action-text">
           Full schedule →
         </Link>
       </div>

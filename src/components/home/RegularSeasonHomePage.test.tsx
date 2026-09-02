@@ -128,7 +128,7 @@ afterEach(() => {
 describe("RegularSeasonHomePage", () => {
   beforeEach(resetMocks);
 
-  it("uses the wide dashboard spacing on desktop", async () => {
+  it("uses the tightened dashboard spacing on desktop", async () => {
     render(await RegularSeasonHomePage());
 
     const main = screen.getByRole("main");
@@ -136,8 +136,8 @@ describe("RegularSeasonHomePage", () => {
       "max-w-[1800px]",
       "px-4",
       "sm:px-6",
-      "py-12",
-      "sm:py-16",
+      "py-8",
+      "sm:py-10",
     );
     expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
   });

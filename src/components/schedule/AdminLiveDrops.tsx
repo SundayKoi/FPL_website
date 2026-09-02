@@ -83,7 +83,7 @@ export default function AdminLiveDrops({
           type="button"
           disabled={busy}
           onClick={() => void write({ end: true })}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
+          className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
         >
           End now
         </button>

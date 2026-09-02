@@ -223,7 +223,7 @@ export default function TeamEditor({
               }}
               className={`card-brand flex flex-col gap-3 p-4 ${
                 dragIndex === index ? "opacity-50" : ""
-              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-primary" : ""}`}
+              } ${overIndex === index && dragIndex !== index ? "ring-2 ring-focus" : ""}`}
             >
               <div className="flex flex-wrap items-center gap-3">
                 <span
@@ -240,7 +240,7 @@ export default function TeamEditor({
                   }}
                   aria-label={`Drag ${team.name}`}
                   title="Drag to reorder"
-                  className="cursor-grab select-none rounded border border-border px-2 py-1 text-sm leading-none text-muted active:cursor-grabbing"
+                  className="cursor-grab select-none rounded border border-border-subtle px-2 py-1 text-sm leading-none text-muted active:cursor-grabbing"
                 >
                   ⠿
                 </span>
@@ -256,7 +256,7 @@ export default function TeamEditor({
                     disabled={busy || index === 0}
                     onClick={() => reorder(index, index - 1)}
                     aria-label={`Move ${team.name} up`}
-                    className="px-1 text-[10px] leading-tight text-muted hover:text-primary disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-muted hover:text-action-text disabled:opacity-30"
                   >
                     ▲
                   </button>
@@ -265,7 +265,7 @@ export default function TeamEditor({
                     disabled={busy || index === ordered.length - 1}
                     onClick={() => reorder(index, index + 1)}
                     aria-label={`Move ${team.name} down`}
-                    className="px-1 text-[10px] leading-tight text-muted hover:text-primary disabled:opacity-30"
+                    className="px-1 text-[10px] leading-tight text-muted hover:text-action-text disabled:opacity-30"
                   >
                     ▼
                   </button>
@@ -336,7 +336,7 @@ export default function TeamEditor({
                   {prefills.map((p) => (
                     <li
                       key={p.id}
-                      className="flex items-center justify-between gap-2 rounded border border-border bg-canvas/40 px-2 py-1 text-sm"
+                      className="flex items-center justify-between gap-2 rounded border border-border-subtle bg-canvas/40 px-2 py-1 text-sm"
                     >
                       <span className="text-white">
                         {p.display_name}{" "}

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { decidePlayerIdentityClaim } from "@/lib/players/identityActions";
 
 const ACTION =
-  "rounded-full border border-border bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40";
+  "rounded-full border border-border-strong bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";
 
 const SOURCE_LABELS = {
   team: "team page",
@@ -45,7 +45,7 @@ export default function IdentityClaimQueueRow({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-3">
       <div className="min-w-0">
         <p className="font-semibold text-white">{playerName}</p>
         <p className="mt-0.5 text-xs text-muted">{teamName} · {SOURCE_LABELS[source]} · {requestedLabel}</p>

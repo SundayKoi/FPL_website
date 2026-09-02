@@ -58,7 +58,7 @@ export function LeaderboardTable({
             onClick={() => setMode(m.mode)}
             className={
               "rounded-full border px-4 py-1.5 text-sm font-semibold transition " +
-              (mode === m.mode ? "border-transparent bg-primary text-white" : "border-border text-muted hover:border-primary hover:text-primary")
+              (mode === m.mode ? "border-transparent bg-action-fill text-white" : "border-border-strong text-muted hover:border-action-text hover:text-action-text")
             }
           >
             {m.label}
@@ -66,10 +66,10 @@ export function LeaderboardTable({
         ))}
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-border bg-surface">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-border-subtle bg-surface">
         <table className="w-full min-w-[420px] text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">
+            <tr className="border-b border-border-subtle text-left text-xs uppercase tracking-wide text-muted">
               <th className="px-4 py-3">Rank</th>
               <th className="px-4 py-3">Player</th>
               <th className="px-4 py-3 text-right">{mode === "balance" ? "Balance" : "Net profit"}</th>
@@ -82,7 +82,7 @@ export function LeaderboardTable({
               return (
                 <tr
                   key={r.discord_id}
-                  className={"border-b border-border last:border-0" + (r.discord_id === meId ? " bg-primary/5" : "")}
+                  className={"border-b border-border-subtle last:border-0" + (r.discord_id === meId ? " bg-action-fill/5" : "")}
                 >
                   <td className={`px-4 py-2.5 font-mono text-sm font-bold ${rankClass(r.rank)}`}>#{r.rank}</td>
                   <td className="px-4 py-2.5">

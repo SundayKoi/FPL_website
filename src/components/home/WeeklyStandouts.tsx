@@ -19,7 +19,7 @@ function roleLabel(role: string): string {
 
 function StatChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-border bg-canvas/70 px-2.5 py-1.5 text-center">
+    <div className="rounded border border-border-subtle bg-canvas/70 px-2.5 py-1.5 text-center">
       <p className="font-mono text-sm font-bold text-white">{value}</p>
       <p className="text-[10px] uppercase tracking-[0.14em] text-muted">{label}</p>
     </div>
@@ -71,7 +71,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
           </p>
         ) : (
           <>
-            <div className="relative mt-6 overflow-hidden rounded-lg border border-border bg-gradient-to-br from-surface to-canvas p-5">
+            <div className="relative mt-6 overflow-hidden rounded-lg border border-border-subtle bg-gradient-to-br from-surface to-canvas p-5">
               <div className="flex flex-wrap items-center gap-4">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-cyan/60 bg-canvas font-mono text-sm font-bold text-cyan">
                   {featured.summoner_name.slice(0, 3).toUpperCase()}
@@ -107,7 +107,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
                       aria-current={dotIndex === index}
                       onClick={() => setIndex(dotIndex)}
                       className={`h-1.5 rounded-full transition-all ${
-                        dotIndex === index ? "w-6 bg-cyan" : "w-1.5 bg-border hover:bg-muted"
+                        dotIndex === index ? "w-6 bg-cyan" : "w-1.5 bg-border-subtle hover:bg-muted"
                       }`}
                     />
                   ))}
@@ -122,8 +122,8 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
                   type="button"
                   onClick={() => setIndex(playerIndex)}
                   aria-current={playerIndex === index}
-                  className={`grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-t border-border/50 px-1 py-2.5 text-left transition first:border-t-0 ${
-                    playerIndex === index ? "bg-cyan/5" : "hover:bg-border/20"
+                  className={`grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-t border-border-subtle/50 px-1 py-2.5 text-left transition first:border-t-0 ${
+                    playerIndex === index ? "bg-cyan/5" : "hover:bg-border-subtle/20"
                   }`}
                 >
                   <span className="font-mono text-sm font-semibold text-muted">#{playerIndex + 1}</span>
@@ -143,7 +143,7 @@ export default function WeeklyStandouts({ standouts }: WeeklyStandoutsProps) {
 
       <Link
         href="/stats"
-        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+        className="mt-8 inline-flex w-fit items-center gap-2 font-semibold text-action-text hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
       >
         View full stats <span aria-hidden>→</span>
       </Link>

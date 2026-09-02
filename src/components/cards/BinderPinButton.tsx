@@ -50,7 +50,7 @@ export default function BinderPinButton({
         className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition disabled:opacity-60 ${
           pinned
             ? "border-gold bg-gold/20 text-gold"
-            : "border-border bg-surface text-muted hover:border-gold/60 hover:text-gold"
+            : "border-border-subtle bg-surface text-muted hover:border-gold/60 hover:text-gold"
         }`}
       >
         {pinned ? "★ In binder" : "☆ Binder"}

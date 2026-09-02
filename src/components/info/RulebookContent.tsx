@@ -1,5 +1,5 @@
 const sectionHeadingClass =
-  "scroll-mt-24 border-b border-border pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
+  "scroll-mt-24 border-b border-border-subtle pb-3 font-display text-2xl font-semibold text-white sm:text-3xl";
 const subsectionHeadingClass =
   "scroll-mt-24 pt-3 font-display text-xl font-semibold text-white";
 const paragraphClass = "max-w-4xl text-muted";
@@ -13,8 +13,8 @@ type BracketMatchProps = {
 
 function BracketMatch({ top, bottom }: BracketMatchProps) {
   return (
-    <div className="overflow-hidden rounded border border-border bg-canvas/80">
-      <div className="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-league-accent">
+    <div className="overflow-hidden rounded border border-border-subtle bg-canvas/80">
+      <div className="border-b border-border-subtle px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-league-accent">
         {top}
       </div>
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white">
@@ -48,7 +48,7 @@ function GauntletPlayoffFigure() {
   return (
     <figure
       aria-labelledby="gauntlet-playoff-caption"
-      className="max-w-5xl rounded border border-border bg-surface/70 p-4 sm:p-6"
+      className="max-w-5xl rounded border border-border-subtle bg-surface/70 p-4 sm:p-6"
     >
       <div
         aria-label="Gauntlet and playoff bracket showing quarterfinals, semifinals, and grand finals"

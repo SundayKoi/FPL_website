@@ -9,7 +9,7 @@ import Link from "next/link";
  */
 export default function CaptainGate({ signedIn }: { signedIn: boolean }) {
   return (
-    <main className="bg-hash flex flex-1 items-center justify-center px-4 py-16">
+    <main className="page-backdrop flex flex-1 items-center justify-center px-4 py-16">
       <div className="card-brand flex max-w-md flex-col items-center gap-4 p-8 text-center">
         <span className="label-dash">Captains only</span>
         <h1 className="type-display text-3xl sm:text-4xl">Locked to team captains</h1>

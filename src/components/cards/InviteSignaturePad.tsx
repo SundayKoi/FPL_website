@@ -145,7 +145,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="w-full max-w-full touch-none rounded border border-border bg-canvas"
+        className="w-full max-w-full touch-none rounded border border-border-subtle bg-canvas"
         style={{ aspectRatio: `${PAD_WIDTH} / ${PAD_HEIGHT}`, cursor: "crosshair" }}
       />
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -153,7 +153,7 @@ export default function InviteSignaturePad({ token }: { token: string }) {
           type="button"
           onClick={clear}
           disabled={saving || !dirty}
-          className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-40"
+          className="rounded-full border border-border-strong bg-surface px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40"
         >
           Clear
         </button>

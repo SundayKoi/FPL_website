@@ -16,7 +16,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
       </div>
 
       {players.length === 0 ? (
-        <p className="mt-6 border-t border-border/60 pt-5 text-sm text-muted">
+        <p className="mt-6 border-t border-border-subtle/60 pt-5 text-sm text-muted">
           The featured draft player pool has not been published yet.
         </p>
       ) : (
@@ -52,7 +52,7 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                           href={player.opggUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          className="min-w-0 break-words font-semibold text-white underline decoration-current/40 underline-offset-4 hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                         >
                           {player.displayName}
                         </a>
@@ -62,10 +62,10 @@ export default function PreseasonPlayerPool({ players }: { players: PreseasonPla
                           className="min-w-0 truncate font-semibold text-white"
                         >
                           <span>{player.displayName}</span>
-                          <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted">{player.lockLabel}</span>
+                          <span className="ml-2 rounded border border-border-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted">{player.lockLabel}</span>
                         </span>
                       )}
-                      <span className="flex items-center gap-1.5 whitespace-nowrap rounded border border-border/80 bg-canvas/70 px-2 py-1 font-mono text-xs font-bold text-prestige">
+                      <span className="flex items-center gap-1.5 whitespace-nowrap rounded border border-border-subtle/80 bg-canvas/70 px-2 py-1 font-mono text-xs font-bold text-prestige">
                         <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted">Rank</span>
                         {player.rank ?? "Unranked"}
                       </span>

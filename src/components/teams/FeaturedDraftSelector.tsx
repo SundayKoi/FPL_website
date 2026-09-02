@@ -45,7 +45,7 @@ export default function FeaturedDraftSelector({
         value={value ?? ""}
         disabled={busy}
         onChange={(event) => void selectDraft(column, event.target.value || null)}
-        className="min-w-48 rounded border border-border bg-surface px-3 py-2 text-sm font-semibold normal-case tracking-normal text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+        className="min-w-48 rounded border border-border-strong bg-surface px-3 py-2 text-sm font-semibold normal-case tracking-normal text-white focus:border-action-text focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
       >
         <option value="">— preview placeholders —</option>
         {drafts.map((draft) => (

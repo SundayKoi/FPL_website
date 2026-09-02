@@ -89,7 +89,7 @@ function CreatePickemForm({
                 key={leg.id}
                 className={
                   "cursor-pointer rounded border px-2 py-1 text-xs " +
-                  (selected.includes(leg.id) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted")
+                  (selected.includes(leg.id) ? "border-action-text bg-action-fill/10 text-action-text" : "border-border-subtle text-muted")
                 }
               >
                 <input type="checkbox" className="mr-1" checked={selected.includes(leg.id)} onChange={() => toggle(leg.id)} />
@@ -177,7 +177,7 @@ export default function PickemsAdmin({
                           run(() => cancelPickem(p.id));
                         }
                       }}
-                      className="rounded border border-border px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
+                      className="rounded border border-border-subtle px-2 py-1 text-xs text-muted hover:border-red-400 hover:text-red-300 disabled:opacity-40"
                     >
                       Cancel
                     </button>

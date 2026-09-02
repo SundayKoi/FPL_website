@@ -86,7 +86,7 @@ export default function DraftScheduleEditor({
             type="button"
             disabled={saving || !startsAt}
             onClick={() => void save(null)}
-            className="rounded border border-border px-4 py-2 text-sm font-semibold text-muted hover:border-primary hover:text-primary disabled:opacity-40"
+            className="rounded border border-border-strong px-4 py-2 text-sm font-semibold text-muted hover:border-action-text hover:text-action-text disabled:opacity-40"
           >
             Clear schedule
           </button>

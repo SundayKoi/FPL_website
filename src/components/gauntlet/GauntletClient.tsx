@@ -69,7 +69,7 @@ const BEATS: Record<CompStyle, CompStyle> = { poke: "dive", dive: "protect", pro
 function MomentumBar({ value }: { value: number }) {
   return (
     <div>
-      <div className="h-2.5 overflow-hidden rounded-full border border-border bg-[#3a2030]">
+      <div className="h-2.5 overflow-hidden rounded-full border border-border-subtle bg-[#3a2030]">
         <div
           className="h-full rounded-full bg-gradient-to-r from-[#2b6cb0] to-mint transition-all"
           style={{ width: `${value}%` }}
@@ -86,7 +86,7 @@ function LineupRow({ lineup }: { lineup: GauntletRunRow["lineup"] }) {
       {lineup.map((card) => (
         <div
           key={`${card.role}-${card.inventoryId ?? "trialist"}`}
-          className={`w-[104px] rounded-lg border px-2.5 py-2 ${card.trialist ? "border-dashed border-border bg-surface/60" : "border-[#3d4a6b] bg-[#141c30]"}`}
+          className={`w-[104px] rounded-lg border px-2.5 py-2 ${card.trialist ? "border-dashed border-border-subtle bg-surface/60" : "border-[#3d4a6b] bg-[#141c30]"}`}
         >
           <p className="text-[8px] uppercase tracking-[0.2em] text-muted">{card.role}</p>
           <p className="truncate text-[12px] font-bold text-white">{card.name}</p>
@@ -137,7 +137,7 @@ function CompReadout({ cards }: { cards: GauntletCard[] }) {
   const shape = lineupShapeOf(cards);
   const { profile, style } = shape;
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-border/60 bg-surface/40 p-3">
+    <div className="flex flex-col gap-2.5 rounded-lg border border-border-subtle/60 bg-surface/40 p-3">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-[10px] uppercase tracking-[0.18em] text-muted">Comp readout</span>
         {(["poke", "dive", "protect"] as CompStyle[]).map((key) => (
@@ -151,7 +151,7 @@ function CompReadout({ cards }: { cards: GauntletCard[] }) {
         <b className="uppercase">{BEATS[style]}</b>, loses it to <b className="uppercase">{BEATS[BEATS[style]]}</b>.
       </p>
 
-      <div className="grid gap-2 border-t border-border/50 pt-2.5 sm:grid-cols-2">
+      <div className="grid gap-2 border-t border-border-subtle/50 pt-2.5 sm:grid-cols-2">
         <div>
           <p className="text-[10px] uppercase tracking-[0.16em] text-muted">
             Commitment <span className="font-mono text-white">{shape.commitment}</span>
@@ -458,7 +458,7 @@ export default function GauntletClient({
                 aria-pressed={heirloomId === null}
                 onClick={() => setHeirloomId(null)}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  heirloomId === null ? "bg-gold text-navy" : "border border-border bg-surface text-muted hover:text-white"
+                  heirloomId === null ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
                 }`}
               >
                 Bring nothing
@@ -471,8 +471,8 @@ export default function GauntletClient({
                   onClick={() => setHeirloomId(option.inventoryId)}
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     heirloomId === option.inventoryId
-                      ? "bg-gold text-navy"
-                      : "border border-border bg-surface text-muted hover:text-white"
+                      ? "bg-gold text-canvas"
+                      : "border border-border-subtle bg-surface text-muted hover:text-white"
                   }`}
                 >
                   {option.kind === "moment" ? "✦ " : "▦ "}
@@ -559,12 +559,12 @@ export default function GauntletClient({
         </div>
         <LineupRow lineup={run.lineup} />
         {!over ? (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border/40 pt-3">
+          <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle/40 pt-3">
             <button
               type="button"
               onClick={reset}
               disabled={pending}
-              className="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-primary hover:text-primary disabled:opacity-50"
+              className="rounded-full border border-border-strong bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
             >
               Walk away — keep nothing
             </button>
@@ -689,7 +689,7 @@ export default function GauntletClient({
                   type="button"
                   onClick={() => choose(choice.key)}
                   disabled={pending}
-                  className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-border bg-surface/60"}`}
+                  className={`flex flex-col rounded-xl border p-4 text-left transition hover:-translate-y-1 disabled:opacity-50 ${preview ? "border-gold/50 bg-[#171208]" : "border-border-subtle bg-surface/60"}`}
                 >
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="type-display text-lg text-white">{choice.label}</span>
@@ -721,7 +721,7 @@ export default function GauntletClient({
                       no roll · a sure +{choice.win} momentum · no daring
                     </span>
                   )}
-                  <span className="mt-2.5 border-t border-border/60 pt-2 text-[11px] leading-4 text-muted">
+                  <span className="mt-2.5 border-t border-border-subtle/60 pt-2 text-[11px] leading-4 text-muted">
                     ↳ {choice.consequence.note}
                   </span>
                 </button>
@@ -807,7 +807,7 @@ export default function GauntletClient({
             })}
           </div>
           {canSwap ? (
-            <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
+            <div className="flex flex-wrap items-end gap-2 border-t border-border-subtle/60 pt-3">
               <span className="label-dash">The sixth man</span>
               <select className="input-brand px-2 py-1.5 text-xs" value={swapOut} onChange={(e) => { setSwapOut(e.target.value === "" ? "" : Number(e.target.value)); setSwapIn(""); }}>
                 <option value="">Bench…</option>

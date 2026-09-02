@@ -65,7 +65,7 @@ export default function AdminChampionsDrop({
           type="button"
           disabled={busy}
           onClick={() => (endArmed ? void write({ end: true }) : setEndArmed(true))}
-          className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
+          className="rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted disabled:opacity-50"
         >
           {endArmed ? "Shut the vault — sure?" : "End now"}
         </button>

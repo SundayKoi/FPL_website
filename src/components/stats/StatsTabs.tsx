@@ -172,7 +172,7 @@ export default function StatsTabs({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border-subtle/70">
         <nav aria-label="Stats sections" className="flex flex-wrap gap-x-5 gap-y-1">
           {TABS.map((tab) => {
             const active = activeTab === tab;
@@ -187,7 +187,7 @@ export default function StatsTabs({
                 }}
                 className={`relative -mb-px border-b-2 px-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                   active
-                    ? "border-primary text-primary"
+                    ? "border-action-text text-action-text"
                     : "border-transparent text-muted hover:text-white"
                 }`}
               >

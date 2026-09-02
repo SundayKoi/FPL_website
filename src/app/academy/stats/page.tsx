@@ -15,7 +15,7 @@ export default async function AcademyStatsPage({ searchParams }: { searchParams:
   return (
     <main className="grid-neon flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header className="border-b border-border pb-8">
+        <header className="border-b border-border-subtle pb-8">
           <span className="mono-label">
             <span className="text-league-accent">&gt;</span> Academy League Data
           </span>

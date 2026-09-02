@@ -33,7 +33,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ player:
   );
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-hash p-8">
+    <main className="flex flex-1 items-center justify-center page-backdrop p-8">
       <section className="card-brand max-w-md p-6 text-center">
         {candidates.length > 1 ? (
           <>

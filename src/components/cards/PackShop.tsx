@@ -287,7 +287,7 @@ export default function PackShop({
           ) : null}
         </div>
         {patron ? (
-          <div className="flex w-full flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+          <div className="flex w-full flex-wrap items-center gap-2 border-t border-border-subtle/50 pt-3">
             <span className="label-dash">Your flame</span>
             {PATRON_FLAME_KEYS.map((key) => {
               const locked = !flameUnlocked(key, patronTenureDays);
@@ -328,13 +328,13 @@ export default function PackShop({
           aria-pressed={muted}
           aria-label={muted ? "Unmute pack sounds" : "Mute pack sounds"}
           title={muted ? "Unmute pack sounds" : "Mute pack sounds"}
-          className="rounded-full border border-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-primary hover:text-white"
+          className="rounded-full border border-border-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-action-text hover:text-white"
         >
           {muted ? "🔇" : "🔊"}
         </button>
         <Link
           href={`${base}/packs#collection`}
-          className="text-xs text-muted underline-offset-4 hover:text-primary hover:underline"
+          className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
         >
           Your collection ↓
         </Link>

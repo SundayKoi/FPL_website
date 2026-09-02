@@ -45,7 +45,7 @@ export default function AdminSignupsToggle({ signupsOpen }: { signupsOpen: boole
         className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
           signupsOpen
             ? "border border-red-400/40 bg-red-500/10 text-red-400"
-            : "bg-primary text-white"
+            : "bg-action-fill text-white"
         }`}
       >
         {busy ? "Saving…" : signupsOpen ? "Close signups" : "Open signups"}

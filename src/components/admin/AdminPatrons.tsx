@@ -190,7 +190,7 @@ export default function AdminPatrons({
                     type="button"
                     disabled={busy}
                     onClick={() => void revoke(patron.discordId)}
-                    className="rounded-full border border-border px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition-colors hover:border-red-400 hover:text-red-400 disabled:opacity-50"
+                    className="rounded-full border border-border-subtle px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition-colors hover:border-red-400 hover:text-red-400 disabled:opacity-50"
                   >
                     {revokeArmed === patron.discordId ? "Sure?" : "Revoke"}
                   </button>
@@ -225,7 +225,7 @@ export default function AdminPatrons({
               </thead>
               <tbody>
                 {receipts.map((receipt) => (
-                  <tr key={receipt.id} className="border-t border-border/50">
+                  <tr key={receipt.id} className="border-t border-border-subtle/50">
                     <td className="py-1.5 pr-3 font-semibold text-white">{receipt.username}</td>
                     <td className="py-1.5 pr-3 text-gold">${receipt.amountUsd.toFixed(2)}</td>
                     <td className="py-1.5 pr-3 text-muted">{receipt.daysGranted}</td>

@@ -30,7 +30,7 @@ const BEATS: { clock: string; beat: string; check: string; swing: string }[] = [
 ];
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <details className="group border-b border-border/50 py-3 last:border-0">
+  <details className="group border-b border-border-subtle/50 py-3 last:border-0">
     <summary className="cursor-pointer list-none text-sm font-bold uppercase tracking-[0.14em] text-white transition group-open:text-coral">
       <span className="mr-2 inline-block text-coral transition group-open:rotate-90">▸</span>
       {title}
@@ -69,7 +69,7 @@ export default function GauntletRules() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-border text-[10px] uppercase tracking-[0.16em] text-muted">
+              <tr className="border-b border-border-subtle text-[10px] uppercase tracking-[0.16em] text-muted">
                 <th className="py-1.5 pr-3 font-semibold">Clock</th>
                 <th className="py-1.5 pr-3 font-semibold">Beat</th>
                 <th className="py-1.5 pr-3 font-semibold">What&apos;s rolled</th>
@@ -78,7 +78,7 @@ export default function GauntletRules() {
             </thead>
             <tbody>
               {BEATS.map((row) => (
-                <tr key={row.clock + row.beat} className="border-b border-border/40 last:border-0">
+                <tr key={row.clock + row.beat} className="border-b border-border-subtle/40 last:border-0">
                   <td className="py-2 pr-3 font-mono text-muted">{row.clock}</td>
                   <td className="py-2 pr-3 font-semibold text-white">{row.beat}</td>
                   <td className="py-2 pr-3">{row.check}</td>
@@ -155,7 +155,7 @@ export default function GauntletRules() {
           is which second half you want, not which number is biggest.
         </p>
         {CROSSROADS_CATALOG.map((situation) => (
-          <div key={situation.key} className="rounded-lg border border-border/60 bg-surface/40 p-3">
+          <div key={situation.key} className="rounded-lg border border-border-subtle/60 bg-surface/40 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-white">
               {situation.title}
               <span className="ml-2 font-normal normal-case tracking-normal text-muted">
@@ -226,7 +226,7 @@ export default function GauntletRules() {
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {TRAIT_CATALOG.map((trait) => (
-            <div key={trait.key} className="rounded-lg border border-border/60 bg-surface/40 p-3">
+            <div key={trait.key} className="rounded-lg border border-border-subtle/60 bg-surface/40 p-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-purple">{trait.title}</p>
               <p className="mt-1 text-xs leading-4 text-white">{trait.blurb}</p>
               <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">↳ {trait.counter}</p>
@@ -318,7 +318,7 @@ export default function GauntletRules() {
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {FOE_PLANS.map((plan) => (
-            <div key={plan.key} className="rounded-lg border border-border/60 bg-surface/40 p-3">
+            <div key={plan.key} className="rounded-lg border border-border-subtle/60 bg-surface/40 p-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#ff8896]">{plan.title}</p>
               <p className="mt-1 text-xs leading-4 text-white">{plan.tell}</p>
               <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">↳ {plan.counter}</p>
@@ -374,7 +374,7 @@ export default function GauntletRules() {
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {CONDITION_CATALOG.filter((condition) => condition.key !== "standard").map((condition) => (
-            <div key={condition.key} className="rounded-lg border border-border/60 bg-surface/40 p-3">
+            <div key={condition.key} className="rounded-lg border border-border-subtle/60 bg-surface/40 p-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">{condition.title}</p>
               <p className="mt-1 text-xs leading-4 text-white">{condition.blurb}</p>
               <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">↳ {condition.tip}</p>
