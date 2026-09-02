@@ -86,6 +86,10 @@ export interface HandResult {
   shown: Record<string, ShowdownCard[]>;
   /** The best hand at the table, for the history and the Discord post. */
   best: { seatNo: number; rank: string; label: string } | null;
+  /** Who sat where, so the history can be read by person. */
+  players: Record<string, { discordId: string; username: string }>;
+  /** Everyone still in at the end, in the order they are paid. */
+  dealerSeat: number;
 }
 
 export interface PublicState {
@@ -520,7 +524,20 @@ function settle(pub: PublicState, secret: SecretState, ctx: EngineContext): Step
     }
   }
 
-  const result: HandResult = { handNo: hand.handNo, board: hand.board, pot: totalPot, rake, pots: results, net, shown, best };
+  const players: HandResult["players"] = {};
+  for (const seat of pub.seats) if (seat.inHand) players[seat.seatNo] = { discordId: seat.discordId, username: seat.username };
+  const result: HandResult = {
+    handNo: hand.handNo,
+    board: hand.board,
+    pot: totalPot,
+    rake,
+    pots: results,
+    net,
+    shown,
+    best,
+    players,
+    dealerSeat: hand.dealerSeat,
+  };
 
   // The hand is over: clear per-hand state, retire leavers and busted
   // stacks so the next deal skips them.

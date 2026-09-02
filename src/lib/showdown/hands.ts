@@ -19,6 +19,8 @@ export interface ShowdownCard {
   id: string;
   /** The player's name, for the felt. Not read by the evaluator. */
   name?: string;
+  /** A path to the card's picture, for the felt. Not read by the evaluator. */
+  art?: string;
   role: Role;
   team: string;
   tier: TierKey;

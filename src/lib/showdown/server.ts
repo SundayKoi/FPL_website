@@ -29,12 +29,15 @@ import {
   viewFor,
   type Action,
   type EngineContext,
+  type HandResult,
   type PublicState,
   type SecretState,
   type Step,
 } from "./engine";
 import type { ShowdownCard } from "./hands";
-import { fetchOpenTables, fetchSecret, fetchTable, fetchViewerSeat, type TableRow } from "./queries";
+import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
+import { aggregateWeek, type WeekBoard } from "./leaderboard";
+import { fetchHandsSince, fetchOpenTables, fetchSecret, fetchTable, fetchTablesDue, fetchViewerSeat, type TableRow } from "./queries";
 import { secureRand } from "./random";
 
 export type { Action } from "./engine";
@@ -147,6 +150,7 @@ async function transition(
     if (!step) return table;
     try {
       await commit(service, table, step);
+      if (step.settled?.best?.rank === "foil_royal") await announceFoilRoyal(table, step.settled);
       return (await fetchTable(service, tableId))!;
     } catch (error) {
       if (!messageOf(error).includes(STALE) || attempt === RETRIES - 1) throw error;
@@ -164,6 +168,31 @@ async function dealIfReady(
   if (table.status !== "waiting" || !canDeal(table.publicState, secret)) return null;
   const edition = await loadEdition(service, table.season);
   return startHand(table.publicState, secret, contextFor(table), edition);
+}
+
+/**
+ * A Foil Royal is the top of the ladder and rare enough to be news. Best
+ * effort, after the commit: postCardsWebhook swallows its own failures,
+ * and a Discord outage must never undo a settled hand.
+ */
+async function announceFoilRoyal(table: TableRow, result: HandResult): Promise<void> {
+  const best = result.best;
+  if (!best) return;
+  const who = result.players[best.seatNo]?.username ?? `Seat ${best.seatNo + 1}`;
+  const held = result.shown[best.seatNo] ?? [];
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const bracket = BRACKETS[table.bracket];
+  await postCardsWebhook({
+    title: "🃏 A FOIL ROYAL AT THE TABLE",
+    description:
+      `**${who}** turned over a Foil Royal at **${table.name}** — hand ${result.handNo}, ` +
+      `${bracket.free ? "a practice table" : `the ${bracket.label} table`}.\n` +
+      (held.length ? `Held: ${held.map((card) => `${card.name ?? card.team} (${card.team} ${card.role} ${card.overall})`).join(", ")}\n` : "") +
+      `Board: ${result.board.map((card) => `${card.name ?? card.team} ${card.overall}`).join(", ")}\n` +
+      `Pot ${result.pot.toLocaleString("en-US")}${bracket.free ? " in play chips" : ""}.` +
+      (site ? `\n[Showdown](${site}/cards/showdown)` : ""),
+    color: GOLD,
+  });
 }
 
 // === reads ==================================================================
@@ -435,4 +464,38 @@ export async function syncTable(input: unknown): Promise<TableView> {
   const timed = await transition(service, tableId, (fresh, secret) => applyTimeout(fresh.publicState, secret, contextFor(fresh)));
   const dealt = await transition(service, tableId, (fresh, secret) => dealIfReady(service, fresh, secret));
   return buildView(dealt ?? timed, await fetchSecret(service, tableId), user);
+}
+
+/**
+ * The sweep: for every table whose clock is a second gone, or that is
+ * waiting with two players, run the same two transitions a watching
+ * client would. Called by the Vercel cron every minute so a table nobody
+ * has open still moves. Returns what it touched.
+ */
+export async function sweepTables(now = new Date()): Promise<{ looked: number; moved: number; errors: string[] }> {
+  const service = createBettingServiceClient();
+  const due = await fetchTablesDue(service, now);
+  let moved = 0;
+  const errors: string[] = [];
+  for (const tableId of due) {
+    try {
+      const before = await fetchTable(service, tableId);
+      const timed = await transition(service, tableId, (fresh, secret) => applyTimeout(fresh.publicState, secret, contextFor(fresh)));
+      const dealt = await transition(service, tableId, (fresh, secret) => dealIfReady(service, fresh, secret));
+      if ((dealt ?? timed).version !== before?.version) moved += 1;
+    } catch (error) {
+      errors.push(`table ${tableId}: ${messageOf(error)}`);
+    }
+  }
+  return { looked: due.length, moved, errors };
+}
+
+/** This week's board, from Monday. */
+export async function loadWeekBoard(): Promise<{ week: string; board: WeekBoard } | null> {
+  const service = createBettingServiceClient();
+  const season = await fetchCardSeason(service, "premier");
+  if (!season) return null;
+  const week = mondayOf(new Date());
+  const rows = await fetchHandsSince(service, season, `${week}T00:00:00Z`);
+  return { week, board: aggregateWeek(rows) };
 }

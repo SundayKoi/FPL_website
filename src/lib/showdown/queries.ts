@@ -4,7 +4,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BracketKey } from "./config";
-import type { PublicState, SecretState } from "./engine";
+import type { HandResult, PublicState, SecretState } from "./engine";
+import type { HandRow } from "./leaderboard";
 
 export interface TableRow {
   id: number;
@@ -124,4 +125,43 @@ export async function countOpenTables(supabase: SupabaseClient, season: string):
     .eq("status", "hand");
   if (error) return 0;
   return count ?? 0;
+}
+
+/** Settled hands this season since `sinceIso`, newest last. */
+export async function fetchHandsSince(supabase: SupabaseClient, season: string, sinceIso: string): Promise<HandRow[]> {
+  const { data, error } = await supabase
+    .from("showdown_hands")
+    .select("id, table_id, hand_no, bracket, played_at, pot, rake, record")
+    .eq("season", season)
+    .gte("played_at", sinceIso)
+    .order("played_at", { ascending: true })
+    .limit(5000);
+  if (error) return [];
+  return ((data as { id: number; table_id: number; hand_no: number; bracket: string; played_at: string; pot: number; rake: number; record: HandResult }[]) ?? []).map((row) => ({
+    id: row.id,
+    tableId: row.table_id,
+    handNo: row.hand_no,
+    bracket: row.bracket,
+    playedAt: row.played_at,
+    pot: row.pot,
+    rake: row.rake,
+    record: row.record,
+  }));
+}
+
+/** Tables the sweep should look at: a hand whose clock is a second gone,
+ *  or a waiting table with two or more seats. */
+export async function fetchTablesDue(supabase: SupabaseClient, now: Date): Promise<number[]> {
+  const cutoff = new Date(now.getTime() - 1000).toISOString();
+  const [{ data: late }, { data: waiting }] = await Promise.all([
+    supabase.from("showdown_tables").select("id").eq("status", "hand").lt("deadline_at", cutoff).limit(50),
+    supabase.from("showdown_tables").select("id, public_state").eq("status", "waiting").limit(200),
+  ]);
+  const ids = new Set<number>();
+  for (const row of (late as { id: number }[] | null) ?? []) ids.add(row.id);
+  for (const row of (waiting as { id: number; public_state: Partial<PublicState> }[] | null) ?? []) {
+    const active = (row.public_state.seats ?? []).filter((seat) => seat.status === "active" && seat.chips > 0).length;
+    if (active >= 2) ids.add(row.id);
+  }
+  return [...ids];
 }
