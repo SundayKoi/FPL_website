@@ -30,6 +30,7 @@ import {
   ECLIPSE_FOIL_TYPE,
   FOIL_CHANCE,
   FOIL_TYPES,
+  LIVE_FOIL_CHANCE,
   PACK_SIZE,
   RARITY_ORDER,
   rarityOf,
@@ -64,6 +65,9 @@ interface PullRow {
   pack_open_id: number | null;
   acquired_at: string;
   standout: string | null;
+  /** The LIVE stamp's label — set on every copy pulled inside a Live Drops
+   *  window, when foil rolled at LIVE_FOIL_CHANCE instead of FOIL_CHANCE. */
+  live: string | null;
 }
 
 interface Observed {
@@ -74,6 +78,9 @@ interface Observed {
   crowned: number;
   eclipse: number;
   longestFoilRun: number;
+  /** Copies pulled inside a Live Drops window, and how many of them foiled —
+   *  the split that explains an observed foil rate above the base 6%. */
+  live: { copies: number; foil: number };
   byWeek: Map<string, { copies: number; crowned: number; eclipse: number }>;
   /** Per player: every copy, and how many of them came out signed. */
   bySlug: Map<string, { copies: number; signed: number; eclipses: number }>;
@@ -96,6 +103,7 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
     crowned: 0,
     eclipse: 0,
     longestFoilRun: 0,
+    live: { copies: 0, foil: 0 },
     byWeek: new Map(),
     bySlug: new Map(),
     signedRows: [],
@@ -108,7 +116,7 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
   for (;;) {
     const { data, error } = await supabase
       .from("card_inventory")
-      .select("id, discord_id, slug, foil, foil_type, signed, edition_week, pack_open_id, acquired_at, card->>standout")
+      .select("id, discord_id, slug, foil, foil_type, signed, edition_week, pack_open_id, acquired_at, standout:card->>standout, live:card->live->>label")
       .eq("season", season)
       .gt("id", after)
       .order("id", { ascending: true })
@@ -133,6 +141,10 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
         out.eclipseRows.push(row);
       }
       out.bySlug.set(row.slug, per);
+      if (row.live) {
+        out.live.copies += 1;
+        if (row.foil) out.live.foil += 1;
+      }
       if (row.foil) {
         out.foil += 1;
         run += 1;
@@ -251,6 +263,11 @@ async function main() {
   const obs = await observe(supabase, season);
   console.log(`\nObserved, from every copy minted this season (${obs.copies.toLocaleString()} copies, all editions):`);
   console.log(`  foil            ${pct(obs.foil, obs.copies).padStart(9)}   (signed copies always print foil, so a touch above config is right)`);
+  const quiet = { copies: obs.copies - obs.live.copies, foil: obs.foil - obs.live.foil };
+  console.log(
+    `    outside live drops ${pct(quiet.foil, quiet.copies).padStart(8)} of ${quiet.copies.toLocaleString()} copies (config ${(FOIL_CHANCE * 100).toFixed(0)}%)` +
+      ` · inside ${pct(obs.live.foil, obs.live.copies).padStart(8)} of ${obs.live.copies.toLocaleString()} copies (config ${(LIVE_FOIL_CHANCE * 100).toFixed(0)}%)`,
+  );
   for (const type of FOIL_TYPES) console.log(`    ${type.padEnd(12)}  ${pct(obs.byType[type] ?? 0, obs.copies).padStart(9)}`);
   console.log(`  signed          ${pct(obs.signed, obs.copies).padStart(9)}`);
   console.log(`  Card of the Week${pct(obs.crowned, obs.copies).padStart(9)} of copies`);
