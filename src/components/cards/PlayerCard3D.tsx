@@ -394,8 +394,15 @@ function PlayerCardFace({
   const face = "absolute inset-0 flex flex-col overflow-hidden rounded-2xl [backface-visibility:hidden]";
   const showBack = flipped || !revealed;
 
+  // Ambient motion is a hover thing. The looping decoration — halo pulse,
+  // frame drift, flame embers, the signature blink, a skin line's sheen —
+  // is paused at rest (globals.css: [data-motion="rest"]) and runs while the
+  // pointer is on the card, so a forty-card shelf idles for free. Eclipse is
+  // the one exception: the one-of-one is always live.
+  const motion = isEclipse || hovering ? "live" : "rest";
+
   return (
-    <div className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
+    <div data-motion={motion} className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
       {bloom ? (
         // Pedestal glow: a soft tier-colored bloom the card floats on.
         <div
@@ -1025,7 +1032,11 @@ function ChampionsCard3D({
   };
 
   return (
-    <div className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
+    <div
+      data-motion={hovering ? "live" : "rest"}
+      className={`relative [perspective:1100px] ${className}`}
+      style={{ width: "20rem" }}
+    >
       <div
         ref={frameRef}
         style={{ transform: REST_TRANSFORM }}

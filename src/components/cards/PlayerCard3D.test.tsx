@@ -95,6 +95,21 @@ describe("PlayerCard3D", () => {
     expect(flipLayer.style.transform).toBe(before);
   });
 
+  it("rests until the pointer arrives, and Eclipse never rests", () => {
+    const { container } = render(<PlayerCard3D card={card} forceFoil foilType="ice" />);
+    const root = container.querySelector("[data-motion]")!;
+    expect(root.getAttribute("data-motion")).toBe("rest");
+    const button = screen.getByRole("button");
+    fireEvent.pointerEnter(button);
+    expect(root.getAttribute("data-motion")).toBe("live");
+    fireEvent.pointerLeave(button);
+    expect(root.getAttribute("data-motion")).toBe("rest");
+
+    cleanup();
+    const eclipse = render(<PlayerCard3D card={card} forceFoil foilType="eclipse" />);
+    expect(eclipse.container.querySelector("[data-motion]")!.getAttribute("data-motion")).toBe("live");
+  });
+
   it("adds the holographic foil only for Emerald tier and above", () => {
     const { container, rerender } = render(<PlayerCard3D card={card} />);
     // Platinum: no foil.
