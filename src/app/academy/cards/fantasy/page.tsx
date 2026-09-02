@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "Field a weekly Academy lineup from the cards you own and play for betting dollars.",
 };
 
-export default async function AcademyFantasyPage() {
-  return FantasyPageView({ league: "academy" });
+export default async function AcademyFantasyPage({ searchParams }: { searchParams: Promise<{ field?: string }> }) {
+  const { field } = await searchParams;
+  return FantasyPageView({ league: "academy", field });
 }

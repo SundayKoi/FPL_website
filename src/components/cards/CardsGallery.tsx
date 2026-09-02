@@ -12,16 +12,29 @@ import PlayerCard3D from "./PlayerCard3D";
 
 const ROLE_FILTERS = ["Top", "Jungle", "Mid", "Bot", "Support"] as const;
 
+type GallerySort = "rating" | "name" | "team";
+
+/** The cards arrive best first; the other two orders are for finding a
+ *  card rather than ranking it. */
+const GALLERY_ORDER: Record<GallerySort, (a: PlayerCardData, b: PlayerCardData) => number> = {
+  rating: (a, b) => b.overall - a.overall || a.name.localeCompare(b.name),
+  name: (a, b) => a.name.localeCompare(b.name),
+  team: (a, b) => (a.teamName ?? "~").localeCompare(b.teamName ?? "~") || b.overall - a.overall,
+};
+
 export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<string | null>(null);
+  const [sort, setSort] = useState<GallerySort>("rating");
 
   const q = query.trim().toLowerCase();
-  const shown = cards.filter(
-    (card) =>
-      (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
-      (!role || card.role === role),
-  );
+  const shown = cards
+    .filter(
+      (card) =>
+        (!q || card.name.toLowerCase().includes(q) || (card.teamName ?? "").toLowerCase().includes(q)) &&
+        (!role || card.role === role),
+    )
+    .sort(GALLERY_ORDER[sort]);
   // One Card of the Week per role, in on-Rift order.
   const roleOrder = ["Top", "Jungle", "Mid", "Bot", "Support"];
   const standouts = cards
@@ -41,7 +54,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
                 <PlayerCard3D card={card} />
                 <Link
                   href={`/card/${card.slug}`}
-                  className="rounded-full border border-border-strong bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
+                  className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
                 >
                   View &amp; customize →
                 </Link>
@@ -51,7 +64,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
         </div>
       ) : null}
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
+        <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
           Search players or teams
           <input value={query} onChange={(e) => setQuery(e.target.value)} className="input-brand px-3 py-2 text-sm" />
         </label>
@@ -63,20 +76,28 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               aria-pressed={role === r}
               onClick={() => setRole((current) => (current === r ? null : r))}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                role === r ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                role === r ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
               }`}
             >
               {r}
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted">
+        <label className="flex flex-col gap-1 text-xs text-steel">
+          Sort
+          <select value={sort} onChange={(e) => setSort(e.target.value as GallerySort)} className="input-brand px-3 py-2 text-sm">
+            <option value="rating">Highest rating</option>
+            <option value="name">Name A–Z</option>
+            <option value="team">Team</option>
+          </select>
+        </label>
+        <span className="text-xs text-steel">
           {shown.length} of {cards.length} cards
         </span>
       </div>
 
       {shown.length === 0 ? (
-        <p className="text-sm text-muted">No cards match — stats appear after a player&apos;s first ingested game.</p>
+        <p className="text-sm text-steel">No cards match — stats appear after a player&apos;s first ingested game.</p>
       ) : (
         /* card-cell lets the browser skip painting the cards scrolled offscreen —
            this grid is the reason the optimisation exists. Its padding only adds
@@ -88,7 +109,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               <PlayerCard3D card={card} />
               <Link
                 href={`/card/${card.slug}`}
-                className="rounded-full border border-border-strong bg-surface px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text"
+                className="rounded-full border border-line bg-panel px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
               >
                 View &amp; customize →
               </Link>

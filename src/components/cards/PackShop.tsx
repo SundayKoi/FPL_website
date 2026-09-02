@@ -232,7 +232,7 @@ export default function PackShop({
           <span className="text-sm font-semibold text-white">{fmtPoints(packCost)}</span>
         </div>
         {editionWeeks.length > 0 ? (
-          <label className="flex flex-col gap-1 text-xs text-muted">
+          <label className="flex flex-col gap-1 text-xs text-steel">
             Edition
             <select
               value={week}
@@ -252,7 +252,7 @@ export default function PackShop({
           type="button"
           onClick={handleOpen}
           disabled={pending}
-          className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending
             ? "Opening…"
@@ -287,7 +287,7 @@ export default function PackShop({
           ) : null}
         </div>
         {patron ? (
-          <div className="flex w-full flex-wrap items-center gap-2 border-t border-border-subtle/50 pt-3">
+          <div className="flex w-full flex-wrap items-center gap-2 border-t border-line/50 pt-3">
             <span className="label-dash">Your flame</span>
             {PATRON_FLAME_KEYS.map((key) => {
               const locked = !flameUnlocked(key, patronTenureDays);
@@ -316,7 +316,7 @@ export default function PackShop({
                 </button>
               );
             })}
-            <span className="text-[11px] text-muted">
+            <span className="text-[11px] text-steel">
               Burns on every card you own — collection, binder, rips. Sovereign (gold, ember-lit) unlocks at six
               months of patronage.
             </span>
@@ -328,17 +328,17 @@ export default function PackShop({
           aria-pressed={muted}
           aria-label={muted ? "Unmute pack sounds" : "Mute pack sounds"}
           title={muted ? "Unmute pack sounds" : "Mute pack sounds"}
-          className="rounded-full border border-border-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-action-text hover:text-white"
+          className="rounded-full border border-line px-3 py-1.5 text-sm text-steel transition-colors hover:border-coral hover:text-white"
         >
           {muted ? "🔇" : "🔊"}
         </button>
         <Link
-          href={`${base}/packs#collection`}
-          className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
+          href={`${base}/collection`}
+          className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
         >
-          Your collection ↓
+          Your collection →
         </Link>
-        <span className="ml-auto text-xs text-muted">
+        <span className="ml-auto text-xs text-steel">
           {openCount} {openCount === 1 ? "pack" : "packs"} opened
         </span>
       </div>

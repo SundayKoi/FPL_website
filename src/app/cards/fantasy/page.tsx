@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import FantasyLeaderboard, {
   type FantasySeasonRow,
   type FantasyWeeklyRow,
@@ -48,10 +48,10 @@ function lockLabelEastern(weekStart: string): string {
 
 function Gate({ title, body, signIn }: { title: string; body: string; signIn?: string }) {
   return (
-    <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+    <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
       <span className="label-dash">Fantasy</span>
       <h1 className="type-display text-3xl sm:text-4xl">{title}</h1>
-      <p className="max-w-md text-sm text-muted">{body}</p>
+      <p className="max-w-md text-sm text-steel">{body}</p>
       {signIn && (
         <Link href={`/login?redirect=${signIn}`} className="btn-pill mt-2">
           Sign in with Discord
@@ -70,7 +70,14 @@ function Gate({ title, body, signIn }: { title: string; body: string; signIn?: s
  * people who have one. Premier and Academy share this view; they differ only
  * by season code, same as every other card page.
  */
-export async function FantasyPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function FantasyPageView({
+  league = "premier",
+  field,
+}: {
+  league?: CardLeague;
+  /** ?field=<inventory id> — drop this copy into its role's slot. */
+  field?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const user = await getBettingUser();
   if (!user) {
@@ -85,8 +92,8 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
   if (!user.allowed) {
     return (
       <Gate
-        title="FPL Better members only"
-        body="Fantasy lineups pay out of the betting wallet, so they're part of the FPL Better site — ask staff about access."
+        title="Premium members only"
+        body="Fantasy lineups pay out of the betting wallet, so they're part of FPL Premium — grab the premium role in the Discord."
       />
     );
   }
@@ -134,6 +141,13 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
     const slot = myLineup?.slots?.[role as FantasyRole];
     if (slot && ownedIds.has(slot.inventoryId)) initialSlots[role] = slot.inventoryId;
   }
+  // The shelf's "Field" action names a copy; it goes into its role's slot,
+  // displacing whatever was saved there, but only if it is still owned.
+  const fieldId = parseInventoryId(field);
+  const fieldCard = fieldId !== null ? options.find((option) => option.id === fieldId) : undefined;
+  if (fieldCard && (FANTASY_ROLES as readonly string[]).includes(fieldCard.role)) {
+    initialSlots[fieldCard.role as FantasyRole] = fieldCard.id;
+  }
 
   // Ranks belong to scored entries only — fetchWeekLineups already sorts the
   // scored ones to the front, so a running counter is the whole ranking.
@@ -155,32 +169,25 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
   }));
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
-            FPL Better · {LEAGUE_LABELS[league]} · Season {season}
+            Premium · {LEAGUE_LABELS[league]} · Season {season}
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Fantasy</h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted">
+          <p className="mt-3 max-w-2xl text-sm text-steel">
             Field one card you own in every role — Top, Jungle, Mid, Bot, Support — with their combined
             OVR at or under {SALARY_CAP}. Each card scores its player&apos;s real power rating for that
             week&apos;s games, and the five add up to your total. The top three managers take{" "}
             {WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars. Lineups lock
             Mondays at {lockLabelEastern(week)} — after that the week is played out and scored.
           </p>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-sm text-steel">
             Balance <b className="font-semibold text-white">{fmtPoints(user.balance)}</b> · {options.length} card
             {options.length === 1 ? "" : "s"} in your collection.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/fantasy" />
       </header>
 
       <LineupBuilder
@@ -196,6 +203,7 @@ export async function FantasyPageView({ league = "premier" }: { league?: CardLea
   );
 }
 
-export default async function FantasyPage() {
-  return FantasyPageView({ league: "premier" });
+export default async function FantasyPage({ searchParams }: { searchParams: Promise<{ field?: string }> }) {
+  const { field } = await searchParams;
+  return FantasyPageView({ league: "premier", field });
 }

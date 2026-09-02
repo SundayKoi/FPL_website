@@ -200,6 +200,7 @@ export default function TradeBuilder({
   viewerDiscordId,
   league,
   deployedIds,
+  initialGive = null,
 }: {
   collectors: Collector[];
   myInventory: TradeCardOption[];
@@ -209,11 +210,21 @@ export default function TradeBuilder({
    *  are back. Only your side: the partner's shelf arrives from a server
    *  action that reads their inventory, not their runs. */
   deployedIds?: ReadonlySet<number>;
+  /** A copy to start the offer with — the shelf's "Trade" action lands
+   *  here with ?offer=<id>. A hint: ignored unless it is yours and home. */
+  initialGive?: number | null;
 }) {
   const router = useRouter();
   const [partner, setPartner] = useState("");
   const [partnerCards, setPartnerCards] = useState<TradeCardOption[] | null>(null);
-  const [give, setGive] = useState<Set<number>>(new Set());
+  const [give, setGive] = useState<Set<number>>(
+    () =>
+      new Set(
+        initialGive !== null && myInventory.some((card) => card.id === initialGive) && !deployedIds?.has(initialGive)
+          ? [initialGive]
+          : [],
+      ),
+  );
   const [get, setGet] = useState<Set<number>>(new Set());
   const [giveDollars, setGiveDollars] = useState("");
   const [getDollars, setGetDollars] = useState("");

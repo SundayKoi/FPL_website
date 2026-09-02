@@ -256,7 +256,11 @@ export const FOIL_TYPE_DUST_MULT: Record<FoilType, number> = {
   // 1/1 is that the dust path REFUSES it — a number, however large, is
   // still a number somebody can accept at three in the morning. Nothing
   // can mint one today, so this line is unreachable either way.
-  eclipse: 12,
+  // Zero, and it must stay zero: dust_card refuses an Eclipse outright
+  // (20260911000001), so any other number here would be a price the
+  // ledger never pays. Every dust surface reads its label from this table,
+  // which is exactly why the lie would show up on a button.
+  eclipse: 0,
 };
 
 /** What the card calls each parallel. */
@@ -323,6 +327,14 @@ export function rarityOf(tier: CardTierKey): RarityClass {
  * `tier` column (a plain text column, see queries.ts's InventoryRow): an
  * unrecognized tier dusts as common rather than crashing the collection.
  */
+/** Whether a copy can be dusted at all. The only refusal that is a property
+ *  of the copy rather than of its situation (fielded, on expedition): a
+ *  one-of-one is not a resource. dust_card raises for it and the actions
+ *  refuse before calling; this is the same rule for the labels. */
+export function canDust(row: { foilType?: string | null }): boolean {
+  return row.foilType !== ECLIPSE_FOIL_TYPE;
+}
+
 export function dustValueOf(row: {
   tier: CardTierKey | string;
   foil: boolean;
@@ -342,6 +354,10 @@ export function dustValueOf(row: {
    *  a moment: no tier of its own to scale from. */
   team?: boolean;
 }): number {
+  // Nothing at all for a copy that cannot be dusted — before any pricing,
+  // because the autograph bonus is a flat add and would otherwise put a
+  // number under a signed Eclipse that the ledger will never pay.
+  if (!canDust(row)) return 0;
   // Either signal is enough: the flat column says "moment" on a stored
   // copy, and the flag covers a caller holding the card json instead.
   if (row.moment || row.tier === MOMENT_TIER) return MOMENT_DUST;

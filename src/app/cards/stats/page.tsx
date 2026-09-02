@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { FOIL_TYPES, FOIL_TYPE_LABELS } from "@/lib/packs/config";
-import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fmtPoints } from "@/lib/betting/format";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -15,7 +13,7 @@ import { EXPEDITION_TIERS, type ExpeditionTierKey } from "@/lib/expeditions/conf
 const EXPEDITION_TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
 
 export const metadata: Metadata = {
-  title: "Card Ledger — FPL",
+  title: "Card stats — FPL",
   description: "Every pack opened, dollar spent, and rare pull in the league's card economy.",
 };
 
@@ -24,7 +22,7 @@ function Figure({ value, label, note }: { value: string; label: string; note?: s
     <div className="card-brand flex flex-col gap-1 p-5">
       <span className="font-display text-4xl font-bold tabular-nums text-white sm:text-5xl">{value}</span>
       <span className="label-dash">{label}</span>
-      {note ? <span className="text-xs leading-5 text-muted">{note}</span> : null}
+      {note ? <span className="text-xs leading-5 text-steel">{note}</span> : null}
     </div>
   );
 }
@@ -47,21 +45,20 @@ function rateOf(part: number, whole: number, unit: string): string | undefined {
  *  people it is about unable to see it. Only aggregates ever leave the
  *  server — no row, no wallet, no collection. */
 export async function CardStatsPageView({ league = "premier" }: { league?: CardLeague }) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
   const stats: EconomyStats | null = season ? await fetchEconomyStats(service, season) : null;
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
             {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Ledger</h1>
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Stats</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-muted">
+          <p className="mt-3 max-w-2xl text-sm text-steel">
             Everything the league has opened, spent and is holding this season. Card counts are what
             exists right now — dusting destroys a copy, so a card someone melted down is gone from
             these figures as well as from their collection.
@@ -74,15 +71,11 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               </>
             ) : null}
           </p>
-          <Link href={base} className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/stats" />
       </header>
 
       {!stats || stats.cardsPulled === 0 ? (
-        <p className="text-sm text-muted">
+        <p className="text-sm text-steel">
           Nothing opened yet this season. The ledger fills up as packs get bought.
         </p>
       ) : (
@@ -183,7 +176,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
                 {stats.teams.byTeam.map((team) => (
                   <li key={team.teamName} className="flex items-center justify-between gap-4 px-5 py-3">
                     <span className="truncate text-sm font-semibold text-white">{team.teamName}</span>
-                    <span className="text-sm tabular-nums text-muted">
+                    <span className="text-sm tabular-nums text-steel">
                       {team.copies.toLocaleString()} held
                     </span>
                   </li>
@@ -241,7 +234,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               <div className="card-brand flex flex-col gap-1 p-5">
                 <span className="label-dash">Best card pulled</span>
                 <span className="font-display text-2xl font-bold text-white">{stats.bestPull.playerName}</span>
-                <span className="text-sm text-muted">
+                <span className="text-sm text-steel">
                   {stats.bestPull.overall} OVR · {tierLabel(stats.bestPull.tier)}
                 </span>
               </div>
@@ -250,7 +243,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               <div className="card-brand flex flex-col gap-1 p-5">
                 <span className="label-dash">Most pulled player</span>
                 <span className="font-display text-2xl font-bold text-white">{stats.mostPulled.playerName}</span>
-                <span className="text-sm text-muted">
+                <span className="text-sm text-steel">
                   {stats.mostPulled.copies.toLocaleString()} cop{stats.mostPulled.copies === 1 ? "y" : "ies"} in circulation
                 </span>
               </div>
@@ -258,7 +251,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           </section>
 
           {stats.truncated ? (
-            <p className="text-xs text-muted">
+            <p className="text-xs text-steel">
               These figures are a floor — the season has more rows than this page reads in one pass.
             </p>
           ) : null}

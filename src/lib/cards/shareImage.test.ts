@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardImageUrl } from "./shareImage";
+import { cardImageUrl, copyImageUrl } from "./shareImage";
 
 describe("cardImageUrl", () => {
   it("asks for a specific archived print when the pull came from one", () => {
@@ -33,5 +33,43 @@ describe("cardImageUrl", () => {
 
   it("escapes the week rather than pasting it in raw", () => {
     expect(cardImageUrl("", "doug-na1", "a b")).toContain("w=a%20b");
+  });
+});
+
+describe("copyImageUrl", () => {
+  it("points at the copy route with a cache key", () => {
+    expect(copyImageUrl("https://fpl.example", { id: 4211 })).toBe(
+      "https://fpl.example/copy/4211/card.png?m=none",
+    );
+  });
+
+  it("keys on the expedition mark — the one thing on a frozen copy that moves", () => {
+    const before = copyImageUrl("", { id: 4211, expeditionMark: null });
+    const after = copyImageUrl("", { id: 4211, expeditionMark: "sigil" });
+    expect(after).toContain("m=sigil");
+    expect(before).not.toBe(after);
+  });
+
+  it("changes again when a mark is replaced upward", () => {
+    expect(copyImageUrl("", { id: 7, expeditionMark: "trail" })).not.toBe(
+      copyImageUrl("", { id: 7, expeditionMark: "legend" }),
+    );
+  });
+
+  it("gives two copies of the same card two urls", () => {
+    expect(copyImageUrl("", { id: 1 })).not.toBe(copyImageUrl("", { id: 2 }));
+  });
+
+  it("never returns a bare url — an unkeyed url is the bug", () => {
+    expect(copyImageUrl("", { id: 9 })).toContain("?");
+    expect(copyImageUrl("", { id: 9, expeditionMark: undefined })).toContain("?");
+  });
+
+  it("takes an empty site for a same-origin path", () => {
+    expect(copyImageUrl("", { id: 12 })).toBe("/copy/12/card.png?m=none");
+  });
+
+  it("escapes the mark rather than pasting it in raw", () => {
+    expect(copyImageUrl("", { id: 12, expeditionMark: "a b" })).toContain("m=a%20b");
   });
 });

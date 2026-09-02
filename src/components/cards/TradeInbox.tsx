@@ -29,6 +29,7 @@ import { editionLabel } from "@/lib/packs/week";
 import { respondTradeAction } from "@/lib/trades/actions";
 import type { TradeStatus } from "@/lib/trades/queries";
 import CardCopyPreview from "./CardCopyPreview";
+import { provenanceLinesFor } from "./provenanceLines";
 
 /** One card named by a trade, flattened for the client boundary. */
 export interface InboxCard {
@@ -87,6 +88,10 @@ function CardChip({ card }: { card: InboxCard }) {
     <CardCopyPreview
       card={card.card}
       foil={card.foil}
+      // Who has held this copy is exactly the thing you want before
+      // agreeing to take it — and the one question the chip beside it
+      // cannot answer.
+      loadProvenance={() => provenanceLinesFor(card.id)}
       caption={{
         playerName: card.playerName,
         editionWeek: card.editionWeek,

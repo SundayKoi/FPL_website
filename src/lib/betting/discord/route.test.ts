@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { POST } from "@/app/api/discord/interactions/route";
-import { commandHandlers, componentHandlers, modalHandlers } from "./registry";
+import { autocompleteHandlers, commandHandlers, componentHandlers, modalHandlers } from "./registry";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -47,12 +47,12 @@ beforeEach(async () => {
   process.env = { ...ORIGINAL_ENV, DISCORD_PUBLIC_KEY: publicKeyHex };
   delete process.env.DISCORD_REQUIRED_ROLE_ID;
 });
-
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
   for (const key of Object.keys(commandHandlers)) delete commandHandlers[key];
   for (const key of Object.keys(componentHandlers)) delete componentHandlers[key];
   for (const key of Object.keys(modalHandlers)) delete modalHandlers[key];
+  for (const key of Object.keys(autocompleteHandlers)) delete autocompleteHandlers[key];
 });
 
 describe("POST /api/discord/interactions", () => {
@@ -287,5 +287,31 @@ describe("POST /api/discord/interactions", () => {
     const body = await res.json();
 
     expect(body).toEqual({ type: 4, data: { content: "submitted" } });
+  });
+
+  it("routes an autocomplete interaction to its own handler, by command name", async () => {
+    autocompleteHandlers.flex = async () => ({ type: 8, data: { choices: [{ name: "Doug", value: "doug-na1" }] } });
+    const req = await signedRequest({
+      type: 4,
+      data: { name: "flex", options: [{ name: "player", value: "do", focused: true }] },
+      member: { user: { id: "u1" }, roles: [] },
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ type: 8, data: { choices: [{ name: "Doug", value: "doug-na1" }] } });
+  });
+
+  it("answers an autocomplete with no choices, never a message, when it is gated or unknown", async () => {
+    // A message body in reply to an autocomplete is malformed to Discord —
+    // the picker just never fills in. An empty list is the only honest "no".
+    const unknown = await POST(await signedRequest({ type: 4, data: { name: "nope", options: [] }, member: { user: { id: "u1" }, roles: [] } }));
+    expect(await unknown.json()).toEqual({ type: 8, data: { choices: [] } });
+
+    process.env.DISCORD_REQUIRED_ROLE_ID = "role-1";
+    autocompleteHandlers.flex = async () => ({ type: 8, data: { choices: [{ name: "Doug", value: "doug-na1" }] } });
+    const gated = await POST(await signedRequest({ type: 4, data: { name: "flex", options: [] }, member: { user: { id: "u1" }, roles: [] } }));
+    expect(await gated.json()).toEqual({ type: 8, data: { choices: [] } });
   });
 });

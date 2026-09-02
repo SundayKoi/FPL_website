@@ -32,7 +32,9 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("button", { name: /league menu/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe("/premium");
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("href")).toBe("/cards");
+    expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /^Premium$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Sign Up$/ })).toBeNull();
     expect(screen.getByText("Account")).toBeTruthy();
@@ -73,7 +75,9 @@ describe("SiteNavigation", () => {
     pathname.value = "/academy/fpldle";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current")).toBe(
+      "page",
+    );
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
     expect(screen.queryByRole("menuitem", { name: /^FPL'dle$/ })).toBeNull();
   });
@@ -146,10 +150,18 @@ describe("SiteNavigation", () => {
       "Auction Draft",
     ]);
 
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe("/premium");
+    cleanup();
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Premium HQ$/ }).getAttribute("href")).toBe(
+      "/premium",
+    );
+    expect(screen.getByRole("menuitem", { name: /^Match Drafter$/ }).getAttribute("href")).toBe(
+      "/drafter",
+    );
   });
 
-  it("keeps Info dropdown behavior while Premium is a direct link", () => {
+  it("keeps Info dropdown behavior alongside the Premium dropdown", () => {
     render(<SiteNavigation authSlot={<span>Account</span>} />);
 
     const infoMenu = screen.getByRole("button", { name: /info menu/i });
@@ -167,15 +179,99 @@ describe("SiteNavigation", () => {
   });
 
   it("marks Premium active on its hub and premium feature routes", () => {
+    pathname.value = "/betting";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    cleanup();
+    pathname.value = "/fpldle";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    cleanup();
+    pathname.value = "/premium";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    cleanup();
     pathname.value = "/cards/compare";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+    expect(
+      screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current"),
+    ).toBeNull();
+  });
+
+  it("keeps Cards on the current league and active on card share routes", () => {
+    pathname.value = "/academy/teams";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("href")).toBe("/academy/cards");
+
+    cleanup();
+    pathname.value = "/academy/cards/expeditions";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+
+    cleanup();
+    pathname.value = "/card/some-slug";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+
+    cleanup();
+    pathname.value = "/binder/some-user";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("lists the premium destinations in the Premium dropdown", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent?.trim())).toEqual([
+      "Premium HQ",
+      "Betting",
+      "The Daily Stu",
+      "Match Drafter",
+      "FPL'dle",
+      "Higher or Lower",
+      "Guess the Card",
+    ]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
+      "/premium",
+      "/betting",
+      "/bangers",
+      "/drafter",
+      "/fpldle",
+      "/higher-lower",
+      "/guess-the-card",
+    ]);
+
+    cleanup();
+    pathname.value = "/academy/players";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
+      "/premium?league=academy",
+      "/betting",
+      "/bangers",
+      "/drafter",
+      "/academy/fpldle",
+      "/academy/higher-lower",
+      "/academy/guess-the-card",
+    ]);
   });
 
   it("keeps the Premium destination on the current league", () => {
     pathname.value = "/academy/players";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe(
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Premium HQ$/ }).getAttribute("href")).toBe(
       "/premium?league=academy",
     );
 
@@ -183,7 +279,8 @@ describe("SiteNavigation", () => {
     pathname.value = "/premium";
     search.value = "league=academy";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Premium$/ }).getAttribute("href")).toBe(
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Premium HQ$/ }).getAttribute("href")).toBe(
       "/premium?league=academy",
     );
   });

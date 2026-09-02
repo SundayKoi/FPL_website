@@ -6,9 +6,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
-import { leaguePath } from "@/lib/league/links";
+import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
 import type { LeagueView } from "@/lib/league/context";
-import { resolveThemeLeague } from "@/lib/league/theme";
 
 type DropdownLink = {
   href: string;
@@ -17,7 +16,7 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "league" | "info";
+type DropdownKey = "league" | "premium" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
   {
@@ -32,6 +31,20 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
     ],
   },
 ];
+
+function premiumDropdownLinks(view: LeagueView, premiumHref: string): DropdownLink[] {
+  const prefix = view === "academy" ? "/academy" : "";
+
+  return [
+    { href: premiumHref, label: "Premium HQ" },
+    { href: "/betting", label: "Betting" },
+    { href: "/bangers", label: "The Daily Stu" },
+    { href: "/drafter", label: "Match Drafter" },
+    { href: `${prefix}/fpldle`, label: "FPL'dle" },
+    { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
+    { href: `${prefix}/guess-the-card`, label: "Guess the Card" },
+  ];
+}
 
 function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): DropdownLink[] {
   const links = [
@@ -51,23 +64,26 @@ function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): Dropdo
 }
 
 const linkBase =
-  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus sm:text-sm lg:text-base";
+  "whitespace-nowrap text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-coral sm:text-sm lg:text-base";
 
 function topLinkClass(active: boolean, extra = "") {
   return `${linkBase} ${extra ? `${extra} ` : ""}rounded px-3 py-2 sm:px-0 sm:py-1 ${
-    active ? "text-content sm:text-action-text" : "text-muted hover:text-content hover:bg-raised/40 sm:hover:bg-transparent"
+    active ? "text-white sm:text-coral" : "text-steel hover:text-gold hover:bg-line/40 sm:hover:bg-transparent"
   }`;
 }
 
 function isActive(pathname: string | null, href: string) {
-  if (href === "/") return pathname === "/";
-  return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
+  const path = href.split("?")[0];
+  if (path === "/") return pathname === "/";
+  return pathname === path || (pathname?.startsWith(`${path}/`) ?? false);
 }
 
-function isPremiumActive(pathname: string | null) {
-  return ["/premium", "/betting", "/bangers", "/cards", "/drafter", "/fpldle", "/academy/fpldle"].some((href) =>
-    isActive(pathname, href),
-  );
+// Cards owns both leagues' collection hubs plus the single-card share page and
+// the public binder view, none of which live under a /cards prefix.
+const CARDS_ACTIVE_PREFIXES = ["/cards", "/academy/cards", "/card", "/binder"];
+
+function isCardsActive(pathname: string | null) {
+  return CARDS_ACTIVE_PREFIXES.some((href) => isActive(pathname, href));
 }
 
 export default function SiteNavigation({
@@ -85,11 +101,15 @@ export default function SiteNavigation({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const search = searchParams?.toString() ?? "";
-  const league = resolveThemeLeague(pathname ?? "/", search);
-  const premiumHref = league === "academy" ? "/premium?league=academy" : "/premium";
+  const league = resolveLeagueFromPath(pathname ?? "/");
+  const premiumHref =
+    league === "academy" || (pathname === "/premium" && searchParams?.get("league") === "academy")
+      ? "/premium?league=academy"
+      : "/premium";
+  const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
+    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(league, premiumHref) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];
@@ -138,7 +158,8 @@ export default function SiteNavigation({
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-40 border-b border-league-accent/50 bg-canvas/90 backdrop-blur"
+      className="sticky top-0 z-40 border-b border-gold/30 backdrop-blur"
+      style={{ backgroundColor: "rgba(0,18,31,0.9)" }}
     >
       <div className="relative flex w-full items-center gap-4 px-4 py-3 sm:min-h-[5.5rem] sm:gap-6 sm:px-8 sm:py-4 lg:px-10">
         <LeagueBrandChooser
@@ -153,7 +174,8 @@ export default function SiteNavigation({
           data-open={open}
           className={`${
             open ? "flex" : "hidden"
-          } absolute inset-x-0 top-full flex-col gap-1 border-b border-border-subtle bg-surface px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
+          } absolute inset-x-0 top-full flex-col gap-1 border-b border-line px-2 py-2 shadow-lg backdrop-blur sm:static sm:flex sm:min-w-0 sm:flex-1 sm:flex-row sm:items-center sm:justify-evenly sm:gap-2 sm:border-0 sm:p-0 sm:shadow-none sm:backdrop-blur-0 lg:gap-6`}
+          style={{ backgroundColor: "rgba(0,18,31,0.97)" }}
         >
           {directLinks.map((link) => {
             const active = isActive(pathname, link.href);
@@ -170,12 +192,12 @@ export default function SiteNavigation({
             );
           })}
           <Link
-            href={premiumHref}
-            aria-current={isPremiumActive(pathname) ? "page" : undefined}
+            href={cardsHref}
+            aria-current={isCardsActive(pathname) ? "page" : undefined}
             onClick={closeMenus}
-            className={topLinkClass(isPremiumActive(pathname))}
+            className={topLinkClass(isCardsActive(pathname))}
           >
-            Premium
+            Cards
           </Link>
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
@@ -205,7 +227,7 @@ export default function SiteNavigation({
                   <div
                     id={dropdownMenuId}
                     role="menu"
-                    className="flex flex-col gap-1 bg-surface pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-border-subtle sm:p-2 sm:shadow-lg"
+                    className="flex flex-col gap-1 pl-3 pt-1 sm:absolute sm:left-1/2 sm:top-full sm:z-50 sm:mt-3 sm:min-w-40 sm:-translate-x-1/2 sm:rounded sm:border sm:border-line sm:bg-navy sm:p-2 sm:shadow-lg"
                   >
                     {dropdown.links.map((dropdownLink) => (
                       <Link
@@ -216,20 +238,20 @@ export default function SiteNavigation({
                         rel={dropdownLink.rel}
                         aria-current={isActive(pathname, dropdownLink.href) ? "page" : undefined}
                         onClick={closeMenus}
-                        className={`${linkBase} rounded px-3 py-2 text-muted hover:bg-raised/40 hover:text-content sm:px-3 sm:py-2 sm:text-sm`}
+                        className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
                       >
                         {dropdownLink.label}
                       </Link>
                     ))}
                     {dropdown.key === "info" && showAdmin ? (
-                      <div className="mt-1 border-t border-border-subtle pt-1" aria-label="Staff">
+                      <div className="mt-1 border-t border-line pt-1" aria-label="Staff">
                         {showAdmin ? (
                           <Link
                             href="/admin"
                             role="menuitem"
                             aria-current={isActive(pathname, "/admin") ? "page" : undefined}
                             onClick={closeMenus}
-                            className={`${linkBase} rounded px-3 py-2 text-muted hover:bg-raised/40 hover:text-content sm:px-3 sm:py-2 sm:text-sm`}
+                            className={`${linkBase} rounded px-3 py-2 text-steel hover:bg-line/40 hover:text-white sm:px-3 sm:py-2 sm:text-sm`}
                           >
                             Admin
                           </Link>
@@ -254,7 +276,7 @@ export default function SiteNavigation({
             aria-expanded={open}
             aria-controls={menuId}
             aria-label={open ? "Close menu" : "Open menu"}
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border-subtle text-muted transition hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-line text-steel transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral sm:hidden"
           >
             {open ? (
               <svg

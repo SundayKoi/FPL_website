@@ -20,6 +20,7 @@
 // inline rather than being pre-empted.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import CountUp from "@/components/home/CountUp";
 import { fmtPoints } from "@/lib/betting/format";
@@ -161,7 +162,7 @@ function RunStatus({
     // Server render and the first hydrating paint: the absolute time, which
     // is true without knowing what time it is now.
     return (
-      <span className="text-sm text-muted">
+      <span className="text-sm text-steel">
         Back at{" "}
         {new Date(run.resolvesAt).toLocaleTimeString("en-US", {
           hour: "numeric",
@@ -180,7 +181,7 @@ function RunStatus({
         onClick={onClaim}
         disabled={busy}
         aria-label={`Claim the ${label}`}
-        className="btn-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        className="btn-coral px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
       >
         {claiming ? "Bringing them home…" : "Bring them home"}
       </button>
@@ -217,14 +218,14 @@ function SquadThumb({ copy, id }: { copy: CardCopy | undefined; id: number }) {
           alt=""
           aria-hidden
           loading="lazy"
-          className="h-9 w-14 rounded-sm border border-border-subtle object-cover object-[center_20%]"
+          className="h-9 w-14 rounded-sm border border-line object-cover object-[center_20%]"
         />
       ) : (
-        <span aria-hidden className="grid h-9 w-14 place-content-center rounded-sm border border-border-subtle bg-canvas/60 text-[10px] text-muted">
+        <span aria-hidden className="grid h-9 w-14 place-content-center rounded-sm border border-line bg-navy/60 text-[10px] text-steel">
           ?
         </span>
       )}
-      <span className="w-full truncate text-center text-[10px] text-muted" title={copy?.playerName}>
+      <span className="w-full truncate text-center text-[10px] text-steel" title={copy?.playerName}>
         {/* A copy the collection read didn't return — traded away mid-run is
             impossible (the guard refuses), so this is only ever a squad from
             another season's shelf being viewed from this one. */}
@@ -249,7 +250,14 @@ export default function ExpeditionBoard({
   runs,
   deployedIds,
   today,
+  initialPick = null,
+  base = "/cards",
 }: {
+  /** A copy to start the squad with — the shelf's "Send out" action lands
+   *  here with ?send=<id>. A hint: ignored unless it is yours and home. */
+  initialPick?: number | null;
+  /** "/cards" or "/academy/cards", for the empty shelf's pack link. */
+  base?: string;
   /** The viewer's shelf for the season being browsed. */
   copies: CardCopy[];
   /** Their runs this season, newest launch first — away and finished both. */
@@ -263,7 +271,14 @@ export default function ExpeditionBoard({
   today: string;
 }) {
   const router = useRouter();
-  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  const [picked, setPicked] = useState<ReadonlySet<number>>(
+    () =>
+      new Set(
+        initialPick !== null && copies.some((copy) => copy.id === initialPick) && !deployedIds.has(initialPick)
+          ? [initialPick]
+          : [],
+      ),
+  );
   // Two error slots, not one: a refused launch belongs under the tier cards
   // the player just clicked, and a refused claim belongs beside the run it
   // refused. One shared slot puts half of them off the bottom of the fold.
@@ -357,7 +372,7 @@ export default function ExpeditionBoard({
       >
         <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">Today&apos;s brief</span>
         <span className="text-sm font-semibold text-white">{brief.label} — +20% yield</span>
-        <span className="text-xs text-muted">
+        <span className="text-xs text-steel">
           Send a {brief.role} with the squad and whatever they find pays 20% more. The brief is scored
           against the day you LAUNCH, so a run keeps the bonus it left with.
         </span>
@@ -410,7 +425,7 @@ export default function ExpeditionBoard({
       <section aria-label="Expedition tiers" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Choose a run</h2>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-steel">
             Every run takes {SQUAD_SIZE} cards. They come back when the clock runs out — nothing is spent.
           </span>
         </div>
@@ -429,9 +444,9 @@ export default function ExpeditionBoard({
               >
                 <div>
                   <h3 className="type-display text-xl">{def.label}</h3>
-                  <p className="mt-0.5 text-xs uppercase tracking-wide text-muted">{def.durationHours} hours away</p>
+                  <p className="mt-0.5 text-xs uppercase tracking-wide text-steel">{def.durationHours} hours away</p>
                 </div>
-                <p className="text-sm text-muted">{TIER_FLAVOR[key]}</p>
+                <p className="text-sm text-steel">{TIER_FLAVOR[key]}</p>
                 <p className="text-sm font-semibold text-white">
                   <span className="label-dash mr-2 inline-block">Entry</span>
                   <span>{requirementLine(def)}</span>
@@ -444,7 +459,7 @@ export default function ExpeditionBoard({
                   <span className="font-mono text-mint">
                     {fmtPoints(payoutRange(key).min)}–{fmtPoints(payoutRange(key).max)}
                   </span>
-                  <span className="ml-2 text-xs font-normal text-muted">
+                  <span className="ml-2 text-xs font-normal text-steel">
                     +{Math.round(SHINE_BONUS_CAP * 100)}% at most from shine, +{Math.round(BRIEF_BONUS * 100)}% for the brief
                   </span>
                 </p>
@@ -466,7 +481,7 @@ export default function ExpeditionBoard({
                   onClick={() => launch(key)}
                   disabled={!gate.ok || isOut || pending}
                   aria-label={`Launch ${def.label}`}
-                  className="btn-primary mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn-coral mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {busyTier === key ? "Sending…" : isOut ? "Still out there" : "Send them out"}
                 </button>
@@ -485,7 +500,7 @@ export default function ExpeditionBoard({
       <section aria-label="Your squad" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Pick your squad</h2>
-          <span data-testid="squad-shine" className="text-sm text-muted">
+          <span data-testid="squad-shine" className="text-sm text-steel">
             <b className="font-semibold text-white">
               {picked.size}/{SQUAD_SIZE}
             </b>{" "}
@@ -495,14 +510,14 @@ export default function ExpeditionBoard({
             <button
               type="button"
               onClick={() => setPicked(new Set())}
-              className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
+              className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
             >
               Clear
             </button>
           ) : null}
         </div>
         {copies.length === 0 ? (
-          <p className="text-sm text-muted">No cards to send yet — open a pack.</p>
+          <EmptyShelf base={base} goal="send a squad out" />
         ) : (
           <ul className="flex flex-wrap gap-2">
             {sorted.map((copy) => {
@@ -521,12 +536,12 @@ export default function ExpeditionBoard({
                     className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
                       selected
                         ? "border-coral bg-coral/15"
-                        : "border-border-strong bg-surface hover:border-action-text/60 disabled:opacity-40 disabled:hover:border-border-strong"
+                        : "border-line bg-panel hover:border-coral/60 disabled:opacity-40 disabled:hover:border-line"
                     }`}
                   >
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-xs font-semibold text-white">{copy.playerName}</span>
-                      <span className="text-[10px] uppercase tracking-wide text-muted">
+                      <span className="text-[10px] uppercase tracking-wide text-steel">
                         {tierLabel(copy.tier)}
                         {copy.role ? ` · ${copy.role}` : ""}
                         {deployed ? " · on expedition" : ""}
@@ -561,10 +576,10 @@ export default function ExpeditionBoard({
             {finished.map((run) => (
               <li
                 key={run.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border-subtle bg-surface px-3 py-1.5 text-xs"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-panel px-3 py-1.5 text-xs"
               >
                 <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier]?.label ?? run.tier}</span>
-                <span className="text-muted">
+                <span className="text-steel">
                   {/* Pinned to Eastern for RunStatus' reason: without a
                       timeZone the server formats in UTC and the browser in
                       the viewer's zone, so a run launched between midnight
@@ -593,7 +608,7 @@ export default function ExpeditionBoard({
                     ) : null}
                   </>
                 ) : (
-                  <span className="text-muted">claimed</span>
+                  <span className="text-steel">claimed</span>
                 )}
               </li>
             ))}
@@ -686,7 +701,7 @@ function ClaimCeremony({
           <CountUp value={outcome.dollars} />
           <span className="sr-only"> betting dollars</span>
         </p>
-        <p className="text-xs text-muted">Balance {fmtPoints(balance)}</p>
+        <p className="text-xs text-steel">Balance {fmtPoints(balance)}</p>
 
         {outcome.briefHit ? (
           <p className="text-sm text-gold">
@@ -701,7 +716,7 @@ function ClaimCeremony({
           <div className="flex flex-col items-center gap-3">
             <p className="type-display text-xl">The expedition chose {bearer.playerName}</p>
             <PlayerCard3D card={marked} interactive forceFoil={bearer.foil} foilType={bearer.foilType} />
-            <p className="max-w-sm text-xs text-muted">
+            <p className="max-w-sm text-xs text-steel">
               It wears the {shown} mark from here on — on the shelf, in a trade, and on its share page.
             </p>
           </div>

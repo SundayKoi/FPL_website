@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import EmptyShelf from "@/components/cards/EmptyShelf";
 import GauntletClient from "@/components/gauntlet/GauntletClient";
 import GauntletRules from "@/components/gauntlet/GauntletRules";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -34,12 +35,12 @@ export default async function GauntletPage() {
 
   if (!user || !user.allowed) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">The Gauntlet</span>
         <h1 className="type-display text-3xl sm:text-4xl">
-          {user ? "FPL Better members only" : "Sign in to run the Gauntlet"}
+          {user ? "Premium members only" : "Sign in to run the Gauntlet"}
         </h1>
-        <p className="max-w-md text-sm text-muted">
+        <p className="max-w-md text-sm text-steel">
           A run costs betting dollars and fields cards from your collection — you need the wallet and the
           shelf both.
         </p>
@@ -89,34 +90,29 @@ export default async function GauntletPage() {
   const heirlooms = buildHeirloomOptions(inventory);
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">Premium · Premier · The Gauntlet</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Gauntlet</h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted">
+          <p className="mt-3 max-w-2xl text-sm text-steel">
             Draft five from your shelf — one per role, premier or academy — and climb an eight-round bracket scaled to your
             lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
             Win, pick a relic, go again; lose once and the run ends. Entry is {GAUNTLET_ENTRY_FEE} betting
             dollars, and the only money out is Monday&apos;s pot to the top of the board. Every roll is in
             the rulebook below.
           </p>
-          <Link
-            href="/cards/packs"
-            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
-          >
-            ← Back to packs
-          </Link>
         </div>
         <div className="text-right text-sm">
           <span className="label-dash">This week</span>
           <p className="mt-1 font-mono text-2xl font-bold">{weekStats.bestScore.toLocaleString()}</p>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-steel">
             best score · {weekStats.attempts} run{weekStats.attempts === 1 ? "" : "s"}
           </p>
         </div>
       </header>
 
+      {inventory.length === 0 ? <EmptyShelf base="/cards" goal="draft a run" /> : null}
       <GauntletClient
         initialRun={activeRun}
         options={options}
@@ -131,13 +127,13 @@ export default async function GauntletPage() {
       <section aria-label="This week's board" className="card-brand flex flex-col gap-3 p-6">
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="label-dash">This week&apos;s board</span>
-          <span className="text-xs text-muted">
+          <span className="text-xs text-steel">
             Best run per player · the pot (every entry fee paid) settles Monday — 40/25/15% to the top three,
             scraps for everyone who cleared round 4.
           </span>
         </div>
         {board.length === 0 ? (
-          <p className="text-sm text-muted">Nobody has run yet this week. The board is yours to open.</p>
+          <p className="text-sm text-steel">Nobody has run yet this week. The board is yours to open.</p>
         ) : (
           <ol className="flex flex-col">
             {board.map((row, index) => {
@@ -145,9 +141,9 @@ export default async function GauntletPage() {
               return (
                 <li
                   key={row.discordId}
-                  className={`flex items-baseline gap-3 border-b border-border-subtle/50 py-2 last:border-0 ${row.discordId === user.discordId ? "bg-coral/5" : ""}`}
+                  className={`flex items-baseline gap-3 border-b border-line/50 py-2 last:border-0 ${row.discordId === user.discordId ? "bg-coral/5" : ""}`}
                 >
-                  <span className={`w-8 font-mono text-sm font-bold ${index === 0 ? "text-gold" : "text-muted"}`}>
+                  <span className={`w-8 font-mono text-sm font-bold ${index === 0 ? "text-gold" : "text-steel"}`}>
                     #{index + 1}
                   </span>
                   <span className="flex items-center gap-2 text-sm text-white">
@@ -166,7 +162,7 @@ export default async function GauntletPage() {
                     {row.cleared ? <span title="Full clear">🏆</span> : null}
                   </span>
                   <span className="ml-auto font-mono text-sm font-semibold">{row.score.toLocaleString()}</span>
-                  <span className="w-24 text-right text-xs text-muted">
+                  <span className="w-24 text-right text-xs text-steel">
                     {row.cleared ? "cleared" : `round ${row.round}`}
                   </span>
                 </li>

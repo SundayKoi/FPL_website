@@ -30,9 +30,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
-import { MAX_DUST_BATCH, patronDustValue } from "@/lib/packs/config";
+import {
+  canDust,
+  DEFAULT_FOIL_TYPE,
+  ECLIPSE_FOIL_TYPE,
+  FOIL_TYPE_LABELS,
+  foilTypeOf,
+  MAX_DUST_BATCH,
+  patronDustValue,
+} from "@/lib/packs/config";
 import { fmtPoints } from "@/lib/betting/format";
 import { dustManyAction } from "@/lib/trades/actions";
 import BinderPinButton from "./BinderPinButton";
@@ -40,6 +49,46 @@ import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
 
 type VariantFilter = "all" | "foil" | "signed" | "alt";
+
+/** How the shelf can be ordered. "best" is the showcase order the shelf
+ *  always had — Eclipse, ink, overall, foil. The rest are the questions a
+ *  collector actually asks of a big shelf: is it here (name), what did
+ *  last week's packs give me (newest / week), what is my top end (rating). */
+export type ShelfSort = "best" | "name" | "newest" | "rating" | "week";
+
+export const SHELF_SORTS: { key: ShelfSort; label: string }[] = [
+  { key: "best", label: "Best first" },
+  { key: "name", label: "Name A–Z" },
+  { key: "newest", label: "Newest pull" },
+  { key: "rating", label: "Highest rating" },
+  { key: "week", label: "Newest edition" },
+];
+
+/** A comparator for the chosen order. Ties fall back to the showcase order
+ *  so two same-named or same-rated copies still line up by quality. */
+export function copyOrder(sort: ShelfSort): (a: InventoryRow, b: InventoryRow) => number {
+  switch (sort) {
+    case "name":
+      return (a, b) => a.playerName.localeCompare(b.playerName) || showcaseOrder(a, b);
+    case "newest":
+      return (a, b) => b.acquiredAt.localeCompare(a.acquiredAt) || b.id - a.id;
+    case "rating":
+      return (a, b) => b.overall - a.overall || showcaseOrder(a, b);
+    case "week":
+      return (a, b) => b.editionWeek.localeCompare(a.editionWeek) || showcaseOrder(a, b);
+    default:
+      return showcaseOrder;
+  }
+}
+
+/** Name and week, the two things typed or picked into the finder. The
+ *  name match is a substring, case-blind — nobody types a tag. */
+export function matchesFinder(row: InventoryRow, query: string, week: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (needle && !row.playerName.toLowerCase().includes(needle)) return false;
+  if (week && row.editionWeek !== week) return false;
+  return true;
+}
 
 const FILTERS: { key: VariantFilter; label: string }[] = [
   { key: "all", label: "All" },
@@ -69,31 +118,77 @@ const MATCHES: Record<Exclude<VariantFilter, "all">, (row: InventoryRow) => bool
   alt: (row) => skinOf(row) > 0,
 };
 
-/** What makes two copies the same *print*: the three cosmetic rolls. Two
- *  copies of a player from different weeks at different ratings are still
- *  the same thing to look at if all three match. */
-function printKey(row: InventoryRow): string {
-  return `${skinOf(row)}|${row.foil ? "f" : ""}|${row.signed ? "s" : ""}`;
+/** Which parallel a copy wears, for grouping. A matte copy is "", and so
+ *  is a pre-parallels foil that was backfilled to Prisma: they are the base
+ *  look. Anything else is its own print — a Cracked Ice is not a Prisma. */
+function parallelOf(row: InventoryRow): string {
+  if (!row.foil) return "";
+  return row.foilType && row.foilType !== DEFAULT_FOIL_TYPE ? row.foilType : "";
 }
 
-/** The copy to put on the shelf: an autographed copy outranks everything —
- *  the ink is the rarest thing that can happen to a pull, and nobody shelves
- *  a plain copy over a signed one — then highest overall, foil winning a tie
- *  (identical ratings are the same card, and the foil is the nicer print). */
+/** The one copy that outranks every rule below it. */
+function isEclipse(row: InventoryRow): boolean {
+  return row.foilType === ECLIPSE_FOIL_TYPE;
+}
+
+/** What makes two copies the same *print*: the cosmetic rolls. Two copies
+ *  of a player from different weeks at different ratings are still the same
+ *  thing to look at if they match.
+ *
+ *  The parallel is part of the key. The first cut keyed on foil-or-not, and
+ *  the first Eclipse ever pulled — a signed foil, technically — stacked
+ *  behind a signed Prisma of the same player and showed as "×2". A
+ *  one-of-one that reads as a duplicate is the exact opposite of what it
+ *  is, and the same is true, more quietly, of a Cracked Ice filed under a
+ *  Prisma. */
+function printKey(row: InventoryRow): string {
+  return `${skinOf(row)}|${row.foil ? "f" : ""}|${row.signed ? "s" : ""}|${parallelOf(row)}`;
+}
+
+/** The copy to put on the shelf: an Eclipse over everything, because there
+ *  is nothing rarer and nothing else that can happen to a pull; then an
+ *  autographed copy — the ink is the rarest ordinary thing and nobody
+ *  shelves a plain copy over a signed one — then highest overall, foil
+ *  winning a tie (identical ratings are the same card, and the foil is the
+ *  nicer print). */
 function betterCopy(a: InventoryRow, b: InventoryRow): InventoryRow {
+  if (isEclipse(a) !== isEclipse(b)) return isEclipse(b) ? b : a;
   if (a.signed !== b.signed) return b.signed ? b : a;
   if (b.overall !== a.overall) return b.overall > a.overall ? b : a;
   return b.foil && !a.foil ? b : a;
 }
 
-/** Showcase order: the ink first, then rating. Same rule the shelf ranks a
- *  player's copies by, so a strip and a filtered wall agree. */
+/** Showcase order: Eclipse, then the ink, then rating. Same rule the shelf
+ *  ranks a player's copies by, so a strip and a filtered wall agree. */
 function showcaseOrder(a: InventoryRow, b: InventoryRow): number {
-  return Number(b.signed) - Number(a.signed) || b.overall - a.overall || a.id - b.id;
+  return (
+    Number(isEclipse(b)) - Number(isEclipse(a)) ||
+    Number(b.signed) - Number(a.signed) ||
+    b.overall - a.overall ||
+    a.id - b.id
+  );
 }
 
-const CHIP = "rounded-full border border-border-subtle bg-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted";
+const CHIP = "rounded-full border border-line bg-panel px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-steel";
 const GOLD_CHIP = "rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold";
+
+/**
+ * "#7 of 43" for one copy, or null when either half is unknown.
+ *
+ * Both halves have to be there: a serial with no run size is a number
+ * nobody can read, and a run size with no serial belongs to a different
+ * copy. The map is keyed by print (week + slug), not by copy, because one
+ * print's total is the same for every copy of it — see fetchPrintRuns.
+ */
+function printOf(
+  row: InventoryRow,
+  printRuns?: ReadonlyMap<string, number>,
+): { number: number; of: number; editionWeek: string } | null {
+  if (row.printNumber == null) return null;
+  const minted = printRuns?.get(printRunKey(row.editionWeek, row.slug));
+  if (!minted) return null;
+  return { number: row.printNumber, of: minted, editionWeek: row.editionWeek };
+}
 
 /** The line under a single copy: whose it is, which print run it came from,
  *  what tier it printed at, and every marker that makes it a variant. */
@@ -101,6 +196,7 @@ function CopyCaption({
   row,
   count = 1,
   pinned,
+  printRuns,
 }: {
   row: InventoryRow;
   count?: number;
@@ -108,25 +204,44 @@ function CopyCaption({
    *  shows a representative copy, and pinning "a representative" would be
    *  a lie about which copy went on display. */
   pinned?: ReadonlySet<number>;
+  /** Minted-to-date per print, keyed by printRunKey. Optional throughout:
+   *  a shelf whose page hasn't read the counters still renders, it just
+   *  doesn't say which copy this is. */
+  printRuns?: ReadonlyMap<string, number>;
 }) {
   const skin = skinOf(row);
+  const print = printOf(row, printRuns);
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
       <span className="text-sm font-semibold text-white">
         {row.playerName}
-        {count > 1 ? <span className="ml-1.5 text-xs font-bold text-muted">×{count}</span> : null}
+        {count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{count}</span> : null}
       </span>
       <div className="flex flex-wrap justify-center gap-1">
         <span className={CHIP}>{editionLabel(row.editionWeek)}</span>
         <span className={CHIP}>{row.card.tier.label}</span>
+        {print ? (
+          <span
+            className={CHIP}
+            title={`Copy ${print.number} of the ${print.of} this print has ever stamped`}
+          >
+            #{print.number} of {print.of}
+          </span>
+        ) : null}
         {row.signed ? (
           <span className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold" title="Autographed copy">
             ✍
           </span>
         ) : null}
-        {row.foil ? (
-          <span className={GOLD_CHIP} title="Foil copy">
-            ✦
+        {isEclipse(row) ? (
+          <span className={GOLD_CHIP} title="Eclipse — the only copy of this print that will ever exist">
+            ◐ 1 of 1
+          </span>
+        ) : row.foil ? (
+          <span className={GOLD_CHIP} title={`${FOIL_TYPE_LABELS[foilTypeOf(row.foilType)]} foil copy`}>
+            {/* The parallel by name where it is more than the base foil —
+                a Cracked Ice beside a Prisma should not wear the same ✦. */}
+            {parallelOf(row) ? FOIL_TYPE_LABELS[foilTypeOf(row.foilType)] : "✦"}
           </span>
         ) : null}
         {skin > 0 ? (
@@ -141,11 +256,30 @@ function CopyCaption({
 }
 
 /** One copy on display, sized and spaced like every other card grid. */
-function CopyCell({ row, count, pinned, flame }: { row: InventoryRow; count?: number; pinned?: ReadonlySet<number>; flame?: string | null }) {
+function CopyCell({
+  row,
+  count,
+  pinned,
+  flame,
+  printRuns,
+}: {
+  row: InventoryRow;
+  count?: number;
+  pinned?: ReadonlySet<number>;
+  flame?: string | null;
+  printRuns?: ReadonlyMap<string, number>;
+}) {
   return (
     <div className="card-cell flex flex-col items-center gap-2">
-      <PlayerCard3D card={row.card} interactive forceFoil={row.foil} foilType={row.foilType} flame={flame} />
-      <CopyCaption row={row} count={count} pinned={pinned} />
+      <PlayerCard3D
+        card={row.card}
+        interactive
+        forceFoil={row.foil}
+        foilType={row.foilType}
+        flame={flame}
+        print={printOf(row, printRuns)}
+      />
+      <CopyCaption row={row} count={count} pinned={pinned} printRuns={printRuns} />
     </div>
   );
 }
@@ -177,7 +311,10 @@ function PickCell({
   value: number;
   onToggle: () => void;
 }) {
-  const disabled = locked || (atCap && !picked);
+  // A one-of-one is never pickable for dust — not a situation like a lock
+  // that lifts when the expedition returns, but a property of the copy.
+  const keepsake = !canDust(row);
+  const disabled = locked || keepsake || (atCap && !picked);
   return (
     <div className="card-cell flex flex-col items-center gap-2">
       <button
@@ -185,7 +322,13 @@ function PickCell({
         aria-pressed={picked}
         disabled={disabled}
         onClick={onToggle}
-        title={locked ? "On expedition — back soon." : undefined}
+        title={
+          keepsake
+            ? "An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
+            : locked
+              ? "On expedition — back soon."
+              : undefined
+        }
         className={`flex flex-col items-center gap-2 rounded-xl border-2 p-1 transition disabled:cursor-not-allowed disabled:opacity-40 ${
           picked ? "border-gold bg-gold/10" : "border-transparent hover:border-gold/40"
         }`}
@@ -193,12 +336,12 @@ function PickCell({
         <PlayerCard3D card={row.card} forceFoil={row.foil} foilType={row.foilType} flame={flame} />
         <span className="flex w-full items-center justify-center gap-1.5 text-xs">
           <span className="truncate font-semibold text-white">{row.playerName}</span>
-          <span className={picked ? "font-bold text-gold" : "text-muted"}>
-            {picked ? "✓ " : ""}+{fmtPoints(value)}
+          <span className={picked ? "font-bold text-gold" : "text-steel"}>
+            {keepsake ? "1 of 1" : `${picked ? "✓ " : ""}+${fmtPoints(value)}`}
           </span>
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-muted">
-          {locked ? "On expedition" : editionLabel(row.editionWeek)}
+        <span className="text-[10px] uppercase tracking-wide text-steel">
+          {keepsake ? "Can't be dusted" : locked ? "On expedition" : editionLabel(row.editionWeek)}
         </span>
       </button>
     </div>
@@ -231,7 +374,7 @@ function ShowMore({
       <button type="button" onClick={onMore} className="btn-pill px-5 py-2 text-sm">
         Show more
       </button>
-      <span className="text-xs text-muted">
+      <span className="text-xs text-steel">
         {shown.toLocaleString()} of {total.toLocaleString()} {noun}
         {total === 1 ? "" : "s"} · {left.toLocaleString()} more
       </span>
@@ -244,8 +387,12 @@ export default function CollectionGrid({
   pinnedIds = [],
   flame = null,
   deployedIds,
+  printRuns,
+  base = "/cards",
 }: {
   inventory: InventoryRow[];
+  /** "/cards" or "/academy/cards" — where a copy's actions lead. */
+  base?: string;
   /** Copies already on display, so the shelf can show which ones are in
    *  the binder without a second round trip per card. */
   pinnedIds?: number[];
@@ -257,9 +404,19 @@ export default function CollectionGrid({
    *  Passed straight through rather than flattened to an array: the shelf
    *  itself has no use for it. */
   deployedIds?: ReadonlySet<number>;
+  /** How many copies each print has ever stamped, keyed by printRunKey —
+   *  the "of 43" half of "#7 of 43". Optional so every existing caller
+   *  still compiles: a shelf with no counters shows the same cards, minus
+   *  the one chip. */
+  printRuns?: ReadonlyMap<string, number>;
 }) {
   const pinned = new Set(pinnedIds);
   const [filter, setFilter] = useState<VariantFilter>("all");
+  // Finding a card on a big shelf: a name, a week, an order. Each is a
+  // different shelf, so changing any of them starts the paging over.
+  const [query, setQuery] = useState("");
+  const [week, setWeek] = useState<string>("");
+  const [sort, setSort] = useState<ShelfSort>("best");
   // Which players have their print strip open. A Set rather than a single
   // slug: comparing two players' prints side by side is the point.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -274,6 +431,18 @@ export default function CollectionGrid({
   // rather than inheriting however far down the last one was opened.
   function chooseFilter(next: VariantFilter) {
     setFilter(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseQuery(next: string) {
+    setQuery(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseWeek(next: string) {
+    setWeek(next);
+    setLimit(PAGE_SIZE);
+  }
+  function chooseSort(next: ShelfSort) {
+    setSort(next);
     setLimit(PAGE_SIZE);
   }
 
@@ -356,15 +525,58 @@ export default function CollectionGrid({
   }
 
   if (inventory.length === 0) {
-    return <p className="text-sm text-muted">No cards yet — open your first pack.</p>;
+    return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
   }
 
+  // Every week the shelf holds copies from, newest first — the week picker.
+  const heldWeeks = [...new Set(inventory.map((row) => row.editionWeek))].sort().reverse();
+  const visible = inventory.filter((row) => matchesFinder(row, query, week));
+
   const counts: Record<VariantFilter, number> = {
-    all: inventory.length,
-    foil: inventory.filter(MATCHES.foil).length,
-    signed: inventory.filter(MATCHES.signed).length,
-    alt: inventory.filter(MATCHES.alt).length,
+    all: visible.length,
+    foil: visible.filter(MATCHES.foil).length,
+    signed: visible.filter(MATCHES.signed).length,
+    alt: visible.filter(MATCHES.alt).length,
   };
+
+  const finder = (
+    <div className="flex flex-wrap items-end gap-3" role="search" aria-label="Find a card">
+      <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-steel sm:max-w-xs">
+        Search your cards
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => chooseQuery(event.target.value)}
+          placeholder="Player name"
+          className="input-brand px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Week
+        <select value={week} onChange={(event) => chooseWeek(event.target.value)} className="input-brand px-3 py-2 text-sm">
+          <option value="">All weeks</option>
+          {heldWeeks.map((held) => (
+            <option key={held} value={held}>
+              {editionLabel(held)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-steel">
+        Sort
+        <select value={sort} onChange={(event) => chooseSort(event.target.value as ShelfSort)} className="input-brand px-3 py-2 text-sm">
+          {SHELF_SORTS.map((option) => (
+            <option key={option.key} value={option.key}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <span className="text-xs text-steel">
+        {visible.length} of {inventory.length} {inventory.length === 1 ? "copy" : "copies"}
+      </span>
+    </div>
+  );
 
   const selectToggle = (
     <button
@@ -372,7 +584,7 @@ export default function CollectionGrid({
       onClick={() => (selecting ? leaveSelectMode() : setSelecting(true))}
       aria-pressed={selecting}
       className={`ml-auto rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-        selecting ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+        selecting ? "bg-gold text-navy" : "border border-line bg-panel text-steel hover:text-white"
       }`}
     >
       {selecting ? "Cancel" : "Select to dust"}
@@ -380,6 +592,8 @@ export default function CollectionGrid({
   );
 
   const chips = (
+    <>
+    {finder}
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Variant filter">
       {FILTERS.map(({ key, label }) => (
         <button
@@ -391,7 +605,7 @@ export default function CollectionGrid({
           // cleared state here has a name.
           onClick={() => chooseFilter(filter === key && key !== "all" ? "all" : key)}
           className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-            filter === key ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+            filter === key ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
           }`}
         >
           {label} · {counts[key]}
@@ -399,6 +613,7 @@ export default function CollectionGrid({
       ))}
       {selectToggle}
     </div>
+    </>
   );
 
   if (selecting) {
@@ -406,14 +621,14 @@ export default function CollectionGrid({
     // whole job here is picking specific copies out of the pile. The
     // variant chips still narrow it, which is how "dust my spare commons"
     // is a two-tap job.
-    const shown = (filter === "all" ? inventory : inventory.filter(MATCHES[filter])).slice().sort(showcaseOrder);
+    const shown = (filter === "all" ? visible : visible.filter(MATCHES[filter])).slice().sort(copyOrder(sort));
     const total = shown.filter((row) => picked.has(row.id)).reduce((sum, row) => sum + valueOf(row), 0);
     return (
       <div className="flex flex-col gap-4">
         {chips}
-        <p className="text-xs text-muted">
-          Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup or out on an
-          expedition can&apos;t be dusted and the shelf will say so.
+        <p className="text-xs text-steel">
+          Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup, out on an
+          expedition, or a one-of-one can&apos;t be dusted and the shelf will say so.
         </p>
         <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
           {shown.slice(0, limit).map((row) => (
@@ -442,17 +657,17 @@ export default function CollectionGrid({
         ) : null}
         {/* Sticky, because the selection is made by scrolling and a button
             at the bottom of four hundred cards is a button nobody finds. */}
-        <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-canvas/95 px-4 py-3 shadow-lg">
+        <div className="sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-navy/95 px-4 py-3 shadow-lg">
           <span className="text-sm font-semibold text-white">
             {picked.size} selected
-            {picked.size >= MAX_DUST_BATCH ? <span className="ml-1 text-xs text-muted">(max)</span> : null}
+            {picked.size >= MAX_DUST_BATCH ? <span className="ml-1 text-xs text-steel">(max)</span> : null}
           </span>
           <span className="text-sm font-bold text-gold">+{fmtPoints(total)}</span>
           {picked.size > 0 ? (
             <button
               type="button"
               onClick={() => setPicked(new Set())}
-              className="text-xs font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-white hover:underline"
+              className="text-xs font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-white hover:underline"
             >
               Clear
             </button>
@@ -475,19 +690,19 @@ export default function CollectionGrid({
   }
 
   if (filter !== "all") {
-    const shown = inventory.filter(MATCHES[filter]).sort(showcaseOrder);
+    const shown = visible.filter(MATCHES[filter]).sort(copyOrder(sort));
     return (
       <div className="flex flex-col gap-4">
         {chips}
         {shown.length === 0 ? (
-          <p className="text-sm text-muted">{EMPTY_COPY[filter]}</p>
+          <p className="text-sm text-steel">{EMPTY_COPY[filter]}</p>
         ) : (
           <>
             {/* card-cell carries its own padding, so the gaps come down by
                 that much to sit where the shelf's do. */}
             <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
               {shown.slice(0, limit).map((row) => (
-                <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} />
+                <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} printRuns={printRuns} />
               ))}
             </div>
             <ShowMore shown={Math.min(limit, shown.length)} total={shown.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} noun="card" />
@@ -498,7 +713,7 @@ export default function CollectionGrid({
   }
 
   const groups = new Map<string, InventoryRow[]>();
-  for (const row of inventory) {
+  for (const row of visible) {
     const copies = groups.get(row.slug) ?? [];
     copies.push(row);
     groups.set(row.slug, copies);
@@ -516,7 +731,11 @@ export default function CollectionGrid({
       return {
         best: copies.reduce(betterCopy),
         count: copies.length,
-        foils: copies.filter((copy) => copy.foil).length,
+        // The Eclipse is counted apart from the foils: a ✦ beside a ◐ would
+        // say "two foils" about a stack that holds one foil and one thing
+        // there is exactly one of in the world.
+        eclipses: copies.filter(isEclipse).length,
+        foils: copies.filter((copy) => copy.foil && !isEclipse(copy)).length,
         signatures: copies.filter((copy) => copy.signed).length,
         // Chronological, so the chips read as a print history.
         editions: [...new Set(copies.map((copy) => copy.editionWeek))].sort(),
@@ -531,14 +750,22 @@ export default function CollectionGrid({
             id: copy.id,
             tier: copy.tier,
             foil: copy.foil,
+            // The parallel is what tells the drawer a copy cannot be dusted
+            // at all (an Eclipse), and what prices a Cracked Ice above a
+            // Prisma — the same field the server reads for both.
+            foilType: copy.foilType,
             signed: copy.signed,
             editionWeek: copy.editionWeek,
             card: copy.card,
+            // Resolved here rather than in the drawer: the drawer's copies
+            // carry no slug, and the counter map is keyed by print.
+            printNumber: copy.printNumber,
+            printRun: printRuns?.get(printRunKey(copy.editionWeek, copy.slug)) ?? null,
           }))
           .sort((a, b) => a.editionWeek.localeCompare(b.editionWeek) || a.id - b.id),
       };
     })
-    .sort((a, b) => b.best.overall - a.best.overall);
+    .sort((a, b) => copyOrder(sort)(a.best, b.best) || a.best.playerName.localeCompare(b.best.playerName));
 
   function togglePrints(slug: string) {
     setExpanded((current) => {
@@ -551,6 +778,11 @@ export default function CollectionGrid({
   return (
     <div className="flex flex-col gap-4">
       {chips}
+      {owned.length === 0 ? (
+        <p className="text-sm text-steel">
+          Nothing on your shelf matches{query ? ` “${query}”` : ""}{week ? ` in ${editionLabel(week)}` : ""}.
+        </p>
+      ) : null}
       {/* card-cell skips the paint for shelves scrolled out of view; it brings its
           own padding, so the gaps come down by that much to sit where they did. */}
       <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
@@ -560,7 +792,7 @@ export default function CollectionGrid({
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="text-sm font-semibold text-white">
                 {entry.best.playerName}
-                {entry.count > 1 ? <span className="ml-1.5 text-xs font-bold text-muted">×{entry.count}</span> : null}
+                {entry.count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{entry.count}</span> : null}
               </span>
               <div className="flex flex-wrap justify-center gap-1">
                 {entry.editions.map((week) => (
@@ -576,6 +808,14 @@ export default function CollectionGrid({
                     {"✍".repeat(entry.signatures)}
                   </span>
                 ) : null}
+                {entry.eclipses > 0 ? (
+                  // On the collapsed shelf too, not only in the prints strip:
+                  // the first Eclipse pulled hid behind "×2 ✍✍ ✦✦" and read as
+                  // a spare signed foil, which is the one thing it is not.
+                  <span className={GOLD_CHIP} title="Eclipse — the only copy of this print that will ever exist">
+                    ◐ 1 of 1
+                  </span>
+                ) : null}
                 {entry.foils > 0 ? (
                   <span className={GOLD_CHIP} title={`${entry.foils} foil ${entry.foils === 1 ? "copy" : "copies"}`}>
                     {"✦".repeat(entry.foils)}
@@ -587,7 +827,7 @@ export default function CollectionGrid({
                   type="button"
                   onClick={() => togglePrints(entry.best.slug)}
                   aria-expanded={expanded.has(entry.best.slug)}
-                  className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-coral hover:underline"
                 >
                   {expanded.has(entry.best.slug) ? "Hide prints" : `View prints (${entry.prints.length})`}
                 </button>
@@ -602,6 +842,7 @@ export default function CollectionGrid({
                 copies={entry.copies}
                 patron={Boolean(flame)}
                 deployedIds={deployedIds}
+                base={base}
               />
             </div>
             {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (
@@ -610,8 +851,15 @@ export default function CollectionGrid({
               <div className="flex w-80 gap-4 overflow-x-auto pb-2">
                 {entry.prints.map((print) => (
                   <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
-                    <PlayerCard3D card={print.copy.card} interactive forceFoil={print.copy.foil} foilType={print.copy.foilType} flame={flame} />
-                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} />
+                    <PlayerCard3D
+                      card={print.copy.card}
+                      interactive
+                      forceFoil={print.copy.foil}
+                      foilType={print.copy.foilType}
+                      flame={flame}
+                      print={printOf(print.copy, printRuns)}
+                    />
+                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} printRuns={printRuns} />
                   </div>
                 ))}
               </div>

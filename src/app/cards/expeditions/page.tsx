@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
-import CardsLeagueToggle from "@/components/cards/CardsLeagueToggle";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -11,7 +11,7 @@ import { easternDateOf } from "@/lib/packs/week";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Card Expeditions — FPL",
+  title: "Expeditions — FPL",
   description: "Send three cards out for a few hours and collect what they bring back.",
 };
 
@@ -22,7 +22,7 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
  * with betting dollars, sometimes a free pack, and rarely a mark that stays
  * on one of them forever.
  *
- * Gated on FPL Better rather than the premium card role, same as
+ * Gated on the wallet rather than the premium-role check, same as
  * /cards/packs and the Gauntlet — an expedition pays into the wallet, so
  * the wallet is the thing you need.
  *
@@ -38,7 +38,14 @@ const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy:
  * has no public RLS policy, and the Discord id came from the session, so
  * this page can only ever ask for the signed-in collector's shelf.
  */
-export async function ExpeditionsPageView({ league = "premier" }: { league?: CardLeague } = {}) {
+export async function ExpeditionsPageView({
+  league = "premier",
+  send,
+}: {
+  league?: CardLeague;
+  /** ?send=<inventory id> — start the squad with this copy. */
+  send?: string;
+} = {}) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const supabase = await createServerSupabase();
   const { data: auth } = await supabase.auth.getUser().then(
@@ -49,11 +56,11 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
 
   if (!viewer) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card expeditions</span>
         <h1 className="type-display text-3xl sm:text-4xl">Sign in to send a squad out</h1>
-        <p className="max-w-md text-sm text-muted">
-          Expeditions field cards from your collection and pay into your FPL Better wallet — sign in
+        <p className="max-w-md text-sm text-steel">
+          Expeditions field cards from your collection and pay into your wallet — sign in
           with Discord to check your access.
         </p>
         <Link href={`/login?redirect=${base}/expeditions`} className="btn-pill mt-2">
@@ -79,12 +86,12 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
 
   if (!discordId || !allowed) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
         <span className="label-dash">Card expeditions</span>
-        <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-        <p className="max-w-md text-sm text-muted">
-          An expedition pays betting dollars, and only FPL Better members have a wallet to pay into.
-          Join the FPL Better role in Discord and come back to send a squad out.
+        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
+        <p className="max-w-md text-sm text-steel">
+          An expedition pays betting dollars, and only premium members have a wallet to pay into.
+          Grab the premium role in the Discord and come back to send a squad out.
         </p>
       </main>
     );
@@ -115,33 +122,28 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
     offShelf.length > 0 ? [...inventory, ...(await fetchInventoryByIds(service, discordId, offShelf))] : inventory;
 
   return (
-    <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+    <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="label-dash">
             Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
           </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Card Expeditions</h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted">
+          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Expeditions</h1>
+          <p className="mt-3 max-w-2xl text-sm text-steel">
             Send three cards out into the field. They are away for hours, not spent — while a squad is
             out its cards can&apos;t be dusted or traded, and when the clock runs out they come home with
             betting dollars, sometimes a free pack, and occasionally a mark that one of them wears for
             the rest of its life. Brighter cards clear harder runs and are paid more for it.
           </p>
-          <Link
-            href={base}
-            className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-action-text hover:underline"
-          >
-            ← Back to player cards
-          </Link>
         </div>
-        <CardsLeagueToggle league={league} suffix="/expeditions" />
       </header>
 
       <ExpeditionBoard
         copies={copies}
         runs={runs}
         deployedIds={deployedIds}
+        initialPick={parseInventoryId(send)}
+        base={base}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
         // scored against rather than whatever the reader's clock says.
@@ -151,6 +153,7 @@ export async function ExpeditionsPageView({ league = "premier" }: { league?: Car
   );
 }
 
-export default async function ExpeditionsPage() {
-  return ExpeditionsPageView({ league: "premier" });
+export default async function ExpeditionsPage({ searchParams }: { searchParams: Promise<{ send?: string }> }) {
+  const { send } = await searchParams;
+  return ExpeditionsPageView({ league: "premier", send });
 }

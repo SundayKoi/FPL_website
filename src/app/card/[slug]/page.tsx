@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
+import { fmtPoints } from "@/lib/betting/format";
+import { readViewerDiscordId } from "@/lib/cards/viewer";
+import { fetchOpenListings } from "@/lib/market/queries";
 import { cardImageUrl } from "@/lib/cards/shareImage";
 import CardClaim, { type CardClaimState } from "@/components/cards/CardClaim";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
@@ -249,6 +252,37 @@ export default async function CardSharePage({
     );
   }
 
+  // The card and the viewer's shelf, on the same page: how many copies they
+  // hold, and whether anyone is selling one. Read-only through the service
+  // client (card_inventory and card_listings have no public policies) with
+  // the viewer resolved from profiles, so a share page never writes. Every
+  // failure — signed out, no key configured — is "nothing to say".
+  let ownedCopies = 0;
+  let forSale: { count: number; cheapest: number } | null = null;
+  let viewerDiscordId: string | null = null;
+  try {
+    const supabase = await createServerSupabase();
+    viewerDiscordId = await readViewerDiscordId(supabase);
+    const service = createBettingServiceClient();
+    const [owned, listings] = await Promise.all([
+      viewerDiscordId
+        ? service
+            .from("card_inventory")
+            .select("id", { count: "exact", head: true })
+            .eq("discord_id", viewerDiscordId)
+            .eq("season", card.season)
+            .eq("slug", card.slug)
+        : Promise.resolve({ count: 0 }),
+      fetchOpenListings(service, card.season),
+    ]);
+    ownedCopies = owned.count ?? 0;
+    const asks = listings.filter((listing) => listing.copy?.slug === card.slug).map((listing) => listing.ask);
+    forSale = asks.length > 0 ? { count: asks.length, cheapest: Math.min(...asks) } : null;
+  } catch {
+    // A share page for a link unfurler has no viewer and may have no key.
+  }
+  const collectionBase = collectionHref;
+
   return (
     <main className="page-backdrop flex flex-1 flex-col items-center gap-6 px-4 py-12 text-white">
       <header className="text-center">
@@ -259,6 +293,39 @@ export default async function CardSharePage({
       <TiltHint />
       <SeasonJourney history={history} />
       <ShareCardActions slug={card.slug} />
+      {viewerDiscordId && (ownedCopies > 0 || forSale) ? (
+        <section
+          aria-label="Your copies"
+          className="card-brand flex w-full max-w-md flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
+        >
+          <p className="text-white">
+            {ownedCopies > 0 ? (
+              <>
+                You own <b className="font-semibold">{ownedCopies}</b> {ownedCopies === 1 ? "copy" : "copies"}.
+              </>
+            ) : (
+              <>You don&apos;t own a copy yet.</>
+            )}{" "}
+            {forSale ? (
+              <span className="text-steel">
+                {forSale.count} for sale from {fmtPoints(forSale.cheapest)}.
+              </span>
+            ) : null}
+          </p>
+          <span className="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-wide">
+            {ownedCopies > 0 ? (
+              <Link href={`${collectionBase}/collection`} className="text-steel transition hover:text-coral">
+                My collection →
+              </Link>
+            ) : null}
+            {forSale ? (
+              <Link href={`${collectionBase}/market`} className="text-steel transition hover:text-coral">
+                Market →
+              </Link>
+            ) : null}
+          </span>
+        </section>
+      ) : null}
       <CardClaim
         season={card.season}
         summonerName={card.name}

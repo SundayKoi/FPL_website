@@ -69,7 +69,9 @@ brief prose), Vercel (hosting), and Supabase Cloud (production data).
     modals through `src/lib/betting/discord/`.
   - `src/app/api/betting/share/[id]/open/route.tsx` and `result/route.tsx`
     render Discord share cards with `next/og`.
-  - `src/app/card/[slug]/card.png/route.tsx` renders player-card images.
+  - `src/app/card/[slug]/card.png/route.tsx` and
+    `src/app/copy/[id]/card.png/route.tsx` render player-card images — the
+    card, and one owned copy of it. See "Copy images" below.
 - The Discord interactions route explicitly uses the Node runtime because
   signature verification relies on WebCrypto behavior in that environment.
 
@@ -87,16 +89,71 @@ target league home. Premium HQ is the intentional exception: its
 Premier/Academy toggle keeps card and fantasy destinations in the selected
 league.
 
-`SiteNavigation` renders five direct links for the active league—Players,
-Teams, Schedule, Stats, and My Team—and a direct Premium link to the gated
-Premium HQ. Active-league destinations plus Auction Draft remain under League,
-with shared destinations under Info. Premium HQ previews and links Betting, The
-Daily Stu, Player Cards, Draft League, Match Drafter, and the card economy.
+`SiteNavigation` renders three direct links for the active league—Stats, My
+Team, and Cards—where Cards is active across both leagues' collection hubs, the
+single-card share pages, and public binders. Active-league destinations plus
+Auction Draft remain under League, the gated Premium HQ heads a Premium menu
+alongside Betting, The Daily Stu, Match Drafter, FPL'dle, Higher or Lower, and
+Guess the Card, and shared destinations stay under Info. Premium HQ previews and
+links Betting, The Daily Stu, Player Cards, Draft League, Match Drafter, and the
+card economy.
 Admin and Broadcaster are Staff entries within Info, conditionally rendered
 from the server-provided staff tier. Those props do not authorize access:
 `/admin` and `/broadcaster` continue to perform their existing server-side
 gates, and the route checks remain authoritative if a link is hidden or
 manually visited.
+
+**The cards section** (`/cards/*`, mirrored under `/academy/cards/*`) is laid
+out by one map, `src/lib/cards/sections.ts`: six tabs — Home, My Collection,
+Packs, Browse, Market, Play — the last three with sub-tabs (Team cards,
+Compare, Moments, the Vault under Browse; Listings & bounties and Trade
+offers under Market; Fantasy, Gauntlet, Expeditions, Weekly Draw and Stats
+under Play). `CardsTabs` renders that map on every cards page from the two
+`layout.tsx` files, marks the current tab and sub-tab from the pathname, and
+carries the only Premier/Academy switcher a cards page has (`pairedCardsHref`
+keeps the same page across leagues, sending the premier-only Gauntlet to the
+academy's Play tab). Pages do not draw their own back links or league
+toggles. Every old URL still resolves; the map decides which tab it lights.
+A page the map does not list (`/cards/claims`, a redirect) lights nothing.
+
+Cards Home (`src/app/cards/page.tsx`) is about the viewer and the week —
+their card or claim, a one-line shelf count with today's free rip, this
+week's notices, the draw, and a "what's where" line per tab — and reads only
+through the read-only `loadHomeExtras` (never `getBettingUser()`, which
+writes). The wall of every card is Browse. Shop-week notices (Live Drops,
+Champion's Tribute, the Faceless Drop, the chase) come from the pure
+`weekNotices()` in `src/lib/packs/weekNotices.ts`, most urgent first, and
+`ThisWeekStrip` draws the first as a full line and the rest as chips, so a
+busy week is one row above the buy button instead of four banners. Page
+titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
+Draw, Team cards); routes did not move.
+
+Under a tab, pages share `CardsPageHeader` (eyebrow "Browse · Premier ·
+Season S5", the sub-tab's own name as the title, one paragraph). The Market
+tab is three pages on one loader (`src/app/cards/market/load.ts`): Listings
+(`/market`), Bounties (`/market/bounties`) and Trade offers (`/trades`), so
+what a copy may do is the same answer on each. The Play index reports each
+game's state for the viewer — lineup in and when it locks, a run in progress
+or the week's best, a squad out and when it is back, tickets held — from the
+pure `playStatuses()` in `src/lib/cards/playStatus.ts`, with the viewer
+resolved read-only by `readViewerDiscordId()` (never `getBettingUser()`).
+
+A copy acts from where it sits. In My Collection each copy's row (the
+"Manage copies" drawer) has a Use menu — Sell, Trade, Send out, Field — that
+opens Market, Trades, Expeditions or Fantasy with that copy already chosen,
+via `?sell=`, `?offer=`, `?send=` and `?field=` (`parseInventoryId` in
+`src/lib/cards/params.ts`). Those are hints, never permissions: each form
+selects the copy only if it is the viewer's and available, and a junk value
+opens the form empty. The share page `/card/[slug]` shows the viewer how
+many copies they hold and how many are for sale, read-only. Every game and
+the market share one empty state, `EmptyShelf`, with the pack shop as the
+one button.
+
+Gating within Cards uses one wording, `CardsGate` with `PREMIUM_GATE_TITLE`
+and `PREMIUM_GATE_BODY`, whichever check a page runs: `premiumAccess()` (the
+premium role) and `getBettingUser().allowed` (the wallet) both resolve the
+same Discord role in production, so the two names the pages used to show for
+it were two names for one thing.
 
 ## Authentication and authorization
 
@@ -176,6 +233,9 @@ Postgres database and public schema:
 | Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
+| Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
+| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
+| Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
 
@@ -244,6 +304,12 @@ Important RPC families include:
   `setClaim.ts`, so a tampered request cannot name cards it does not own.
   Sets are per league: each collection page asks its own league's season,
   so premier and academy shelves have their own sets and their own claims.
+- Card market: `execute_card_sale` is the atom under both boards — it locks
+  the copy, verifies the seller still owns it, locks both wallets in
+  `least/greatest` order, refuses a buyer who cannot cover the price, writes
+  the two `betting_ledger` rows (reason `card_sale`, ref'd at the listing or
+  want), and moves `card_inventory.discord_id`. `buy_card_listing` and
+  `fill_card_want` are the two ways in. See "Market" below.
 - The Gauntlet fields cards from EVERY current shelf, premier and academy
   alike (`fetchAllCardSeasons`), while the run itself is still filed and
   ranked under the premier season. A copy from a past season is refused.
@@ -438,6 +504,134 @@ Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
 
+### Copy images
+
+Two routes render the same 1200x630 picture, from
+`src/lib/cards/render/cardImage.tsx`:
+
+- `/card/{slug}/card.png` pictures the CARD — a player as they stand, or
+  `?w=YYYY-MM-DD` for that week's archived edition print. It reads public
+  data with the anon client, because link unfurlers arrive with no cookies.
+- `/copy/{id}/card.png` pictures one OWNED copy out of `card_inventory`,
+  with the cosmetics that copy actually printed: its parallel, its Eclipse
+  frame and hallmark, its autograph. `card_inventory` is deny-all RLS, so
+  this route reads through `createBettingServiceClient`. That is not a
+  privacy hole — copies are already public through binders and the trade
+  board, and the frozen json it prints is the same public card plus ink the
+  live card prints too — but it is why the id is validated as a positive
+  integer before a client is built, and why a miss returns a placeholder
+  IMAGE rather than a 404: these urls sit inside Discord messages, where a
+  404 is a broken-image icon.
+
+The layout is shared rather than copied because a copy image that laid its
+stats out differently would read as a different card of the same player,
+which is the one thing a collectible must never do. satori (next/og's
+renderer) has no CSS 3D, blend modes or animation, so the parallels the live
+card wears as moving light are reduced to flat marks — a named badge, a
+frame colour, a "1 OF 1" stamp — by `src/lib/cards/render/treatment.ts`.
+
+**Both urls carry a cache key, and neither may be built by hand.** Discord's
+image proxy caches by URL, so a url that never changes pictures whatever was
+rendered the first time it was fetched, forever; that is a bug this repo has
+already shipped once. Use `cardImageUrl(site, slug, editionWeek)` for a card
+and `copyImageUrl(site, copy)` for a copy, both from
+`src/lib/cards/shareImage.ts`. The keys differ because the subjects differ: a
+card is alive and re-rates weekly, so its key is the week; a copy is frozen
+at mint except for the expedition mark it can come home wearing, so its key
+is `card.expedition?.mark ?? "none"`.
+
+The copy image's caption line carries the copy's identity: the edition it
+came out of and, when both halves are known, its stamp — "WK Aug 24 edition ·
+#7 of 43". The route reads `card_inventory.print_number` and the one
+`card_print_runs` row keyed by (season, edition_week, slug); a copy minted
+before print numbering, or a run whose counter cannot be read, keeps the
+plain edition line rather than losing it.
+
+### Discord card commands
+
+Two slash commands live outside `commands.ts`, each in its own module
+registered into `commandHandlers` by a side-effect import in
+`src/app/api/discord/interactions/route.ts`:
+
+- **`/rip`** (`src/lib/betting/discord/rip.ts`) opens the free daily pack and
+  posts the pulls, one embed per card, pictured with `cardImageUrl`.
+- **`/flex`** (`src/lib/betting/discord/flex.ts`) posts the caller's best copy
+  of a named player, pictured with `copyImageUrl` so the parallel, the ink and
+  the Eclipse frame that copy actually printed are what the channel sees.
+  "Best" is `bestCopy`: Eclipse, then signed, then the parallel ladder
+  (`FOIL_TYPES` order, ice down to prisma), then overall, then the newest
+  pull. An optional `copy` option overrides the ranking with one specific
+  copy (`pickCopy`, scoped to the named player's copies, so a stale id can
+  never surface someone else's card). The flex is public; every refusal —
+  owning none, a name matching several players, a week that isn't archived,
+  a copy that no longer fits — is ephemeral.
+
+  Both `player` and `copy` **autocomplete** out of the caller's own
+  collection (`autocompleteHandlers.flex`): `playerChoices` offers one entry
+  per owned player, best copy first, with the slug as the value; `copyChoices`
+  offers every copy of the chosen player, best first, labelled by
+  `copyLabel` (edition · parallel · ink · stamp · art · grade) with the
+  inventory id as the value. A value typed rather than picked still works —
+  `matchPlayer` accepts a slug or part of a name, and `pickCopy` matches
+  typed text against the same labels the picker showed. Autocomplete has no
+  deferral and does no wallet provisioning: one read, answer inside three
+  seconds, and every failure is an empty list because Discord accepts nothing
+  else in reply to an autocomplete interaction (`route.ts` answers the access
+  gate and an unknown command the same way).
+
+Both defer (`deferred()` + `after()`) and answer on the interaction's followup
+webhook, because a pack open and a paged collection read both outrun Discord's
+three-second deadline. Both take an optional free-text `week`, resolved by
+`resolveRipWeek` against the live archive.
+
+**Discord only learns a command exists from a run of
+`scripts/register-discord-commands.ts`** (`npm run register:discord-commands`,
+which PUTs `DISCORD_COMMANDS` from `commandDefs.ts`). Adding a handler is half
+the job; the registration is the other half.
+
+### Skin-line parallels (proposal)
+
+`/admin/skin-lines` is a staff-gated mockup of a patron's proposal: draw each
+season's foils in one League skin line, a new line every season, with four
+tiers inside it (Standard, Chroma, Prestige, Ultimate) sitting on the rungs —
+and therefore the weights and dust multipliers — of Prisma, Aurora, Refractor
+and Cracked Ice. Eclipse is not a tier of anything, keeps its name and look,
+and does not rotate. `src/lib/cards/skinLines.ts` holds the six candidate
+lines (label, look, accent, blend, utility), the tier ladder (`LINE_TIERS`,
+`lineTierLabel`) and a worked Season 5 set; the treatments are
+`card-foil-line-<key>` and `card-foil-tier-<key>` utilities in globals.css,
+drawn on real cards through `PlayerCard3D`'s `preview` prop (`layers` carries
+the tier overlays, coloured by `--line-accent`), which only admin mockup pages
+pass. Nothing mints them: `foil_type` still only admits the ladder, the roller
+only walks `FOIL_TYPES`, and the page says so. If adopted: widen the check
+constraint to the tier keys, add a per-season line to the ladder config, wire
+the tier overlays to the pointer like the parallel layer, give the flat PNG
+render an accent and badge per tier, and leave Eclipse and every minted copy
+exactly as they are.
+
+### Pack odds, measured
+
+Every roll in a pack — class, card within class, foil, parallel, autograph,
+moment, team plate, Eclipse — draws from node's CSPRNG (`randomBytes(6)` over
+2^48) through the pure functions in `src/lib/packs/rng.ts`,
+`signatures.ts` and `eclipse.ts` (`rollEclipseCandidates`). Besides the
+scripted-`rand` tests that pin the order of the roll, `src/lib/packs/odds.test.ts`
+rolls the real random source tens of thousands of times and expects every
+configured rate back within five standard errors, including that the Eclipse
+gate opens on `ECLIPSE_CHANCE` of Card-of-the-Week pulls and never on
+anything else, and that a foil does not make the next slot more likely to
+foil. `npm run simulate:packs` (`scripts/simulate-packs.ts`, read-only,
+needs the service key) rolls a real archived edition through the same code
+and prints the expected rates beside what `card_inventory` actually holds,
+by edition. The Eclipse rate is per crowned PULL: how often a crowned card
+turns up depends on how many cards share its rarity class, so a thin top
+class makes the same crowned card — and therefore Eclipses — cluster.
+`scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
+file (the only players a signed copy can be of), signed copies per player
+against all their copies, every signed copy and every Eclipse in pull order
+with the gap to the previous one, the Eclipse rate against crowned pulls per
+edition, and a duplicate check that must return no rows.
+
 ### Eclipse, the one-of-one
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in
@@ -475,6 +669,165 @@ table can produce one by accident.
 An unclaimed Eclipse stays claimable **forever** through that week's packs, so
 the back catalogue of unminted ones grows every week. That is why the rate can
 be flat and small rather than escalating to guarantee a weekly hit.
+
+### The Vault
+
+`/cards/vault` (and `/academy/cards/vault`) is the register of one-of-ones,
+and it is **public** — no sign-in, like the moments wall and the ledger. An
+Eclipse falling is league news, the Discord announcement links here, and a
+page that answers "who owns that one" cannot sit behind a members gate and
+still do its job. The reads go through the service client because
+`card_inventory` and `card_provenance` are deny-all RLS, the same way
+`/binder/[token]` reads a binder: the tables are closed, the content is not.
+
+Two halves. **Found** is every `card_inventory` row with
+`foil_type = 'eclipse'` for the season, drawn as the copy actually printed
+(`PlayerCard3D` with `forceFoil`, `#1 of 1` by construction), with the holder's
+name, avatar and patron flame, the date it was pulled, its chain of custody
+from `describeProvenance`, and a link to its copy PNG. **Still out there** is
+every crowned print (`card_editions.card->>'standout' = 'true'`) with no
+Eclipse against its `(season, edition_week, slug)` — the same key the partial
+unique index covers — grouped newest week first, in role order, with a *mints
+signed* chip where the player has inked a signature. That chip is computed by
+running `cardSlug()` over `card_art_prefs` in TypeScript rather than joining on
+the database's `card_slug()`, so the board works in an environment where that
+migration has not been applied.
+
+Ordering and grouping are pure functions in `src/lib/cards/vault.ts`
+(`groupUnclaimedByWeek`, `orderFound`, `vaultTotals`); the IO is
+`fetchVault(service, season)` in `src/lib/cards/vaultQueries.ts`, framework-free
+and paged like every other card read.
+
+### Print runs and provenance
+
+Two facts about an owned copy that the card itself cannot carry: which stamp
+it took, and whose hands it has been through.
+
+**Print numbers.** `card_print_runs` holds one counter per print —
+`(season, edition_week, slug)`, the same key the Eclipse index uses — and
+`card_inventory.print_number` holds the serial. The `card_inventory_print_number`
+trigger (`BEFORE INSERT`) bumps the counter with a single
+`insert … on conflict do update set minted = card_print_runs.minted + 1 returning minted`
+and assigns the result, so two packs opened in the same instant serialize on
+that counter row instead of both reading a stale maximum.
+
+`minted` is **minted-to-date, never a live count**, and it never decreases.
+`dust_card` deletes the row, so a live count would renumber the world every
+time somebody melted a duplicate: `#7 of 43` would become `#7 of 42`, then
+eventually a serial larger than its own run. A dusted copy retires its
+number instead — the press ran 43 times whatever happened afterwards — which
+is the only reading under which the stamp on a copy is a fact rather than a
+snapshot of the market. How many are still held is a separate question, one
+`count(*)` away.
+
+Eclipse falls out as `#1 of 1` by construction rather than by a special case:
+`card_inventory_one_eclipse_per_print` already caps a print at one Eclipse,
+and an Eclipse pulled from a print nobody else has hit is the first thing
+that counter ever stamped.
+
+The counts are world-readable (`card_print_runs` has a permissive select
+policy and an `anon`/`authenticated` grant) because "43 of these exist" is a
+fact about a print, not about anybody's shelf, and it is printed on cards
+that signed-out visitors see. Reads go through `fetchPrintRuns` in
+`src/lib/packs/queries.ts`, which takes the `(week, slug)` pairs a page is
+actually rendering and pages its chunks — the counter table has a row per
+card per edition week and would otherwise trip PostgREST's 1000-row cap.
+
+**Provenance.** `card_provenance` records every move: `minted` (with the
+`card_pack_opens` row it fell out of, read off `pack_open_id`), `transferred`
+(from the old owner to the new one) and `dusted` (with who destroyed it).
+The rows are written by `AFTER` triggers on `card_inventory` rather than by
+each caller, so a transfer path written next year is recorded correctly by a
+developer who has never read this file. There is **no foreign key** to
+`card_inventory` on purpose: a chain that vanished when the copy did would
+answer "who owned this?" only while the answer is trivial. The triggers are
+`AFTER`, so `card_inventory_expedition_guard` — a `BEFORE` trigger that
+raises — refuses a deployed copy's move without leaving a record of a move
+that never happened.
+
+**The `fpl.provenance_ref` contract.** A row change carries no context: the
+UPDATE that moves `discord_id` looks identical whether it came from a trade,
+a sale, or an admin fixing a typo. So a caller that knows why states it, in
+the transaction, immediately before its update:
+
+```sql
+perform set_config('fpl.provenance_ref', 'card_trades:' || p_trade, true);
+```
+
+The value is `table:id`; the trigger parses it and stamps `ref_table` /
+`ref_id`. `true` makes it transaction-local, so it cannot leak onto the next
+statement on a pooled connection, and an unset or malformed GUC produces a
+transfer with no ref rather than an error — an unattributed transfer is still
+a true transfer. `accept_card_trade` sets it, and **any future RPC that moves
+a copy should set it the same way**. Mints do not use it: an insert already
+carries `pack_open_id` on the row, and a fact stored on the row beats a fact
+the caller had to remember to announce.
+
+Reads go through `fetchProvenance` in `src/lib/cards/provenance.ts` (service
+client — the table is deny-all like the inventory it describes), with the
+pure `describeProvenance` turning rows into lines. The server action is
+`fetchProvenanceAction` in `src/lib/trades/actions.ts`, gated exactly like
+`fetchInventoryCardAction` and for the same reason: the chain of a copy you
+are being offered names people who are not you, which is precisely what you
+want to see before agreeing.
+
+### Market
+
+`/cards/market` (and `/academy/cards/market`) is the trading post's blunter
+half. A trade needs two people to agree on everything at once; a listing needs
+one person to name a price and another to accept it. Both boards are
+members-only, gated on FPL Better exactly like trades, and read entirely
+through the service client — `card_listings` and `card_wants` have RLS on with
+no policies at all.
+
+**The two boards.** `card_listings` names one `card_inventory` copy, an ask,
+an optional note and an expiry fourteen days out. `card_wants` names a slug, a
+season and a bounty — the card you are hunting, not one that happens to be for
+sale. Nothing is escrowed on either side: a listing is a snapshot of an
+intent, exactly like a `card_trades` row, and every promise in it is re-checked
+at the moment money moves.
+
+**One open listing per copy** is a partial unique index, not an application
+check. Two open listings for the same card would let two people pay for it and
+only one of them be given it, and the second's money would have to be walked
+back by hand. A sold, cancelled or expired listing frees the copy again.
+
+**The sale.** `execute_card_sale(p_inventory, p_seller, p_buyer, p_price,
+p_ref_table, p_ref_id)` is where the atomicity lives: lock the copy `FOR
+UPDATE`, confirm the seller still holds it, lock both wallets in
+`least/greatest` order (the deadlock-safe order `tip_points` and
+`accept_card_trade` use), refuse a buyer who cannot cover the price, write two
+`betting_ledger` rows with reason `card_sale` ref'd at the LISTING or WANT
+rather than at the copy, stamp `fpl.provenance_ref`, and move
+`card_inventory.discord_id`. `buy_card_listing` adds the listing lock, the
+open/expired checks and the "not your own listing" rule; `fill_card_want` adds
+the slug-and-season match and marks the want filled. Both are service-role
+only and neither authenticates its caller — the server actions in
+`src/lib/market/actions.ts` derive the Discord id from the session.
+
+**A deployed copy cannot be sold.** `card_inventory_expedition_guard` refuses
+the ownership update from under the sale, and the exception propagates as
+`card is on expedition` with the whole transaction rolled back. The app checks
+the deploy lock and the fantasy lineup lock at LISTING time as well, so a card
+that cannot be delivered never reaches the board — but the trigger is the
+guarantee.
+
+**Expiry has no sweeper.** Nothing crons over `expires_at`. The board query
+filters on it, `buy_card_listing` refuses a lapsed listing, and `createListing`
+retires the seller's own lapsed rows to `expired` before writing a new one —
+without that last step one dead listing would make its copy permanently
+unlistable under the unique index.
+
+**Limits** live in `src/lib/market/config.ts` (`MAX_LISTING_ASK`,
+`MAX_WANT_BOUNTY`, `LISTING_DAYS`, `MAX_OPEN_LISTINGS`, `MAX_OPEN_WANTS`,
+`MAX_NOTE_CHARS`). The migration restates the ask cap, the bounty cap, the
+note length and the fourteen days, so `config.test.ts` parses the SQL and
+asserts the pairs agree.
+
+A completed sale posts a best-effort "SOLD" embed to the cards channel through
+`postCardsWebhook`. Like every other announcement it is garnish: the money has
+already moved, and a Discord outage must never turn a settled sale into an
+error.
 
 ### Player renames
 

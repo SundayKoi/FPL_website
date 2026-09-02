@@ -671,3 +671,35 @@ describe("phone reveal", () => {
     expect(screen.getAllByRole("button", { name: /reveal card/i })).toHaveLength(1);
   });
 });
+
+describe("an Eclipse in the pack", () => {
+  // The first one ever pulled came out of a daily rip, and the reveal's
+  // "Dust all" would have offered it up with the other four. The server
+  // refuses an Eclipse, so the honest button counts what it CAN dust and
+  // the one-of-one stays on the stage.
+  const eclipse = {
+    card: makeCard("Eclipsed", { key: "master", label: "Master" }, 90),
+    foil: true,
+    foilType: "eclipse",
+    signed: true,
+    inventoryId: 99,
+  };
+
+  it("stays out of Dust all and wears its hallmark instead of a price", async () => {
+    const onSellPack = vi.fn(async (ids: number[]) => ({ ok: true as const, dusted: ids.length, value: 405, balance: 1205, skipped: 0 }));
+    renderOpening({ onSellPack, pulls: [...pulls, eclipse] });
+    await ripPack();
+    flipEverything();
+
+    // The card wears its own seal; the control row underneath is the pill
+    // that replaces the dust button — both say 1 of 1, and neither is a price.
+    expect(screen.getByTitle(/can't be dusted, but you can trade it/)).toBeTruthy();
+    // Five pick toggles for five dustable pulls — the sixth card has none.
+    expect(screen.getAllByRole("button", { name: /^dust \+\$/i })).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: /^Dust all — / }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Dust all 5 — sure?" }));
+    });
+    expect([...onSellPack.mock.calls[0][0]].sort()).toEqual([1, 2, 3, 4, 5]);
+  });
+});

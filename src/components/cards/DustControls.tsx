@@ -26,15 +26,17 @@
 // skin it wears, and you can't weigh that against $120 by reading it.
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
-import { patronDustValue } from "@/lib/packs/config";
+import { canDust, patronDustValue } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
+import { provenanceLinesFor } from "./provenanceLines";
 
 /** One owned copy: the flat fields the value table and the labels read, plus
  *  the frozen print itself — the only place a copy's art, ink and holograph
@@ -44,9 +46,18 @@ export interface DustCopy {
   id: number;
   tier: string;
   foil: boolean;
+  /** Which parallel. Optional for the callers that predate parallels; the
+   *  one value that changes the drawer's behaviour is 'eclipse', which
+   *  cannot be dusted at all. */
+  foilType?: string | null;
   signed: boolean;
   editionWeek: string;
   card: PlayerCardData;
+  /** This copy's stamp and the size of its print run, when the shelf above
+   *  knows them. Optional: a page that hasn't read the counters shows the
+   *  same drawer, minus one chip. */
+  printNumber?: number | null;
+  printRun?: number | null;
 }
 
 /** The art this copy printed in — the signature champion in whichever skin
@@ -57,14 +68,51 @@ function copyArtUrl(card: PlayerCardData): string | null {
   return card.signature ? championCenteredUrl(card.signature.champion, card.artSkin) : null;
 }
 
+/** What one copy can go and do, each on the page that does it, with the
+ *  copy already chosen there. The four pages exist; what was missing was
+ *  the way from the card to them. */
+function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
+  const actions = [
+    { label: "Sell", href: `${base}/market?sell=${copy.id}` },
+    { label: "Trade", href: `${base}/trades?offer=${copy.id}` },
+    { label: "Send out", href: `${base}/expeditions?send=${copy.id}` },
+    { label: "Field", href: `${base}/fantasy?field=${copy.id}` },
+  ];
+  return (
+    <details className="relative shrink-0">
+      <summary
+        aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`}
+        className="cursor-pointer list-none rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+      >
+        Use ▾
+      </summary>
+      <ul className="absolute right-0 z-10 mt-1 flex min-w-28 flex-col rounded-md border border-line bg-navy p-1 shadow-lg">
+        {actions.map((action) => (
+          <li key={action.label}>
+            <Link
+              href={action.href}
+              className="block rounded px-2 py-1 text-[11px] text-steel hover:bg-line/40 hover:text-white"
+            >
+              {action.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default function DustControls({
   playerName,
   copies,
   patron = false,
   deployedIds,
+  base = "/cards",
 }: {
   playerName: string;
   copies: DustCopy[];
+  /** "/cards" or "/academy/cards" — where the per-copy actions lead. */
+  base?: string;
   /** Active patron — shows the weekly art re-roll die on each copy. */
   patron?: boolean;
   /** Copies currently away on an expedition. A courtesy layer only:
@@ -150,6 +198,10 @@ export default function DustControls({
             // Patrons melt for 20% more — same helper the server credits by.
             const value = patronDustValue(copy, patron);
             const deployed = deployedIds?.has(copy.id) ?? false;
+            // A one-of-one has no dust value to quote. The server refuses it
+            // anyway; the button saying so first is what stops a price that
+            // reads as a real offer from sitting under the rarest card there is.
+            const keepsake = !canDust(copy);
             const isArmed = armed === copy.id;
             const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
             const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;
@@ -213,6 +265,10 @@ export default function DustControls({
                 <CardCopyPreview
                   card={copy.card}
                   foil={copy.foil}
+                  // The drawer is where a collector looks hardest at one
+                  // copy — it is the last screen before destroying it — so
+                  // it is where the chain of custody belongs.
+                  loadProvenance={() => provenanceLinesFor(copy.id)}
                   caption={{
                     playerName,
                     editionWeek: copy.editionWeek,
@@ -220,17 +276,26 @@ export default function DustControls({
                     foil: copy.foil,
                     signed: copy.signed,
                     altArt: copy.card.artSkin > 0,
+                    printNumber: copy.printNumber ?? null,
+                    printRun: copy.printRun ?? null,
                   }}
                   label={`Look at the ${describe}`}
                   className="shrink-0 rounded-full border border-border-strong px-1.5 py-0.5 text-[10px] font-bold text-muted transition hover:border-action-text hover:text-action-text"
                 >
                   ⤢
                 </CardCopyPreview>
+                {deployed ? null : <CopyActions copy={copy} base={base} />}
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}
-                  disabled={pending || deployed}
-                  title={deployed ? "On expedition — back soon." : undefined}
+                  disabled={pending || deployed || keepsake}
+                  title={
+                    keepsake
+                      ? "An Eclipse is a one-of-one — it can't be dusted, but you can trade it."
+                      : deployed
+                        ? "On expedition — back soon."
+                        : undefined
+                  }
                   aria-label={`Dust the ${describe}`}
                   className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-60 ${
                     isArmed
@@ -238,7 +303,13 @@ export default function DustControls({
                       : "border-border-strong text-muted hover:border-action-text hover:text-action-text"
                   }`}
                 >
-                  {deployed ? "On expedition" : isArmed ? `Confirm ${fmtPoints(value)}?` : `Dust · ${fmtPoints(value)}`}
+                  {keepsake
+                    ? "1 of 1"
+                    : deployed
+                      ? "On expedition"
+                      : isArmed
+                        ? `Confirm ${fmtPoints(value)}?`
+                        : `Dust · ${fmtPoints(value)}`}
                 </button>
               </li>
             );

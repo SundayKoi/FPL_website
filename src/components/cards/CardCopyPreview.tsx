@@ -42,6 +42,12 @@ export interface CopyCaption {
   foil?: boolean;
   signed?: boolean;
   altArt?: boolean;
+  /** This copy's stamp within its print run. */
+  printNumber?: number | null;
+  /** How many copies that print has ever stamped — the "of 43". Shown only
+   *  together with printNumber: a serial with no denominator, or a run size
+   *  attached to no serial, is a number nobody can read. */
+  printRun?: number | null;
 }
 
 // Re-exported so the existing client callers keep their import; the
@@ -52,6 +58,7 @@ export { tierLabel };
 export default function CardCopyPreview({
   card = null,
   loadCard,
+  loadProvenance,
   foil = false,
   foilType = null,
   caption,
@@ -63,6 +70,13 @@ export default function CardCopyPreview({
   card?: PlayerCardData | null;
   /** Fetches the frozen copy on first open. Resolve null to say it's gone. */
   loadCard?: () => Promise<PlayerCardData | null>;
+  /** Fetches this copy's chain of custody, already turned into lines
+   *  (describeProvenance), the first time the preview opens. Omitted
+   *  everywhere the panel doesn't belong — a builder's checkbox row is
+   *  picking cards, not researching them — so the whole section is absent
+   *  rather than empty for those callers. Resolve null to say it couldn't
+   *  be read; resolve [] to say there is nothing recorded. */
+  loadProvenance?: () => Promise<string[] | null>;
   /** Holograph the card whatever its tier — this copy's own foil roll. */
   foil?: boolean;
   /** Which parallel that roll produced. */
@@ -80,6 +94,12 @@ export default function CardCopyPreview({
   const [fetched, setFetched] = useState<PlayerCardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The chain, kept for the life of the component like the card is — a
+  // copy's history is settled, so re-opening the same preview must not ask
+  // the server for it a second time. Undefined means "not asked yet", null
+  // means "asked, and it couldn't be read".
+  const [chain, setChain] = useState<string[] | null | undefined>(undefined);
+  const [chainLoading, setChainLoading] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -104,6 +124,16 @@ export default function CardCopyPreview({
 
   function openPreview() {
     setOpen(true);
+    // The chain is its own request, fired beside the card's rather than
+    // after it: they are independent reads and a copy whose json is
+    // already on the client would otherwise wait for nothing.
+    if (loadProvenance && chain === undefined && !chainLoading) {
+      setChainLoading(true);
+      loadProvenance()
+        .then((lines) => setChain(lines))
+        .catch(() => setChain(null))
+        .finally(() => setChainLoading(false));
+    }
     if (shown || loading || !loadCard) return;
     setLoading(true);
     setFailed(false);
@@ -166,6 +196,14 @@ export default function CardCopyPreview({
               <div className="flex flex-wrap justify-center gap-1">
                 {caption.editionWeek ? <span className={CHIP}>{editionLabel(caption.editionWeek)}</span> : null}
                 {caption.tier ? <span className={CHIP}>{tierLabel(caption.tier)}</span> : null}
+                {caption.printNumber && caption.printRun ? (
+                  <span
+                    className={CHIP}
+                    title={`Copy ${caption.printNumber} of the ${caption.printRun} this print has ever stamped`}
+                  >
+                    #{caption.printNumber} of {caption.printRun}
+                  </span>
+                ) : null}
                 {caption.signed ? (
                   <span
                     className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[10px] font-black tracking-[0.2em] text-gold"
@@ -185,6 +223,31 @@ export default function CardCopyPreview({
                   </span>
                 ) : null}
               </div>
+
+              {/* Where this copy has been. Only rendered for callers that
+                  asked for it, and only once it has something to say — a
+                  panel that appears empty on every card reads as broken,
+                  where an absent one reads as "not that kind of view". */}
+              {loadProvenance ? (
+                <div className="mt-1 flex flex-col items-center gap-1" data-testid="provenance">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-steel">Provenance</span>
+                  {chainLoading ? (
+                    <span className="text-xs text-steel">Reading the chain…</span>
+                  ) : chain === null ? (
+                    <span className="text-xs text-steel">Its history couldn&apos;t be read.</span>
+                  ) : chain && chain.length > 0 ? (
+                    <ol className="flex flex-col items-center gap-0.5">
+                      {chain.map((entry, index) => (
+                        <li key={`${index}-${entry}`} className="text-xs text-steel">
+                          {entry}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <span className="text-xs text-steel">Nothing recorded for this copy.</span>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

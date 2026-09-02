@@ -54,7 +54,13 @@ function makeRow(
   name: string,
   overall: number,
   editionWeek: string,
-  { foil = false, signed = false, artSkin = 0, foilType = null as string | null } = {},
+  {
+    foil = false,
+    signed = false,
+    artSkin = 0,
+    foilType = null as string | null,
+    printNumber = null as number | null,
+  } = {},
 ): InventoryRow {
   return {
     id,
@@ -73,6 +79,7 @@ function makeRow(
     card: makeCard(name, overall, artSkin, signed ? "data:image/png;base64,ink" : null),
     packOpenId: null,
     acquiredAt: "2026-08-20T00:00:00Z",
+    printNumber,
   };
 }
 
@@ -147,8 +154,11 @@ describe("CollectionGrid", () => {
     // Each is holographed, and the alternate print says so in its caption.
     expect(screen.getAllByTestId("foil")).toHaveLength(2);
     expect(screen.getByText("Alt art")).toBeTruthy();
-    expect(screen.getByText("WK Aug 24")).toBeTruthy();
-    expect(screen.getByText("WK Aug 31")).toBeTruthy();
+    // The week picker lists the same labels as options; the captions are
+    // the ones that are not.
+    const caption = (label: string) => screen.getAllByText(label).filter((node) => node.tagName !== "OPTION");
+    expect(caption("WK Aug 24")).toHaveLength(1);
+    expect(caption("WK Aug 31")).toHaveLength(1);
     // A display case, not a workbench.
     expect(screen.queryAllByRole("button", { name: "Manage copies" })).toHaveLength(0);
   });
@@ -189,6 +199,49 @@ describe("CollectionGrid", () => {
     render(<CollectionGrid inventory={inventory} />);
 
     expect(screen.getAllByRole("button", { name: "Manage copies" })).toHaveLength(2);
+  });
+});
+
+describe("CollectionGrid print numbers", () => {
+  // Two copies of the same player from different weeks: different prints,
+  // so different denominators — which is the thing a single counter would
+  // get wrong.
+  const numbered: InventoryRow[] = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17", { foil: true, printNumber: 7 }),
+    makeRow(2, "Chaseworthy", 90, "2026-08-24", { foil: true, printNumber: 2 }),
+  ];
+  const printRuns = new Map([
+    ["2026-08-17|chaseworthy", 43],
+    ["2026-08-24|chaseworthy", 3],
+  ]);
+
+  it("stamps each copy against its OWN print's total", () => {
+    render(<CollectionGrid inventory={numbered} printRuns={printRuns} />);
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 2" }));
+
+    expect(screen.getByText("#7 of 43")).toBeTruthy();
+    expect(screen.getByText("#2 of 3")).toBeTruthy();
+  });
+
+  it("says nothing at all when the page never read the counters", () => {
+    render(<CollectionGrid inventory={numbered} />);
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 2" }));
+
+    // A serial with no denominator is a number nobody can read, so the chip
+    // is absent rather than half-written.
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
+  });
+
+  it("says nothing for a copy minted before numbering existed", () => {
+    render(
+      <CollectionGrid
+        inventory={[makeRow(3, "Chaseworthy", 92, "2026-08-17", { foil: true })]}
+        printRuns={printRuns}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "✦ Foils · 1" }));
+
+    expect(screen.queryByText(/^#\d+ of/)).toBeNull();
   });
 });
 
@@ -350,5 +403,89 @@ describe("CollectionGrid select-to-dust", () => {
     fireEvent.click(screen.getByRole("button", { name: /Foils · / }));
     expect(cardsFor("Chaseworthy")).toHaveLength(2);
     expect(cardsFor("Commonly")).toHaveLength(0);
+  });
+});
+
+describe("a one-of-one on the shelf", () => {
+  // The first Eclipse ever pulled stacked behind a signed Prisma of the same
+  // player and showed as "×2" — the print key was skin/foil/signed, and an
+  // Eclipse is, technically, a signed foil. The opposite of what it is.
+  const shelf = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17", { foil: true, foilType: "prisma", signed: true }),
+    makeRow(2, "Chaseworthy", 90, "2026-08-24", { foil: true, foilType: "eclipse", signed: true }),
+  ];
+
+  it("is its own print, and the copy the shelf shows", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    // One shelf card for the player — and it is the Eclipse, not the
+    // higher-rated signed Prisma the old ranking would have put on top.
+    const card = cardsFor("Chaseworthy");
+    expect(card).toHaveLength(1);
+    expect(card[0].getAttribute("aria-label")).toMatch(/Eclipse foil/);
+    expect(screen.getByText("◐ 1 of 1")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View prints (2)" })).toBeTruthy();
+  });
+
+  it("cannot be ticked for dust, and says so in place of a price", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.click(screen.getByRole("button", { name: "Select to dust" }));
+    const cells = cardsFor("Chaseworthy").map((node) => node.closest("button[aria-pressed]") as HTMLButtonElement);
+    const eclipse = cells.find((cell) => cell.textContent?.includes("1 of 1"))!;
+    expect(eclipse.disabled).toBe(true);
+    expect(eclipse.textContent).toContain("Can't be dusted");
+    expect(eclipse.textContent).not.toMatch(/\+\$/);
+    fireEvent.click(eclipse);
+    expect(screen.getByText("0 selected")).toBeTruthy();
+  });
+
+  it("names a parallel on its chip instead of a bare ✦", () => {
+    render(<CollectionGrid inventory={[makeRow(3, "Chaseworthy", 88, "2026-08-31", { foil: true, foilType: "ice" })]} />);
+    expect(screen.getByText("Cracked Ice")).toBeTruthy();
+  });
+});
+
+describe("finding a card on the shelf", () => {
+  const shelf = [
+    makeRow(1, "Chaseworthy", 92, "2026-08-17"),
+    makeRow(2, "Commonly", 60, "2026-08-24"),
+    makeRow(3, "Bystander", 75, "2026-08-24", { foil: true, foilType: "prisma" }),
+  ];
+
+  it("narrows by part of a name, case-blind, and says how many are left", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search your cards" }), { target: { value: "COMM" } });
+    expect(cardsFor("Commonly")).toHaveLength(1);
+    expect(cardsFor("Chaseworthy")).toHaveLength(0);
+    expect(screen.getByText("1 of 3 copies")).toBeTruthy();
+  });
+
+  it("narrows to one edition week, and the variant counts follow", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("combobox", { name: "Week" }), { target: { value: "2026-08-24" } });
+    expect(cardsFor("Chaseworthy")).toHaveLength(0);
+    expect(cardsFor("Bystander")).toHaveLength(1);
+    // The foil chip counts only what the week shows.
+    expect(screen.getByRole("button", { name: /Foils · 1/ })).toBeTruthy();
+  });
+
+  it("says so when nothing matches, instead of an empty wall", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search your cards" }), { target: { value: "zzz" } });
+    expect(screen.getByText(/Nothing on your shelf matches “zzz”/)).toBeTruthy();
+  });
+
+  it("orders the shelf by name, rating, or edition on request", () => {
+    render(<CollectionGrid inventory={shelf} />);
+    const names = () =>
+      screen
+        .getAllByRole("button", { name: /player card/ })
+        .map((node) => node.getAttribute("aria-label")?.split(" player card")[0]);
+    // Default: best first — by rating here, since nothing is signed or one-of-one.
+    expect(names()).toEqual(["Chaseworthy", "Bystander", "Commonly"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "name" } });
+    expect(names()).toEqual(["Bystander", "Chaseworthy", "Commonly"]);
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "week" } });
+    // Newest edition first; ties fall back to the showcase order.
+    expect(names()).toEqual(["Bystander", "Commonly", "Chaseworthy"]);
   });
 });

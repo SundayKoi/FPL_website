@@ -14,8 +14,16 @@ const CALLBACK_TYPE = {
   PONG: 1,
   CHANNEL_MESSAGE_WITH_SOURCE: 4,
   DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE: 5,
+  APPLICATION_COMMAND_AUTOCOMPLETE_RESULT: 8,
   MODAL: 9,
 } as const;
+
+/** Discord shows at most this many autocomplete choices, and rejects the
+ *  whole response — the user sees nothing — when sent more. */
+export const AUTOCOMPLETE_LIMIT = 25;
+
+/** Discord's cap on a choice's visible name; a longer one is a 400. */
+const CHOICE_NAME_MAX = 100;
 
 /** Discord message flag for an ephemeral (only-the-invoker-sees-it) response. */
 const EPHEMERAL_FLAG = 64;
@@ -102,6 +110,29 @@ export function modal(
       components: fields.map((field) => ({
         type: 1,
         components: [{ type: 4, style: 1, ...field }],
+      })),
+    },
+  };
+}
+
+/** One autocomplete suggestion: what the picker shows, and what the command
+ *  receives when it is picked. */
+export interface AutocompleteChoice {
+  name: string;
+  value: string;
+}
+
+/** An autocomplete response (type 8). Clamped to what Discord will accept
+ *  rather than trusting every caller to count: over the limit or over the
+ *  name length, Discord drops the entire list, which reads to the user as
+ *  "autocomplete is broken" rather than as any specific mistake. */
+export function autocomplete(choices: AutocompleteChoice[]): { type: 8; data: { choices: AutocompleteChoice[] } } {
+  return {
+    type: CALLBACK_TYPE.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT,
+    data: {
+      choices: choices.slice(0, AUTOCOMPLETE_LIMIT).map((choice) => ({
+        name: choice.name.length > CHOICE_NAME_MAX ? `${choice.name.slice(0, CHOICE_NAME_MAX - 1)}…` : choice.name,
+        value: choice.value,
       })),
     },
   };
