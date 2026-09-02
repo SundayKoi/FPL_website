@@ -139,6 +139,13 @@ export default async function AdminPage() {
       href: "/admin/parallels",
     },
     {
+      label: "Skin-line parallels",
+      stat: "Proposal preview",
+      statTone: "text-gold",
+      description: "A proposal on real cards: parallels named for League skin lines, three new ones a season.",
+      href: "/admin/skin-lines",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

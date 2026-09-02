@@ -115,8 +115,14 @@ function PlayerCardFace({
   flame = null,
   print = null,
   className = "",
+  preview = null,
 }: {
   card: PlayerCardData;
+  /** A treatment that is NOT on the ladder, drawn over the card exactly as
+   *  a minted parallel would be — the admin mockup pages use this to show
+   *  a proposed look on real art before anything can mint it. Requires
+   *  forceFoil; ignored otherwise. Nothing outside /admin should pass it. */
+  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string } | null;
   /** false renders the static front only (grids, previews). */
   interactive?: boolean;
   /** Start face-down and flip up shortly after mount (share pages). */
@@ -179,7 +185,7 @@ function PlayerCardFace({
   );
   const style = TIER_STYLES[card.tier.key];
   const parallel = foilTypeOf(foilType);
-  const foilLayer = FOIL_LAYERS[parallel];
+  const foilLayer = forceFoil && preview ? { className: preview.className, blend: preview.blend } : FOIL_LAYERS[parallel];
   // Eclipse is not a film over a tier card, it is a different object — so it
   // takes the frame and the halo outright, over Card of the Week and over
   // Challenger both. Nothing else on the site outranks it.
@@ -400,7 +406,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${FOIL_TYPE_LABELS[parallel]} foil` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
@@ -524,6 +530,15 @@ function PlayerCardFace({
                   title="Eclipse — one of one"
                 >
                   1 of 1
+                </span>
+              ) : forceFoil && preview ? (
+                <span
+                  data-testid="preview-badge"
+                  className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
+                  style={{ borderColor: preview.accent, background: "rgb(0 18 31 / 0.75)", boxShadow: `0 0 10px ${preview.accent}66` }}
+                  title={`${preview.label} parallel (preview)`}
+                >
+                  {preview.label}
                 </span>
               ) : forceFoil && parallel !== "prisma" ? (
                 <span
@@ -1031,6 +1046,9 @@ export default function PlayerCard3D(props: {
    *  only: a moment, a relic and a roster plate carry their own serials. */
   print?: { number: number; of: number; editionWeek: string } | null;
   className?: string;
+  /** See PlayerCardFace: a proposed treatment drawn as a parallel would be.
+   *  Admin mockup pages only. */
+  preview?: { label: string; className: string; blend: "screen" | "color-dodge"; accent: string } | null;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
   // the binder and the pack reveal all carry it without changes — but it is

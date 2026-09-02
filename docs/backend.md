@@ -589,6 +589,19 @@ three-second deadline. Both take an optional free-text `week`, resolved by
 which PUTs `DISCORD_COMMANDS` from `commandDefs.ts`). Adding a handler is half
 the job; the registration is the other half.
 
+### Skin-line parallels (proposal)
+
+`/admin/skin-lines` is a staff-gated mockup of a patron's proposal: name the
+three parallels above Prisma for League skin lines and mint three new ones a
+season. `src/lib/cards/skinLines.ts` holds the six candidate lines (label,
+look, accent, blend, utility) and a worked Season 5 set; the treatments are
+`card-foil-line-<key>` utilities in globals.css, drawn on real cards through
+`PlayerCard3D`'s `preview` prop, which only admin mockup pages pass. Nothing
+mints them: `foil_type` still only admits the ladder, the roller only walks
+`FOIL_TYPES`, and the page says so. If adopted: widen the check constraint,
+add a per-season set to the ladder config, give the flat PNG render an
+accent and badge per line, and leave every minted copy exactly as it is.
+
 ### Pack odds, measured
 
 Every roll in a pack — class, card within class, foil, parallel, autograph,
