@@ -53,6 +53,19 @@ function arg(name: string): string | undefined {
 const pct = (n: number, d: number) => (d === 0 ? "—" : `${((100 * n) / d).toFixed(3)}%`);
 const oneIn = (n: number, d: number) => (n === 0 ? "—" : `1 in ${Math.round(d / n).toLocaleString()}`);
 
+interface PullRow {
+  id: number;
+  discord_id: string;
+  slug: string;
+  foil: boolean;
+  foil_type: string | null;
+  signed: boolean | null;
+  edition_week: string;
+  pack_open_id: number | null;
+  acquired_at: string;
+  standout: string | null;
+}
+
 interface Observed {
   copies: number;
   foil: number;
@@ -62,27 +75,64 @@ interface Observed {
   eclipse: number;
   longestFoilRun: number;
   byWeek: Map<string, { copies: number; crowned: number; eclipse: number }>;
+  /** Per player: every copy, and how many of them came out signed. */
+  bySlug: Map<string, { copies: number; signed: number; eclipses: number }>;
+  /** Every signed copy and every Eclipse, in pull order. */
+  signedRows: PullRow[];
+  eclipseRows: PullRow[];
+  /** (pack open, slug) pairs that minted the same print signed twice —
+   *  the one thing here that would be a bug rather than luck. */
+  duplicateSigned: { packOpenId: number; slug: string; copies: number }[];
 }
 
 /** Every copy in the season, paged on id so PostgREST's 1000-row cap
  *  cannot quietly truncate the count. */
 async function observe(supabase: SupabaseClient, season: string): Promise<Observed> {
-  const out: Observed = { copies: 0, foil: 0, byType: {}, signed: 0, crowned: 0, eclipse: 0, longestFoilRun: 0, byWeek: new Map() };
+  const out: Observed = {
+    copies: 0,
+    foil: 0,
+    byType: {},
+    signed: 0,
+    crowned: 0,
+    eclipse: 0,
+    longestFoilRun: 0,
+    byWeek: new Map(),
+    bySlug: new Map(),
+    signedRows: [],
+    eclipseRows: [],
+    duplicateSigned: [],
+  };
+  const signedPerPack = new Map<string, number>();
   let after = 0;
   let run = 0;
   for (;;) {
     const { data, error } = await supabase
       .from("card_inventory")
-      .select("id, foil, foil_type, signed, edition_week, card->>standout")
+      .select("id, discord_id, slug, foil, foil_type, signed, edition_week, pack_open_id, acquired_at, card->>standout")
       .eq("season", season)
       .gt("id", after)
       .order("id", { ascending: true })
       .limit(1000);
     if (error) throw error;
-    const rows = (data ?? []) as { id: number; foil: boolean; foil_type: string | null; signed: boolean | null; edition_week: string; standout: string | null }[];
+    const rows = (data ?? []) as PullRow[];
     if (rows.length === 0) break;
     for (const row of rows) {
       out.copies += 1;
+      const per = out.bySlug.get(row.slug) ?? { copies: 0, signed: 0, eclipses: 0 };
+      per.copies += 1;
+      if (row.signed) {
+        per.signed += 1;
+        out.signedRows.push(row);
+        if (row.pack_open_id !== null) {
+          const key = `${row.pack_open_id}:${row.slug}`;
+          signedPerPack.set(key, (signedPerPack.get(key) ?? 0) + 1);
+        }
+      }
+      if (row.foil_type === ECLIPSE_FOIL_TYPE) {
+        per.eclipses += 1;
+        out.eclipseRows.push(row);
+      }
+      out.bySlug.set(row.slug, per);
       if (row.foil) {
         out.foil += 1;
         run += 1;
@@ -102,8 +152,30 @@ async function observe(supabase: SupabaseClient, season: string): Promise<Observ
     }
     after = rows[rows.length - 1].id;
   }
+  for (const [key, copies] of signedPerPack) {
+    if (copies > 1) {
+      const [packOpenId, slug] = key.split(":");
+      out.duplicateSigned.push({ packOpenId: Number(packOpenId), slug, copies });
+    }
+  }
+  const byTime = (a: PullRow, b: PullRow) => a.acquired_at.localeCompare(b.acquired_at) || a.id - b.id;
+  out.signedRows.sort(byTime);
+  out.eclipseRows.sort(byTime);
   return out;
 }
+
+/** "3m 12s" between two pulls, or "—" for the first. */
+function gap(prev: PullRow | undefined, row: PullRow): string {
+  if (!prev) return "—";
+  const seconds = Math.round((new Date(row.acquired_at).getTime() - new Date(prev.acquired_at).getTime()) / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  return `${Math.floor(seconds / 86400)}d ${Math.floor((seconds % 86400) / 3600)}h`;
+}
+
+/** A Discord id shortened for a log nobody should be able to read back. */
+const who = (id: string) => `…${id.slice(-4)}`;
 
 async function main() {
   const league = (arg("league") ?? "premier") as CardLeague;
@@ -184,6 +256,26 @@ async function main() {
   console.log(`  Card of the Week${pct(obs.crowned, obs.copies).padStart(9)} of copies`);
   console.log(`  Eclipse         ${String(obs.eclipse).padStart(9)} minted · ${pct(obs.eclipse, obs.crowned)} of crowned copies (config ${(ECLIPSE_CHANCE * 100).toFixed(2)}%) · ${oneIn(obs.eclipse, Math.round(obs.copies / PACK_SIZE))} packs`);
   console.log(`  longest run of foils in a row, by pull order: ${obs.longestFoilRun}`);
+  console.log(`\n  signed copies by player (signed / all copies of that player — expect ~1% where ink is on file, 0% elsewhere):`);
+  const inkedSlugs = [...obs.bySlug.entries()].filter(([, per]) => per.signed > 0).sort((a, b) => b[1].signed - a[1].signed);
+  for (const [slug, per] of inkedSlugs) {
+    console.log(`    ${slug.padEnd(24)} ${String(per.signed).padStart(4)} / ${String(per.copies).padStart(5)}  ${pct(per.signed, per.copies).padStart(8)}${per.eclipses ? `  · ${per.eclipses} Eclipse${per.eclipses === 1 ? "" : "s"}` : ""}`);
+  }
+  console.log(`\n  last ${Math.min(40, obs.signedRows.length)} signed copies in pull order (holder · card · edition · pack open · gap since the previous signed copy):`);
+  const recentSigned = obs.signedRows.slice(-40);
+  recentSigned.forEach((row, i) => {
+    const prev = i === 0 ? obs.signedRows[obs.signedRows.length - recentSigned.length - 1] : recentSigned[i - 1];
+    console.log(`    ${row.acquired_at.slice(0, 19).replace("T", " ")}  ${who(row.discord_id)}  ${row.slug.padEnd(24)} ${row.edition_week}  pack ${String(row.pack_open_id ?? "—").padStart(6)}  +${gap(prev, row)}`);
+  });
+  console.log(`\n  every Eclipse in pull order:`);
+  obs.eclipseRows.forEach((row, i) => {
+    console.log(`    ${row.acquired_at.slice(0, 19).replace("T", " ")}  ${who(row.discord_id)}  ${row.slug.padEnd(24)} ${row.edition_week}${row.signed ? "  signed" : ""}  +${gap(obs.eclipseRows[i - 1], row)}`);
+  });
+  console.log(
+    `\n  same pack open minting the same print signed twice (must be none): ${
+      obs.duplicateSigned.length === 0 ? "none" : obs.duplicateSigned.map((d) => `pack ${d.packOpenId} ${d.slug} ×${d.copies}`).join(", ")
+    }`,
+  );
   console.log(`\n  by edition (copies · crowned · Eclipses):`);
   for (const [w, row] of [...obs.byWeek.entries()].sort()) {
     console.log(`    ${w}  ${String(row.copies).padStart(7)}  ${String(row.crowned).padStart(5)}  ${String(row.eclipse).padStart(3)}`);
