@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import type { Draft, Player, Profile, Team } from "@/lib/draft/types";
@@ -7,6 +8,10 @@ import AdminRosterEditor from "@/components/teams/AdminRosterEditor";
 import FeaturedDraftSelector from "@/components/teams/FeaturedDraftSelector";
 import { PLACEHOLDER_TEAMS } from "@/components/teams/placeholderTeams";
 import TeamsDirectory from "@/components/teams/TeamsDirectory";
+
+export const metadata: Metadata = {
+  title: "Teams — FPL",
+};
 
 type TeamsPageProps = {
   searchParams: Promise<{ view?: string | string[] }>;

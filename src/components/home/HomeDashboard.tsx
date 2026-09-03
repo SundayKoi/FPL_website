@@ -1,3 +1,4 @@
+import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
 import AwardsDesk from "./AwardsDesk";
@@ -103,6 +104,7 @@ export default function HomeDashboard({
             basePath={scheduleBasePath}
             teamBasePath={scheduleTeamBasePath}
           />
+          <SiteDirectoryGrid league={cardsBasePath?.startsWith("/academy") ? "academy" : "premier"} />
         </section>
       </div>
     </main>

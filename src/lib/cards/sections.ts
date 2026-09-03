@@ -47,7 +47,7 @@ export function cardsSections(base: string): CardsSection[] {
       href: `${base}/browse`,
       blurb: "Every player's card, and the rarest of them",
       children: [
-        { label: "All players", href: `${base}/browse`, blurb: "The whole league, rated from this season's stats" },
+        { label: "All cards", href: `${base}/browse`, blurb: "Every player's card, rated from this season's stats" },
         { label: "Team cards", href: `${base}/teams`, blurb: "Every roster as one composite card" },
         { label: "Compare", href: `${base}/compare`, blurb: "Two cards side by side" },
         { label: "Moments", href: `${base}/moments`, blurb: "The rarest single games of the season" },
@@ -90,7 +90,7 @@ export function cardsSections(base: string): CardsSection[] {
             ]),
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
         { label: "Weekly Draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week" },
-        { label: "Stats", href: `${base}/stats`, blurb: "What the league has opened and pulled" },
+        { label: "Pack stats", href: `${base}/stats`, blurb: "What the league has opened and pulled" },
       ],
     },
   ];

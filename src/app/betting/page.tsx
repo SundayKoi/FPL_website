@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchEventSummaries } from "@/lib/betting/queries";
 import type { EventSummary } from "@/lib/betting/types";
+
+export const metadata: Metadata = {
+  title: "Betting — FPL",
+};
 
 function nextLockLabel(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {

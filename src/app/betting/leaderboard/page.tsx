@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { fetchLeaderboard } from "@/lib/betting/queries";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { LeaderboardTable } from "@/components/betting/LeaderboardTable";
+
+export const metadata: Metadata = {
+  title: "Betting leaderboard — FPL",
+};
 
 /** Public leaderboard — richest wallets and biggest lifetime net winners.
  * Ported from c:\fpl_gambling\web\src\pages\LeaderboardPage.tsx, reading

@@ -1,4 +1,5 @@
 import type { LeagueView } from "./context";
+import { pairedCardsHref } from "@/lib/cards/sections";
 
 export type LeaguePage =
   | "home"
@@ -67,7 +68,21 @@ export function resolveLeagueFromPath(pathname: string): LeagueView {
   return pathname === "/academy" || pathname.startsWith("/academy/") ? "academy" : "premier";
 }
 
+const CARDS_BASES: Record<LeagueView, string> = { premier: "/cards", academy: "/academy/cards" };
+
 export function pairedLeagueHref(pathname: string, target: LeagueView, search = ""): string {
+  // The cards section keeps its own map: the same page in the other
+  // league, or that league's Play tab for a page it does not have.
+  const cardsFrom = hasPathPrefix(pathname, CARDS_BASES.academy)
+    ? CARDS_BASES.academy
+    : hasPathPrefix(pathname, CARDS_BASES.premier)
+      ? CARDS_BASES.premier
+      : null;
+  if (cardsFrom) {
+    const href = pairedCardsHref(pathname, cardsFrom, CARDS_BASES[target]);
+    return search ? `${href}?${search.replace(/^\?/, "")}` : href;
+  }
+
   const match = PAIRED_PREFIXES.find(([premier, academy]) =>
     matchesPairedPath(pathname, premier, academy),
   );

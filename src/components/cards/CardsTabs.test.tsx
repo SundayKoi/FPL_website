@@ -35,16 +35,14 @@ describe("CardsTabs", () => {
 
   it("shows no second row where a tab has nothing under it", () => {
     render(<CardsTabs league="premier" />);
-    expect(tabs().queryByRole("link", { name: "All players" })).toBeNull();
+    expect(tabs().queryByRole("link", { name: "All cards" })).toBeNull();
   });
 
-  it("switches league to the same page, and only offers one switcher", () => {
+  it("leaves switching league to the header, so a cards page has one switcher", () => {
     pathname.value = "/cards/moments";
     render(<CardsTabs league="premier" />);
-    const league = within(screen.getByRole("group", { name: "League" }));
-    expect(league.getByRole("link", { name: "Academy" }).getAttribute("href")).toBe("/academy/cards/moments");
-    expect(league.getByRole("link", { name: "Premier" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getAllByRole("group", { name: "League" })).toHaveLength(1);
+    expect(screen.queryByRole("group", { name: "League" })).toBeNull();
+    expect(tabs().queryByRole("link", { name: "Academy" })).toBeNull();
   });
 
   it("builds academy links from the academy base", () => {

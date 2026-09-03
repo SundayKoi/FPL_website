@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import InfoResourceCard from "@/components/info/InfoResourceCard";
 import AdminInfoResources from "@/components/info/AdminInfoResources";
 import { getInfoPageData } from "@/lib/info/resources";
+
+export const metadata: Metadata = {
+  title: "League Links — FPL",
+};
 
 export default async function LeagueLinksPage() {
   const { resources, isAdmin } = await getInfoPageData();

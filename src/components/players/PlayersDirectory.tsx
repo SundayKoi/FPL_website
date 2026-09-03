@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import BidBoard from "@/components/players/BidBoard";
@@ -19,6 +21,9 @@ type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
 
 type Props = {
+  /** Link each name to its profile on this site. The academy has no stats
+   *  profiles yet, so its directory keeps names on op.gg. */
+  profileLinks?: boolean;
   seasons: Record<SeasonKey, RoleSection[]>;
   canonicalPlayers?: PlayerPoolRow[];
   poolSeasonKey?: SeasonKey;
@@ -44,8 +49,21 @@ export function mergeScopedPlayerPoolRows(
   return [...currentRows.filter((row) => row.season_key !== scopedSeasonKey), ...scopedRows];
 }
 
+/** The pool labels captains "Captain: Name"; the profile route wants the name. */
+function displayName(name: string): string {
+  return name.replace(/^captain:\s*/i, "").trim();
+}
+
+/** The player's page on this site. The route resolves a display name
+ *  against the stats identities, so a name with no games yet lands on a
+ *  "no stats" page that points back here rather than a 404. */
+function profileHref(name: string): string {
+  return `/players/${encodeURIComponent(displayName(name))}`;
+}
+
 export default function PlayersDirectory({
   seasons,
+  profileLinks = true,
   canonicalPlayers = [],
   poolSeasonKey,
   freeAgencyCaptains = FREE_AGENCY_CAPTAINS,
@@ -269,18 +287,51 @@ export default function PlayersDirectory({
                             isAvailable ? "opacity-100" : "opacity-50"
                           }`}
                         >
-                          {player.opggUrl ? <a
-                            href={player.opggUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                              isFreeAgency && selectedCaptain && isAvailable
-                                ? "font-extrabold text-white decoration-white/70"
-                                : "font-semibold"
-                            }`}
-                          >
-                            {player.name}
-                          </a> : <span className="min-w-0 break-words whitespace-nowrap font-semibold">{player.name}</span>}
+                          {profileLinks ? (
+                            <span className="flex min-w-0 items-baseline gap-2">
+                              <Link
+                                href={profileHref(player.name)}
+                                data-player=""
+                                title={`${displayName(player.name)}'s profile`}
+                                className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                                  isFreeAgency && selectedCaptain && isAvailable
+                                    ? "font-extrabold text-white decoration-white/70"
+                                    : "font-semibold"
+                                }`}
+                              >
+                                {player.name}
+                              </Link>
+                              {player.opggUrl ? (
+                                <a
+                                  href={player.opggUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`${player.name} on op.gg`}
+                                  className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hover:text-white"
+                                >
+                                  op.gg ↗
+                                </a>
+                              ) : null}
+                            </span>
+                          ) : player.opggUrl ? (
+                            <a
+                              href={player.opggUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-player=""
+                              className={`min-w-0 break-words whitespace-nowrap underline decoration-current/40 underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                                isFreeAgency && selectedCaptain && isAvailable
+                                  ? "font-extrabold text-white decoration-white/70"
+                                  : "font-semibold"
+                              }`}
+                            >
+                              {player.name}
+                            </a>
+                          ) : (
+                            <span data-player="" className="min-w-0 break-words whitespace-nowrap font-semibold">
+                              {player.name}
+                            </span>
+                          )}
                           <span className="font-medium">{player.rank}</span>
                           {hasValueColumn ? <span className="font-medium">
                             {isFreeAgency && isOwner && editMode ? (
