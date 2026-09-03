@@ -13,7 +13,10 @@
 // the session.
 
 import Link from "next/link";
+import AutoDustPanel from "@/components/cards/AutoDustPanel";
 import BinderEditor, { type BinderOption } from "@/components/cards/BinderEditor";
+import { candidateFromInventory } from "@/lib/cards/autoDust";
+import { fetchAutoDustRule } from "@/lib/cards/autoDustServer";
 import CollectionGrid from "@/components/cards/CollectionGrid";
 import TeamSetsSection from "@/components/cards/TeamSetsSection";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -44,7 +47,10 @@ export default async function CollectionSections({
   setWeek?: string;
 }) {
   const service = createBettingServiceClient();
-  const inventory = season ? await fetchInventory(service, discordId, season) : [];
+  const [inventory, autoDustRule] = await Promise.all([
+    season ? fetchInventory(service, discordId, season) : Promise.resolve([]),
+    fetchAutoDustRule(service, discordId),
+  ]);
 
   // Both need the collection, so they start together once it lands.
   const heldWeeks = [...new Set(inventory.map((copy) => copy.editionWeek))].sort().reverse();
@@ -126,6 +132,7 @@ export default async function CollectionSections({
             Roster sets →
           </a>
         </div>
+        <AutoDustPanel initialRule={autoDustRule} candidates={inventory.map(candidateFromInventory)} />
         <CollectionGrid
           inventory={inventory}
           pinnedIds={binderSlots.filter((id): id is number => id !== null)}

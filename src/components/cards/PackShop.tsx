@@ -25,7 +25,7 @@ import { openChampionsPackAction, openDailyRipAction, openPackAction, setPatronF
 import { dustManyAction } from "@/lib/trades/actions";
 import { flameUnlocked, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, SOVEREIGN_TENURE_DAYS, type PatronFlameKey } from "@/lib/patron/flames";
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
-import PackOpening, { type OpenResult, type Pull } from "./PackOpening";
+import PackOpening, { type AutoDusted, type OpenResult, type Pull } from "./PackOpening";
 
 /** "Week 3 · Sep 8" — the week number counts up from the season's first
  *  archived edition, which is how players talk about them. */
@@ -85,6 +85,10 @@ export default function PackShop({
   const [balance, setBalance] = useState(initialBalance);
   const [openCount, setOpenCount] = useState(initialOpenCount);
   const [pulls, setPulls] = useState<Pull[] | null>(null);
+  // Copies the collector's auto-dust rule already took out of the pack on
+  // the server, so the stage shows them gone rather than offering to dust
+  // them twice.
+  const [autoDusted, setAutoDusted] = useState<AutoDusted | null>(null);
   const [ripsLeft, setRipsLeft] = useState(dailyRipsLeft);
   const [ripStreak, setRipStreak] = useState<number | null>(null);
   // Optimistic: the swatch recolours instantly and the server action
@@ -139,6 +143,7 @@ export default function PackShop({
       if (result.compsLeft !== undefined) setFreePacksLeft(result.compsLeft);
       setPackKind("standard");
       setPulls(result.cards);
+      setAutoDusted(result.autoDusted ?? null);
       banked(result.balance);
     });
   }
@@ -154,6 +159,7 @@ export default function PackShop({
       if (result.compsLeft !== undefined) setCompsLeft(result.compsLeft);
       setPackKind("champions");
       setPulls(result.cards);
+      setAutoDusted(result.autoDusted ?? null);
       banked(result.balance);
     });
   }
@@ -175,6 +181,7 @@ export default function PackShop({
       setRipStreak(result.streak ?? null);
       setPackKind("standard");
       setPulls(result.cards);
+      setAutoDusted(result.autoDusted ?? null);
       banked(result.balance);
     });
   }
@@ -202,6 +209,7 @@ export default function PackShop({
 
   const handleExit = useCallback(() => {
     setPulls(null);
+    setAutoDusted(null);
     router.refresh();
   }, [router]);
 
@@ -352,6 +360,7 @@ export default function PackShop({
           packCost={packKind === "champions" ? CHAMPIONS_PACK_COST : packCost}
           ownedSlugs={ownedSlugs}
           muted={muted}
+          autoDusted={autoDusted}
           onOpenAnother={openAnother}
           onExit={handleExit}
           onSellPack={sellPack}

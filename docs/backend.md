@@ -714,6 +714,46 @@ on the felt carry an `art` path — `/copy/<id>/card.png` for an owned copy,
 `/card/<slug>/card.png?w=<week>` for an edition card — and `MiniCard`
 draws it. Patronage never touches any of it.
 
+### Auto-dust
+
+A collector can set one rule (`card_auto_dust`, one row per Discord id,
+migration `20260913000003`) that dusts spare copies for them: a ceiling
+tier, a ceiling overall, how many copies of a print to keep, and whether it
+also runs as a pack opens. Everything about which copies go is decided by
+the pure `selectAutoDust` in `src/lib/cards/autoDust.ts`: a copy is
+eligible only when its tier and overall sit at or under the ceilings, it
+is not an Eclipse or a relic (moment, champion, team plate), and the
+foil/signed switches let it through; then, per slug, the best copies are
+kept (signed, then foil, then overall, then the older print) and the rest
+are the selection. Copies already on the shelf count towards the keep
+number when a pack is being judged, so a rule of "keep one" never leaves
+you with none.
+
+The server side (`src/lib/cards/autoDustServer.ts`, service role only)
+re-reads ownership, applies the trade locks and the Eclipse refusal, and
+dusts row by row through `dust_card` at the patron-aware value, exactly as
+a tapped dust does — the rule never touches odds or pricing. A collection
+run is capped at `AUTO_DUST_RUN_CAP` copies per call and reports how many
+remain. `openPackAction` and `openDailyRipAction` wrap their result in
+`withAutoDust`, which attaches `autoDusted: { ids, dusted, value }` so the
+overlay seeds its dusted set and shows an "Auto-dusted" chip; an auto-dust
+failure is logged and the open still succeeds. The panel on
+`/cards/collection` previews the selection live against the shelf and
+only enables "Dust now" once the rule is saved. The table is RLS
+deny-all: reads and writes go through the actions in
+`src/lib/cards/autoDust-actions.ts`.
+
+### The card shelf
+
+`card-cell` is 20rem wide plus padding, and a row that cannot fit a
+whole number of them drops the last card alone onto the next line. The
+`card-shelf` utility in globals.css makes the wrapping container a size
+container and, at the widths where that happens, sets `--shelf-zoom` on
+its cells so `zoom` shrinks each card just enough for the row to hold
+one more. Zoom, not transform, so layout follows the smaller card.
+`CollectionGrid` and `CardsGallery` both use it; add it to any new
+wrapping shelf of `card-cell`s.
+
 ### Card motion at rest
 
 `PlayerCard3D` stamps `data-motion="rest"` on its root until the pointer
