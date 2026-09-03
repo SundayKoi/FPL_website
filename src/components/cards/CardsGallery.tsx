@@ -103,7 +103,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
            this grid is the reason the optimisation exists. Its padding only adds
            to the row height (cells are centred in their tracks), so the row gap
            drops by that much to keep the rhythm. */
-        <div className="grid justify-items-center gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">
           {shown.map((card) => (
             <div key={card.slug} className="card-cell flex flex-col items-center gap-2">
               <PlayerCard3D card={card} />

@@ -1,0 +1,140 @@
+// Auto-dust: the rule, and the pure selection that applies it.
+//
+// A collector says "anything at or below this rarity and this overall,
+// once I already hold N copies of the player, and not my foils or signed
+// copies" — and the shelf, or the pack as it opens, melts the rest without
+// asking. Everything here is pure so the collection page can preview
+// exactly what a rule would take before it is saved, from the same code
+// the server runs.
+//
+// What is never auto-dusted, whatever the rule: an Eclipse (the database
+// refuses it anyway), a moment, a champions relic or a team plate.
+
+import type { CardTier } from "@/lib/cards/build";
+import type { InventoryRow } from "@/lib/packs/queries";
+import { ECLIPSE_FOIL_TYPE } from "@/lib/packs/config";
+
+export type CardTierKey = CardTier["key"];
+
+/** Lowest first. */
+export const TIER_ORDER: CardTierKey[] = ["bronze", "silver", "gold", "platinum", "emerald", "diamond", "master", "challenger"];
+
+export const TIER_LABELS: Record<CardTierKey, string> = {
+  bronze: "Bronze",
+  silver: "Silver",
+  gold: "Gold",
+  platinum: "Platinum",
+  emerald: "Emerald",
+  diamond: "Diamond",
+  master: "Master",
+  challenger: "Challenger",
+};
+
+export interface AutoDustRule {
+  enabled: boolean;
+  /** The highest rarity the rule touches. */
+  maxTier: CardTierKey;
+  /** The highest overall the rule touches. */
+  maxOverall: number;
+  /** Copies of a player kept before extras go. 0 dusts every eligible copy. */
+  keepCopies: number;
+  /** Apply to a pack's pulls as it opens. */
+  onRip: boolean;
+  skipFoil: boolean;
+  skipSigned: boolean;
+}
+
+export const DEFAULT_AUTO_DUST: AutoDustRule = {
+  enabled: false,
+  maxTier: "silver",
+  maxOverall: 60,
+  keepCopies: 1,
+  onRip: true,
+  skipFoil: true,
+  skipSigned: true,
+};
+
+export const MAX_KEEP_COPIES = 10;
+
+/** A copy as the rule reads it. */
+export interface AutoDustCandidate {
+  id: number;
+  slug: string;
+  tier: string;
+  overall: number;
+  foil: boolean;
+  foilType: string | null;
+  signed: boolean;
+  /** A moment, a champions relic or a team plate: never dusted by rule. */
+  relic: boolean;
+  /** Older copies are kept ahead of newer ones. */
+  acquiredAt?: string;
+}
+
+export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
+  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown };
+  return {
+    id: row.id,
+    slug: row.slug,
+    tier: row.tier,
+    overall: row.overall,
+    foil: row.foil,
+    foilType: row.foilType,
+    signed: row.signed,
+    relic: Boolean(card.moment || card.champWin || card.team),
+    acquiredAt: row.acquiredAt,
+  };
+}
+
+const tierRank = (tier: string) => TIER_ORDER.indexOf(tier as CardTierKey);
+
+/** Whether the rule would touch this copy at all, before the keep count. */
+export function eligibleForAutoDust(copy: AutoDustCandidate, rule: AutoDustRule): boolean {
+  if (copy.relic) return false;
+  if (copy.foilType === ECLIPSE_FOIL_TYPE) return false;
+  if (rule.skipFoil && copy.foil) return false;
+  if (rule.skipSigned && copy.signed) return false;
+  const rank = tierRank(copy.tier);
+  if (rank === -1 || rank > tierRank(rule.maxTier)) return false;
+  return copy.overall <= rule.maxOverall;
+}
+
+/** Which copy of a player to keep first: signed, then foil, then the
+ *  higher overall, then the older print. */
+function keepOrder(a: AutoDustCandidate, b: AutoDustCandidate): number {
+  if (a.signed !== b.signed) return a.signed ? -1 : 1;
+  if (a.foil !== b.foil) return a.foil ? -1 : 1;
+  if (a.overall !== b.overall) return b.overall - a.overall;
+  return (a.acquiredAt ?? "").localeCompare(b.acquiredAt ?? "");
+}
+
+/**
+ * The copies a rule would dust out of `copies`. `alreadyHeld` is how many
+ * copies of each player the collector holds that are NOT in `copies` —
+ * on a rip, the shelf behind the pack — and those count toward the keep
+ * first, so a new pull of a player you already keep is an extra.
+ */
+export function selectAutoDust(copies: AutoDustCandidate[], rule: AutoDustRule, alreadyHeld: ReadonlyMap<string, number> = new Map()): number[] {
+  if (!rule.enabled) return [];
+  const bySlug = new Map<string, AutoDustCandidate[]>();
+  for (const copy of copies) bySlug.set(copy.slug, [...(bySlug.get(copy.slug) ?? []), copy]);
+  const out: number[] = [];
+  for (const [slug, group] of bySlug) {
+    const held = alreadyHeld.get(slug) ?? 0;
+    const toKeep = Math.max(0, rule.keepCopies - held);
+    const ordered = [...group].sort(keepOrder);
+    for (const copy of ordered.slice(toKeep)) {
+      if (eligibleForAutoDust(copy, rule)) out.push(copy.id);
+    }
+  }
+  return out;
+}
+
+/** Whatever came from the database, as a rule with every field present. */
+export function normalizeRule(raw: Partial<AutoDustRule> | null | undefined): AutoDustRule {
+  const rule = { ...DEFAULT_AUTO_DUST, ...(raw ?? {}) };
+  if (!TIER_ORDER.includes(rule.maxTier)) rule.maxTier = DEFAULT_AUTO_DUST.maxTier;
+  rule.maxOverall = Math.max(0, Math.min(99, Math.round(Number(rule.maxOverall) || 0)));
+  rule.keepCopies = Math.max(0, Math.min(MAX_KEEP_COPIES, Math.round(Number(rule.keepCopies) || 0)));
+  return rule;
+}

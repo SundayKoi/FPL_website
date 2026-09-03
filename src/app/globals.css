@@ -1525,6 +1525,34 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: 21rem 31rem;
   padding: 0.5rem;
+  /* Set by the shelf below, from how wide the shelf is. */
+  zoom: var(--shelf-zoom, 1);
+}
+
+/* A shelf of cards fits its row. A card is 20rem wide and does not
+   resize, so on most laptops a row took three and sent the fourth to a
+   new line under a wide empty margin, and on a narrow phone one card
+   overflowed. The shelf measures itself and zooms its cells so a row
+   holds four, three, two or one whole cards with no orphan and no
+   overflow. zoom (not transform) so layout follows. */
+@utility card-shelf {
+  container-type: inline-size;
+  --shelf-zoom: 1;
+}
+@container (max-width: 21.5rem) {
+  .card-cell { --shelf-zoom: 0.9; }
+}
+@container (min-width: 35rem) and (max-width: 41.99rem) {
+  .card-cell { --shelf-zoom: 0.83; }
+}
+@container (min-width: 52.5rem) and (max-width: 62.99rem) {
+  .card-cell { --shelf-zoom: 0.83; }
+}
+@container (min-width: 69rem) and (max-width: 75.99rem) {
+  .card-cell { --shelf-zoom: 0.82; }
+}
+@container (min-width: 76rem) and (max-width: 83.99rem) {
+  .card-cell { --shelf-zoom: 0.9; }
 }
 
 /* ── Pack ripping ──────────────────────────────────────────────────────────

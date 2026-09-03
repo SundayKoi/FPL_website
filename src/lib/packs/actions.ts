@@ -11,10 +11,11 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { flameUnlocked, PATRON_FLAME_KEYS, PATRON_FLAMES, type PatronFlameKey } from "@/lib/patron/flames";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
-import type { CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { PACK_COST } from "./config";
 import { openChampionsPack, openPackFor, type OpenPackResult } from "./open";
+import { autoDustPulls } from "@/lib/cards/autoDustServer";
 
 export async function openPackAction(
   league: CardLeague,
@@ -26,7 +27,42 @@ export async function openPackAction(
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return openPackFor(user.discordId, league, { requestedWeek, fallbackBalance: user.balance - PACK_COST });
+  return withAutoDust(user.discordId, league, await openPackFor(user.discordId, league, { requestedWeek, fallbackBalance: user.balance - PACK_COST }));
+}
+
+/**
+ * The collector's auto-dust rule, applied to a pack that just opened.
+ * Nothing about the open changes: the pulls are minted, then whatever the
+ * rule selects is dusted through dust_card like a tapped dust, and the
+ * result says which so the overlay can show them as gone.
+ */
+async function withAutoDust(discordId: string, league: CardLeague, result: OpenPackResult): Promise<OpenPackResult> {
+  if (!result.ok) return result;
+  try {
+    const service = createBettingServiceClient();
+    const season = await fetchCardSeason(service, league);
+    if (!season) return result;
+    const taken = await autoDustPulls(
+      service,
+      discordId,
+      season,
+      result.cards.map((pull) => ({
+        inventoryId: pull.inventoryId,
+        slug: pull.card.slug,
+        tier: pull.card.tier.key,
+        overall: pull.card.overall,
+        foil: pull.foil,
+        foilType: pull.foilType,
+        signed: pull.signed,
+        relic: Boolean(pull.card.moment || pull.card.champWin || pull.card.team),
+      })),
+    );
+    if (!taken) return result;
+    return { ...result, balance: taken.balance ?? result.balance, autoDusted: { ids: taken.ids, dusted: taken.dusted, value: taken.value } };
+  } catch (error) {
+    console.error("packs: auto-dust after open failed", error);
+    return result;
+  }
 }
 
 /**
@@ -42,7 +78,7 @@ export async function openDailyRipAction(league: CardLeague, requestedWeek?: str
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return openPackFor(user.discordId, league, { daily: true, requestedWeek, fallbackBalance: user.balance });
+  return withAutoDust(user.discordId, league, await openPackFor(user.discordId, league, { daily: true, requestedWeek, fallbackBalance: user.balance }));
 }
 
 /**
