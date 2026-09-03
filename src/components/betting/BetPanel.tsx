@@ -9,6 +9,8 @@ import { TeamSideButton } from "./TeamSideButton";
 const DRAW = -1;
 
 interface Props {
+  /** A bet is in flight — the button says so rather than just greying out. */
+  pending?: boolean;
   teamA: BettingTeam;
   teamB: BettingTeam;
   poolA: number;
@@ -36,6 +38,7 @@ export function BetPanel({
   loggedIn,
   error,
   onBet,
+  pending = false,
 }: Props) {
   const [side, setSide] = useState<number>(teamA.id);
   const [amount, setAmount] = useState<number>(0);
@@ -115,10 +118,10 @@ export function BetPanel({
       <button
         type="button"
         className="mt-3 w-full rounded bg-action-fill py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={disabled}
+        disabled={disabled || pending}
         onClick={() => onBet(side, amount)}
       >
-        BUY
+        {pending ? "PLACING…" : "BUY"}
       </button>
       {!loggedIn && <div className="mt-2 text-center text-xs text-muted">Log in to bet</div>}
     </div>

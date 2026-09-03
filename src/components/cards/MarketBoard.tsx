@@ -24,6 +24,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
 import { editionLabel } from "@/lib/packs/week";
 import { buyListing } from "@/lib/market/actions";
@@ -91,6 +92,7 @@ function ListingRow({
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startBuying] = useTransition();
+  const { notify } = useToast();
   const copy = listing.copy;
   const blocked = mine || listing.stale || !copy;
 
@@ -107,6 +109,7 @@ function ListingRow({
         setError(result.error);
         return;
       }
+      notify(`Bought ${copy?.playerName ?? "the card"} for ${fmtPoints(listing.ask)}. It's on your shelf.`);
       onBought();
     });
   }

@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { useMarketDetail, fetchMyOpenBets } from "@/hooks/useMarketDetail";
 import { useIsLocked } from "@/hooks/useIsLocked";
 import { OddsBar } from "./OddsBar";
@@ -95,6 +96,7 @@ export function MarketDetail({
   openBets: OpenBetRow[];
 }) {
   const router = useRouter();
+  const { notify } = useToast();
   const { market, connectionStatus, refetch } = useMarketDetail(initial.id, initial);
   const [balance, setBalance] = useState(initialBalance);
   const [openBets, setOpenBets] = useState(initialOpenBets);
@@ -115,11 +117,12 @@ export function MarketDetail({
   const shareDraw = total > 0 ? market.pool_draw / total : 1 / 3;
   const shareB = market.draw_enabled ? (total > 0 ? market.pool_b / total : 1 / 3) : 1 - shareA;
 
-  function afterAction(result: { ok: true; balance: number } | { ok: false; error: string }) {
+  function afterAction(result: { ok: true; balance: number } | { ok: false; error: string }, done: string) {
     if (!result.ok) {
       setError(result.error);
       return;
     }
+    notify(`${done} Balance ${fmtPoints(result.balance)}.`);
     setBalance(result.balance);
     void refetch();
     void fetchMyOpenBets(market.id).then(setOpenBets);
@@ -129,14 +132,15 @@ export function MarketDetail({
   function handleBet(teamId: number, amount: number) {
     setError(null);
     startTransition(async () => {
-      afterAction(await placeBet(market.id, teamId, amount));
+      const side = teamId === market.team_a.id ? market.team_a.short_code : teamId === market.team_b.id ? market.team_b.short_code : "the draw";
+      afterAction(await placeBet(market.id, teamId, amount), `Bet ${fmtPoints(amount)} on ${side}.`);
     });
   }
 
   function handleCashout(betId: number) {
     setError(null);
     startTransition(async () => {
-      afterAction(await cashoutBet(betId));
+      afterAction(await cashoutBet(betId), "Cashed out.");
     });
   }
 
@@ -205,6 +209,10 @@ export function MarketDetail({
         <div>
           <YourPosition market={market} openBets={openBets} locked={locked} busy={pending} onCashout={handleCashout} />
           <BetPanel
+            // A settled balance is a settled bet: remounting clears the amount
+            // so the form does not still read "500" after the money moved.
+            key={`bet-${balance}`}
+            pending={pending}
             teamA={market.team_a}
             teamB={market.team_b}
             poolA={market.pool_a}

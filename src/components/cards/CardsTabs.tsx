@@ -13,10 +13,35 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CardLeague } from "@/lib/cards/queries";
 import { activeCardsSection, cardsSections } from "@/lib/cards/sections";
+import { fmtPoints } from "@/lib/betting/format";
 
 const BASES: Record<CardLeague, string> = { premier: "/cards", academy: "/academy/cards" };
 
-export default function CardsTabs({ league }: { league: CardLeague }) {
+function Badge({ count, label }: { count: number; label: string }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      aria-label={`${count} ${label}`}
+      className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 font-mono text-[10px] font-bold leading-none text-navy"
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
+
+export default function CardsTabs({
+  league,
+  balance = null,
+  offers = 0,
+}: {
+  league: CardLeague;
+  /** The viewer's betting dollars, or null when signed out. Shown at the
+   *  end of the bar: four cards pages spend them and none showed them. */
+  balance?: number | null;
+  /** Trade offers waiting on the viewer — a badge on Market and on the
+   *  Trade offers sub-tab, the only in-app sign that anyone wants a word. */
+  offers?: number;
+}) {
   const pathname = usePathname() ?? BASES[league];
   const base = BASES[league];
   const sections = cardsSections(base);
@@ -24,8 +49,8 @@ export default function CardsTabs({ league }: { league: CardLeague }) {
 
   return (
     <nav aria-label="Cards" className="border-b border-line bg-panel/60">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-2 sm:px-6">
-        <ul className="flex items-center gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+      <div className="mx-auto flex w-full max-w-[1800px] items-center gap-3 px-4 py-2 sm:px-6">
+        <ul className="flex min-w-0 items-center gap-1 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           {sections.map((section) => {
             const current = active?.key === section.key;
             return (
@@ -39,11 +64,22 @@ export default function CardsTabs({ league }: { league: CardLeague }) {
                   }`}
                 >
                   {section.label}
+                  {section.key === "market" ? <Badge count={offers} label="trade offers waiting" /> : null}
                 </Link>
               </li>
             );
           })}
         </ul>
+        {balance !== null ? (
+          <Link
+            href="/betting"
+            title="Your betting dollars — what packs, listings, bounties and tables are paid with"
+            className="ml-auto shrink-0 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 font-mono text-xs font-semibold text-gold transition hover:bg-gold/20"
+            data-testid="cards-balance"
+          >
+            {fmtPoints(balance)}
+          </Link>
+        ) : null}
       </div>
       {active?.children ? (
         <div className="border-t border-line/60">
@@ -61,6 +97,7 @@ export default function CardsTabs({ league }: { league: CardLeague }) {
                     }`}
                   >
                     {child.label}
+                    {child.href.endsWith("/trades") ? <Badge count={offers} label="trade offers waiting" /> : null}
                   </Link>
                 </li>
               );

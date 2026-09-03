@@ -6,7 +6,7 @@
 // restyles it, so the chip says both jobs out loud.
 
 import Link from "next/link";
-import { useState } from "react";
+import { useUrlState } from "@/lib/ui/useUrlState";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PlayerCard3D from "./PlayerCard3D";
 
@@ -23,9 +23,15 @@ const GALLERY_ORDER: Record<GallerySort, (a: PlayerCardData, b: PlayerCardData) 
 };
 
 export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
-  const [query, setQuery] = useState("");
-  const [role, setRole] = useState<string | null>(null);
-  const [sort, setSort] = useState<GallerySort>("rating");
+  // Kept in the URL: open a card, come back, and the browse you left is
+  // the browse you return to.
+  const [view, setView] = useUrlState({ q: "", role: "", sort: "rating" });
+  const query = view.q;
+  const role = view.role || null;
+  const sort = (view.sort in GALLERY_ORDER ? view.sort : "rating") as GallerySort;
+  const setQuery = (q: string) => setView({ q });
+  const setRole = (next: string | null) => setView({ role: next ?? "" });
+  const setSort = (next: GallerySort) => setView({ sort: next });
 
   const q = query.trim().toLowerCase();
   const shown = cards
@@ -74,7 +80,7 @@ export default function CardsGallery({ cards }: { cards: PlayerCardData[] }) {
               key={r}
               type="button"
               aria-pressed={role === r}
-              onClick={() => setRole((current) => (current === r ? null : r))}
+              onClick={() => setRole(role === r ? null : r)}
               className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
                 role === r ? "bg-coral text-navy" : "border border-line bg-panel text-steel hover:text-white"
               }`}

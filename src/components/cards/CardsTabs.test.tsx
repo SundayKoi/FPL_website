@@ -52,4 +52,22 @@ describe("CardsTabs", () => {
     expect(tabs().getByRole("link", { name: "Play" }).getAttribute("aria-current")).toBe("page");
     expect(tabs().queryByRole("link", { name: "Gauntlet" })).toBeNull();
   });
+
+  it("shows the wallet at the end of the bar when signed in, and nothing when not", () => {
+    render(<CardsTabs league="premier" balance={1250} />);
+    expect(screen.getByTestId("cards-balance").textContent).toContain("1,250");
+    expect(screen.getByTestId("cards-balance").getAttribute("href")).toBe("/betting");
+    cleanup();
+    render(<CardsTabs league="premier" balance={null} />);
+    expect(screen.queryByTestId("cards-balance")).toBeNull();
+  });
+
+  it("badges Market and Trade offers with the offers waiting", () => {
+    pathname.value = "/cards/market";
+    render(<CardsTabs league="premier" offers={3} />);
+    expect(screen.getAllByLabelText("3 trade offers waiting")).toHaveLength(2);
+    cleanup();
+    render(<CardsTabs league="premier" offers={0} />);
+    expect(screen.queryByLabelText(/trade offers waiting/)).toBeNull();
+  });
 });
