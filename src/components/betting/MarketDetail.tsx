@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
+import { formatKickoff } from "@/lib/schedule/format";
 import { useMarketDetail, fetchMyOpenBets } from "@/hooks/useMarketDetail";
 import { useIsLocked } from "@/hooks/useIsLocked";
 import { OddsBar } from "./OddsBar";
@@ -158,7 +159,7 @@ export function MarketDetail({
             </Link>
             <StatusPill status={market.status} />
             <LockCountdown lockAt={market.lock_at} status={market.status} />
-            <span className="text-xs text-muted">{new Date(market.game_at).toLocaleString()}</span>
+            <span className="text-xs text-muted">{formatKickoff(market.game_at)}</span>
           </div>
           <h1 className="type-display mt-2 text-3xl sm:text-4xl">
             <span style={{ color: market.team_a.color }}>{market.team_a.name}</span>{" "}

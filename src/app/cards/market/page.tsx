@@ -55,7 +55,7 @@ export async function MarketPageView({
         <MarketBoard listings={market.listings} viewerDiscordId={market.discordId} />
       </section>
 
-      <section className="flex flex-col gap-3">
+      <section id="sell" className="scroll-mt-24 flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Sell a card</h2>
         <ListCardForm
           inventory={market.myInventory}

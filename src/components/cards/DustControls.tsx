@@ -30,6 +30,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { canDust, patronDustValue } from "@/lib/packs/config";
@@ -132,6 +133,8 @@ export default function DustControls({
   // share a confirm state, one destroys and one redecorates.
   const [dieArmed, setDieArmed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useAutoDisarm(armed !== null, () => setArmed(null));
+  useAutoDisarm(dieArmed !== null, () => setDieArmed(null));
   const [pending, startTransition] = useTransition();
   // Copies whose art Riot serves from neither directory — the thumb drops
   // out rather than leaving a broken-image box in a destructive row.

@@ -49,6 +49,7 @@ export function toBoardListing(listing: MarketListing): BoardListing {
     ask: listing.ask,
     note: listing.note,
     expiresAt: listing.expiresAt,
+    createdAt: listing.createdAt,
     stale: listing.stale,
     copy: listing.copy
       ? {
@@ -73,6 +74,7 @@ export function toMyListing(listing: MarketListing): MyListing {
     note: listing.note,
     status: listing.status,
     expiresAt: listing.expiresAt,
+    createdAt: listing.createdAt,
     buyerUsername: listing.buyerUsername,
     stale: listing.stale,
     copy: toBoardListing(listing).copy,

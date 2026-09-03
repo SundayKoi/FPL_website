@@ -26,6 +26,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
+import { easternStamp, relativeTime } from "@/lib/time";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import { editionLabel } from "@/lib/packs/week";
 import { buyListing } from "@/lib/market/actions";
 import { fetchInventoryCardAction } from "@/lib/trades/actions";
@@ -52,6 +54,9 @@ export interface BoardListing {
   ask: number;
   note: string | null;
   expiresAt: string;
+  /** When it went up — "listed 2h ago" is the difference between a fresh
+   *  ask and one nobody has wanted for a week. */
+  createdAt?: string;
   /** The copy has left the seller — this listing can no longer be bought. */
   stale: boolean;
   /** Null once the copy has been dusted out from under the listing. */
@@ -93,6 +98,7 @@ function ListingRow({
   const [error, setError] = useState<string | null>(null);
   const [busy, startBuying] = useTransition();
   const { notify } = useToast();
+  useAutoDisarm(armed, () => setArmed(false));
   const copy = listing.copy;
   const blocked = mine || listing.stale || !copy;
 
@@ -175,6 +181,12 @@ function ListingRow({
         </span>
         <span aria-hidden>·</span>
         <span>{expiryLabel(listing.expiresAt)}</span>
+        {listing.createdAt ? (
+          <>
+            <span aria-hidden>·</span>
+            <span title={easternStamp(listing.createdAt)}>listed {relativeTime(listing.createdAt)}</span>
+          </>
+        ) : null}
         {listing.note ? <span className="italic">“{listing.note}”</span> : null}
         {listing.stale ? (
           <span className="font-semibold uppercase tracking-wide text-red-400">Card has moved on</span>
@@ -208,8 +220,11 @@ export default function MarketBoard({
 
   if (sorted.length === 0) {
     return (
-      <p className="card-brand p-5 text-sm text-steel" data-testid="market-board">
-        Nothing is for sale right now. List a duplicate below and be the first.
+      <p className="card-brand flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-steel" data-testid="market-board">
+        <span>Nothing is for sale right now. List a duplicate and be the first.</span>
+        <a href="#sell" className="btn-coral px-4 py-2 text-sm">
+          List a card ↓
+        </a>
       </p>
     );
   }

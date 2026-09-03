@@ -17,6 +17,7 @@ import {
   type CardTierKey,
 } from "@/lib/cards/autoDust";
 import { runAutoDustAction, saveAutoDustRuleAction } from "@/lib/cards/autoDust-actions";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 
 export default function AutoDustPanel({ initialRule, candidates }: { initialRule: AutoDustRule; candidates: AutoDustCandidate[] }) {
   const [rule, setRule] = useState<AutoDustRule>(initialRule);
@@ -26,6 +27,7 @@ export default function AutoDustPanel({ initialRule, candidates }: { initialRule
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  useAutoDisarm(armed, () => setArmed(false));
 
   const preview = useMemo(() => selectAutoDust(candidates, { ...rule, enabled: true }), [candidates, rule]);
   const dirty = JSON.stringify(rule) !== JSON.stringify(saved);
