@@ -146,13 +146,6 @@ export default async function AdminPage() {
       href: "/skin-lines",
     },
     {
-      label: "The Pusher",
-      stat: "Proposal toy",
-      statTone: "text-gold",
-      description: "A coin pusher for betting dollars, as a playable toy to judge the feel. Pretend physics, nothing written.",
-      href: "/admin/pusher",
-    },
-    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

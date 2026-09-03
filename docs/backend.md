@@ -714,18 +714,6 @@ on the felt carry an `art` path — `/copy/<id>/card.png` for an owned copy,
 `/card/<slug>/card.png?w=<week>` for an edition card — and `MiniCard`
 draws it. Patronage never touches any of it.
 
-### The Pusher (proposal)
-
-`/admin/pusher` is a staff-gated toy of a coin pusher for betting dollars:
-a canvas shelf with local, pretend physics (`src/components/pusher/PusherMockup.tsx`)
-and the numbers a real one would start from (`src/lib/pusher/config.ts`),
-so the feel can be judged before anything is built. Nothing reads or
-writes. If it goes ahead: one machine for the league, a small deterministic
-shelf model settled on the server from a seed rolled first (the Gauntlet's
-discipline), the browser animating to the settled state, prizes of dollars,
-dust and pack tokens, and a card only through the same print-run path a
-pack uses.
-
 ### Card motion at rest
 
 `PlayerCard3D` stamps `data-motion="rest"` on its root until the pointer
