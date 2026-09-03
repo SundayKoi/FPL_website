@@ -73,8 +73,10 @@ describe("pick order", () => {
 
   it("renders the number beside the champion", () => {
     render(<MatchDraftSummary games={[reordered]} />);
-    // Pick numbers remain visible beside champions after role confirmation.
-    expect(screen.getAllByText("3").length).toBeGreaterThan(0);
+    // Pick numbers stay on the label line beside the role after role
+    // confirmation — not in a corner pill that used to cover the role.
+    expect(screen.getAllByTitle("Pick 3").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/· P3$/).length).toBeGreaterThan(0);
   });
 
   it("anchors the section so the schedule can link straight to it", () => {
