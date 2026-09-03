@@ -23,6 +23,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { editionLabel } from "@/lib/packs/week";
@@ -145,6 +146,7 @@ function TradeSide({ label, cards, dollars }: { label: string; cards: InboxCard[
 
 function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscordId: string }) {
   const router = useRouter();
+  const { notify } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [armed, setArmed] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -172,6 +174,14 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
         setError(result.error);
         return;
       }
+      notify(
+        accept
+          ? `Trade with ${trade.fromUsername} done — the cards have swapped shelves.`
+          : incoming
+            ? `Declined ${trade.fromUsername}'s offer.`
+            : `Offer to ${trade.toUsername} withdrawn — your cards are free again.`,
+        { tone: accept ? "success" : "info" },
+      );
       router.refresh();
     });
   }

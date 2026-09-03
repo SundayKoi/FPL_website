@@ -28,6 +28,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
@@ -124,6 +125,7 @@ export default function DustControls({
   deployedIds?: ReadonlySet<number>;
 }) {
   const router = useRouter();
+  const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState<number | null>(null);
   // The re-roll die arms separately from dusting — the two must never
@@ -157,6 +159,7 @@ export default function DustControls({
         setError(result.error);
         return;
       }
+      notify(`${playerName}'s print was re-rolled. The die is spent for the week.`);
       router.refresh();
     });
   }
@@ -175,6 +178,7 @@ export default function DustControls({
         setError(result.error);
         return;
       }
+      notify(`Dusted a ${playerName} copy for +${fmtPoints(result.value)}.`);
       // The grid is server-rendered, so the shelf only learns the copy is
       // gone on a refresh.
       router.refresh();
