@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import StatsTabs from "@/components/stats/StatsTabs";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+
+export const metadata: Metadata = {
+  title: "Stats — FPL Academy",
+};
 
 export default async function AcademyStatsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const params = await searchParams;

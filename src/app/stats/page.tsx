@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import StatsTabs from "@/components/stats/StatsTabs";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+
+export const metadata: Metadata = {
+  title: "Stats — FPL",
+};
 
 export default async function StatsPage({
   searchParams,

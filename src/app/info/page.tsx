@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SupportDevSection from "@/components/info/SupportDevSection";
+
+export const metadata: Metadata = {
+  title: "About the league — FPL",
+};
 
 const infoDestinations = [
   {

@@ -9,6 +9,7 @@ const { pathname, search } = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname.value,
+  useRouter: () => ({ push: () => undefined }),
   useSearchParams: () => new URLSearchParams(search.value),
 }));
 
@@ -238,14 +239,18 @@ describe("SiteNavigation", () => {
       "Betting",
       "The Daily Stu",
       "Match Drafter",
-      "Daily Games",
+      "FPL'dle",
+      "Higher or Lower",
+      "Guess the Card",
     ]);
     expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
       "/premium",
       "/betting",
       "/bangers",
       "/drafter",
-      "/premium#daily-games",
+      "/fpldle",
+      "/higher-lower",
+      "/guess-the-card",
     ]);
 
     cleanup();
@@ -257,7 +262,9 @@ describe("SiteNavigation", () => {
       "/betting",
       "/bangers",
       "/drafter",
-      "/premium?league=academy#daily-games",
+      "/academy/fpldle",
+      "/academy/higher-lower",
+      "/academy/guess-the-card",
     ]);
   });
 
@@ -324,5 +331,31 @@ describe("SiteNavigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /league menu/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /^Teams$/ }));
     expect(screen.getByRole("button", { name: /open menu/i })).toBeTruthy();
+  });
+
+  it("lists the daily games as Premium destinations of their own, in the current league", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/fpldle");
+    expect(screen.getByRole("menuitem", { name: /^Higher or Lower$/ }).getAttribute("href")).toBe("/higher-lower");
+    expect(screen.getByRole("menuitem", { name: /^Guess the Card$/ }).getAttribute("href")).toBe("/guess-the-card");
+    expect(screen.queryByRole("menuitem", { name: /^Daily Games$/ })).toBeNull();
+    cleanup();
+
+    pathname.value = "/academy/schedule";
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/academy/fpldle");
+  });
+
+  it("puts Patrons in the Info menu", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    fireEvent.click(screen.getByRole("button", { name: /info menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Patrons$/ }).getAttribute("href")).toBe("/supporters");
+  });
+
+  it("offers site search from the header", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+    expect(screen.getByRole("button", { name: /search the site/i })).toBeTruthy();
   });
 });

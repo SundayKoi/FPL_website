@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchProfileStats, fetchRecentBets } from "@/lib/betting/queries";
 import { fmtPoints } from "@/lib/betting/format";
+
+export const metadata: Metadata = {
+  title: "Betting profile — FPL",
+};
 
 function StatBox({ label, value, valueClass = "text-white" }: { label: string; value: string; valueClass?: string }) {
   return (

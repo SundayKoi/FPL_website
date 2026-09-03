@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import RulebookContent from "@/components/info/RulebookContent";
 import { getInfoPageData, getRulebookResource, rulebookSections } from "@/lib/info/resources";
+
+export const metadata: Metadata = {
+  title: "Rulebook — FPL",
+};
 
 export default async function RulebookPage() {
   const { resources } = await getInfoPageData();

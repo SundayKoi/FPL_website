@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import AcademyPlayersDirectory from "@/components/academy/AcademyPlayersDirectory";
 import type { PlayerPoolRow } from "@/components/players/PlayerPoolAdmin";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
@@ -8,6 +9,10 @@ import type {
   PlayerIdentityLinkRow,
   VerifiedProfileOption,
 } from "@/components/players/PlayerIdentityAdmin";
+
+export const metadata: Metadata = {
+  title: "Players — FPL Academy",
+};
 
 export default async function AcademyPlayersPage() {
   const supabase = await createServerSupabase();

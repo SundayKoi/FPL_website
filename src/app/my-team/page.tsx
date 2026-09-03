@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { MyTeamPageView } from "./view";
+
+export const metadata: Metadata = {
+  title: "My Team — FPL",
+};
 
 export default function MyTeamPage({
   searchParams,

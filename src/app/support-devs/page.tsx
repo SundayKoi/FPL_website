@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import SupportDevSection from "@/components/info/SupportDevSection";
+
+export const metadata: Metadata = {
+  title: "Support the Devs — FPL",
+};
 
 export default function SupportDevsPage() {
   return (

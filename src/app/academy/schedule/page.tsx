@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
@@ -9,6 +10,10 @@ import FixtureCard from "@/components/schedule/FixtureCard";
 import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleStage";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import { fetchTeamIdentities } from "@/lib/teams/identity";
+
+export const metadata: Metadata = {
+  title: "Schedule — FPL Academy",
+};
 
 export default async function AcademySchedulePage({ searchParams }: { searchParams: Promise<{ season?: string | string[] }> }) {
   const supabase = await createServerSupabase();

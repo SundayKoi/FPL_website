@@ -49,3 +49,16 @@ describe("league page links", () => {
     expect(pairedLeagueHref("/stats", "premier")).toBe("/stats");
   });
 });
+
+describe("pairedLeagueHref on the cards section", () => {
+  it("keeps the same cards page when switching league", () => {
+    expect(pairedLeagueHref("/cards/market", "academy")).toBe("/academy/cards/market");
+    expect(pairedLeagueHref("/academy/cards/vault", "premier")).toBe("/cards/vault");
+    expect(pairedLeagueHref("/cards/moments", "academy", "week=3")).toBe("/academy/cards/moments?week=3");
+  });
+
+  it("sends a premier-only cards page to the academy's Play tab", () => {
+    expect(pairedLeagueHref("/cards/gauntlet", "academy")).toBe("/academy/cards/play");
+    expect(pairedLeagueHref("/cards/showdown", "academy")).toBe("/academy/cards/play");
+  });
+});
