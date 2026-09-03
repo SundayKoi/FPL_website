@@ -276,7 +276,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
         </div>
       ) : null}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-red-400">{error}</p> : null}
     </li>
   );
 }

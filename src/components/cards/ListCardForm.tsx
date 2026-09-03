@@ -226,8 +226,8 @@ export default function ListCardForm({
         </>
       )}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
-      {posted ? <p className="text-xs text-mint">{posted}</p> : null}
+      {error ? <p role="alert" className="text-xs text-red-400">{error}</p> : null}
+      {posted ? <p role="status" className="text-xs text-mint">{posted}</p> : null}
     </div>
   );
 }

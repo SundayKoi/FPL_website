@@ -410,8 +410,8 @@ export default function TradeBuilder({
         </>
       )}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
-      {sent ? <p className="text-xs text-mint">{sent}</p> : null}
+      {error ? <p role="alert" className="text-xs text-red-400">{error}</p> : null}
+      {sent ? <p role="status" className="text-xs text-mint">{sent}</p> : null}
     </div>
   );
 }
