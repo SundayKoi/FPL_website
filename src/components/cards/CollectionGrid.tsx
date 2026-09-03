@@ -32,6 +32,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { useUrlState } from "@/lib/ui/useUrlState";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
+import EmptyShelf from "./EmptyShelf";
 import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
@@ -466,6 +468,7 @@ export default function CollectionGrid({
   const [armed, setArmed] = useState(false);
   const [dustError, setDustError] = useState<string | null>(null);
   const [dusting, startDust] = useTransition();
+  useAutoDisarm(armed, () => setArmed(false));
 
   const patron = Boolean(flame);
   /** What a copy dusts for. Same function the server prices with, so the
@@ -536,7 +539,7 @@ export default function CollectionGrid({
   }
 
   if (inventory.length === 0) {
-    return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
+    return <EmptyShelf base={base} goal="start your shelf" />;
   }
 
   // Every week the shelf holds copies from, newest first — the week picker.

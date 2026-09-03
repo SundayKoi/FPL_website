@@ -25,6 +25,7 @@ export interface MyListing {
   note: string | null;
   status: ListingStatus;
   expiresAt: string;
+  createdAt?: string;
   buyerUsername: string | null;
   stale: boolean;
   copy: BoardCopy | null;

@@ -19,6 +19,8 @@ export interface TableRow {
   publicState: PublicState;
   deadlineAt: string | null;
   createdBy: string | null;
+  /** When the table was opened — the lobby says how long it has waited. */
+  createdAt?: string | null;
 }
 
 export interface SeatRow {
@@ -44,9 +46,10 @@ interface TableDbRow {
   public_state: PublicState | Record<string, never>;
   deadline_at: string | null;
   created_by: string | null;
+  created_at?: string | null;
 }
 
-const TABLE_COLUMNS = "id, bracket, season, name, code, status, version, hand_no, public_state, deadline_at, created_by";
+const TABLE_COLUMNS = "id, bracket, season, name, code, status, version, hand_no, public_state, deadline_at, created_by, created_at";
 
 function mapTable(row: TableDbRow): TableRow {
   const state = row.public_state as Partial<PublicState>;
@@ -67,6 +70,7 @@ function mapTable(row: TableDbRow): TableRow {
     },
     deadlineAt: row.deadline_at,
     createdBy: row.created_by,
+    createdAt: row.created_at ?? null,
   };
 }
 

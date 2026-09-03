@@ -1,3 +1,4 @@
+import { formatKickoff } from "@/lib/schedule/format";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { BettingTeam, MarketCardData } from "@/lib/betting/types";
@@ -45,12 +46,7 @@ export function MarketCard({ market }: { market: MarketCardData }) {
       <TeamRow team={market.team_b} pct={100 - pctA} odds={americanOdds(1 - shareA)} />
       <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2 text-xs text-muted">
         <span>
-          {new Date(market.game_at).toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-          })}
+          {formatKickoff(market.game_at)}
         </span>
         <span className="flex gap-1">
           <span

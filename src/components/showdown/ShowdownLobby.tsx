@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { fmtPoints } from "@/lib/betting/format";
+import { easternStamp, relativeTime } from "@/lib/time";
 import { createShowdownTableAction } from "@/lib/showdown/actions";
 import { BRACKETS, OPENABLE_BRACKETS, PRACTICE_ONLY, SEATS_MAX, type BracketKey } from "@/lib/showdown/config";
 import type { fetchOpenTables } from "@/lib/showdown/queries";
@@ -44,7 +45,13 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
           ) : null}
         </div>
         {tables.length === 0 ? (
-          <p className="text-sm text-steel">No table is open. Open one and the first person to sit down with you starts the deal.</p>
+          <p className="text-sm text-steel">
+            No table is open.{" "}
+            <a href="#open-table" className="font-semibold text-coral underline-offset-4 hover:underline">
+              Open one ↓
+            </a>{" "}
+            and the first person to sit down with you starts the deal.
+          </p>
         ) : (
           <ul className="flex flex-col gap-2">
             {tables.map((table) => {
@@ -69,6 +76,11 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
                       <span className={table.status === "hand" ? "font-semibold text-coral" : "text-steel"}>
                         {table.status === "hand" ? `Hand ${table.handNo} in play` : "Waiting to deal"}
                       </span>
+                      {table.createdAt ? (
+                        <span className="text-steel" title={easternStamp(table.createdAt)}>
+                          opened {relativeTime(table.createdAt)}
+                        </span>
+                      ) : null}
                     </span>
                   </Link>
                 </li>
@@ -78,7 +90,7 @@ export default function ShowdownLobby({ tables, seatedAt, signedIn }: { tables: 
         )}
       </section>
 
-      <section aria-label="Open a table" className="card-brand flex flex-col gap-3 p-5">
+      <section id="open-table" aria-label="Open a table" className="card-brand scroll-mt-24 flex flex-col gap-3 p-5">
         <span className="label-dash">Open a table</span>
         <label className="flex flex-col gap-1 text-xs text-steel">
           Name

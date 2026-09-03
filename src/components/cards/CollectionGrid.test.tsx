@@ -123,7 +123,7 @@ describe("CollectionGrid binder pins", () => {
 describe("CollectionGrid", () => {
   it("says the shelf is empty rather than rendering chips", () => {
     render(<CollectionGrid inventory={[]} />);
-    expect(screen.getByText("No cards yet — open your first pack.")).toBeTruthy();
+    expect(screen.getByTestId("empty-shelf")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Variant filter" })).toBeNull();
   });
 
