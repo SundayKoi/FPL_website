@@ -358,6 +358,28 @@ service's dashboard in a browser.
     night to wake it up, and confirm the site loads, before everyone
     joins.
 
+## Draft data export
+
+Every pick and ban made in the match drafter can be pulled out as a
+spreadsheet or JSON with a read-only script. It uses the website's public
+keys — no secret needed — so anyone with the repo can run it:
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+npm run export:drafts -- --season=S5 --out=s5-drafts.csv
+npm run export:drafts -- --format=json --complete-only --out=drafts.json
+npm run export:drafts -- --team="Neon Dynasty" --stage=week_3
+npm run export:drafts -- --open            # include the public /drafter lobbies
+```
+
+CSV is one row per draft step (twenty per game): season, stage, fixture,
+game number, side, team, pick or ban, slot, overall pick/ban order, whether
+it was the game's first pick, the champion, the player who drafted it, and
+the role once captains confirmed positions. JSON is one object per game
+with each side's bans and picks in order. The column list is at the top of
+`scripts/export-drafts.ts`.
+
 ## Stats ingestion
 
 Game-night League of Legends stats are pulled from the Riot API and
