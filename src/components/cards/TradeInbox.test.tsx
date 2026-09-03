@@ -179,14 +179,19 @@ describe("TradeInbox", () => {
       ],
     );
 
+    // Declining ends the offer for both sides with no undo, so it arms
+    // first like Accept does; the first click commits nothing.
     await click(screen.getByRole("button", { name: "Decline" }));
+    expect(respondTradeAction).not.toHaveBeenCalled();
+    await click(screen.getByRole("button", { name: "Confirm decline" }));
     expect(respondTradeAction).toHaveBeenCalledWith(11, false);
 
     await click(screen.getByRole("button", { name: "Cancel offer" }));
+    await click(screen.getByRole("button", { name: "Confirm — withdraw it" }));
     expect(respondTradeAction).toHaveBeenCalledWith(12, false);
     // No Accept on your own offer — you can only withdraw it.
     expect(screen.queryByRole("button", { name: "Accept" })).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Cancel offer" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /Cancel offer|Confirm — withdraw it/ })).toHaveLength(1);
   });
 
   it("surfaces the action's error and doesn't refresh", async () => {

@@ -31,7 +31,8 @@ vi.mock("@/lib/market/actions", () => ({
   fillWant: vi.fn(),
 }));
 vi.mock("@/lib/trades/actions", () => ({ fetchInventoryCardAction: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(), useRouter: () => ({ refresh: vi.fn() }) }));
 
 import { MarketPageView } from "./page";
 import { BountiesPageView } from "./bounties/page";

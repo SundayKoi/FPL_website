@@ -246,12 +246,53 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
               <Link href={`${base}/packs`} className="btn-coral px-5 py-2 text-sm">
                 Rip it →
               </Link>
-            ) : null}
+            ) : (
+              // The free pack is gone, but the shop is not: without this the
+              // only link left pointed at a collection that might be empty.
+              <Link href={`${base}/packs`} className="btn-pill px-5 py-2 text-sm">
+                Buy a pack →
+              </Link>
+            )}
             <Link
               href={`${base}/collection`}
               className="text-xs font-semibold uppercase tracking-wide text-steel transition hover:text-coral"
             >
               My collection →
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {viewerDiscordId && copies === 0 ? (
+        <section aria-label="Getting started" className="grid gap-3 rounded-lg border border-line bg-panel px-5 py-4 sm:grid-cols-3">
+          <div>
+            <span className="label-dash">1 · Rip a pack</span>
+            <p className="mt-1 text-sm text-steel">
+              One is free every day. Five cards a pack; every player in the league is in the set, rated from this
+              season&apos;s games.
+            </p>
+            <Link href={`${base}/packs`} className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-coral">
+              Packs →
+            </Link>
+          </div>
+          <div>
+            <span className="label-dash">2 · Keep the good ones</span>
+            <p className="mt-1 text-sm text-steel">
+              Your collection is the shelf. Dust spares back into dollars, or set an auto-dust rule and let it tidy
+              itself.
+            </p>
+            <Link href={`${base}/collection`} className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-coral">
+              My collection →
+            </Link>
+          </div>
+          <div>
+            <span className="label-dash">3 · Put them to work</span>
+            <p className="mt-1 text-sm text-steel">
+              Field five in Fantasy, trade on the market, or sit down at a Showdown table. Every copy is also a ticket
+              in the weekly draw.
+            </p>
+            <Link href={`${base}/play`} className="mt-2 inline-block text-xs font-semibold uppercase tracking-wide text-coral">
+              Play →
             </Link>
           </div>
         </section>

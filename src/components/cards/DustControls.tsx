@@ -28,7 +28,9 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { canDust, patronDustValue } from "@/lib/packs/config";
@@ -124,12 +126,15 @@ export default function DustControls({
   deployedIds?: ReadonlySet<number>;
 }) {
   const router = useRouter();
+  const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [armed, setArmed] = useState<number | null>(null);
   // The re-roll die arms separately from dusting — the two must never
   // share a confirm state, one destroys and one redecorates.
   const [dieArmed, setDieArmed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useAutoDisarm(armed !== null, () => setArmed(null));
+  useAutoDisarm(dieArmed !== null, () => setDieArmed(null));
   const [pending, startTransition] = useTransition();
   // Copies whose art Riot serves from neither directory — the thumb drops
   // out rather than leaving a broken-image box in a destructive row.
@@ -157,6 +162,7 @@ export default function DustControls({
         setError(result.error);
         return;
       }
+      notify(`${playerName}'s print was re-rolled. The die is spent for the week.`);
       router.refresh();
     });
   }
@@ -175,6 +181,7 @@ export default function DustControls({
         setError(result.error);
         return;
       }
+      notify(`Dusted a ${playerName} copy for +${fmtPoints(result.value)}.`);
       // The grid is server-rendered, so the shelf only learns the copy is
       // gone on a refresh.
       router.refresh();

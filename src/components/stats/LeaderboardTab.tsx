@@ -394,6 +394,7 @@ export default function LeaderboardTab({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search players"
             placeholder="Search players…"
             className="rounded border border-border-strong bg-canvas px-2 py-1.5 text-sm text-white placeholder:text-muted/60 focus:border-action-text focus:outline-none focus:[box-shadow:0_0_10px_rgb(111_147_255/0.3)]"
           />

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ShowdownTable from "@/components/showdown/ShowdownTable";
@@ -21,6 +22,9 @@ export default async function ShowdownTablePage({ params }: PageProps<"/cards/sh
   if (!view) notFound();
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-6 px-4 py-8 text-white sm:px-6">
+      <Link href="/cards/showdown" className="text-xs uppercase tracking-wide text-steel hover:text-coral">
+        ← All tables
+      </Link>
       <ShowdownTable initial={view} options={options} />
     </main>
   );

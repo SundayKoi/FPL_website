@@ -53,6 +53,7 @@ function toInboxTrade(trade: TradeRow): InboxTrade {
     requestedDollars: trade.requestedDollars,
     status: trade.status,
     stale: trade.stale,
+    createdAt: trade.createdAt,
   };
 }
 
@@ -154,7 +155,7 @@ export async function TradesPageView({
         viewerDiscordId={user.discordId}
       />
 
-      <section className="flex flex-col gap-3">
+      <section id="new-trade" className="scroll-mt-24 flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">New trade</h2>
         <TradeBuilder
           collectors={collectors}

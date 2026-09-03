@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { fmtPoints } from "@/lib/betting/format";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import { showdownActAction, sitDownAction, standUpAction, syncShowdownTableAction, type ShowdownResult } from "@/lib/showdown/actions";
 import { SEATS_MAX } from "@/lib/showdown/config";
 import type { PublicSeat } from "@/lib/showdown/engine";
@@ -23,6 +24,8 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
   const [view, setView] = useState<TableView>(initial);
   const [error, setError] = useState<string | null>(null);
   const [choosingSeat, setChoosingSeat] = useState<number | null>(null);
+  const [standArmed, setStandArmed] = useState(false);
+  useAutoDisarm(standArmed, () => setStandArmed(false));
   const [raiseInput, setRaiseInput] = useState<number | null>(null);
   const [pending, start] = useTransition();
   /** The clock, sampled by the tick below: local time plus the offset to
@@ -260,19 +263,31 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
           <button
             type="button"
             disabled={pending || me.status === "leaving"}
-            onClick={() =>
+            onClick={() => {
+              // Two taps, like every other money button: standing up mid-hand
+              // folds the hand you are in, and on a real table the chips go
+              // back to the wallet — not something to do by a slipped click.
+              if (!standArmed) {
+                setStandArmed(true);
+                return;
+              }
+              setStandArmed(false);
               run(async () => {
                 const result = await standUpAction({ tableId });
                 return result.ok ? { ok: true, value: result.value.view } : result;
-              })
-            }
-            className="text-coral underline-offset-4 hover:underline disabled:opacity-50"
+              });
+            }}
+            className={`underline-offset-4 hover:underline disabled:opacity-50 ${standArmed ? "font-semibold text-coral" : "text-coral"}`}
           >
             {me.status === "leaving"
               ? "Leaving after this hand…"
-              : (me.status === "sitting_out" && view.table.status === "hand") || view.bracket.free
-                ? "Stand up"
-                : "Stand up and take your chips"}
+              : standArmed
+                ? view.table.status === "hand" && me.status !== "sitting_out"
+                  ? "Confirm — fold this hand and stand up?"
+                  : "Confirm — stand up?"
+                : (me.status === "sitting_out" && view.table.status === "hand") || view.bracket.free
+                  ? "Stand up"
+                  : "Stand up and take your chips"}
           </button>
         ) : view.viewer ? (
           <span>Pick an empty seat to sit down.</span>

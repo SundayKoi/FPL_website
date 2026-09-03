@@ -23,6 +23,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
+import { easternStamp, relativeTime } from "@/lib/time";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { editionLabel } from "@/lib/packs/week";
@@ -63,6 +66,9 @@ export interface InboxTrade {
   status: TradeStatus;
   /** Any card in this pending trade has moved — it can't be accepted. */
   stale: boolean;
+  /** When it was sent — an offer from three weeks ago reads differently
+   *  from one sent this morning. */
+  createdAt?: string;
 }
 
 const STATUS_CHIP: Record<TradeStatus, string> = {
@@ -145,9 +151,15 @@ function TradeSide({ label, cards, dollars }: { label: string; cards: InboxCard[
 
 function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscordId: string }) {
   const router = useRouter();
+  const { notify } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [armed, setArmed] = useState(false);
+  // Decline and Cancel arm on their own: they end the offer for both sides
+  // with no undo, which is exactly what Accept's second click guards.
+  const [armedEnd, setArmedEnd] = useState(false);
   const [pending, startTransition] = useTransition();
+  useAutoDisarm(armed, () => setArmed(false));
+  useAutoDisarm(armedEnd, () => setArmedEnd(false));
 
   // Which end of the trade the viewer is standing at, read off the trade
   // itself rather than off which list it came in — the recipient answers,
@@ -163,15 +175,30 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
     setError(null);
     if (accept && dollarsOut > 0 && !armed) {
       setArmed(true);
+      setArmedEnd(false);
+      return;
+    }
+    if (!accept && !armedEnd) {
+      setArmedEnd(true);
+      setArmed(false);
       return;
     }
     setArmed(false);
+    setArmedEnd(false);
     startTransition(async () => {
       const result = await respondTradeAction(trade.id, accept);
       if (!result.ok) {
         setError(result.error);
         return;
       }
+      notify(
+        accept
+          ? `Trade with ${trade.fromUsername} done — the cards have swapped shelves.`
+          : incoming
+            ? `Declined ${trade.fromUsername}'s offer.`
+            : `Offer to ${trade.toUsername} withdrawn — your cards are free again.`,
+        { tone: accept ? "success" : "info" },
+      );
       router.refresh();
     });
   }
@@ -189,6 +216,11 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
         >
           {trade.status}
         </span>
+        {trade.createdAt ? (
+          <span className="text-[11px] text-muted" title={easternStamp(trade.createdAt)}>
+            {incoming ? "offered" : "sent"} {relativeTime(trade.createdAt)}
+          </span>
+        ) : null}
         {isPending && trade.stale ? (
           <span className="text-[11px] text-red-400">A card in this trade has moved — it can no longer be accepted.</span>
         ) : null}
@@ -228,7 +260,7 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
                 disabled={pending}
                 className="rounded-full border border-border-strong px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Decline
+                {armedEnd ? "Confirm decline" : "Decline"}
               </button>
             </>
           ) : (
@@ -238,13 +270,13 @@ function TradeCard({ trade, viewerDiscordId }: { trade: InboxTrade; viewerDiscor
               disabled={pending}
               className="rounded-full border border-border-strong px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Cancel offer
+              {armedEnd ? "Confirm — withdraw it" : "Cancel offer"}
             </button>
           )}
         </div>
       ) : null}
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-red-400">{error}</p> : null}
     </li>
   );
 }
@@ -264,7 +296,12 @@ export default function TradeInbox({
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Incoming offers</h2>
         {incoming.length === 0 ? (
-          <p className="text-sm text-muted">Nobody has offered you a trade yet.</p>
+          <p className="text-sm text-muted">
+            Nobody has offered you a trade yet.{" "}
+            <a href="#new-trade" className="font-semibold text-coral underline-offset-4 hover:underline">
+              Start one ↓
+            </a>
+          </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {incoming.map((trade) => (
@@ -277,7 +314,12 @@ export default function TradeInbox({
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Your offers</h2>
         {outgoing.length === 0 ? (
-          <p className="text-sm text-muted">You haven&apos;t sent any offers yet.</p>
+          <p className="text-sm text-muted">
+            You haven&apos;t sent any offers yet.{" "}
+            <a href="#new-trade" className="font-semibold text-coral underline-offset-4 hover:underline">
+              Build one ↓
+            </a>
+          </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {outgoing.map((trade) => (

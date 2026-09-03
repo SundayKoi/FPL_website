@@ -24,7 +24,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
+import { easternStamp, relativeTime } from "@/lib/time";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
+import { useUrlState } from "@/lib/ui/useUrlState";
 import { editionLabel } from "@/lib/packs/week";
 import { buyListing } from "@/lib/market/actions";
 import { fetchInventoryCardAction } from "@/lib/trades/actions";
@@ -51,6 +55,9 @@ export interface BoardListing {
   ask: number;
   note: string | null;
   expiresAt: string;
+  /** When it went up — "listed 2h ago" is the difference between a fresh
+   *  ask and one nobody has wanted for a week. */
+  createdAt?: string;
   /** The copy has left the seller — this listing can no longer be bought. */
   stale: boolean;
   /** Null once the copy has been dusted out from under the listing. */
@@ -79,6 +86,37 @@ export function byPrice(a: BoardListing, b: BoardListing): number {
   return a.ask - b.ask || a.id - b.id;
 }
 
+export type BoardSort = "price" | "price-desc" | "overall" | "newest";
+
+const BOARD_ORDER: Record<BoardSort, (a: BoardListing, b: BoardListing) => number> = {
+  price: byPrice,
+  "price-desc": (a, b) => b.ask - a.ask || a.id - b.id,
+  overall: (a, b) => (b.copy?.overall ?? 0) - (a.copy?.overall ?? 0) || byPrice(a, b),
+  newest: (a, b) => b.id - a.id,
+};
+
+const SORT_LABELS: Record<BoardSort, string> = {
+  price: "Cheapest",
+  "price-desc": "Priciest",
+  overall: "Highest rated",
+  newest: "Newest",
+};
+
+/** The board, narrowed: a name, a tier, an order. The collection and browse
+ *  pages both have this bar; the market was the one shelf you could only
+ *  read top to bottom. */
+export function filterBoard(listings: BoardListing[], view: { q: string; tier: string; sort: string }): BoardListing[] {
+  const q = view.q.trim().toLowerCase();
+  const order = BOARD_ORDER[(view.sort in BOARD_ORDER ? view.sort : "price") as BoardSort];
+  return listings
+    .filter((listing) => {
+      if (q && !(listing.copy?.playerName ?? "").toLowerCase().includes(q) && !listing.sellerUsername.toLowerCase().includes(q)) return false;
+      if (view.tier && listing.copy?.tier !== view.tier) return false;
+      return true;
+    })
+    .sort(order);
+}
+
 function ListingRow({
   listing,
   mine,
@@ -91,6 +129,8 @@ function ListingRow({
   const [armed, setArmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startBuying] = useTransition();
+  const { notify } = useToast();
+  useAutoDisarm(armed, () => setArmed(false));
   const copy = listing.copy;
   const blocked = mine || listing.stale || !copy;
 
@@ -107,6 +147,7 @@ function ListingRow({
         setError(result.error);
         return;
       }
+      notify(`Bought ${copy?.playerName ?? "the card"} for ${fmtPoints(listing.ask)}. It's on your shelf.`);
       onBought();
     });
   }
@@ -172,6 +213,12 @@ function ListingRow({
         </span>
         <span aria-hidden>·</span>
         <span>{expiryLabel(listing.expiresAt)}</span>
+        {listing.createdAt ? (
+          <>
+            <span aria-hidden>·</span>
+            <span title={easternStamp(listing.createdAt)}>listed {relativeTime(listing.createdAt)}</span>
+          </>
+        ) : null}
         {listing.note ? <span className="italic">“{listing.note}”</span> : null}
         {listing.stale ? (
           <span className="font-semibold uppercase tracking-wide text-red-400">Card has moved on</span>
@@ -188,7 +235,7 @@ function ListingRow({
         </button>
       </div>
 
-      {error ? <p className="text-[11px] text-red-400">{error}</p> : null}
+      {error ? <p role="alert" className="text-[11px] text-red-400">{error}</p> : null}
     </li>
   );
 }
@@ -201,26 +248,77 @@ export default function MarketBoard({
   viewerDiscordId: string;
 }) {
   const router = useRouter();
-  const sorted = [...listings].sort(byPrice);
+  const [view, setView] = useUrlState({ q: "", tier: "", sort: "price" });
+  const tiers = [...new Set(listings.map((listing) => listing.copy?.tier).filter((tier): tier is string => Boolean(tier)))];
+  const sorted = filterBoard(listings, view);
 
-  if (sorted.length === 0) {
+  if (listings.length === 0) {
     return (
-      <p className="card-brand p-5 text-sm text-steel" data-testid="market-board">
-        Nothing is for sale right now. List a duplicate below and be the first.
+      <p className="card-brand flex flex-wrap items-center justify-between gap-3 p-5 text-sm text-steel" data-testid="market-board">
+        <span>Nothing is for sale right now. List a duplicate and be the first.</span>
+        <a href="#sell" className="btn-coral px-4 py-2 text-sm">
+          List a card ↓
+        </a>
       </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-2" data-testid="market-board">
-      {sorted.map((listing) => (
-        <ListingRow
-          key={listing.id}
-          listing={listing}
-          mine={listing.sellerDiscordId === viewerDiscordId}
-          onBought={() => router.refresh()}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter the board">
+        <input
+          type="search"
+          value={view.q}
+          onChange={(event) => setView({ q: event.target.value })}
+          aria-label="Search listings"
+          placeholder="Player or seller…"
+          className="input-brand w-44 px-3 py-1.5 text-sm"
         />
-      ))}
-    </ul>
+        {tiers.length > 1 ? (
+          <select
+            value={view.tier}
+            onChange={(event) => setView({ tier: event.target.value })}
+            aria-label="Tier"
+            className="input-brand px-2 py-1.5 text-sm"
+          >
+            <option value="">Any tier</option>
+            {tiers.map((tier) => (
+              <option key={tier} value={tier}>
+                {tierLabel(tier)}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <select
+          value={view.sort in SORT_LABELS ? view.sort : "price"}
+          onChange={(event) => setView({ sort: event.target.value })}
+          aria-label="Sort"
+          className="input-brand px-2 py-1.5 text-sm"
+        >
+          {(Object.keys(SORT_LABELS) as BoardSort[]).map((key) => (
+            <option key={key} value={key}>
+              {SORT_LABELS[key]}
+            </option>
+          ))}
+        </select>
+        <span className="ml-auto text-xs text-steel">
+          {sorted.length} of {listings.length}
+        </span>
+      </div>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-steel">Nothing on the board matches that.</p>
+      ) : (
+        <ul className="flex flex-col gap-2" data-testid="market-board">
+          {sorted.map((listing) => (
+            <ListingRow
+              key={listing.id}
+              listing={listing}
+              mine={listing.sellerDiscordId === viewerDiscordId}
+              onBought={() => router.refresh()}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

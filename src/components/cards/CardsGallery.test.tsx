@@ -1,7 +1,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import CardsGallery from "./CardsGallery";
+
+vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 
 function makeCard(name: string, role: string, overall: number, standout = false): PlayerCardData {
   return {

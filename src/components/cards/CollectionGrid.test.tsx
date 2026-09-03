@@ -13,7 +13,7 @@ vi.mock("@/lib/cards/reroll-actions", () => ({ rerollPrintAction: vi.fn() }));
 // Same for the binder pin: the actions module is server-only, and the
 // button's own behaviour is covered in BinderPinButton.test.tsx.
 vi.mock("@/lib/binder/actions", () => ({ toggleBinderCardAction: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
 
 function makeCard(name: string, overall: number, artSkin: number, autograph: string | null): PlayerCardData {
   return {
@@ -123,7 +123,7 @@ describe("CollectionGrid binder pins", () => {
 describe("CollectionGrid", () => {
   it("says the shelf is empty rather than rendering chips", () => {
     render(<CollectionGrid inventory={[]} />);
-    expect(screen.getByText("No cards yet — open your first pack.")).toBeTruthy();
+    expect(screen.getByTestId("empty-shelf")).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Variant filter" })).toBeNull();
   });
 

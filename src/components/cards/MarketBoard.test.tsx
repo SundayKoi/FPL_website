@@ -9,7 +9,7 @@ const { fetchInventoryCardAction } = vi.hoisted(() => ({ fetchInventoryCardActio
 vi.mock("@/lib/trades/actions", () => ({ fetchInventoryCardAction }));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), useSearchParams: () => new URLSearchParams() }));
 
 const ME = "me-1";
 
@@ -129,5 +129,28 @@ describe("MarketBoard", () => {
     fireEvent.click(screen.getByRole("button", { name: /view doug/i }));
 
     await waitFor(() => expect(fetchInventoryCardAction).toHaveBeenCalledWith(11));
+  });
+
+  it("narrows the board by name and tier and reorders it", () => {
+    const rows = [
+      listing({ id: 1, ask: 300, copy: copy({ playerName: "Doug", tier: "gold", overall: 88 }) }),
+      listing({ id: 2, ask: 100, copy: copy({ playerName: "Rift", tier: "silver", overall: 70 }) }),
+      listing({ id: 3, ask: 200, copy: copy({ playerName: "Doug", tier: "silver", overall: 75 }) }),
+    ];
+    render(<MarketBoard listings={rows} viewerDiscordId={ME} />);
+    expect(screen.getAllByTestId("market-listing")).toHaveLength(3);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search listings" }), { target: { value: "doug" } });
+    expect(screen.getAllByTestId("market-listing")).toHaveLength(2);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Tier" }), { target: { value: "silver" } });
+    expect(screen.getAllByTestId("market-listing")).toHaveLength(1);
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search listings" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Tier" }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort" }), { target: { value: "overall" } });
+    const names = screen.getAllByTestId("market-listing").map((row) => row.textContent ?? "");
+    expect(names[0]).toContain("88");
+    expect(screen.getByText("3 of 3")).toBeTruthy();
   });
 });

@@ -89,7 +89,7 @@ function friendlyIdentityError(error: DatabaseError): IdentityActionResult {
   if (error?.code === "23505" && /profile_id.*league.*season|player_identity_links_profile/i.test(message)) {
     return { ok: false, error: "Profile already linked" };
   }
-  return { ok: false, error: "Unable to update player identity" };
+  return { ok: false, error: "The identity couldn't be saved. Try again, or ask an admin." };
 }
 
 function mutationResult(data: unknown, error: DatabaseError): IdentityActionResult {
@@ -98,7 +98,7 @@ function mutationResult(data: unknown, error: DatabaseError): IdentityActionResu
   // return the affected id keeps a forged link id from looking successful.
   return Array.isArray(data) && data.length > 0
     ? { ok: true }
-    : { ok: false, error: "Unable to update player identity" };
+    : { ok: false, error: "Nothing changed — that link isn't yours to change, or it's already gone." };
 }
 
 async function authenticatedSession() {
@@ -156,10 +156,10 @@ async function resolveActiveRosterTeamId(
 /** Creates a pending request for the current session only. RLS validates that
  * the requested team is an exact current roster match before accepting it. */
 export async function requestPlayerIdentityClaim(input: RequestIdentityInput): Promise<IdentityActionResult> {
-  if (!validRequestInput(input)) return { ok: false, error: "Unable to update player identity" };
+  if (!validRequestInput(input)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId } = await authenticatedSession();
-  if (!profileId) return { ok: false, error: "Unable to update player identity" };
+  if (!profileId) return { ok: false, error: "Sign in to manage player identities." };
 
   const { error } = await supabase.from("player_identity_links").insert({
     player_pool_id: input.playerPoolId,
@@ -176,10 +176,10 @@ export async function requestPlayerIdentityClaim(input: RequestIdentityInput): P
 
 /** Withdraws only the session owner's still-pending request. */
 export async function withdrawPlayerIdentityClaim(linkId: string): Promise<IdentityActionResult> {
-  if (!nonEmptyString(linkId)) return { ok: false, error: "Unable to update player identity" };
+  if (!nonEmptyString(linkId)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId } = await authenticatedSession();
-  if (!profileId) return { ok: false, error: "Unable to update player identity" };
+  if (!profileId) return { ok: false, error: "Sign in to manage player identities." };
 
   const { data, error } = await supabase
     .from("player_identity_links")
@@ -195,10 +195,10 @@ export async function withdrawPlayerIdentityClaim(linkId: string): Promise<Ident
  * actor to an admin or the relevant captain and make captain approval
  * immutable except for the intended pending-to-approved transition. */
 export async function decidePlayerIdentityClaim(input: DecideIdentityInput): Promise<IdentityActionResult> {
-  if (!validDecisionInput(input)) return { ok: false, error: "Unable to update player identity" };
+  if (!validDecisionInput(input)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId } = await authenticatedSession();
-  if (!profileId) return { ok: false, error: "Unable to update player identity" };
+  if (!profileId) return { ok: false, error: "Sign in to manage player identities." };
 
   if (input.decision === "reject") {
     const { data, error } = await supabase.from("player_identity_links").delete().eq("id", input.linkId).select("id");
@@ -220,20 +220,20 @@ export async function decidePlayerIdentityClaim(input: DecideIdentityInput): Pro
  * the migration's exact roster helper; RLS permits the final insert only to an
  * administrator. */
 export async function assignPlayerIdentity(input: AssignIdentityInput): Promise<IdentityActionResult> {
-  if (!validAssignInput(input)) return { ok: false, error: "Unable to update player identity" };
+  if (!validAssignInput(input)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId: actorId } = await authenticatedSession();
-  if (!actorId) return { ok: false, error: "Unable to update player identity" };
+  if (!actorId) return { ok: false, error: "Sign in to manage player identities." };
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", input.profileId)
     .maybeSingle();
-  if (profileError || !profile) return { ok: false, error: "Unable to update player identity" };
+  if (profileError || !profile) return { ok: false, error: "That profile couldn't be found." };
 
   const leagueTeamId = await resolveActiveRosterTeamId(supabase, input);
-  if (!leagueTeamId) return { ok: false, error: "Unable to update player identity" };
+  if (!leagueTeamId) return { ok: false, error: "That player isn't on exactly one active roster in this league, so the identity can't be assigned." };
 
   const { error } = await supabase.from("player_identity_links").insert({
     player_pool_id: input.playerPoolId,
@@ -255,17 +255,17 @@ export async function assignPlayerIdentity(input: AssignIdentityInput): Promise<
  * profile leaves the old identity row untouched. The trigger rejects field
  * changes by captains; RLS permits this admin replacement only to an admin. */
 export async function replacePlayerIdentity(input: ReplaceIdentityInput): Promise<IdentityActionResult> {
-  if (!validReplaceInput(input)) return { ok: false, error: "Unable to update player identity" };
+  if (!validReplaceInput(input)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId: actorId } = await authenticatedSession();
-  if (!actorId) return { ok: false, error: "Unable to update player identity" };
+  if (!actorId) return { ok: false, error: "Sign in to manage player identities." };
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", input.profileId)
     .maybeSingle();
-  if (profileError || !profile) return { ok: false, error: "Unable to update player identity" };
+  if (profileError || !profile) return { ok: false, error: "That profile couldn't be found." };
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -287,10 +287,10 @@ export async function replacePlayerIdentity(input: ReplaceIdentityInput): Promis
 /** Revocation is intentionally scoped only by link id. RLS decides whether
  * the current session is an admin or the captain of its exact roster team. */
 export async function revokePlayerIdentity(linkId: string): Promise<IdentityActionResult> {
-  if (!nonEmptyString(linkId)) return { ok: false, error: "Unable to update player identity" };
+  if (!nonEmptyString(linkId)) return { ok: false, error: "That request is incomplete — reload the page and try again." };
 
   const { supabase, profileId } = await authenticatedSession();
-  if (!profileId) return { ok: false, error: "Unable to update player identity" };
+  if (!profileId) return { ok: false, error: "Sign in to manage player identities." };
 
   const { data, error } = await supabase.from("player_identity_links").delete().eq("id", linkId).select("id");
   return mutationResult(data, error);

@@ -5,6 +5,7 @@ import AuthButton from "@/components/AuthButton";
 import LeagueThemeScope from "@/components/LeagueThemeScope";
 import SiteNavigation from "@/components/SiteNavigation";
 import SupportDevButton from "@/components/SupportDevButton";
+import { ToastProvider } from "@/components/system/Toast";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { canAccessBroadcaster, fetchStaffTier } from "@/lib/auth/staffTier";
 import { resolveMetadataBase } from "@/lib/metadataBase";
@@ -63,6 +64,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${chakra.variable} ${saira.variable} ${cinzel.variable} ${bangers.variable} ${pinyon.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-content font-body antialiased">
+        <ToastProvider>
         <Suspense
           fallback={
             <div data-league="premier" className="contents">
@@ -86,6 +88,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <SupportDevButton />
           </LeagueThemeScope>
         </Suspense>
+        </ToastProvider>
       </body>
     </html>
   );

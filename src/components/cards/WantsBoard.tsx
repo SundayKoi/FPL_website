@@ -176,7 +176,7 @@ function WantRow({
         </ul>
       ) : null}
 
-      {error ? <p className="text-[11px] text-red-400">{error}</p> : null}
+      {error ? <p role="alert" className="text-[11px] text-red-400">{error}</p> : null}
     </li>
   );
 }
@@ -288,8 +288,8 @@ export default function WantsBoard({
         </button>
       </div>
 
-      {error ? <p className="text-xs text-red-400">{error}</p> : null}
-      {posted ? <p className="text-xs text-mint">{posted}</p> : null}
+      {error ? <p role="alert" className="text-xs text-red-400">{error}</p> : null}
+      {posted ? <p role="status" className="text-xs text-mint">{posted}</p> : null}
 
       {rows.length === 0 ? (
         <p className="text-sm text-steel">Nobody is asking for anything yet.</p>

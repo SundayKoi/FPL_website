@@ -30,6 +30,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/system/Toast";
+import { useUrlState } from "@/lib/ui/useUrlState";
+import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
+import EmptyShelf from "./EmptyShelf";
 import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
@@ -411,12 +415,19 @@ export default function CollectionGrid({
   printRuns?: ReadonlyMap<string, number>;
 }) {
   const pinned = new Set(pinnedIds);
-  const [filter, setFilter] = useState<VariantFilter>("all");
-  // Finding a card on a big shelf: a name, a week, an order. Each is a
-  // different shelf, so changing any of them starts the paging over.
-  const [query, setQuery] = useState("");
-  const [week, setWeek] = useState<string>("");
-  const [sort, setSort] = useState<ShelfSort>("best");
+  // Finding a card on a big shelf: a name, a week, an order, a variant.
+  // Each is a different shelf, so changing any of them starts the paging
+  // over. They live in the URL so opening a card and coming back — or
+  // reloading — lands on the same shelf.
+  const [view, setView] = useUrlState({ filter: "all", q: "", week: "", sort: "best" });
+  const filter = view.filter as VariantFilter;
+  const query = view.q;
+  const week = view.week;
+  const sort = view.sort as ShelfSort;
+  const setFilter = (next: VariantFilter) => setView({ filter: next });
+  const setQuery = (next: string) => setView({ q: next });
+  const setWeek = (next: string) => setView({ week: next });
+  const setSort = (next: ShelfSort) => setView({ sort: next });
   // Which players have their print strip open. A Set rather than a single
   // slug: comparing two players' prints side by side is the point.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -451,11 +462,13 @@ export default function CollectionGrid({
   //   for "which of my three Dougs", and this is the tool for "these
   //   eleven".
   const router = useRouter();
+  const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   const [armed, setArmed] = useState(false);
   const [dustError, setDustError] = useState<string | null>(null);
   const [dusting, startDust] = useTransition();
+  useAutoDisarm(armed, () => setArmed(false));
 
   const patron = Boolean(flame);
   /** What a copy dusts for. Same function the server prices with, so the
@@ -514,9 +527,10 @@ export default function CollectionGrid({
         return;
       }
       setPicked(new Set());
+      notify(`Dusted ${result.dusted} ${result.dusted === 1 ? "copy" : "copies"} for +${fmtPoints(result.value)}. Balance ${fmtPoints(result.balance)}.`);
       setDustError(
         result.skipped > 0
-          ? `Dusted ${result.dusted} for ${fmtPoints(result.value)}. ${result.skipped} couldn't be sold — a copy in a live lineup or out on an expedition.`
+          ? `${result.skipped} couldn't be sold — a copy in a live lineup or out on an expedition.`
           : null,
       );
       if (result.skipped === 0) setSelecting(false);
@@ -525,7 +539,7 @@ export default function CollectionGrid({
   }
 
   if (inventory.length === 0) {
-    return <p className="text-sm text-steel">No cards yet — open your first pack.</p>;
+    return <EmptyShelf base={base} goal="start your shelf" />;
   }
 
   // Every week the shelf holds copies from, newest first — the week picker.
