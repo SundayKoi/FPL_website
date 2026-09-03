@@ -630,7 +630,7 @@ export default function CollectionGrid({
           Tap the copies you want gone. {MAX_DUST_BATCH} at a time; a copy in a live lineup, out on an
           expedition, or a one-of-one can&apos;t be dusted and the shelf will say so.
         </p>
-        <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
+        <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">
           {shown.slice(0, limit).map((row) => (
             <PickCell
               key={row.id}
@@ -700,7 +700,7 @@ export default function CollectionGrid({
           <>
             {/* card-cell carries its own padding, so the gaps come down by
                 that much to sit where the shelf's do. */}
-            <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
+            <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">
               {shown.slice(0, limit).map((row) => (
                 <CopyCell key={row.id} row={row} pinned={pinned} flame={flame} printRuns={printRuns} />
               ))}
@@ -785,7 +785,7 @@ export default function CollectionGrid({
       ) : null}
       {/* card-cell skips the paint for shelves scrolled out of view; it brings its
           own padding, so the gaps come down by that much to sit where they did. */}
-      <div className="flex flex-wrap justify-center gap-x-0 gap-y-4">
+      <div className="card-shelf flex flex-wrap justify-center gap-x-0 gap-y-4">
         {owned.slice(0, limit).map((entry) => (
           <div key={entry.best.slug} className="card-cell flex flex-col items-center gap-2">
             <PlayerCard3D card={entry.best.card} interactive forceFoil={entry.best.foil} foilType={entry.best.foilType} flame={flame} />

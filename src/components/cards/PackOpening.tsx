@@ -55,8 +55,16 @@ export interface Pull {
  *  itself — PackShop owns that, and hands the result back through
  *  `onOpenAnother` — so a failed re-open lands in the summary bar rather than
  *  tearing the stage down. */
+/** What the collector's auto-dust rule took out of a pack as it opened —
+ *  those copies are already gone when the stage mounts. */
+export interface AutoDusted {
+  ids: number[];
+  dusted: number;
+  value: number;
+}
+
 export type OpenResult =
-  | { ok: true; cards: Pull[]; balance: number }
+  | { ok: true; cards: Pull[]; balance: number; autoDusted?: AutoDusted | null }
   | { ok: false; error: string };
 
 type Phase = "drop" | "rip" | "line" | "summary";
@@ -228,6 +236,7 @@ export default function PackOpening({
   ownedSlugs,
   muted,
   onOpenAnother,
+  autoDusted = null,
   onExit,
   onSellPack,
   flame = null,
@@ -243,6 +252,9 @@ export default function PackOpening({
   /** Buy and roll another pack. Returning `{ok:false}` keeps the overlay up
    *  and shows the error in the summary bar. */
   onOpenAnother: () => Promise<OpenResult>;
+  /** Copies the auto-dust rule already destroyed out of this pack. They
+   *  stay on the stage (you still get to see them) but show as dusted. */
+  autoDusted?: AutoDusted | null;
   /** Tear the stage down (and let the collection behind it catch up). */
   onExit: () => void;
   /** Dust the whole pack back into dollars. Owned by the shop for the same
@@ -310,7 +322,10 @@ export default function PackOpening({
   const [sold, setSold] = useState<{ dusted: number; value: number } | null>(null);
   /** Copies already destroyed out of this pack — they stay on the stage
    *  (you paid to see them) but can't be picked or dusted twice. */
-  const [dustedIds, setDustedIds] = useState<ReadonlySet<number>>(new Set());
+  const [dustedIds, setDustedIds] = useState<ReadonlySet<number>>(() => new Set(autoDusted?.ids ?? []));
+  /** What the rule took automatically — shown beside the hand-dusted
+   *  total, not folded into it, so "I didn't tap that" has an answer. */
+  const [auto, setAuto] = useState<AutoDusted | null>(autoDusted?.dusted ? autoDusted : null);
   /** The cards ticked for dusting. Empty means "nothing picked", which is
    *  why Dust all is a separate button rather than the same one with a
    *  different meaning. */
@@ -544,7 +559,8 @@ export default function PackOpening({
     setArmedSell(null);
     setSelling(false);
     setSold(null);
-    setDustedIds(new Set());
+    setDustedIds(new Set(result.autoDusted?.ids ?? []));
+    setAuto(result.autoDusted?.dusted ? result.autoDusted : null);
     setPicked(new Set());
     setSellError(null);
     setPhase("drop");
@@ -918,6 +934,14 @@ export default function PackOpening({
               <p role="alert" className="text-sm text-red-400">
                 {sellError}
               </p>
+            ) : null}
+            {auto ? (
+              <span
+                className="rounded-full border border-border-strong bg-surface px-4 py-2 text-sm font-semibold text-muted"
+                title="Your auto-dust rule took these as the pack opened. Change it from your collection."
+              >
+                Auto-dusted {auto.dusted} for +{fmtPoints(auto.value)}
+              </span>
             ) : null}
             {sold ? (
               <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">

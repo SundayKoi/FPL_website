@@ -154,6 +154,9 @@ export type OpenPackResult =
        *  betting-dollar bonus this rip paid (0 except every 7th day). */
       streak?: number;
       streakBonus?: number;
+      /** Set when the collector's auto-dust rule took some of these pulls
+       *  as the pack opened: which copies, and what they paid. */
+      autoDusted?: { ids: number[]; dusted: number; value: number };
       /** Set when this open spent a comp (a free pack): how many the
        *  holder has left afterwards. */
       compsLeft?: number;
