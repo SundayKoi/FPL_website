@@ -83,6 +83,7 @@ export default function PlayersTab({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search players"
           placeholder="Search players…"
           className="input-brand px-2 py-1.5 text-sm"
         />

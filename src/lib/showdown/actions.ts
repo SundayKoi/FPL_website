@@ -18,9 +18,10 @@ async function run<T>(what: string, work: () => Promise<T>): Promise<ShowdownRes
     return { ok: true, value: await work() };
   } catch (error) {
     if (error instanceof ShowdownActionError) return { ok: false, error: error.message };
-    const message = error instanceof Error ? error.message : String(error);
+    // The raw message is for the log, not the felt: a Postgres constraint
+    // name tells a player nothing and reads as broken.
     console.error(`showdown: ${what} failed`, error);
-    return { ok: false, error: `Something went wrong (${message}).` };
+    return { ok: false, error: "Something went wrong on our side — try that again in a moment." };
   }
 }
 

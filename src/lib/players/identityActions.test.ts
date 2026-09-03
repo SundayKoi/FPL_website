@@ -126,7 +126,7 @@ describe("player identity actions", () => {
 
     await expect(requestPlayerIdentityClaim({ playerPoolId: "", leagueTeamId: "team-1", league: "premier", season: "S5" })).resolves.toEqual({
       ok: false,
-      error: "Unable to update player identity",
+      error: "That request is incomplete — reload the page and try again.",
     });
     expect(insert).not.toHaveBeenCalled();
   });
@@ -146,7 +146,7 @@ describe("player identity actions", () => {
 
     await expect(withdrawPlayerIdentityClaim("forged-link")).resolves.toEqual({
       ok: false,
-      error: "Unable to update player identity",
+      error: "Nothing changed — that link isn't yours to change, or it's already gone.",
     });
   });
 
@@ -199,7 +199,7 @@ describe("player identity actions", () => {
 
     await expect(assignPlayerIdentity({
       playerPoolId: "unrostered-pool", profileId: "profile-2", league: "premier", season: "S5",
-    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+    })).resolves.toEqual({ ok: false, error: "That player isn't on exactly one active roster in this league, so the identity can't be assigned." });
 
     expect(insert).not.toHaveBeenCalled();
   });
@@ -213,7 +213,7 @@ describe("player identity actions", () => {
 
     await expect(assignPlayerIdentity({
       playerPoolId: "ambiguous-pool", profileId: "profile-2", league: "premier", season: "S5",
-    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+    })).resolves.toEqual({ ok: false, error: "That player isn't on exactly one active roster in this league, so the identity can't be assigned." });
 
     expect(insert).not.toHaveBeenCalled();
   });
@@ -228,7 +228,7 @@ describe("player identity actions", () => {
 
     await expect(assignPlayerIdentity({
       playerPoolId: "pool-1", profileId: "profile-2", league: "premier", season: "S5",
-    })).resolves.toEqual({ ok: false, error: "Unable to update player identity" });
+    })).resolves.toEqual({ ok: false, error: "That player isn't on exactly one active roster in this league, so the identity can't be assigned." });
 
     expect(insert).not.toHaveBeenCalled();
   });
@@ -291,7 +291,7 @@ describe("player identity actions", () => {
 
     await expect(requestPlayerIdentityClaim({ playerPoolId: "pool-1", leagueTeamId: "team-1", league: "premier", season: "S5" })).resolves.toEqual({
       ok: false,
-      error: "Unable to update player identity",
+      error: "The identity couldn't be saved. Try again, or ask an admin.",
     });
   });
 

@@ -21,11 +21,14 @@ describe("the action adapters", () => {
     expect(await createShowdownTableAction({})).toEqual({ ok: false, error: "Give the table a name." });
   });
 
-  it("return an unexpected failure with its message, and log it", async () => {
+  it("return an unexpected failure as a plain sentence, and log the real one", async () => {
     createTable.mockRejectedValueOnce(new Error('insert or update on table "showdown_tables" violates foreign key constraint'));
     const result = await createShowdownTableAction({});
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/Something went wrong \(insert or update/);
+    if (!result.ok) {
+      expect(result.error).toMatch(/Something went wrong on our side/);
+      expect(result.error).not.toMatch(/showdown_tables/);
+    }
     expect(console.error).toHaveBeenCalled();
   });
 

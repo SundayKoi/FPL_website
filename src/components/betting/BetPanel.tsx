@@ -113,8 +113,8 @@ export function BetPanel({
         <span className="text-muted">Win payout</span>
         <span className="font-display font-bold not-italic text-mint">+{fmtPoints(profit)}</span>
       </div>
-      {tooBig && <div className="mt-2 text-xs text-red-400">Over balance</div>}
-      {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
+      {tooBig && <div role="alert" className="mt-2 text-xs text-red-400">Over balance</div>}
+      {error && <div role="alert" className="mt-2 text-xs text-red-400">{error}</div>}
       <button
         type="button"
         className="mt-3 w-full rounded bg-action-fill py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
