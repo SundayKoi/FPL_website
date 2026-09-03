@@ -11,6 +11,7 @@ import { fmtPoints } from "@/lib/betting/format";
 import { showdownActAction, sitDownAction, standUpAction, syncShowdownTableAction, type ShowdownResult } from "@/lib/showdown/actions";
 import { SEATS_MAX } from "@/lib/showdown/config";
 import type { PublicSeat } from "@/lib/showdown/engine";
+import { evaluateBest, straightOf } from "@/lib/showdown/hands";
 import type { StackOption, TableView } from "@/lib/showdown/server";
 import { createClient } from "@/lib/supabase/client";
 import MiniCard from "./MiniCard";
@@ -137,13 +138,84 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
           </span>
         </div>
 
-        <div className="flex min-h-[5rem] items-center justify-center gap-2">
-          {Array.from({ length: 5 }, (_, i) => (
-            <MiniCard key={i} card={hand?.board[i] ?? last?.board[i] ?? null} dim={!hand && Boolean(last)} />
-          ))}
+        {/* The board. During a hand only this hand's cards show, dealt street by
+            street; between hands the last board stays up, dimmed, so the
+            showdown can be read. Never the last hand's board under a new deal. */}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[10px] uppercase tracking-[0.16em] text-[#e9f5ee]/60">
+            {hand ? `Board · ${STREET_LABEL[hand.street]}` : last ? "Last board" : "Board"}
+          </span>
+          <div className="flex items-start justify-center gap-1.5 sm:gap-3">
+            {Array.from({ length: 5 }, (_, i) => {
+              const shown = hand ? hand.board[i] ?? null : last?.board[i] ?? null;
+              return (
+                <MiniCard
+                  key={i}
+                  card={shown}
+                  size="board"
+                  dim={!hand && Boolean(last)}
+                  label={i < 3 ? (i === 0 ? "Flop" : undefined) : i === 3 ? "Turn" : "River"}
+                />
+              );
+            })}
+          </div>
         </div>
 
-        <ul className="grid gap-3 sm:grid-cols-3">
+        {me && me.inHand && !me.folded && view.myHole.length > 0 ? (
+          <div className="flex flex-col items-center gap-1 rounded-xl border border-mint/40 bg-[#071b16]/70 p-3">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-mint">Your hand</span>
+            <div className="flex items-start gap-2 sm:gap-3">
+              {view.myHole.map((card) => (
+                <MiniCard key={card.id} card={card} size="hole" />
+              ))}
+            </div>
+            <span className="text-xs text-[#e9f5ee]">{describeHolding(view.myHole, hand?.board ?? [])}</span>
+          </div>
+        ) : null}
+
+        {myTurn && me && hand ? (
+          <section aria-label="Your move" className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-coral/60 bg-[#071b16]/80 p-3 sm:gap-3">
+            <span className="w-full text-center text-xs text-[#e9f5ee] sm:w-auto">
+              <span className="font-semibold text-coral">Your move</span>
+              {secondsLeft !== null ? ` · ${secondsLeft}s` : ""} · {owed > 0 ? `${fmtPoints(owed)} to call` : "nothing to call"}
+            </span>
+            <button type="button" disabled={pending} onClick={() => actOn({ type: "fold" })} className="btn-pill px-3 py-1 text-xs">Fold</button>
+            {owed > 0 ? (
+              <button type="button" disabled={pending} onClick={() => actOn({ type: "call" })} className="btn-pill px-3 py-1 text-xs">
+                Call {fmtPoints(Math.min(owed, me.chips))}
+              </button>
+            ) : (
+              <button type="button" disabled={pending} onClick={() => actOn({ type: "check" })} className="btn-pill px-3 py-1 text-xs">Check</button>
+            )}
+            {maxTo > hand.currentBet ? (
+              <span className="flex items-center gap-2">
+                <input
+                  type="number"
+                  aria-label={hand.currentBet === 0 ? "Bet to" : "Raise to"}
+                  min={Math.min(minTo, maxTo)}
+                  max={maxTo}
+                  step={view.bracket.bigBlind}
+                  value={raiseTo}
+                  onChange={(event) => setRaiseInput(Number(event.target.value))}
+                  className="w-28 rounded-md border border-line bg-black/20 px-2 py-1 text-xs text-white"
+                />
+                <button
+                  type="button"
+                  disabled={pending || raiseTo <= hand.currentBet || raiseTo > maxTo}
+                  onClick={() => actOn({ type: hand.currentBet === 0 ? "bet" : "raise", to: raiseTo })}
+                  className="btn-pill px-3 py-1 text-xs disabled:opacity-50"
+                >
+                  {hand.currentBet === 0 ? "Bet" : "Raise to"} {fmtPoints(raiseTo)}
+                </button>
+                <button type="button" disabled={pending} onClick={() => actOn({ type: hand.currentBet === 0 ? "bet" : "raise", to: maxTo })} className="text-xs text-coral underline-offset-4 hover:underline">
+                  All in
+                </button>
+              </span>
+            ) : null}
+          </section>
+        ) : null}
+
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
           {seats.map((seat, seatNo) => (
             <li key={seatNo}>
               <SeatCard
@@ -164,47 +236,6 @@ export default function ShowdownTable({ initial, options }: { initial: TableView
       </section>
 
       {error ? <p className="text-sm text-coral">{error}</p> : null}
-
-      {myTurn && me && hand ? (
-        <section aria-label="Your move" className="card-brand flex flex-wrap items-center gap-3 p-4">
-          <span className="text-xs text-steel">
-            {secondsLeft !== null ? `${secondsLeft}s` : ""} · {owed > 0 ? `${fmtPoints(owed)} to call` : "nothing to call"}
-          </span>
-          <button type="button" disabled={pending} onClick={() => actOn({ type: "fold" })} className="btn-pill px-3 py-1 text-xs">Fold</button>
-          {owed > 0 ? (
-            <button type="button" disabled={pending} onClick={() => actOn({ type: "call" })} className="btn-pill px-3 py-1 text-xs">
-              Call {fmtPoints(Math.min(owed, me.chips))}
-            </button>
-          ) : (
-            <button type="button" disabled={pending} onClick={() => actOn({ type: "check" })} className="btn-pill px-3 py-1 text-xs">Check</button>
-          )}
-          {maxTo > hand.currentBet ? (
-            <span className="flex items-center gap-2">
-              <input
-                type="number"
-                aria-label={hand.currentBet === 0 ? "Bet to" : "Raise to"}
-                min={Math.min(minTo, maxTo)}
-                max={maxTo}
-                step={view.bracket.bigBlind}
-                value={raiseTo}
-                onChange={(event) => setRaiseInput(Number(event.target.value))}
-                className="w-28 rounded-md border border-line bg-black/20 px-2 py-1 text-xs text-white"
-              />
-              <button
-                type="button"
-                disabled={pending || raiseTo <= hand.currentBet || raiseTo > maxTo}
-                onClick={() => actOn({ type: hand.currentBet === 0 ? "bet" : "raise", to: raiseTo })}
-                className="btn-pill px-3 py-1 text-xs disabled:opacity-50"
-              >
-                {hand.currentBet === 0 ? "Bet" : "Raise to"} {fmtPoints(raiseTo)}
-              </button>
-              <button type="button" disabled={pending} onClick={() => actOn({ type: hand.currentBet === 0 ? "bet" : "raise", to: maxTo })} className="text-xs text-coral underline-offset-4 hover:underline">
-                All in
-              </button>
-            </span>
-          ) : null}
-        </section>
-      ) : null}
 
       {choosingSeat !== null && view.viewer ? (
         <StackBuilder
@@ -284,7 +315,7 @@ function SeatCard({
 }) {
   if (!seat) {
     return (
-      <div className="flex h-full min-h-[7rem] items-center justify-center rounded-xl border border-dashed border-[#e9f5ee]/30 text-xs text-[#e9f5ee]/70">
+      <div className="flex h-full min-h-[3.5rem] items-center justify-center rounded-xl border border-dashed border-[#e9f5ee]/30 text-xs text-[#e9f5ee]/70 sm:min-h-[6rem]">
         {canSit ? (
           <button type="button" onClick={onSit} className="btn-pill px-3 py-1 text-xs">
             Sit here
@@ -295,10 +326,13 @@ function SeatCard({
       </div>
     );
   }
-  const showing = seat.shown ?? (isMe ? myHole : null);
+  // My own cards live in the "Your hand" panel; the seat shows backs until
+  // showdown, when whatever was turned over shows for everyone.
+  const showing = seat.shown ?? null;
+  void myHole;
   return (
     <div
-      className={`flex min-h-[7rem] flex-col gap-2 rounded-xl border bg-[#071b16]/70 p-3 ${
+      className={`flex min-h-[3.5rem] flex-col gap-2 rounded-xl border bg-[#071b16]/70 p-2 sm:min-h-[6rem] sm:p-3 ${
         toAct ? "border-coral shadow-[0_0_0_2px_rgb(255_107_53_/_0.5)]" : "border-[#e9f5ee]/20"
       } ${seat.folded || seat.status !== "active" ? "opacity-70" : ""}`}
     >
@@ -313,11 +347,13 @@ function SeatCard({
       <div className="flex items-center gap-1">
         {seat.inHand && !seat.folded ? (
           showing && showing.length > 0 ? (
-            showing.map((card) => <MiniCard key={card.id} card={card} />)
+            showing.map((card) => <MiniCard key={card.id} card={card} size="seat" />)
+          ) : isMe ? (
+            <span className="text-[11px] text-mint">your cards are above</span>
           ) : (
             <>
-              <MiniCard faceDown />
-              <MiniCard faceDown />
+              <MiniCard faceDown size="seat" />
+              <MiniCard faceDown size="seat" />
             </>
           )
         ) : null}
@@ -333,4 +369,23 @@ function SeatCard({
       </div>
     </div>
   );
+}
+
+/** "Pair of Gamblers · Doug 88 high" — what the two cards make with the
+ *  board so far, in the words of the rulebook. */
+function describeHolding(hole: TableView["myHole"], board: TableView["myHole"]): string {
+  const cards = [...hole, ...board];
+  if (cards.length < 5) {
+    const teams = new Set(hole.map((card) => card.team));
+    const roles = new Set(hole.map((card) => card.role));
+    const pair = teams.size === 1 ? `a pair of ${hole[0].team}` : `two teams`;
+    const shape = cards.length === 2 ? `${pair}, ${roles.size === 1 ? "same role" : "two roles"}` : `${pair} so far`;
+    return `Preflop: ${shape}. The flop makes it a hand.`;
+  }
+  const best = evaluateBest(cards);
+  const straight = best.rank.key === "straight" ? straightOf(best.cards) : null;
+  const label = straight ?? best.rank.label;
+  const detail = best.detail && best.rank.key !== "straight" && best.rank.key !== "high" ? ` of ${best.detail}` : "";
+  const top = best.cards[0];
+  return `You have ${label}${detail} · ${top.name ?? top.team} ${top.overall} high`;
 }
