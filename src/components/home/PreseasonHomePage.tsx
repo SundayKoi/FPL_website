@@ -2,6 +2,7 @@ import { DRAFT_DAY_AT, DRAFT_DAY_LABEL } from "@/lib/home/seasonState";
 import { fetchPreseasonHomeData } from "@/lib/home/preseason";
 import PreseasonCountdown from "./PreseasonCountdown";
 import PreseasonPlayerPool from "./PreseasonPlayerPool";
+import SiteDirectoryGrid from "./SiteDirectoryGrid";
 
 export default async function PreseasonHomePage() {
   const data = await fetchPreseasonHomeData();
@@ -103,6 +104,10 @@ export default async function PreseasonHomePage() {
         </section>
 
         <PreseasonPlayerPool players={data.players} />
+
+        <div className="mt-6 xl:mt-8">
+          <SiteDirectoryGrid league="premier" />
+        </div>
 
         <section aria-label="Preseason notes" className="mt-6 grid gap-4 md:grid-cols-3 xl:mt-8">
           <div className="card-brand p-5"><span className="label-dash">01 · DRAFT DAY</span><p className="mt-3 text-sm leading-6 text-muted">Join the draft room Saturday night and follow every nomination as the board takes shape.</p></div>

@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { toRosterTeams } from "@/lib/teams/roster";
 import { PLACEHOLDER_TEAMS } from "@/components/teams/placeholderTeams";
 import TeamsDirectory from "@/components/teams/TeamsDirectory";
 import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
+
+export const metadata: Metadata = {
+  title: "Teams — FPL Academy",
+};
 
 export default async function AcademyTeamsPage() {
   const supabase = await createServerSupabase();

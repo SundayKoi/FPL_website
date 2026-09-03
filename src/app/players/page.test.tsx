@@ -76,7 +76,8 @@ describe("PlayersPage", () => {
 
     expect(screen.getByRole("heading", { name: "Players", level: 1 })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Season 5" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "RiftMaker#NA1" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: "RiftMaker#NA1" }).getAttribute("href")).toBe("/players/RiftMaker%23NA1");
+    expect(screen.getByRole("link", { name: "RiftMaker#NA1 on op.gg" }).getAttribute("href")).toBe(
       "https://op.gg/lol/summoners/na/RiftMaker-NA1?exact=1",
     );
     expect(screen.queryByRole("link", { name: "Captain: Winter" })).toBeNull();

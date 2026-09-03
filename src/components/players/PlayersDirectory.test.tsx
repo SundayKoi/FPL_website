@@ -66,7 +66,8 @@ describe("PlayersDirectory", () => {
     for (const role of ["Top", "Jungle", "Mid", "ADC", "Support"]) {
       expect(screen.getByRole("heading", { name: role })).toBeTruthy();
     }
-    expect(screen.getByRole("link", { name: "Captain: Winter" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: "Captain: Winter" }).getAttribute("href")).toBe("/players/Winter");
+    expect(screen.getByRole("link", { name: "Captain: Winter on op.gg" }).getAttribute("href")).toBe(
       "https://op.gg/lol/summoners/na/Winter-Ashtn",
     );
     expect(screen.getByRole("link", { name: "Canny#rip" }).closest("li")?.dataset.available).toBe("true");
@@ -96,9 +97,9 @@ describe("PlayersDirectory", () => {
     expect(screen.getByText("Player List data is unavailable for Season 5 right now.")).toBeTruthy();
   });
 
-  it("uses new-tab security attributes for player links", () => {
+  it("uses new-tab security attributes for op.gg links", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
-    const link = screen.getByRole("link", { name: "Captain: Winter" });
+    const link = screen.getByRole("link", { name: "Captain: Winter on op.gg" });
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
@@ -128,7 +129,7 @@ describe("PlayersDirectory", () => {
     render(<PlayersDirectory seasons={PLAYER_SEASONS} freeAgencyCaptains={freeAgencyCaptains} />);
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
     const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
-    const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    const names = Array.from(topSection?.querySelectorAll("li a[data-player]") ?? []).map((link) => link.textContent);
     expect(names.slice(0, 3)).toEqual(["Canny#rip", "Killer Python#NA1", "Walt#0001"]);
   });
 
@@ -140,18 +141,18 @@ describe("PlayersDirectory", () => {
 
     fireEvent.change(sortSelect, { target: { value: "name" } });
     const topSection = screen.getByRole("heading", { name: "Top" }).closest("section");
-    const names = Array.from(topSection?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    const names = Array.from(topSection?.querySelectorAll("li a[data-player]") ?? []).map((link) => link.textContent);
     expect(names.slice(0, 3)).toEqual(["Captain: Bleedinwolves", "Captain: KingOfSpades", "Captain: Sycoghost"]);
 
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "free-agency" } });
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "value" } });
     const freeAgencyTop = screen.getByRole("heading", { name: "Top" }).closest("section");
-    const freeAgencyNames = Array.from(freeAgencyTop?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    const freeAgencyNames = Array.from(freeAgencyTop?.querySelectorAll("li a[data-player]") ?? []).map((link) => link.textContent);
     expect(freeAgencyNames.slice(0, 2)).toEqual(["Canny#rip", "Killer Python#NA1"]);
 
     fireEvent.change(screen.getByLabelText("Section"), { target: { value: "player-list" } });
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "rank" } });
-    const rankNames = Array.from(screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a") ?? []).map((link) => link.textContent);
+    const rankNames = Array.from(screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a[data-player]") ?? []).map((link) => link.textContent);
     expect(rankNames.slice(0, 3)).toEqual(["Captain: Winter", "Captain: Bleedinwolves", "Captain: Sycoghost"]);
   });
 
@@ -160,7 +161,7 @@ describe("PlayersDirectory", () => {
     fireEvent.change(screen.getByLabelText("Sort by"), { target: { value: "name" } });
 
     const topNames = Array.from(
-      screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a") ?? [],
+      screen.getByRole("heading", { name: "Top" }).closest("section")?.querySelectorAll("li a[data-player]") ?? [],
     ).map((link) => link.textContent ?? "");
 
     expect(topNames.slice(0, 4).every((name) => name.startsWith("Captain:"))).toBe(true);

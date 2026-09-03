@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { SignupRow } from "@/lib/signup/types";
 import AdminSignupsTable from "@/components/signup/AdminSignupsTable";
 import AdminSignupsToggle from "@/components/signup/AdminSignupsToggle";
 import SignupForm from "@/components/signup/SignupForm";
+
+export const metadata: Metadata = {
+  title: "Sign Up — FPL",
+};
 
 export default async function SignupPage() {
   const supabase = await createServerSupabase();

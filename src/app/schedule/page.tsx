@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
@@ -26,6 +27,10 @@ import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleS
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+
+export const metadata: Metadata = {
+  title: "Schedule — FPL",
+};
 
 export default async function SchedulePage({
   searchParams,

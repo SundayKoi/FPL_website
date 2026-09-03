@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import LeagueBrandChooser from "./LeagueBrandChooser";
+import SiteSearch from "./SiteSearch";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
 import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
 import type { LeagueView } from "@/lib/league/context";
@@ -27,18 +28,25 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
       { href: "/signup", label: "Sign Up" },
       { href: "/league-links", label: "League Links" },
       { href: "/rulebook", label: "Rulebook" },
+      { href: "/supporters", label: "Patrons" },
       { href: "/support-devs", label: "Support the Devs" },
     ],
   },
 ];
 
-function premiumDropdownLinks(premiumHref: string): DropdownLink[] {
+function premiumDropdownLinks(premiumHref: string, view: LeagueView): DropdownLink[] {
+  // The daily games are destinations of their own, not an anchor on the
+  // hub: "Daily Games" landed people half-way down a page and they had to
+  // find the game again from there.
+  const prefix = view === "academy" ? "/academy" : "";
   return [
     { href: premiumHref, label: "Premium HQ" },
     { href: "/betting", label: "Betting" },
     { href: "/bangers", label: "The Daily Stu" },
     { href: "/drafter", label: "Match Drafter" },
-    { href: `${premiumHref}#daily-games`, label: "Daily Games" },
+    { href: `${prefix}/fpldle`, label: "FPL'dle" },
+    { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
+    { href: `${prefix}/guess-the-card`, label: "Guess the Card" },
   ];
 }
 
@@ -121,7 +129,7 @@ export default function SiteNavigation({
   const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
-    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref) },
+    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref, league) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];
@@ -278,6 +286,7 @@ export default function SiteNavigation({
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <SiteSearch league={league} />
           <div className="shrink-0">{authSlot}</div>
           <button
             type="button"
