@@ -222,7 +222,9 @@ describe("what a copy can go and do", () => {
   it("offers Sell, Trade, Send out and Field, each landing with the copy chosen", () => {
     render(<DustControls playerName="Chaseworthy" copies={copies} base="/academy/cards" />);
     fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
-    const menu = screen.getAllByText("Use ▾")[0].closest("details")!;
+    // Flat links, not a dropdown: a menu hanging out of a row was clipped
+    // by the shelf cell's paint containment.
+    const menu = screen.getAllByRole("list", { name: /^Use the / })[0];
     const hrefs = [...menu.querySelectorAll("a")].map((a) => [a.textContent, a.getAttribute("href")]);
     expect(hrefs).toEqual([
       ["Sell", "/academy/cards/market?sell=1"],
@@ -235,6 +237,18 @@ describe("what a copy can go and do", () => {
   it("offers nothing for a copy that is away", () => {
     render(<DustControls playerName="Chaseworthy" copies={copies} deployedIds={new Set([1, 2, 3])} />);
     fireEvent.click(screen.getByRole("button", { name: "Manage copies" }));
-    expect(screen.queryByText("Use ▾")).toBeNull();
+    expect(screen.queryByRole("list", { name: /^Use the / })).toBeNull();
+  });
+
+  it("opens as a sheet over the shelf, and closes on Escape with focus back on the button", () => {
+    render(<DustControls playerName="Chaseworthy" copies={copies} />);
+    const trigger = screen.getByRole("button", { name: "Manage copies" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Chaseworthy — prints and copies" })).toBeTruthy();
+    expect(document.activeElement?.textContent).toBe("Close");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByTestId("copy-sheet")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });

@@ -3,11 +3,21 @@
 // Dusting: sell a duplicate copy back for betting dollars.
 //
 // The shelf above shows one entry per player — the best copy — which is
-// exactly the wrong granularity for destroying something. So this drawer
-// opens the stack: every copy you own of that player, listed individually
-// with the print run it came from and what it dusts for, because "dust a
+// exactly the wrong granularity for destroying something. So this opens
+// the stack: every copy you own of that player, listed individually with
+// the print run it came from and what it dusts for, because "dust a
 // duplicate" is a decision about a specific copy and the ✍ signed one is
 // never the copy you meant.
+//
+// It opens as a SHEET over the shelf rather than inline under the card.
+// Inline, it had two problems that were really one: a shelf cell paints
+// under `content-visibility: auto` (paint containment, so anything that
+// hung out of the cell — the Use menu — was clipped at the cell's edge),
+// and a cell that grew by a list of rows pushed the whole next row of
+// cards down. A sheet has neither: nothing is clipped and nothing on the
+// shelf moves. The same sheet carries the player's print strip (handed in
+// by the shelf as `prints`), so "look at the prints" and "manage the
+// copies" are one place.
 //
 // Two clicks, always. The first arms one copy ("Confirm $25?"), the second
 // destroys it — arming any other copy disarms the first, so a stray click
@@ -25,7 +35,7 @@
 // attached to nothing — the whole reason to keep a duplicate is usually the
 // skin it wears, and you can't weigh that against $120 by reading it.
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
@@ -72,7 +82,9 @@ function copyArtUrl(card: PlayerCardData): string | null {
 
 /** What one copy can go and do, each on the page that does it, with the
  *  copy already chosen there. The four pages exist; what was missing was
- *  the way from the card to them. */
+ *  the way from the card to them. Laid out flat rather than behind a
+ *  dropdown: a menu that pops out of a row can be clipped by whatever
+ *  scrolls or contains the row, and four short words fit. */
 function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
   const actions = [
     { label: "Sell", href: `${base}/market?sell=${copy.id}` },
@@ -81,26 +93,18 @@ function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
     { label: "Field", href: `${base}/fantasy?field=${copy.id}` },
   ];
   return (
-    <details className="relative shrink-0">
-      <summary
-        aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`}
-        className="cursor-pointer list-none rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
-      >
-        Use ▾
-      </summary>
-      <ul className="absolute right-0 z-10 mt-1 flex min-w-28 flex-col rounded-md border border-line bg-navy p-1 shadow-lg">
-        {actions.map((action) => (
-          <li key={action.label}>
-            <Link
-              href={action.href}
-              className="block rounded px-2 py-1 text-[11px] text-steel hover:bg-line/40 hover:text-white"
-            >
-              {action.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </details>
+    <ul aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`} className="flex shrink-0 flex-wrap items-center gap-1">
+      {actions.map((action) => (
+        <li key={action.label}>
+          <Link
+            href={action.href}
+            className="block rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-steel transition hover:border-coral hover:text-coral"
+          >
+            {action.label}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -110,9 +114,18 @@ export default function DustControls({
   patron = false,
   deployedIds,
   base = "/cards",
+  prints = null,
+  printCount = 0,
 }: {
   playerName: string;
   copies: DustCopy[];
+  /** The player's distinct prints, rendered by the shelf (it owns the
+   *  captions), shown at the top of the sheet. Null when there is only
+   *  the one print, and then the sheet is just the copies. */
+  prints?: ReactNode;
+  /** How many distinct prints `prints` shows — the "View prints (3)"
+   *  button's number. Zero or one hides that button. */
+  printCount?: number;
   /** "/cards" or "/academy/cards" — where the per-copy actions lead. */
   base?: string;
   /** Active patron — shows the weekly art re-roll die on each copy. */
@@ -139,13 +152,36 @@ export default function DustControls({
   // Copies whose art Riot serves from neither directory — the thumb drops
   // out rather than leaving a broken-image box in a destructive row.
   const [artless, setArtless] = useState<ReadonlySet<number>>(new Set());
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+
+  // Same overlay manners as CardCopyPreview: focus lands on the way out,
+  // Escape takes it, the backdrop is clickable, and closing puts focus
+  // back on the button that opened it.
+  const close = useCallback(() => {
+    setOpen(false);
+    setArmed(null);
+    setDieArmed(null);
+    setError(null);
+    triggerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, close]);
 
   if (copies.length === 0) return null;
 
-  function toggle() {
-    setOpen((wasOpen) => !wasOpen);
+  function show() {
     setArmed(null);
     setError(null);
+    setOpen(true);
   }
 
   function handleReroll(copy: DustCopy) {
@@ -188,18 +224,7 @@ export default function DustControls({
     });
   }
 
-  return (
-    <div className="flex w-full flex-col items-center gap-1.5">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className="text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline"
-      >
-        {open ? "Hide copies" : "Manage copies"}
-      </button>
-
-      {open ? (
+  const rows = (
         <ul className="flex w-full flex-col gap-1">
           {copies.map((copy) => {
             // Patrons melt for 20% more — same helper the server credits by.
@@ -215,7 +240,7 @@ export default function DustControls({
             return (
               <li
                 key={copy.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-surface px-2 py-1"
+                className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-md border border-border-subtle bg-surface px-2 py-1"
               >
                 {art ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -322,9 +347,63 @@ export default function DustControls({
             );
           })}
         </ul>
-      ) : null}
+  );
 
-      {error ? <p className="text-[10px] text-red-400">{error}</p> : null}
+  const TRIGGER =
+    "text-[10px] font-semibold uppercase tracking-wide text-muted underline-offset-4 hover:text-action-text hover:underline";
+
+  return (
+    <div className="flex w-full flex-col items-center gap-1.5">
+      {printCount > 1 ? (
+        <button type="button" onClick={show} aria-haspopup="dialog" aria-expanded={open} className={TRIGGER}>
+          View prints ({printCount})
+        </button>
+      ) : null}
+      <button ref={triggerRef} type="button" onClick={show} aria-haspopup="dialog" aria-expanded={open} className={TRIGGER}>
+        Manage copies
+      </button>
+
+      {open ? (
+        <div
+          onClick={close}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${playerName} — prints and copies`}
+          data-testid="copy-sheet"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm"
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            className="card-brand my-auto flex w-full max-w-3xl flex-col gap-4 p-4 sm:p-6"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <div>
+                <span className="label-dash">
+                  {copies.length} {copies.length === 1 ? "copy" : "copies"}
+                  {printCount > 1 ? ` · ${printCount} prints` : ""}
+                </span>
+                <h2 className="type-display mt-0.5 text-2xl">{playerName}</h2>
+              </div>
+              <button ref={closeRef} type="button" onClick={close} className="btn-pill px-4 py-1.5 text-xs">
+                Close
+              </button>
+            </div>
+            {prints ? (
+              <section aria-label="Prints" className="flex flex-col gap-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-steel">Every print you own</h3>
+                {prints}
+              </section>
+            ) : null}
+            <section aria-label="Copies" className="flex flex-col gap-2">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-steel">
+                Every copy — use it, look at it, or dust it
+              </h3>
+              {rows}
+              {error ? <p className="text-[10px] text-red-400">{error}</p> : null}
+            </section>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

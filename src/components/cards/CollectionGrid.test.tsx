@@ -180,19 +180,23 @@ describe("CollectionGrid", () => {
     expect(toggles[0].textContent).toBe("View prints (3)");
   });
 
-  it("expands the distinct prints, deduped, alongside the shelved copy", () => {
+  it("opens the distinct prints, deduped, in a sheet over the shelf", () => {
     render(<CollectionGrid inventory={inventory} />);
     fireEvent.click(screen.getByRole("button", { name: "View prints (3)" }));
 
-    // The shelved best copy plus one card per distinct print.
+    // A sheet, not an inline strip: the shelf's rows never move and nothing
+    // is clipped by the cell. The shelved best copy plus one card per
+    // distinct print.
+    expect(screen.getByRole("dialog", { name: "Chaseworthy — prints and copies" })).toBeTruthy();
     expect(cardsFor("Chaseworthy")).toHaveLength(4);
     // Two of the three prints are foils; Commonly's two same-print copies are
     // untouched by any of this.
     expect(screen.getAllByTestId("foil")).toHaveLength(2);
     expect(screen.getByText("Alt art")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Hide prints" })).toBeTruthy();
+    // The same sheet carries the copies, so managing and looking are one place.
+    expect(screen.getAllByText(/Dust ·/).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide prints" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(cardsFor("Chaseworthy")).toHaveLength(1);
   });
 

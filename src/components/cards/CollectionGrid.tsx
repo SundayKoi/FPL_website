@@ -429,8 +429,6 @@ export default function CollectionGrid({
   const setWeek = (next: string) => setView({ week: next });
   const setSort = (next: ShelfSort) => setView({ sort: next });
   // Which players have their print strip open. A Set rather than a single
-  // slug: comparing two players' prints side by side is the point.
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   // How many cells are mounted. Every card is a 3D flip with two rendered
   // faces, and a large shelf mounted several hundred of them on first
   // paint — content-visibility skips the PAINT for the ones off screen, but
@@ -782,14 +780,6 @@ export default function CollectionGrid({
     })
     .sort((a, b) => copyOrder(sort)(a.best, b.best) || a.best.playerName.localeCompare(b.best.playerName));
 
-  function togglePrints(slug: string) {
-    setExpanded((current) => {
-      const next = new Set(current);
-      if (!next.delete(slug)) next.add(slug);
-      return next;
-    });
-  }
-
   return (
     <div className="flex flex-col gap-4">
       {chips}
@@ -837,48 +827,42 @@ export default function CollectionGrid({
                   </span>
                 ) : null}
               </div>
-              {entry.prints.length > 1 ? (
-                <button
-                  type="button"
-                  onClick={() => togglePrints(entry.best.slug)}
-                  aria-expanded={expanded.has(entry.best.slug)}
-                  className="text-[10px] font-semibold uppercase tracking-wide text-steel underline-offset-4 hover:text-coral hover:underline"
-                >
-                  {expanded.has(entry.best.slug) ? "Hide prints" : `View prints (${entry.prints.length})`}
-                </button>
-              ) : null}
               <BinderPinButton
                 inventoryId={entry.best.id}
                 pinned={pinned.has(entry.best.id)}
                 playerName={entry.best.playerName}
               />
+              {/* Prints and copies open in one sheet over the shelf (see
+                  DustControls): nothing here grows, so the row under it
+                  never moves, and nothing is clipped by the cell. */}
               <DustControls
                 playerName={entry.best.playerName}
                 copies={entry.copies}
                 patron={Boolean(flame)}
                 deployedIds={deployedIds}
                 base={base}
+                printCount={entry.prints.length}
+                prints={
+                  entry.prints.length > 1 ? (
+                    <div className="flex gap-4 overflow-x-auto pb-2">
+                      {entry.prints.map((print) => (
+                        <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
+                          <PlayerCard3D
+                            card={print.copy.card}
+                            interactive
+                            forceFoil={print.copy.foil}
+                            foilType={print.copy.foilType}
+                            flame={flame}
+                            print={printOf(print.copy, printRuns)}
+                          />
+                          <CopyCaption row={print.copy} count={print.count} pinned={pinned} printRuns={printRuns} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null
+                }
               />
             </div>
-            {entry.prints.length > 1 && expanded.has(entry.best.slug) ? (
-              // Pinned to the card's own width so the strip can't stretch the
-              // cell; more than two prints scroll sideways inside it.
-              <div className="flex w-80 gap-4 overflow-x-auto pb-2">
-                {entry.prints.map((print) => (
-                  <div key={printKey(print.copy)} className="flex shrink-0 flex-col items-center gap-2">
-                    <PlayerCard3D
-                      card={print.copy.card}
-                      interactive
-                      forceFoil={print.copy.foil}
-                      foilType={print.copy.foilType}
-                      flame={flame}
-                      print={printOf(print.copy, printRuns)}
-                    />
-                    <CopyCaption row={print.copy} count={print.count} pinned={pinned} printRuns={printRuns} />
-                  </div>
-                ))}
-              </div>
-            ) : null}
           </div>
         ))}
       </div>
