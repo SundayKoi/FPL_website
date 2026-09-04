@@ -15,6 +15,8 @@ import {
 } from "@/lib/opgg/multiSearch";
 import { resolvePlayerIdentity, type LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import { combineTeamRows } from "@/lib/stats/formulas";
+import type { TeamAggRow } from "@/lib/stats/types";
 import { DEFAULT_TEAM_BANNER_COLOR, normalizeBannerColor } from "@/lib/teams/bannerColor";
 import { createLeagueTeamScope } from "./leagueScope";
 import type { MyTeamBrand, MyTeamDashboardResult, MyTeamOpponent } from "./types";
@@ -23,6 +25,22 @@ type LeagueSettingsRow = {
   featured_draft_id: string | null;
   academy_draft_id: string | null;
 };
+
+const TEAM_AGG_SELECT = [
+  "team_name",
+  "season",
+  "season_phase",
+  "games",
+  "wins",
+  "losses",
+  "winrate_pct",
+  "avg_duration_min",
+  "dragon_rate",
+  "baron_rate",
+  "first_blood_rate",
+  "first_tower_rate",
+  "avg_team_kills",
+].join(", ");
 
 function throwIfError(error: unknown): void {
   if (error) throw error;
@@ -88,6 +106,26 @@ function teamFixtures(fixtures: FixtureRow[], teamName: string): FixtureRow[] {
   return fixtures.filter(
     (fixture) => normalizeName(fixture.team_a) === name || normalizeName(fixture.team_b) === name,
   );
+}
+
+async function fetchOpponentStats(
+  supabase: SupabaseClient,
+  opponentName: string,
+  season: string,
+): Promise<TeamAggRow | null> {
+  const result = await supabase
+    .from("stats_team_agg")
+    .select(TEAM_AGG_SELECT)
+    .eq("season", season)
+    .order("team_name")
+    .order("season_phase");
+  throwIfError(result.error);
+
+  const rows = ((result.data as TeamAggRow[] | null) ?? []).filter(
+    (row) => normalizeName(row.team_name) === normalizeName(opponentName),
+  );
+  if (rows.length === 0) return null;
+  return { ...combineTeamRows(rows, season), team_name: opponentName };
 }
 
 /**
@@ -207,33 +245,24 @@ export async function loadMyTeamDashboard(
 
   const opponentPromise: Promise<MyTeamOpponent | null> = opponentName
     ? (async () => {
-        if (!opponentTeamId) {
-          return {
-            team: null,
-            name: opponentName,
-            roster: null,
-            multiOpggUrl: null,
-            scoutingUnavailable: false,
-          };
-        }
-        try {
-          const roster = await fetchMyRoster(supabase, opponentTeamId, identity.season, league);
-          return {
-            team: opponentTeam,
-            name: opponentName,
-            roster,
-            multiOpggUrl: multiOpggUrl(roster),
-            scoutingUnavailable: false,
-          };
-        } catch {
-          return {
-            team: opponentTeam,
-            name: opponentName,
-            roster: null,
-            multiOpggUrl: null,
-            scoutingUnavailable: true,
-          };
-        }
+        const rosterPromise = opponentTeamId
+          ? fetchMyRoster(supabase, opponentTeamId, identity.season, league)
+              .then((roster) => ({ roster, scoutingUnavailable: false }))
+              .catch(() => ({ roster: null, scoutingUnavailable: true }))
+          : Promise.resolve({ roster: null, scoutingUnavailable: false });
+        const statsPromise = fetchOpponentStats(supabase, opponentName, identity.season)
+          .then((stats) => ({ stats, statsUnavailable: false }))
+          .catch(() => ({ stats: null, statsUnavailable: true }));
+        const [rosterResult, statsResult] = await Promise.all([rosterPromise, statsPromise]);
+        return {
+          team: opponentTeam,
+          name: opponentName,
+          roster: rosterResult.roster,
+          multiOpggUrl: rosterResult.roster ? multiOpggUrl(rosterResult.roster) : null,
+          scoutingUnavailable: rosterResult.scoutingUnavailable,
+          stats: statsResult.stats,
+          statsUnavailable: statsResult.statsUnavailable,
+        };
       })()
     : Promise.resolve(null);
 

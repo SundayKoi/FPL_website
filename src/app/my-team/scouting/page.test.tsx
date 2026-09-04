@@ -99,6 +99,8 @@ function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashbo
       },
       multiOpggUrl: null,
       scoutingUnavailable: false,
+      stats: null,
+      statsUnavailable: false,
     },
     results: { games: [], players: [] },
     isCaptain: false,

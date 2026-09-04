@@ -41,6 +41,7 @@ export default function StatsTabs({
   initialTab,
   initialSeason,
   initialPhase,
+  initialTeam,
   teamNames,
   allowedSeasons,
   excludedSeasons,
@@ -49,6 +50,7 @@ export default function StatsTabs({
   initialTab?: string;
   initialSeason?: string;
   initialPhase?: string;
+  initialTeam?: string;
   teamNames?: string[];
   /** Only these seasons are offered (Academy: its own season code). */
   allowedSeasons?: string[];
@@ -61,7 +63,7 @@ export default function StatsTabs({
   const excludedKey = (excludedSeasons ?? []).join(",");
   const singleSeason = allowedSeasons?.length === 1 ? allowedSeasons[0] : null;
   const [activeTab, setActiveTab] = useState<Tab>(
-    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : "Leaderboard",
+    TABS.includes(initialTab as Tab) ? (initialTab as Tab) : initialTeam ? "Teams" : "Leaderboard",
   );
   const [seasons, setSeasons] = useState<string[]>([]);
   const [season, setSeason] = useState<string>(initialSeason || singleSeason || ALL_SEASONS);
@@ -75,6 +77,9 @@ export default function StatsTabs({
   // callback — simplest consistent approach per the brief, rather than
   // duplicating detail-view state inside each tab.
   const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayer | null>(null);
+  const [selectedTeamName, setSelectedTeamName] = useState<string | null>(
+    initialTeam && (!initialTab || initialTab === "Teams") ? initialTeam : null,
+  );
   // ?player= deep links (e.g. roster names on the teams page). Resolved
   // against stats identities once on mount; a hit opens PlayerDetail, a
   // miss lands on the Players tab with the query prefilled so the visitor
@@ -135,14 +140,17 @@ export default function StatsTabs({
           // on its own season — "all seasons" there would mean other leagues.
           setSeason(singleSeason ?? ALL_SEASONS);
           setPhase("All");
+          setSelectedTeamName(null);
           setSelectedPlayer(match);
         } else {
           setActiveTab("Players");
+          setSelectedTeamName(null);
           setPlayersPrefill(initialPlayer!);
         }
       } catch {
         if (cancelled) return;
         setActiveTab("Players");
+        setSelectedTeamName(null);
         setPlayersPrefill(initialPlayer!);
       } finally {
         if (!cancelled) setDeepLinkPending(false);
@@ -166,9 +174,10 @@ export default function StatsTabs({
     if (!(seasons.length > 0 && season === seasons[0])) params.set("season", season);
     if (phase !== "All") params.set("phase", phase);
     if (selectedPlayer) params.set("player", `${selectedPlayer.summonerName}#${selectedPlayer.tag}`);
+    if (activeTab === "Teams" && selectedTeamName) params.set("team", selectedTeamName);
     const query = params.toString();
     window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
-  }, [seasonsLoaded, deepLinkPending, activeTab, season, phase, selectedPlayer, seasons]);
+  }, [seasonsLoaded, deepLinkPending, activeTab, season, phase, selectedPlayer, selectedTeamName, seasons]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,6 +193,7 @@ export default function StatsTabs({
                 onClick={() => {
                   setActiveTab(tab);
                   setSelectedPlayer(null);
+                  setSelectedTeamName(null);
                 }}
                 className={`relative -mb-px border-b-2 px-1 pb-2.5 pt-1 text-xs font-semibold uppercase tracking-[0.14em] transition ${
                   active
@@ -220,11 +230,28 @@ export default function StatsTabs({
           onBack={() => setSelectedPlayer(null)}
         />
       ) : activeTab === "Leaderboard" ? (
-        <LeaderboardTab season={season} phase={phase} onSelectPlayer={setSelectedPlayer} teamNames={teamNames} />
+        <LeaderboardTab
+          season={season}
+          phase={phase}
+          onSelectPlayer={(player) => {
+            setSelectedTeamName(null);
+            setSelectedPlayer(player);
+          }}
+          teamNames={teamNames}
+        />
       ) : activeTab === "Fantasy Pts" ? (
         <FantasyPointsTab season={season} phase={phase} />
       ) : activeTab === "Teams" ? (
-        <TeamsTab season={season} phase={phase} teamNames={teamNames} />
+        <TeamsTab
+          season={season}
+          phase={phase}
+          teamNames={teamNames}
+          selectedTeamName={selectedTeamName}
+          onSelectTeam={(teamName) => {
+            setSelectedTeamName(teamName);
+            if (teamName) setSelectedPlayer(null);
+          }}
+        />
       ) : activeTab === "Champions" ? (
         <ChampionsTab season={season} phase={phase} teamNames={teamNames} />
       ) : activeTab === "Records" ? (
@@ -238,7 +265,10 @@ export default function StatsTabs({
           key={playersPrefill}
           season={season}
           phase={phase}
-          onSelectPlayer={setSelectedPlayer}
+          onSelectPlayer={(player) => {
+            setSelectedTeamName(null);
+            setSelectedPlayer(player);
+          }}
           initialQuery={playersPrefill}
           teamNames={teamNames}
         />

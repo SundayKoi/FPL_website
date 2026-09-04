@@ -151,6 +151,8 @@ function ready(overrides: Partial<MyTeamReadyDashboard> = {}): MyTeamReadyDashbo
       roster: { draftPlayers: [], riotAccounts: [] },
       multiOpggUrl: null,
       scoutingUnavailable: false,
+      stats: null,
+      statsUnavailable: false,
     },
     results: { games: [], players: [] },
     isCaptain: false,
@@ -198,15 +200,14 @@ describe("My Team page", () => {
       searchParams: Promise.resolve({ team: "browser-forged-team" }),
     }));
 
-    expect(screen.getByRole("heading", { name: /next match/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /my team vs enemy team/i })).toBeTruthy();
     expect(screen.getByText("TOURNEY-CODE")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /team schedule/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /what comes next/i })).toBeTruthy();
     expect(screen.getByText("Signed In Player")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1?layout=board");
-    expect(screen.getByRole("link", { name: /spectator link/i }).getAttribute("href"))
+    expect(screen.queryByRole("link", { name: /open captain view/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=stage");
-    expect(screen.getByRole("link", { name: /scout opponent/i }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: /view draft patterns/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
     expect(screen.queryByText("Report a Result")).toBeNull();
     expect(screen.queryByText("Admin code editor")).toBeNull();

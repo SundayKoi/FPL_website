@@ -33,6 +33,7 @@ export default async function AcademyStatsPage({ searchParams }: { searchParams:
           <StatsTabs
             initialPlayer={first(params.player)}
             initialTab={first(params.tab)}
+            initialTeam={first(params.team)}
             initialSeason={first(params.season)}
             initialPhase={first(params.phase)}
             teamNames={teamNames}

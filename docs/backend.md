@@ -467,6 +467,22 @@ spectator draft links, and scouting are composed separately from captain result
 reporting and admin management panels, so ordinary-player branches do not load
 those mutation controls.
 
+The shared read-only dashboard may enrich the next opponent with the current
+season's `stats_team_agg` row. That aggregate is public convenience data: a
+missing row or aggregate-query failure leaves the dashboard and lineup usable.
+Roster identity, tournament codes, and draft-pattern views remain on their
+existing cookie-bound/RLS paths; an opponent roster failure is isolated from
+the signed-in team's own roster. The aggregate preview never uses the service-
+role client.
+
+The Stats team-detail URL contract is `tab=Teams&team=<name>&season=<code>&phase=<phase>`
+under `/stats` or `/academy/stats`. `phase=All` and the default season are
+omitted when they are defaults. Team queries trim and case-fold for exact
+resolution only, then canonicalize to the loaded aggregate name; fuzzy or
+ambiguous names do not select a team. Team selection and player selection are
+mutually exclusive, and leaving a team detail clears only `team` while
+retaining the Teams tab and current scope.
+
 The legacy `/captain`, `/captain/scouting`, `/academy/captain`, and
 `/academy/captain/scouting` routes are redirect-only compatibility paths to
 their equivalent canonical My Team routes. They preserve an old `team` query

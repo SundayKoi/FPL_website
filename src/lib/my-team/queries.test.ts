@@ -83,10 +83,12 @@ function identity(overrides: Partial<{
 function fakeClient({
   fixtures = [upcoming],
   captainTeamIds = [],
+  teamAggRows = [],
   errors = {},
 }: {
   fixtures?: Row[];
   captainTeamIds?: string[];
+  teamAggRows?: Row[];
   errors?: Partial<Record<string, { message: string }>>;
 } = {}) {
   const tables: Record<string, Row[]> = {
@@ -109,6 +111,7 @@ function fakeClient({
       league_team_id,
     })),
     fixtures,
+    stats_team_agg: teamAggRows,
   };
 
   const from = vi.fn((table: string) => {
@@ -328,8 +331,79 @@ describe("loadMyTeamDashboard", () => {
         name: academyTwo.name,
         roster: null,
         scoutingUnavailable: true,
+        stats: null,
+        statsUnavailable: false,
       },
     });
+  });
+
+  it("loads and merges only the next opponent's current-season aggregate stats", async () => {
+    const client = fakeClient({
+      teamAggRows: [
+        {
+          team_name: " academy two ", season: "A1", season_phase: "Regular", games: 2, wins: 2, losses: 0,
+          winrate_pct: 100, avg_duration_min: 20, dragon_rate: 40, baron_rate: 20,
+          first_blood_rate: 50, first_tower_rate: 60, avg_team_kills: 10,
+        },
+        {
+          team_name: "Academy Two", season: "A1", season_phase: "Playoffs", games: 6, wins: 3, losses: 3,
+          winrate_pct: 50, avg_duration_min: 30, dragon_rate: 60, baron_rate: 40,
+          first_blood_rate: 70, first_tower_rate: 80, avg_team_kills: 14,
+        },
+        {
+          team_name: "Academy Two", season: "S5", season_phase: "Regular", games: 20, wins: 20, losses: 0,
+          winrate_pct: 100, avg_duration_min: 10, dragon_rate: 100, baron_rate: 100,
+          first_blood_rate: 100, first_tower_rate: 100, avg_team_kills: 20,
+        },
+      ],
+    });
+
+    const result = await loadMyTeamDashboard(client as never, "academy");
+
+    expect(client.from).toHaveBeenCalledWith("stats_team_agg");
+    expect(result).toMatchObject({
+      opponent: {
+        name: "Academy Two",
+        statsUnavailable: false,
+        stats: {
+          team_name: "Academy Two",
+          season: "A1",
+          games: 8,
+          wins: 5,
+          losses: 3,
+          winrate_pct: 62.5,
+          avg_duration_min: 27.5,
+        },
+      },
+    });
+  });
+
+  it("keeps a missing aggregate row as a normal optional empty state", async () => {
+    const result = await loadMyTeamDashboard(fakeClient() as never, "academy");
+
+    expect(result).toMatchObject({ opponent: { stats: null, statsUnavailable: false } });
+  });
+
+  it("isolates aggregate stats failure from roster and core dashboard data", async () => {
+    const result = await loadMyTeamDashboard(
+      fakeClient({ errors: { stats_team_agg: { message: "stats unavailable" } } }) as never,
+      "academy",
+    );
+
+    expect(result).toMatchObject({
+      kind: "ready",
+      roster: { draftPlayers: expect.any(Array) },
+      opponent: { roster: { draftPlayers: expect.any(Array) }, stats: null, statsUnavailable: true },
+    });
+  });
+
+  it("does not query opponent aggregate stats when there is no next fixture", async () => {
+    const client = fakeClient({ fixtures: [completed], teamAggRows: [{ team_name: "Academy Two" }] });
+
+    const result = await loadMyTeamDashboard(client as never, "academy");
+
+    expect(result).toMatchObject({ kind: "ready", nextFixture: null, opponent: null });
+    expect(client.from).not.toHaveBeenCalledWith("stats_team_agg");
   });
 
   it("propagates an own-roster failure instead of returning a false ready dashboard", async () => {

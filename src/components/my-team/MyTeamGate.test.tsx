@@ -89,6 +89,8 @@ const ready: MyTeamDashboardResult = {
     roster: { draftPlayers: [], riotAccounts: [] },
     multiOpggUrl: null,
     scoutingUnavailable: false,
+    stats: null,
+    statsUnavailable: false,
   },
   results: { games: [], players: [] },
   isCaptain: false,
@@ -167,34 +169,24 @@ describe("MyTeamGate", () => {
     const accentFades = Array.from(document.querySelectorAll("[data-team-accent-fade]"));
     expect(accentFades).toHaveLength(6);
     expect(accentFades.every((fade) => fade.getAttribute("style")?.includes("linear-gradient"))).toBe(true);
-    expect(screen.getAllByText("vs Enemy Team")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: /captain.*link/i }).getAttribute("href"))
-      .toBe("/match-draft/fixture-1?layout=board");
-    expect(screen.getByRole("link", { name: /spectator link/i }).getAttribute("href"))
+    expect(screen.getAllByText("vs Enemy Team")).toHaveLength(1);
+    expect(screen.queryByRole("link", { name: /captain.*view/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=stage");
-    expect(screen.getByRole("link", { name: /scout opponent/i }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: /view draft patterns/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
 
-    const panels = [
-      screen.getByRole("heading", { name: /tourney codes/i }).closest("details"),
-      screen.getByRole("heading", { name: /team schedule/i }).closest("details"),
-      screen.getByRole("heading", { name: /my roster/i }).closest("details"),
-      screen.getByRole("heading", { name: /my results & stats/i }).closest("details"),
-    ];
-    panels.forEach((panel) => expect(panel?.hasAttribute("open")).toBe(false));
-
-    const codesPanel = panels[0]!;
-    fireEvent.click(within(codesPanel).getByRole("heading", { name: /tourney codes/i }));
-    expect(codesPanel.hasAttribute("open")).toBe(true);
+    expect(screen.getByRole("heading", { name: /team performance details/i })).toBeTruthy();
+    expect(screen.getAllByRole("article")).toHaveLength(3);
     expect(screen.getByText("TOURNEY-CODE")).toBeTruthy();
 
-    fireEvent.click(within(codesPanel).getByRole("button", { name: "Copy all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy all" }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("TOURNEY-CODE\nTOURNEY-CODE-2"));
 
-    const rosterRow = screen.getByText("Signed In Player").closest("li")!;
-    expect(within(rosterRow).getByText("You")).toBeTruthy();
+    const rosterCell = screen.getByText("Signed In Player").closest("td")!;
+    expect(within(rosterCell).getByText("You")).toBeTruthy();
 
-    fireEvent.click(within(codesPanel).getAllByRole("button", { name: "Copy" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: /copy game 1/i }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("TOURNEY-CODE"));
 
     expect(screen.queryByText(/report a result/i)).toBeNull();
