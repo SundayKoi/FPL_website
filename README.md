@@ -373,6 +373,10 @@ npm run export:drafts -- --team="Neon Dynasty" --stage=week_3
 npm run export:drafts -- --open            # include the public /drafter lobbies
 ```
 
+No local setup at all: the **Export drafts** workflow under the repo's
+Actions tab runs the same script on GitHub (pick season, stage, team,
+format) and attaches the file to the run as an artifact named `drafts`.
+
 CSV is one row per draft step (twenty per game): season, stage, fixture,
 game number, side, team, pick or ban, slot, overall pick/ban order, whether
 it was the game's first pick, the champion, the player who drafted it, and
