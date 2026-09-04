@@ -126,7 +126,7 @@ export default function BroadcasterWorkspace({
           aria-labelledby={`broadcaster-tab-${item.id}`}
           hidden={!selected}
         >
-          {selected && item.id === "team-a" ? <OpponentScout source={teamA} perspective="team" /> : null}
+          {selected && item.id === "team-a" ? <OpponentScout source={teamA} perspective="team" showExtendedPatterns /> : null}
           {selected && item.id === "matchups" ? (
             <BroadcasterMatchups
               teamA={teamA}
@@ -137,7 +137,7 @@ export default function BroadcasterWorkspace({
               matchups={matchups}
             />
           ) : null}
-          {selected && item.id === "team-b" ? <OpponentScout source={teamB} perspective="team" /> : null}
+          {selected && item.id === "team-b" ? <OpponentScout source={teamB} perspective="team" showExtendedPatterns /> : null}
         </div>;
       })}
 

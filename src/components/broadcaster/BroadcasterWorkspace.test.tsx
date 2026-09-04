@@ -23,7 +23,7 @@ vi.mock("./BroadcasterMatchups", () => ({
 }));
 
 vi.mock("@/components/captain/OpponentScout", () => ({
-  default: ({ source, perspective }: { source: ScoutSource; perspective?: string }) => <p>{perspective} scout: {source.teamName}</p>,
+  default: ({ source, perspective, showExtendedPatterns }: { source: ScoutSource; perspective?: string; showExtendedPatterns?: boolean }) => <p>{perspective} scout: {source.teamName}{showExtendedPatterns ? " · extended" : ""}</p>,
 }));
 
 afterEach(cleanup);
@@ -65,13 +65,13 @@ describe("BroadcasterWorkspace", () => {
     render(<BroadcasterWorkspace league="premier" fixture={fixture} settings={settings} teamA={source("Alpha")} teamB={source("Beta")} />);
 
     expect(screen.getByRole("tab", { name: /Alpha scouting/i }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("team scout: Alpha")).toBeTruthy();
+    expect(screen.getByText("team scout: Alpha · extended")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: /^Matchups$/ }));
     expect(screen.getByText("matchups: Alpha vs Beta")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("tab", { name: /Beta scouting/i }));
-    expect(screen.getByText("team scout: Beta")).toBeTruthy();
+    expect(screen.getByText("team scout: Beta · extended")).toBeTruthy();
   });
 
   it("links to both league workspaces and marks the selected league", () => {

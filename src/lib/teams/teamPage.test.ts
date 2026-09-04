@@ -5,6 +5,7 @@ import {
   opponentOf,
   sameTeam,
   splitTeamFixtures,
+  teamGameRecord,
   teamRecord,
   teamSlug,
 } from "./teamPage";
@@ -73,6 +74,18 @@ describe("teamRecord", () => {
       fixture({ team_a: "Kings", team_b: "Wolves", score_a: 2, score_b: 1 }), // not ours
     ];
     expect(teamRecord(rows, "Neon")).toEqual({ wins: 2, losses: 1, seriesPlayed: 3 });
+  });
+});
+
+describe("teamGameRecord", () => {
+  it("counts individual game wins and losses from reported series scores", () => {
+    const rows = [
+      fixture({ team_a: "Neon", team_b: "Wolves", score_a: 2, score_b: 1 }),
+      fixture({ team_a: "Kings", team_b: "Neon", score_a: 0, score_b: 2 }),
+      fixture({ team_a: "Neon", team_b: "Void" }), // unplayed
+      fixture({ team_a: "Kings", team_b: "Wolves", score_a: 2, score_b: 1 }), // not ours
+    ];
+    expect(teamGameRecord(rows, "Neon")).toEqual({ wins: 4, losses: 1, gamesPlayed: 5 });
   });
 });
 
