@@ -184,8 +184,20 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <p className="text-sm text-steel">
             One mutation per copy, permanent, drawn on the card everywhere it shows. Each one changes the card in
             Fantasy, in the Gauntlet and on the market. An Exorcism removes Haunted or Cursed; nothing removes the
-            rest. A map fragment drops off a Legend Hunt ({pct(FRAGMENT_CHANCE.legend?.solid ?? 0)} on a solid run, every
-            jackpot) or a Deep Raid jackpot ({pct(FRAGMENT_CHANCE.raid?.jackpot ?? 0)}); three open the Legendary route.
+            rest.
+          </p>
+        </div>
+        <div
+          data-testid="rule-fragments"
+          className="flex flex-col gap-1 rounded-lg border border-purple-300/50 bg-purple-500/10 p-3 text-sm text-steel"
+        >
+          <h4 className="text-sm font-bold text-purple-200">Map fragments — the key to the Legendary route</h4>
+          <p>
+            You cannot buy one. A fragment comes home with a Legend Hunt: <strong className="text-white">every</strong> Legend
+            Hunt jackpot carries one, and {pct(FRAGMENT_CHANCE.legend?.solid ?? 0)} of solid Legend Hunts do. A Deep Raid
+            jackpot carries one {pct(FRAGMENT_CHANCE.raid?.jackpot ?? 0)} of the time. They stack in your supplies (the
+            purple counter above the brief) and never expire. <strong className="text-white">{EXPEDITION_TIERS.legendary.fragments} fragments</strong> are
+            spent to open one Legendary route; the route itself never drops one.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
