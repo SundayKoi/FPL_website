@@ -3,7 +3,8 @@
 import { useCallback } from "react";
 import { combineTeamRows, mergeRows } from "@/lib/stats/formulas";
 import { formatDuration } from "@/lib/stats/format";
-import { fetchTeamAgg } from "@/lib/stats/queries";
+import { applyForfeits } from "@/lib/stats/forfeits";
+import { fetchForfeitRecords, fetchTeamAgg } from "@/lib/stats/queries";
 import { awardSuperlatives, type Superlative } from "@/lib/stats/superlatives";
 import type { TeamAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
@@ -12,13 +13,23 @@ import { EmptyCard, ErrorCard, LoadingCard, StatBar } from "./statsUi";
 import { useStatsFetch } from "./useStatsFetch";
 
 export default function TeamsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
-  const loadRows = useCallback(() => {
+  const loadRows = useCallback(async () => {
     const seasonParam = season === ALL_SEASONS ? undefined : season;
     const phaseParam = phase === "All" ? undefined : phase;
-    return fetchTeamAgg(seasonParam, phaseParam, teamNames);
+    // Forfeits ride alongside: a conceded game has no Riot match id, so
+    // the view never sees it, and a 3-4 team would read 2-4 without this.
+    const [agg, forfeits] = await Promise.all([
+      fetchTeamAgg(seasonParam, phaseParam, teamNames),
+      fetchForfeitRecords(seasonParam, phaseParam, teamNames).catch((error) => {
+        console.error("stats: forfeit records unavailable; showing played games only", error);
+        return [];
+      }),
+    ]);
+    return { agg, forfeits };
   }, [season, phase, teamNames]);
   const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);
-  const rows = data ?? [];
+  const rows = data?.agg ?? [];
+  const forfeits = data?.forfeits ?? [];
 
   if (status === "loading") {
     return <LoadingCard label="teams" />;
@@ -28,7 +39,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
     return <ErrorCard noun="team" />;
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && forfeits.length === 0) {
     return <EmptyCard message="There's no team data for this season/phase yet." />;
   }
 
@@ -36,12 +47,14 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
   // season_phase) partition — "All seasons" OR a specific season with
   // phase="All" (the view emits one row per phase, so a single season with
   // both Regular and Playoffs games still returns 2 rows per team).
-  const merged =
+  const played =
     season !== ALL_SEASONS && phase !== "All"
       ? rows
       : mergeRows(rows, (r) => r.team_name, (group) =>
           combineTeamRows(group, season === ALL_SEASONS ? ALL_SEASONS : season),
         );
+  // After the merge, so the per-game rates stay weighted by games played.
+  const merged = applyForfeits(played, forfeits, season === ALL_SEASONS ? ALL_SEASONS : undefined);
 
   const sorted = [...merged].sort((a, b) => {
     if (b.winrate_pct !== a.winrate_pct) return b.winrate_pct - a.winrate_pct;
@@ -92,6 +105,12 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
                   <span className="text-pink">{row.losses}L</span>
                   {" · "}
                   {row.games} games
+                  {(row.forfeit_wins ?? 0) + (row.forfeit_losses ?? 0) > 0 ? (
+                    <span className="text-muted" title="Games decided by forfeit count in the record; the rates below are from games played.">
+                      {" · "}
+                      {(row.forfeit_wins ?? 0) + (row.forfeit_losses ?? 0)} by forfeit
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <div className="shrink-0 text-right">
