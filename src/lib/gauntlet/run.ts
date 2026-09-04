@@ -9,7 +9,7 @@ import { aggregateEffects, mergeRelicEffects } from "./relics";
 import { heirloomEffects, type StoredHeirloom } from "./heirlooms";
 import { aggregateTraits, conditionEffects, mergeTraitEffects } from "./traits";
 import { ghostTraitEffects } from "./ghosts";
-import type { GauntletCard, HalfState, MatchContext, MatchResult } from "./sim";
+import { mutationEffects, type GauntletCard, type HalfState, type MatchContext, type MatchResult } from "./sim";
 
 /** What a run costs to start. A sink by design: prizes stay under the
  *  fees paid league-wide, same guardrail as pack dust. */
@@ -47,7 +47,10 @@ export function matchContextFor(
     ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics))
     : traits;
   return {
-    effects: mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
+    effects: mergeRelicEffects(
+      mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
+      mutationEffects(lineup),
+    ),
     foe,
     arena: conditionEffects(opponent?.condition),
     boss: bossEffects(opponent?.boss),

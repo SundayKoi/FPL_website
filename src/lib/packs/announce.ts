@@ -25,7 +25,12 @@ export const LIVE_RED = 0xff5063;
  *  overrides it if the channel ever moves without a deploy. */
 const CARDS_CHANNEL_ID = "1542175819563016253";
 
-export async function postCardsWebhook(embed: CardsEmbed): Promise<void> {
+/**
+ * `content` is the plain line ABOVE the embed. A mention inside an embed
+ * never notifies anyone — Discord renders it and stays silent — so a ping
+ * that has to reach a phone (a fork waiting on an answer) goes here.
+ */
+export async function postCardsWebhook(embed: CardsEmbed, content?: string): Promise<void> {
   const webhook = process.env.DISCORD_CARDS_WEBHOOK_URL;
   const botToken = process.env.DISCORD_BOT_TOKEN;
   const channelId = process.env.DISCORD_CARDS_CHANNEL_ID ?? CARDS_CHANNEL_ID;
@@ -34,7 +39,7 @@ export async function postCardsWebhook(embed: CardsEmbed): Promise<void> {
       await fetch(webhook, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify({ embeds: [embed], ...(content ? { content } : {}) }),
       });
       return;
     }
@@ -48,7 +53,7 @@ export async function postCardsWebhook(embed: CardsEmbed): Promise<void> {
           "content-type": "application/json",
           authorization: `Bot ${botToken}`,
         },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify({ embeds: [embed], ...(content ? { content } : {}) }),
       });
     }
   } catch {

@@ -8,7 +8,8 @@
 // the server runs.
 //
 // What is never auto-dusted, whatever the rule: an Eclipse (the database
-// refuses it anyway), a moment, a champions relic or a team plate.
+// refuses it anyway), a moment, a champions relic, a team plate, or a copy
+// wearing an expedition mutation.
 
 import type { CardTier } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
@@ -67,6 +68,11 @@ export interface AutoDustCandidate {
   signed: boolean;
   /** A moment, a champions relic or a team plate: never dusted by rule. */
   relic: boolean;
+  /** A copy that came home from an expedition changed: never dusted by
+   *  rule either. A mutation is the one thing that makes a copy unlike
+   *  every other copy of its print, which is exactly what a keep-N-copies
+   *  rule cannot see. */
+  mutation?: string | null;
   /** Older copies are kept ahead of newer ones. */
   acquiredAt?: string;
 }
@@ -82,6 +88,7 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
     foilType: row.foilType,
     signed: row.signed,
     relic: Boolean(card.moment || card.champWin || card.team),
+    mutation: row.mutation ?? null,
     acquiredAt: row.acquiredAt,
   };
 }
@@ -91,6 +98,7 @@ const tierRank = (tier: string) => TIER_ORDER.indexOf(tier as CardTierKey);
 /** Whether the rule would touch this copy at all, before the keep count. */
 export function eligibleForAutoDust(copy: AutoDustCandidate, rule: AutoDustRule): boolean {
   if (copy.relic) return false;
+  if (copy.mutation) return false;
   if (copy.foilType === ECLIPSE_FOIL_TYPE) return false;
   if (rule.skipFoil && copy.foil) return false;
   if (rule.skipSigned && copy.signed) return false;

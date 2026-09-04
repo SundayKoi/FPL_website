@@ -339,11 +339,15 @@ async function scoreFantasyWeek(
       for (let from = 0; from < inventoryIds.length; from += pageSize) {
         const { data: copies, error: copyError } = await supabase
           .from("card_inventory")
-          .select("id, slug, player_name")
+          .select("id, slug, player_name, mutation")
           .in("id", inventoryIds.slice(from, from + pageSize));
         if (copyError) throw copyError;
-        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string }[])) {
-          identities.set(copy.id, { slug: copy.slug, playerName: copy.player_name });
+        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string; mutation: string | null }[])) {
+          identities.set(copy.id, {
+            slug: copy.slug,
+            playerName: copy.player_name,
+            mutation: (copy.mutation as CurrentIdentity["mutation"]) ?? null,
+          });
         }
       }
     }
@@ -355,7 +359,7 @@ async function scoreFantasyWeek(
 
     const scoredAt = new Date().toISOString();
     for (const lineup of unscored) {
-      const { score, breakdown } = scoreLineup(lineup.slots, scores, identities);
+      const { score, breakdown } = scoreLineup(lineup.slots, scores, identities, week);
       if (!dryRun) {
         const { error: updateError } = await supabase
           .from("fantasy_lineups")

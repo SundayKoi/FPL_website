@@ -46,6 +46,16 @@ describe("auto-dust", () => {
     expect(selectAutoDust([plain, foil, signed], { ...rule, skipFoil: false }).sort()).toEqual([plain.id, foil.id].sort());
   });
 
+  it("never dusts a copy that came home from an expedition changed", () => {
+    const plain = copy("a", "bronze", 30);
+    const changed = copy("a", "bronze", 30, { mutation: "voidtouched" });
+    const cursed = copy("a", "bronze", 30, { mutation: "cursed" });
+    expect(eligibleForAutoDust(plain, rule)).toBe(true);
+    expect(eligibleForAutoDust(changed, rule)).toBe(false);
+    expect(eligibleForAutoDust(cursed, rule)).toBe(false);
+    expect(selectAutoDust([plain, changed, cursed], rule, new Map())).toEqual([]);
+  });
+
   it("never dusts an Eclipse, a moment, a relic or a plate", () => {
     const eclipse = copy("a", "bronze", 30, { foil: true, foilType: "eclipse" });
     const relic = copy("b", "bronze", 30, { relic: true });

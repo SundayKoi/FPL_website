@@ -5,7 +5,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchAllCardSeasons, fetchCardEditionWeeks, fetchCurrentWeekCards, fetchEditionCards } from "@/lib/cards/queries";
-import { MUTATIONS, PROPOSED_RUNS, type Mutation } from "@/lib/cards/mutations";
+import { MUTATIONS, PROPOSED_RUNS, mutationOverlay, type Mutation } from "@/lib/cards/mutations";
 import { EXPEDITION_TIERS } from "@/lib/expeditions/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -26,14 +26,7 @@ const RISK_LABEL: Record<(typeof PROPOSED_RUNS)[number]["risk"], string> = {
   dead: "cards can die",
 };
 
-function mutationProps(mutation: Mutation) {
-  return {
-    label: mutation.label,
-    className: mutation.className,
-    accent: mutation.accent,
-    ...(mutation.key === "cursed" ? { extra: "card-mut-cursed-sigil" } : {}),
-  };
-}
+const mutationProps = mutationOverlay;
 
 /**
  * PREVIEW ONLY. Staff only. The expedition redesign — forks, risk, and
@@ -76,8 +69,8 @@ export default async function MutationsPreviewPage() {
           Hover a card.
         </p>
         <p className="max-w-3xl text-sm text-coral">
-          Preview only. Nothing on this page mints, prices or writes anything, and no run can produce these
-          treatments yet.
+          A design table, not a game surface. Nothing on this page mints or writes anything — the routes on
+          /cards/expeditions mint these for real, and the numbers each card quotes are the ones the scorers read.
         </p>
       </header>
 

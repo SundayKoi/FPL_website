@@ -142,6 +142,15 @@ export interface PlayerCardData {
    *  provenance only, never read by dust pricing. Replaceable only
    *  upward (trail < sigil < legend); see lib/expeditions/config.ts. */
   expedition?: { mark: "trail" | "sigil" | "legend"; tier: string; date: string } | null;
+  /** Set on a copy that came home changed from an expedition — one per
+   *  copy, permanent until an Exorcism, and READ by Fantasy scoring, the
+   *  Gauntlet sim and dust pricing (src/lib/cards/mutations.ts). `run` is
+   *  the expedition_runs id that did it. */
+  mutation?: { key: "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched"; date: string; run: number } | null;
+  /** Set while a copy is benched after an expedition went badly — no
+   *  expeditions and no Gauntlet lineups until `until`. Cleared by the
+   *  next stamp or ignored once it has passed; never read by pricing. */
+  wounded?: { until: string; run: number } | null;
   /** Set only on a champions-drop card (the Dealer's Hand) — see
    *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
    *  this before reading any rating field. */

@@ -42,6 +42,10 @@ export interface InventoryRow {
    *  Null only on a copy written before print numbering existed in this
    *  environment; the database assigns one to everything minted since. */
   printNumber: number | null;
+  /** The expedition mutation the copy wears — `card.mutation.key`, lifted
+   *  out so dust pricing and the auto-dust rule read it without opening
+   *  the json. Null on an unchanged copy. */
+  mutation: string | null;
 }
 
 interface InventoryDbRow {
@@ -190,6 +194,7 @@ function mapInventoryRow(row: InventoryDbRow, card: PlayerCardData): InventoryRo
     packOpenId: row.pack_open_id,
     acquiredAt: row.acquired_at,
     printNumber: row.print_number ?? null,
+    mutation: card?.mutation?.key ?? null,
   };
 }
 

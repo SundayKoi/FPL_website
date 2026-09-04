@@ -2,11 +2,14 @@ import { randomBytes } from "node:crypto";
 import "server-only";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchInventoryByIds } from "@/lib/packs/queries";
-import { easternDateOf } from "@/lib/packs/week";
-import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
+import { easternDateOf, mondayOf } from "@/lib/packs/week";
+import { GOLD, LIVE_RED, postCardsWebhook } from "@/lib/packs/announce";
+import { patronActive } from "@/lib/patron/flames";
 import {
   EXPEDITION_TIERS,
+  INSURANCE_FEE,
   SQUAD_SIZE,
+  ransomFor,
   rollOutcome,
   squadMeets,
   squadShine,
@@ -14,6 +17,17 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
+import { fetchPolicyUsed, mapRun, type ExpeditionRun } from "./queries";
+import {
+  choiceAllowed,
+  choiceSheet,
+  forkViews,
+  openFork,
+  resolveRoute,
+  type ForkChoice,
+  type RecordedChoice,
+  type RouteResult,
+} from "./routes";
 
 // The expedition core. Takes a bare Discord id ON TRUST, so it is
 // `server-only` and never exported from a "use server" module: ./actions.ts
@@ -21,39 +35,60 @@ import {
 // packs/open.ts and packs/actions.ts keep. Exporting launchExpeditionFor
 // from an action file would let any browser send anybody's cards out.
 //
-// Everything the odds and the gates depend on comes from ./config.ts, and
-// the atomicity comes from the two RPCs in
-// supabase/migrations/20260901000001_card_expeditions.sql. This file is
+// Everything the odds and the gates depend on comes from ./config.ts and
+// ./routes.ts, and the atomicity comes from the RPCs in
+// supabase/migrations/20260914000001_expedition_routes.sql. This file is
 // the seam: it reads the copies, applies the gates the UI also applies,
 // rolls the outcome on a CSPRNG, and hands the result to the RPC that
 // writes it once.
 
 export type LaunchResult =
-  | { ok: true; runId: number; resolvesAt: string }
+  | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean }
   | { ok: false; error: string };
 
+export interface LaunchOptions {
+  /** Buy the policy: lost becomes wounded, dead becomes lost. Free once a
+   *  week for a patron; INSURANCE_FEE otherwise. */
+  insured?: boolean;
+  /** A Rescue's hold id, or an Exorcism's card id. */
+  target?: number | null;
+}
+
 export type ClaimResult =
-  | { ok: true; outcome: ExpeditionOutcome; bearerId: number | null; balance: number }
+  | {
+      ok: true;
+      outcome: ExpeditionOutcome;
+      route: RouteResult;
+      bearerId: number | null;
+      balance: number;
+      fragments: number;
+      /** The base dollars the forks multiplied. */
+      baseDollars: number;
+    }
   | { ok: false; error: string };
+
+export type DecideResult = { ok: true; closesAt: string } | { ok: false; error: string };
+
+export type RansomResult = { ok: true; balance: number; paid: number } | { ok: false; error: string };
 
 /** What an unrecognized exception reads as — and what a launch that
  *  somehow returned no row reads as. */
 const GENERIC_EXPEDITION_ERROR = "Something went wrong with that expedition.";
 
 /**
- * `launch_expedition` / `claim_expedition`'s raw `raise exception` texts →
- * friendly copy. Same contract as friendlyOpenPackError and
- * friendlyDustError: never surface a raw Postgres error, and never let an
- * unrecognized one through as itself.
+ * The RPCs' raw `raise exception` texts → friendly copy. Same contract as
+ * friendlyOpenPackError and friendlyDustError: never surface a raw
+ * Postgres error, and never let an unrecognized one through as itself.
  *
  * `card is on expedition` is the deploy-lock TRIGGER's text rather than
- * either RPC's — it can reach a caller through any write that touches a
- * deployed copy, and it means the same thing to a player as the launch
- * RPC's own `card already deployed`, so it gets the same sentence.
+ * any RPC's — it can reach a caller through any write that touches a
+ * deployed (or lost) copy, and it means the same thing to a player as the
+ * launch RPC's own `card already deployed`, so it gets the same sentence.
  */
 export function friendlyExpeditionError(message: string): string {
   if (/unknown tier/i.test(message)) return "That expedition doesn't exist.";
   if (/bad duration/i.test(message)) return "That expedition's length isn't valid.";
+  if (/bad forks|bad fee|bad fragments/i.test(message)) return "That expedition's setup isn't valid.";
   if (/squad must be three distinct cards/i.test(message)) return "An expedition takes exactly three different cards.";
   // The tier slot, ahead of the daily limit the same way the RPC checks
   // them: "your Legend Hunt is still out" sends someone to the raid,
@@ -68,18 +103,36 @@ export function friendlyExpeditionError(message: string): string {
   if (/card already deployed|card is on expedition/i.test(message)) {
     return "One of those cards is already out on an expedition.";
   }
+  if (/card is wounded/i.test(message)) return "One of those cards is wounded and benched.";
+  if (/card is one of one/i.test(message)) return "A one-of-one can't go on a route where it could be lost.";
+  if (/card is cursed/i.test(message)) return "That card is Cursed — it can't change hands for a week.";
+  if (/card is not afflicted/i.test(message)) return "That card has nothing to exorcise.";
+  if (/target not in squad|target not wanted|cleansed not the target/i.test(message)) {
+    return "The card to cleanse has to be in the squad.";
+  }
+  if (/no such lost card/i.test(message)) return "That card isn't lost — or it's already home.";
+  if (/not enough fragments|fragments not wanted/i.test(message)) return "The Legendary route takes three map fragments.";
+  if (/policy already used/i.test(message)) return "This week's free policy is already spent.";
+  if (/policy is a patron perk|policy without insurance/i.test(message)) return "The free policy is a patron perk.";
+  if (/insufficient balance/i.test(message)) return "You can't cover the fee.";
+  if (/bad ransom/i.test(message)) return "That ransom didn't add up — refresh and try again.";
   if (/already claimed/i.test(message)) return "That expedition has already been claimed.";
   if (/expedition still out/i.test(message)) return "That squad is still out — check back soon.";
   if (/unknown run/i.test(message)) return "That expedition no longer exists.";
   if (/unknown user/i.test(message)) return "Account not found — try signing in again.";
+  if (/unknown choice/i.test(message)) return "That isn't a choice at this fork.";
+  if (/no such fork/i.test(message)) return "There's no fork there.";
+  if (/fork already decided/i.test(message)) return "That fork has already been answered.";
+  if (/fork not open/i.test(message)) return "The squad hasn't reached that fork yet.";
+  if (/fork closed/i.test(message)) return "Too late — the squad took the safe way when nobody answered.";
   // A guard the PLAYER cannot have caused. It fired for real once: the
   // claim's payout ceiling was the legend jackpot's base rather than its
   // maximum, so every bonused jackpot was refused as a generic "something
   // went wrong" — and since rollOutcome re-rolls on retry, clicking again
   // paid a lower grade. Named here so a repeat says what it is, and so
   // nobody is told to try again in a way that costs them the roll.
-  if (/payout out of range/i.test(message)) {
-    return "That payout didn't add up, so nothing was written — don't retry, tell staff. Your squad is still safe.";
+  if (/payout out of range|fate beyond route|mutation beyond route|fate not in squad|fate repeated|unknown fate|unknown mutation|bad bench|bad fates|rescue needs a verdict/i.test(message)) {
+    return "That result didn't add up, so nothing was written — don't retry, tell staff. Your squad is still safe.";
   }
   return GENERIC_EXPEDITION_ERROR;
 }
@@ -99,13 +152,14 @@ const expeditionRand = () => randomBytes(6).readUIntBE(0, 6) / 2 ** 48;
  * shine the payout and the gate both read, and to learn which season they
  * belong to. The gate (`squadMeets`) is applied here as well as in the UI
  * — a disabled button has never stopped anybody — and the RPC re-checks
- * ownership, the double-deploy and the daily limit under a row lock, which
- * is the part a client can't race.
+ * ownership, the double-deploy, the bench, the consent rule, the fee and
+ * the daily limit under a row lock, which is the part a client can't race.
  */
 export async function launchExpeditionFor(
   discordId: string,
   tier: ExpeditionTierKey,
   squadIds: number[],
+  options: LaunchOptions = {},
 ): Promise<LaunchResult> {
   const def = EXPEDITION_TIERS[tier];
   if (!def) return { ok: false, error: friendlyExpeditionError("unknown tier") };
@@ -116,6 +170,13 @@ export async function launchExpeditionFor(
   const squad = Array.isArray(squadIds) ? squadIds.filter((id) => Number.isInteger(id)) : [];
   if (squad.length !== SQUAD_SIZE || new Set(squad).size !== SQUAD_SIZE) {
     return { ok: false, error: friendlyExpeditionError("squad must be three distinct cards") };
+  }
+  const target = options.target ?? null;
+  if (def.target !== "none" && (target === null || !Number.isInteger(target))) {
+    return { ok: false, error: def.target === "lost" ? "Pick the lost card to go after." : "Pick the card to cleanse." };
+  }
+  if (def.target === "afflicted" && !squad.includes(target!)) {
+    return { ok: false, error: friendlyExpeditionError("target not in squad") };
   }
 
   const service = createBettingServiceClient();
@@ -134,10 +195,38 @@ export async function launchExpeditionFor(
   if (seasons.size !== 1) return { ok: false, error: "Squad cards must come from one league." };
   const season = [...seasons][0];
 
-  const gate = squadMeets(tier, copies);
+  const gate = squadMeets(tier, copies, new Date());
   // Every reason at once, the way squadMeets reports them: a squad short
   // of two things should hear both rather than being sent back twice.
   if (!gate.ok) return { ok: false, error: gate.reasons.join(" ") };
+
+  if (def.target === "afflicted") {
+    const afflicted = copies.find((copy) => copy.id === target);
+    const key = afflicted?.card?.mutation?.key;
+    if (key !== "haunted" && key !== "cursed") return { ok: false, error: friendlyExpeditionError("card is not afflicted") };
+  }
+
+  // Insurance: a patron's first policy of the Eastern week is free, claimed
+  // by the RPC by primary-key insert so two launches can't both be free.
+  const insured = options.insured === true && def.risk !== "none";
+  let freePolicy = false;
+  let policyWeek: string | null = null;
+  if (insured) {
+    const { data: profile } = await service
+      .from("betting_profiles")
+      .select("patron_until")
+      .eq("discord_id", discordId)
+      .maybeSingle();
+    const patron = patronActive((profile as { patron_until?: string | null } | null)?.patron_until);
+    if (patron) {
+      const week = mondayOf(new Date());
+      if (!(await fetchPolicyUsed(service, discordId, week))) {
+        freePolicy = true;
+        policyWeek = week;
+      }
+    }
+  }
+  const fee = def.fee + (insured && !freePolicy ? INSURANCE_FEE : 0);
 
   const { data, error } = await service.rpc("launch_expedition", {
     p_user: discordId,
@@ -146,28 +235,80 @@ export async function launchExpeditionFor(
     p_squad: squad,
     p_shine: squadShine(copies),
     p_hours: def.durationHours,
+    p_forks: def.forks,
+    p_insured: insured,
+    p_fee: fee,
+    p_fragments: def.fragments,
+    p_target: target,
+    p_policy_week: policyWeek,
   });
   if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
 
   const row = (Array.isArray(data) ? data[0] : data) as { run_id: number; resolves_at: string } | null;
   if (!row) return { ok: false, error: GENERIC_EXPEDITION_ERROR };
-  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at };
+  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy };
 }
 
-interface RunRow {
-  id: number;
-  season: string;
-  tier: ExpeditionTierKey;
-  squad: number[];
-  shine: number;
-  started_at: string;
-  resolves_at: string;
-  claimed_at: string | null;
+const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee";
+
+async function readRun(discordId: string, runId: number): Promise<{ run: ExpeditionRun | null; error: boolean }> {
+  const service = createBettingServiceClient();
+  const { data, error } = await service
+    .from("expedition_runs")
+    .select(RUN_COLUMNS)
+    .eq("id", runId)
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  if (error) return { run: null, error: true };
+  return { run: data ? mapRun(data as Parameters<typeof mapRun>[0]) : null, error: false };
 }
 
 /**
- * Brings a finished squad home: rolls the outcome, banks it, and — for the
- * one result rare enough to be news — tells the cards channel.
+ * Answers a fork. The window and the "once" are the RPC's to check under
+ * the row lock; what is checked HERE is whether this squad can make this
+ * choice at all (a favour needs a signed card, a light a foil and a dark
+ * fork, a rally one roster), because the RPC only knows the five words.
+ */
+export async function decideForkFor(
+  discordId: string,
+  runId: number,
+  index: number,
+  choice: ForkChoice,
+): Promise<DecideResult> {
+  if (!Number.isInteger(runId) || !Number.isInteger(index)) return { ok: false, error: friendlyExpeditionError("no such fork") };
+  const { run, error } = await readRun(discordId, runId);
+  if (error) return { ok: false, error: "Couldn't read that expedition — try again." };
+  if (!run || run.tier === "lost") return { ok: false, error: friendlyExpeditionError("unknown run") };
+  if (run.claimedAt) return { ok: false, error: friendlyExpeditionError("already claimed") };
+  const open = openFork(run, new Date());
+  if (!open || open.index !== index) {
+    const view = forkViews(run, new Date())[index];
+    return { ok: false, error: friendlyExpeditionError(!view ? "no such fork" : view.status === "decided" ? "fork already decided" : view.status === "pending" ? "fork not open" : "fork closed") };
+  }
+
+  const service = createBettingServiceClient();
+  const copies = await fetchInventoryByIds(service, discordId, run.squad);
+  if (copies.length !== run.squad.length) return { ok: false, error: "Couldn't read the squad — try again." };
+  const earlier = choiceSheet(run.forks, run.choices);
+  if (!choiceAllowed(run.tier, index, choice, copies, earlier)) {
+    return { ok: false, error: "This squad can't make that choice here." };
+  }
+
+  const { data, error: rpcError } = await service.rpc("decide_expedition_fork", {
+    p_user: discordId,
+    p_run: runId,
+    p_index: index,
+    p_choice: choice,
+  });
+  if (rpcError) return { ok: false, error: friendlyExpeditionError(rpcError.message) };
+  const row = (Array.isArray(data) ? data[0] : data) as { closes_at: string } | null;
+  return { ok: true, closesAt: row?.closes_at ?? open.closesAt.toISOString() };
+}
+
+/**
+ * Brings a finished squad home: rolls the outcome, walks the route, banks
+ * it all, and — for the results rare enough to be news — tells the cards
+ * channel.
  *
  * The roll happens HERE and the RPC writes it once, which is the whole
  * anti-reroll design: `claimed_at` is the lock, so a second claim of the
@@ -178,22 +319,17 @@ interface RunRow {
 export async function claimExpeditionFor(discordId: string, runId: number): Promise<ClaimResult> {
   if (!Number.isInteger(runId)) return { ok: false, error: friendlyExpeditionError("unknown run") };
 
-  const service = createBettingServiceClient();
-  const { data, error } = await service
-    .from("expedition_runs")
-    .select("id, season, tier, squad, shine, started_at, resolves_at, claimed_at")
-    .eq("id", runId)
-    .eq("discord_id", discordId)
-    .maybeSingle();
+  const { run, error } = await readRun(discordId, runId);
   if (error) return { ok: false, error: "Couldn't read that expedition — try again." };
-  const run = data as RunRow | null;
-  if (!run) return { ok: false, error: friendlyExpeditionError("unknown run") };
-  if (run.claimed_at) return { ok: false, error: friendlyExpeditionError("already claimed") };
-  if (new Date(run.resolves_at).getTime() > Date.now()) {
+  if (!run || run.tier === "lost") return { ok: false, error: friendlyExpeditionError("unknown run") };
+  if (run.claimedAt) return { ok: false, error: friendlyExpeditionError("already claimed") };
+  if (new Date(run.resolvesAt).getTime() > Date.now()) {
     return { ok: false, error: friendlyExpeditionError("expedition still out") };
   }
+  const tier = run.tier;
 
-  const squad = (run.squad ?? []).map(Number);
+  const service = createBettingServiceClient();
+  const squad = run.squad;
   // Only the roles are wanted (the brief), and the shine was frozen into
   // the row at launch — re-deriving it here would let a card signed or
   // re-graded mid-run change a payout the player already committed to.
@@ -217,27 +353,63 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // sent it out; scoring a 48-hour Legend Hunt against whatever the board
   // says two days later would make the bonus a lottery on the return time
   // instead of a reason to swap a card.
-  const dateIso = easternDateOf(new Date(run.started_at));
-  const outcome = rollOutcome(run.tier, run.shine, copies, dateIso, expeditionRand);
+  const dateIso = easternDateOf(new Date(run.startedAt));
+  const base = rollOutcome(tier, run.shine, copies, dateIso, expeditionRand);
 
   // Which copy wears the mark. Uniform over the squad and drawn AFTER the
   // outcome, so the mark's odds and its bearer stay independent — no card
   // is luckier than the two beside it. `min` is for the theoretical rand()
   // === 1 that a [0,1) generator never produces.
-  const bearerId = outcome.mark
+  const bearerId = base.mark
     ? squad[Math.min(squad.length - 1, Math.floor(expeditionRand() * squad.length))] ?? null
     : null;
 
-  const { data: claimData, error: claimError } = await service.rpc("claim_expedition", {
+  // The route: what the forks made of it and what the squad looks like.
+  const route = resolveRoute(
+    {
+      tier,
+      forks: run.forks,
+      copies,
+      choices: choiceSheet(run.forks, run.choices),
+      insured: run.insured,
+      grade: base.grade,
+      target: run.target,
+      now: new Date(),
+    },
+    expeditionRand,
+  );
+  const dollars = Math.round(base.dollars * route.lootMultiplier);
+  const outcome: ExpeditionOutcome = { ...base, dollars };
+  // A dead card cannot wear the mark.
+  const dead = new Set(route.fates.filter((fate) => fate.fate === "dead").map((fate) => fate.id));
+  const bearer = bearerId !== null && dead.has(bearerId) ? null : bearerId;
+
+  const { data: claimData, error: claimError } = await service.rpc("resolve_expedition", {
     p_user: discordId,
     p_run: runId,
-    p_grade: outcome.grade,
-    // Never null: rollOutcome always returns numbers, and the RPC's guards
-    // are permissive about nulls rather than protective.
-    p_dollars: outcome.dollars,
-    p_comp: outcome.comp,
-    p_mark: outcome.mark,
-    p_bearer: bearerId,
+    p_outcome: {
+      grade: outcome.grade,
+      // Never null: rollOutcome always returns numbers, and the RPC's guards
+      // are permissive about nulls rather than protective.
+      dollars,
+      baseDollars: base.dollars,
+      comp: outcome.comp,
+      mark: bearer === null ? null : outcome.mark,
+      bearer,
+      briefHit: outcome.briefHit,
+      lootMultiplier: route.lootMultiplier,
+      pushes: route.pushes,
+      fragments: route.fragments,
+      fates: route.fates.map((fate) => ({
+        id: fate.id,
+        fate: fate.fate,
+        mutation: fate.mutation,
+        ...(fate.woundedUntil ? { until: fate.woundedUntil } : {}),
+      })),
+      events: route.events,
+      rescued: route.rescued,
+      cleansed: route.cleansed,
+    },
   });
   if (claimError) {
     // The raw message, always: the friendly text is deliberately vague and
@@ -246,22 +418,151 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     console.error("expeditions: claim rejected", { discordId, runId, message: claimError.message });
     return { ok: false, error: friendlyExpeditionError(claimError.message) };
   }
-  const balanceRow = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number } | null;
+  const row = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number; fragments: number } | null;
 
-  // The rarest result in the feature, and the only one worth a ping. Best
-  // effort, after the write: the dollars and the mark are already
-  // committed, and a Discord outage must never fail a claim that paid.
-  if (run.tier === "legend" && outcome.grade === "jackpot") {
+  // The news, best effort and AFTER the write: the dollars and the stamps
+  // are already committed, and a Discord outage must never fail a claim
+  // that paid.
+  await announceClaim(discordId, tier, outcome, route, copies);
+
+  return {
+    ok: true,
+    outcome,
+    route,
+    bearerId: bearer,
+    balance: Number(row?.balance ?? 0),
+    fragments: Number(row?.fragments ?? 0),
+    baseDollars: base.dollars,
+  };
+}
+
+async function announceClaim(
+  discordId: string,
+  tier: ExpeditionTierKey,
+  outcome: ExpeditionOutcome,
+  route: RouteResult,
+  copies: CardCopy[],
+): Promise<void> {
+  const nameOf = (id: number) => copies.find((copy) => copy.id === id)?.playerName ?? `#${id}`;
+  const embeds: { title: string; description: string; color: number }[] = [];
+  if (tier === "legend" && outcome.grade === "jackpot") {
+    embeds.push({
+      title: "Legend Hunt — jackpot",
+      description: `<@${discordId}>'s Legend Hunt struck gold: ${outcome.dollars} dollars${outcome.comp ? ", a free pack" : ""}${outcome.mark ? ", and a card came back wearing the Legend Finish" : ""}.`,
+      color: GOLD,
+    });
+  }
+  const voidtouched = route.fates.filter((fate) => fate.mutation === "voidtouched");
+  if (voidtouched.length > 0) {
+    embeds.push({
+      title: "Back from the Legendary route — Voidtouched",
+      description: `<@${discordId}>'s ${voidtouched.map((fate) => nameOf(fate.id)).join(" and ")} went somewhere the map does not show, and came home Voidtouched.`,
+      color: GOLD,
+    });
+  }
+  const dead = route.fates.filter((fate) => fate.fate === "dead");
+  if (dead.length > 0) {
+    embeds.push({
+      title: "Lost on the Legendary route",
+      description: `<@${discordId}>'s ${dead.map((fate) => nameOf(fate.id)).join(" and ")} did not come home. ${dead.length === 1 ? "It rests" : "They rest"} in the graveyard.`,
+      color: LIVE_RED,
+    });
+  }
+  for (const embed of embeds) {
     try {
-      await postCardsWebhook({
-        title: "Legend Hunt — jackpot",
-        description: `<@${discordId}>'s Legend Hunt struck gold: ${outcome.dollars} dollars${outcome.comp ? ", a free pack" : ""}${outcome.mark ? ", and a card came back wearing the Legend Finish" : ""}.`,
-        color: GOLD,
-      });
+      await postCardsWebhook(embed);
     } catch (announceError) {
-      console.error("expeditions: legend jackpot announcement failed", announceError);
+      console.error("expeditions: announcement failed", announceError);
     }
   }
+}
 
-  return { ok: true, outcome, bearerId, balance: Number(balanceRow?.balance ?? 0) };
+/** Buys a lost card back. The price is read off the card here and range-
+ *  checked by the RPC; the hold is released and the card comes home
+ *  wounded, exactly as a rescue would bring it. */
+export async function ransomLostCardFor(discordId: string, holdId: number): Promise<RansomResult> {
+  if (!Number.isInteger(holdId)) return { ok: false, error: friendlyExpeditionError("no such lost card") };
+  const { run: hold, error } = await readRun(discordId, holdId);
+  if (error) return { ok: false, error: "Couldn't read that card — try again." };
+  if (!hold || hold.tier !== "lost" || hold.claimedAt || hold.squad.length !== 1) {
+    return { ok: false, error: friendlyExpeditionError("no such lost card") };
+  }
+  const service = createBettingServiceClient();
+  const [copy] = await fetchInventoryByIds(service, discordId, hold.squad);
+  if (!copy) return { ok: false, error: friendlyExpeditionError("no such lost card") };
+  const paid = ransomFor(copy);
+  const { data, error: rpcError } = await service.rpc("ransom_lost_card", {
+    p_user: discordId,
+    p_hold: holdId,
+    p_dollars: paid,
+  });
+  if (rpcError) return { ok: false, error: friendlyExpeditionError(rpcError.message) };
+  const row = (Array.isArray(data) ? data[0] : data) as { balance: number } | null;
+  return { ok: true, balance: Number(row?.balance ?? 0), paid };
+}
+
+/**
+ * The sweep, hit by the cron every few minutes: pings every fork that has
+ * opened since the last pass, and buries every lost card whose week ran
+ * out. Neither needs a client present — silence is already a choice, and
+ * the grave is the RPC's — so this is only the part that talks.
+ */
+export async function sweepExpeditions(now = new Date()): Promise<{ pinged: number; buried: number; errors: string[] }> {
+  const service = createBettingServiceClient();
+  const errors: string[] = [];
+  let buried = 0;
+  let pinged = 0;
+
+  const { data: buriedCount, error: buryError } = await service.rpc("expire_lost_cards");
+  if (buryError) errors.push(`expire: ${buryError.message}`);
+  else buried = Number(buriedCount ?? 0);
+
+  const { data, error } = await service
+    .from("expedition_runs")
+    .select("id, discord_id, tier, forks, choices, started_at, resolves_at, pinged")
+    .is("claimed_at", null)
+    .gt("forks", 0)
+    .limit(200);
+  if (error) {
+    errors.push(`forks: ${error.message}`);
+    return { pinged, buried, errors };
+  }
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  for (const row of (data as {
+    id: number;
+    discord_id: string;
+    tier: string;
+    forks: number;
+    choices: RecordedChoice[] | null;
+    started_at: string;
+    resolves_at: string;
+    pinged: number;
+  }[]) ?? []) {
+    const open = openFork(
+      { startedAt: row.started_at, resolvesAt: row.resolves_at, forks: row.forks, choices: row.choices ?? [] },
+      now,
+    );
+    if (!open || open.index < Number(row.pinged ?? 0)) continue;
+    const label = EXPEDITION_TIERS[row.tier as ExpeditionTierKey]?.label ?? row.tier;
+    const by = open.closesAt.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+    try {
+      await postCardsWebhook(
+        {
+          title: `${label} — the squad is at a fork`,
+          description: `Decide by ${by} ET or the squad takes the safe way. ${site ? `${site}/cards/expeditions` : ""}`.trim(),
+          color: GOLD,
+        },
+        `<@${row.discord_id}> your ${label} has reached a fork.`,
+      );
+      const { error: markError } = await service
+        .from("expedition_runs")
+        .update({ pinged: open.index + 1 })
+        .eq("id", row.id);
+      if (markError) errors.push(`ping ${row.id}: ${markError.message}`);
+      else pinged += 1;
+    } catch (pingError) {
+      errors.push(`ping ${row.id}: ${pingError instanceof Error ? pingError.message : String(pingError)}`);
+    }
+  }
+  return { pinged, buried, errors };
 }

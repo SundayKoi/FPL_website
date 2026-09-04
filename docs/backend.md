@@ -232,7 +232,7 @@ Postgres database and public schema:
 | Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per UTC date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared daily-game reward on a correct answer. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
 | Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
-| Card expeditions | `expedition_runs` | One row per squad sent out: the three `card_inventory` copies, the tier, the squad's shine, when it resolves, and the rolled outcome once it is claimed. Owners read their own runs; every write goes through `launch_expedition`/`claim_expedition`. A `card_inventory` trigger keeps a deployed copy from leaving the collection. |
+| Card expeditions | `expedition_runs`, `expedition_supplies`, `expedition_policies`, `expedition_graveyard` | One row per squad sent out: the three `card_inventory` copies, the tier (six runs, plus `lost` — the HOLD on a lost card, which reuses the deploy lock), the squad's shine, its forks and the choices made at them, insurance, a target card, the fee, when it resolves, and the whole outcome once it is claimed. Supplies hold map fragments; policies are a patron's weekly free insurance, claimed by primary-key insert; the graveyard keeps dead cards. Owners read their own rows; every write goes through `launch_expedition` / `decide_expedition_fork` / `resolve_expedition` / `ransom_lost_card` / `expire_lost_cards`. `card_inventory.mutation` is a generated column off the card json; `card_inventory_expedition_guard` keeps a deployed or lost copy from leaving the collection and `card_inventory_curse_guard` keeps a fresh Cursed card off the market. |
 | Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
 | Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
 | Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
@@ -377,9 +377,10 @@ Important RPC families include:
   refuses a lineup identical to the player's last one (`sameLineup`,
   compared as a set of inventory ids) — checked before the fee is taken, so
   a refused entry never costs anything.
-- Expedition payouts are guarded at `maxExpeditionPayout()` (3,600 = the
-  best base x the shine cap x the brief bonus), and a test reads the
-  literal out of `20260906000001_expedition_payout_ceiling.sql` so the
+- Expedition payouts are guarded at `maxExpeditionPayout()` (11,250 = the
+  best base x the shine cap x the brief bonus x the loot-multiplier cap),
+  and a test reads the literal out of
+  `20260914000001_expedition_routes.sql` (`resolve_expedition`) so the
   TypeScript and the SQL cannot drift. They did once: the guard shipped as
   the legend jackpot's BASE (2,000) rather than its maximum, so every
   bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
@@ -398,15 +399,31 @@ Important RPC families include:
   numbers differ per family precisely because the beats are not equal in
   value. The bracket is still priced off the raw lineup average, so an
   heirloom is an edge the same way Fresh Legs is.
-- Card expeditions: `launch_expedition` validates the squad, confirms the
+- Card expeditions: `launch_expedition` (v3, twelve arguments; the old
+  six-argument signature is a wrapper) validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
-  per tier — `tier already out`) and the per-day launch limit under the
-  same wallet lock, and refuses a copy that is already deployed. `claim_expedition`
-  writes the app-rolled outcome exactly once — `claimed_at` is the reroll
-  lock — pays the dollars through `betting_ledger`, adds the pack comp, and
-  replaces the bearer's mark only when the new one outranks the mark it
-  already wears. Both are service-role only; the shine, gates, odds, and
-  payouts they are handed come from `src/lib/expeditions/config.ts`.
+  per tier — `tier already out`; holds never occupy one) and the per-day
+  launch limit under the same wallet lock, refuses a copy that is already
+  deployed or lost, wounded (`card is wounded`), or one of one on a route
+  past wounded (`card is one of one`), checks a Rescue's hold and an
+  Exorcism's afflicted target, spends fragments and the weekly free policy
+  (primary-key insert, `policy already used`), and debits the fee last.
+  `decide_expedition_fork` records one answer per fork inside the window
+  `expedition_fork_window` computes (`fork not open` / `fork closed` /
+  `fork already decided`). `resolve_expedition` takes the whole app-rolled
+  outcome as json, checks every field against the route (a death only on
+  the Legendary route, a loss only where the ladder allows one, a
+  Voidtouched stamp only off the Legendary route, one mutation per copy),
+  claims FIRST so the deploy guard releases the squad, then stamps wounds
+  and mutations, inserts a `lost` hold per lost card, buries and deletes a
+  dead card (provenance records `died`, via the `fpl.card_fate` GUC),
+  releases a rescued card's hold, strips an exorcised card's stamp, and
+  pays the dollars, the comp and the fragments. `claimed_at` is still the
+  reroll lock. `ransom_lost_card` debits the wallet and releases a hold;
+  `expire_lost_cards` buries every hold past its week (the sweep calls
+  it). All service-role only; the shine, gates, odds, payouts and every
+  fork's story come from `src/lib/expeditions/config.ts` and
+  `src/lib/expeditions/routes.ts`.
 
 ## Player identity and My Team
 
@@ -713,6 +730,54 @@ webhook from inside `transition`, after the commit and best-effort. Cards
 on the felt carry an `art` path — `/copy/<id>/card.png` for an owned copy,
 `/card/<slug>/card.png?w=<week>` for an edition card — and `MiniCard`
 draws it. Patronage never touches any of it.
+
+### Expedition routes
+
+A run is a route with forks (`src/lib/expeditions/routes.ts`): N forks
+split it into N+1 legs, fork i opens at the end of leg i+1 and closes at
+the end of the next, and `expedition_fork_window` computes the same window
+in SQL that `forkWindows` computes for the page. A fork is answered by
+`decideForkFor` (which first checks that THIS squad can make THIS choice —
+a favour needs a signed card, a light a foil and a dark fork, a rally one
+roster — before the RPC checks the window) or by silence, which
+`resolveRoute` reads as camp. Nothing sweeps a silent fork; the sweep
+(`sweepExpeditions`, `/api/expeditions/sweep`, `*/5 * * * *` in
+`vercel.json`) only pings each fork once as it opens — with a real mention
+in the message `content`, because a mention inside an embed never
+notifies — and buries holds past their week.
+
+The claim (`claimExpeditionFor`) rolls the base outcome as before, then
+walks the route with the recorded choices: each push adds to a loot
+multiplier and rolls one harm on one living card (wounded, lost, dead in
+that order, dead only on the Legendary route and only once the run has
+pushed twice); a warned fork's harm comes with a Cursed stamp; the Legend
+Hunt's second checkpoint haunts a camper; every Legendary fork bites even
+a camper and every survivor of it comes home Voidtouched (a second at 25%);
+a one-roster Legend Hunt ignored twice loses all three; a Cursed card sent
+out again on a route that can lose it may not come back; insurance steps
+every fate down one rung, last. The whole result goes to
+`resolve_expedition` as one document. A dead card is deleted the way a
+dusted one is (so nothing else on the site can touch it) and remembered in
+`expedition_graveyard`; a lost card stays in `card_inventory` inside a
+`lost` hold row, so the existing deploy lock — the trigger, the greyed
+chips, the market refusals — covers it with no new guard, and
+`ransom_lost_card` or a successful Rescue releases the hold.
+
+Mutations are stamped into `card.mutation` (`{key, date, run}`) and lifted
+into the generated `card_inventory.mutation` column. `PlayerCard3D` reads
+`card.mutation` itself, so a minted mutation shows on every surface.
+`MUTATION_EFFECTS` (`src/lib/cards/mutations.ts`) is the one table the
+scorers read: Fantasy multiplies the slot (`scoreLineup`, through the live
+`CurrentIdentity` read, with an Irradiated flare drawn deterministically
+from the copy and the week), the Gauntlet adds to the card's bars in
+`statOf` and folds the lineup's `mutationEffects` in as relic effects (the
+heirloom pattern), dust pricing multiplies the whole value in
+`dustValueOf`, auto-dust never touches a mutated copy, and the market's
+Cursed refusal is `card_inventory_curse_guard` (seven days from the
+stamp's date, so an Exorcism lifts it at once). The Gauntlet also refuses
+a deployed, lost or wounded card at entry, which it never checked before.
+The copy on the page and on `/admin/mutations` derives its numbers from
+the same table.
 
 ### Auto-dust
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WeeklyRawStatRow } from "@/lib/stats/weekly";
 import {
   currentIdentity,
+  flares,
   inventoryIdsIn,
   scoreLineup,
   weeklyScoresBySlug,
@@ -139,6 +140,43 @@ describe("scoreLineup", () => {
   });
 });
 
+
+describe("mutations reach the score", () => {
+  const fielded: StoredSlots = { Mid: slot("Sable", "sable-na1", 70, 77) };
+  const scores = new Map([["sable-na1", 60]]);
+
+  it("multiplies the slot by the mutation the copy wears now", () => {
+    expect(scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "voidtouched" }]])).score).toBe(72);
+    expect(scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "haunted" }]])).score).toBe(51);
+    expect(scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "cursed" }]])).score).toBe(45);
+    expect(scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "hardened" }]])).score).toBe(60);
+    const plain = scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: null }]]));
+    expect(plain.score).toBe(60);
+    expect(plain.breakdown.Mid?.mutation).toBeUndefined();
+  });
+
+  it("says why in the breakdown", () => {
+    const result = scoreLineup(fielded, scores, new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "cursed" }]]));
+    expect(result.breakdown.Mid).toEqual({ slug: "sable-na1", playerName: "Sable", points: 45, mutation: "cursed" });
+  });
+
+  it("flares an Irradiated card out on some weeks and not others, the same way every time", () => {
+    const identities = new Map([[77, { slug: "sable-na1", playerName: "Sable", mutation: "irradiated" as const }]]);
+    const weeks = Array.from({ length: 60 }, (_, i) => `2026-${String(1 + (i % 12)).padStart(2, "0")}-${String(1 + (i % 28)).padStart(2, "0")}`);
+    const results = weeks.map((week) => scoreLineup(fielded, scores, identities, week));
+    const flared = results.filter((r) => r.score === 0);
+    const hot = results.filter((r) => r.score === 66);
+    expect(flared.length).toBeGreaterThan(0);
+    expect(hot.length).toBeGreaterThan(flared.length);
+    expect(flared.length + hot.length).toBe(weeks.length);
+    expect(flared[0].breakdown.Mid?.flared).toBe(true);
+    // Deterministic: the dry run and the real run agree.
+    expect(scoreLineup(fielded, scores, identities, weeks[0]).score).toBe(results[0].score);
+    // Roughly one in six over many draws.
+    const rate = flares(77, "", 1 / 6) ? 1 : 0;
+    expect(rate === 0 || rate === 1).toBe(true);
+  });
+});
 
 describe("a Riot rename must not zero the lineup that fielded him", () => {
   // Imperialarcher#ezpz became Archêr#ezpz. The slot kept the slug it was
