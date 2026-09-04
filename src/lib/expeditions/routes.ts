@@ -465,6 +465,10 @@ export interface RouteResult {
 
 export interface RouteInput {
   tier: ExpeditionTierKey;
+  /** How many forks the RUN had. A run launched before forks existed has
+   *  none, and walks none — its squad never saw a checkpoint. Defaults to
+   *  the tier's count. */
+  forks?: number;
   copies: CardCopy[];
   /** One per fork, null for silence. */
   choices: (ForkChoice | null)[];
@@ -503,6 +507,10 @@ export const FRAGMENT_CHANCE: Partial<Record<ExpeditionTierKey, Partial<Record<O
 /** A second survivor comes home Voidtouched this often; the first always. */
 export const VOIDTOUCHED_SECOND_CHANCE = 0.25;
 
+/** A Cursed card sent out again on a route that can lose it has this
+ *  chance of not coming back. A curse you ignore compounds. */
+export const CURSED_AGAIN_LOST = 0.15;
+
 /** The Rescue roll: a floor everyone gets, plus shine, capped. */
 export const RESCUE_BASE = 0.45;
 export const RESCUE_PER_SHINE = 0.015;
@@ -529,7 +537,7 @@ export function rescueChance(copies: CardCopy[], pushed: boolean): number {
  * without drawing, so a scripted queue in a test reads left to right.
  */
 export function resolveRoute(input: RouteInput, rand: () => number): RouteResult {
-  const forks = FORKS[input.tier];
+  const forks = FORKS[input.tier].slice(0, input.forks ?? EXPEDITION_TIERS[input.tier].forks);
   const abilities = squadAbilities(input.copies);
   const events: RouteEvent[] = [];
   const woundedUntil = new Date(input.now.getTime() + WOUNDED_HOURS * 3_600_000).toISOString();
@@ -650,6 +658,18 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
   // The finale.
   let rescued: boolean | null = null;
   let cleansed: number | null = null;
+
+  // A curse you ignore compounds: a Cursed card out again on a route that
+  // can lose it may not come back. Only where the route can lose a card —
+  // a raid cannot, and the claim RPC would refuse a loss there anyway.
+  if (input.tier === "legend" || input.tier === "legendary") {
+    for (const copy of alive()) {
+      if (copy.card?.mutation?.key === "cursed" && fates.get(copy.id)!.fate !== "lost" && decide(CURSED_AGAIN_LOST, rand)) {
+        harm(copy.id, "lost");
+        events.push({ fork: null, tone: "bad", text: `${nameOf(copy.id)} was Cursed, and went out anyway. It did not come back.` });
+      }
+    }
+  }
 
   if (input.tier === "legend" && abilities.rally && silences >= 2) {
     // The chemistry that helps you is the same thing that sinks you: a

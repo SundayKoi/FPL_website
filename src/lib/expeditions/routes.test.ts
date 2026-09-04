@@ -306,6 +306,25 @@ describe("resolveRoute", () => {
     expect(resolveRoute({ ...base, tier: "scout", choices: [null], grade: "jackpot" }, always(0.1)).fragments).toBe(0);
   });
 
+  it("a Cursed card sent out again can be lost, but only where the route can lose it", () => {
+    const cursed = [copy({ id: 1, card: { mutation: { key: "cursed" } } }), copy({ id: 2 }), copy({ id: 3 })];
+    // legend, all silent: fork 1's haunted roll 0.99 misses; the curse roll 0.1 hits.
+    const gone = resolveRoute({ ...base, copies: cursed, tier: "legend", choices: [null, null, null] }, script([0.99, 0.1]));
+    expect(fates(gone)[1]).toBe("lost");
+    const raid = resolveRoute({ ...base, copies: cursed, tier: "raid", choices: [null, null] }, always(0));
+    expect(fates(raid)[1]).toBe("home");
+  });
+
+  it("walks no forks for a run launched before forks existed", () => {
+    let draws = 0;
+    const result = resolveRoute({ ...base, tier: "legendary", forks: 0, choices: [] }, () => { draws += 1; return 0; });
+    // No forks, but the finale still runs: the first Voidtouched pick.
+    expect(result.pushes).toBe(0);
+    expect(result.silences).toBe(0);
+    expect(draws).toBeGreaterThanOrEqual(1);
+    expect(resolveRoute({ ...base, tier: "raid", forks: 0, choices: [] }, always(0)).silences).toBe(0);
+  });
+
   it("caps the loot multiplier", () => {
     const team = [copy({ id: 1, card: { teamName: "A" } }), copy({ id: 2, card: { teamName: "A" } }), copy({ id: 3, card: { teamName: "A" } })];
     const choices: ForkChoice[] = ["rally", "rally", "rally", "rally"];

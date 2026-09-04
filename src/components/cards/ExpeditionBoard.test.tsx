@@ -114,6 +114,11 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
     resolvesAt: new Date(Date.now() + 1.5 * HOUR).toISOString(),
     outcome: null,
     claimedAt: null,
+    forks: 0,
+    choices: [],
+    insured: false,
+    target: null,
+    fee: 0,
     ...over,
   };
 }
@@ -419,7 +424,10 @@ describe("ExpeditionBoard — the field log", () => {
       startedAt: LATE_ON_THE_FIRST,
       resolvesAt: "2026-09-02T10:00:00.000Z",
       claimedAt: "2026-09-02T10:30:00.000Z",
-      outcome: { grade: "solid", dollars: 120, comp: false, mark: null, bearer: null },
+      outcome: {
+        grade: "solid", dollars: 120, comp: false, mark: null, bearer: null,
+        lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      },
     });
   }
 

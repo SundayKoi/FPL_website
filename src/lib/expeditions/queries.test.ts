@@ -75,6 +75,12 @@ describe("fetchRuns", () => {
         resolvesAt: "2026-08-28T18:00:00.000Z",
         outcome: null,
         claimedAt: null,
+        // A row from before forks: the columns read as their defaults.
+        forks: 0,
+        choices: [],
+        insured: false,
+        target: null,
+        fee: 0,
       },
       {
         id: 3,
@@ -83,8 +89,16 @@ describe("fetchRuns", () => {
         shine: 30,
         startedAt: "2026-08-25T18:00:00.000Z",
         resolvesAt: "2026-08-27T18:00:00.000Z",
-        outcome: { grade: "jackpot", dollars: 520, comp: true, mark: "legend", bearer: 22 },
+        outcome: {
+          grade: "jackpot", dollars: 520, comp: true, mark: "legend", bearer: 22,
+          lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+        },
         claimedAt: "2026-08-27T19:00:00.000Z",
+        forks: 0,
+        choices: [],
+        insured: false,
+        target: null,
+        fee: 0,
       },
     ]);
     expect(service.calls[0]).toMatchObject({

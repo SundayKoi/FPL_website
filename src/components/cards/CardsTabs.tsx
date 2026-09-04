@@ -33,6 +33,7 @@ export default function CardsTabs({
   league,
   balance = null,
   offers = 0,
+  forks = 0,
 }: {
   league: CardLeague;
   /** The viewer's betting dollars, or null when signed out. Shown at the
@@ -41,6 +42,9 @@ export default function CardsTabs({
   /** Trade offers waiting on the viewer — a badge on Market and on the
    *  Trade offers sub-tab, the only in-app sign that anyone wants a word. */
   offers?: number;
+  /** Expedition forks waiting on the viewer — a badge on Play and on the
+   *  Expeditions sub-tab. A squad is standing still until they answer. */
+  forks?: number;
 }) {
   const pathname = usePathname() ?? BASES[league];
   const base = BASES[league];
@@ -65,6 +69,7 @@ export default function CardsTabs({
                 >
                   {section.label}
                   {section.key === "market" ? <Badge count={offers} label="trade offers waiting" /> : null}
+                  {section.key === "play" ? <Badge count={forks} label="expedition forks waiting" /> : null}
                 </Link>
               </li>
             );
@@ -98,6 +103,7 @@ export default function CardsTabs({
                   >
                     {child.label}
                     {child.href.endsWith("/trades") ? <Badge count={offers} label="trade offers waiting" /> : null}
+                    {child.href.endsWith("/expeditions") ? <Badge count={forks} label="expedition forks waiting" /> : null}
                   </Link>
                 </li>
               );

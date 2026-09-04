@@ -15,6 +15,11 @@ function run(overrides: Partial<ExpeditionRun>): ExpeditionRun {
     resolvesAt: "2026-08-26T18:00:00Z",
     outcome: null,
     claimedAt: null,
+    forks: 0,
+    choices: [],
+    insured: false,
+    target: null,
+    fee: 0,
     ...overrides,
   } as ExpeditionRun;
 }
@@ -44,7 +49,13 @@ describe("playStatuses", () => {
   });
 
   it("puts a squad waiting to be collected ahead of one still out", () => {
-    const back = run({ id: 1, outcome: { grade: "solid", dollars: 100, comp: false, mark: null, bearer: null } });
+    const back = run({
+      id: 1,
+      outcome: {
+        grade: "solid", dollars: 100, comp: false, mark: null, bearer: null,
+        lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      },
+    });
     const out = run({ id: 2, resolvesAt: "2026-08-26T20:30:00Z" });
     expect(playStatuses({ ...quiet, expeditions: [out, back] }).expeditions).toEqual({
       text: "A squad is back — collect what they brought",
@@ -53,6 +64,31 @@ describe("playStatuses", () => {
     expect(playStatuses({ ...quiet, expeditions: [out] }).expeditions?.text).toBe("A squad is out · back Wed 4:30 PM");
     // Collected runs are history, not status.
     expect(playStatuses({ ...quiet, expeditions: [run({ ...back, claimedAt: "2026-08-26T14:00:00Z" })] }).expeditions?.tone).toBe("quiet");
+  });
+
+  it("puts a fork waiting on an answer ahead of everything, and a missing card ahead of a squad out", () => {
+    // A 24h raid with two forks launched at 06:00Z: the first fork opened at
+    // 14:00Z and closes at 22:00Z; it is 15:00Z.
+    const atFork = run({ id: 3, startedAt: "2026-08-26T06:00:00Z", resolvesAt: "2026-08-27T06:00:00Z", forks: 2 });
+    const back = run({
+      id: 1,
+      outcome: {
+        grade: "solid", dollars: 100, comp: false, mark: null, bearer: null,
+        lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      },
+    });
+    expect(playStatuses({ ...quiet, expeditions: [back, atFork] }).expeditions).toEqual({
+      text: "A squad is waiting at a fork — decide by Wed 6:00 PM",
+      tone: "open",
+    });
+    // Answered, it is just a squad out again.
+    const answered = run({ ...atFork, choices: [{ index: 0, choice: "push", at: "" }] });
+    expect(playStatuses({ ...quiet, expeditions: [answered] }).expeditions?.tone).toBe("done");
+    const hold = run({ id: 4, tier: "lost", squad: [9], resolvesAt: "2026-09-02T15:00:00Z" });
+    expect(playStatuses({ ...quiet, expeditions: [hold, answered] }).expeditions).toEqual({
+      text: "A card is missing — rescue or ransom by Wed 11:00 AM",
+      tone: "open",
+    });
   });
 
   it("reports a seat, then open tables, then the rules, and nothing where there is no Showdown", () => {

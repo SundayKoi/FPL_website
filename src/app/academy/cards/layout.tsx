@@ -11,7 +11,7 @@ export default async function AcademyCardsLayout({ children }: { children: React
   const status = await cardsShelfStatus("academy");
   return (
     <div className="flex flex-1 flex-col">
-      <CardsTabs league="academy" balance={status.balance} offers={status.offers} />
+      <CardsTabs league="academy" balance={status.balance} offers={status.offers} forks={status.forks} />
       {children}
     </div>
   );

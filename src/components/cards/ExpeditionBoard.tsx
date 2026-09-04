@@ -384,7 +384,7 @@ export default function ExpeditionBoard({
           <h2 className="type-display text-2xl sm:text-3xl">In the field</h2>
           <ul className="flex flex-col gap-2">
             {active.map((run) => {
-              const def = EXPEDITION_TIERS[run.tier];
+              const def = EXPEDITION_TIERS[run.tier as ExpeditionTierKey];
               return (
                 <li
                   key={run.id}
@@ -578,7 +578,7 @@ export default function ExpeditionBoard({
                 key={run.id}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-line bg-panel px-3 py-1.5 text-xs"
               >
-                <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier]?.label ?? run.tier}</span>
+                <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier as ExpeditionTierKey]?.label ?? run.tier}</span>
                 <span className="text-steel">
                   {/* Pinned to Eastern for RunStatus' reason: without a
                       timeZone the server formats in UTC and the browser in
