@@ -96,10 +96,16 @@ export function DraftPickSlot({
         {/* The pick number rides on the label line — it used to be a
             separate pill pinned to the corner, which sat on top of the
             role and hid it ("JUNGLE" read as "NGLE"). */}
-        <span title={pick.pickNumber ? `Pick ${pick.pickNumber}` : undefined}>
-          {pick.role ? pick.role : pickLabel}
-          {pick.pickNumber ? ` · P${pick.pickNumber}` : ""}
-        </span>
+        {pick.role ? (
+          <span title={pick.pickNumber ? `Pick ${pick.pickNumber}` : undefined}>
+            {pick.pickNumber ? `${pick.role} · P${pick.pickNumber}` : pick.role}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <span>{pickLabel}</span>
+            {pick.pickNumber ? <span title={`Pick ${pick.pickNumber}`}>· P{pick.pickNumber}</span> : null}
+          </span>
+        )}
         {pick.role ? <span className="sr-only">{pick.role}</span> : null}
         <span className="flex items-center gap-1.5">
           {onRequestChange ? (
