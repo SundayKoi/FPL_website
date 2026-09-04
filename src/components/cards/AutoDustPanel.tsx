@@ -146,11 +146,18 @@ export default function AutoDustPanel({ initialRule, candidates }: { initialRule
               <input type="checkbox" checked={rule.skipSigned} onChange={(event) => set("skipSigned", event.target.checked)} />
               Never signed
             </label>
+            <label className="flex items-center gap-2" title="Count the keep for each week's print of a player separately, so last week's print survives this week's.">
+              <input type="checkbox" checked={rule.perEdition} onChange={(event) => set("perEdition", event.target.checked)} />
+              Keep per week, not per player
+            </label>
           </div>
           <p className="text-xs text-steel">
             Right now this rule would take <b className="text-white">{preview.length}</b> {preview.length === 1 ? "copy" : "copies"} off
-            your shelf. It never touches an Eclipse, a moment, a relic or a plate, and it keeps your best copy of a player first:
-            signed, then foil, then the highest overall.
+            your shelf. It never touches an Eclipse, a moment, a relic, a plate or a mutated card, and it keeps your best copy of a
+            player first: signed, then foil, then the highest overall.{" "}
+            {rule.perEdition
+              ? "Each week's print of a player is counted on its own."
+              : "Every week's print of a player counts as one group — turn on \"keep per week\" to keep one from each."}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={save} disabled={pending || !dirty} className="btn-pill px-4 py-1.5 text-xs disabled:opacity-50">
