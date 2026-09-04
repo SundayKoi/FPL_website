@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_AUTO_DUST, eligibleForAutoDust, normalizeRule, selectAutoDust, type AutoDustCandidate, type AutoDustRule } from "./autoDust";
+import { DEFAULT_AUTO_DUST, eligibleForAutoDust, keepGroupOf, normalizeRule, selectAutoDust, type AutoDustCandidate, type AutoDustRule } from "./autoDust";
 
 let n = 0;
 const copy = (slug: string, tier: string, overall: number, extra: Partial<AutoDustCandidate> = {}): AutoDustCandidate => ({
@@ -68,6 +68,30 @@ describe("auto-dust", () => {
     expect(selectAutoDust([pull], rule, new Map([["doug", 1]]))).toEqual([pull.id]);
     expect(selectAutoDust([pull], rule, new Map())).toEqual([]);
     expect(selectAutoDust([pull], { ...rule, keepCopies: 2 }, new Map([["doug", 1]]))).toEqual([]);
+  });
+
+  it("keeps one of each week's print when the rule says per edition, and one per player otherwise", () => {
+    // Two prints of the same player, a week apart, both under the thresholds.
+    const older = copy("doug", "bronze", 40, { editionWeek: "2026-08-17" });
+    const newer = copy("doug", "bronze", 45, { editionWeek: "2026-08-24" });
+    // Per player: the higher overall is kept and the older print goes.
+    expect(selectAutoDust([older, newer], rule)).toEqual([older.id]);
+    // Per edition: each week is its own group, so both are the one kept.
+    expect(selectAutoDust([older, newer], { ...rule, perEdition: true })).toEqual([]);
+    // A second copy of the SAME print is still an extra under either.
+    const dupe = copy("doug", "bronze", 30, { editionWeek: "2026-08-24" });
+    expect(selectAutoDust([older, newer, dupe], { ...rule, perEdition: true })).toEqual([dupe.id]);
+  });
+
+  it("counts the shelf behind a rip per edition when the rule does", () => {
+    const pull = copy("doug", "bronze", 40, { editionWeek: "2026-08-24" });
+    const perEdition = { ...rule, perEdition: true };
+    // Last week's print on the shelf does not count against this week's keep…
+    expect(selectAutoDust([pull], perEdition, new Map([["doug|2026-08-17", 1]]))).toEqual([]);
+    // …but the same print does.
+    expect(selectAutoDust([pull], perEdition, new Map([["doug|2026-08-24", 1]]))).toEqual([pull.id]);
+    expect(keepGroupOf({ slug: "doug", editionWeek: "2026-08-24" }, perEdition)).toBe("doug|2026-08-24");
+    expect(keepGroupOf({ slug: "doug", editionWeek: "2026-08-24" }, rule)).toBe("doug");
   });
 
   it("with keep at zero, dusts every eligible copy", () => {

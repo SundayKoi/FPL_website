@@ -11,7 +11,7 @@ import { fetchInventory } from "@/lib/packs/queries";
 import { ECLIPSE_FOIL_TYPE, patronDustValue } from "@/lib/packs/config";
 import { patronActive } from "@/lib/patron/flames";
 import { lockedInventoryIds } from "@/lib/trades/guards";
-import { candidateFromInventory, normalizeRule, selectAutoDust, type AutoDustCandidate, type AutoDustRule } from "./autoDust";
+import { candidateFromInventory, keepGroupOf, normalizeRule, selectAutoDust, type AutoDustCandidate, type AutoDustRule } from "./autoDust";
 
 type Service = ReturnType<typeof createBettingServiceClient>;
 
@@ -24,6 +24,7 @@ interface RuleRow {
   max_tier: string;
   max_overall: number;
   keep_copies: number;
+  per_edition: boolean | null;
   on_rip: boolean;
   skip_foil: boolean;
   skip_signed: boolean;
@@ -32,7 +33,7 @@ interface RuleRow {
 export async function fetchAutoDustRule(service: Service, discordId: string): Promise<AutoDustRule> {
   const { data } = await service
     .from("card_auto_dust")
-    .select("enabled, max_tier, max_overall, keep_copies, on_rip, skip_foil, skip_signed")
+    .select("enabled, max_tier, max_overall, keep_copies, per_edition, on_rip, skip_foil, skip_signed")
     .eq("discord_id", discordId)
     .maybeSingle();
   const row = data as RuleRow | null;
@@ -42,6 +43,7 @@ export async function fetchAutoDustRule(service: Service, discordId: string): Pr
     maxTier: row.max_tier as AutoDustRule["maxTier"],
     maxOverall: row.max_overall,
     keepCopies: row.keep_copies,
+    perEdition: row.per_edition === true,
     onRip: row.on_rip,
     skipFoil: row.skip_foil,
     skipSigned: row.skip_signed,
@@ -56,6 +58,7 @@ export async function saveAutoDustRule(service: Service, discordId: string, rule
       max_tier: rule.maxTier,
       max_overall: rule.maxOverall,
       keep_copies: rule.keepCopies,
+      per_edition: rule.perEdition,
       on_rip: rule.onRip,
       skip_foil: rule.skipFoil,
       skip_signed: rule.skipSigned,
@@ -160,7 +163,17 @@ export async function autoDustPulls(
   service: Service,
   discordId: string,
   season: string,
-  pulls: { inventoryId: number; slug: string; tier: string; overall: number; foil: boolean; foilType: string | null; signed: boolean; relic: boolean }[],
+  pulls: {
+    inventoryId: number;
+    slug: string;
+    tier: string;
+    overall: number;
+    foil: boolean;
+    foilType: string | null;
+    signed: boolean;
+    relic: boolean;
+    editionWeek: string;
+  }[],
 ): Promise<DustRunResult | null> {
   const rule = await fetchAutoDustRule(service, discordId);
   if (!rule.enabled || !rule.onRip || pulls.length === 0) return null;
@@ -168,14 +181,18 @@ export async function autoDustPulls(
   const newIds = new Set(pulls.map((pull) => pull.inventoryId));
   const { data } = await service
     .from("card_inventory")
-    .select("id, slug")
+    .select("id, slug, edition_week")
     .eq("discord_id", discordId)
     .eq("season", season)
     .in("slug", slugs);
+  // Keyed the way selectAutoDust groups — per player, or per print when
+  // the rule says so — or a per-edition rule would count last week's
+  // print against this week's keep.
   const held = new Map<string, number>();
-  for (const row of (data as { id: number; slug: string }[] | null) ?? []) {
+  for (const row of (data as { id: number; slug: string; edition_week: string }[] | null) ?? []) {
     if (newIds.has(row.id)) continue;
-    held.set(row.slug, (held.get(row.slug) ?? 0) + 1);
+    const key = keepGroupOf({ slug: row.slug, editionWeek: row.edition_week }, rule);
+    held.set(key, (held.get(key) ?? 0) + 1);
   }
   const candidates: AutoDustCandidate[] = pulls.map((pull) => ({
     id: pull.inventoryId,
@@ -186,6 +203,7 @@ export async function autoDustPulls(
     foilType: pull.foilType,
     signed: pull.signed,
     relic: pull.relic,
+    editionWeek: pull.editionWeek,
   }));
   const selected = selectAutoDust(candidates, rule, held);
   if (selected.length === 0) return null;

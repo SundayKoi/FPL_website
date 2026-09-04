@@ -788,9 +788,12 @@ also runs as a pack opens. Everything about which copies go is decided by
 the pure `selectAutoDust` in `src/lib/cards/autoDust.ts`: a copy is
 eligible only when its tier and overall sit at or under the ceilings, it
 is not an Eclipse or a relic (moment, champion, team plate), and the
-foil/signed switches let it through; then, per slug, the best copies are
-kept (signed, then foil, then overall, then the older print) and the rest
-are the selection. Copies already on the shelf count towards the keep
+foil/signed switches let it through, and it carries no mutation; then,
+per keep group — the slug, or the slug and edition week when the rule's
+`per_edition` switch (migration `20260914000002`) is on, so last week's
+print of a player survives this week's — the best copies are kept (signed,
+then foil, then overall, then the older print) and the rest are the
+selection. Copies already on the shelf count towards the keep
 number when a pack is being judged, so a rule of "keep one" never leaves
 you with none.
 

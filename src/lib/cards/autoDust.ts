@@ -39,6 +39,9 @@ export interface AutoDustRule {
   maxOverall: number;
   /** Copies of a player kept before extras go. 0 dusts every eligible copy. */
   keepCopies: number;
+  /** Count the keep per (player, edition week) rather than per player, so
+   *  last week's print of a player survives this week's. */
+  perEdition: boolean;
   /** Apply to a pack's pulls as it opens. */
   onRip: boolean;
   skipFoil: boolean;
@@ -50,6 +53,7 @@ export const DEFAULT_AUTO_DUST: AutoDustRule = {
   maxTier: "silver",
   maxOverall: 60,
   keepCopies: 1,
+  perEdition: false,
   onRip: true,
   skipFoil: true,
   skipSigned: true,
@@ -75,6 +79,16 @@ export interface AutoDustCandidate {
   mutation?: string | null;
   /** Older copies are kept ahead of newer ones. */
   acquiredAt?: string;
+  /** The Monday of the print's week — what a per-edition keep groups on.
+   *  Absent, every copy of a player counts as one edition. */
+  editionWeek?: string;
+}
+
+/** The group a copy's keep count is measured in: the player, or the
+ *  player's print in one week. Exported so the shelf-behind-the-pack
+ *  count in autoDustServer keys its map the same way. */
+export function keepGroupOf(copy: { slug: string; editionWeek?: string | null }, rule: Pick<AutoDustRule, "perEdition">): string {
+  return rule.perEdition ? `${copy.slug}|${copy.editionWeek ?? ""}` : copy.slug;
 }
 
 export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
@@ -90,6 +104,7 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
     relic: Boolean(card.moment || card.champWin || card.team),
     mutation: row.mutation ?? null,
     acquiredAt: row.acquiredAt,
+    editionWeek: row.editionWeek,
   };
 }
 
@@ -118,17 +133,21 @@ function keepOrder(a: AutoDustCandidate, b: AutoDustCandidate): number {
 
 /**
  * The copies a rule would dust out of `copies`. `alreadyHeld` is how many
- * copies of each player the collector holds that are NOT in `copies` —
- * on a rip, the shelf behind the pack — and those count toward the keep
- * first, so a new pull of a player you already keep is an extra.
+ * copies of each keep group (keepGroupOf — the player, or the player's
+ * print in one week) the collector holds that are NOT in `copies` — on a
+ * rip, the shelf behind the pack — and those count toward the keep first,
+ * so a new pull of a player you already keep is an extra.
  */
 export function selectAutoDust(copies: AutoDustCandidate[], rule: AutoDustRule, alreadyHeld: ReadonlyMap<string, number> = new Map()): number[] {
   if (!rule.enabled) return [];
   const bySlug = new Map<string, AutoDustCandidate[]>();
-  for (const copy of copies) bySlug.set(copy.slug, [...(bySlug.get(copy.slug) ?? []), copy]);
+  for (const copy of copies) {
+    const key = keepGroupOf(copy, rule);
+    bySlug.set(key, [...(bySlug.get(key) ?? []), copy]);
+  }
   const out: number[] = [];
-  for (const [slug, group] of bySlug) {
-    const held = alreadyHeld.get(slug) ?? 0;
+  for (const [key, group] of bySlug) {
+    const held = alreadyHeld.get(key) ?? 0;
     const toKeep = Math.max(0, rule.keepCopies - held);
     const ordered = [...group].sort(keepOrder);
     for (const copy of ordered.slice(toKeep)) {

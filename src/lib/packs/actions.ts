@@ -55,6 +55,9 @@ async function withAutoDust(discordId: string, league: CardLeague, result: OpenP
         foilType: pull.foilType,
         signed: pull.signed,
         relic: Boolean(pull.card.moment || pull.card.champWin || pull.card.team),
+        // A pull is FROM the pack's week (a live pack has none, and groups
+        // as one edition).
+        editionWeek: result.editionWeek ?? "",
       })),
     );
     if (!taken) return result;
