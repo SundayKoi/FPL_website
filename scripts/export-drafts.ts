@@ -1,39 +1,46 @@
 /**
- * Export every pick and ban from the match drafter.
+ * Export every pick and ban the league has recorded, from both places a
+ * draft can live:
  *
- * "Who first-picked what this season", "how often does a team ban X",
- * "what did Blue take at P3": the drafter stores each game as a list of
- * twenty steps, and this flattens them into rows anyone can sort in a
- * spreadsheet or load into a notebook.
+ *   - the site's own drafter (match_drafts), and
+ *   - drafter.lol links captains attached to match reports (match_reports.
+ *     draft_url), which are fetched and parsed the same way the scouting
+ *     page does it.
  *
- * Read-only, and it needs no secret: match_drafts and fixtures are public
- * tables. Set the same two variables the website's browser client uses —
+ * Every match_drafts row is exported, whether or not its fixture still
+ * exists (legacy academy fixtures were re-created under new ids; those
+ * drafts come out with blank fixture columns rather than being dropped).
+ * drafter.lol drafts come through the scouting page's own loader and are
+ * added only for games the site's drafter does not hold. Team A is blue and
+ * team B is red when a draft row never recorded sides, as on the board.
+ *
+ * Read-only. Set the website's public keys —
  *
  *   NEXT_PUBLIC_SUPABASE_URL      (or SUPABASE_URL)
  *   NEXT_PUBLIC_SUPABASE_ANON_KEY (or SUPABASE_SERVICE_ROLE_KEY)
  *
  * — in the shell or in .env.local, then:
  *
- *   npm run export:drafts                                # every draft, CSV to stdout
- *   npm run export:drafts -- --season=S5 --out=s5.csv    # one season, to a file
- *   npm run export:drafts -- --format=json --out=drafts.json
+ *   npm run export:drafts                                  # both leagues, CSV to stdout
+ *   npm run export:drafts -- --league=premier --out=s5.csv
+ *   npm run export:drafts -- --season=A1 --format=json --out=academy.json
  *   npm run export:drafts -- --team="Neon Dynasty" --complete-only
  *   npm run export:drafts -- --stage=week_3
- *   npm run export:drafts -- --open                      # also the public /drafter lobbies
+ *   npm run export:drafts -- --open                        # also the public /drafter lobbies
  *
  * CSV: one row per draft step (twenty per game), in the order they happened.
  * JSON: one object per game, each side with its bans and picks in order.
  *
  * Columns, in the CSV:
- *   season, stage, stage_label, fixture_id, scheduled_at, division,
- *   team_a, team_b, score_a, score_b, game_number, draft_status,
- *   blue_team, red_team, winner_team,
- *   step_index (0–19), step_order (1–20), side, team, kind (pick|ban),
- *   slot (1–5 within side and kind), pick_order (1–10 across both sides,
- *   picks only), ban_order (1–10, bans only), first_pick (true on the very
- *   first pick of the game), champion, skipped, player, role
- *   (top|jungle|mid|bot|support once captains confirmed positions),
- *   drafted_at (the draft row's last update).
+ *   league, season, stage, stage_label, fixture_id, scheduled_at, team_a,
+ *   team_b, score_a, score_b, game_number, source (site | drafter.lol |
+ *   open-lobby), draft_status (complete | partial), blue_team, red_team,
+ *   winner_team, step_index (0–19), step_order (1–20), side, team,
+ *   kind (pick|ban), slot (1–5 within side and kind), pick_order (1–10
+ *   across both sides, picks only), ban_order (1–10, bans only),
+ *   first_pick (true on the very first pick of the game), champion,
+ *   skipped, player, role (top|jungle|mid|bot|support once captains
+ *   confirmed positions), drafted_at.
  */
 
 import { writeFileSync } from "node:fs";
@@ -41,7 +48,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { actionForStep, LCS_DRAFT_STEPS } from "../src/lib/match-draft/rules";
 import type { DraftStep, MatchDraftAction, MatchDraftPositions } from "../src/lib/match-draft/types";
 import { stageMeta } from "../src/lib/schedule/format";
+import { fetchScoutingHistory } from "../src/lib/scouting/queries";
+import type { ScoutFixtureRow } from "../src/lib/scouting/types";
 
+type League = "premier" | "academy";
+const LEAGUES: League[] = ["premier", "academy"];
 const ROLES = ["top", "jungle", "mid", "bot", "support"] as const;
 const PAGE = 500;
 
@@ -59,45 +70,44 @@ function env(...names: string[]): string | undefined {
   return undefined;
 }
 
-interface FixtureLite {
+interface SiteDraftLite {
   id: string;
-  season: string;
-  stage: string;
-  division: string | null;
-  team_a: string | null;
-  team_b: string | null;
-  scheduled_at: string | null;
-  score_a: number | null;
-  score_b: number | null;
-}
-
-interface DraftLite {
-  id: string;
-  fixture_id: string | null;
-  lobby_id?: string | null;
+  fixture_id: string;
   game_number: number;
-  status: "drafting" | "complete";
   blue_team_name: string | null;
   red_team_name: string | null;
   winner_team?: string | null;
   positions?: MatchDraftPositions | null;
   actions: MatchDraftAction[];
-  updated_at: string;
+  created_at: string;
+}
+
+interface OpenDraftLite {
+  id: string;
+  lobby_id: string;
+  game_number: number;
+  blue_team_name: string | null;
+  red_team_name: string | null;
+  winner_team?: string | null;
+  positions?: MatchDraftPositions | null;
+  actions: MatchDraftAction[];
+  created_at: string;
 }
 
 interface StepRow {
+  league: string;
   season: string;
   stage: string;
   stage_label: string;
   fixture_id: string;
   scheduled_at: string;
-  division: string;
   team_a: string;
   team_b: string;
   score_a: number | "";
   score_b: number | "";
   game_number: number;
-  draft_status: string;
+  source: "site" | "drafter.lol" | "open-lobby";
+  draft_status: "complete" | "partial";
   blue_team: string;
   red_team: string;
   winner_team: string;
@@ -130,8 +140,7 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
   throw new Error("more pages than expected — raise the page cap");
 }
 
-/** The action taken at a step — the drafter's own matcher, so an export
- *  never disagrees with the board about which champion sat where. */
+/** The drafter's own step matcher, so an export never disagrees with the board. */
 function actionAt(actions: MatchDraftAction[], step: DraftStep): MatchDraftAction | null {
   return actionForStep(actions, step);
 }
@@ -145,34 +154,46 @@ function roleOf(positions: MatchDraftPositions | null | undefined, side: "blue" 
   return index >= 0 ? ROLES[index] ?? "" : "";
 }
 
-function expand(draft: DraftLite, fixture: FixtureLite | null): StepRow[] {
+function expand(
+  league: string,
+  source: StepRow["source"],
+  draft: {
+    game_number: number;
+    blue_team_name: string | null;
+    red_team_name: string | null;
+    winner_team?: string | null;
+    actions: MatchDraftAction[];
+    positions?: MatchDraftPositions | null;
+    created_at: string;
+  },
+  fixture: ScoutFixtureRow | null,
+  fixtureId: string,
+): StepRow[] {
   const rows: StepRow[] = [];
   let picks = 0;
   let bans = 0;
-  // Sides are only written to the draft row when captains chose them (or
-  // swapped for game 2+); a draft that just started game 1 has neither, and
-  // the drafter itself falls back to the fixture's team A on blue and team
-  // B on red. Same rule here, or those games export with no team at all.
   const blue = draft.blue_team_name || fixture?.team_a || "";
   const red = draft.red_team_name || fixture?.team_b || "";
+  const complete = LCS_DRAFT_STEPS.every((step) => actionAt(draft.actions, step) !== null);
   for (const step of LCS_DRAFT_STEPS) {
     const action = actionAt(draft.actions, step);
     const kind = step.kind;
     if (kind === "pick") picks += 1;
     else bans += 1;
     rows.push({
+      league,
       season: fixture?.season ?? "",
       stage: fixture?.stage ?? "open",
-      stage_label: fixture ? stageMeta(fixture.stage as never).label : "Open lobby",
-      fixture_id: fixture?.id ?? draft.lobby_id ?? "",
+      stage_label: fixture ? stageMeta(fixture.stage).label : "Open lobby",
+      fixture_id: fixtureId,
       scheduled_at: fixture?.scheduled_at ?? "",
-      division: fixture?.division ?? "",
       team_a: fixture?.team_a ?? blue,
       team_b: fixture?.team_b ?? red,
       score_a: fixture?.score_a ?? "",
       score_b: fixture?.score_b ?? "",
       game_number: draft.game_number,
-      draft_status: draft.status,
+      source,
+      draft_status: complete ? "complete" : "partial",
       blue_team: blue,
       red_team: red,
       winner_team: draft.winner_team ?? "",
@@ -189,7 +210,7 @@ function expand(draft: DraftLite, fixture: FixtureLite | null): StepRow[] {
       skipped: Boolean(action?.skipped) || (action !== null && action.champion === null),
       player: action?.playerName ?? "",
       role: roleOf(draft.positions, step.side, action?.champion ?? null),
-      drafted_at: draft.updated_at,
+      drafted_at: draft.created_at,
     });
   }
   return rows;
@@ -212,20 +233,21 @@ function toCsv(rows: StepRow[]): string {
 function toGames(rows: StepRow[]) {
   const games = new Map<string, Record<string, unknown>>();
   for (const row of rows) {
-    const key = `${row.fixture_id}:${row.game_number}`;
+    const key = `${row.league}:${row.fixture_id}:${row.game_number}`;
     let game = games.get(key);
     if (!game) {
       game = {
+        league: row.league,
         season: row.season,
         stage: row.stage,
         stage_label: row.stage_label,
         fixture_id: row.fixture_id,
         scheduled_at: row.scheduled_at,
-        division: row.division,
         team_a: row.team_a,
         team_b: row.team_b,
         score: row.score_a === "" ? null : { a: row.score_a, b: row.score_b },
         game_number: row.game_number,
+        source: row.source,
         status: row.draft_status,
         winner_team: row.winner_team || null,
         drafted_at: row.drafted_at,
@@ -241,7 +263,9 @@ function toGames(rows: StepRow[]) {
       slot: row.slot,
       champion: row.champion || null,
       skipped: row.skipped,
-      ...(row.kind === "pick" ? { pick_order: row.pick_order, first_pick: row.first_pick, player: row.player || null, role: row.role || null } : { ban_order: row.ban_order }),
+      ...(row.kind === "pick"
+        ? { pick_order: row.pick_order, first_pick: row.first_pick, player: row.player || null, role: row.role || null }
+        : { ban_order: row.ban_order }),
     };
     (row.kind === "pick" ? side.picks : side.bans).push(entry);
     (game.order as unknown[]).push({ step: row.step_order, side: row.side, kind: row.kind, champion: row.champion || null });
@@ -258,7 +282,13 @@ async function main() {
   }
   const supabase: SupabaseClient = createClient(url, key, { auth: { persistSession: false } });
 
-  const season = arg("season");
+  const leagueArg = arg("league")?.toLowerCase();
+  const leagues = leagueArg ? LEAGUES.filter((league) => league === leagueArg) : LEAGUES;
+  if (leagues.length === 0) {
+    console.error(`--league must be premier or academy, not "${leagueArg}".`);
+    process.exit(1);
+  }
+  const season = arg("season")?.toUpperCase();
   const stage = arg("stage");
   const team = arg("team")?.trim().toLowerCase();
   const completeOnly = arg("complete-only") === "true";
@@ -266,47 +296,90 @@ async function main() {
   const format = (arg("format") ?? "csv").toLowerCase();
   const out = arg("out");
 
-  const [fixtures, drafts] = await Promise.all([
-    fetchAll<FixtureLite>((from, to) =>
-      supabase
-        .from("fixtures")
-        .select("id, season, stage, division, team_a, team_b, scheduled_at, score_a, score_b")
-        .order("id")
-        .range(from, to),
+  // 1. Every row of match_drafts, joined to its fixture when the fixture
+  //    still exists. A draft whose fixture is gone (legacy academy fixtures
+  //    were re-created under new ids) is still exported, with blank fixture
+  //    columns, rather than silently dropped — which is what the first
+  //    version did and why the count came up short.
+  const [fixtures, siteDrafts] = await Promise.all([
+    fetchAll<ScoutFixtureRow>((from, to) =>
+      supabase.from("fixtures").select("id, season, stage, team_a, team_b, scheduled_at, best_of, score_a, score_b").order("id").range(from, to),
     ),
-    fetchAll<DraftLite>((from, to) =>
+    fetchAll<SiteDraftLite>((from, to) =>
       supabase
         .from("match_drafts")
-        .select("id, fixture_id, game_number, status, blue_team_name, red_team_name, winner_team, positions, actions, updated_at")
+        .select("id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, positions, actions, created_at")
         .order("id")
         .range(from, to),
     ),
   ]);
   const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+  const leagueOf = (fixture: ScoutFixtureRow | null): string =>
+    fixture ? (fixture.season.trim().toUpperCase().startsWith("A") ? "academy" : "premier") : "unknown";
 
   const rows: StepRow[] = [];
-  for (const draft of drafts) {
-    const fixture = draft.fixture_id ? (fixturesById.get(draft.fixture_id) ?? null) : null;
-    if (!fixture) continue; // a draft whose fixture was deleted — nothing to say about it
-    if (season && fixture.season !== season) continue;
-    if (stage && fixture.stage !== stage) continue;
-    if (completeOnly && draft.status !== "complete") continue;
-    if (team && ![fixture.team_a, fixture.team_b, draft.blue_team_name, draft.red_team_name].some((name) => name?.trim().toLowerCase() === team)) continue;
-    rows.push(...expand(draft, fixture));
+  const counts: Record<string, number> = {};
+  const seen = new Set<string>();
+  const keep = (league: string, fixture: ScoutFixtureRow | null, expanded: StepRow[]): boolean => {
+    if (!leagues.includes(league as League) && league !== "unknown") return false;
+    if (season && (fixture?.season.toUpperCase() ?? "") !== season) return false;
+    if (stage && fixture?.stage !== stage) return false;
+    if (completeOnly && expanded[0]?.draft_status !== "complete") return false;
+    if (team && ![fixture?.team_a, fixture?.team_b, expanded[0]?.blue_team, expanded[0]?.red_team].some((name) => name?.trim().toLowerCase() === team)) return false;
+    return true;
+  };
+
+  for (const draft of siteDrafts) {
+    const fixture = fixturesById.get(draft.fixture_id) ?? null;
+    const league = leagueOf(fixture);
+    const expanded = expand(league, "site", draft, fixture, draft.fixture_id);
+    seen.add(`${draft.fixture_id}:${draft.game_number}`);
+    if (!keep(league, fixture, expanded)) continue;
+    rows.push(...expanded);
+    const bucket = fixture ? `${league}/site` : "site (fixture missing)";
+    counts[bucket] = (counts[bucket] ?? 0) + 1;
+  }
+
+  // 2. drafter.lol links on match reports, through the scouting page's own
+  //    loader (it fetches and parses each page). Only games the site's
+  //    drafter does not already hold, so nothing is counted twice.
+  const teamRows = await fetchAll<{ name: string }>((from, to) => supabase.from("league_teams").select("name").order("id").range(from, to));
+  const leagueTeamNames = teamRows.map((row) => row.name);
+  for (const league of leagues) {
+    let history: Awaited<ReturnType<typeof fetchScoutingHistory>>;
+    try {
+      history = await fetchScoutingHistory(supabase, { league, leagueTeamNames });
+    } catch (error) {
+      console.error(`${league}: could not load drafter.lol drafts from match reports —`, error instanceof Error ? error.message : error);
+      continue;
+    }
+    const scoutFixtures = new Map(history.fixtures.map((fixture) => [fixture.id, fixture]));
+    for (const draft of history.drafts) {
+      if (!draft.id.startsWith("drafter:")) continue;
+      if (seen.has(`${draft.fixture_id}:${draft.game_number}`)) continue;
+      const fixture = scoutFixtures.get(draft.fixture_id) ?? fixturesById.get(draft.fixture_id) ?? null;
+      const expanded = expand(league, "drafter.lol", draft, fixture, draft.fixture_id);
+      seen.add(`${draft.fixture_id}:${draft.game_number}`);
+      if (!keep(league, fixture, expanded)) continue;
+      rows.push(...expanded);
+      counts[`${league}/drafter.lol`] = (counts[`${league}/drafter.lol`] ?? 0) + 1;
+    }
   }
 
   if (includeOpen) {
-    const open = await fetchAll<DraftLite>((from, to) =>
+    const open = await fetchAll<OpenDraftLite>((from, to) =>
       supabase
         .from("open_drafts")
-        .select("id, lobby_id, game_number, status, blue_team_name, red_team_name, winner_team, positions, actions, updated_at")
+        .select("id, lobby_id, game_number, blue_team_name, red_team_name, winner_team, positions, actions, created_at")
         .order("id")
         .range(from, to),
     );
     for (const draft of open) {
-      if (completeOnly && draft.status !== "complete") continue;
+      const expanded = expand("open", "open-lobby", draft, null, draft.lobby_id);
+      if (completeOnly && expanded[0]?.draft_status !== "complete") continue;
       if (team && ![draft.blue_team_name, draft.red_team_name].some((name) => name?.trim().toLowerCase() === team)) continue;
-      rows.push(...expand({ ...draft, fixture_id: null }, null));
+      rows.push(...expanded);
+      counts["open-lobby"] = (counts["open-lobby"] ?? 0) + 1;
     }
   }
 
@@ -320,11 +393,15 @@ async function main() {
   );
 
   const text = format === "json" ? `${JSON.stringify(toGames(rows), null, 2)}\n` : toCsv(rows);
+  const summary = Object.entries(counts)
+    .map(([source, n]) => `${n} ${source}`)
+    .join(", ");
   if (out) {
     writeFileSync(out, text);
-    console.error(`Wrote ${rows.length / LCS_DRAFT_STEPS.length} game(s), ${rows.length} step(s) to ${out}`);
+    console.error(`Wrote ${rows.length / LCS_DRAFT_STEPS.length} game(s) (${summary || "none"}), ${rows.length} step(s) to ${out}`);
   } else {
     process.stdout.write(text);
+    console.error(`${rows.length / LCS_DRAFT_STEPS.length} game(s): ${summary || "none"}`);
   }
 }
 
