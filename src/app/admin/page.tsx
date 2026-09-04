@@ -146,6 +146,13 @@ export default async function AdminPage() {
       href: "/skin-lines",
     },
     {
+      label: "Expedition mutations",
+      stat: "Proposal preview",
+      statTone: "text-gold",
+      description: "Expeditions with forks and risk, and the five mutations a card can come home with, on real cards. Mints nothing.",
+      href: "/admin/mutations",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

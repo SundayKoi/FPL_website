@@ -116,8 +116,12 @@ function PlayerCardFace({
   print = null,
   className = "",
   preview = null,
+  mutation = null,
 }: {
   card: PlayerCardData;
+  /** An expedition mutation drawn over the whole front, foil and all — a
+   *  PROPOSAL previewed on /admin/mutations. Nothing minted carries one. */
+  mutation?: { label: string; className: string; accent: string; extra?: string } | null;
   /** A treatment that is NOT on the ladder, drawn over the card exactly as
    *  a minted parallel would be — the admin mockup pages use this to show
    *  a proposed look on real art before anything can mint it. Requires
@@ -767,6 +771,18 @@ function PlayerCardFace({
                 ))}
               </div>
             ) : null}
+            {mutation ? (
+              <div
+                aria-hidden
+                data-testid="mutation"
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
+                style={{ ["--mut-accent" as string]: mutation.accent }}
+              >
+                <div className={mutation.className} />
+                {mutation.extra ? <div className={mutation.extra} /> : null}
+                <span className="card-mut-chip">{mutation.label}</span>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1092,6 +1108,8 @@ export default function PlayerCard3D(props: {
     accent: string;
     layers?: string[];
   } | null;
+  /** See PlayerCardFace: an expedition mutation, proposal preview only. */
+  mutation?: { label: string; className: string; accent: string; extra?: string } | null;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
   // the binder and the pack reveal all carry it without changes — but it is
