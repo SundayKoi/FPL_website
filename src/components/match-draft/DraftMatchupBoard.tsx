@@ -93,7 +93,19 @@ export function DraftPickSlot({
         </>
       ) : null}
       <div className="relative flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-wide text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">
-        <span>{pick.role ? `${pick.role}${pick.pickNumber ? ` · P${pick.pickNumber}` : ""}` : pickLabel}</span>
+        {/* The pick number rides on the label line — it used to be a
+            separate pill pinned to the corner, which sat on top of the
+            role and hid it ("JUNGLE" read as "NGLE"). */}
+        {pick.role ? (
+          <span title={pick.pickNumber ? `Pick ${pick.pickNumber}` : undefined}>
+            {pick.pickNumber ? `${pick.role} · P${pick.pickNumber}` : pick.role}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <span>{pickLabel}</span>
+            {pick.pickNumber ? <span title={`Pick ${pick.pickNumber}`}>· P{pick.pickNumber}</span> : null}
+          </span>
+        )}
         {pick.role ? <span className="sr-only">{pick.role}</span> : null}
         <span className="flex items-center gap-1.5">
           {onRequestChange ? (
@@ -113,15 +125,6 @@ export function DraftPickSlot({
       <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {championLabel}
       </p>
-      {pick.pickNumber ? (
-        <span
-          title={`Pick ${pick.pickNumber}`}
-          className="absolute left-1 top-1 rounded-full border border-border-subtle/70 bg-canvas/90 px-1 text-[8px] font-bold leading-4 text-muted"
-        >
-          P{pick.pickNumber}
-          <span className="sr-only">{pick.pickNumber}</span>
-        </span>
-      ) : null}
       {pick.playerName ? <p className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
     </div>
   );
