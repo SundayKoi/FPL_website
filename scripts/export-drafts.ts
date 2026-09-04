@@ -149,8 +149,12 @@ function expand(draft: DraftLite, fixture: FixtureLite | null): StepRow[] {
   const rows: StepRow[] = [];
   let picks = 0;
   let bans = 0;
-  const blue = draft.blue_team_name ?? "";
-  const red = draft.red_team_name ?? "";
+  // Sides are only written to the draft row when captains chose them (or
+  // swapped for game 2+); a draft that just started game 1 has neither, and
+  // the drafter itself falls back to the fixture's team A on blue and team
+  // B on red. Same rule here, or those games export with no team at all.
+  const blue = draft.blue_team_name || fixture?.team_a || "";
+  const red = draft.red_team_name || fixture?.team_b || "";
   for (const step of LCS_DRAFT_STEPS) {
     const action = actionAt(draft.actions, step);
     const kind = step.kind;
