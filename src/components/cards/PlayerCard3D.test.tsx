@@ -139,7 +139,9 @@ describe("PlayerCard3D", () => {
     expect(container.querySelector('[data-testid="foil"]')).toBeTruthy();
     expect(container.querySelector(".card-foil-holo")).toBeNull();
 
-    rerender(<PlayerCard3D card={card} forceFoil />);
+    // A Season 4 print: Season 5's foils draw as Battlecast (tested below),
+    // and this test is about the ladder's own Prisma wash.
+    rerender(<PlayerCard3D card={{ ...card, season: "S4" }} forceFoil />);
     expect(container.querySelector(".card-foil-holo")).toBeTruthy();
     expect(container.querySelector(".card-foil-cosmos")).toBeTruthy();
     // Two layers, not the four-way stack that read as noise: a wash and a
@@ -206,14 +208,34 @@ describe("PlayerCard3D", () => {
   it("strikes the serial into the chrome instead of a parallel name badge", () => {
     const { rerender } = render(<PlayerCard3D card={card} forceFoil foilType="eclipse" />);
     expect(screen.getByTestId("eclipse-seal").textContent).toMatch(/1 of 1/i);
-    // Every other parallel keeps the ordinary name badge.
+    // Every other parallel keeps the ordinary name badge — and this card
+    // is a Season 5 print, whose ladder is drawn as Battlecast, so the
+    // badge says the line's tier rather than the ladder's name.
     rerender(<PlayerCard3D card={card} forceFoil foilType="ice" />);
     expect(screen.queryByTestId("eclipse-seal")).toBeNull();
-    expect(screen.getAllByTitle(/Cracked Ice parallel|Ice parallel/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Battlecast Ultimate parallel").length).toBeGreaterThan(0);
+    // A season with no line keeps the ladder's own name.
+    rerender(<PlayerCard3D card={{ ...card, season: "S4" }} forceFoil foilType="ice" />);
+    expect(screen.getAllByTitle(/Cracked Ice parallel/i).length).toBeGreaterThan(0);
+  });
+
+  it("draws a season line's layers on its foils, and only there", () => {
+    const { container, rerender } = render(<PlayerCard3D card={card} forceFoil foilType="aurora" />);
+    // Season 5, Aurora's rung: Battlecast Chroma — the line's layer, the
+    // chroma modifier, and the sheen as a sibling.
+    expect(container.querySelector(".card-foil-line-battlecast.card-foil-tier-chroma")).toBeTruthy();
+    expect(container.querySelector(".card-foil-tier-chroma-sheen")).toBeTruthy();
+    expect(container.querySelector(".card-foil-aurora")).toBeNull();
+    rerender(<PlayerCard3D card={{ ...card, season: "S4" }} forceFoil foilType="aurora" />);
+    expect(container.querySelector(".card-foil-line-battlecast")).toBeNull();
+    expect(container.querySelector(".card-foil-aurora")).toBeTruthy();
+    // A matte card in Season 5 wears nothing of the line.
+    rerender(<PlayerCard3D card={card} />);
+    expect(container.querySelector(".card-foil-line-battlecast")).toBeNull();
   });
 
   it("drives the foil off the pointer, then settles it back at rest", () => {
-    const { container } = render(<PlayerCard3D card={card} forceFoil />);
+    const { container } = render(<PlayerCard3D card={{ ...card, season: "S4" }} forceFoil />);
     const frame = screen.getByRole("button");
     const holo = container.querySelector<HTMLElement>(".card-foil-holo")!;
 

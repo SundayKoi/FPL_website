@@ -51,6 +51,20 @@ describe("cardTreatment", () => {
     expect(base({ foil: true, foilType: "prisma" }).badge).toBeNull();
   });
 
+  it("names and colours a season's foils as that season's skin line, Standard included", () => {
+    // Season 5 is Battlecast (SEASON_LINES): the ladder is stored, the line
+    // is shown. The base rung is badged too — the line's name is the
+    // season's mark — where a plain Prisma wears nothing.
+    expect(base({ foil: true, foilType: "prisma", season: "S5" }).badge).toBe("Battlecast");
+    expect(base({ foil: true, foilType: "ice", season: "S5" }).badge).toBe("Battlecast Ultimate");
+    expect(base({ foil: true, foilType: "ice", season: "S5" }).accent).toBe("#ff2a2a");
+    // Eclipse is not a tier of anything.
+    expect(base({ foil: true, foilType: "eclipse", season: "S5" }).badge).toBeNull();
+    expect(base({ foil: true, foilType: "eclipse", season: "S5" }).hallmark).toBe("1 OF 1");
+    // A season without a line draws the ladder as itself.
+    expect(base({ foil: true, foilType: "ice", season: "S4" }).badge).toBe(FOIL_TYPE_LABELS.ice);
+  });
+
   it("treats an unrecognised foil type as the base foil rather than failing", () => {
     const odd = base({ foil: true, foilType: "chartreuse" });
     expect(odd.parallel).toBe("prisma");

@@ -15,6 +15,7 @@ import { createBettingServiceClient } from "../service-client";
 import { fmtPoints } from "../format";
 import { openPackFor, type OpenPackResult } from "@/lib/packs/open";
 import { FOIL_TYPE_LABELS, foilTypeOf } from "@/lib/packs/config";
+import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
 import { BRAND, GREEN, deferred, errMsg } from "./respond";
@@ -46,7 +47,7 @@ function pullLine(pull: Extract<OpenPackResult, { ok: true }>["cards"][number]):
   const badges: string[] = [];
   if (card.moment) badges.push("🏆 **MOMENT**");
   if (pull.signed) badges.push("✍️ **SIGNED**");
-  if (pull.foil) badges.push(`✨ ${FOIL_TYPE_LABELS[foilTypeOf(pull.foilType)]}`);
+  if (pull.foil) badges.push(`✨ ${parallelLabelFor(card.season, foilTypeOf(pull.foilType), FOIL_TYPE_LABELS[foilTypeOf(pull.foilType)])}`);
   const glyph = TIER_EMOJI[card.tier.key] ?? "▫️";
   const suffix = badges.length ? ` — ${badges.join(" · ")}` : "";
   return `${glyph} **${card.name}** ${card.overall} OVR${suffix}`;

@@ -38,6 +38,7 @@ import { fetchInventory, fetchPrintRuns, type InventoryRow } from "@/lib/packs/q
 import { printRunKey } from "@/lib/packs/printRuns";
 import { copyImageUrl } from "@/lib/cards/shareImage";
 import { ECLIPSE_FOIL_TYPE, FOIL_TYPES, FOIL_TYPE_LABELS, foilTypeOf } from "@/lib/packs/config";
+import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { editionLabel } from "@/lib/packs/week";
 
 const GUILD_ONLY_MSG = "Use this in the server.";
@@ -87,7 +88,7 @@ function isEclipse(row: InventoryRow): boolean {
 /** The copy's parallel as words: its Eclipse, its foil's name, or Matte. */
 function parallelLabel(row: InventoryRow): string {
   if (isEclipse(row)) return FOIL_TYPE_LABELS[ECLIPSE_FOIL_TYPE];
-  return row.foil ? FOIL_TYPE_LABELS[foilTypeOf(row.foilType)] : "Matte";
+  return row.foil ? parallelLabelFor(row.season, foilTypeOf(row.foilType), FOIL_TYPE_LABELS[foilTypeOf(row.foilType)]) : "Matte";
 }
 
 /**
