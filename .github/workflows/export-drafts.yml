@@ -1,0 +1,68 @@
+name: Export drafts
+
+# Manual only, read-only. Runs scripts/export-drafts.ts on GitHub's runner
+# and attaches the result to the run, so anyone with access to the Actions
+# tab can pull every pick and ban out of the drafter without cloning the
+# repo or holding a key. Actions → "Export drafts" → Run workflow → then
+# download the artifact from the run's summary page.
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season to export (e.g. S5). Blank for every season."
+        type: string
+        default: ""
+      stage:
+        description: "One stage only (week_1 … finals). Blank for all."
+        type: string
+        default: ""
+      team:
+        description: "One team's drafts only, by exact name. Blank for all."
+        type: string
+        default: ""
+      format:
+        description: "csv (one row per pick or ban) or json (one object per game)"
+        type: choice
+        options: [csv, json]
+        default: csv
+      complete_only:
+        description: "Only drafts that finished all twenty steps"
+        type: boolean
+        default: false
+      include_open:
+        description: "Also include the public /drafter lobbies"
+        type: boolean
+        default: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Export
+        run: |
+          args=(--format="${{ inputs.format }}" --out="drafts.${{ inputs.format }}")
+          [ -n "${{ inputs.season }}" ] && args+=(--season="${{ inputs.season }}")
+          [ -n "${{ inputs.stage }}" ] && args+=(--stage="${{ inputs.stage }}")
+          [ -n "${{ inputs.team }}" ] && args+=(--team="${{ inputs.team }}")
+          [ "${{ inputs.complete_only }}" = "true" ] && args+=(--complete-only)
+          [ "${{ inputs.include_open }}" = "true" ] && args+=(--open)
+          npx tsx scripts/export-drafts.ts "${args[@]}"
+          echo "### Export drafts" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Rows: $(($(wc -l < "drafts.${{ inputs.format }}") - 1)) · file attached below as **drafts**." >> "$GITHUB_STEP_SUMMARY"
+        env:
+          # Read-only script; the same secrets the other on-demand jobs use.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drafts
+          path: drafts.${{ inputs.format }}
+          retention-days: 30
