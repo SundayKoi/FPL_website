@@ -51,6 +51,7 @@ import {
 } from "@/lib/expeditions/config";
 import {
   FORKS,
+  FRAGMENT_CHANCE,
   choiceSheet,
   consentLine,
   forkOptions,
@@ -634,11 +635,14 @@ export default function ExpeditionBoard({
           Send a {brief.role} with the squad and whatever they find pays {Math.round(BRIEF_BONUS * 100)}% more. The brief is scored
           against the day you LAUNCH, so a run keeps the bonus it left with.
         </span>
-        {fragments > 0 ? (
-          <span data-testid="fragments" className="ml-auto rounded-full border border-purple-300/60 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-200">
-            {fragments} map fragment{fragments === 1 ? "" : "s"}
-          </span>
-        ) : null}
+        <a
+          href="#expedition-rules"
+          data-testid="fragments"
+          title="Map fragments come home with Legend Hunts (every jackpot, some solid runs) and Deep Raid jackpots. Three open the Legendary route."
+          className="ml-auto rounded-full border border-purple-300/60 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-200 hover:bg-purple-500/20"
+        >
+          {fragments}/{EXPEDITION_TIERS.legendary.fragments} map fragment{fragments === 1 ? "" : "s"}
+        </a>
       </section>
 
       {notice ? (
@@ -809,7 +813,8 @@ export default function ExpeditionBoard({
                 {needsAfflicted ? <p className="text-xs text-coral">Put a Haunted or Cursed card in the squad to cleanse it.</p> : null}
                 {shortFragments ? (
                   <p className="text-xs text-coral">
-                    Needs {def.fragments} map fragments — you hold {fragments}.
+                    Needs {def.fragments} map fragments — you hold {fragments}. They come home with Legend Hunts (every jackpot,{" "}
+                    {Math.round((FRAGMENT_CHANCE.legend?.solid ?? 0) * 100)}% of solid runs) and Deep Raid jackpots ({Math.round((FRAGMENT_CHANCE.raid?.jackpot ?? 0) * 100)}%).
                   </p>
                 ) : null}
                 {gate.ok ? null : (

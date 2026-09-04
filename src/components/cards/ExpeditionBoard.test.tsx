@@ -643,9 +643,9 @@ describe("ExpeditionBoard — the rules of the road", () => {
     pick("Alba", 3);
 
     const legendary = screen.getByTestId("tier-legendary");
-    expect(within(legendary).getByText("Needs 3 map fragments — you hold 1.")).toBeTruthy();
+    expect(within(legendary).getByText(/Needs 3 map fragments — you hold 1\./)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Legendary route" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId("fragments").textContent).toBe("1 map fragment");
+    expect(screen.getByTestId("fragments").textContent).toBe("1/3 map fragment");
   });
 
   it("sends the insurance and the cleanse target with the launch", async () => {
