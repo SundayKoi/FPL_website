@@ -56,6 +56,10 @@ export interface TeamAggRow {
   first_blood_rate: number;
   first_tower_rate: number;
   avg_team_kills: number;
+  /** Games won or lost by forfeit, laid over the played games by
+   *  applyForfeits (src/lib/stats/forfeits.ts). Absent on a raw view row. */
+  forfeit_wins?: number;
+  forfeit_losses?: number;
 }
 
 /** One row of `stats_champion_agg`: per champion + season + phase. */

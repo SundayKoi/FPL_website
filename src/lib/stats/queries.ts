@@ -14,6 +14,7 @@
 // few repeated lines for types that actually check.
 
 import { createClient } from "@/lib/supabase/client";
+import { forfeitRecord, type ForfeitRecord } from "./forfeits";
 import type { FantasyStatRow } from "./fantasyPoints";
 import type { HeadToHeadRow } from "./headToHead";
 import type {
@@ -144,6 +145,75 @@ export async function fetchTeamAgg(season?: string, phase?: string, teamNames?: 
     if (teamNames?.length) query = query.in("team_name", teamNames);
     return query;
   });
+}
+
+/**
+ * Forfeited series, as the records they stand for. A report that names a
+ * conceding side reports its full score but lists only the games played;
+ * the difference is the forfeit (docs/backend.md, "Forfeits"). Same filters
+ * as fetchTeamAgg so the two line up on the Teams tab.
+ */
+export async function fetchForfeitRecords(season?: string, phase?: string, teamNames?: string[]): Promise<ForfeitRecord[]> {
+  if (teamNames && teamNames.length === 0) return [];
+  const supabase = createClient();
+  const reports = await fetchAllPages<{
+    id: string;
+    season: string;
+    season_phase: string;
+    team_a_id: string;
+    team_b_id: string;
+    score_a: number;
+    score_b: number;
+    forfeit_team_id: string;
+  }>((from, to) => {
+    let query = supabase
+      .from("match_reports")
+      .select("id, season, season_phase, team_a_id, team_b_id, score_a, score_b, forfeit_team_id")
+      .not("forfeit_team_id", "is", null)
+      .order("id")
+      .range(from, to);
+    if (season) query = query.eq("season", season);
+    if (phase && phase !== "All") query = query.eq("season_phase", phase);
+    return query;
+  });
+  if (reports.length === 0) return [];
+
+  const reportIds = reports.map((report) => report.id);
+  const teamIds = [...new Set(reports.flatMap((report) => [report.team_a_id, report.team_b_id]))];
+  const [teams, games] = await Promise.all([
+    fetchAllPages<{ id: string; name: string }>((from, to) =>
+      supabase.from("league_teams").select("id, name").in("id", teamIds).order("id").range(from, to),
+    ),
+    fetchAllPages<{ report_id: string }>((from, to) =>
+      supabase.from("match_report_games").select("report_id").in("report_id", reportIds).order("id").range(from, to),
+    ),
+  ]);
+  const nameById = new Map(teams.map((team) => [team.id, team.name]));
+  const played = new Map<string, number>();
+  for (const game of games) played.set(game.report_id, (played.get(game.report_id) ?? 0) + 1);
+
+  const wanted = teamNames ? new Set(teamNames) : null;
+  const records: ForfeitRecord[] = [];
+  for (const report of reports) {
+    const teamA = nameById.get(report.team_a_id);
+    const teamB = nameById.get(report.team_b_id);
+    const conceded = nameById.get(report.forfeit_team_id);
+    if (!teamA || !teamB || !conceded) continue;
+    if (wanted && !wanted.has(teamA) && !wanted.has(teamB)) continue;
+    const record = forfeitRecord({
+      id: report.id,
+      season: report.season,
+      season_phase: report.season_phase,
+      team_a_name: teamA,
+      team_b_name: teamB,
+      score_a: report.score_a,
+      score_b: report.score_b,
+      forfeit_team_name: conceded,
+      games_played: played.get(report.id) ?? 0,
+    });
+    if (record) records.push(record);
+  }
+  return records;
 }
 
 export async function fetchChampionAgg(season?: string, phase?: string): Promise<ChampionAggRow[]> {

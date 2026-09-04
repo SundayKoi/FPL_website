@@ -1053,6 +1053,13 @@ Two knock-on behaviours in `scripts/riot_stats_ingest.py`:
   still terminal, and `sync_fixture_score` treats it as such, so the result
   reaches `/schedule`.
 
+The stats page's Teams tab lays forfeits back over the aggregate: for
+every report that names a conceding side, the reported score minus the
+games with a match id is credited as wins to the other side and losses to
+the conceding one (`src/lib/stats/forfeits.ts`, `fetchForfeitRecords`).
+The record and win rate include them; every per-game rate stays over games
+played, and the card says "N by forfeit" so the two never read as one.
+
 Not gated behind admin approval, deliberately: a captain can already push a
 self-declared score onto a fixture by reporting one real game with an invented
 series score, so a zero-game forfeit removes the last verifiable game rather
