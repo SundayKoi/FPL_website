@@ -11,7 +11,7 @@ export default async function CardsLayout({ children }: { children: ReactNode })
   const status = await cardsShelfStatus("premier");
   return (
     <div className="flex flex-1 flex-col">
-      <CardsTabs league="premier" balance={status.balance} offers={status.offers} />
+      <CardsTabs league="premier" balance={status.balance} offers={status.offers} forks={status.forks} />
       {children}
     </div>
   );

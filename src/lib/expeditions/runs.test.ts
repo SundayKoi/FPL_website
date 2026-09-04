@@ -12,7 +12,7 @@ const { createBettingServiceClient } = vi.hoisted(() => ({ createBettingServiceC
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
 
 const { postCardsWebhook } = vi.hoisted(() => ({ postCardsWebhook: vi.fn() }));
-vi.mock("@/lib/packs/announce", () => ({ postCardsWebhook, GOLD: 0xe8c14b }));
+vi.mock("@/lib/packs/announce", () => ({ postCardsWebhook, GOLD: 0xe8c14b, LIVE_RED: 0xff5063 }));
 
 // The CSPRNG itself, scripted. Mocking node:crypto rather than injecting a
 // rand keeps the module under test on the exact production line
@@ -29,7 +29,8 @@ vi.mock("node:crypto", async (importOriginal) => {
   return { ...actual, randomBytes, default: { ...actual, randomBytes } };
 });
 
-const { claimExpeditionFor, friendlyExpeditionError, launchExpeditionFor } = await import("./runs");
+const { claimExpeditionFor, decideForkFor, friendlyExpeditionError, launchExpeditionFor, ransomLostCardFor, sweepExpeditions } =
+  await import("./runs");
 
 /** A six-byte buffer that `readUIntBE(0, 6) / 2 ** 48` reads back as `value`. */
 function randBuffer(value: number): Buffer {
@@ -91,6 +92,10 @@ function createService(respond: Respond) {
         call.filters[column] = value;
         return builder;
       },
+      gt: (column: string, value: unknown) => {
+        call.filters[`${column}>`] = value;
+        return builder;
+      },
       not: () => builder,
       order: () => builder,
       limit: () => builder,
@@ -143,6 +148,9 @@ interface RunSpec {
   startedAt?: string;
   resolvesAt?: string;
   claimedAt?: string | null;
+  forks?: number;
+  choices?: { index: number; choice: string; at: string }[];
+  pinged?: number;
 }
 
 function runRow(spec: RunSpec = {}) {
@@ -157,6 +165,14 @@ function runRow(spec: RunSpec = {}) {
     resolves_at: spec.resolvesAt ?? "2026-08-28T02:00:00.000Z",
     outcome: null,
     claimed_at: spec.claimedAt ?? null,
+    // Forks are exercised in routes.test.ts; these runs have none, so the
+    // route consumes no rand and the scripted draws below stay readable.
+    forks: spec.forks ?? 0,
+    choices: spec.choices ?? [],
+    insured: false,
+    target: null,
+    fee: 0,
+    pinged: spec.pinged ?? 0,
   };
 }
 
@@ -320,7 +336,7 @@ describe("launchExpeditionFor", () => {
 
     const result = await launchExpeditionFor("42", "scout", [1, 2, 3]);
 
-    expect(result).toEqual({ ok: true, runId: 7, resolvesAt: "2026-08-29T02:00:00.000Z" });
+    expect(result).toEqual({ ok: true, runId: 7, resolvesAt: "2026-08-29T02:00:00.000Z", fee: 0, freePolicy: false });
     expect(board.rpc).toHaveBeenCalledWith("launch_expedition", {
       p_user: "42",
       p_season: "s4",
@@ -328,6 +344,12 @@ describe("launchExpeditionFor", () => {
       p_squad: [1, 2, 3],
       p_shine: 9,
       p_hours: 8,
+      p_forks: 1,
+      p_insured: false,
+      p_fee: 0,
+      p_fragments: 0,
+      p_target: null,
+      p_policy_week: null,
     });
   });
 
@@ -347,7 +369,7 @@ describe("launchExpeditionFor", () => {
 
     expect(board.rpc).toHaveBeenCalledWith(
       "launch_expedition",
-      expect.objectContaining({ p_shine: 14 + 6 + 7, p_hours: 24, p_tier: "raid" }),
+      expect.objectContaining({ p_shine: 14 + 6 + 7, p_hours: 24, p_tier: "raid", p_forks: 2 }),
     );
   });
 
@@ -439,28 +461,40 @@ describe("claimExpeditionFor", () => {
 
   it("rolls the outcome off the CSPRNG and banks it", async () => {
     const board = createBoard({ copies: scoutSquad, run: runRow() });
-    board.rpc.mockResolvedValue({ data: [{ balance: 1519 }], error: null });
+    board.rpc.mockResolvedValue({ data: [{ balance: 1519, fragments: 0 }], error: null });
     // One draw: a scouting run that rolls poor has neither a comp chance
-    // nor a mark chance to spend a second on.
+    // nor a mark chance to spend a second on, and a silent fork rolls
+    // nothing.
     scriptRand(0);
 
     const result = await claimExpeditionFor("42", 9);
 
     // 40 base x (1 + 0.03 x 9 shine over a zero gate) = 50.8 -> 51.
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       outcome: { grade: "poor", dollars: 51, comp: false, mark: null, briefHit: false },
       bearerId: null,
       balance: 1519,
+      fragments: 0,
+      baseDollars: 51,
+      route: { lootMultiplier: 1, pushes: 0, silences: 0, fragments: 0 },
     });
-    expect(board.rpc).toHaveBeenCalledWith("claim_expedition", {
+    expect(board.rpc).toHaveBeenCalledWith("resolve_expedition", {
       p_user: "42",
       p_run: 9,
-      p_grade: "poor",
-      p_dollars: 51,
-      p_comp: false,
-      p_mark: null,
-      p_bearer: null,
+      p_outcome: expect.objectContaining({
+        grade: "poor",
+        dollars: 51,
+        comp: false,
+        mark: null,
+        bearer: null,
+        lootMultiplier: 1,
+        fates: [
+          { id: 1, fate: "home", mutation: null },
+          { id: 2, fate: "home", mutation: null },
+          { id: 3, fate: "home", mutation: null },
+        ],
+      }),
     });
     expect(randomBytes).toHaveBeenCalledWith(6);
   });
@@ -512,15 +546,19 @@ describe("claimExpeditionFor", () => {
     const result = await claimExpeditionFor("42", 9);
 
     // 2000 base x (1 + 0.03 x 10 shine over legend's gate of 20) = 2600.
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       outcome: { grade: "jackpot", dollars: 2600, comp: true, mark: "legend", briefHit: false },
       bearerId: 12,
       balance: 5000,
+      // A legend jackpot always carries a map fragment home.
+      route: { fragments: 1 },
     });
     expect(board.rpc).toHaveBeenCalledWith(
-      "claim_expedition",
-      expect.objectContaining({ p_mark: "legend", p_bearer: 12, p_comp: true, p_dollars: 2600 }),
+      "resolve_expedition",
+      expect.objectContaining({
+        p_outcome: expect.objectContaining({ mark: "legend", bearer: 12, comp: true, dollars: 2600 }),
+      }),
     );
     expect(postCardsWebhook).toHaveBeenCalledWith({
       title: "Legend Hunt — jackpot",
@@ -528,6 +566,7 @@ describe("claimExpeditionFor", () => {
         "<@42>'s Legend Hunt struck gold: 2600 dollars, a free pack, and a card came back wearing the Legend Finish.",
       color: 0xe8c14b,
     });
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
   });
 
   it("spreads the bearer across the whole squad", async () => {
@@ -584,5 +623,143 @@ describe("claimExpeditionFor", () => {
     expect(await claimExpeditionFor("42", 9)).toMatchObject({ ok: true, balance: 900 });
     expect(logged).toHaveBeenCalled();
     logged.mockRestore();
+  });
+});
+
+describe("decideForkFor", () => {
+  // A 24h raid with two forks, launched nine hours ago: the first fork
+  // (8h) is open until 16h, the second (16h) is still ahead.
+  const atFork = () => runRow({ tier: "raid", forks: 2, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z" });
+
+  it("records a push at the open fork through the RPC", async () => {
+    const board = createBoard({ copies: scoutSquad, run: atFork() });
+    board.rpc.mockResolvedValue({ data: [{ closes_at: "2026-08-29T01:00:00.000Z" }], error: null });
+
+    expect(await decideForkFor("42", 9, 0, "push")).toEqual({ ok: true, closesAt: "2026-08-29T01:00:00.000Z" });
+    expect(board.rpc).toHaveBeenCalledWith("decide_expedition_fork", { p_user: "42", p_run: 9, p_index: 0, p_choice: "push" });
+  });
+
+  it("refuses a choice the squad cannot make, before the RPC", async () => {
+    const board = createBoard({ copies: scoutSquad, run: atFork() });
+
+    expect(await decideForkFor("42", 9, 0, "favour")).toEqual({ ok: false, error: "This squad can't make that choice here." });
+    expect(board.rpc).not.toHaveBeenCalled();
+  });
+
+  it("names a fork that is not open yet, and one already answered", async () => {
+    const board = createBoard({ copies: scoutSquad, run: atFork() });
+    expect(await decideForkFor("42", 9, 1, "camp")).toMatchObject({ ok: false, error: "The squad hasn't reached that fork yet." });
+    const answered = createBoard({
+      copies: scoutSquad,
+      run: runRow({ ...atFork(), choices: [{ index: 0, choice: "camp", at: "" }] }),
+    });
+    expect(await decideForkFor("42", 9, 0, "push")).toMatchObject({ ok: false, error: "That fork has already been answered." });
+    expect(board.rpc).not.toHaveBeenCalled();
+    expect(answered.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("claimExpeditionFor — the route", () => {
+  it("multiplies the base by what the forks earned and hands every fate to the RPC", async () => {
+    // A raid pushed at both forks. Base roll: grade solid (0.5), comp
+    // (0, chance 0 -> no draw on solid), sigil mark 0.1 chance -> 0.9 miss.
+    // Then no bearer draw. Route: fork 0 push: victim 0.5 -> card 2,
+    // wounded 0.99 miss, reward pick 0 -> card 1, 0.1 hit (irradiated).
+    // Fork 1 push: victim 0.99 -> card 3, wounded 0.1 hit; reward pick 0.5
+    // over [2,3] -> 3, 0.99 miss. Fragments: raid solid has no chance.
+    const board = createBoard({
+      copies: scoutSquad,
+      run: runRow({
+        tier: "raid", shine: 12, forks: 2,
+        choices: [{ index: 0, choice: "push", at: "" }, { index: 1, choice: "push", at: "" }],
+      }),
+    });
+    board.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    scriptRand(0.5, 0.9, 0.5, 0.99, 0, 0.1, 0.99, 0.1, 0.5, 0.99);
+
+    const result = await claimExpeditionFor("42", 9);
+
+    // 260 base, shine 12 on a gate of 12 -> no bonus; x1.5 from two pushes.
+    expect(result).toMatchObject({ ok: true, baseDollars: 260, outcome: { dollars: 390 }, route: { lootMultiplier: 1.5, pushes: 2 } });
+    expect(board.rpc).toHaveBeenCalledWith(
+      "resolve_expedition",
+      expect.objectContaining({
+        p_outcome: expect.objectContaining({
+          dollars: 390,
+          fates: [
+            { id: 1, fate: "home", mutation: "irradiated" },
+            { id: 2, fate: "home", mutation: null },
+            { id: 3, fate: "wounded", mutation: null, until: expect.any(String) },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("announces a card that came home Voidtouched, and one that did not come home", async () => {
+    // A Legendary route with no forks (a scripted finale): base jackpot
+    // (0.9), comp certain (no draw), mark certain (no draw), bearer 0 ->
+    // card 1. Route: first voidtouched pick 0.5 -> card 2; second 0.99 miss.
+    const board = createBoard({ copies: scoutSquad, run: runRow({ tier: "legendary", shine: 30, forks: 0 }) });
+    board.rpc.mockResolvedValue({ data: [{ balance: 9000, fragments: 0 }], error: null });
+    scriptRand(0.9, 0, 0.5, 0.99);
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, route: { fates: expect.arrayContaining([{ id: 2, fate: "home", mutation: "voidtouched", woundedUntil: null }]) } });
+    expect(postCardsWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Back from the Legendary route — Voidtouched", description: expect.stringContaining("Doug 2") }),
+    );
+  });
+});
+
+describe("ransomLostCardFor", () => {
+  it("prices the ransom off the card and releases the hold", async () => {
+    const board = createBoard({ copies: [copyRow({ id: 1 })], run: runRow({ id: 77, tier: "lost", squad: [1] }) });
+    board.rpc.mockResolvedValue({ data: [{ balance: 580 }], error: null });
+
+    // 300 + 40 x 3 shine (a plain gold).
+    expect(await ransomLostCardFor("42", 77)).toEqual({ ok: true, balance: 580, paid: 420 });
+    expect(board.rpc).toHaveBeenCalledWith("ransom_lost_card", { p_user: "42", p_hold: 77, p_dollars: 420 });
+  });
+
+  it("refuses a run that is not a hold", async () => {
+    const board = createBoard({ copies: scoutSquad, run: runRow({ id: 9, tier: "raid" }) });
+    expect(await ransomLostCardFor("42", 9)).toEqual({ ok: false, error: "That card isn't lost — or it's already home." });
+    expect(board.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("sweepExpeditions", () => {
+  it("buries the overdue, pings each fork once, and says so with a real mention", async () => {
+    const service = createService((call) => {
+      if (call.table === "expedition_runs" && call.verb === "select") {
+        return {
+          data: [
+            // Open fork, never pinged: gets the ping.
+            runRow({ id: 1, tier: "raid", forks: 2, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z" }),
+            // Same, already pinged for fork 0: silent.
+            runRow({ id: 2, tier: "raid", forks: 2, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z", pinged: 1 }),
+            // Not at a fork yet.
+            runRow({ id: 3, tier: "legend", forks: 3, startedAt: "2026-08-28T17:00:00.000Z", resolvesAt: "2026-08-30T17:00:00.000Z" }),
+          ],
+        };
+      }
+      return { data: null };
+    });
+    service.rpc.mockResolvedValue({ data: 2, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+
+    const result = await sweepExpeditions(new Date("2026-08-28T18:00:00.000Z"));
+
+    expect(result).toEqual({ pinged: 1, buried: 2, errors: [] });
+    expect(service.rpc).toHaveBeenCalledWith("expire_lost_cards");
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Deep Raid — the squad is at a fork" }),
+      "<@42> your Deep Raid has reached a fork.",
+    );
+    const update = service.calls.find((call) => call.verb === "update");
+    expect(update).toMatchObject({ table: "expedition_runs", payload: { pinged: 1 }, filters: { id: 1 } });
   });
 });

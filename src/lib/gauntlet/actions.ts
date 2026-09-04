@@ -20,6 +20,7 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { GOLD, postCardsWebhook } from "@/lib/packs/announce";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchAllCardSeasons } from "@/lib/cards/queries";
+import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { MeasureKey } from "@/lib/cards/measures";
 import { mondayOf } from "@/lib/packs/week";
@@ -120,7 +121,12 @@ export async function startGauntletRunAction(
     rows = (data as typeof rows) ?? [];
   }
 
+  // A card away on an expedition — or lost on one — cannot also be here.
+  // The lock is a fact about the card, so it is checked whatever shelf the
+  // card came from.
+  const deployed = wantedIds.length > 0 ? await fetchDeployedCopyIds(service, user.discordId) : new Set<number>();
   const thisWeek = mondayOf(new Date());
+  const now = Date.now();
   const lineup: GauntletCard[] = [];
   for (const role of GAUNTLET_ROLES) {
     const pickedId = picks[role];
@@ -141,6 +147,15 @@ export async function startGauntletRunAction(
       return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
     }
     if (row.role !== role) return { ok: false, error: `${row.player_name} doesn't play ${role}.` };
+    if (deployed.has(row.id)) return { ok: false, error: `${row.player_name} is away on an expedition.` };
+    // The bench: a wounded card sits out the Gauntlet until its stamp says.
+    const woundedUntil = row.card.wounded?.until ? new Date(row.card.wounded.until).getTime() : 0;
+    if (woundedUntil > now) {
+      return {
+        ok: false,
+        error: `${row.player_name} is wounded — benched until ${new Date(woundedUntil).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })} ET.`,
+      };
+    }
     const stats: Partial<Record<MeasureKey, number>> = Object.fromEntries(
       (row.card.subStats ?? []).map((bar) => [bar.key, bar.value]),
     );
@@ -154,6 +169,7 @@ export async function startGauntletRunAction(
       signed: row.signed === true,
       fresh: row.edition_week === thisWeek,
       team: row.card.teamName ?? null,
+      mutation: row.card.mutation?.key ?? null,
     });
   }
 

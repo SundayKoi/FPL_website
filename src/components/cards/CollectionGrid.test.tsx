@@ -80,6 +80,7 @@ function makeRow(
     packOpenId: null,
     acquiredAt: "2026-08-20T00:00:00Z",
     printNumber,
+    mutation: null,
   };
 }
 

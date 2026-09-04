@@ -17,6 +17,7 @@ import {
   simulateMatch,
   simulateSecondHalf,
   statOf,
+  mutationEffects,
 } from "./sim";
 import { contestDetail, runContest } from "./contest";
 import {
@@ -105,6 +106,26 @@ describe("statOf", () => {
     expect(statOf(bareCard, "combat")).toBe(65);
     const fresh: GauntletCard = { ...card, fresh: true };
     expect(statOf(fresh, "combat")).toBe(70 + FRESH_LEGS_BONUS);
+  });
+
+  it("reads a mutation — the one stamp that is not cosmetic", () => {
+    const plain = team(70)[0];
+    expect(statOf({ ...plain, mutation: "voidtouched" }, "combat")).toBe(74);
+    expect(statOf({ ...plain, mutation: "cursed" }, "combat")).toBe(67);
+    expect(statOf({ ...plain, mutation: "hardened" }, "combat")).toBe(71);
+    expect(statOf({ ...plain, mutation: "haunted" }, "combat")).toBe(70);
+    // The ceiling rises with the stamp, so a 99 Voidtouched is not clamped to 99.
+    expect(statOf({ ...plain, stats: { combat: 99 }, mutation: "voidtouched" }, "combat")).toBe(103);
+  });
+
+  it("hands the lineup its mutations' effects, additively", () => {
+    const lineup = team(70);
+    expect(mutationEffects(lineup)).toEqual({});
+    lineup[0].mutation = "hardened";
+    lineup[1].mutation = "hardened";
+    lineup[2].mutation = "irradiated";
+    lineup[3].mutation = "cursed";
+    expect(mutationEffects(lineup)).toEqual({ lanesFlat: 2, holdFlat: 2, snowballMult: 1.15 });
   });
 
   it("never reads foil or ink — cosmetics stay cosmetic in the fight", () => {

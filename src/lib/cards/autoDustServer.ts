@@ -82,6 +82,7 @@ interface DustRow {
   foil: boolean;
   foil_type: string | null;
   signed: boolean | null;
+  mutation: string | null;
 }
 
 /**
@@ -96,7 +97,7 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
 
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
     .in("id", wanted);
   if (error) throw new Error(error.message);
   const owned = ((data as DustRow[]) ?? []).filter((row) => row.discord_id === discordId);
@@ -114,7 +115,9 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
   let balance: number | null = null;
   const done: number[] = [];
   for (const row of owned) {
-    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE) {
+    // A mutated copy is skipped here as well as in the selection: the
+    // selection reads the shelf, this reads the row under the RPC's lock.
+    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation) {
       skipped += 1;
       continue;
     }

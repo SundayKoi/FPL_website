@@ -12,7 +12,23 @@
 // form. `reveal` plays a face-down flip-up on mount — the share page's
 // pack-opening moment. No WebGL — layered gradients and blend modes do it.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+/** The clock as a store, to the minute: 0 on the server (no clock there),
+ *  the wall clock once hydrated. Nothing subscribes — a bench that lifts
+ *  mid-view lifts on the next render, which is fine for a chip. */
+function subscribeNever(): () => void {
+  return () => {};
+}
+let minuteCache = 0;
+function readMinute(): number {
+  const minute = Math.floor(Date.now() / 60_000) * 60_000;
+  if (minute !== minuteCache) minuteCache = minute;
+  return minuteCache;
+}
+function readServerMinute(): number {
+  return 0;
+}
 import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -22,6 +38,7 @@ import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
+import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
 
@@ -116,12 +133,14 @@ function PlayerCardFace({
   print = null,
   className = "",
   preview = null,
-  mutation = null,
+  mutation: mutationProp = null,
 }: {
   card: PlayerCardData;
-  /** An expedition mutation drawn over the whole front, foil and all — a
-   *  PROPOSAL previewed on /admin/mutations. Nothing minted carries one. */
-  mutation?: { label: string; className: string; accent: string; extra?: string } | null;
+  /** An expedition mutation drawn over the whole front, foil and all.
+   *  Normally read off `card.mutation` (a minted copy that came home
+   *  changed); the prop is for /admin/mutations, which previews the
+   *  treatments on cards that carry none. */
+  mutation?: MutationOverlay | null;
   /** A treatment that is NOT on the ladder, drawn over the card exactly as
    *  a minted parallel would be — the admin mockup pages use this to show
    *  a proposed look on real art before anything can mint it. Requires
@@ -205,6 +224,15 @@ function PlayerCardFace({
   // takes the frame and the halo outright, over Card of the Week and over
   // Challenger both. Nothing else on the site outranks it.
   const isEclipse = forceFoil && parallel === "eclipse";
+  // The stamp the copy wears beats a preview prop: nothing outside /admin
+  // passes the prop, and a minted mutation is the card's own fact.
+  const worn = card.mutation ? mutationByKey(card.mutation.key) : undefined;
+  const mutation = worn ? mutationOverlay(worn) : mutationProp;
+  // The bench, decided on the client only: the server snapshot says "not
+  // mounted", so the HTML never has to know whether 4pm has passed for the
+  // reader, and the hydrated browser reads the clock once it is in charge.
+  const minute = useSyncExternalStore(subscribeNever, readMinute, readServerMinute);
+  const benched = minute > 0 && Boolean(card.wounded?.until) && new Date(card.wounded!.until).getTime() > minute;
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = isEclipse
     ? "card-frame-eclipse"
@@ -783,6 +811,15 @@ function PlayerCardFace({
                 <span className="card-mut-chip">{mutation.label}</span>
               </div>
             ) : null}
+            {benched ? (
+              <span
+                data-testid="wounded"
+                title={`Wounded — benched from expeditions and the Gauntlet until ${new Date(card.wounded!.until).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })} ET`}
+                className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full border border-red-400/70 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-red-300"
+              >
+                Wounded
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1108,8 +1145,9 @@ export default function PlayerCard3D(props: {
     accent: string;
     layers?: string[];
   } | null;
-  /** See PlayerCardFace: an expedition mutation, proposal preview only. */
-  mutation?: { label: string; className: string; accent: string; extra?: string } | null;
+  /** See PlayerCardFace: an expedition mutation. A minted copy's own
+   *  stamp (card.mutation) wins over this. */
+  mutation?: MutationOverlay | null;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
   // the binder and the pack reveal all carry it without changes — but it is

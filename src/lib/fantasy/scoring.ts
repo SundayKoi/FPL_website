@@ -11,6 +11,7 @@
 // a test, or a preview render.
 
 import { cardSlug } from "@/lib/cards/build";
+import { MUTATION_EFFECTS, type MutationKey } from "@/lib/cards/mutations";
 import { powerRanking, round1 } from "@/lib/stats/formulas";
 import { aggregateWeeklyPlayerRows, type WeeklyRawStatRow } from "@/lib/stats/weekly";
 import { FANTASY_ROLES, type FantasyRole } from "./config";
@@ -40,6 +41,11 @@ export interface SlotScore {
   slug: string;
   playerName: string;
   points: number;
+  /** The mutation that changed the points, when one did — so the card
+   *  back can say why a 70 scored 77, or 0. */
+  mutation?: MutationKey;
+  /** An Irradiated card that flared out this week. */
+  flared?: boolean;
 }
 
 export type LineupBreakdown = Partial<Record<FantasyRole, SlotScore>>;
@@ -69,6 +75,10 @@ export function weeklyScoresBySlug(rows: WeeklyRawStatRow[]): Map<string, number
 export interface CurrentIdentity {
   slug: string;
   playerName: string;
+  /** The expedition mutation the copy wears NOW. Read live like the slug:
+   *  a mutation is a permanent fact about the copy, not about the week it
+   *  was fielded, and an Exorcism between filing and scoring should count. */
+  mutation?: MutationKey | null;
 }
 
 /**
@@ -112,6 +122,9 @@ export function scoreLineup(
   slots: StoredSlots,
   scores: Map<string, number>,
   identities?: Map<number, CurrentIdentity>,
+  /** The week being scored ("2026-08-31"): what an Irradiated flare is
+   *  drawn against, so the same copy flares the same way on a re-run. */
+  week?: string,
 ): { score: number; breakdown: LineupBreakdown } {
   const breakdown: LineupBreakdown = {};
   let total = 0;
@@ -119,14 +132,40 @@ export function scoreLineup(
     const slot = slots[role];
     if (!slot) continue;
     const identity = currentIdentity(slot, identities);
-    const points = round1(scores.get(identity.slug) ?? 0);
+    const raw = scores.get(identity.slug) ?? 0;
+    const mutation = identity.mutation ?? null;
+    const effect = mutation ? MUTATION_EFFECTS[mutation] : null;
+    const flared = Boolean(effect && effect.flareChance > 0 && flares(slot.inventoryId, week ?? "", effect.flareChance));
+    const points = flared ? 0 : round1(raw * (effect?.fantasyMult ?? 1));
     total += points;
     // The breakdown prints the CURRENT name too: a manager reading last
     // week's card back should see the player as they are called now, not a
     // name that no longer exists anywhere else on the site.
-    breakdown[role] = { slug: identity.slug, playerName: identity.playerName, points };
+    breakdown[role] = {
+      slug: identity.slug,
+      playerName: identity.playerName,
+      points,
+      ...(mutation ? { mutation } : {}),
+      ...(flared ? { flared: true } : {}),
+    };
   }
   return { score: round1(total), breakdown };
+}
+
+/**
+ * Whether an Irradiated copy flares out this week. Deterministic from the
+ * copy and the week rather than rolled: the scoring job can run twice (a
+ * dry run, then the real one) and a card that scored zero in one must
+ * score zero in the other. FNV-1a over "id:week", then a slice of it as a
+ * fraction of one.
+ */
+export function flares(inventoryId: number, week: string, chance: number): boolean {
+  let hash = 0x811c9dc5;
+  for (const char of `${inventoryId}:${week}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return (hash % 10_000) / 10_000 < chance;
 }
 
 /** Every card_inventory id a set of lineups fielded — what the scoring job

@@ -48,6 +48,16 @@ describe("dustValueOf", () => {
     expect(challenger / bronze).toBeLessThan(1.5);
   });
 
+  it("prices a mutation over the whole number, ink included", () => {
+    const signedFoil = dustValueOf({ tier: "diamond", foil: true, signed: true });
+    expect(dustValueOf({ tier: "diamond", foil: true, signed: true, mutation: "cursed" })).toBe(Math.round(signedFoil * 0.5));
+    expect(dustValueOf({ tier: "diamond", foil: true, signed: true, mutation: "voidtouched" })).toBe(signedFoil * 2);
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: false, mutation: "hardened" })).toBe(Math.round(DUST_VALUES.epic * 1.25));
+    // The double-edged ones leave the price alone.
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: false, mutation: "irradiated" })).toBe(DUST_VALUES.epic);
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: false, mutation: "haunted" })).toBe(DUST_VALUES.epic);
+  });
+
   it("dusts an unrecognized tier as common rather than throwing", () => {
     expect(dustValueOf({ tier: "unobtainium", foil: false, signed: false })).toBe(DUST_VALUES.common);
   });
