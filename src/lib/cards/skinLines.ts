@@ -1,5 +1,5 @@
-// Skin-line parallels — a PROPOSAL, previewed on the admin mockup page and
-// minted by nothing.
+// Skin-line parallels — one League skin line a season, drawn over the
+// parallel ladder.
 //
 // A patron's idea: the parallel ladder (Prisma → Aurora → Refractor →
 // Cracked Ice) is hard to tell apart at a glance and says nothing about the
@@ -12,7 +12,15 @@
 // pull.
 //
 // Everything here is the design surface of that idea: the candidate lines,
-// what each looks like, and where it would sit on the ladder. Each line
+// what each looks like, where each sits on the ladder — and SEASON_LINES,
+// which says which line a season's foils are drawn in. The storage never
+// changed: a copy still carries prisma/aurora/refractor/ice in
+// `foil_type`, the roller still walks the ladder, dust still reads the
+// ladder's multipliers. A season with a line simply DRAWS and NAMES each
+// rung as that line's tier (prisma → Standard, aurora → Chroma, refractor
+// → Prestige, ice → Ultimate), so a Season 5 Chroma is an Aurora that
+// says Battlecast, everywhere it shows. Eclipse is not a tier of anything
+// and never rotates. Each line
 // owns ONE shape and no line owns a streak — Refractor has the diagonal
 // rake already, and a line that sweeps a bar reads as another refractor.
 // PROJECT owns the glitch (scanlines, tears, a raster band) and Arcade owns
@@ -111,8 +119,9 @@ export interface SeasonSet {
   line: SkinLine["key"];
 }
 
-/** A worked example for the mockup page — Season 5 as it might look. */
-export const EXAMPLE_SEASON_SET: SeasonSet = { season: "S5", line: "project" };
+/** The set the mockup page works through: the live season's own line, so
+ *  the "today, then this season" row on that page is what the shop shows. */
+export const EXAMPLE_SEASON_SET: SeasonSet = { season: "S5", line: "battlecast" };
 
 export function skinLineByKey(key: string): SkinLine | undefined {
   return SKIN_LINES.find((line) => line.key === key);
@@ -189,4 +198,66 @@ export const LINE_TIERS: LineTier[] = [
  *  Chroma", "PROJECT Prestige", "PROJECT Ultimate". */
 export function lineTierLabel(line: SkinLine, tier: LineTier): string {
   return tier.label ? `${line.label} ${tier.label}` : line.label;
+}
+
+// === The season's line ======================================================
+
+/** Which skin line each season's foils are drawn in. A season not listed
+ *  draws the ladder as itself (Prisma, Aurora, Refractor, Cracked Ice).
+ *  Keyed by league_settings.current_season / academy_season. */
+export const SEASON_LINES: Record<string, SkinLine["key"]> = {
+  S5: "battlecast",
+};
+
+/** The line a season's foils wear, or null for the plain ladder. */
+export function seasonLineOf(season: string | null | undefined): SkinLine | null {
+  const key = season ? SEASON_LINES[season] : undefined;
+  return key ? (skinLineByKey(key) ?? null) : null;
+}
+
+/** The tier a ladder parallel sits on inside a line. Eclipse and anything
+ *  unrecognised map to nothing: they are not tiers of a line. */
+export function lineTierOf(foilType: string | null | undefined): LineTier | null {
+  return LINE_TIERS.find((tier) => tier.replaces === foilType) ?? null;
+}
+
+/** What a copy's parallel is called, given the season it was minted in:
+ *  the line's tier where the season has a line, the ladder's own name
+ *  everywhere else. Eclipse is Eclipse. */
+export function parallelLabelFor(
+  season: string | null | undefined,
+  foilType: string | null | undefined,
+  ladderLabel: string,
+): string {
+  const line = seasonLineOf(season);
+  const tier = line ? lineTierOf(foilType) : null;
+  return line && tier ? lineTierLabel(line, tier) : ladderLabel;
+}
+
+/** What PlayerCard3D draws for a copy under a season line — the same shape
+ *  the mockup pages pass as `preview`, so the card needs no second path. */
+export interface LineTreatment {
+  label: string;
+  className: string;
+  modifier: string;
+  blend: SkinLine["blend"];
+  accent: string;
+  layers: string[];
+  /** The tier, for anything that keys off it (the flat render's badge). */
+  tier: LineTierKey;
+}
+
+export function lineTreatmentFor(season: string | null | undefined, foilType: string | null | undefined): LineTreatment | null {
+  const line = seasonLineOf(season);
+  const tier = line ? lineTierOf(foilType) : null;
+  if (!line || !tier) return null;
+  return {
+    label: lineTierLabel(line, tier),
+    className: line.className,
+    modifier: tier.modifier,
+    blend: line.blend,
+    accent: line.accent,
+    layers: tier.layers,
+    tier: tier.key,
+  };
 }

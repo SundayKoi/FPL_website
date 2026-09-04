@@ -25,6 +25,7 @@
 import type { CardTier } from "@/lib/cards/build";
 import { validSignatureDataUrl } from "@/lib/cards/signing";
 import { ECLIPSE_FOIL_TYPE, FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
+import { lineTreatmentFor } from "@/lib/cards/skinLines";
 
 /** Frame colour per tier — the same eight the share render has always used. */
 export const TIER_COLORS: Record<CardTier["key"], string> = {
@@ -84,6 +85,9 @@ export interface TreatmentInput {
   signed: boolean;
   /** The ink itself (a PNG data URI), or null. */
   autograph: string | null;
+  /** The season the copy was minted in — which decides whether its
+   *  parallel is drawn and named as a skin-line tier (SEASON_LINES). */
+  season?: string | null;
 }
 
 export interface CardTreatment {
@@ -127,7 +131,11 @@ export function cardTreatment(input: TreatmentInput): CardTreatment {
   const tint = TIER_COLORS[input.tierKey as CardTier["key"]] ?? DEFAULT_TINT;
   const parallel = input.foil ? foilTypeOf(input.foilType) : null;
   const eclipse = parallel === ECLIPSE_FOIL_TYPE;
-  const accent = parallel ? FOIL_ACCENTS[parallel] : tint;
+  // Under a season line the parallel is a tier of that line, and it is
+  // named at every tier — Standard included, because the line's name is
+  // the season's mark and the whole point.
+  const line = parallel && !eclipse ? lineTreatmentFor(input.season, parallel) : null;
+  const accent = line ? line.accent : parallel ? FOIL_ACCENTS[parallel] : tint;
   const signed = input.signed || validSignatureDataUrl(input.autograph);
   return {
     parallel,
@@ -137,7 +145,7 @@ export function cardTreatment(input: TreatmentInput): CardTreatment {
     panel: eclipse ? ECLIPSE_PANEL : PANEL,
     ground: eclipse ? ECLIPSE_GROUND : GROUND,
     accent,
-    badge: parallel && parallel !== "prisma" && !eclipse ? FOIL_TYPE_LABELS[parallel] : null,
+    badge: line ? line.label : parallel && parallel !== "prisma" && !eclipse ? FOIL_TYPE_LABELS[parallel] : null,
     hallmark: eclipse ? ECLIPSE_HALLMARK : null,
     ribbon: signed ? SIGNED_RIBBON : null,
     ink: validSignatureDataUrl(input.autograph) ? input.autograph : null,

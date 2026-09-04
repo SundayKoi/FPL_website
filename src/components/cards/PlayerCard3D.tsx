@@ -39,6 +39,7 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
+import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
 
@@ -132,7 +133,7 @@ function PlayerCardFace({
   flame = null,
   print = null,
   className = "",
-  preview = null,
+  preview: previewProp = null,
   mutation: mutationProp = null,
 }: {
   card: PlayerCardData;
@@ -216,6 +217,12 @@ function PlayerCardFace({
   );
   const style = TIER_STYLES[card.tier.key];
   const parallel = foilTypeOf(foilType);
+  // The season's skin line, drawn exactly as a mockup preview is: a copy
+  // minted in a season with a line wears that line at its parallel's tier
+  // (SEASON_LINES). A preview prop, which only the mockup pages pass,
+  // still wins so they can show any line on any card.
+  const seasonLine = forceFoil ? lineTreatmentFor(card.season, parallel) : null;
+  const preview = previewProp ?? seasonLine;
   const foilLayer =
     forceFoil && preview
       ? { className: [preview.className, preview.modifier].filter(Boolean).join(" "), blend: preview.blend }
@@ -586,7 +593,7 @@ function PlayerCardFace({
                   data-testid="preview-badge"
                   className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-white"
                   style={{ borderColor: preview.accent, background: "rgb(0 18 31 / 0.75)", boxShadow: `0 0 10px ${preview.accent}66` }}
-                  title={`${preview.label} parallel (preview)`}
+                  title={previewProp ? `${preview.label} parallel (preview)` : `${preview.label} parallel`}
                 >
                   {preview.label}
                 </span>

@@ -105,8 +105,9 @@ export default async function SkinLinesPreviewPage() {
           patron channel.
         </p>
         <p className="max-w-3xl text-sm text-coral">
-          Preview only. Nothing on this page mints, prices or writes anything, and no pack can produce
-          these treatments.
+          Season {EXAMPLE_SEASON_SET.season} is {exampleLine.label}: every foil minted that season draws and names its
+          parallel as a {exampleLine.label} tier, on the shelf, in a trade and on the share picture. The other five lines
+          are candidates for seasons to come. Nothing on this page mints, prices or writes anything.
         </p>
       </header>
 

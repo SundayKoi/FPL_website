@@ -443,8 +443,14 @@ describe("a one-of-one on the shelf", () => {
     expect(screen.getByText("0 selected")).toBeTruthy();
   });
 
-  it("names a parallel on its chip instead of a bare ✦", () => {
+  it("names a parallel on its chip instead of a bare ✦, as the season's line where it has one", () => {
+    // The fixture is a Season 5 print, and Season 5 is Battlecast.
     render(<CollectionGrid inventory={[makeRow(3, "Chaseworthy", 88, "2026-08-31", { foil: true, foilType: "ice" })]} />);
+    expect(screen.getByText("Battlecast Ultimate")).toBeTruthy();
+    cleanup();
+    // The badge is the card front's, which reads the frozen card's season.
+    const older = makeRow(3, "Chaseworthy", 88, "2026-08-31", { foil: true, foilType: "ice" });
+    render(<CollectionGrid inventory={[{ ...older, season: "S4", card: { ...older.card, season: "S4" } }]} />);
     expect(screen.getByText("Cracked Ice")).toBeTruthy();
   });
 });
