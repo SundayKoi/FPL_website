@@ -8,6 +8,11 @@ name: Export drafts
 on:
   workflow_dispatch:
     inputs:
+      league:
+        description: "premier, academy, or both"
+        type: choice
+        options: [both, premier, academy]
+        default: both
       season:
         description: "Season to export (e.g. S5). Blank for every season."
         type: string
@@ -48,6 +53,7 @@ jobs:
       - name: Export
         run: |
           args=(--format="${{ inputs.format }}" --out="drafts.${{ inputs.format }}")
+          [ "${{ inputs.league }}" != "both" ] && args+=(--league="${{ inputs.league }}")
           [ -n "${{ inputs.season }}" ] && args+=(--season="${{ inputs.season }}")
           [ -n "${{ inputs.stage }}" ] && args+=(--stage="${{ inputs.stage }}")
           [ -n "${{ inputs.team }}" ] && args+=(--team="${{ inputs.team }}")
