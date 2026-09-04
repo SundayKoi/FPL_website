@@ -1,66 +1,75 @@
 "use client";
 
-// The expedition board: pick three cards, read what each run asks for, send
-// the squad, and — hours later — find out what they brought back.
+// The expedition board: read the rules, pick three cards, choose a route,
+// answer the forks as the squad reaches them, and — hours later — find out
+// who came back and what they came back as.
 //
 // One component and one state machine rather than a route per phase. An
-// expedition has four states from the player's side (nothing picked, a
-// squad assembled, a squad away, a squad home) and every one of them is a
-// view of the same two lists — your copies and your runs — so splitting
-// them across routes would mean re-fetching the collection to say the same
-// thing three more times. The ceremony in particular has to be a state and
-// not a page: what a run brought back exists for exactly one render, and a
-// URL you can go back to is a URL that shows the payout twice.
+// expedition has six states from the player's side (nothing picked, a
+// squad assembled, a squad away, a squad waiting at a fork, a squad home,
+// a card missing) and every one of them is a view of the same lists —
+// your copies, your runs, your holds — so splitting them across routes
+// would mean re-fetching the collection to say the same thing six more
+// times. The ceremony in particular has to be a state and not a page: what
+// a run brought back exists for exactly one render.
 //
-// Nothing here is authoritative. `squadMeets` disables a launch button, and
-// `deployedIds` greys a chip, but launch_expedition re-checks every gate
-// under a row lock and card_inventory_expedition_guard refuses to let a
-// deployed copy move at all — the same "preview of a verdict" split
-// TradeBuilder keeps. Which is why a refused launch renders its error
-// inline rather than being pre-empted.
+// Nothing here is authoritative. `squadMeets` disables a launch button,
+// `forkOptions` greys a choice, `deployedIds` greys a chip — and the RPCs
+// re-check every gate under a row lock, the fork window included. Which is
+// why a refused action renders its error inline rather than being
+// pre-empted.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import CountUp from "@/components/home/CountUp";
 import { fmtPoints } from "@/lib/betting/format";
+import { mutationByKey } from "@/lib/cards/mutations";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import { easternDateOf } from "@/lib/packs/week";
 import {
+  BRIEF_BONUS,
   EXPEDITION_TIERS,
+  INSURANCE_FEE,
   MARK_RANK,
+  SHINE_BONUS_CAP,
   SQUAD_SIZE,
+  TIER_ORDER,
   briefFor,
+  isProtected,
+  payoutRange,
+  ransomFor,
   shineOf,
   squadMeets,
   squadShine,
+  woundedUntil,
   type CardCopy,
   type ExpeditionMark as ExpeditionMarkKind,
   type ExpeditionOutcome,
-  type ExpeditionTierDef,
-  payoutRange,
-  BRIEF_BONUS,
-  SHINE_BONUS_CAP,
   type ExpeditionTierKey,
   type OutcomeGrade,
 } from "@/lib/expeditions/config";
-import { claimExpeditionAction, launchExpeditionAction } from "@/lib/expeditions/actions";
-import type { ExpeditionRun } from "@/lib/expeditions/queries";
+import {
+  FORKS,
+  choiceSheet,
+  consentLine,
+  forkOptions,
+  forkViews,
+  type CardFate,
+  type ForkChoice,
+  type ForkView,
+  type RouteResult,
+} from "@/lib/expeditions/routes";
+import {
+  claimExpeditionAction,
+  decideForkAction,
+  launchExpeditionAction,
+  ransomLostCardAction,
+} from "@/lib/expeditions/actions";
+import type { ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
+import ExpeditionRules, { RISK_CLASS, RISK_LABEL, requirementLine } from "./ExpeditionRules";
 import PlayerCard3D from "./PlayerCard3D";
 import { tierLabel } from "./CardCopyPreview";
-
-/** The tiers in ladder order — Record iteration order is insertion order
- *  here, but the board's spine should not depend on that. */
-const TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
-
-/** What each run is FOR, in one line. The requirements say what it costs;
- *  this says why anyone would pay it. */
-const TIER_FLAVOR: Partial<Record<ExpeditionTierKey, string>> = {
-  scout: "A short walk for pocket money. No gate, no comps, and back before the evening.",
-  raid: "A day out. Pays properly, and a good one can come home with a free pack and a Sigil.",
-  legend:
-    "Two days, and only a real collection can field it. The best money on the board, and every jackpot marks a card forever.",
-};
 
 /** How a claim reads before you get to the numbers. */
 const GRADE_HEADLINE: Record<OutcomeGrade, string> = {
@@ -69,15 +78,19 @@ const GRADE_HEADLINE: Record<OutcomeGrade, string> = {
   jackpot: "They struck gold",
 };
 
-/** "12 shine · 1 foil" — the gates a tier actually applies, and nothing
- *  else. A tier with no gates says so rather than rendering a blank. */
-function requirementLine(def: ExpeditionTierDef): string {
-  const parts: string[] = [];
-  if (def.minShine > 0) parts.push(`${def.minShine} shine`);
-  if (def.minFoils > 0) parts.push(`${def.minFoils} foil${def.minFoils === 1 ? "" : "s"}`);
-  if (def.minSigned > 0) parts.push(`${def.minSigned} signed`);
-  return parts.length === 0 ? "Anyone can run it" : parts.join(" · ");
-}
+const FATE_LABEL: Record<CardFate["fate"], string> = {
+  home: "Home",
+  wounded: "Wounded",
+  lost: "Lost",
+  dead: "Dead",
+};
+
+const FATE_CLASS: Record<CardFate["fate"], string> = {
+  home: "text-mint",
+  wounded: "text-gold",
+  lost: "text-coral",
+  dead: "text-red-300",
+};
 
 /**
  * "1h 29m" / "4m 12s" / "" once it is due.
@@ -91,27 +104,31 @@ function untilLabel(msLeft: number): string {
   const seconds = Math.floor(msLeft / 1000);
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours >= 48) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
   return "seconds";
+}
+
+function easternClock(iso: string | Date): string {
+  return new Date(iso).toLocaleString("en-US", {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
 }
 
 /**
  * The wall clock, as an external store rather than a `setInterval` writing
  * `useState`.
  *
- * Two reasons it has to be this shape. It is genuinely EXTERNAL state — the
- * time is not React's to own — and `useSyncExternalStore` is the hook for
- * that; setting state from an effect body to seed it is the cascading
- * render the lint rule (and React's own guidance) is about. And it is the
- * only clock that hydrates safely: `getServerSnapshot` hands the server
- * render a 0, so the HTML says "back at 4:15 PM ET" — a fact needing no
- * clock — and only the hydrated browser swaps in a live countdown. A
- * `Date.now()` baked into server HTML disagrees with the browser's a
- * moment later, which is a hydration mismatch on every run on the board.
- *
- * `readClock` caches to the second because getSnapshot MUST return a
- * stable value between reads or React re-renders forever.
+ * It is genuinely EXTERNAL state and `useSyncExternalStore` is the hook for
+ * that; and it is the only clock that hydrates safely: `getServerSnapshot`
+ * hands the server render a 0, so the HTML says "back at 4:15 PM ET" — a
+ * fact needing no clock — and only the hydrated browser swaps in a live
+ * countdown. `readClock` caches to the second because getSnapshot MUST
+ * return a stable value between reads or React re-renders forever.
  */
 const CLOCK_TICK_MS = 1000;
 let clockCache = 0;
@@ -137,7 +154,6 @@ function readServerClock(): number {
 
 /**
  * Where one run is up to: a live countdown, or the button that ends it.
- *
  * Its own component because it is the only thing on the board that repaints
  * every second, and a clock in the parent would repaint the whole squad
  * picker with it — several hundred chips on a real collection.
@@ -159,21 +175,8 @@ function RunStatus({
   const due = new Date(run.resolvesAt).getTime();
 
   if (now === 0) {
-    // Server render and the first hydrating paint: the absolute time, which
-    // is true without knowing what time it is now.
-    return (
-      <span className="text-sm text-steel">
-        Back at{" "}
-        {new Date(run.resolvesAt).toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          timeZone: "America/New_York",
-        })}{" "}
-        ET
-      </span>
-    );
+    return <span className="text-sm text-steel">Back at {easternClock(run.resolvesAt)} ET</span>;
   }
-
   if (due <= now) {
     return (
       <button
@@ -187,18 +190,44 @@ function RunStatus({
       </button>
     );
   }
-
   return <span className="text-sm font-semibold text-white">Back in {untilLabel(due - now)}</span>;
 }
 
-/** The art this copy printed in, same chain DustControls' row thumbnail
- *  takes — and the same refusal to fall back to base art, which would show
- *  the wrong skin for a card the player is about to commit for two days.
- *
- *  Three kinds of copy can march, and only ONE of them carries a
- *  `signature`: a player card names its champion there, a champions relic
- *  names it on champWin, a moment on moment. Reading only the first left
- *  every relic and moment in a squad rendering as a "?" box. */
+/** The fork timeline under a run: one dot per checkpoint. */
+function ForkTrail({ run }: { run: ExpeditionRun }) {
+  const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
+  if (run.forks === 0) return null;
+  const views = forkViews(run, new Date(now === 0 ? Date.parse(run.startedAt) : now));
+  return (
+    <ol className="flex items-center gap-1.5" aria-label="Forks on this run">
+      {views.map((fork) => (
+        <li
+          key={fork.index}
+          title={`Fork ${fork.index + 1}: ${fork.status}${fork.choice ? ` (${fork.choice})` : ""} · opens ${easternClock(fork.opensAt)} ET`}
+          className={`h-2.5 w-2.5 rounded-full border ${
+            fork.status === "decided"
+              ? fork.choice === "camp"
+                ? "border-mint bg-mint/60"
+                : "border-coral bg-coral"
+              : fork.status === "open"
+                ? "animate-pulse border-gold bg-gold"
+                : fork.status === "missed"
+                  ? "border-steel bg-steel/40"
+                  : "border-line bg-transparent"
+          }`}
+        >
+          <span className="sr-only">
+            Fork {fork.index + 1}: {fork.status}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The art this copy printed in. Three kinds of copy can march, and only
+ *  ONE of them carries a `signature`: a player card names its champion
+ *  there, a champions relic on champWin, a moment on moment. */
 function copyArtUrl(copy: CardCopy): string | null {
   const champion =
     copy.card?.signature?.champion ?? copy.card?.champWin?.champion ?? copy.card?.moment?.champion ?? null;
@@ -226,23 +255,139 @@ function SquadThumb({ copy, id }: { copy: CardCopy | undefined; id: number }) {
         </span>
       )}
       <span className="w-full truncate text-center text-[10px] text-steel" title={copy?.playerName}>
-        {/* A copy the collection read didn't return — traded away mid-run is
-            impossible (the guard refuses), so this is only ever a squad from
-            another season's shelf being viewed from this one. */}
         {copy?.playerName ?? `#${id}`}
       </span>
     </span>
   );
 }
 
+/**
+ * A fork the squad is standing at. The story, the options with their odds,
+ * and how long until the squad decides for you.
+ */
+function ForkPrompt({
+  run,
+  fork,
+  copies,
+  busy,
+  onDecide,
+}: {
+  run: ExpeditionRun;
+  fork: ForkView;
+  copies: CardCopy[];
+  busy: boolean;
+  onDecide: (choice: ForkChoice) => void;
+}) {
+  const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
+  const def = EXPEDITION_TIERS[run.tier as ExpeditionTierKey];
+  const story = FORKS[run.tier as ExpeditionTierKey]?.[fork.index];
+  if (!def || !story) return null;
+  const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices));
+  const left = fork.closesAt.getTime() - now;
+  return (
+    <li data-testid={`fork-${run.id}-${fork.index}`} className="card-brand flex flex-col gap-3 border-gold/60 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <span className="label-dash text-gold">
+            {def.label} · fork {fork.index + 1} of {run.forks}
+          </span>
+          <h3 className="type-display mt-0.5 text-xl">{story.title}</h3>
+        </div>
+        <span className="text-xs text-steel">
+          {now === 0 ? `Decide by ${easternClock(fork.closesAt)} ET` : left > 0 ? `${untilLabel(left)} to decide` : "Deciding…"} — silence camps
+        </span>
+      </div>
+      <p className="max-w-3xl text-sm text-white">{story.story}</p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {options.map((option) => (
+          <button
+            key={option.choice}
+            type="button"
+            disabled={busy || option.locked !== null}
+            onClick={() => onDecide(option.choice)}
+            aria-label={`${option.label} — ${option.choice}`}
+            title={option.locked ?? undefined}
+            className={`flex flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed ${
+              option.locked
+                ? "border-line/60 opacity-40"
+                : option.choice === "camp"
+                  ? "border-mint/50 hover:bg-mint/10"
+                  : "border-coral/60 hover:bg-coral/10"
+            }`}
+          >
+            <span className="text-sm font-semibold text-white">{option.label}</span>
+            <span className="text-xs text-steel">{option.locked ?? option.tease}</span>
+          </button>
+        ))}
+      </div>
+    </li>
+  );
+}
+
+/** A lost card and the two ways home. */
+function MissingRow({
+  hold,
+  copy,
+  busy,
+  onRescue,
+  onRansom,
+}: {
+  hold: LostHold;
+  copy: CardCopy | undefined;
+  busy: boolean;
+  onRescue: () => void;
+  onRansom: () => void;
+}) {
+  const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
+  const [armed, setArmed] = useState(false);
+  const left = new Date(hold.expiresAt).getTime() - now;
+  const price = copy ? ransomFor(copy) : null;
+  return (
+    <li data-testid={`hold-${hold.holdId}`} className="card-brand flex flex-wrap items-center gap-x-5 gap-y-3 border-coral/50 px-4 py-3">
+      <div className="min-w-[9rem]">
+        <span className="label-dash text-coral">Missing</span>
+        <p className="type-display mt-0.5 text-lg">{copy?.playerName ?? `#${hold.cardId}`}</p>
+        <p className="text-xs text-steel">
+          {now === 0 ? `Gone for good at ${easternClock(hold.expiresAt)} ET` : left > 0 ? `${untilLabel(left)} until it is gone for good` : "Being buried…"}
+        </p>
+      </div>
+      <SquadThumb copy={copy} id={hold.cardId} />
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onRescue} disabled={busy} className="btn-pill px-4 py-2 text-sm disabled:opacity-50">
+          Mount a rescue
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!armed) {
+              setArmed(true);
+              return;
+            }
+            setArmed(false);
+            onRansom();
+          }}
+          onBlur={() => setArmed(false)}
+          disabled={busy || price === null}
+          aria-label={armed ? `Confirm — pay ${price ?? 0} to ransom ${copy?.playerName ?? "the card"}` : `Ransom for ${price ?? 0}`}
+          className="btn-coral px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {armed ? `Confirm — pay ${fmtPoints(price ?? 0)}` : `Ransom for ${fmtPoints(price ?? 0)}`}
+        </button>
+      </div>
+    </li>
+  );
+}
+
 interface Ceremony {
   /** The run that just came home — the ceremony needs its LAUNCH day to
-   *  name the brief the payout was scored against, which is not
-   *  necessarily today's (a Legend Hunt is out for two of them). */
+   *  name the brief the payout was scored against. */
   run: ExpeditionRun;
   outcome: ExpeditionOutcome;
+  route: RouteResult;
+  baseDollars: number;
   bearerId: number | null;
   balance: number;
+  fragments: number;
 }
 
 export default function ExpeditionBoard({
@@ -250,6 +395,11 @@ export default function ExpeditionBoard({
   runs,
   deployedIds,
   today,
+  holds = [],
+  graves = [],
+  fragments = 0,
+  patron = false,
+  policyUsed = false,
   initialPick = null,
   base = "/cards",
 }: {
@@ -260,15 +410,24 @@ export default function ExpeditionBoard({
   base?: string;
   /** The viewer's shelf for the season being browsed. */
   copies: CardCopy[];
-  /** Their runs this season, newest launch first — away and finished both. */
+  /** Their runs this season, newest launch first — away, finished, and
+   *  the holds on lost cards. */
   runs: ExpeditionRun[];
-  /** Every copy of theirs currently away, in ANY season (the lock is a
-   *  property of the card). Presentation only; the trigger is the rule. */
+  /** Every copy of theirs currently away or lost, in ANY season (the lock
+   *  is a property of the card). Presentation only; the trigger is the rule. */
   deployedIds: ReadonlySet<number>;
   /** Today's Eastern date, resolved on the server — the same calendar
-   *  claim_expedition scores a run's brief against, so the banner can't
-   *  disagree with the payout. */
+   *  the claim scores a run's brief against. */
   today: string;
+  /** Their lost cards, any season. */
+  holds?: LostHold[];
+  /** Their dead cards, this season. */
+  graves?: Grave[];
+  /** Map fragments held. */
+  fragments?: number;
+  /** Whether the free weekly policy is theirs to spend, and whether it is spent. */
+  patron?: boolean;
+  policyUsed?: boolean;
 }) {
   const router = useRouter();
   const [picked, setPicked] = useState<ReadonlySet<number>>(
@@ -279,24 +438,23 @@ export default function ExpeditionBoard({
           : [],
       ),
   );
-  // Two error slots, not one: a refused launch belongs under the tier cards
-  // the player just clicked, and a refused claim belongs beside the run it
-  // refused. One shared slot puts half of them off the bottom of the fold.
+  const [insured, setInsured] = useState(false);
+  const [rescueTarget, setRescueTarget] = useState<number | null>(holds[0]?.holdId ?? null);
+  const [cleanseTarget, setCleanseTarget] = useState<number | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
+  const [forkError, setForkError] = useState<string | null>(null);
+  const [holdError, setHoldError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [ceremony, setCeremony] = useState<Ceremony | null>(null);
-  // Runs claimed in THIS session. router.refresh() re-reads the server, but
-  // the ceremony is open over the top of the board until dismissed and the
-  // run must not still be sitting in the field behind it.
   const [claimed, setClaimed] = useState<ReadonlySet<number>>(new Set());
   const [busyTier, setBusyTier] = useState<ExpeditionTierKey | null>(null);
   const [busyRun, setBusyRun] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
+  const launchRef = useRef<HTMLElement | null>(null);
 
   const brief = briefFor(today);
   const byId = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
-  // Best card first, then by name: the shelf order a collector scans in,
-  // and the top of it is where a squad gets picked from.
   const sorted = useMemo(
     () => [...copies].sort((a, b) => shineOf(b) - shineOf(a) || a.playerName.localeCompare(b.playerName)),
     [copies],
@@ -304,13 +462,15 @@ export default function ExpeditionBoard({
   const squad = useMemo(() => copies.filter((copy) => picked.has(copy.id)), [copies, picked]);
   const shine = squadShine(squad);
   const full = picked.size >= SQUAD_SIZE;
+  const now = new Date();
 
-  const active = runs.filter((run) => run.claimedAt === null && !claimed.has(run.id));
-  // One of each tier at a time — launch_expedition enforces it, this only
-  // says so before the click. A tier whose run is still in the field can't
-  // be sent again until it is claimed.
+  const active = runs.filter((run) => run.tier !== "lost" && run.claimedAt === null && !claimed.has(run.id));
   const tiersOut = new Set(active.map((run) => run.tier));
-  const finished = runs.filter((run) => run.claimedAt !== null || claimed.has(run.id));
+  const finished = runs.filter((run) => run.tier !== "lost" && (run.claimedAt !== null || claimed.has(run.id)));
+  const openForks = active
+    .flatMap((run) => forkViews(run, now).filter((fork) => fork.status === "open").map((fork) => ({ run, fork })));
+  const afflictedInSquad = squad.filter((copy) => copy.card?.mutation?.key === "haunted" || copy.card?.mutation?.key === "cursed");
+  const freePolicy = patron && !policyUsed;
 
   function toggle(id: number) {
     setLaunchError(null);
@@ -323,20 +483,38 @@ export default function ExpeditionBoard({
 
   function launch(tier: ExpeditionTierKey) {
     setLaunchError(null);
+    setNotice(null);
     setBusyTier(tier);
-    // Taken from `squad` (a filter over `copies`) rather than from the
-    // `picked` Set: a Set iterates in insertion order, which here is CLICK
-    // order, and the run row would then record a squad in an order nothing
-    // else on the site uses. The RPC doesn't care; the field strip does.
+    const def = EXPEDITION_TIERS[tier];
     const squadIds = squad.map((copy) => copy.id);
+    const target = def.target === "lost" ? rescueTarget : def.target === "afflicted" ? (cleanseTarget ?? afflictedInSquad[0]?.id ?? null) : null;
     startTransition(async () => {
-      const result = await launchExpeditionAction(tier, squadIds);
+      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && def.risk !== "none", target });
       setBusyTier(null);
       if (!result.ok) {
         setLaunchError(result.error);
         return;
       }
       setPicked(new Set());
+      setInsured(false);
+      setNotice(
+        `${def.label} is out. Back ${easternClock(result.resolvesAt)} ET${def.forks > 0 ? `, with ${def.forks} fork${def.forks === 1 ? "" : "s"} to answer on the way` : ""}.${result.fee > 0 ? ` ${fmtPoints(result.fee)} paid.` : ""}${result.freePolicy ? " This week's free policy covers it." : ""}`,
+      );
+      router.refresh();
+    });
+  }
+
+  function decide(run: ExpeditionRun, index: number, choice: ForkChoice) {
+    setForkError(null);
+    setBusyRun(run.id);
+    startTransition(async () => {
+      const result = await decideForkAction(run.id, index, choice);
+      setBusyRun(null);
+      if (!result.ok) {
+        setForkError(result.error);
+        router.refresh();
+        return;
+      }
       router.refresh();
     });
   }
@@ -349,34 +527,125 @@ export default function ExpeditionBoard({
       setBusyRun(null);
       if (!result.ok) {
         setClaimError(result.error);
-        // Refresh on the failure too. The common refusal is 'already
-        // claimed' — the claim went through and the response was dropped,
-        // so the run is resolved on the server while the board still shows
-        // a live Claim button over it. Re-reading moves it into the field
-        // log with its payout; the message stays up to say what happened.
+        // The common refusal is 'already claimed' — the claim went through
+        // and the response was dropped. Re-reading moves it into the log.
         router.refresh();
         return;
       }
-      setCeremony({ run, outcome: result.outcome, bearerId: result.bearerId, balance: result.balance });
+      setCeremony({
+        run,
+        outcome: result.outcome,
+        route: result.route,
+        baseDollars: result.baseDollars,
+        bearerId: result.bearerId,
+        balance: result.balance,
+        fragments: result.fragments,
+      });
       setClaimed((current) => new Set(current).add(run.id));
       router.refresh();
     });
   }
 
+  function ransom(hold: LostHold) {
+    setHoldError(null);
+    setBusyRun(hold.holdId);
+    startTransition(async () => {
+      const result = await ransomLostCardAction(hold.holdId);
+      setBusyRun(null);
+      if (!result.ok) {
+        setHoldError(result.error);
+        router.refresh();
+        return;
+      }
+      setNotice(`${byId.get(hold.cardId)?.playerName ?? "The card"} is home, wounded, for ${fmtPoints(result.paid)}. Balance ${fmtPoints(result.balance)}.`);
+      router.refresh();
+    });
+  }
+
+  function rescue(hold: LostHold) {
+    setRescueTarget(hold.holdId);
+    setNotice(`Pick three cards and send a Rescue after ${byId.get(hold.cardId)?.playerName ?? "the card"}.`);
+    launchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <div className="flex flex-col gap-8" data-testid="expedition-board">
+      {/* ── Waiting on you ────────────────────────────────────────────── */}
+      {openForks.length > 0 ? (
+        <section aria-label="Forks waiting on you" className="flex flex-col gap-3">
+          <h2 className="type-display text-2xl sm:text-3xl">Waiting on you</h2>
+          <ul className="flex flex-col gap-3">
+            {openForks.map(({ run, fork }) => (
+              <ForkPrompt
+                key={`${run.id}-${fork.index}`}
+                run={run}
+                fork={fork}
+                copies={run.squad.map((id) => byId.get(id)).filter((copy): copy is CardCopy => Boolean(copy))}
+                busy={pending && busyRun === run.id}
+                onDecide={(choice) => decide(run, fork.index, choice)}
+              />
+            ))}
+          </ul>
+          {forkError ? (
+            <p data-testid="expedition-fork-error" className="text-sm text-red-400">
+              {forkError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* ── Missing ───────────────────────────────────────────────────── */}
+      {holds.length > 0 ? (
+        <section aria-label="Missing cards" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="type-display text-2xl sm:text-3xl">Missing</h2>
+            <span className="text-xs text-steel">
+              A lost card stays yours, locked, for a week. Send a Rescue after it or pay the ransom. Either brings it home wounded.
+            </span>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {holds.map((hold) => (
+              <MissingRow
+                key={hold.holdId}
+                hold={hold}
+                copy={byId.get(hold.cardId)}
+                busy={pending}
+                onRescue={() => rescue(hold)}
+                onRansom={() => ransom(hold)}
+              />
+            ))}
+          </ul>
+          {holdError ? (
+            <p data-testid="expedition-hold-error" className="text-sm text-red-400">
+              {holdError}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {/* ── Today's brief ─────────────────────────────────────────────── */}
       <section
         data-testid="expedition-brief"
         className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-gold/50 bg-gold/10 px-4 py-3"
       >
         <span className="text-sm font-bold uppercase tracking-[0.14em] text-gold">Today&apos;s brief</span>
-        <span className="text-sm font-semibold text-white">{brief.label} — +20% yield</span>
+        <span className="text-sm font-semibold text-white">{brief.label} — +{Math.round(BRIEF_BONUS * 100)}% yield</span>
         <span className="text-xs text-steel">
-          Send a {brief.role} with the squad and whatever they find pays 20% more. The brief is scored
+          Send a {brief.role} with the squad and whatever they find pays {Math.round(BRIEF_BONUS * 100)}% more. The brief is scored
           against the day you LAUNCH, so a run keeps the bonus it left with.
         </span>
+        {fragments > 0 ? (
+          <span data-testid="fragments" className="ml-auto rounded-full border border-purple-300/60 bg-purple-500/10 px-3 py-1 font-mono text-xs font-bold text-purple-200">
+            {fragments} map fragment{fragments === 1 ? "" : "s"}
+          </span>
+        ) : null}
       </section>
+
+      {notice ? (
+        <p role="status" data-testid="expedition-notice" className="rounded-md border border-mint/40 bg-mint/10 px-3 py-2 text-sm text-mint">
+          {notice}
+        </p>
+      ) : null}
 
       {/* ── Squads in the field ───────────────────────────────────────── */}
       {active.length > 0 ? (
@@ -386,14 +655,13 @@ export default function ExpeditionBoard({
             {active.map((run) => {
               const def = EXPEDITION_TIERS[run.tier as ExpeditionTierKey];
               return (
-                <li
-                  key={run.id}
-                  data-testid={`run-${run.id}`}
-                  className="card-brand flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3"
-                >
+                <li key={run.id} data-testid={`run-${run.id}`} className="card-brand flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3">
                   <div className="min-w-[9rem]">
-                    <span className="label-dash">{run.shine} shine</span>
+                    <span className="label-dash">
+                      {run.shine} shine{run.insured ? " · insured" : ""}
+                    </span>
                     <p className="type-display mt-0.5 text-lg">{def?.label ?? run.tier}</p>
+                    <ForkTrail run={run} />
                   </div>
                   <div className="flex gap-2">
                     {run.squad.map((id) => (
@@ -421,53 +689,130 @@ export default function ExpeditionBoard({
         </section>
       ) : null}
 
-      {/* ── The three runs ────────────────────────────────────────────── */}
-      <section aria-label="Expedition tiers" className="flex flex-col gap-3">
+      {/* ── The rules ─────────────────────────────────────────────────── */}
+      <ExpeditionRules />
+
+      {/* ── The six runs ──────────────────────────────────────────────── */}
+      <section ref={launchRef} aria-label="Expedition routes" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Choose a run</h2>
           <span className="text-xs text-steel">
-            Every run takes {SQUAD_SIZE} cards. They come back when the clock runs out — nothing is spent.
+            Every run takes {SQUAD_SIZE} cards. The button on each says which of yours can be hurt on it.
           </span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+
+        {/* Options that apply to the launch, whatever the route. */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-line bg-panel/60 px-4 py-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={insured}
+              onChange={(event) => setInsured(event.target.checked)}
+              className="h-4 w-4 accent-[var(--color-gold)]"
+            />
+            <span className="text-white">Insure this run</span>
+            <span className="text-xs text-steel">
+              {freePolicy ? "free this week (patron)" : `${fmtPoints(INSURANCE_FEE)} at launch`} — lost becomes wounded, dead becomes lost
+            </span>
+          </label>
+          {holds.length > 0 ? (
+            <label className="flex items-center gap-2">
+              <span className="text-white">Rescue target</span>
+              <select
+                value={rescueTarget ?? ""}
+                onChange={(event) => setRescueTarget(event.target.value ? Number(event.target.value) : null)}
+                className="rounded-md border border-line bg-navy px-2 py-1 text-xs text-white"
+              >
+                {holds.map((hold) => (
+                  <option key={hold.holdId} value={hold.holdId}>
+                    {byId.get(hold.cardId)?.playerName ?? `#${hold.cardId}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {afflictedInSquad.length > 0 ? (
+            <label className="flex items-center gap-2">
+              <span className="text-white">Cleanse</span>
+              <select
+                value={cleanseTarget ?? afflictedInSquad[0].id}
+                onChange={(event) => setCleanseTarget(Number(event.target.value))}
+                className="rounded-md border border-line bg-navy px-2 py-1 text-xs text-white"
+              >
+                {afflictedInSquad.map((copy) => (
+                  <option key={copy.id} value={copy.id}>
+                    {copy.playerName} ({copy.card?.mutation?.key})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {TIER_ORDER.map((key) => {
             const def = EXPEDITION_TIERS[key];
-            const gate = squadMeets(key, squad);
+            const gate = squadMeets(key, squad, now);
             const isOut = tiersOut.has(key);
+            const needsHold = def.target === "lost" && holds.length === 0;
+            const needsAfflicted = def.target === "afflicted" && full && afflictedInSquad.length === 0;
+            const shortFragments = def.fragments > fragments;
+            const blocked = !gate.ok || isOut || needsHold || needsAfflicted || shortFragments || pending;
+            const range = payoutRange(key);
             return (
               <article
                 key={key}
                 data-testid={`tier-${key}`}
-                className={`card-brand flex flex-col gap-3 p-5 transition ${
-                  gate.ok && !isOut ? "border-mint/50" : ""
-                }`}
+                className={`card-brand flex flex-col gap-3 p-5 transition ${gate.ok && !isOut && !needsHold && !needsAfflicted && !shortFragments ? "border-mint/50" : ""}`}
               >
-                <div>
-                  <h3 className="type-display text-xl">{def.label}</h3>
-                  <p className="mt-0.5 text-xs uppercase tracking-wide text-steel">{def.durationHours} hours away</p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="type-display text-xl">{def.label}</h3>
+                    <p className="mt-0.5 text-xs uppercase tracking-wide text-steel">
+                      {def.durationHours} hours away · {def.forks} fork{def.forks === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${RISK_CLASS[def.risk]}`}>
+                    {RISK_LABEL[def.risk]}
+                  </span>
                 </div>
-                <p className="text-sm text-steel">{TIER_FLAVOR[key]}</p>
+                <p className="text-sm text-steel">{def.what}</p>
                 <p className="text-sm font-semibold text-white">
                   <span className="label-dash mr-2 inline-block">Entry</span>
                   <span>{requirementLine(def)}</span>
                 </p>
-                {/* What it pays, before shine and the brief. Printed because
-                    a two-day wait is a bet, and nobody should have to make
-                    it blind. */}
                 <p className="text-sm font-semibold text-white">
                   <span className="label-dash mr-2 inline-block">Pays</span>
-                  <span className="font-mono text-mint">
-                    {fmtPoints(payoutRange(key).min)}–{fmtPoints(payoutRange(key).max)}
-                  </span>
-                  <span className="ml-2 text-xs font-normal text-steel">
-                    +{Math.round(SHINE_BONUS_CAP * 100)}% at most from shine, +{Math.round(BRIEF_BONUS * 100)}% for the brief
-                  </span>
+                  {range.max === 0 ? (
+                    <span className="text-steel">nothing — the card comes home clean</span>
+                  ) : (
+                    <>
+                      <span className="font-mono text-mint">
+                        {fmtPoints(range.min)}–{fmtPoints(range.max)}
+                      </span>
+                      <span className="ml-2 text-xs font-normal text-steel">
+                        +{Math.round(SHINE_BONUS_CAP * 100)}% at most from shine, +{Math.round(BRIEF_BONUS * 100)}% for the brief, more for every push
+                      </span>
+                    </>
+                  )}
+                </p>
+                {/* Consent, on the card, before the click. */}
+                <p data-testid={`consent-${key}`} className={`text-xs ${def.risk === "none" ? "text-steel" : def.risk === "dead" ? "text-red-300" : "text-gold"}`}>
+                  {consentLine(key, squad, insured && def.risk !== "none")}
                 </p>
                 {isOut ? (
                   <p data-testid={`tier-${key}-out`} className="text-xs text-gold">
                     Already in the field. One {def.label} at a time — bring this one home first.
                   </p>
-                ) : gate.ok ? null : (
+                ) : null}
+                {needsHold ? <p className="text-xs text-steel">Nothing is lost. A Rescue needs a card to go after.</p> : null}
+                {needsAfflicted ? <p className="text-xs text-coral">Put a Haunted or Cursed card in the squad to cleanse it.</p> : null}
+                {shortFragments ? (
+                  <p className="text-xs text-coral">
+                    Needs {def.fragments} map fragments — you hold {fragments}.
+                  </p>
+                ) : null}
+                {gate.ok ? null : (
                   <ul className="flex flex-col gap-1">
                     {gate.reasons.map((reason) => (
                       <li key={reason} className="text-xs text-coral">
@@ -479,11 +824,11 @@ export default function ExpeditionBoard({
                 <button
                   type="button"
                   onClick={() => launch(key)}
-                  disabled={!gate.ok || isOut || pending}
+                  disabled={blocked}
                   aria-label={`Launch ${def.label}`}
-                  className="btn-coral mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${def.risk === "dead" ? "btn-pill border-red-400/70 text-red-200" : "btn-coral"}`}
                 >
-                  {busyTier === key ? "Sending…" : isOut ? "Still out there" : "Send them out"}
+                  {busyTier === key ? "Sending…" : isOut ? "Still out there" : def.risk === "dead" ? "Send them in, knowing" : "Send them out"}
                 </button>
               </article>
             );
@@ -521,32 +866,49 @@ export default function ExpeditionBoard({
         ) : (
           <ul className="flex flex-wrap gap-2">
             {sorted.map((copy) => {
-              const deployed = deployedIds.has(copy.id);
+              const lost = holds.some((hold) => hold.cardId === copy.id);
+              const deployed = deployedIds.has(copy.id) && !lost;
+              const benchedUntil = woundedUntil(copy, now);
               const selected = picked.has(copy.id);
               const worth = shineOf(copy);
+              const mutation = copy.card?.mutation ? mutationByKey(copy.card.mutation.key) : undefined;
+              const status = lost
+                ? "lost"
+                : deployed
+                  ? "on expedition"
+                  : benchedUntil
+                    ? `wounded until ${easternClock(benchedUntil)} ET`
+                    : null;
               return (
                 <li key={copy.id}>
                   <button
                     type="button"
                     onClick={() => toggle(copy.id)}
-                    disabled={deployed || (!selected && full)}
+                    disabled={deployed || lost || benchedUntil !== null || (!selected && full)}
                     aria-pressed={selected}
                     aria-label={`${copy.playerName} — ${worth} shine`}
-                    title={deployed ? "On expedition — back soon." : undefined}
+                    title={status ? `${status[0].toUpperCase()}${status.slice(1)}.` : undefined}
                     className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
                       selected
                         ? "border-coral bg-coral/15"
                         : "border-line bg-panel hover:border-coral/60 disabled:opacity-40 disabled:hover:border-line"
                     }`}
+                    style={mutation ? { boxShadow: `inset 0 0 0 1px ${mutation.accent}66` } : undefined}
                   >
                     <span className="flex min-w-0 flex-col">
                       <span className="truncate text-xs font-semibold text-white">{copy.playerName}</span>
                       <span className="text-[10px] uppercase tracking-wide text-steel">
                         {tierLabel(copy.tier)}
                         {copy.role ? ` · ${copy.role}` : ""}
-                        {deployed ? " · on expedition" : ""}
+                        {mutation ? ` · ${mutation.label}` : ""}
+                        {status ? ` · ${status}` : ""}
                       </span>
                     </span>
+                    {isProtected(copy) ? (
+                      <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
+                        1/1
+                      </span>
+                    ) : null}
                     {copy.signed ? (
                       <span aria-hidden className="text-xs font-black text-gold">
                         ✍
@@ -580,14 +942,6 @@ export default function ExpeditionBoard({
               >
                 <span className="font-semibold text-white">{EXPEDITION_TIERS[run.tier as ExpeditionTierKey]?.label ?? run.tier}</span>
                 <span className="text-steel">
-                  {/* Pinned to Eastern for RunStatus' reason: without a
-                      timeZone the server formats in UTC and the browser in
-                      the viewer's zone, so a run launched between midnight
-                      and 4am UTC renders one date in the HTML and another
-                      after hydration — a mismatch, and the wrong day. ET is
-                      also the calendar the feature runs on end to end (the
-                      daily limit, and the brief the payout was scored
-                      against), so the log agrees with the payout. */}
                   {new Date(run.startedAt).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -597,7 +951,9 @@ export default function ExpeditionBoard({
                 {run.outcome ? (
                   <>
                     <span className="font-mono font-bold text-mint">{fmtPoints(run.outcome.dollars)}</span>
+                    {run.outcome.pushes > 0 ? <span className="text-steel">×{run.outcome.lootMultiplier} from {run.outcome.pushes} push{run.outcome.pushes === 1 ? "" : "es"}</span> : null}
                     {run.outcome.comp ? <span className="text-gold">free pack</span> : null}
+                    {run.outcome.fragments > 0 ? <span className="text-purple-200">map fragment</span> : null}
                     {run.outcome.mark ? (
                       <span className="text-gold">
                         {run.outcome.mark} mark
@@ -606,10 +962,50 @@ export default function ExpeditionBoard({
                           : ""}
                       </span>
                     ) : null}
+                    {run.outcome.fates
+                      .filter((fate) => fate.fate !== "home" || fate.mutation)
+                      .map((fate) => (
+                        <span key={fate.id} className={FATE_CLASS[fate.fate]}>
+                          {byId.get(fate.id)?.playerName ?? `#${fate.id}`}{" "}
+                          {fate.mutation ? mutationByKey(fate.mutation)?.label.toLowerCase() : FATE_LABEL[fate.fate].toLowerCase()}
+                        </span>
+                      ))}
+                    {run.outcome.rescued === true ? <span className="text-mint">rescued</span> : null}
+                    {run.outcome.rescued === false ? <span className="text-coral">rescue failed</span> : null}
                   </>
                 ) : (
                   <span className="text-steel">claimed</span>
                 )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* ── The graveyard ─────────────────────────────────────────────── */}
+      {graves.length > 0 ? (
+        <section aria-label="Fallen cards" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="type-display text-2xl sm:text-3xl">The graveyard</h2>
+            <span className="text-xs text-steel">Cards that did not come home. They stay here.</span>
+          </div>
+          <ul className="flex flex-wrap gap-2">
+            {graves.map((grave) => (
+              <li
+                key={grave.id}
+                data-testid={`grave-${grave.id}`}
+                className="flex flex-col rounded-lg border border-red-500/40 bg-black/40 px-3 py-2 text-xs text-steel"
+              >
+                <span className="text-sm font-semibold text-white">{grave.playerName}</span>
+                <span>
+                  {tierLabel(grave.tier)}
+                  {grave.foil ? " · foil" : ""}
+                  {grave.signed ? " · signed" : ""}
+                </span>
+                <span className="text-red-300">
+                  {grave.cause === "route" ? "Fell on the Legendary route" : "Lost, and nobody came"} ·{" "}
+                  {new Date(grave.diedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}
+                </span>
               </li>
             ))}
           </ul>
@@ -624,13 +1020,9 @@ export default function ExpeditionBoard({
 }
 
 /**
- * What a run brought home, over the board.
- *
- * The mark shown is the BETTER of what the run rolled and what the bearer
- * already wore — claim_expedition replaces a mark only upward, so a Trail
- * landing on a card that already carries a Legend changes nothing, and
- * drawing the Trail here would be a lie about the card the player is
- * looking at.
+ * What a run brought home, over the board: the dollars, every event on the
+ * route, and every card with the state it came home in — drawn through
+ * PlayerCard3D with the mutation it now wears.
  */
 function ClaimCeremony({
   ceremony,
@@ -641,13 +1033,9 @@ function ClaimCeremony({
   copies: Map<number, CardCopy>;
   onClose: () => void;
 }) {
-  const { outcome, bearerId, balance } = ceremony;
+  const { outcome, route, bearerId, balance, baseDollars, fragments } = ceremony;
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  // Same overlay manners as CardCopyPreview: focus lands on the way out,
-  // Escape takes it, and the backdrop is clickable. A ceremony that can
-  // only be dismissed with the mouse is a ceremony a keyboard reader is
-  // stuck inside.
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
@@ -659,24 +1047,12 @@ function ClaimCeremony({
 
   const bearer = bearerId === null ? undefined : copies.get(bearerId);
   const worn = bearer?.card?.expedition?.mark ?? null;
-  const shown: ExpeditionMarkKind | null =
+  const shownMark: ExpeditionMarkKind | null =
     outcome.mark && (!worn || MARK_RANK[outcome.mark] > MARK_RANK[worn]) ? outcome.mark : worn;
 
-  // The frozen card with the mark it now wears. Synthesized rather than
-  // re-read: claim_expedition has already written this to card_inventory,
-  // and router.refresh() is in flight — this is the same card arriving a
-  // beat earlier so the reveal isn't a blank frame.
-  const marked =
-    bearer && shown
-      ? {
-          ...bearer.card,
-          expedition: {
-            mark: shown,
-            tier: bearer.card?.expedition?.tier ?? "",
-            date: bearer.card?.expedition?.date ?? new Date().toISOString().slice(0, 10),
-          },
-        }
-      : null;
+  const changed = route.fates.filter((fate) => fate.fate !== "home" || fate.mutation || fate.id === bearerId);
+  const dead = route.fates.filter((fate) => fate.fate === "dead");
+  const headline = dead.length > 0 ? (dead.length === route.fates.length ? "Nobody came home" : "Not everyone came home") : GRADE_HEADLINE[outcome.grade];
 
   return (
     <div
@@ -685,40 +1061,98 @@ function ClaimCeremony({
       aria-label="Expedition results"
       data-testid="expedition-ceremony"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/85 p-4"
     >
       <div
-        // The sheet swallows its own clicks so reading the card doesn't
-        // dismiss the thing you are reading.
         onClick={(event) => event.stopPropagation()}
-        className="card-brand my-auto flex max-w-lg flex-col items-center gap-4 p-6 text-center"
+        className="card-brand my-auto flex w-full max-w-3xl flex-col items-center gap-4 p-6 text-center"
       >
-        <span className="label-dash">{outcome.grade === "jackpot" ? "Jackpot" : "The squad is home"}</span>
-        <h2 className="type-display text-3xl sm:text-4xl">{GRADE_HEADLINE[outcome.grade]}</h2>
+        <span className="label-dash">
+          {route.rescued === true ? "Rescued" : route.rescued === false ? "The rescue failed" : route.cleansed !== null ? "Exorcised" : outcome.grade === "jackpot" ? "Jackpot" : "The squad is home"}
+        </span>
+        <h2 className="type-display text-3xl sm:text-4xl">{headline}</h2>
 
-        <p className="type-display text-4xl text-mint sm:text-5xl">
-          <span aria-hidden>$</span>
-          <CountUp value={outcome.dollars} />
-          <span className="sr-only"> betting dollars</span>
-        </p>
-        <p className="text-xs text-steel">Balance {fmtPoints(balance)}</p>
+        {outcome.dollars > 0 ? (
+          <>
+            <p className="type-display text-4xl text-mint sm:text-5xl">
+              <span aria-hidden>$</span>
+              <CountUp value={outcome.dollars} />
+              <span className="sr-only"> betting dollars</span>
+            </p>
+            <p className="text-xs text-steel">
+              {route.lootMultiplier !== 1 ? `${fmtPoints(baseDollars)} × ${route.lootMultiplier} from the forks · ` : ""}Balance {fmtPoints(balance)}
+            </p>
+          </>
+        ) : null}
 
         {outcome.briefHit ? (
           <p className="text-sm text-gold">
-            {briefFor(easternDateOf(new Date(ceremony.run.startedAt))).label} — the brief paid +20%.
+            {briefFor(easternDateOf(new Date(ceremony.run.startedAt))).label} — the brief paid +{Math.round(BRIEF_BONUS * 100)}%.
           </p>
         ) : null}
         {outcome.comp ? (
           <p className="text-sm text-gold">They came back with a free pack — it&apos;s waiting in the shop.</p>
         ) : null}
+        {route.fragments > 0 ? (
+          <p className="text-sm text-purple-200">A map fragment. You hold {fragments} — three open the Legendary route.</p>
+        ) : null}
 
-        {marked && bearer ? (
-          <div className="flex flex-col items-center gap-3">
-            <p className="type-display text-xl">The expedition chose {bearer.playerName}</p>
-            <PlayerCard3D card={marked} interactive forceFoil={bearer.foil} foilType={bearer.foilType} />
-            <p className="max-w-sm text-xs text-steel">
-              It wears the {shown} mark from here on — on the shelf, in a trade, and on its share page.
-            </p>
+        {route.events.length > 0 ? (
+          <ol data-testid="ceremony-events" className="flex w-full max-w-xl flex-col gap-1 text-left text-sm">
+            {route.events.map((event, index) => (
+              <li
+                key={index}
+                className={`rounded-md border px-3 py-1.5 ${
+                  event.tone === "good" ? "border-mint/40 text-mint" : event.tone === "bad" ? "border-coral/50 text-coral" : "border-line text-steel"
+                }`}
+              >
+                {event.text}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+
+        {changed.length > 0 ? (
+          <div className="flex w-full flex-wrap justify-center gap-6">
+            {changed.map((fate) => {
+              const copy = copies.get(fate.id);
+              if (!copy) return null;
+              const mutated =
+                fate.mutation && fate.fate !== "dead"
+                  ? { ...copy.card, mutation: { key: fate.mutation, date: new Date().toISOString().slice(0, 10), run: ceremony.run.id } }
+                  : copy.card;
+              const card =
+                fate.id === bearerId && shownMark
+                  ? {
+                      ...mutated,
+                      expedition: {
+                        mark: shownMark,
+                        tier: copy.card?.expedition?.tier ?? "",
+                        date: copy.card?.expedition?.date ?? new Date().toISOString().slice(0, 10),
+                      },
+                    }
+                  : mutated;
+              return (
+                <div key={fate.id} data-testid={`fate-${fate.id}`} className={`flex flex-col items-center gap-2 ${fate.fate === "dead" ? "opacity-60 grayscale" : ""}`}>
+                  <p className={`type-display text-lg ${FATE_CLASS[fate.fate]}`}>
+                    {copy.playerName} — {fate.mutation ? mutationByKey(fate.mutation)?.label : FATE_LABEL[fate.fate]}
+                    {fate.mutation && fate.fate !== "home" ? `, ${FATE_LABEL[fate.fate].toLowerCase()}` : ""}
+                  </p>
+                  <PlayerCard3D card={card} interactive forceFoil={copy.foil} foilType={copy.foilType} />
+                  <p className="max-w-[20rem] text-xs text-steel">
+                    {fate.fate === "dead"
+                      ? "Gone for good. It rests in the graveyard."
+                      : fate.fate === "lost"
+                        ? "Did not come home. A week to rescue or ransom it."
+                        : fate.fate === "wounded"
+                          ? `Benched from expeditions and the Gauntlet until ${fate.woundedUntil ? easternClock(fate.woundedUntil) : "it heals"} ET.`
+                          : fate.mutation
+                            ? (mutationByKey(fate.mutation)?.tagline ?? "")
+                            : `It wears the ${shownMark} mark from here on.`}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         ) : null}
 

@@ -1,15 +1,18 @@
 // Mutations — what an expedition can do to a card that comes home.
 //
-// A PROPOSAL, previewed on /admin/mutations and minted by nothing. The
-// point of a mutation is that it makes one specific copy different from
-// every other copy of the same player: it changes how the card looks,
-// permanently, and it reaches into Fantasy and the Gauntlet so the
-// difference is worth something. One per copy. Never on an Eclipse, a
-// moment, a champion or a team plate.
+// Minted by resolve_expedition (src/lib/expeditions/routes.ts rolls them)
+// and stamped into the copy's card json as `mutation: {key, date, run}`.
+// The point of a mutation is that it makes one specific copy different
+// from every other copy of the same player: it changes how the card looks,
+// permanently, and it reaches into Fantasy, the Gauntlet and the market so
+// the difference is worth something. One per copy. Never on an Eclipse, a
+// moment, a champion or a team plate (they never board a route that mints
+// one). An Exorcism removes Haunted or Cursed; nothing removes the rest.
 //
 // Each entry names a CSS utility in globals.css (the look), and says in
-// words what the mutation would do in each game. The numbers are the
-// proposal's opening bid, not tuning.
+// words what the mutation does in each game. The numbers those sentences
+// quote are MUTATION_EFFECTS below, which the scorers read — a sentence
+// and a number that disagree is worse than either alone.
 
 export type MutationKey = "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched";
 
@@ -106,6 +109,24 @@ export const MUTATIONS: Mutation[] = [
 
 export function mutationByKey(key: string): Mutation | undefined {
   return MUTATIONS.find((mutation) => mutation.key === key);
+}
+
+/** What PlayerCard3D draws: the utility, the chip, and the Cursed sigil's
+ *  second layer. */
+export interface MutationOverlay {
+  label: string;
+  className: string;
+  accent: string;
+  extra?: string;
+}
+
+export function mutationOverlay(mutation: Mutation): MutationOverlay {
+  return {
+    label: mutation.label,
+    className: mutation.className,
+    accent: mutation.accent,
+    ...(mutation.key === "cursed" ? { extra: "card-mut-cursed-sigil" } : {}),
+  };
 }
 
 /** The run ladder the proposal adds to the three that exist. */

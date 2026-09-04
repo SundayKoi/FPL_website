@@ -5,14 +5,25 @@ import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { fetchDeployedCopyIds, fetchRuns, type ExpeditionRun } from "@/lib/expeditions/queries";
+import {
+  fetchDeployedCopyIds,
+  fetchFragments,
+  fetchGraveyard,
+  fetchLostHolds,
+  fetchPolicyUsed,
+  fetchRuns,
+  type ExpeditionRun,
+  type Grave,
+  type LostHold,
+} from "@/lib/expeditions/queries";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
-import { easternDateOf } from "@/lib/packs/week";
+import { easternDateOf, mondayOf } from "@/lib/packs/week";
+import { patronActive } from "@/lib/patron/flames";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Expeditions — FPL",
-  description: "Send three cards out for a few hours and collect what they bring back.",
+  description: "Send three cards out on a route with forks. Answer the forks, and find out who comes home — and what they come home as.",
 };
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
@@ -99,7 +110,17 @@ export async function ExpeditionsPageView({
 
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const [inventory, runs, deployedIds]: [InventoryRow[], ExpeditionRun[], Set<number>] = season
+  const week = mondayOf(new Date());
+  const [inventory, runs, deployedIds, holds, graves, fragments, policyUsed, wallet]: [
+    InventoryRow[],
+    ExpeditionRun[],
+    Set<number>,
+    LostHold[],
+    Grave[],
+    number,
+    boolean,
+    { patron_until?: string | null } | null,
+  ] = season
     ? await Promise.all([
         fetchInventory(service, discordId, season),
         fetchRuns(service, discordId, season),
@@ -107,17 +128,30 @@ export async function ExpeditionsPageView({
         // a copy away on an academy run is greyed out on the premier board
         // too rather than being offered and then refused by the trigger.
         fetchDeployedCopyIds(service, discordId),
+        fetchLostHolds(service, discordId),
+        fetchGraveyard(service, discordId, season),
+        fetchFragments(service, discordId),
+        fetchPolicyUsed(service, discordId, week),
+        service
+          .from("betting_profiles")
+          .select("patron_until")
+          .eq("discord_id", discordId)
+          .maybeSingle()
+          .then((result) => (result.data as { patron_until?: string | null } | null) ?? null, () => null),
       ])
-    : [[], [], new Set<number>()];
+    : [[], [], new Set<number>(), [], [], 0, false, null];
 
   // A run must always be able to name its own cards. The season read above
   // is the collection as this page browses it, and a squad can sit outside
   // it — a copy from another season's shelf, or one past whatever the
   // collection read returned — so anything a run references and the shelf
   // didn't hand back is fetched by id and folded in. They arrive already
-  // marked deployed, so they show in the strip and stay unpickable.
+  // marked deployed, so they show in the strip and stay unpickable. Holds
+  // are runs too, so a lost card from another season is named the same way.
   const shelved = new Set(inventory.map((copy) => copy.id));
-  const offShelf = [...new Set(runs.flatMap((run) => run.squad))].filter((id) => !shelved.has(id));
+  const offShelf = [...new Set([...runs.flatMap((run) => run.squad), ...holds.map((hold) => hold.cardId)])].filter(
+    (id) => !shelved.has(id),
+  );
   const copies =
     offShelf.length > 0 ? [...inventory, ...(await fetchInventoryByIds(service, discordId, offShelf))] : inventory;
 
@@ -130,10 +164,11 @@ export async function ExpeditionsPageView({
           </span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Expeditions</h1>
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Send three cards out into the field. They are away for hours, not spent — while a squad is
-            out its cards can&apos;t be dusted or traded, and when the clock runs out they come home with
-            betting dollars, sometimes a free pack, and occasionally a mark that one of them wears for
-            the rest of its life. Brighter cards clear harder runs and are paid more for it.
+            Send three cards out on a route. The squad stops at forks and asks you what to do; push for
+            more and someone can get hurt, camp and keep what you have. They come home with betting
+            dollars, sometimes a pack or a map fragment — and sometimes changed for good: wounded,
+            mutated, lost, or on the deepest route, dead. Every rule is on this page, and the launch
+            button names which of your cards can be hurt before you press it.
           </p>
         </div>
       </header>
@@ -144,6 +179,11 @@ export async function ExpeditionsPageView({
         deployedIds={deployedIds}
         initialPick={parseInventoryId(send)}
         base={base}
+        holds={holds}
+        graves={graves}
+        fragments={fragments}
+        patron={patronActive(wallet?.patron_until)}
+        policyUsed={policyUsed}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
         // scored against rather than whatever the reader's clock says.

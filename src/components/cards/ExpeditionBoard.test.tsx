@@ -3,17 +3,36 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
-import type { ExpeditionRun } from "@/lib/expeditions/queries";
+import type { ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import ExpeditionBoard from "./ExpeditionBoard";
+
+/** A route that changed nothing: every card home, no forks pushed. */
+const QUIET_ROUTE = (ids: number[]) => ({
+  lootMultiplier: 1,
+  pushes: 0,
+  silences: 0,
+  fates: ids.map((id) => ({ id, fate: "home" as const, mutation: null, woundedUntil: null })),
+  fragments: 0,
+  rescued: null,
+  cleansed: null,
+  events: [],
+});
 
 // The two server actions. "use server" modules pull in server-only
 // transitively (runs.ts), so jsdom can't load the real one at all — and the
 // board's whole job here is what it does with the results.
-const { launchExpeditionAction, claimExpeditionAction } = vi.hoisted(() => ({
+const { launchExpeditionAction, claimExpeditionAction, decideForkAction, ransomLostCardAction } = vi.hoisted(() => ({
   launchExpeditionAction: vi.fn(),
   claimExpeditionAction: vi.fn(),
+  decideForkAction: vi.fn(),
+  ransomLostCardAction: vi.fn(),
 }));
-vi.mock("@/lib/expeditions/actions", () => ({ launchExpeditionAction, claimExpeditionAction }));
+vi.mock("@/lib/expeditions/actions", () => ({
+  launchExpeditionAction,
+  claimExpeditionAction,
+  decideForkAction,
+  ransomLostCardAction,
+}));
 
 const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -124,7 +143,16 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
 }
 
 function renderBoard(
-  over: { runs?: ExpeditionRun[]; deployedIds?: Set<number>; copies?: InventoryRow[] } = {},
+  over: {
+    runs?: ExpeditionRun[];
+    deployedIds?: Set<number>;
+    copies?: InventoryRow[];
+    holds?: LostHold[];
+    graves?: Grave[];
+    fragments?: number;
+    patron?: boolean;
+    policyUsed?: boolean;
+  } = {},
 ) {
   return render(
     <ExpeditionBoard
@@ -132,6 +160,11 @@ function renderBoard(
       runs={over.runs ?? []}
       deployedIds={over.deployedIds ?? new Set([5])}
       today={TODAY}
+      holds={over.holds}
+      graves={over.graves}
+      fragments={over.fragments}
+      patron={over.patron}
+      policyUsed={over.policyUsed}
     />,
   );
 }
@@ -156,13 +189,18 @@ async function click(button: HTMLElement) {
 }
 
 beforeEach(() => {
-  launchExpeditionAction.mockReset().mockResolvedValue({ ok: true, runId: 99, resolvesAt: "2026-08-28T00:00:00.000Z" });
+  launchExpeditionAction.mockReset().mockResolvedValue({ ok: true, runId: 99, resolvesAt: "2026-08-28T00:00:00.000Z", fee: 0, freePolicy: false });
   claimExpeditionAction.mockReset().mockResolvedValue({
     ok: true,
     outcome: { grade: "solid", dollars: 180, comp: true, mark: "sigil", briefHit: true },
+    route: QUIET_ROUTE([5, 1, 2]),
+    baseDollars: 180,
     bearerId: 1,
     balance: 5000,
+    fragments: 0,
   });
+  decideForkAction.mockReset().mockResolvedValue({ ok: true, closesAt: "2026-08-28T00:00:00.000Z" });
+  ransomLostCardAction.mockReset().mockResolvedValue({ ok: true, balance: 900, paid: 340 });
   refresh.mockReset();
 });
 
@@ -191,11 +229,11 @@ describe("ExpeditionBoard — tier cards", () => {
     const raid = screen.getByTestId("tier-raid");
     expect(within(raid).getByText("Deep Raid")).toBeTruthy();
     expect(within(raid).getByText("12 shine · 1 foil")).toBeTruthy();
-    expect(within(raid).getByText("24 hours away")).toBeTruthy();
+    expect(within(raid).getByText("24 hours away · 2 forks")).toBeTruthy();
 
     const legend = screen.getByTestId("tier-legend");
     expect(within(legend).getByText("20 shine · 2 foils · 1 signed")).toBeTruthy();
-    expect(within(legend).getByText("48 hours away")).toBeTruthy();
+    expect(within(legend).getByText("48 hours away · 3 forks")).toBeTruthy();
 
     // The ungated tier says so rather than showing an empty line.
     expect(within(screen.getByTestId("tier-scout")).getByText("Anyone can run it")).toBeTruthy();
@@ -262,7 +300,7 @@ describe("ExpeditionBoard — tier cards", () => {
     await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
 
     expect(launchExpeditionAction).toHaveBeenCalledTimes(1);
-    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3]);
+    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3], { insured: false, target: null });
     expect(refresh).toHaveBeenCalledTimes(1);
     // The squad went out — the picker is empty again rather than still
     // offering the three cards that just left.
@@ -303,7 +341,7 @@ describe("ExpeditionBoard — the squad picker", () => {
 
     const eve = screen.getByRole("button", { name: "Eve — 1 shine" }) as HTMLButtonElement;
     expect(eve.disabled).toBe(true);
-    expect(eve.title).toBe("On expedition — back soon.");
+    expect(eve.title).toBe("On expedition.");
 
     fireEvent.click(eve);
     expect(screen.getByTestId("squad-shine").textContent).toContain("0");
@@ -474,7 +512,8 @@ describe("ExpeditionBoard — the claim ceremony", () => {
     expect(claimExpeditionAction).toHaveBeenCalledWith(21);
     const ceremony = screen.getByTestId("expedition-ceremony");
     expect(ceremony.textContent).toContain("$180");
-    expect(within(ceremony).getByText("The expedition chose Alba")).toBeTruthy();
+    expect(within(ceremony).getByText("Alba — Home")).toBeTruthy();
+    expect(within(ceremony).getByText(/wears the sigil mark/)).toBeTruthy();
     // Sigil, not the mark the card was already wearing (none).
     expect(within(ceremony).getByRole("img", { name: "Expedition mark — Sigil" })).toBeTruthy();
     expect(refresh).toHaveBeenCalledTimes(1);
@@ -494,8 +533,11 @@ describe("ExpeditionBoard — the claim ceremony", () => {
     claimExpeditionAction.mockResolvedValue({
       ok: true,
       outcome: { grade: "poor", dollars: 40, comp: false, mark: null, briefHit: false },
+      route: QUIET_ROUTE([5, 1, 2]),
+      baseDollars: 40,
       bearerId: null,
       balance: 1040,
+      fragments: 0,
     });
     resolvable();
 
@@ -503,7 +545,7 @@ describe("ExpeditionBoard — the claim ceremony", () => {
 
     const ceremony = screen.getByTestId("expedition-ceremony");
     expect(ceremony.textContent).toContain("$40");
-    expect(within(ceremony).queryByText(/The expedition chose/)).toBeNull();
+    expect(within(ceremony).queryByText(/wears the/)).toBeNull();
     expect(ceremony.textContent).not.toContain("free pack");
   });
 
@@ -547,5 +589,225 @@ describe("ExpeditionBoard — a copy the shelf named", () => {
 
     render(<ExpeditionBoard copies={copies} runs={[]} deployedIds={new Set([2])} today={TODAY} initialPick={2} />);
     expect(screen.getByRole("button", { name: /^Bex — / }).getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+describe("ExpeditionBoard — the rules of the road", () => {
+  it("prints every run's worst case and every mutation's consequences", () => {
+    renderBoard();
+
+    const rules = screen.getByTestId("expedition-rules");
+    expect(within(rules).getByText("The rules of the road")).toBeTruthy();
+    expect(within(rules).getAllByText("Cards can DIE").length).toBeGreaterThan(0);
+    for (const key of ["irradiated", "hardened", "haunted", "cursed", "voidtouched"]) {
+      const rule = within(rules).getByTestId(`rule-${key}`);
+      expect(rule.textContent).toContain("Fantasy:");
+      expect(rule.textContent).toContain("Gauntlet:");
+      expect(rule.textContent).toContain("Market:");
+    }
+    expect(rules.textContent).toContain("Silence is safe.");
+    expect(rules.textContent).toContain("Never at risk:");
+  });
+
+  it("names the picked cards in each route's consent line, and softens it with insurance", () => {
+    renderBoard();
+    pickTwelveShineSquad();
+
+    expect(screen.getByTestId("consent-scout").textContent).toBe("Nothing on this run can hurt a card.");
+    expect(screen.getByTestId("consent-raid").textContent).toContain("Alba, Bex, Cyn can come home wounded");
+    expect(screen.getByTestId("consent-legendary").textContent).toContain("can DIE");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Insure this run/ }));
+    expect(screen.getByTestId("consent-legendary").textContent).toContain("can be lost");
+    expect(screen.getByTestId("consent-legend").textContent).toContain("wounded");
+  });
+
+  it("keeps a one-of-one off the routes that can lose it, saying which card", () => {
+    const eclipse = makeCopy(6, "Fen", "challenger", { foil: true, foilType: "eclipse", signed: true, role: "Mid" });
+    renderBoard({ copies: [...COPIES, eclipse] });
+    pick("Fen", 16);
+    pick("Dov", 16);
+    pick("Cyn", 7);
+
+    const legend = screen.getByTestId("tier-legend");
+    expect(within(legend).getByText("Fen is one of one and cannot go on a route where a card can be lost.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Launch Legend Hunt" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("holds the Legendary route behind three fragments", () => {
+    renderBoard({ fragments: 1 });
+    pick("Dov", 16);
+    pick("Cyn", 7);
+    pick("Alba", 3);
+
+    const legendary = screen.getByTestId("tier-legendary");
+    expect(within(legendary).getByText("Needs 3 map fragments — you hold 1.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Launch Legendary route" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("fragments").textContent).toBe("1 map fragment");
+  });
+
+  it("sends the insurance and the cleanse target with the launch", async () => {
+    const haunted = makeCopy(7, "Gil", "gold", {
+      role: "Mid",
+      card: { ...makeCard("Gil", "Mid"), mutation: { key: "haunted", date: "2026-08-20", run: 3 } },
+    });
+    renderBoard({ copies: [...COPIES, haunted] });
+    pick("Gil", 3);
+    pick("Bex", 2);
+    pick("Alba", 3);
+    fireEvent.click(screen.getByRole("checkbox", { name: /Insure this run/ }));
+
+    await click(screen.getByRole("button", { name: "Launch Exorcism" }));
+
+    // An Exorcism cannot hurt a card, so the policy is not sent with it.
+    // Squad order is shelf order, not click order (the RPC doesn't care;
+    // the field strip does).
+    expect(launchExpeditionAction).toHaveBeenCalledWith("exorcism", [1, 2, 7], { insured: false, target: 7 });
+  });
+});
+
+describe("ExpeditionBoard — forks", () => {
+  // A 24h raid launched nine hours ago: fork 1 (8h) is open until 16h.
+  const atFork = () =>
+    makeRun({
+      id: 40,
+      tier: "raid",
+      squad: [5, 1, 2],
+      forks: 2,
+      startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+    });
+
+  it("puts the open fork at the top with its story and every option's odds", () => {
+    renderBoard({ runs: [atFork()], deployedIds: new Set([5, 1, 2]) });
+
+    const fork = screen.getByTestId("fork-40-0");
+    expect(within(fork).getByText("The reactor")).toBeTruthy();
+    expect(within(fork).getByText("Deep Raid · fork 1 of 2")).toBeTruthy();
+    const push = within(fork).getByRole("button", { name: "Go into the reactor — push" }) as HTMLButtonElement;
+    expect(push.disabled).toBe(false);
+    expect(push.textContent).toContain("15% a card is wounded");
+    expect(push.textContent).toContain("20% to bring home irradiated");
+    // No signed card in Eve/Alba/Bex: the favour is shown, locked, and says why.
+    const favour = within(fork).getByRole("button", { name: "Call in a favour — favour" }) as HTMLButtonElement;
+    expect(favour.disabled).toBe(true);
+    expect(favour.textContent).toContain("Needs a signed card");
+    expect(fork.textContent).toContain("silence camps");
+  });
+
+  it("answers the fork through the action and refreshes", async () => {
+    renderBoard({ runs: [atFork()], deployedIds: new Set([5, 1, 2]) });
+
+    await click(screen.getByRole("button", { name: "Go into the reactor — push" }));
+
+    expect(decideForkAction).toHaveBeenCalledWith(40, 0, "push");
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows nothing to answer once the fork is decided", () => {
+    renderBoard({
+      runs: [makeRun({ ...atFork(), choices: [{ index: 0, choice: "camp", at: "" }] })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    expect(screen.queryByTestId("fork-40-0")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Forks waiting on you" })).toBeNull();
+  });
+});
+
+describe("ExpeditionBoard — missing cards", () => {
+  const hold: LostHold = { holdId: 70, cardId: 4, expiresAt: new Date(Date.now() + 5 * 24 * HOUR).toISOString(), lostOn: 30, season: "S5" };
+
+  it("lists a lost card with its ransom priced off its shine, and ransoms on the second tap", async () => {
+    ransomLostCardAction.mockResolvedValue({ ok: true, balance: 900, paid: 940 });
+    renderBoard({ holds: [hold], deployedIds: new Set([5, 4]) });
+
+    const row = screen.getByTestId("hold-70");
+    expect(within(row).getAllByText("Dov").length).toBeGreaterThan(0);
+    // 300 + 40 x 16 shine.
+    const ransom = within(row).getByRole("button", { name: "Ransom for 940" });
+    fireEvent.click(ransom);
+    expect(ransomLostCardAction).not.toHaveBeenCalled();
+    await click(within(row).getByRole("button", { name: "Confirm — pay 940 to ransom Dov" }));
+    expect(ransomLostCardAction).toHaveBeenCalledWith(70);
+    expect(screen.getByTestId("expedition-notice").textContent).toContain("Dov is home, wounded, for $940");
+  });
+
+  it("locks the lost card in the picker and calls it lost, not away", () => {
+    renderBoard({ holds: [hold], deployedIds: new Set([5, 4]) });
+
+    const dov = screen.getByRole("button", { name: "Dov — 16 shine" }) as HTMLButtonElement;
+    expect(dov.disabled).toBe(true);
+    expect(dov.title).toBe("Lost.");
+  });
+
+  it("opens the Rescue with the hold as its target", async () => {
+    renderBoard({ holds: [hold], deployedIds: new Set([5, 4]) });
+    pick("Alba", 3);
+    pick("Bex", 2);
+    pick("Cyn", 7);
+
+    await click(screen.getByRole("button", { name: "Launch Rescue" }));
+
+    expect(launchExpeditionAction).toHaveBeenCalledWith("rescue", [1, 2, 3], { insured: false, target: 70 });
+  });
+
+  it("says a Rescue has nobody to go after when nothing is lost", () => {
+    renderBoard();
+    pickTwelveShineSquad();
+
+    expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — the graveyard and a changed squad", () => {
+  it("keeps the fallen on the page", () => {
+    const grave: Grave = {
+      id: 1, inventoryId: 99, slug: "hal", playerName: "Hal", tier: "diamond", foil: true, foilType: "ice", signed: false,
+      card: makeCard("Hal", "Mid"), runId: 50, cause: "route", diedAt: "2026-08-20T12:00:00.000Z",
+    };
+    renderBoard({ graves: [grave] });
+
+    const stone = screen.getByTestId("grave-1");
+    expect(within(stone).getByText("Hal")).toBeTruthy();
+    expect(stone.textContent).toContain("Fell on the Legendary route");
+  });
+
+  it("shows every card that came home changed, drawn with what it now wears", async () => {
+    claimExpeditionAction.mockResolvedValue({
+      ok: true,
+      outcome: { grade: "solid", dollars: 390, comp: false, mark: null, briefHit: false },
+      route: {
+        ...QUIET_ROUTE([5, 1, 2]),
+        lootMultiplier: 1.5,
+        pushes: 2,
+        fates: [
+          { id: 5, fate: "home", mutation: "irradiated", woundedUntil: null },
+          { id: 1, fate: "wounded", mutation: null, woundedUntil: "2026-08-30T16:00:00.000Z" },
+          { id: 2, fate: "home", mutation: null, woundedUntil: null },
+        ],
+        events: [{ fork: 0, tone: "good", text: "The reactor: Eve came out of it irradiated." }],
+      },
+      baseDollars: 260,
+      bearerId: null,
+      balance: 5000,
+      fragments: 0,
+    });
+    renderBoard({
+      runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+
+    const ceremony = screen.getByTestId("expedition-ceremony");
+    expect(ceremony.textContent).toContain("$260 × 1.5 from the forks");
+    expect(within(ceremony).getByText("Eve — Irradiated")).toBeTruthy();
+    expect(within(ceremony).getByText("Alba — Wounded")).toBeTruthy();
+    expect(within(screen.getByTestId("fate-5")).getByTestId("mutation").querySelector(".card-mut-irradiated")).toBeTruthy();
+    expect(screen.queryByTestId("fate-2")).toBeNull();
+    expect(within(ceremony).getByTestId("ceremony-events").textContent).toContain("Eve came out of it irradiated");
   });
 });

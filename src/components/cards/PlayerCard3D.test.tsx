@@ -701,4 +701,30 @@ describe("provenance stamps", () => {
     expect(layer.querySelector(".card-mut-irradiated")).toBeTruthy();
     expect(layer.textContent).toContain("Irradiated");
   });
+
+  it("draws the mutation a minted copy wears, over any preview prop", () => {
+    render(
+      <PlayerCard3D
+        card={{ ...card, mutation: { key: "cursed", date: "2026-09-01", run: 12 } }}
+        interactive={false}
+        mutation={{ label: "Irradiated", className: "card-mut-irradiated", accent: "#8cff3c" }}
+      />,
+    );
+    const layer = screen.getByTestId("mutation");
+    expect(layer.querySelector(".card-mut-cursed")).toBeTruthy();
+    expect(layer.querySelector(".card-mut-cursed-sigil")).toBeTruthy();
+    expect(layer.querySelector(".card-mut-irradiated")).toBeNull();
+    expect(layer.textContent).toContain("Cursed");
+  });
+
+  it("wears a wounded chip while benched, and not after", () => {
+    const { unmount } = render(
+      <PlayerCard3D card={{ ...card, wounded: { until: new Date(Date.now() + 3_600_000).toISOString(), run: 1 } }} interactive={false} />,
+    );
+    expect(screen.getByTestId("wounded").textContent).toBe("Wounded");
+    unmount();
+
+    render(<PlayerCard3D card={{ ...card, wounded: { until: "2020-01-01T00:00:00.000Z", run: 1 } }} interactive={false} />);
+    expect(screen.queryByTestId("wounded")).toBeNull();
+  });
 });
