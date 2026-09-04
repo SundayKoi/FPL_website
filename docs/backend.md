@@ -606,9 +606,22 @@ three-second deadline. Both take an optional free-text `week`, resolved by
 which PUTs `DISCORD_COMMANDS` from `commandDefs.ts`). Adding a handler is half
 the job; the registration is the other half.
 
-### Skin-line parallels (proposal)
+### Skin-line parallels
 
-`/skin-lines` is a mockup of a patron's proposal, open to staff and to
+**Season 5's foils are drawn as Battlecast.** `SEASON_LINES` in
+`src/lib/cards/skinLines.ts` maps a season to a line; a copy minted in a
+listed season draws and names its parallel as that line's tier (prisma →
+Standard, aurora → Chroma, refractor → Prestige, ice → Ultimate) via
+`lineTreatmentFor` (PlayerCard3D, drawn exactly as a mockup `preview`
+is) and `parallelLabelFor` (the shelf caption, the flat PNG's badge and
+accent in `render/treatment.ts`, the Discord rip and flex lines, the
+stats page). The STORAGE never changed: `foil_type` still holds the
+ladder, the roller still walks it, dust still reads its multipliers, and
+Eclipse is not a tier of anything. To rotate, add the next season's key;
+the seasons before keep their look, because the mapping is by the copy's
+own season.
+
+`/skin-lines` is the design table the idea came from, open to staff and to
 active patrons (`fetchPatronActive`, a `betting_profiles.patron_until` read;
 the Premium Discord role does not open it, and everyone else is sent to
 `/support-devs`). It is listed as a patron perk in `src/lib/patron/perks.ts`
@@ -630,12 +643,10 @@ redrawing it: `card-foil-tier-chroma` swaps in the line's own `--c` palette,
 saturates; the sheen, gold frame and rising embers are sibling layers
 (`-sheen`, `-frame`, `-embers`). They reach the card through `PlayerCard3D`'s
 `preview` prop (`modifier` on the line layer, `layers` as siblings coloured
-by `--line-accent`), which only mockup pages pass. Nothing mints them: `foil_type` still only admits the ladder, the roller
-only walks `FOIL_TYPES`, and the page says so. If adopted: widen the check
-constraint to the tier keys, add a per-season line to the ladder config, wire
-the tier overlays to the pointer like the parallel layer, give the flat PNG
-render an accent and badge per tier, and leave Eclipse and every minted copy
-exactly as they are.
+by `--line-accent`), which the mockup pages pass and which a season line
+fills the same way. The tier's sibling layers are static (they do not swing
+with the pointer); the line layer itself rides the holo ref like any
+parallel.
 
 ### Showdown (Hold'em with the cards)
 

@@ -49,7 +49,7 @@ export interface CardImageInput {
 
 /** The element to hand `new ImageResponse(...)`, at CARD_IMAGE_SIZE. */
 export function renderCardImage({ card, foil, foilType, signed, autograph, label, splash }: CardImageInput): ReactElement {
-  const look = cardTreatment({ tierKey: card.tier?.key, foil, foilType, signed, autograph });
+  const look = cardTreatment({ tierKey: card.tier?.key, foil, foilType, signed, autograph, season: card.season });
   const tint = look.tint;
   // A pulled moment and a roster plate are ordinary card_inventory rows and
   // this route has to picture them. Their rating fields are placeholders

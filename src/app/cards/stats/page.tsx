@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FOIL_TYPES, FOIL_TYPE_LABELS } from "@/lib/packs/config";
+import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fmtPoints } from "@/lib/betting/format";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -110,7 +111,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
               <Figure
                 key={type}
                 value={(stats.foilsByType[type] ?? 0).toLocaleString()}
-                label={FOIL_TYPE_LABELS[type]}
+                label={parallelLabelFor(season, type, FOIL_TYPE_LABELS[type])}
                 note={rate(stats.foilsByType[type] ?? 0, stats.cardsPulled)}
               />
             ))}

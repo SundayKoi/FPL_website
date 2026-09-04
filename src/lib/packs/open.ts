@@ -17,6 +17,7 @@ import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/momen
 import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { cardImageUrl } from "@/lib/cards/shareImage";
+import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
@@ -636,7 +637,7 @@ async function announceChaseClaim(
   // "that card isn't even foil" to everyone watching the channel.
   const traits = [
     `${card.tier.label} ${card.role}`,
-    ...(print.foil ? [`✨ ${FOIL_TYPE_LABELS[foilTypeOf(print.foilType)]}`] : []),
+    ...(print.foil ? [`✨ ${parallelLabelFor(card.season, foilTypeOf(print.foilType), FOIL_TYPE_LABELS[foilTypeOf(print.foilType)])}`] : []),
     ...(print.signed ? ["✍️ Signed"] : []),
   ].join(" · ");
   // The card itself rides the embed, via the share renderer the site

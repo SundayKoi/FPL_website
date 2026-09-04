@@ -51,6 +51,7 @@ import { dustManyAction } from "@/lib/trades/actions";
 import BinderPinButton from "./BinderPinButton";
 import DustControls from "./DustControls";
 import PlayerCard3D from "./PlayerCard3D";
+import { parallelLabelFor, seasonLineOf } from "@/lib/cards/skinLines";
 
 type VariantFilter = "all" | "foil" | "signed" | "alt";
 
@@ -242,10 +243,13 @@ function CopyCaption({
             ◐ 1 of 1
           </span>
         ) : row.foil ? (
-          <span className={GOLD_CHIP} title={`${FOIL_TYPE_LABELS[foilTypeOf(row.foilType)]} foil copy`}>
+          <span className={GOLD_CHIP} title={`${parallelLabelFor(row.season, foilTypeOf(row.foilType), FOIL_TYPE_LABELS[foilTypeOf(row.foilType)])} foil copy`}>
             {/* The parallel by name where it is more than the base foil —
-                a Cracked Ice beside a Prisma should not wear the same ✦. */}
-            {parallelOf(row) ? FOIL_TYPE_LABELS[foilTypeOf(row.foilType)] : "✦"}
+                a Cracked Ice beside a Prisma should not wear the same ✦.
+                Under a season line every tier is named, Standard too. */}
+            {parallelOf(row) || seasonLineOf(row.season)
+              ? parallelLabelFor(row.season, foilTypeOf(row.foilType), FOIL_TYPE_LABELS[foilTypeOf(row.foilType)])
+              : "✦"}
           </span>
         ) : null}
         {skin > 0 ? (
