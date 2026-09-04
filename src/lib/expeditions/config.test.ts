@@ -10,6 +10,7 @@ import {
   EXPEDITION_TIERS,
   expectedDailyDollars,
   DAILY_LAUNCHES,
+  LOOT_MULT_CAP,
   MARK_RANK,
   maxExpeditionPayout,
   payoutRange,
@@ -18,6 +19,7 @@ import {
   shineOf,
   squadMeets,
   squadShine,
+  TIER_ORDER,
 } from "./config";
 
 /** What one run of a tier is expected to pay — expectedDailyDollars with
@@ -109,9 +111,14 @@ describe("EXPEDITION_TIERS", () => {
     // The guardrail: a click of /daily must never be the worse option, and
     // an expedition must never be the better one. Nothing on the board
     // out-earns a maxed daily streak on base rates.
-    for (const tier of ["scout", "raid", "legend"] as const) {
+    for (const tier of TIER_ORDER) {
       expect(expectedDailyDollars(tier)).toBeLessThan(MAXED_DAILY_STREAK);
     }
+    // The Legendary route is three days and three fragments; even so its
+    // base rate stays under the streak, and the forks — where its money
+    // is — are paid for in risk.
+    expect(expectedDailyDollars("legendary")).toBeLessThan(MAXED_DAILY_STREAK);
+    expect(expectedDailyDollars("exorcism")).toBe(0);
     // The scouting run is the one anybody can field with any three cards,
     // so it keeps the stricter original rule as well: an ungated loop must
     // never pay for a pack a day.
@@ -211,11 +218,13 @@ describe("rollOutcome", () => {
 describe("the payout ceiling the claim RPC guards", () => {
   /** The live guard, read out of the migration that last defined it. */
   function guardCeiling(): number {
+    // resolve_expedition is the live claim; the old claim_expedition guard
+    // (20260906000001) stays behind for the runs that pre-date forks.
     const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20260906000001_expedition_payout_ceiling.sql"),
+      join(process.cwd(), "supabase/migrations/20260914000001_expedition_routes.sql"),
       "utf8",
     );
-    const match = sql.match(/p_dollars not between 1 and (\d+)/);
+    const match = sql.match(/v_dollars not between 0 and (\d+)/);
     expect(match, "the claim guard is not where the test expects it").not.toBeNull();
     return Number(match![1]);
   }
@@ -242,10 +251,8 @@ describe("the payout ceiling the claim RPC guards", () => {
   it("derives the ceiling rather than restating it", () => {
     // best base x shine cap x brief bonus — read off REWARDS, so this
     // stays true through a rebalance.
-    const best = Math.max(
-      ...(["scout", "raid", "legend"] as const).map((tier) => payoutRange(tier).max),
-    );
-    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS)));
+    const best = Math.max(...TIER_ORDER.map((tier) => payoutRange(tier).max));
+    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP));
   });
 
   it("still refuses a payout no roll could produce", () => {

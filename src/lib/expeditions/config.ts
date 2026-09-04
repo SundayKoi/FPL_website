@@ -24,8 +24,19 @@ import type { InventoryRow } from "@/lib/packs/queries";
  */
 export type CardCopy = InventoryRow;
 
-/** The three runs, easiest first. */
-export type ExpeditionTierKey = "scout" | "raid" | "legend";
+/** The six runs, easiest first. The first three are the ladder anyone
+ *  climbs; Rescue and Exorcism exist to undo what the ladder can do to a
+ *  card; the Legendary route is the only place a card can die. */
+export type ExpeditionTierKey = "scout" | "raid" | "legend" | "rescue" | "exorcism" | "legendary";
+
+/** The worst a route can do to a card. Presentation reads it for the
+ *  consent line on the launch card; `squadMeets` reads it to keep one-of-
+ *  ones off any route past `wounded`. */
+export type RouteRisk = "none" | "wounded" | "lost" | "dead";
+
+/** Which card a run is FOR, beyond its squad: a Rescue names the lost
+ *  card it goes after, an Exorcism names the afflicted card it cleanses. */
+export type RouteTarget = "none" | "lost" | "afflicted";
 
 /** The cosmetic an expedition can bring home — a mark on the profile, not
  *  a card. Worst to best; see MARK_RANK. */
@@ -45,6 +56,16 @@ export interface ExpeditionTierDef {
   minFoils: number;
   /** How many of the three must be autographed. */
   minSigned: number;
+  /** Checkpoints where the run pauses and asks. See routes.ts. */
+  forks: number;
+  risk: RouteRisk;
+  /** Betting dollars debited at launch. Zero for the ladder. */
+  fee: number;
+  /** Map fragments consumed at launch. */
+  fragments: number;
+  target: RouteTarget;
+  /** What the run is for, in one line. */
+  what: string;
 }
 
 /**
@@ -54,10 +75,83 @@ export interface ExpeditionTierDef {
  * thing a collector unlocks instead of a thing everyone runs.
  */
 export const EXPEDITION_TIERS: Record<ExpeditionTierKey, ExpeditionTierDef> = {
-  scout: { key: "scout", label: "Scouting Run", durationHours: 8, minShine: 0, minFoils: 0, minSigned: 0 },
-  raid: { key: "raid", label: "Deep Raid", durationHours: 24, minShine: 12, minFoils: 1, minSigned: 0 },
-  legend: { key: "legend", label: "Legend Hunt", durationHours: 48, minShine: 20, minFoils: 2, minSigned: 1 },
+  scout: {
+    key: "scout", label: "Scouting Run", durationHours: 8, minShine: 0, minFoils: 0, minSigned: 0,
+    forks: 1, risk: "none", fee: 0, fragments: 0, target: "none",
+    what: "A short walk for pocket money. One fork — push for a bigger bag or camp and keep what you have. Nothing here can hurt a card.",
+  },
+  raid: {
+    key: "raid", label: "Deep Raid", durationHours: 24, minShine: 12, minFoils: 1, minSigned: 0,
+    forks: 2, risk: "wounded", fee: 0, fragments: 0, target: "none",
+    what: "A day out with two forks. The reactor can irradiate a card; the brutal fork can harden one or send it home wounded.",
+  },
+  legend: {
+    key: "legend", label: "Legend Hunt", durationHours: 48, minShine: 20, minFoils: 2, minSigned: 1,
+    forks: 3, risk: "lost", fee: 0, fragments: 0, target: "none",
+    what: "Two days and three forks. Camping at the wrong checkpoint haunts a card. Push too far and one can be lost — a week to rescue or ransom it.",
+  },
+  rescue: {
+    key: "rescue", label: "Rescue", durationHours: 12, minShine: 8, minFoils: 0, minSigned: 0,
+    forks: 1, risk: "lost", fee: 0, fragments: 0, target: "lost",
+    what: "Send a squad after a lost card. Shine decides the odds. Fail and the rescuers come home wounded — and one of them can be lost too.",
+  },
+  exorcism: {
+    key: "exorcism", label: "Exorcism", durationHours: 8, minShine: 0, minFoils: 0, minSigned: 0,
+    forks: 0, risk: "none", fee: 400, fragments: 0, target: "afflicted",
+    what: "A fee, no loot, no forks. Removes Haunted or Cursed from one card in the squad, for good.",
+  },
+  legendary: {
+    key: "legendary", label: "Legendary route", durationHours: 72, minShine: 24, minFoils: 2, minSigned: 1,
+    forks: 4, risk: "dead", fee: 0, fragments: 3, target: "none",
+    what: "Three map fragments open it. Every fork is dangerous, a card can die for good, and whoever comes home comes home Voidtouched.",
+  },
 };
+
+/** The ladder in the order the board prints it. */
+export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend", "rescue", "exorcism", "legendary"];
+
+/** Risk, worst last — what "a route past wounded" means. */
+export const RISK_RANK: Record<RouteRisk, number> = { none: 0, wounded: 1, lost: 2, dead: 3 };
+
+/** How long a wounded card sits out expeditions and the Gauntlet. */
+export const WOUNDED_HOURS = 72;
+
+/** How long a lost card can be rescued or ransomed before it is gone. */
+export const LOST_DAYS = 7;
+
+/** Insurance: a launch-time fee that turns lost into wounded and dead into
+ *  lost. Patrons get one policy a week for nothing (see patron/perks.ts). */
+export const INSURANCE_FEE = 150;
+
+/** What buying a lost card back costs: a floor plus a share of its shine,
+ *  so a signed Cracked Ice challenger (16 shine) ransoms for 940 and a
+ *  matte bronze for 340. Always dearer than the dust the card is worth,
+ *  never dearer than a Legend Hunt jackpot. */
+export const RANSOM_BASE = 300;
+export const RANSOM_PER_SHINE = 40;
+
+export function ransomFor(copy: CardCopy): number {
+  return RANSOM_BASE + RANSOM_PER_SHINE * shineOf(copy);
+}
+
+/** Copies the economy already treats as one of one. They never go on a
+ *  route that can lose them — Lost becomes Dead after LOST_DAYS, so the
+ *  line is drawn at `lost`, not at `dead`. */
+export function isProtected(copy: CardCopy): boolean {
+  return (
+    copy.foilType === "eclipse" || Boolean(copy.card?.moment) || Boolean(copy.card?.champWin) || Boolean(copy.card?.team)
+  );
+}
+
+/** When a copy is benched, or null. `now` is passed in (the file has no
+ *  clock): a card wounded until 4pm is free at 4pm on every caller's
+ *  reading, not on whichever module loaded first. */
+export function woundedUntil(copy: Pick<CardCopy, "card">, now: Date): Date | null {
+  const until = copy.card?.wounded?.until;
+  if (!until) return null;
+  const at = new Date(until);
+  return Number.isNaN(at.getTime()) || at.getTime() <= now.getTime() ? null : at;
+}
 
 /** Marks worst to best — a profile shows the best one earned, so this is
  *  the comparison every "did that run upgrade my mark?" check makes. */
@@ -138,9 +232,29 @@ export function squadShine(copies: CardCopy[]): number {
  * Presentation reads this to disable a button; the RPC re-checks it
  * server-side, because a UI flag has never stopped anybody.
  */
-export function squadMeets(tier: ExpeditionTierKey, copies: CardCopy[]): { ok: boolean; reasons: string[] } {
+export function squadMeets(
+  tier: ExpeditionTierKey,
+  copies: CardCopy[],
+  /** The clock, for the wounded bench. Omit it and benched cards pass —
+   *  the server always passes it; a preview may not care. */
+  now?: Date,
+): { ok: boolean; reasons: string[] } {
   const def = EXPEDITION_TIERS[tier];
   const reasons: string[] = [];
+
+  // Consent, always: nothing one of one goes where it can be lost. Named
+  // per card so the launcher says WHICH card is the problem.
+  if (RISK_RANK[def.risk] >= RISK_RANK.lost) {
+    for (const copy of copies) {
+      if (isProtected(copy)) reasons.push(`${copy.playerName} is one of one and cannot go on a route where a card can be lost.`);
+    }
+  }
+  if (now) {
+    for (const copy of copies) {
+      const until = woundedUntil(copy, now);
+      if (until) reasons.push(`${copy.playerName} is wounded and benched until ${until.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })} ET.`);
+    }
+  }
 
   if (copies.length !== SQUAD_SIZE) {
     reasons.push(`An expedition takes exactly ${SQUAD_SIZE} cards — this squad has ${copies.length}.`);
@@ -324,7 +438,39 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
     // players who hit it with nothing to show for it.
     mark: { kind: "legend", chance: { poor: 0, solid: 0, jackpot: 1 } },
   },
+  // A rescue is paid in the card that comes home, not in dollars: this is
+  // a scouting run's money for a twelve-hour risk to three more cards.
+  rescue: {
+    weights: { poor: 0.5, solid: 0.45, jackpot: 0.05 },
+    dollars: { poor: 30, solid: 80, jackpot: 200 },
+    comp: { poor: 0, solid: 0, jackpot: 0 },
+    mark: { kind: "trail", chance: { poor: 0, solid: 0, jackpot: 0 } },
+  },
+  // An exorcism costs a fee and pays nothing. The grade is rolled so the
+  // ceremony has a sentence to say; every number is zero.
+  exorcism: {
+    weights: { poor: 0, solid: 1, jackpot: 0 },
+    dollars: { poor: 0, solid: 0, jackpot: 0 },
+    comp: { poor: 0, solid: 0, jackpot: 0 },
+    mark: { kind: "trail", chance: { poor: 0, solid: 0, jackpot: 0 } },
+  },
+  // Three days, three fragments, and a card that may not come back. Base
+  // rates land at $500 a day — under the streak, like the ladder — and the
+  // forks are where the money is: every push on this route adds to the
+  // multiplier and to the odds of a funeral.
+  legendary: {
+    weights: { poor: 0.25, solid: 0.5, jackpot: 0.25 },
+    dollars: { poor: 600, solid: 1400, jackpot: 2500 },
+    comp: { poor: 0.25, solid: 0.5, jackpot: 1 },
+    mark: { kind: "legend", chance: { poor: 0, solid: 0.5, jackpot: 1 } },
+  },
 };
+
+/** The most the forks can multiply a payout by. A Legendary route pushed
+ *  at every fork with a one-roster squad would otherwise reach 3.4x; the
+ *  cap keeps the ceiling the claim RPC guards at a number the economy can
+ *  stomach, and it is derived into maxExpeditionPayout() below. */
+export const LOOT_MULT_CAP = 2.5;
 
 /**
  * What a tier pays at worst and at best, before shine and the brief — the
@@ -352,13 +498,18 @@ export function payoutRange(tier: ExpeditionTierKey): { min: number; max: number
  * feature was the one outcome that could not be paid.
  *
  * So the ceiling is DERIVED here and the SQL is held to it by a test,
- * rather than being a second number that can drift from this one.
+ * rather than being a second number that can drift from this one. The
+ * forks multiply the base (routes.ts), so the cap on that multiplier is
+ * part of the derivation.
  */
 export function maxExpeditionPayout(): number {
   let most = 0;
   for (const tier of Object.keys(REWARDS) as ExpeditionTierKey[]) {
     for (const grade of GRADES) {
-      most = Math.max(most, Math.round(REWARDS[tier].dollars[grade] * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS)));
+      most = Math.max(
+        most,
+        Math.round(REWARDS[tier].dollars[grade] * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP),
+      );
     }
   }
   return most;

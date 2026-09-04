@@ -55,7 +55,7 @@ const TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend"];
 
 /** What each run is FOR, in one line. The requirements say what it costs;
  *  this says why anyone would pay it. */
-const TIER_FLAVOR: Record<ExpeditionTierKey, string> = {
+const TIER_FLAVOR: Partial<Record<ExpeditionTierKey, string>> = {
   scout: "A short walk for pocket money. No gate, no comps, and back before the evening.",
   raid: "A day out. Pays properly, and a good one can come home with a free pack and a Sigil.",
   legend:
