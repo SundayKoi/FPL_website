@@ -69,8 +69,8 @@ export default async function MutationsPreviewPage() {
           Hover a card.
         </p>
         <p className="max-w-3xl text-sm text-coral">
-          Preview only. Nothing on this page mints, prices or writes anything, and no run can produce these
-          treatments yet.
+          A design table, not a game surface. Nothing on this page mints or writes anything — the routes on
+          /cards/expeditions mint these for real, and the numbers each card quotes are the ones the scorers read.
         </p>
       </header>
 

@@ -574,24 +574,58 @@ won.
 
 ## Card expeditions
 
-Send three owned cards out for a stretch of hours and collect what they
-bring back. `/cards/expeditions` (`/academy/cards/expeditions`) offers three
-runs — Scouting Run (8h, ungated), Deep Raid (24h, 12 shine and a foil),
-and Legend Hunt (48h, 20 shine, two foils and an autograph) — where shine
-is what a squad's card tiers, parallels, and autographs add up to. Each day
-also carries a brief that pays 20% more when the squad fields the named
-role. A finished run pays betting dollars, sometimes comps a pack, and
-sometimes brings one of the three cards home wearing an expedition mark
-(Trail, Sigil, or the gilded Legend). Everyone gets one launch a day;
-patrons get two.
+Send three owned cards out on a route and answer the forks as the squad
+reaches them. `/cards/expeditions` (`/academy/cards/expeditions`) offers six
+runs, and the page prints every rule before the click ("The rules of the
+road"):
 
-Nothing is scheduled: a run resolves on its own clock and the owner claims
-it from that page. Deployed copies are locked — the dust and trade screens
-hide them, and `card_inventory_expedition_guard` refuses the write anyway —
-so a squad comes home before it can be melted or traded. Every tunable
-(entry gates, durations, odds, payouts) is in
-[`src/lib/expeditions/config.ts`](src/lib/expeditions/config.ts), so a
-balance pass is a one-file change; `expectedDailyDollars` fails a test if a
-tier's day starts earning more than a pack costs. A Legend Hunt jackpot
-posts to the cards Discord webhook (`DISCORD_CARDS_WEBHOOK_URL`); without
-it the claim still pays.
+| Run | Away | Forks | Entry | Worst case |
+| --- | --- | --- | --- | --- |
+| Scouting Run | 8h | 1 | anyone | nothing |
+| Deep Raid | 24h | 2 | 12 shine, a foil | wounded |
+| Legend Hunt | 48h | 3 | 20 shine, two foils, an autograph | lost |
+| Rescue | 12h | 1 | 8 shine, and a lost card to go after | lost |
+| Exorcism | 8h | 0 | a $400 fee, and a Haunted or Cursed card in the squad | nothing |
+| Legendary route | 72h | 4 | 24 shine, two foils, an autograph, three map fragments | dead |
+
+Shine is what a squad's card tiers, parallels and autographs add up to. A
+run with N forks pauses N times at evenly spaced checkpoints; each fork
+waits until the next checkpoint for an answer, then the run moves on.
+Silence camps — the safe option — and the cron sweep
+(`/api/expeditions/sweep`, every five minutes) pings the owner in the
+cards channel as each fork opens. Pushing adds to a loot multiplier (capped
+at 2.5x) and rolls one harm on one card; a signed card can call in a
+favour (push with no risk, once a run), a foil can light a dark fork (half
+the risk), and three cards from one roster can rally (double loot, half
+again the risk). Some forks are warned: push anyway and have it go wrong
+and the card comes home Cursed. Each day also carries a brief that pays 20%
+more when the squad fields the named role.
+
+What a card can come home as: **wounded** (benched from expeditions and
+the Gauntlet for three days), **lost** (a hold row keeps it locked in the
+collection for seven days, during which a Rescue or a ransom — $300 plus
+$40 per point of shine — brings it home wounded; then it is gone),
+**dead** (the Legendary route only, only after two pushes, no rescue — the
+card goes to the graveyard on the page), or **mutated**: Irradiated,
+Hardened, Haunted, Cursed or Voidtouched, one per copy, permanent (an
+Exorcism removes the two bad ones), drawn on the card everywhere it shows
+and read by Fantasy scoring, the Gauntlet sim and dust pricing
+(`src/lib/cards/mutations.ts`, `MUTATION_EFFECTS`). Insurance ($150 at
+launch, a patron's first policy each week free) turns lost into wounded
+and dead into lost. An Eclipse, a moment, a champions relic or a team plate
+never boards a route that can lose it. A one-roster Legend Hunt squad
+ignored at two forks is lost as one. Map fragments drop off Legend Hunts
+(35% on solid, every jackpot) and Deep Raid jackpots (25%).
+
+Everyone gets one launch a day; patrons get two. Deployed and lost copies
+are locked — the dust, trade and Gauntlet screens refuse them, and
+`card_inventory_expedition_guard` refuses the write anyway — and a fresh
+Cursed card cannot change hands for seven days
+(`card_inventory_curse_guard`). Every tunable is in
+[`src/lib/expeditions/config.ts`](src/lib/expeditions/config.ts) (gates,
+durations, payouts, insurance, ransom) and
+[`src/lib/expeditions/routes.ts`](src/lib/expeditions/routes.ts) (every
+fork's story, odds and rewards); `expectedDailyDollars` fails a test if a
+run's day starts earning more than a maxed daily streak. A Legend Hunt
+jackpot, a Voidtouched homecoming and a death post to the cards Discord
+webhook (`DISCORD_CARDS_WEBHOOK_URL`); without it the claim still pays.

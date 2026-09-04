@@ -77,6 +77,8 @@ interface OwnedCardRow {
   foil: boolean;
   foil_type: string | null;
   signed: boolean | null;
+  /** The generated column off card.mutation — what dust pricing reads. */
+  mutation: string | null;
 }
 
 /** Both card pages, in both leagues — a dusted or traded card has to leave
@@ -112,6 +114,9 @@ function friendlyAcceptError(message: string): string {
   // Same guard, reached the other way: accept_card_trade moves discord_id,
   // which is the other write card_inventory_expedition_guard refuses.
   if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
+  // card_inventory_curse_guard, under the same ownership update: a fresh
+  // Cursed card cannot change hands for a week.
+  if (/card is cursed/i.test(message)) return "A card in this trade is Cursed and can't change hands yet.";
   if (/trade is stale/i.test(message)) return "A card in this trade is no longer available.";
   if (/insufficient balance/i.test(message)) return "One side can't cover the dollars in this trade.";
   if (/not pending/i.test(message)) return "That trade has already been answered.";
@@ -138,7 +143,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
     .eq("id", inventoryId)
     .maybeSingle();
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
@@ -161,6 +166,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
       foil: row.foil,
       foilType: row.foil_type,
       signed: row.signed === true,
+      mutation: row.mutation,
     },
     await dustsAsPatron(service, user.discordId),
   );
@@ -201,7 +207,7 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
     .in("id", ids);
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
 
@@ -242,6 +248,7 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
         foil: row.foil,
         foilType: row.foil_type,
         signed: row.signed === true,
+        mutation: row.mutation,
       },
       patron,
     );
@@ -324,7 +331,7 @@ export async function createTradeAction(input: {
   if (allIds.length > 0) {
     const { data, error } = await service
       .from("card_inventory")
-      .select("id, discord_id, season, tier, foil, foil_type, signed")
+      .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
       .in("id", allIds);
     if (error) return { ok: false, error: "Couldn't read those cards — try again." };
 

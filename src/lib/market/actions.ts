@@ -78,6 +78,9 @@ function friendlySaleError(message: string): string {
   // Not the RPC's own text: card_inventory_expedition_guard raises this from
   // under the ownership update, and it reaches this mapper through the sale.
   if (/card is on expedition/i.test(message)) return "That card is out on an expedition.";
+  // card_inventory_curse_guard, from under the same update: a fresh Cursed
+  // card cannot change hands for a week.
+  if (/card is cursed/i.test(message)) return "That card is Cursed and can't change hands yet.";
   if (/insufficient balance/i.test(message)) return "You don't have enough to cover that.";
   if (/listing is not open/i.test(message)) return "That listing has already been taken.";
   if (/listing expired/i.test(message)) return "That listing has expired.";

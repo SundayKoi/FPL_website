@@ -16,6 +16,76 @@
 
 export type MutationKey = "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched";
 
+/** What each mutation DOES — the numbers the scorers read. */
+export interface MutationEffects {
+  /** Fantasy: the slot's points are multiplied by this. */
+  fantasyMult: number;
+  /** Fantasy: chance each week the card flares out and scores zero. */
+  flareChance: number;
+  /** Gauntlet: added to every one of the card's bars. */
+  gauntletStat: number;
+  /** Gauntlet: what the card hands the whole lineup, as relic effects. */
+  gauntletEffects: import("@/lib/gauntlet/relics").RelicEffects;
+  /** Dust: the copy's dust value is multiplied by this. */
+  dustMult: number;
+  /** Market: days after the stamp during which the copy cannot change hands. */
+  untradeableDays: number;
+  /** Auto-dust never touches it. (Every mutation, in fact — see autoDust.ts —
+   *  but Voidtouched is the one the rule is FOR.) */
+  autoDustImmune: boolean;
+}
+
+export const MUTATION_EFFECTS: Record<MutationKey, MutationEffects> = {
+  irradiated: {
+    fantasyMult: 1.1,
+    flareChance: 1 / 6,
+    gauntletStat: 2,
+    gauntletEffects: { holdFlat: -2 },
+    dustMult: 1,
+    untradeableDays: 0,
+    autoDustImmune: true,
+  },
+  hardened: {
+    fantasyMult: 1,
+    flareChance: 0,
+    gauntletStat: 1,
+    gauntletEffects: { lanesFlat: 1, holdFlat: 2 },
+    dustMult: 1.25,
+    untradeableDays: 0,
+    autoDustImmune: true,
+  },
+  haunted: {
+    fantasyMult: 0.85,
+    flareChance: 0,
+    gauntletStat: 0,
+    gauntletEffects: { crossroadsBonus: 2, objectivesFlat: 1 },
+    dustMult: 1,
+    untradeableDays: 0,
+    autoDustImmune: true,
+  },
+  cursed: {
+    fantasyMult: 0.75,
+    flareChance: 0,
+    gauntletStat: -3,
+    gauntletEffects: { snowballMult: 1.15 },
+    dustMult: 0.5,
+    untradeableDays: 7,
+    autoDustImmune: true,
+  },
+  voidtouched: {
+    fantasyMult: 1.2,
+    flareChance: 0,
+    gauntletStat: 4,
+    gauntletEffects: { fightFlat: 2 },
+    dustMult: 2,
+    untradeableDays: 0,
+    autoDustImmune: true,
+  },
+};
+
+const pct = (n: number) => `${Math.round(Math.abs(n - 1) * 100)}%`;
+const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+
 export interface Mutation {
   key: MutationKey;
   label: string;
@@ -44,11 +114,11 @@ export const MUTATIONS: Mutation[] = [
     key: "irradiated",
     label: "Irradiated",
     tagline: "Runs hot. Sometimes too hot.",
-    source: "Came back from a Deep Raid's reactor fork, or any run where the squad pushed through the glow.",
+    source: "Pushed into the Deep Raid's reactor, or down the Legend Hunt's glowing shaft.",
     look: "A sick green light from inside the frame that breathes, geiger rings pulsing off the art, fallout drifting up, and a faint trefoil burned into the corner.",
-    fantasy: "Scores +10% every week, with a 1-in-6 chance each week of flaring out and scoring zero. High variance under a salary cap.",
-    gauntlet: "Deals splash damage to the enemy beside its target. Takes 1 extra damage from everything.",
-    economy: "Dust value unchanged. Listings show the mutation, and the market decides what a hot card is worth.",
+    fantasy: `Scores +${pct(MUTATION_EFFECTS.irradiated.fantasyMult)} every week, with a 1-in-${Math.round(1 / MUTATION_EFFECTS.irradiated.flareChance)} chance each week of flaring out and scoring zero. High variance under a salary cap.`,
+    gauntlet: `${signed(MUTATION_EFFECTS.irradiated.gauntletStat)} on every bar. Runs too hot to hold a base: the lineup's backdoor hold is ${MUTATION_EFFECTS.irradiated.gauntletEffects.holdFlat} while it is fielded.`,
+    economy: "Dust value unchanged. Never auto-dusted. Listings show the mutation, and the market decides what a hot card is worth.",
     accent: "#8cff3c",
     className: "card-mut-irradiated",
     tone: "mixed",
@@ -57,11 +127,11 @@ export const MUTATIONS: Mutation[] = [
     key: "hardened",
     label: "Hardened",
     tagline: "Walked out of something that should have ended it.",
-    source: "Survived the brutal fork on a Deep Raid or Legend Hunt with the whole squad intact.",
+    source: "Forced the Deep Raid's brutal ridge, or crossed the Legendary route's threshold running.",
     look: "Brushed steel plating riveted over the frame, a diagonal scar across the art that catches a slow glint, corners chipped.",
-    fantasy: "No change to points. Cannot be benched by a bad week: its floor is 60% of its average.",
-    gauntlet: "Immune to the first boss mechanic of every run and shrugs off the first hit it takes each fight.",
-    economy: "Dust value +25%. The safest mutation, and the one a trader pays for.",
+    fantasy: "No change to points. The safest mutation.",
+    gauntlet: `${signed(MUTATION_EFFECTS.hardened.gauntletStat)} on every bar, and it steadies the whole lineup: +${MUTATION_EFFECTS.hardened.gauntletEffects.lanesFlat} on every lane, +${MUTATION_EFFECTS.hardened.gauntletEffects.holdFlat} on the backdoor hold.`,
+    economy: `Dust value +${pct(MUTATION_EFFECTS.hardened.dustMult)}. Never auto-dusted. The one a trader pays for.`,
     accent: "#c9d3dc",
     className: "card-mut-hardened",
     tone: "boon",
@@ -70,11 +140,11 @@ export const MUTATIONS: Mutation[] = [
     key: "haunted",
     label: "Haunted",
     tagline: "Brought something back with it.",
-    source: "Camped overnight at the wrong checkpoint on a Legend Hunt.",
+    source: "Camped overnight at the Legend Hunt's wrong checkpoint.",
     look: "The art drained cold with frost creeping in at the corners, pale spirits rising through the card at their own speeds, and every few seconds a lightning flicker in which a pair of eyes shows behind the player.",
-    fantasy: "Scores -15%. Whatever it carries feeds on the points.",
-    gauntlet: "Counts as a relic slot: the thing it carries is a free relic that scales with the card's tier. Good in one game and bad in the other is the point.",
-    economy: "Dust value unchanged. Can be exorcised on a Scouting Run for a fee, which removes the mutation for good.",
+    fantasy: `Scores -${pct(MUTATION_EFFECTS.haunted.fantasyMult)}. Whatever it carries feeds on the points.`,
+    gauntlet: `Counts as a free relic: whatever it carries whispers at the crossroads (+${MUTATION_EFFECTS.haunted.gauntletEffects.crossroadsBonus} on every call) and at the objectives (+${MUTATION_EFFECTS.haunted.gauntletEffects.objectivesFlat}). Good in one game and bad in the other is the point.`,
+    economy: "Dust value unchanged. Never auto-dusted. An Exorcism removes it for good.",
     accent: "#a66bff",
     className: "card-mut-haunted",
     tone: "mixed",
@@ -83,11 +153,11 @@ export const MUTATIONS: Mutation[] = [
     key: "cursed",
     label: "Cursed",
     tagline: "You were warned.",
-    source: "Ignored the squad's warning at a fork and pushed anyway, and the run went badly.",
+    source: "Pushed a fork the squad warned against, and had it go wrong.",
     look: "Black veins crawling in from the edges, the art drained of colour, a crimson sigil ring turning slowly behind the player.",
-    fantasy: "Scores -25% and cannot captain.",
-    gauntlet: "Takes double damage. Deals +50% on the hit that kills it.",
-    economy: "Dust value halved and untradeable for seven days after it comes home. The market treats it as damaged goods, which is a story in itself.",
+    fantasy: `Scores -${pct(MUTATION_EFFECTS.cursed.fantasyMult)}.`,
+    gauntlet: `${MUTATION_EFFECTS.cursed.gauntletStat} on every bar, but the lineup snowballs harder once it is ahead (x${MUTATION_EFFECTS.cursed.gauntletEffects.snowballMult}).`,
+    economy: `Dust value halved, and untradeable for ${MUTATION_EFFECTS.cursed.untradeableDays} days after it comes home. Sent out again on a route that can lose it, it may not come back. An Exorcism removes it.`,
     accent: "#ff3d5a",
     className: "card-mut-cursed",
     tone: "bane",
@@ -98,9 +168,9 @@ export const MUTATIONS: Mutation[] = [
     tagline: "It went somewhere the map does not show.",
     source: "The only way home from the Legendary route. Three map fragments open it; the squad comes back with this or does not come back.",
     look: "A ragged black bleed eats in from the edges, a deep star field drifts and twinkles across the art, and a tilted rift of white light stands open beside the player, breathing but never closing.",
-    fantasy: "Scores +20%, and its score is doubled the week its player is Card of the Week.",
-    gauntlet: "Starts every fight with a shield equal to its overall. Bosses target it first.",
-    economy: "Untouchable by auto-dust. Dust value doubled. Announced in Discord when it comes home, like an Eclipse.",
+    fantasy: `Scores +${pct(MUTATION_EFFECTS.voidtouched.fantasyMult)}.`,
+    gauntlet: `${signed(MUTATION_EFFECTS.voidtouched.gauntletStat)} on every bar, and +${MUTATION_EFFECTS.voidtouched.gauntletEffects.fightFlat} to both teamfights while it is fielded.`,
+    economy: "Dust value doubled. Never auto-dusted. Announced in Discord when it comes home, like an Eclipse.",
     accent: "#e8dcff",
     className: "card-mut-voidtouched",
     tone: "boon",

@@ -97,6 +97,7 @@ function makeCopy(
     packOpenId: null,
     acquiredAt: "2026-08-25T00:00:00.000Z",
     printNumber: null,
+    mutation: null,
     ...extra,
   };
 }

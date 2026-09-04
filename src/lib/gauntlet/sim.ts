@@ -21,6 +21,7 @@
 // resolves it. Cosmetics never touch a stat (pinned by test).
 
 import type { MeasureKey } from "@/lib/cards/measures";
+import { MUTATION_EFFECTS, type MutationKey } from "@/lib/cards/mutations";
 import type { RelicEffects } from "./relics";
 import { type Contest, type ContestInput, type ContestKind, contestDetail, runContest } from "./contest";
 import type { BossEffects } from "./bosses";
@@ -64,6 +65,10 @@ export interface GauntletCard {
   team?: string | null;
   /** A stand-in for a role the collection can't cover. Costs score. */
   trialist?: boolean;
+  /** The expedition mutation the copy wore when it was fielded — the ONE
+   *  cosmetic that is not cosmetic here (MUTATION_EFFECTS). Frozen into
+   *  the lineup like everything else. */
+  mutation?: MutationKey | null;
 }
 
 export type GauntletRole = "Top" | "Jungle" | "Mid" | "Bot" | "Support";
@@ -243,7 +248,31 @@ const clamp = (value: number, lo: number, hi: number): number => Math.max(lo, Ma
 export function statOf(card: GauntletCard, key: MeasureKey, effects?: RelicEffects): number {
   const base = card.stats[key] ?? clamp(card.overall - 5, 30, 92);
   const fresh = card.fresh ? FRESH_LEGS_BONUS + (effects?.freshLegsExtra ?? 0) : 0;
-  return clamp(base + fresh, 0, 99 + FRESH_LEGS_BONUS + (effects?.freshLegsExtra ?? 0));
+  // A mutation is the one stamp that reaches the bars: foil and ink never
+  // do (pinned by test), but a card that came home from the Legendary
+  // route Voidtouched is a different card.
+  const mutated = card.mutation ? MUTATION_EFFECTS[card.mutation].gauntletStat : 0;
+  return clamp(base + fresh + mutated, 0, 99 + FRESH_LEGS_BONUS + (effects?.freshLegsExtra ?? 0) + Math.max(0, mutated));
+}
+
+/**
+ * What the lineup's mutations hand the whole team, as relic effects — the
+ * heirloom pattern, so the engine needs no new dial. Additive across
+ * cards: two Hardened cards steady the hold twice.
+ */
+export function mutationEffects(lineup: GauntletCard[]): RelicEffects {
+  const total: RelicEffects = {};
+  for (const card of lineup) {
+    if (!card.mutation) continue;
+    const fx = MUTATION_EFFECTS[card.mutation].gauntletEffects;
+    for (const key of Object.keys(fx) as (keyof RelicEffects)[]) {
+      const value = fx[key];
+      if (typeof value !== "number") continue;
+      if (key.endsWith("Mult")) (total as Record<string, number>)[key] = ((total as Record<string, number>)[key] ?? 1) * value;
+      else (total as Record<string, number>)[key] = ((total as Record<string, number>)[key] ?? 0) + value;
+    }
+  }
+  return total;
 }
 
 /** Team average across a set of bars — the number every contest and every

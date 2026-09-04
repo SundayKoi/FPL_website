@@ -3,6 +3,7 @@
 // (rng.ts), the server action (actions.ts) and any UI read these constants
 // rather than hardcoding their own.
 
+import { MUTATION_EFFECTS, type MutationKey } from "@/lib/cards/mutations";
 import type { CardTier } from "@/lib/cards/build";
 import { CHAMPION_DUST, CHAMPION_TIER } from "@/lib/cards/champions";
 import { MOMENT_DUST, MOMENT_TIER } from "@/lib/cards/moments";
@@ -353,6 +354,10 @@ export function dustValueOf(row: {
   /** A pulled roster plate prices flat, off TEAM_DUST — same reasoning as
    *  a moment: no tier of its own to scale from. */
   team?: boolean;
+  /** The expedition mutation the copy wears, if any — the ONE stamp that
+   *  changes a price (MUTATION_EFFECTS.dustMult): Cursed halves it,
+   *  Hardened adds a quarter, Voidtouched doubles it. */
+  mutation?: string | null;
 }): number {
   // Nothing at all for a copy that cannot be dusted — before any pricing,
   // because the autograph bonus is a flat add and would otherwise put a
@@ -373,6 +378,9 @@ export function dustValueOf(row: {
   // is a whole-number currency — an un-rounded 62.5 would drift the ledger.
   if (row.foil) value = Math.round(value * FOIL_TYPE_DUST_MULT[foilTypeOf(row.foilType)]);
   if (row.signed) value += SIGNED_DUST_BASE;
+  // Last, over the whole number: a curse halves a signed foil's ink too.
+  const mutation = row.mutation ? MUTATION_EFFECTS[row.mutation as MutationKey] : undefined;
+  if (mutation && mutation.dustMult !== 1) value = Math.round(value * mutation.dustMult);
   return value;
 }
 

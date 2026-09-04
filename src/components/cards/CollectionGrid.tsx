@@ -483,6 +483,7 @@ export default function CollectionGrid({
         moment: Boolean(row.card.moment),
         champWin: Boolean(row.card.champWin),
         team: Boolean(row.card.team),
+        mutation: row.mutation,
       },
       patron,
     );
