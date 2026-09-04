@@ -684,4 +684,21 @@ describe("provenance stamps", () => {
     expect(container.querySelector("[data-testid='live-stamp']")).toBeNull();
     expect(container.querySelector("[data-testid='chase-stamp']")).toBeNull();
   });
+
+  it("draws an expedition mutation over the front only when asked", () => {
+    const { unmount } = render(<PlayerCard3D card={card} interactive={false} />);
+    expect(screen.queryByTestId("mutation")).toBeNull();
+    unmount();
+
+    render(
+      <PlayerCard3D
+        card={card}
+        interactive={false}
+        mutation={{ label: "Irradiated", className: "card-mut-irradiated", accent: "#8cff3c" }}
+      />,
+    );
+    const layer = screen.getByTestId("mutation");
+    expect(layer.querySelector(".card-mut-irradiated")).toBeTruthy();
+    expect(layer.textContent).toContain("Irradiated");
+  });
 });
