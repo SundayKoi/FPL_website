@@ -1187,6 +1187,268 @@ body {
   .card-glow-eclipse { opacity: 0.45; }
 }
 
+/* ── Mutations (PROPOSAL — previewed on /admin/mutations, minted by
+   nothing). What an expedition can do to a card that comes home. Each is a
+   film over the whole front, foil and all, and each owns one shape so no
+   two read alike: Irradiated is a green light that breathes, Hardened is
+   riveted plate with a scar, Haunted is fog and a flicker, Cursed is
+   veins and a sigil, Voidtouched is a rift. All loops pause at rest with
+   the rest of the card's decorations. ─────────────────────────────── */
+
+/* Irradiated — a sick green light from inside the frame that breathes,
+   geiger rings pulsing outward from the art, fallout drifting up, and a
+   trefoil burned into the top-right corner. */
+@keyframes mutIrradiatedBreathe {
+  0%, 100% { box-shadow: inset 0 0 22px 3px rgb(140 255 60 / 0.35), inset 0 0 60px 14px rgb(140 255 60 / 0.1); }
+  50%      { box-shadow: inset 0 0 34px 8px rgb(200 255 90 / 0.55), inset 0 0 80px 22px rgb(140 255 60 / 0.18); }
+}
+@keyframes mutIrradiatedRings {
+  from { background-size: 0% 0%, 100% 100%; }
+  to   { background-size: 260% 260%, 100% 100%; }
+}
+@keyframes mutFalloutDrift {
+  from { background-position: 0 100%, 40% 120%; }
+  to   { background-position: 0 -20%, 40% 0%; }
+}
+@keyframes mutTrefoilPulse {
+  0%, 100% { opacity: 0.55; filter: drop-shadow(0 0 4px rgb(140 255 60 / 0.6)); }
+  50%      { opacity: 1; filter: drop-shadow(0 0 10px rgb(200 255 90 / 0.9)); }
+}
+@utility card-mut-irradiated {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  /* one ring expanding from the chest, over a faint green tint — the
+     ring is the geiger, the tint is the sickness */
+  background-image:
+    radial-gradient(circle at 50% 45%, transparent 0 36%, rgb(180 255 90 / 0.5) 37%, rgb(180 255 90 / 0.5) 38%, transparent 39.5%),
+    linear-gradient(180deg, rgb(140 255 60 / 0.05), rgb(60 140 20 / 0.16));
+  background-size: 0% 0%, 100% 100%;
+  background-position: 50% 45%, 0 0;
+  background-repeat: no-repeat;
+  animation: mutIrradiatedRings 3.2s ease-out infinite, mutIrradiatedBreathe 2.8s ease-in-out infinite;
+  &::before {
+    /* the trefoil, burned into the top-right corner and nowhere else */
+    content: "";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle, rgb(10 30 0 / 0.95) 0 5px, transparent 6px),
+      conic-gradient(from 90deg, rgb(140 255 60 / 0.9) 0 60deg, rgb(10 30 0 / 0.85) 60deg 120deg, rgb(140 255 60 / 0.9) 120deg 180deg, rgb(10 30 0 / 0.85) 180deg 240deg, rgb(140 255 60 / 0.9) 240deg 300deg, rgb(10 30 0 / 0.85) 300deg 360deg);
+    -webkit-mask-image: radial-gradient(circle, transparent 0 7px, black 8px 21px, transparent 22px);
+    mask-image: radial-gradient(circle, transparent 0 7px, black 8px 21px, transparent 22px);
+    animation: mutTrefoilPulse 2.8s ease-in-out infinite;
+  }
+  &::after {
+    /* fallout, drifting up */
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image:
+      radial-gradient(circle, rgb(220 255 140 / 0.9) 0 1.2px, transparent 2px),
+      radial-gradient(circle, rgb(140 255 60 / 0.7) 0 1px, transparent 1.8px);
+    background-size: 37px 61px, 53px 47px;
+    animation: mutFalloutDrift 7s linear infinite;
+    opacity: 0.8;
+  }
+}
+
+/* Hardened — brushed steel plating riveted over the frame, corners
+   chipped, one diagonal scar across the art that a slow glint crosses. */
+@keyframes mutHardenedGlint {
+  0%, 62% { background-position: -140% 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  100%    { background-position: 240% 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+}
+@utility card-mut-hardened {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  /* a glint that crosses the plate, brushed grain, a steel cast, and the
+     bolts that hold the rail on — corners, mid-edges — drawn here on the
+     base so nothing above can cover them */
+  background-image:
+    linear-gradient(115deg, transparent 0 42%, rgb(255 255 255 / 0.5) 49%, transparent 56% 100%),
+    radial-gradient(circle at 9px 9px, rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at calc(100% - 9px) 9px, rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at 9px calc(100% - 9px), rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at 9px 50%, rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at calc(100% - 9px) 50%, rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at 50% 9px, rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    radial-gradient(circle at 50% calc(100% - 9px), rgb(255 255 255) 0 2.2px, rgb(30 34 40) 3.2px, transparent 5px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.04) 0 1px, transparent 1px 4px),
+    linear-gradient(135deg, rgb(200 210 220 / 0.18), rgb(20 24 30 / 0.35));
+  background-size: 70% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, no-repeat;
+  /* the rail: a steel band inside the frame, under the bolts */
+  box-shadow: inset 0 0 0 6px rgb(178 190 202 / 0.6), inset 0 0 0 7px rgb(0 0 0 / 0.7), inset 0 0 14px 7px rgb(0 0 0 / 0.45);
+  animation: mutHardenedGlint 5.5s ease-in-out infinite;
+  &::before {
+    /* the scar */
+    content: "";
+    position: absolute;
+    left: 20%;
+    top: -6%;
+    width: 4px;
+    height: 118%;
+    transform: rotate(28deg);
+    background: linear-gradient(180deg, transparent, rgb(20 20 24 / 0.95) 12%, rgb(255 255 255 / 0.75) 14%, rgb(20 20 24 / 0.95) 16%, rgb(20 20 24 / 0.9) 84%, transparent);
+    box-shadow: 0 0 6px 2px rgb(0 0 0 / 0.6), 1px 0 0 rgb(255 255 255 / 0.4);
+  }
+}
+
+/* Haunted — violet fog drifting up from the bottom, a cold vignette, and
+   a flicker every few seconds as if something behind the art moved. */
+@keyframes mutHauntedFog {
+  from { background-position: 0% 100%, 100% 100%, 0 0; }
+  to   { background-position: 100% 0%, 0% 0%, 0 0; }
+}
+@keyframes mutHauntedFlicker {
+  0%, 91%, 100% { opacity: 1; }
+  92% { opacity: 0.35; }
+  93% { opacity: 1; }
+  95% { opacity: 0.5; }
+  96% { opacity: 1; }
+}
+@utility card-mut-haunted {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 30% 100%, rgb(166 107 255 / 0.55), transparent 70%),
+    radial-gradient(ellipse 70% 40% at 80% 100%, rgb(120 60 220 / 0.5), transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 50%, transparent 55%, rgb(20 0 50 / 0.75) 100%);
+  background-size: 200% 200%, 200% 200%, 100% 100%;
+  animation: mutHauntedFog 9s ease-in-out infinite alternate, mutHauntedFlicker 5.5s steps(1, end) infinite;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image:
+      radial-gradient(circle at 38% 30%, rgb(220 200 255 / 0.9) 0 1.5px, transparent 3px),
+      radial-gradient(circle at 44% 30%, rgb(220 200 255 / 0.9) 0 1.5px, transparent 3px);
+    opacity: 0;
+    animation: mutHauntedEyes 5.5s steps(1, end) infinite;
+  }
+  box-shadow: inset 0 0 40px 12px rgb(90 30 180 / 0.35);
+}
+@keyframes mutHauntedEyes {
+  0%, 90%, 100% { opacity: 0; }
+  92%, 95% { opacity: 1; }
+}
+
+/* Cursed — black veins crawling in from the edges, the art drained of
+   colour, a crimson sigil ring turning slowly behind the player. */
+@keyframes mutCursedSigil {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes mutCursedVeins {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+@utility card-mut-cursed {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  backdrop-filter: grayscale(0.7) contrast(1.15) brightness(0.85);
+  -webkit-backdrop-filter: grayscale(0.7) contrast(1.15) brightness(0.85);
+  background-image:
+    repeating-linear-gradient(23deg, transparent 0 34px, rgb(0 0 0 / 0.75) 34px 35px, transparent 35px 71px),
+    repeating-linear-gradient(-41deg, transparent 0 47px, rgb(0 0 0 / 0.7) 47px 48px, transparent 48px 96px),
+    repeating-linear-gradient(77deg, transparent 0 59px, rgb(0 0 0 / 0.65) 59px 60px, transparent 60px 118px),
+    radial-gradient(ellipse 80% 80% at 50% 50%, transparent 45%, rgb(0 0 0 / 0.85) 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 45%, transparent 30%, black 75%);
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 45%, transparent 30%, black 75%);
+  animation: mutCursedVeins 4s ease-in-out infinite;
+  box-shadow: inset 0 0 30px 6px rgb(0 0 0 / 0.8);
+}
+@utility card-mut-cursed-sigil {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 62%;
+  aspect-ratio: 1;
+  margin-left: -31%;
+  margin-top: -31%;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    repeating-conic-gradient(from 0deg, rgb(255 61 90 / 0.9) 0 2.5deg, transparent 2.5deg 12deg);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 60%, black 61% 66%, transparent 67% 78%, black 79% 82%, transparent 83%);
+  mask-image: radial-gradient(circle, transparent 0 60%, black 61% 66%, transparent 67% 78%, black 79% 82%, transparent 83%);
+  box-shadow: 0 0 0 0 transparent;
+  mix-blend-mode: screen;
+  animation: mutCursedSigil 24s linear infinite;
+  filter: drop-shadow(0 0 6px rgb(255 61 90 / 0.8));
+}
+
+/* Voidtouched — the edges bleed into darkness, pinprick stars drift across
+   the art, and a rift of white light opens and closes across the middle. */
+@keyframes mutVoidStars {
+  from { background-position: 0 0, 30px 50px; }
+  to   { background-position: -120px 60px, -60px 130px; }
+}
+@keyframes mutVoidRift {
+  0%, 35%, 100% { transform: scaleX(0); opacity: 0; }
+  45% { transform: scaleX(1); opacity: 1; }
+  60% { transform: scaleX(0.9); opacity: 0.9; }
+  75% { transform: scaleX(0); opacity: 0; }
+}
+@utility card-mut-voidtouched {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, rgb(255 255 255 / 0.95) 0 1px, transparent 1.6px),
+    radial-gradient(circle, rgb(220 200 255 / 0.8) 0 0.8px, transparent 1.4px),
+    radial-gradient(ellipse 110% 100% at 50% 50%, transparent 40%, rgb(8 0 24 / 0.85) 78%, rgb(0 0 0 / 0.98) 100%);
+  background-size: 90px 90px, 140px 140px, 100% 100%;
+  animation: mutVoidStars 14s linear infinite;
+  box-shadow: inset 0 0 50px 16px rgb(0 0 0 / 0.9), inset 0 0 0 1px rgb(232 220 255 / 0.5);
+  &::before {
+    content: "";
+    position: absolute;
+    left: -5%;
+    right: -5%;
+    top: 46%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.95) 20%, rgb(200 170 255) 50%, rgb(255 255 255 / 0.95) 80%, transparent);
+    box-shadow: 0 0 18px 4px rgb(200 170 255 / 0.8), 0 0 40px 12px rgb(120 60 255 / 0.5);
+    transform-origin: 50% 50%;
+    animation: mutVoidRift 6s ease-in-out infinite;
+  }
+}
+
+/* The chip the mutation wears, bottom-left of the art. */
+@utility card-mut-chip {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--mut-accent, #fff);
+  background: rgb(0 18 31 / 0.8);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--mut-accent, #fff) 45%, transparent);
+  pointer-events: none;
+}
+
 /* ── Skin-line parallels (PROPOSAL — previewed on /skin-lines, minted by
    nothing). Each is a film over the art like the parallels above and rides
    under the same cosmos star field, so a shelf of forty stays cheap.
@@ -2053,7 +2315,17 @@ body {
 [data-motion="rest"] .card-foil-line-battlecast,
 [data-motion="rest"] .card-foil-tier-chroma-sheen,
 [data-motion="rest"] .card-foil-tier-prestige-frame,
-[data-motion="rest"] .card-foil-tier-ultimate-embers {
+[data-motion="rest"] .card-foil-tier-ultimate-embers,
+[data-motion="rest"] .card-mut-irradiated,
+[data-motion="rest"] .card-mut-irradiated::before,
+[data-motion="rest"] .card-mut-irradiated::after,
+[data-motion="rest"] .card-mut-hardened,
+[data-motion="rest"] .card-mut-haunted,
+[data-motion="rest"] .card-mut-haunted::before,
+[data-motion="rest"] .card-mut-cursed,
+[data-motion="rest"] .card-mut-cursed-sigil,
+[data-motion="rest"] .card-mut-voidtouched,
+[data-motion="rest"] .card-mut-voidtouched::before {
   animation-play-state: paused;
 }
 
