@@ -360,28 +360,34 @@ service's dashboard in a browser.
 
 ## Draft data export
 
-Every pick and ban made in the match drafter can be pulled out as a
-spreadsheet or JSON with a read-only script. It uses the website's public
-keys — no secret needed — so anyone with the repo can run it:
+Every pick and ban the league has recorded can be pulled out as a
+spreadsheet or JSON with a read-only script. It reads both places a draft
+can live — the site's own drafter, and the drafter.lol links captains attach
+to match reports — through the same loader the scouting page uses, so the
+export matches what `/my-team/scouting` shows for both leagues. It uses the
+website's public keys, so anyone with the repo can run it:
 
 ```bash
 export NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 export NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-npm run export:drafts -- --season=S5 --out=s5-drafts.csv
-npm run export:drafts -- --format=json --complete-only --out=drafts.json
-npm run export:drafts -- --team="Neon Dynasty" --stage=week_3
+npm run export:drafts -- --out=drafts.csv                     # both leagues
+npm run export:drafts -- --league=academy --format=json --out=academy.json
+npm run export:drafts -- --season=S5 --team="Neon Dynasty" --stage=week_3
+npm run export:drafts -- --complete-only
 npm run export:drafts -- --open            # include the public /drafter lobbies
 ```
 
 No local setup at all: the **Export drafts** workflow under the repo's
-Actions tab runs the same script on GitHub (pick season, stage, team,
-format) and attaches the file to the run as an artifact named `drafts`.
+Actions tab runs the same script on GitHub (pick league, season, stage,
+team, format) and attaches the file to the run as an artifact named
+`drafts`.
 
-CSV is one row per draft step (twenty per game): season, stage, fixture,
-game number, side, team, pick or ban, slot, overall pick/ban order, whether
-it was the game's first pick, the champion, the player who drafted it, and
-the role once captains confirmed positions. JSON is one object per game
-with each side's bans and picks in order. The column list is at the top of
+CSV is one row per draft step (twenty per game): league, season, stage,
+fixture, game number, where the draft came from (`site` or `drafter.lol`),
+side, team, pick or ban, slot, overall pick/ban order, whether it was the
+game's first pick, the champion, the player who drafted it, and the role
+once captains confirmed positions. JSON is one object per game with each
+side's bans and picks in order. The column list is at the top of
 `scripts/export-drafts.ts`.
 
 ## Stats ingestion
