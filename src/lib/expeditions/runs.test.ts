@@ -96,6 +96,10 @@ function createService(respond: Respond) {
         call.filters[`${column}>`] = value;
         return builder;
       },
+      neq: (column: string, value: unknown) => {
+        call.filters[`${column}!=`] = value;
+        return builder;
+      },
       not: () => builder,
       order: () => builder,
       limit: () => builder,
@@ -172,6 +176,7 @@ function runRow(spec: RunSpec = {}) {
     insured: false,
     target: null,
     fee: 0,
+    encounters: [],
     pinged: spec.pinged ?? 0,
   };
 }
@@ -679,13 +684,23 @@ describe("claimExpeditionFor — the route", () => {
 
     const result = await claimExpeditionFor("42", 9);
 
-    // 260 base, shine 12 on a gate of 12 -> no bonus; x1.5 from two pushes.
-    expect(result).toMatchObject({ ok: true, baseDollars: 260, outcome: { dollars: 390 }, route: { lootMultiplier: 1.5, pushes: 2 } });
+    // 260 base, shine 12 on a gate of 12 -> no bonus; x1.5 from two pushes
+    // = 390, plus the merchant this run's journal happens to carry (run 9,
+    // seeded): the flat rides on top of the multiplied dollars.
+    expect(result).toMatchObject({
+      ok: true,
+      baseDollars: 260,
+      merchant: 75,
+      stranded: null,
+      outcome: { dollars: 465 },
+      route: { lootMultiplier: 1.5, pushes: 2 },
+    });
     expect(board.rpc).toHaveBeenCalledWith(
       "resolve_expedition",
       expect.objectContaining({
         p_outcome: expect.objectContaining({
-          dollars: 390,
+          dollars: 465,
+          merchant: 75,
           fates: [
             { id: 1, fate: "home", mutation: "irradiated" },
             { id: 2, fate: "home", mutation: null },
@@ -752,8 +767,12 @@ describe("sweepExpeditions", () => {
 
     const result = await sweepExpeditions(new Date("2026-08-28T18:00:00.000Z"));
 
-    expect(result).toEqual({ pinged: 1, buried: 2, errors: [] });
+    // Runs 1 and 2 both carry a storm on their first leg (seeded), and the
+    // sweep is past its hour: each is delayed once through the RPC.
+    expect(result).toEqual({ pinged: 1, buried: 2, storms: 2, errors: [] });
     expect(service.rpc).toHaveBeenCalledWith("expire_lost_cards");
+    expect(service.rpc).toHaveBeenCalledWith("delay_expedition", { p_run: 1, p_leg: 0, p_hours: 2 });
+    expect(service.rpc).toHaveBeenCalledWith("delay_expedition", { p_run: 2, p_leg: 0, p_hours: 2 });
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook).toHaveBeenCalledWith(
       expect.objectContaining({ title: "Deep Raid — the squad is at a fork" }),

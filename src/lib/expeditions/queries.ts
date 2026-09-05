@@ -56,9 +56,11 @@ export interface ExpeditionRun {
   /** A Rescue's hold, an Exorcism's card, or a hold's losing run. */
   target: number | null;
   fee: number;
+  /** Encounters the sweep has applied (a storm's delay), by leg. */
+  encounters: { key: string; leg: number }[];
 }
 
-const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee";
+const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters";
 
 interface RunDbRow {
   id: number;
@@ -87,6 +89,7 @@ interface RunDbRow {
   insured: boolean | null;
   target: number | null;
   fee: number | null;
+  encounters?: { key: string; leg: number }[] | null;
 }
 
 export function mapRun(row: RunDbRow): ExpeditionRun {
@@ -124,6 +127,7 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
     insured: row.insured === true,
     target: row.target === null || row.target === undefined ? null : Number(row.target),
     fee: Number(row.fee ?? 0),
+    encounters: Array.isArray(row.encounters) ? row.encounters : [],
   };
 }
 
@@ -271,4 +275,28 @@ export async function fetchGraveyard(supabase: SupabaseClient, discordId: string
     cause: row.cause as Grave["cause"],
     diedAt: String(row.died_at),
   }));
+}
+
+/** Every open hold in the league that is NOT this collector's — what a
+ *  squad can stumble on. Oldest first: the card closest to being gone is
+ *  the one most worth carrying home. */
+export async function fetchStrangersHolds(supabase: SupabaseClient, discordId: string): Promise<LostHold[]> {
+  const { data, error } = await supabase
+    .from("expedition_runs")
+    .select("id, squad, resolves_at, target, season, discord_id")
+    .eq("tier", "lost")
+    .is("claimed_at", null)
+    .neq("discord_id", discordId)
+    .order("resolves_at", { ascending: true })
+    .limit(20);
+  if (error) return [];
+  return ((data as { id: number; squad: number[] | null; resolves_at: string; target: number | null; season: string }[]) ?? [])
+    .filter((row) => (row.squad ?? []).length > 0)
+    .map((row) => ({
+      holdId: Number(row.id),
+      cardId: Number(row.squad![0]),
+      expiresAt: row.resolves_at,
+      lostOn: row.target === null ? null : Number(row.target),
+      season: row.season,
+    }));
 }

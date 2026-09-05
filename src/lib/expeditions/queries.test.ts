@@ -81,6 +81,7 @@ describe("fetchRuns", () => {
         insured: false,
         target: null,
         fee: 0,
+        encounters: [],
       },
       {
         id: 3,
@@ -99,6 +100,7 @@ describe("fetchRuns", () => {
         insured: false,
         target: null,
         fee: 0,
+        encounters: [],
       },
     ]);
     expect(service.calls[0]).toMatchObject({

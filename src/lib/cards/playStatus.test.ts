@@ -20,6 +20,7 @@ function run(overrides: Partial<ExpeditionRun>): ExpeditionRun {
     insured: false,
     target: null,
     fee: 0,
+    encounters: [],
     ...overrides,
   } as ExpeditionRun;
 }

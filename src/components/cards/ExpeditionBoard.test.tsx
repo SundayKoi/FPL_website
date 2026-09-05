@@ -139,6 +139,7 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
     insured: false,
     target: null,
     fee: 0,
+    encounters: [],
     ...over,
   };
 }
@@ -392,6 +393,41 @@ describe("ExpeditionBoard — runs in the field", () => {
     for (const name of ["Eve", "Alba", "Bex"]) {
       expect(within(run).getByText(name)).toBeTruthy();
     }
+  });
+
+  it("draws the route under a run and keeps its trail journal, folded to the latest lines", () => {
+    // Nine hours into a 24h raid with two forks: the first leg's two trail
+    // lines and the arrival at fork 1 are all in the past, so the journal
+    // has three lines to show and nothing yet to fold.
+    renderBoard({
+      runs: [
+        makeRun({
+          id: 23,
+          forks: 2,
+          startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+          resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+        }),
+      ],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    const run = screen.getByTestId("run-23");
+    expect(within(run).getByTestId("route-map")).toBeTruthy();
+    const journal = within(run).getByTestId("journal-23");
+    expect(within(journal).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
+    expect(journal.textContent).toContain("The squad reached the reactor.");
+    expect(within(run).queryByText(/just set out/)).toBeNull();
+  });
+
+  it("says the squad has just set out before the trail has anything to report", () => {
+    renderBoard({
+      runs: [makeRun({ id: 24, startedAt: new Date().toISOString(), resolvesAt: new Date(Date.now() + 24 * HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    const run = screen.getByTestId("run-24");
+    expect(within(run).getByText(/The squad has just set out/)).toBeTruthy();
+    expect(within(run).queryByTestId("journal-24")).toBeNull();
   });
 
   it("shows art for every kind of print that can march, not just player cards", () => {
@@ -695,6 +731,16 @@ describe("ExpeditionBoard — forks", () => {
     expect(favour.disabled).toBe(true);
     expect(favour.textContent).toContain("Needs a signed card");
     expect(fork.textContent).toContain("silence camps");
+  });
+
+  it("lets a squad card speak at the fork", () => {
+    renderBoard({ runs: [atFork()], deployedIds: new Set([5, 1, 2]) });
+
+    const fork = screen.getByTestId("fork-40-0");
+    const banter = within(fork).getByTestId("banter");
+    // The line is seeded off the run, so it is stable — and it is one of the
+    // squad talking, not the narrator: it names a card that went out.
+    expect(banter.textContent).toMatch(/Eve|Alba|Bex/);
   });
 
   it("answers the fork through the action and refreshes", async () => {
