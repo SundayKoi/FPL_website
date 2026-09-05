@@ -98,9 +98,9 @@ export default async function GauntletPage() {
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Draft five from your shelf — one per role, premier or academy — and climb an eight-round bracket scaled to your
             lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
-            Win, pick a relic, go again; lose once and the run ends. Entry is {GAUNTLET_ENTRY_FEE} betting
-            dollars, and the only money out is Monday&apos;s pot to the top of the board. Every roll is in
-            the rulebook below.
+            Win, add to the purse, pick a relic, go again — or bank the purse and stop; lose once and the run
+            and the purse are gone. Entry is {GAUNTLET_ENTRY_FEE} betting dollars; the money out is the purse you
+            bank and Monday&apos;s pot to the top of the board. Every roll is in the rulebook below.
           </p>
         </div>
         <div className="text-right text-sm">
@@ -128,8 +128,8 @@ export default async function GauntletPage() {
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="label-dash">This week&apos;s board</span>
           <span className="text-xs text-steel">
-            Best run per player · the pot (every entry fee paid) settles Monday — 40/25/15% to the top three,
-            scraps for everyone who cleared round 4.
+            Best run per player · the pot (every entry fee paid, less the purses banked) settles Monday — 40/25/15%
+            to the top three, scraps for everyone who cleared round 4.
           </span>
         </div>
         {board.length === 0 ? (

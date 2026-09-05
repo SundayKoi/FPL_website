@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import {
   benchSwapGauntletAction,
+  bankGauntletRunAction,
   chooseGauntletPathAction,
   fightGauntletRoundAction,
   pickGauntletRelicAction,
@@ -32,6 +33,7 @@ import {
   matchContextFor,
   type StoredMatchResult,
 } from "@/lib/gauntlet/run";
+import { PURSE_MAX, canBank, purseStep } from "@/lib/gauntlet/purse";
 import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
 import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
 import type { MomentFamily } from "@/lib/cards/moments";
@@ -356,10 +358,14 @@ export default function GauntletClient({
 
   function reset() {
     if (!run) return;
+    const purse = run.purse ?? 0;
+    const banking = canBank(run);
     if (
       typeof window !== "undefined" &&
       !window.confirm(
-        "Walk away from this run? You get NOTHING back — no refund, no reward. The entry fee stays in the week's pot; the score you've already won stands on the board.",
+        banking
+          ? `Bank ${fmtPoints(purse)} and end the run? The purse is paid to your wallet; the entry fee stays in the week's pot and the score you've already won stands on the board.`
+          : `Walk away mid-fight? The purse (${fmtPoints(purse)}) is on the table and you FORFEIT it. No refund, no reward; the score you've already won stands on the board.`,
       )
     ) {
       return;
@@ -371,7 +377,23 @@ export default function GauntletClient({
         setError(result.error);
         return;
       }
-      setRun({ ...run, status: "banked", relic_offer: null, crossroads: null, score: result.score });
+      setRun({ ...run, status: "banked", relic_offer: null, crossroads: null, score: result.score, purse_paid: result.paid });
+      router.refresh();
+    });
+  }
+
+  /** Bank between fights, or collect a cleared run's purse if the clear
+   *  itself failed to pay it. */
+  function bank() {
+    if (!run) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await bankGauntletRunAction(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setRun(result.run);
       router.refresh();
     });
   }
@@ -549,6 +571,16 @@ export default function GauntletClient({
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
           <span className="text-xs text-muted">run score</span>
+          <span
+            data-testid="purse"
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-sm font-bold ${
+              over && (run.purse_paid ?? 0) === 0 && (run.purse ?? 0) > 0 ? "border-coral/50 text-coral line-through" : "border-gold/50 text-gold"
+            }`}
+            title="The purse: real dollars, banked between fights or lost with the run"
+          >
+            {fmtPoints(run.purse ?? 0)}
+          </span>
+          <span className="text-xs text-muted">purse{over ? ((run.purse_paid ?? 0) > 0 ? " · paid" : (run.purse ?? 0) > 0 ? " · lost" : "") : ""}</span>
           {run.relics.length > 0 ? (
             <span className="ml-auto flex flex-wrap gap-1.5">
               {run.relics.map((key) => (
@@ -566,11 +598,12 @@ export default function GauntletClient({
               disabled={pending}
               className="rounded-full border border-border-strong bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
             >
-              Walk away — keep nothing
+              {canBank(run) ? `Bank ${fmtPoints(run.purse ?? 0)} and end the run` : "Walk away — forfeit the purse"}
             </button>
             <span className="text-[11px] text-muted">
-              Ends the run for no reward — the fee stays in the pot. Score is board points, never dollars;
-              the only money the Gauntlet pays is Monday&apos;s pot, to the top of the board.
+              {canBank(run)
+                ? "Between fights the purse is yours to take. The fee stays in the pot; the score already won stands on the board."
+                : "The first half has been played: the purse is on the table until the whistle. Leaving now pays nothing."}
             </span>
           </div>
         ) : null}
@@ -622,11 +655,18 @@ export default function GauntletClient({
           </span>
           <p className="text-sm text-muted">
             {run.status === "cleared"
-              ? "Eight rounds, no falls. The board will remember."
+              ? `Eight rounds, no falls. The board will remember${(run.purse_paid ?? 0) > 0 ? `, and the full purse (${fmtPoints(run.purse_paid ?? 0)}) is in your wallet` : ""}.`
               : run.status === "banked"
-                ? "Nothing paid, nothing owed — the score you'd already won stands on the board."
-                : `The Gauntlet keeps what it takes. Best this week: ${Math.max(weekBest, run.score).toLocaleString()}.`}
+                ? (run.purse_paid ?? 0) > 0
+                  ? `You banked ${fmtPoints(run.purse_paid ?? 0)} — it's in your wallet. The score you'd already won stands on the board.`
+                  : "Nothing paid, nothing owed — the score you'd already won stands on the board."
+                : `The Gauntlet keeps what it takes${(run.purse ?? 0) > 0 ? ` — the purse (${fmtPoints(run.purse ?? 0)}) went with it` : ""}. Best this week: ${Math.max(weekBest, run.score).toLocaleString()}.`}
           </p>
+          {run.status === "cleared" && (run.purse ?? 0) > 0 && (run.purse_paid ?? 0) === 0 ? (
+            <button type="button" onClick={bank} disabled={pending} className="btn-pill px-4 py-2 text-sm disabled:opacity-50">
+              Collect the purse — {fmtPoints(run.purse ?? 0)}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -775,6 +815,28 @@ export default function GauntletClient({
               ))}
             </div>
           ) : null}
+          <div
+            data-testid="bank-or-push"
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-gold/5 px-4 py-3"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold">Bank or push</span>
+            <span className="text-sm text-white">
+              Purse <b className="font-mono">{fmtPoints(run.purse ?? 0)}</b>. Round {run.round} pays{" "}
+              <b className="font-mono text-mint">+{fmtPoints(purseStep(run.round))}</b> if you win it — and takes the whole
+              purse if you don&apos;t.
+            </span>
+            <button
+              type="button"
+              onClick={bank}
+              disabled={pending}
+              className="ml-auto rounded-full border border-gold bg-gold/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-gold transition hover:bg-gold/30 disabled:opacity-50"
+            >
+              Bank {fmtPoints(run.purse ?? 0)} and stop
+            </button>
+            <span className="basis-full text-[11px] text-muted">
+              Pick a relic to push on. A full clear pays {fmtPoints(PURSE_MAX)}; the score is board points either way.
+            </span>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {(run.relic_offer ?? []).map((key) => {
               const relic = RELIC_BY_KEY.get(key) ?? RELIC_CATALOG[0];

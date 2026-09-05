@@ -89,4 +89,10 @@ export interface GauntletRunRow {
   /** The seed this run's own eight opponents are drawn with. Null on runs
    *  started before the private draw shipped — those keep the week's. */
   ghost_seed: number | null;
+  /** The purse so far: real dollars, banked between fights or lost with
+   *  the run (src/lib/gauntlet/purse.ts). Undefined on a row read before
+   *  the purse migration; treat as 0. */
+  purse?: number;
+  /** What the purse actually paid — set once by gauntlet_cash_out. */
+  purse_paid?: number;
 }

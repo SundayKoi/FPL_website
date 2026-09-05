@@ -33,6 +33,7 @@ import { BOUNTY_MULT, sameLineup } from "./ghosts";
 import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./telemetry";
 import { heirloomOf, type StoredHeirloom } from "./heirlooms";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
+import { canBank, purseStep } from "./purse";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -371,10 +372,15 @@ export async function chooseGauntletPathAction(
   const offer =
     sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1), run.round).map((r) => r.key) : null;
 
+  // The purse: a won round adds its step; a lost one leaves the number on
+  // the row for the record and pays nothing (purse_paid stays zero).
+  const purse = (run.purse ?? 0) + (sim.won ? purseStep(run.round) : 0);
+
   const { data: updated } = await service
     .from("gauntlet_runs")
     .update({
       score: run.score + score,
+      purse,
       status: cleared ? "cleared" : sim.won ? "active" : "fallen",
       round: sim.won && !cleared ? run.round + 1 : run.round,
       relic_offer: offer,
@@ -407,6 +413,16 @@ export async function chooseGauntletPathAction(
     return { ok: true, result, run: current };
   }
 
+  // A full clear collects the purse on the spot. The door is idempotent
+  // (purse_paid), so if this call fails the end screen offers "Collect"
+  // and the same RPC pays it then.
+  let finalRow = (updated as GauntletRunRow[])[0];
+  if (cleared) {
+    const { error: purseError } = await service.rpc("gauntlet_cash_out", { p_user: user.discordId, p_run: run.id });
+    if (purseError) console.error("gauntlet: purse collect on clear failed", { runId: run.id, purseError });
+    else finalRow = (await loadOwnRun(service, run.id, user.discordId)) ?? finalRow;
+  }
+
   // A full clear is the mode's rarest event — the channel hears about it.
   // Best-effort: a webhook hiccup must never turn a won run into an error.
   if (cleared) {
@@ -419,7 +435,7 @@ export async function chooseGauntletPathAction(
       const who = (profile as { username: string | null } | null)?.username ?? "Someone";
       await postCardsWebhook({
         title: "⚔🏆 THE GAUNTLET FALLS",
-        description: `**${who}** cleared all eight rounds — final score **${(run.score + score).toLocaleString()}**.\nThe bracket is undefeated no more.`,
+        description: `**${who}** cleared all eight rounds — final score **${(run.score + score).toLocaleString()}**, purse **$${purse}** collected.\nThe bracket is undefeated no more.`,
         color: GOLD,
       });
     } catch (error) {
@@ -428,7 +444,42 @@ export async function chooseGauntletPathAction(
   }
 
   revalidateGauntlet();
-  return { ok: true, result, run: (updated as GauntletRunRow[])[0] };
+  return { ok: true, result, run: finalRow };
+}
+
+/**
+ * Banks the purse: the run ends between fights and the dollars are paid,
+ * or a cleared run whose collect-on-clear failed collects now. The RPC
+ * does the transition and the payment under the row lock, so a double
+ * click can't pay twice and a run mid-fight can't bank at all.
+ */
+export async function bankGauntletRunAction(runId: number): Promise<ActionResult<{ paid: number; balance: number; run: GauntletRunRow }>> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  const service = createBettingServiceClient();
+  const run = await loadOwnRun(service, runId, user.discordId);
+  if (!run) return { ok: false, error: "That run isn't yours." };
+  if (run.status === "active" && !canBank(run)) {
+    return { ok: false, error: "The purse is on the table until the whistle — finish the fight or walk away without it." };
+  }
+  if (run.status !== "active" && run.status !== "cleared") return { ok: false, error: "That run is over." };
+  if ((run.purse_paid ?? 0) > 0) return { ok: false, error: "That purse was already paid." };
+
+  const { data, error } = await service.rpc("gauntlet_cash_out", { p_user: user.discordId, p_run: run.id });
+  if (error) {
+    return {
+      ok: false,
+      error: /fight in progress/i.test(error.message)
+        ? "The purse is on the table until the whistle — finish the fight or walk away without it."
+        : /already paid/i.test(error.message)
+          ? "That purse was already paid."
+          : "Couldn't bank the purse — is the gauntlet purse migration applied?",
+    };
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { paid: number; balance: number } | null;
+  const current = (await loadOwnRun(service, run.id, user.discordId)) ?? run;
+  revalidateGauntlet();
+  return { ok: true, paid: Number(row?.paid ?? 0), balance: Number(row?.balance ?? 0), run: current };
 }
 
 
@@ -508,18 +559,24 @@ export async function pickGauntletRelicAction(
 }
 
 /**
- * Walks away from a live run so a new one can be drafted. Pays NOTHING:
- * no refund, no bonus, no reward of any kind — the entry fee stays in the
- * week's pot, and the score already won stands on the board exactly as a
- * fallen run's would. The Gauntlet's only payout is Monday's settlement.
+ * Walks away from a live run so a new one can be drafted. Between fights
+ * this IS banking — the purse is paid — so it delegates to the bank
+ * action. Mid-fight it pays NOTHING: the purse was on the table from the
+ * first half, and leaving forfeits it. The entry fee stays in the week's
+ * pot either way, and the score already won stands on the board exactly
+ * as a fallen run's would.
  */
-export async function resetGauntletRunAction(runId: number): Promise<ActionResult<{ score: number }>> {
+export async function resetGauntletRunAction(runId: number): Promise<ActionResult<{ score: number; paid: number }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   const service = createBettingServiceClient();
   const run = await loadOwnRun(service, runId, user.discordId);
   if (!run) return { ok: false, error: "That run isn't yours." };
   if (run.status !== "active") return { ok: false, error: "That run is over." };
+  if (canBank(run)) {
+    const banked = await bankGauntletRunAction(runId);
+    return banked.ok ? { ok: true, score: banked.run.score, paid: banked.paid } : banked;
+  }
 
   const { data: updated } = await service
     .from("gauntlet_runs")
@@ -536,7 +593,7 @@ export async function resetGauntletRunAction(runId: number): Promise<ActionResul
   if (!updated || updated.length === 0) return { ok: false, error: "That run already ended." };
 
   revalidateGauntlet();
-  return { ok: true, score: (updated as { score: number }[])[0].score };
+  return { ok: true, score: (updated as { score: number }[])[0].score, paid: 0 };
 }
 
 /**

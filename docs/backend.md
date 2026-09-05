@@ -386,6 +386,22 @@ Important RPC families include:
   bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
   each attempt, retrying paid a lower grade and closed the run. Any guard
   that encodes a config rule in SQL needs a test bridging the two.
+- The Gauntlet's purse (`src/lib/gauntlet/purse.ts`, migration
+  `20260918000001_gauntlet_purse.sql`): every won round adds `PURSE_STEPS`
+  to `gauntlet_runs.purse` in the same CAS update that advances the round.
+  `gauntlet_cash_out(p_user, p_run)` is the one door: under the row lock it
+  moves a live run to `banked` (refused with 'fight in progress' while
+  `crossroads` is set — the purse is on the table from the first half to
+  the whistle), or collects a `cleared` run, pays `purse` on a
+  `gauntlet_purse` ledger row, and stamps `purse_paid` so it can never pay
+  twice. A fallen run keeps its `purse` for the record and pays nothing.
+  `chooseGauntletPathAction` calls the door on a clear; if that fails the
+  end screen offers "Collect" through `bankGauntletRunAction`. Walking
+  away between fights IS banking (`resetGauntletRunAction` delegates).
+  The sink is unchanged: `gauntletPot` subtracts the week's `purse_paid`
+  from the fees before the 40/25/15 shares, and `purse.test.ts` holds the
+  schedule to returning under half the fee on average under every
+  stopping rule at the advertised clear curves.
 - Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
   shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
   at entry like the lineup. It is never spent and never fielded. Everything
