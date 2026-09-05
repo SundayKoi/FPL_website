@@ -622,6 +622,14 @@ public ledger of the fallen and the found — every card lost, missing,
 rescued, ransomed, carried home or buried, league-wide, with the owner and
 the route.
 
+Convoys: start one at launch and you get a six-character code; a partner
+joins the same route with it before your first fork opens, and their run
+is written on your clock so every fork opens and closes for both at once.
+You each answer your own forks, and a fork pushes only if you both push
+(a camp or silence on either side camps it). Each squad rolls its own loot
+and harm. Every answer goes to the cards channel with a mention for
+whoever still has to decide. A convoy nobody joins is just a run.
+
 What a card can come home as: **wounded** (benched from expeditions and
 the Gauntlet for three days), **lost** (a hold row keeps it locked in the
 collection for seven days, during which a Rescue or a ransom — $300 plus

@@ -232,6 +232,17 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             <strong className="text-white">A squad already in the field when a rule changes keeps the rules it left with.</strong>
           </p>
         </div>
+        <div data-testid="rule-convoy" className="flex flex-col gap-1 rounded-lg border border-gold/40 bg-gold/5 p-3 text-sm text-steel">
+          <h4 className="text-sm font-bold text-gold">Convoys — two squads, one set of forks</h4>
+          <p>
+            Start a convoy at launch and you get a code. A partner joins the <strong className="text-white">same route</strong> with it
+            before your first fork opens, and their squad rides your clock: every fork opens and closes for both of you at
+            once. You each answer your own forks, and a fork <strong className="text-white">pushes only if you both push</strong> — a
+            camp, or silence, on either side camps the convoy. Each squad still rolls its own loot and its own harm, so
+            your partner&apos;s bad night is theirs. The channel hears every answer, with a mention for whoever still has to
+            decide. A convoy nobody joins is just your run. Convoys meet everything on the trail but storms.
+          </p>
+        </div>
         <div
           data-testid="rule-matchday"
           className="grid gap-3 rounded-lg border border-mint/40 bg-mint/5 p-3 text-sm text-steel sm:grid-cols-2"

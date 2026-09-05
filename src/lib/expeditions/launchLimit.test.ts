@@ -13,15 +13,18 @@ import { BASE_EXPEDITION_LAUNCHES, PATRON_EXPEDITION_LAUNCHES } from "@/lib/patr
  * the copy that actually enforces the rule, to the same numbers.
  */
 function sqlLimits(): { patron: number; base: number } {
-  // The LAST migration to define launch_expedition is the live one, so a
-  // future rewrite is picked up rather than silently ignored.
+  // The LAST migration to define launch_expedition WITH the limit in it is
+  // the live one, so a future rewrite is picked up rather than silently
+  // ignored — while a wrapper that only adds an argument and delegates
+  // (the convoy launch, 20260917000001) does not hide the rule it wraps.
   const dir = join(process.cwd(), "supabase/migrations");
   const live = readdirSync(dir)
     .filter((file) => file.endsWith(".sql"))
     .sort()
-    .filter((file) =>
-      readFileSync(join(dir, file), "utf8").includes("function public.launch_expedition"),
-    )
+    .filter((file) => {
+      const sql = readFileSync(join(dir, file), "utf8");
+      return sql.includes("function public.launch_expedition") && /v_limit := case when/.test(sql);
+    })
     .pop();
   expect(live, "no migration defines launch_expedition").toBeDefined();
   const sql = readFileSync(join(dir, live!), "utf8");

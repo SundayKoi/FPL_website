@@ -67,6 +67,8 @@ export interface ExpeditionRun {
   /** The rulebook the run launched under — see TRAIL_RULES. A squad in
    *  the field resolves under the rules it left with, never the newest. */
   rules: number;
+  /** The convoy this run rides in, if any. */
+  convoy: number | null;
 }
 
 /** The rulebook version from which a run has the trail: encounters,
@@ -79,7 +81,9 @@ export function hasTrail(run: Pick<ExpeditionRun, "rules">): boolean {
   return run.rules >= TRAIL_RULES;
 }
 
-const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters, rules";
+/** Every column mapRun reads. runs.ts selects the same list, so a run
+ *  read for a claim carries the rulebook and the convoy the page saw. */
+export const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters, rules, convoy";
 
 interface RunDbRow {
   id: number;
@@ -112,6 +116,7 @@ interface RunDbRow {
   fee: number | null;
   encounters?: { key: string; leg: number }[] | null;
   rules?: number | null;
+  convoy?: number | null;
 }
 
 export function mapRun(row: RunDbRow): ExpeditionRun {
@@ -158,6 +163,7 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
     // A row from before the column reads as the oldest rulebook: nothing
     // new ever applies to a run that predates the column that says it may.
     rules: Number(row.rules ?? 1),
+    convoy: row.convoy === null || row.convoy === undefined ? null : Number(row.convoy),
   };
 }
 
@@ -478,4 +484,69 @@ export async function fetchLedger(supabase: SupabaseClient, limit = 120): Promis
   return entries
     .sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || LEDGER_KIND_RANK[a.kind] - LEDGER_KIND_RANK[b.kind])
     .slice(0, limit);
+}
+
+/** A convoy as one of its runs sees it. */
+export interface ConvoyView {
+  code: string;
+  /** Whether this run opened the convoy. */
+  host: boolean;
+  /** The other squad, once someone has joined. */
+  partner: { discordId: string; username: string; runId: number; choices: RecordedChoice[] } | null;
+}
+
+/**
+ * The convoys these runs ride in, keyed by run id: the code to share, and
+ * the partner's answers so far so a fork can say "Kai says push". Read
+ * with the service client — the partner's run is theirs, not the viewer's.
+ */
+export async function fetchConvoyViews(
+  supabase: SupabaseClient,
+  discordId: string,
+  runs: Pick<ExpeditionRun, "id" | "convoy">[],
+): Promise<Record<number, ConvoyView>> {
+  const ids = [...new Set(runs.map((run) => run.convoy).filter((id): id is number => typeof id === "number"))];
+  if (ids.length === 0) return {};
+  type ConvoyRow = { id: number; code: string; host_id: string; host_run: number; guest_id: string | null; guest_run: number | null };
+  const { data, error } = await supabase
+    .from("expedition_convoys")
+    .select("id, code, host_id, host_run, guest_id, guest_run")
+    .in("id", ids);
+  if (error) return {};
+  const convoys = ((data as ConvoyRow[]) ?? []);
+  const partnerRuns = convoys
+    .map((convoy) => (convoy.host_id === discordId ? convoy.guest_run : convoy.host_run))
+    .filter((id): id is number => typeof id === "number");
+  const partnerIds = [...new Set(convoys.map((convoy) => (convoy.host_id === discordId ? convoy.guest_id : convoy.host_id)).filter((id): id is string => typeof id === "string"))];
+  const [runsResult, profilesResult] = await Promise.all([
+    partnerRuns.length > 0 ? supabase.from("expedition_runs").select("id, choices").in("id", partnerRuns) : Promise.resolve({ data: [], error: null }),
+    partnerIds.length > 0 ? supabase.from("betting_profiles").select("discord_id, username").in("discord_id", partnerIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const choicesOf = new Map<number, RecordedChoice[]>();
+  for (const row of ((runsResult.data as { id: number; choices: RecordedChoice[] | null }[] | null) ?? [])) {
+    choicesOf.set(Number(row.id), Array.isArray(row.choices) ? row.choices : []);
+  }
+  const nameOf = new Map<string, string>();
+  for (const row of ((profilesResult.data as { discord_id: string; username: string | null }[] | null) ?? [])) {
+    nameOf.set(row.discord_id, row.username ?? "Unknown");
+  }
+  const byConvoy = new Map(convoys.map((convoy) => [Number(convoy.id), convoy]));
+  const views: Record<number, ConvoyView> = {};
+  for (const run of runs) {
+    if (run.convoy === null) continue;
+    const convoy = byConvoy.get(run.convoy);
+    if (!convoy) continue;
+    const host = convoy.host_id === discordId;
+    const partnerId = host ? convoy.guest_id : convoy.host_id;
+    const partnerRun = host ? convoy.guest_run : convoy.host_run;
+    views[run.id] = {
+      code: convoy.code,
+      host,
+      partner:
+        partnerId && partnerRun
+          ? { discordId: partnerId, username: nameOf.get(partnerId) ?? "Unknown", runId: Number(partnerRun), choices: choicesOf.get(Number(partnerRun)) ?? [] }
+          : null,
+    };
+  }
+  return views;
 }
