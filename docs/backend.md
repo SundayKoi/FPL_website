@@ -858,6 +858,23 @@ that ran out is skipped because its grave is already listed. Usernames
 and avatars come from `betting_profiles`, which every public card surface
 already shows.
 
+Convoys (`expedition_convoys`, `expedition_runs.convoy`, the 13-argument
+`launch_expedition` whose `p_convoy` is null, `'new'` or a code): the host
+launches as normal and the RPC opens the convoy with a code from
+`expedition_convoy_code()`; a join is checked BEFORE the inner launch
+writes anything (the code exists, has room, is not the caller's, is the
+same tier, and the host's first fork has not opened), then the joiner's
+run is updated onto the host's `started_at`/`resolves_at` so
+`expedition_fork_window` agrees for both. Each run keeps its own
+`choices`; `decideForkFor` posts the answer to the channel mentioning the
+partner when they have not answered; at the claim `convoySheet`
+(`src/lib/expeditions/convoy.ts`) merges the two sheets — a fork pushes
+only where both pushed, my own kind of push is kept because favour, light
+and rally are what MY squad can do — and `resolveRoute` rolls this run's
+loot and harm off it. `encountersFor` leaves storms out of a convoy so the
+shared clock never drifts. Every check is the RPC's; the page's
+`ConvoyView` (`fetchConvoyViews`) is presentation.
+
 ### Auto-dust
 
 A collector can set one rule (`card_auto_dust`, one row per Discord id,

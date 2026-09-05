@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns } from "./queries";
+import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns } from "./queries";
 
 type QueryCall = { table: string; filters: Record<string, unknown> };
 type QueryResult = { data: unknown; error: unknown };
@@ -91,6 +91,7 @@ describe("fetchRuns", () => {
         fee: 0,
         encounters: [],
         rules: 1,
+        convoy: null,
       },
       {
         id: 3,
@@ -112,6 +113,7 @@ describe("fetchRuns", () => {
         fee: 0,
         encounters: [],
         rules: 1,
+        convoy: null,
       },
     ]);
     expect(service.calls[0]).toMatchObject({
@@ -238,5 +240,43 @@ describe("fetchLedger", () => {
     const empty = createService(() => ({ data: [] }));
     expect(await fetchLedger(empty.client)).toEqual([]);
     expect(empty.calls).toHaveLength(2);
+  });
+});
+
+describe("fetchConvoyViews", () => {
+  it("keys each run to its convoy with the partner's name and answers, from whichever side the viewer is on", async () => {
+    const service = createService((call) => {
+      if (call.table === "expedition_convoys")
+        return {
+          data: [
+            { id: 5, code: "ABC234", host_id: "42", host_run: 9, guest_id: "77", guest_run: 10 },
+            { id: 6, code: "ZZZ999", host_id: "42", host_run: 11, guest_id: null, guest_run: null },
+            { id: 7, code: "QQQ222", host_id: "77", host_run: 12, guest_id: "42", guest_run: 13 },
+          ],
+        };
+      if (call.table === "expedition_runs") return { data: [{ id: 10, choices: [{ index: 0, choice: "push", at: "" }] }, { id: 12, choices: null }] };
+      if (call.table === "betting_profiles") return { data: [{ discord_id: "77", username: "Rio" }] };
+      return { data: null };
+    });
+
+    const views = await fetchConvoyViews(service.client, "42", [
+      { id: 9, convoy: 5 },
+      { id: 11, convoy: 6 },
+      { id: 13, convoy: 7 },
+      { id: 14, convoy: null },
+    ]);
+
+    expect(views).toEqual({
+      9: { code: "ABC234", host: true, partner: { discordId: "77", username: "Rio", runId: 10, choices: [{ index: 0, choice: "push", at: "" }] } },
+      11: { code: "ZZZ999", host: true, partner: null },
+      13: { code: "QQQ222", host: false, partner: { discordId: "77", username: "Rio", runId: 12, choices: [] } },
+    });
+    expect(service.calls.find((call) => call.table === "expedition_runs")?.filters.id).toEqual([10, 12]);
+  });
+
+  it("is empty with no convoys, without a query", async () => {
+    const service = createService(() => ({ data: null }));
+    expect(await fetchConvoyViews(service.client, "42", [{ id: 1, convoy: null }])).toEqual({});
+    expect(service.calls).toHaveLength(0);
   });
 });
