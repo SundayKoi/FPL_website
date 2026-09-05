@@ -7,6 +7,7 @@
 
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
+import { PURSE_MAX, PURSE_STEPS, purseAfter } from "@/lib/gauntlet/purse";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
@@ -54,14 +55,58 @@ export default function GauntletRules() {
         <p>
           Entry is <b className="text-white">{GAUNTLET_ENTRY_FEE} betting dollars</b>, and it&apos;s gone the
           moment you enter — it feeds the week&apos;s pot and nothing refunds it. Draft one card per role and
-          climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over. You can{" "}
-          <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
-          walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
-          board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
+          climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over. Every round you win adds to a{" "}
+          <b className="text-gold">purse</b> of real dollars; between fights you can{" "}
+          <b className="text-white">bank it</b> and end the run, or push on and risk it — see the purse
+          section below. The bracket scales to <i>your</i> lineup&apos;s average: round 1
           starts well under it and round {GAUNTLET_ROUNDS} ends over it, with a wall standing at rounds{" "}
           {GATE_ROUND} and {FINAL_ROUND}. For a player who reads what&apos;s on offer: about 94% clear round 1,
           four in ten reach round {GATE_ROUND}, and roughly one run in twenty clears all eight. A stacked shelf
           gets a harder bracket — but not a proportionally harder one, so your cards do count. See below.
+        </p>
+      </Section>
+
+      <Section title="The purse — bank or push">
+        <p>
+          Every round you win adds to the purse, and the purse is <b className="text-gold">real betting dollars</b>:
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-border-subtle text-[10px] uppercase tracking-[0.16em] text-muted">
+                <th className="py-1.5 pr-3 font-semibold">Round won</th>
+                {PURSE_STEPS.map((_, index) => (
+                  <th key={index} className="py-1.5 pr-3 font-mono font-semibold">{index + 1}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border-subtle/40">
+                <td className="py-2 pr-3 text-white">Adds</td>
+                {PURSE_STEPS.map((step, index) => (
+                  <td key={index} className="py-2 pr-3 font-mono text-mint">+{step}</td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-2 pr-3 text-white">Purse after</td>
+                {PURSE_STEPS.map((_, index) => (
+                  <td key={index} className="py-2 pr-3 font-mono text-gold">{purseAfter(index + 1)}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <b className="text-white">Between fights, the purse is yours to take.</b> Bank it and the run ends: the
+          dollars go to your wallet and the score you already won stands on the board. Push on instead and the
+          whole purse rides on the next round — <b className="text-white">lose once and it is gone</b>, along
+          with the run. A full clear pays the whole {PURSE_MAX} on the spot.
+        </p>
+        <p>
+          Once the first half of a fight has been played the purse is on the table until the whistle: walking
+          away mid-fight forfeits it. The purse never touches the score, the board, or the odds — it is only
+          the question of when to stop. It comes out of the same pot the entries paid into, so Monday&apos;s
+          prizes are what is left after the week&apos;s purses.
         </p>
       </Section>
 
@@ -439,10 +484,10 @@ export default function GauntletRules() {
           <b className="text-gold">daring bonus</b> for a landed crossroads gamble (worth more the deeper
           the run got — a call landed in round 8 pays more than twice the same call in round 1), plus shine
           (foils and signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.{" "}
-          <b className="text-white">Score is board points, never dollars</b> — nothing in a run puts money in
-          your wallet, and walking away refunds nothing. The only money the Gauntlet ever pays out is
-          Monday&apos;s settlement of the pot (every entry fee paid that week):{" "}
-          <b className="text-white">40 / 25 / 15%</b> to the week&apos;s top three scores, with scraps for
+          <b className="text-white">Score is board points, never dollars.</b> The dollars a run can pay are the{" "}
+          <b className="text-gold">purse</b> (above), banked between fights or lost with the run, and
+          Monday&apos;s settlement of the pot — every entry fee paid that week, less the purses it already paid
+          out: <b className="text-white">40 / 25 / 15%</b> to the week&apos;s top three scores, with scraps for
           everyone who cleared round 4. Best run per player counts.
         </p>
       </Section>

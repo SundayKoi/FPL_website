@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rankGauntletWeek } from "./settle";
+import { gauntletPot, rankGauntletWeek } from "./settle";
 
 const run = (discord_id: string, score: number, round = 3, status = "fallen") => ({ discord_id, score, round, status });
 
@@ -21,5 +21,13 @@ describe("rankGauntletWeek", () => {
   it("is deterministic on dead-even scores", () => {
     const a = rankGauntletWeek([run("zed", 500), run("abe", 500)]);
     expect(a.map((r) => r.discordId)).toEqual(["abe", "zed"]);
+  });
+});
+
+describe("gauntletPot", () => {
+  it("is the fees less what the purses already paid, never below zero", () => {
+    expect(gauntletPot([{ purse_paid: 0 }, { purse_paid: 48 }, { purse_paid: null }, {}])).toBe(4 * 50 - 48);
+    expect(gauntletPot([{ purse_paid: 500 }])).toBe(0);
+    expect(gauntletPot([])).toBe(0);
   });
 });
