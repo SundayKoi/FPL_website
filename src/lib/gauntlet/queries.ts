@@ -203,6 +203,35 @@ export async function fetchAscension(supabase: SupabaseClient, discordId: string
   return Number((data as { unlocked: number }).unlocked ?? 0);
 }
 
+export interface ContractProgress {
+  /** Keys finished this week. */
+  thisWeek: string[];
+  /** Contracts finished this season, across every week — the count that
+   *  unlocks openers. */
+  seasonTotal: number;
+}
+
+/** What this player has done on the week's contracts, and the season's
+ *  running count. Both zero when the table is not there yet. */
+export async function fetchContractProgress(
+  supabase: SupabaseClient,
+  discordId: string,
+  season: string,
+  week: string,
+): Promise<ContractProgress> {
+  const { data, error } = await supabase
+    .from("gauntlet_contracts")
+    .select("week_start, contract_key")
+    .eq("discord_id", discordId)
+    .eq("season", season);
+  if (error) return { thisWeek: [], seasonTotal: 0 };
+  const rows = ((data as { week_start: string; contract_key: string }[]) ?? []);
+  return {
+    thisWeek: rows.filter((row) => row.week_start === week).map((row) => row.contract_key),
+    seasonTotal: rows.length,
+  };
+}
+
 export interface GauntletBoardRow {
   discordId: string;
   username: string;

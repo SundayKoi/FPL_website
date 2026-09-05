@@ -5,6 +5,7 @@
 import type { Autopsy } from "./autopsy";
 import { bossEffects } from "./bosses";
 import { ascensionRules } from "./ascension";
+import { openerEffects } from "./openers";
 import type { OpponentTeam } from "./opponents";
 import { aggregateEffects, mergeRelicEffects } from "./relics";
 import { heirloomEffects, type StoredHeirloom } from "./heirlooms";
@@ -42,6 +43,8 @@ export function matchContextFor(
   /** The run's ascension: how much of a ghost's build defends, and
    *  whether the pit is theirs every round. */
   ascension = 0,
+  /** The opener the run brought (src/lib/gauntlet/openers.ts). */
+  opener: string | null = null,
 ): MatchContext {
   const rules = ascensionRules(ascension);
   // A ghost's "traits" are their BUILD: the relics they were holding when
@@ -53,8 +56,11 @@ export function matchContextFor(
     : traits;
   return {
     effects: mergeRelicEffects(
-      mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
-      mutationEffects(lineup),
+      mergeRelicEffects(
+        mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
+        mutationEffects(lineup),
+      ),
+      openerEffects(opener),
     ),
     foe,
     arena: conditionEffects(opponent?.condition),
@@ -103,4 +109,6 @@ export interface GauntletRunRow {
   /** The ascension the run was fought at (src/lib/gauntlet/ascension.ts).
    *  Undefined on a row read before the ladder; treat as 0. */
   ascension?: number;
+  /** The opener brought along (src/lib/gauntlet/openers.ts), or null. */
+  opener?: string | null;
 }

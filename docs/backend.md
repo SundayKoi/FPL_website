@@ -420,6 +420,20 @@ Important RPC families include:
   the round log carries `ascension` so the balance report can split lift
   by level. Nothing about a level is rolled: every rule is printed on the
   draft screen, the run header and the rulebook.
+- Gauntlet contracts and openers (`src/lib/gauntlet/contracts.ts`,
+  `openers.ts`, migration `20260920000001_gauntlet_contracts.sql`):
+  `contractsForWeek` draws three off `weekSeed(week, 99)`, the same for
+  the league; `chooseGauntletPathAction` runs `contractsSatisfied` over a
+  won round (the half state, the result, the opponent) and pays each new
+  one through `gauntlet_complete_contract`, whose primary key
+  `(discord_id, season, week_start, contract_key)` is the "once" — the
+  door returns 0 when the insert did not land and pays nothing.
+  `gauntlet_payout` learns `gauntlet_contract`. Openers are unlocked by
+  the season's count of finished contracts (`fetchContractProgress`),
+  validated at entry (`openerAllowed` — an unearned key is refused, not
+  downgraded), stored on `gauntlet_runs.opener`, and reach the engine as
+  `RelicEffects` through `openerEffects` in `matchContextFor`, exactly as
+  an heirloom does. The bracket does not price them.
 - Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
   shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
   at entry like the lineup. It is never spent and never fielded. Everything
