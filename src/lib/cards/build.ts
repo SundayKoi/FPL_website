@@ -147,6 +147,10 @@ export interface PlayerCardData {
    *  Gauntlet sim and dust pricing (src/lib/cards/mutations.ts). `run` is
    *  the expedition_runs id that did it. */
   mutation?: { key: "irradiated" | "hardened" | "haunted" | "cursed" | "voidtouched"; date: string; run: number } | null;
+  /** Set on a copy an expedition found rather than a pack: a moment on
+   *  the squad echoed, and the route dropped this card from the moment's
+   *  game. Cosmetic provenance only; nothing prices it. */
+  echo?: { run: number; moment: number; date: string } | null;
   /** Set while a copy is benched after an expedition went badly — no
    *  expeditions and no Gauntlet lineups until `until`. Cleared by the
    *  next stamp or ignored once it has passed; never read by pricing. */

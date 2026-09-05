@@ -829,6 +829,35 @@ encounter at 50%, the arrival when the fork opens, and the fork ping quotes
 the latest line. `banterFor` is the same idea at the fork: a line from one
 of the squad, chosen by what they can actually do there.
 
+The league calendar (`src/lib/expeditions/matchday.ts`, pure over rows
+from `fixtures` and `card_editions`): `teamsPlayingOn` reads a fixture's
+day on the Eastern calendar (an 8pm Eastern fixture is the next day in
+UTC, so `fetchFixturesSince` is asked from a day before the launch);
+`surgeTeams` names the playing teams a squad carries, and the claim
+multiplies the dollars by `1 + SURGE_BONUS` after the forks and before the
+merchant, which is why `maxExpeditionPayout` and `resolve_expedition`'s
+ceiling (13575) both carry the surge. The teams go into the outcome as
+`surge` for the log. `rosterTeam` + `nextOpponent` give the page the
+rival for a one-roster squad on the Legendary route's second fork —
+copy only, computed at render, nothing stored. The echo: each moment on
+the squad rolls `ECHO_CHANCE` once at the claim (after every other draw,
+so a squad without one consumes nothing extra); a hit picks uniformly
+from `echoPool` — the archived edition of the moment's week, both sides
+of its game — and sends `echo {slug, week, moment}` in `p_outcome`.
+`resolve_expedition` checks the moment is a moment on THIS run's squad,
+mints the copy off `card_editions` (matte, unsigned, `pack_open_id` null,
+`card.echo {run, moment, date}`), lets the existing triggers stamp the
+print number and the 'minted' provenance, and returns `echo_id`. A week
+that was never archived cannot echo, and the claim never offers it.
+
+The ledger of the fallen and the found (`fetchLedger`, the public
+`/cards/expeditions/ledger`) is a service-client read across every
+owner's graveyard and every `lost` hold: open holds are "missing", a hold
+closed by a Rescue, a ransom or a stranger's squad is "found", and a hold
+that ran out is skipped because its grave is already listed. Usernames
+and avatars come from `betting_profiles`, which every public card surface
+already shows.
+
 ### Auto-dust
 
 A collector can set one rule (`card_auto_dust`, one row per Discord id,

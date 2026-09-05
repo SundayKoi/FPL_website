@@ -21,6 +21,7 @@
 // same fork reads differently with a different squad.
 
 import { mulberry32 } from "@/lib/gauntlet/sim";
+import { TRAIL_RULES } from "./queries";
 import { EXPEDITION_TIERS, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
 import { FORKS, forkWindows } from "./routes";
 
@@ -149,7 +150,10 @@ function fill(template: string, squad: Squad, rand: () => number): string {
  * has none — nothing on the trail interrupts a rite — and a run from
  * before forks existed has no legs to carry them.
  */
-export function encountersFor(run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number }): Encounter[] {
+export function encountersFor(run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number }): Encounter[] {
+  // A run that launched before the trail existed meets nothing on it: its
+  // clock, its payout and its squad are exactly what it set out with.
+  if (run.rules !== undefined && run.rules < TRAIL_RULES) return [];
   if (run.tier === "exorcism" || run.forks === 0) return [];
   const out: Encounter[] = [];
   legs(run).forEach((leg, index) => {
@@ -170,7 +174,7 @@ export function encountersFor(run: { id: number; tier: ExpeditionTierKey; starte
  * makes the page worth coming back to.
  */
 export function journalFor(
-  run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; claimedAt?: string | null },
+  run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; claimedAt?: string | null; rules?: number },
   squad: Squad,
   now: Date,
 ): JournalEntry[] {

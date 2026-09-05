@@ -471,6 +471,17 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
  *  is a beat, not a payout. */
 export const MERCHANT_DOLLARS = 75;
 
+/** Match day: a squad with a card whose team plays on the day the run
+ *  LAUNCHES brings home this much more. The brief does this by role; this
+ *  does it by fixture, so the cards worth sending are the ones actually
+ *  on stage tonight. Multiplies the dollars after the forks, before the
+ *  merchant's flat. */
+export const SURGE_BONUS = 0.2;
+
+/** A moment card on a run may echo: the route drops a copy of a card from
+ *  the game the moment happened in. Rolled once per moment on the squad. */
+export const ECHO_CHANCE = 0.15;
+
 /** The most the forks can multiply a payout by. A Legendary route pushed
  *  at every fork with a one-roster squad would otherwise reach 3.4x; the
  *  cap keeps the ceiling the claim RPC guards at a number the economy can
@@ -513,11 +524,11 @@ export function maxExpeditionPayout(): number {
     for (const grade of GRADES) {
       most = Math.max(
         most,
-        Math.round(REWARDS[tier].dollars[grade] * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP),
+        Math.round(REWARDS[tier].dollars[grade] * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP * (1 + SURGE_BONUS)),
       );
     }
   }
-  // The merchant's flat is the one thing added after the multiplier.
+  // The merchant's flat is the one thing added after the multipliers.
   return most + MERCHANT_DOLLARS;
 }
 
