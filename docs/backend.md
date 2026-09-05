@@ -402,6 +402,24 @@ Important RPC families include:
   from the fees before the 40/25/15 shares, and `purse.test.ts` holds the
   schedule to returning under half the fee on average under every
   stopping rule at the advertised clear curves.
+- Gauntlet ascension (`src/lib/gauntlet/ascension.ts`, migration
+  `20260919000001_gauntlet_ascension.sql`): `gauntlet_ascension` holds
+  what each player has unlocked per season; `gauntlet_ascend(p_user,
+  p_season, p_level)` is called by the claim of a cleared run and is a
+  `greatest`, so it is idempotent and never skips a level. Every run is
+  stamped with `ascension` at entry (clamped to what is unlocked —
+  `clampAscension`, a stale request plays level 0 rather than being
+  refused) and the level reaches the engine through `ascensionRules`:
+  the gate walls' rounds (`gateRoundsAt` in bosses.ts), a ghost's relic
+  potency and target relief (`matchContextFor`, `ghostOpponent`), the
+  offer size (sliced in `chooseGauntletPathAction` off the same seeded
+  three, so a retry offers the same cards), the bracket bump
+  (`generateOpponent`/`ghostOpponent`) and the Pit King's `holdsPit`
+  folded into the boss effects. The board and the settlement rank by
+  `weightedScore` (+10% a level) and the purse by `ascensionPurseMult`;
+  the round log carries `ascension` so the balance report can split lift
+  by level. Nothing about a level is rolled: every rule is printed on the
+  draft screen, the run header and the rulebook.
 - Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
   shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
   at entry like the lineup. It is never spent and never fielded. Everything

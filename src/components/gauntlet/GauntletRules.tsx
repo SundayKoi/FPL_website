@@ -8,6 +8,7 @@
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { PURSE_MAX, PURSE_STEPS, purseAfter } from "@/lib/gauntlet/purse";
+import { ASCENSION_LEVELS, ASCENSION_MAX, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP } from "@/lib/gauntlet/ascension";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
@@ -60,7 +61,7 @@ export default function GauntletRules() {
           <b className="text-white">bank it</b> and end the run, or push on and risk it — see the purse
           section below. The bracket scales to <i>your</i> lineup&apos;s average: round 1
           starts well under it and round {GAUNTLET_ROUNDS} ends over it, with a wall standing at rounds{" "}
-          {GATE_ROUND} and {FINAL_ROUND}. For a player who reads what&apos;s on offer: about 94% clear round 1,
+          {GATE_ROUND} and {FINAL_ROUND} (three walls from ascension 1). For a player who reads what&apos;s on offer: about 94% clear round 1,
           four in ten reach round {GATE_ROUND}, and roughly one run in twenty clears all eight. A stacked shelf
           gets a harder bracket — but not a proportionally harder one, so your cards do count. See below.
         </p>
@@ -107,6 +108,32 @@ export default function GauntletRules() {
           away mid-fight forfeits it. The purse never touches the score, the board, or the odds — it is only
           the question of when to stop. It comes out of the same pot the entries paid into, so Monday&apos;s
           prizes are what is left after the week&apos;s purses.
+        </p>
+      </Section>
+
+      <Section title="Ascension — the ladder above a clear">
+        <p>
+          Clear all eight rounds and <b className="text-white">the next ascension opens</b> for the rest of the
+          season. You pick the level at the draft — any level you have unlocked, and you can always step back
+          down. Each level is a <b className="text-white">named rule change</b> on top of every level below it,
+          never a quiet bigger number; the ladder stops at {ASCENSION_MAX}.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {ASCENSION_LEVELS.map((entry) => (
+            <div key={entry.level} className="rounded-lg border border-coral/40 bg-coral/5 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
+                A{entry.level} · {entry.title}
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{entry.rule}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">↳ {entry.counter}</p>
+            </div>
+          ))}
+        </div>
+        <p>
+          The board weighs a run by its level: <b className="text-white">+{Math.round(ASCENSION_SCORE_STEP * 100)}% score
+          per ascension</b>, so a level-3 run&apos;s 1,000 stands as 1,300 against a level-0 run&apos;s 1,000, and
+          Monday&apos;s prizes follow the weighted board. The purse pays +{Math.round(ASCENSION_PURSE_STEP * 100)}% a level
+          too. Climbing difficulty is how you win the week; grinding level 0 is not.
         </p>
       </Section>
 

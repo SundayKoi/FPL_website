@@ -8,11 +8,13 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchAllCardSeasons } from "@/lib/cards/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
+import { ascensionBadge } from "@/lib/gauntlet/ascension";
 import {
   buildGauntletOptions,
   buildHeirloomOptions,
   currentWeek,
   fetchActiveGauntletRun,
+  fetchAscension,
   fetchGauntletBoard,
   fetchGauntletWeekStats,
   fetchLastLineup,
@@ -65,12 +67,13 @@ export default async function GauntletPage() {
   const season = seasons.find((entry) => entry.league === "premier")?.season ?? null;
   const leagueOf = new Map(seasons.map((entry) => [entry.season, entry.league]));
   const week = currentWeek();
-  const [inventory, activeRun, weekStats, board, lastLineup]: [
+  const [inventory, activeRun, weekStats, board, lastLineup, ascensionUnlocked]: [
     Awaited<ReturnType<typeof fetchInventory>>,
     Awaited<ReturnType<typeof fetchActiveGauntletRun>>,
     Awaited<ReturnType<typeof fetchGauntletWeekStats>>,
     GauntletBoardRow[],
     number[],
+    number,
   ] = season
     ? await Promise.all([
         // Every shelf, flattened — buildGauntletOptions tags each copy with
@@ -82,8 +85,9 @@ export default async function GauntletPage() {
         fetchGauntletWeekStats(service, user.discordId, week),
         fetchGauntletBoard(service, season, week),
         fetchLastLineup(service, user.discordId),
+        fetchAscension(service, user.discordId, season),
       ])
-    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], []];
+    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], [], 0];
   const options = buildGauntletOptions(inventory, week, leagueOf);
   // The same inventory read, picked over a second time: buildGauntletOptions
   // skips moments and plates (a relic has no role), and this collects them.
@@ -108,6 +112,7 @@ export default async function GauntletPage() {
           <p className="mt-1 font-mono text-2xl font-bold">{weekStats.bestScore.toLocaleString()}</p>
           <p className="text-xs text-steel">
             best score · {weekStats.attempts} run{weekStats.attempts === 1 ? "" : "s"}
+            {ascensionUnlocked > 0 ? ` · ascension ${ascensionUnlocked} unlocked` : ""}
           </p>
         </div>
       </header>
@@ -120,6 +125,7 @@ export default async function GauntletPage() {
         weekBest={weekStats.bestScore}
         lastLineup={lastLineup}
         heirlooms={heirlooms}
+        ascensionUnlocked={ascensionUnlocked}
       />
 
       <GauntletRules />
@@ -128,8 +134,8 @@ export default async function GauntletPage() {
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="label-dash">This week&apos;s board</span>
           <span className="text-xs text-steel">
-            Best run per player · the pot (every entry fee paid, less the purses banked) settles Monday — 40/25/15%
-            to the top three, scraps for everyone who cleared round 4.
+            Best run per player, weighed by ascension (+10% a level) · the pot (every entry fee paid, less the
+            purses banked) settles Monday — 40/25/15% to the top three, scraps for everyone who cleared round 4.
           </span>
         </div>
         {board.length === 0 ? (
@@ -160,8 +166,18 @@ export default async function GauntletPage() {
                       />
                     ) : null}
                     {row.cleared ? <span title="Full clear">🏆</span> : null}
+                    {row.ascension > 0 ? (
+                      <span
+                        title={`Ascension ${row.ascension}`}
+                        className="rounded-full border border-coral/60 bg-coral/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-coral"
+                      >
+                        {ascensionBadge(row.ascension)}
+                      </span>
+                    ) : null}
                   </span>
-                  <span className="ml-auto font-mono text-sm font-semibold">{row.score.toLocaleString()}</span>
+                  <span className="ml-auto font-mono text-sm font-semibold" title={row.ascension > 0 ? `${row.score.toLocaleString()} raw` : undefined}>
+                    {row.weighted.toLocaleString()}
+                  </span>
                   <span className="w-24 text-right text-xs text-steel">
                     {row.cleared ? "cleared" : `round ${row.round}`}
                   </span>

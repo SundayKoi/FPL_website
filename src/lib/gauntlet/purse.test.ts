@@ -36,6 +36,18 @@ describe("the purse schedule", () => {
   });
 });
 
+describe("the purse under ascension", () => {
+  it("pays 10% more a level, and still never returns the fee on average at the top", () => {
+    expect(purseStep(1, 5)).toBe(15);
+    expect(purseAfter(4, 2)).toBeGreaterThan(purseAfter(4, 0));
+    for (let stopAfter = 1; stopAfter <= 8; stopAfter += 1) {
+      // The level-0 curves are generous for level 5, which is harder by
+      // construction; even so the purse must stay under the entry fee.
+      expect(purseAfter(stopAfter, 5) * CLEAR_CHANCE[stopAfter - 1]).toBeLessThan(GAUNTLET_ENTRY_FEE);
+    }
+  });
+});
+
 describe("canBank", () => {
   it("is between fights only", () => {
     expect(canBank({ status: "active", crossroads: null })).toBe(true);

@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GAUNTLET_ENTRY_FEE } from "./run";
+import { weightedScore } from "./ascension";
 
 const PRIZE_SHARES = [0.4, 0.25, 0.15] as const;
 const SCRAP = 15;
@@ -26,7 +27,11 @@ const PAYOUT_CEILING = 0.95;
 export interface GauntletStanding {
   discordId: string;
   username: string | null;
+  /** The run's raw score. */
   score: number;
+  /** The score as the board weighs it: 10% more per ascension level. */
+  weighted: number;
+  ascension: number;
   round: number;
   cleared: boolean;
   prize: number;
@@ -47,6 +52,8 @@ interface RunRow {
   status: string;
   /** What the run's purse paid (0 on a run from before purses). */
   purse_paid?: number | null;
+  /** The ascension the run was fought at (0 on a run from before). */
+  ascension?: number | null;
 }
 
 /** The week's pot: the fees paid, less the purses already paid out of
@@ -58,18 +65,22 @@ export function gauntletPot(runs: Pick<RunRow, "purse_paid">[]): number {
   return Math.max(0, fees - purses);
 }
 
-/** Best run per user, ranked — the same read the page's board uses. */
+/** Best run per user by WEIGHTED score, ranked — the same read the
+ *  page's board uses. A level-3 run's points count 1.3 times. */
 export function rankGauntletWeek(runs: RunRow[]): Omit<GauntletStanding, "username" | "prize">[] {
+  const weigh = (run: RunRow) => weightedScore(run.score, Number(run.ascension ?? 0));
   const best = new Map<string, RunRow>();
   for (const run of runs) {
     const held = best.get(run.discord_id);
-    if (!held || run.score > held.score) best.set(run.discord_id, run);
+    if (!held || weigh(run) > weigh(held)) best.set(run.discord_id, run);
   }
   return [...best.values()]
-    .sort((a, b) => b.score - a.score || a.discord_id.localeCompare(b.discord_id))
+    .sort((a, b) => weigh(b) - weigh(a) || a.discord_id.localeCompare(b.discord_id))
     .map((run) => ({
       discordId: run.discord_id,
       score: run.score,
+      weighted: weigh(run),
+      ascension: Number(run.ascension ?? 0),
       round: run.round,
       cleared: run.status === "cleared",
     }));
@@ -82,7 +93,7 @@ export async function settleGauntletWeek(
 ): Promise<SettlementResult> {
   const { data: runData, error: runError } = await supabase
     .from("gauntlet_runs")
-    .select("discord_id, score, round, status, purse_paid")
+    .select("discord_id, score, round, status, purse_paid, ascension")
     .eq("season", season)
     .eq("week_start", weekStart);
   if (runError) return { settled: false, reason: "gauntlet tables not migrated", pot: 0, paid: 0, standings: [] };
@@ -103,7 +114,7 @@ export async function settleGauntletWeek(
   let paid = 0;
   const prizes = new Map<string, number>();
   ranked.slice(0, PRIZE_SHARES.length).forEach((standing, index) => {
-    if (standing.score <= 0) return;
+    if (standing.weighted <= 0) return;
     const prize = Math.round(pot * PRIZE_SHARES[index]);
     if (prize > 0) prizes.set(standing.discordId, prize);
   });

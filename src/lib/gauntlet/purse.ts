@@ -15,21 +15,24 @@
 // income; it is a reason to stop at round 4 instead of dying at round 5.
 
 import { GAUNTLET_ROUNDS } from "./sim";
+import { ascensionPurseMult } from "./ascension";
 
 /** What each cleared round adds, round 1 first. */
 export const PURSE_STEPS: readonly number[] = [10, 10, 12, 16, 18, 22, 27, 35];
 
 /** The purse after `cleared` rounds — cumulative, so banking after round
  *  four pays every step so far. */
-export function purseAfter(cleared: number): number {
+export function purseAfter(cleared: number, ascension = 0): number {
   let total = 0;
-  for (let round = 1; round <= Math.min(cleared, GAUNTLET_ROUNDS); round += 1) total += PURSE_STEPS[round - 1];
+  for (let round = 1; round <= Math.min(cleared, GAUNTLET_ROUNDS); round += 1) total += purseStep(round, ascension);
   return total;
 }
 
-/** What winning `round` adds to the purse. */
-export function purseStep(round: number): number {
-  return PURSE_STEPS[round - 1] ?? 0;
+/** What winning `round` adds to the purse — 10% more per ascension level,
+ *  rounded per step so the running total on the row is always whole. */
+export function purseStep(round: number, ascension = 0): number {
+  const step = PURSE_STEPS[round - 1] ?? 0;
+  return Math.round(step * ascensionPurseMult(ascension));
 }
 
 /** The purse a full clear pays. */
