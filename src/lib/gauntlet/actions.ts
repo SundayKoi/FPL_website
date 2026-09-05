@@ -35,7 +35,9 @@ import { heirloomOf, type StoredHeirloom } from "./heirlooms";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import { canBank, purseStep } from "./purse";
 import { ascensionRules, clampAscension } from "./ascension";
-import { fetchAscension } from "./queries";
+import { fetchAscension, fetchContractProgress } from "./queries";
+import { contractsSatisfied, type ContractDef } from "./contracts";
+import { openerAllowed } from "./openers";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -83,6 +85,9 @@ export async function startGauntletRunAction(
   /** The ascension to fight at — clamped to what this player has unlocked
    *  this season (src/lib/gauntlet/ascension.ts). */
   ascension = 0,
+  /** The opener to bring — must be one this season's contracts unlocked
+   *  (src/lib/gauntlet/openers.ts). Null brings nothing. */
+  openerKey: string | null = null,
 ): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
@@ -210,6 +215,18 @@ export async function startGauntletRunAction(
   const unlocked = await fetchAscension(service, user.discordId, season);
   const level = clampAscension(ascension, unlocked);
 
+  // The opener: earned by contracts, never by asking. An unearned key is
+  // a refusal, not a silent downgrade — the draft screen only offers what
+  // is unlocked, so a request past it is a stale page or a hand-rolled
+  // call, and both deserve the message.
+  const opener = typeof openerKey === "string" && openerKey.length > 0 ? openerKey : null;
+  if (opener) {
+    const progress = await fetchContractProgress(service, user.discordId, season, thisWeek);
+    if (!openerAllowed(opener, progress.seasonTotal)) {
+      return { ok: false, error: "That opener isn't unlocked yet — finish more contracts." };
+    }
+  }
+
   // A re-run has to be a different run. Checked BEFORE the fee is taken,
   // so a refused entry never costs anything.
   const { data: lastRuns } = await service
@@ -258,6 +275,7 @@ export async function startGauntletRunAction(
       heirloom,
       next_opponent: opponent,
       ascension: level,
+      opener,
     })
     .select("*")
     .single();
@@ -302,7 +320,7 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0, run.opener ?? null);
   const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
@@ -344,7 +362,7 @@ export async function fightGauntletRoundAction(
 export async function chooseGauntletPathAction(
   runId: number,
   choiceKey: string,
-): Promise<ActionResult<{ result: MatchResult; run: GauntletRunRow }>> {
+): Promise<ActionResult<{ result: MatchResult; run: GauntletRunRow; contracts: { key: string; title: string; reward: number }[] }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   const service = createBettingServiceClient();
@@ -358,7 +376,7 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0, run.opener ?? null);
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
@@ -428,7 +446,39 @@ export async function chooseGauntletPathAction(
     const current = await loadOwnRun(service, runId, user.discordId);
     if (!current) return { ok: false, error: "That run isn't yours." };
     revalidateGauntlet();
-    return { ok: true, result, run: current };
+    return { ok: true, result, run: current, contracts: [] };
+  }
+
+  // Contracts: a won round is checked against the week's three, and each
+  // one it satisfies for the first time this week is paid through a door
+  // whose primary key is the "once". Best effort after the write, and
+  // only ever additive — a contract that fails to record is a support
+  // question, never a lost round.
+  const contracts: { key: string; title: string; reward: number }[] = [];
+  if (sim.won) {
+    try {
+      const progress = await fetchContractProgress(service, user.discordId, run.season, run.week_start);
+      const satisfied: ContractDef[] = contractsSatisfied(run.week_start, progress.thisWeek, {
+        run: { round: run.round, lineup: run.lineup, relics: run.relics, ascension: run.ascension ?? 0 },
+        state: run.crossroads.state,
+        result: sim,
+        opponent: run.next_opponent,
+      });
+      for (const contract of satisfied) {
+        const { data: paid, error: contractError } = await service.rpc("gauntlet_complete_contract", {
+          p_user: user.discordId,
+          p_season: run.season,
+          p_week: run.week_start,
+          p_key: contract.key,
+          p_run: run.id,
+          p_reward: contract.reward,
+        });
+        if (contractError) console.error("gauntlet: contract pay failed", { runId: run.id, key: contract.key, contractError });
+        else if (Number(paid ?? 0) > 0) contracts.push({ key: contract.key, title: contract.title, reward: Number(paid) });
+      }
+    } catch (error) {
+      console.error("gauntlet: contracts check failed", error);
+    }
   }
 
   // A full clear collects the purse on the spot. The door is idempotent
@@ -469,7 +519,7 @@ export async function chooseGauntletPathAction(
   }
 
   revalidateGauntlet();
-  return { ok: true, result, run: finalRow };
+  return { ok: true, result, run: finalRow, contracts };
 }
 
 /**

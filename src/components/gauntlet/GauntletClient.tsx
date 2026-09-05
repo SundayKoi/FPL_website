@@ -35,6 +35,8 @@ import {
 } from "@/lib/gauntlet/run";
 import { PURSE_MAX, canBank, purseStep } from "@/lib/gauntlet/purse";
 import { ASCENSION_LEVELS, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP, ascensionRules } from "@/lib/gauntlet/ascension";
+import { contractsForWeek } from "@/lib/gauntlet/contracts";
+import { OPENER_BY_KEY, nextOpener, unlockedOpeners } from "@/lib/gauntlet/openers";
 import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
 import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
 import type { MomentFamily } from "@/lib/cards/moments";
@@ -196,6 +198,9 @@ export default function GauntletClient({
   lastLineup,
   heirlooms,
   ascensionUnlocked = 0,
+  week = "",
+  contractsDone = [],
+  contractsSeason = 0,
 }: {
   initialRun: GauntletRunRow | null;
   options: Record<GauntletRole, GauntletOption[]>;
@@ -209,6 +214,12 @@ export default function GauntletClient({
   heirlooms: HeirloomOption[];
   /** The top of the ladder this player has unlocked this season. */
   ascensionUnlocked?: number;
+  /** Monday of the week — the contracts rotate on it. */
+  week?: string;
+  /** Contract keys finished this week, and the season's running count
+   *  (which unlocks openers). */
+  contractsDone?: string[];
+  contractsSeason?: number;
 }) {
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
@@ -240,6 +251,17 @@ export default function GauntletClient({
   /** The level to draft at. Defaults to the top unlocked — the ladder is
    *  for climbing — and a player can always step back down. */
   const [ascension, setAscension] = useState<number>(ascensionUnlocked);
+  /** The opener to bring. Null brings nothing — most runs will. */
+  const [openerKey, setOpenerKey] = useState<string | null>(null);
+  /** Contracts finished by the round that just resolved, for the strip
+   *  under the tape. */
+  const [contractNews, setContractNews] = useState<{ key: string; title: string; reward: number }[]>([]);
+  /** Keys finished this week, as this session knows them — the server's
+   *  list plus whatever the rounds played here just paid. */
+  const [doneKeys, setDoneKeys] = useState<string[]>(contractsDone);
+  const weekContracts = week ? contractsForWeek(week) : [];
+  const openers = unlockedOpeners(contractsSeason);
+  const upcoming = nextOpener(contractsSeason);
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +324,7 @@ export default function GauntletClient({
   function start() {
     setError(null);
     startTransition(async () => {
-      const result = await startGauntletRunAction(picks, heirloomId, ascension);
+      const result = await startGauntletRunAction(picks, heirloomId, ascension, openerKey);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -343,6 +365,8 @@ export default function GauntletClient({
       }
       setTapeDone(false);
       setJustPlayed(true);
+      setContractNews(result.contracts ?? []);
+      if (result.contracts?.length) setDoneKeys((current) => [...current, ...result.contracts.map((entry) => entry.key)]);
       setLastFight(result.run.last_result ?? { ...result.result, round: run.round });
       setRun(result.run);
       showStage();
@@ -514,6 +538,76 @@ export default function GauntletClient({
             ) : null}
           </div>
         ) : null}
+        {weekContracts.length > 0 ? (
+          <div data-testid="contracts" className="flex flex-col gap-2 rounded-lg border border-mint/40 bg-mint/5 p-3">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="label-dash text-mint">This week&apos;s contracts</span>
+              <span className="text-xs text-muted">
+                Three things to go and do. Each pays once a week, the first time a round you win does it — and every one
+                finished counts toward your openers ({contractsSeason} this season).
+              </span>
+            </div>
+            <ul className="grid gap-2 sm:grid-cols-3">
+              {weekContracts.map((contract) => {
+                const done = doneKeys.includes(contract.key);
+                return (
+                  <li
+                    key={contract.key}
+                    data-testid={`contract-${contract.key}`}
+                    className={`rounded-lg border px-3 py-2 text-xs ${done ? "border-mint/60 bg-mint/10" : "border-border-subtle bg-surface/50"}`}
+                  >
+                    <span className="flex items-baseline justify-between gap-2">
+                      <b className={done ? "text-mint" : "text-white"}>{contract.title}</b>
+                      <span className="font-mono text-gold">{done ? "paid" : `+${fmtPoints(contract.reward)}`}</span>
+                    </span>
+                    <span className="mt-0.5 block text-muted">{contract.blurb}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+        <div data-testid="opener-picker" className="flex flex-col gap-2">
+          <span className="label-dash">Opener — optional</span>
+          <p className="text-xs text-muted">
+            A small starting perk, kept for the season, unlocked by contracts finished — the only permanent
+            power in the Gauntlet.{" "}
+            {upcoming
+              ? `Next: ${upcoming.opener.title} at ${upcoming.opener.unlockAt} contracts (${upcoming.remaining} to go).`
+              : "You have unlocked every opener."}
+          </p>
+          {openers.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={openerKey === null}
+                onClick={() => setOpenerKey(null)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  openerKey === null ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                }`}
+              >
+                Bring nothing
+              </button>
+              {openers.map((opener) => (
+                <button
+                  key={opener.key}
+                  type="button"
+                  aria-pressed={openerKey === opener.key}
+                  title={opener.effect}
+                  onClick={() => setOpenerKey(opener.key)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    openerKey === opener.key ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                  }`}
+                >
+                  ◆ {opener.title}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {openerKey ? (
+            <p className="font-mono text-[11px] leading-4 text-gold">↳ {OPENER_BY_KEY.get(openerKey)?.effect}</p>
+          ) : null}
+        </div>
         <div data-testid="ascension-picker" className="flex flex-col gap-2">
           <span className="label-dash">Ascension</span>
           <p className="text-xs text-muted">
@@ -621,8 +715,16 @@ export default function GauntletClient({
             {fmtPoints(run.purse ?? 0)}
           </span>
           <span className="text-xs text-muted">purse{over ? ((run.purse_paid ?? 0) > 0 ? " · paid" : (run.purse ?? 0) > 0 ? " · lost" : "") : ""}</span>
-          {run.relics.length > 0 ? (
+          {run.relics.length > 0 || run.opener ? (
             <span className="ml-auto flex flex-wrap gap-1.5">
+              {run.opener && OPENER_BY_KEY.has(run.opener) ? (
+                <span
+                  title={OPENER_BY_KEY.get(run.opener)!.effect}
+                  className="rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gold"
+                >
+                  ◆ {OPENER_BY_KEY.get(run.opener)!.title}
+                </span>
+              ) : null}
               {run.relics.map((key) => (
                 <RelicChip key={key} relicKey={key} />
               ))}
@@ -684,6 +786,12 @@ export default function GauntletClient({
                   {lastFight.daring > 0 ? (
                     <span className="text-gold"> (of which {lastFight.daring} daring — the call landed)</span>
                   ) : null}
+                </p>
+              ) : null}
+              {contractNews.length > 0 ? (
+                <p data-testid="contract-news" className="rounded-lg border border-mint/50 bg-mint/10 px-3 py-2 text-xs text-mint">
+                  Contract{contractNews.length === 1 ? "" : "s"} complete:{" "}
+                  {contractNews.map((entry) => `${entry.title} (+${fmtPoints(entry.reward)})`).join(", ")} — paid to your wallet.
                 </p>
               ) : null}
               {lastFight.players?.length ? (

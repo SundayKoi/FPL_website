@@ -15,6 +15,7 @@ import {
   currentWeek,
   fetchActiveGauntletRun,
   fetchAscension,
+  fetchContractProgress,
   fetchGauntletBoard,
   fetchGauntletWeekStats,
   fetchLastLineup,
@@ -67,13 +68,14 @@ export default async function GauntletPage() {
   const season = seasons.find((entry) => entry.league === "premier")?.season ?? null;
   const leagueOf = new Map(seasons.map((entry) => [entry.season, entry.league]));
   const week = currentWeek();
-  const [inventory, activeRun, weekStats, board, lastLineup, ascensionUnlocked]: [
+  const [inventory, activeRun, weekStats, board, lastLineup, ascensionUnlocked, contracts]: [
     Awaited<ReturnType<typeof fetchInventory>>,
     Awaited<ReturnType<typeof fetchActiveGauntletRun>>,
     Awaited<ReturnType<typeof fetchGauntletWeekStats>>,
     GauntletBoardRow[],
     number[],
     number,
+    Awaited<ReturnType<typeof fetchContractProgress>>,
   ] = season
     ? await Promise.all([
         // Every shelf, flattened — buildGauntletOptions tags each copy with
@@ -86,8 +88,9 @@ export default async function GauntletPage() {
         fetchGauntletBoard(service, season, week),
         fetchLastLineup(service, user.discordId),
         fetchAscension(service, user.discordId, season),
+        fetchContractProgress(service, user.discordId, season, week),
       ])
-    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], [], 0];
+    : [[], null, { bestScore: 0, attempts: 0, lastFinished: null }, [], [], 0, { thisWeek: [], seasonTotal: 0 }];
   const options = buildGauntletOptions(inventory, week, leagueOf);
   // The same inventory read, picked over a second time: buildGauntletOptions
   // skips moments and plates (a relic has no role), and this collects them.
@@ -126,6 +129,9 @@ export default async function GauntletPage() {
         lastLineup={lastLineup}
         heirlooms={heirlooms}
         ascensionUnlocked={ascensionUnlocked}
+        week={week}
+        contractsDone={contracts.thisWeek}
+        contractsSeason={contracts.seasonTotal}
       />
 
       <GauntletRules />

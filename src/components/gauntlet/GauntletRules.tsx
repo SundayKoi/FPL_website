@@ -9,6 +9,8 @@ import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
 import { PURSE_MAX, PURSE_STEPS, purseAfter } from "@/lib/gauntlet/purse";
 import { ASCENSION_LEVELS, ASCENSION_MAX, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP } from "@/lib/gauntlet/ascension";
+import { CONTRACTS_PER_WEEK, CONTRACT_CATALOG } from "@/lib/gauntlet/contracts";
+import { OPENER_CATALOG } from "@/lib/gauntlet/openers";
 import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
@@ -135,6 +137,45 @@ export default function GauntletRules() {
           Monday&apos;s prizes follow the weighted board. The purse pays +{Math.round(ASCENSION_PURSE_STEP * 100)}% a level
           too. Climbing difficulty is how you win the week; grinding level 0 is not.
         </p>
+      </Section>
+
+      <Section title="Contracts and openers — the kit you earn">
+        <p>
+          Every Monday <b className="text-white">{CONTRACTS_PER_WEEK} contracts</b> rotate in, the same three for the
+          whole league, drawn from the catalog below. A contract is checked against every round you{" "}
+          <b className="text-white">win</b> and paid once a week, the first time a round does it — in dollars, to
+          your wallet, on the spot. They are the reason to draft a different five: this week&apos;s contracts want
+          one.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {CONTRACT_CATALOG.map((contract) => (
+            <div key={contract.key} className="rounded-lg border border-mint/40 bg-mint/5 p-3">
+              <p className="flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-mint">
+                {contract.title}
+                <span className="font-mono normal-case tracking-normal text-gold">+{contract.reward}</span>
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{contract.blurb}</p>
+            </div>
+          ))}
+        </div>
+        <p>
+          Every contract you finish this season counts toward <b className="text-white">openers</b>: small
+          starting perks, picked at the draft, one per run, kept for the season. They unlock in order by the
+          count, never by runs played or dollars spent — the only permanent power in the mode, and it is earned
+          by playing every way the Gauntlet asks to be played. Like an heirloom, the bracket does not rise to
+          meet one.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {OPENER_CATALOG.map((opener) => (
+            <div key={opener.key} className="rounded-lg border border-gold/40 bg-gold/5 p-3">
+              <p className="flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
+                ◆ {opener.title}
+                <span className="font-mono normal-case tracking-normal text-muted">{opener.unlockAt} contracts</span>
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{opener.effect}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="The match, beat by beat">
