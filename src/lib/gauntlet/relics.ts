@@ -54,6 +54,22 @@ export interface RelicEffects {
   chemistryMult?: number;
   /** Multiplies the draft read's opening momentum swing. */
   draftMult?: number;
+
+  // ── Rule-changers. Not dials: each one rewrites a rule of the run.
+  //    Consumed by the run state (actions.ts) or the client, never by a
+  //    stat check — and every one is printed in full on its card.
+  /** The run survives its first loss (once). */
+  secondWind?: boolean;
+  /** The crossroads shows how each call ENDS before you choose. */
+  oracle?: boolean;
+  /** The Baron starts this much health down when you start it. */
+  baronHeadStart?: number;
+  /** One relic offer may be re-rolled per run. */
+  rerollOffer?: boolean;
+  /** Multiplies every purse step while held. */
+  purseMult?: number;
+  /** A wall's rule does not apply to you. */
+  bossImmunity?: boolean;
 }
 
 /** How often a relic turns up in an offer. Rarity is the variety lever:
@@ -325,6 +341,61 @@ export const RELIC_CATALOG: RelicDef[] = [
   },
 
   // ── Rares: they define a run, and they ask for something back.
+  // ── The rule-changers ──────────────────────────────────────────────
+  {
+    key: "second_wind",
+    rarity: "rare",
+    family: "ember",
+    title: "THE SECOND WIND",
+    effect: "Your first loss does not end the run. The round is lost — no score, no purse — but the run goes on. Once.",
+    flavor: "Get up.",
+    effects: { secondWind: true },
+  },
+  {
+    key: "the_oracle",
+    rarity: "rare",
+    family: "gold",
+    title: "THE ORACLE",
+    effect: "At the crossroads you see how each call ends — won or lost, and the whistle's momentum — before you choose.",
+    flavor: "The tape was always going to say this.",
+    effects: { oracle: true },
+  },
+  {
+    key: "head_start",
+    rarity: "uncommon",
+    family: "void",
+    title: "HEAD START",
+    effect: "Every Baron you start begins 30% down. Clean takes come sooner; smite wars start closer to won.",
+    flavor: "Somebody got there early.",
+    effects: { baronHeadStart: 30 },
+  },
+  {
+    key: "the_rematch",
+    rarity: "uncommon",
+    family: "ice",
+    title: "THE REMATCH",
+    effect: "Once per run, re-roll a relic offer — three new cards for the three you did not want.",
+    flavor: "Deal again.",
+    effects: { rerollOffer: true },
+  },
+  {
+    key: "safe_house",
+    rarity: "uncommon",
+    family: "gold",
+    title: "THE SAFE HOUSE",
+    effect: "Every round won from here adds 25% more to the purse.",
+    flavor: "Somewhere to keep it.",
+    effects: { purseMult: 1.25 },
+  },
+  {
+    key: "the_fixer",
+    rarity: "rare",
+    family: "void",
+    title: "THE FIXER",
+    effect: "A wall's rule does not apply to you. The Gatekeeper, the Archivist, the Closer — walls with a bigger five and nothing else.",
+    flavor: "It's been taken care of.",
+    effects: { bossImmunity: true },
+  },
   {
     key: "blood_pact",
     rarity: "rare",
@@ -395,8 +466,55 @@ export function aggregateEffects(relicKeys: string[]): RelicEffects {
     if (fx.chemistryMult) total.chemistryMult = (total.chemistryMult ?? 1) * fx.chemistryMult;
     if (fx.draftMult) total.draftMult = (total.draftMult ?? 1) * fx.draftMult;
     if (fx.benchSwap) total.benchSwap = true;
+    if (fx.secondWind) total.secondWind = true;
+    if (fx.oracle) total.oracle = true;
+    if (fx.rerollOffer) total.rerollOffer = true;
+    if (fx.bossImmunity) total.bossImmunity = true;
+    if (fx.baronHeadStart) total.baronHeadStart = (total.baronHeadStart ?? 0) + fx.baronHeadStart;
+    if (fx.purseMult) total.purseMult = (total.purseMult ?? 1) * fx.purseMult;
+  }
+  // The set bonus: three of a family is a build, and a build gets its
+  // family's signature on top. One bonus per family, at three, and no
+  // more at four — the offer's affinity already plateaus there.
+  for (const [family, count] of familyCounts(relicKeys)) {
+    if (count >= SET_BONUS_AT) Object.assign(total, mergeRelicEffects(total, SET_BONUSES[family]));
   }
   return total;
+}
+
+/** How many of each family a build holds. */
+export function familyCounts(relicKeys: string[]): Map<RelicFamily, number> {
+  const counts = new Map<RelicFamily, number>();
+  for (const key of relicKeys) {
+    const relic = RELIC_BY_KEY.get(key);
+    if (relic) counts.set(relic.family, (counts.get(relic.family) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** Relics of one family a build needs before the set bonus lands. */
+export const SET_BONUS_AT = 3;
+
+/** What three of a family pays, on top of the three. Each is the
+ *  family's own dial, sized like one more common. */
+export const SET_BONUSES: Record<RelicFamily, RelicEffects> = {
+  ember: { fightFlat: 4 },
+  void: { objectivesFlat: 4 },
+  ice: { lanesFlat: 2, holdFlat: 4 },
+  gold: { scoreFlat: 40, goldMult: 1.1 },
+};
+
+/** The set bonus, in the player's language. */
+export const SET_BONUS_TEXT: Record<RelicFamily, string> = {
+  ember: "+4 on both fights",
+  void: "+4 on every objective contest",
+  ice: "+2 on every lane, +4 on the hold",
+  gold: "+40 score a round, and 10% more gold on every won beat",
+};
+
+/** The families a build has completed a set in. */
+export function completedSets(relicKeys: string[]): RelicFamily[] {
+  return [...familyCounts(relicKeys)].filter(([, count]) => count >= SET_BONUS_AT).map(([family]) => family);
 }
 
 /**
@@ -423,6 +541,12 @@ export function mergeRelicEffects(a: RelicEffects, b: RelicEffects): RelicEffect
     if (b[key]) total[key] = (total[key] ?? 1) * (b[key] ?? 1);
   }
   if (b.benchSwap) total.benchSwap = true;
+  if (b.secondWind) total.secondWind = true;
+  if (b.oracle) total.oracle = true;
+  if (b.rerollOffer) total.rerollOffer = true;
+  if (b.bossImmunity) total.bossImmunity = true;
+  if (b.baronHeadStart) total.baronHeadStart = (total.baronHeadStart ?? 0) + b.baronHeadStart;
+  if (b.purseMult) total.purseMult = (total.purseMult ?? 1) * b.purseMult;
   return total;
 }
 

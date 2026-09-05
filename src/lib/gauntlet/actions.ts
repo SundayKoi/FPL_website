@@ -38,6 +38,9 @@ import { ascensionRules, clampAscension } from "./ascension";
 import { fetchAscension, fetchContractProgress } from "./queries";
 import { contractsSatisfied, type ContractDef } from "./contracts";
 import { openerAllowed } from "./openers";
+import { dealHand, lineupFromHand } from "./drafted";
+import { buildGauntletOptions } from "./queries";
+import { fetchInventory } from "@/lib/packs/queries";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -88,6 +91,9 @@ export async function startGauntletRunAction(
   /** The opener to bring — must be one this season's contracts unlocked
    *  (src/lib/gauntlet/openers.ts). Null brings nothing. */
   openerKey: string | null = null,
+  /** A dealt hand (dealGauntletHandAction) the five must come from —
+   *  drafted mode. Null drafts from the whole shelf. */
+  dealId: number | null = null,
 ): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
@@ -227,6 +233,25 @@ export async function startGauntletRunAction(
     }
   }
 
+  // Drafted mode: the five must come from the hand that was dealt, and
+  // the hand must be this player's and unused. A drafted run is exempt
+  // from the no-repeat rule — the hand is the variety.
+  let drafted = false;
+  if (typeof dealId === "number") {
+    const { data: dealRow } = await service
+      .from("gauntlet_deals")
+      .select("id, discord_id, ids, run_id")
+      .eq("id", dealId)
+      .maybeSingle();
+    const deal = dealRow as { id: number; discord_id: string; ids: number[]; run_id: number | null } | null;
+    if (!deal || deal.discord_id !== user.discordId) return { ok: false, error: "That hand isn't yours." };
+    if (deal.run_id !== null) return { ok: false, error: "That hand was already played — deal again." };
+    if (!lineupFromHand(lineup.map((card) => card.inventoryId), deal.ids.map(Number))) {
+      return { ok: false, error: "In drafted mode the five must come from the hand you were dealt." };
+    }
+    drafted = true;
+  }
+
   // A re-run has to be a different run. Checked BEFORE the fee is taken,
   // so a refused entry never costs anything.
   const { data: lastRuns } = await service
@@ -236,7 +261,7 @@ export async function startGauntletRunAction(
     .order("created_at", { ascending: false })
     .limit(1);
   const previous = (lastRuns as { lineup: GauntletCard[] }[] | null)?.[0]?.lineup;
-  if (previous && sameLineup(previous, lineup)) {
+  if (!drafted && previous && sameLineup(previous, lineup)) {
     return {
       ok: false,
       error: "Change at least one card — a re-run should be a different run, not the same five again.",
@@ -276,6 +301,7 @@ export async function startGauntletRunAction(
       next_opponent: opponent,
       ascension: level,
       opener,
+      drafted,
     })
     .select("*")
     .single();
@@ -296,8 +322,41 @@ export async function startGauntletRunAction(
     };
   }
 
+  // The hand is spent. Best effort: a run that started is a run that
+  // started, and a hand marked late is a support question, not a lost fee.
+  if (typeof dealId === "number") {
+    await service.from("gauntlet_deals").update({ run_id: (inserted as GauntletRunRow).id }).eq("id", dealId).is("run_id", null);
+  }
+
   revalidateGauntlet();
   return { ok: true, run: inserted as GauntletRunRow };
+}
+
+/**
+ * Deals a hand for drafted mode: a few random eligible cards per role
+ * from the caller's own shelves, drawn by CSPRNG and recorded so the
+ * entry can check the five against it. Free — the fee is paid at entry.
+ */
+export async function dealGauntletHandAction(): Promise<ActionResult<{ dealId: number; ids: number[] }>> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  const service = createBettingServiceClient();
+  const seasons = await fetchAllCardSeasons(service);
+  const season = seasons.find((entry) => entry.league === "premier")?.season;
+  if (!season) return { ok: false, error: "No season is set up for cards yet." };
+  const week = mondayOf(new Date());
+  const shelves = await Promise.all(seasons.map((entry) => fetchInventory(service, user.discordId, entry.season)));
+  const options = buildGauntletOptions(shelves.flat(), week);
+  const ids = dealHand(options, mulberry32(seed32()));
+  if (ids.length === 0) return { ok: false, error: "Nothing on the shelf to deal from." };
+  const { data, error } = await service
+    .from("gauntlet_deals")
+    .insert({ discord_id: user.discordId, season, week_start: week, ids })
+    .select("id")
+    .single();
+  if (error || !data) return { ok: false, error: "Couldn't deal a hand — is the gauntlet drafted migration applied?" };
+  return { ok: true, dealId: Number((data as { id: number }).id), ids };
 }
 
 /**
@@ -408,20 +467,31 @@ export async function chooseGauntletPathAction(
           .slice(0, ascensionRules(run.ascension ?? 0).offerSize)
       : null;
 
-  // The purse: a won round adds its step; a lost one leaves the number on
-  // the row for the record and pays nothing (purse_paid stays zero).
-  const purse = (run.purse ?? 0) + (sim.won ? purseStep(run.round, run.ascension ?? 0) : 0);
+  // The purse: a won round adds its step (THE SAFE HOUSE multiplies it); a
+  // lost one leaves the number on the row for the record and pays nothing
+  // (purse_paid stays zero).
+  const purse =
+    (run.purse ?? 0) + (sim.won ? Math.round(purseStep(run.round, run.ascension ?? 0) * (ctx.effects.purseMult ?? 1)) : 0);
+
+  // THE SECOND WIND: the first loss does not end the run. The round is
+  // lost — no score, no purse, no offer — but the run stays active on the
+  // same round, and the next fight is staged fresh.
+  const secondWind = !sim.won && ctx.effects.secondWind === true && run.second_wind_used !== true;
+  const restage = secondWind
+    ? { round_seed: seed32(), next_opponent: await stageOpponent(service, run.lineup_avg, run.round, run.week_start, run.ghost_seed, run.ascension ?? 0) }
+    : {};
 
   const { data: updated } = await service
     .from("gauntlet_runs")
     .update({
       score: run.score + score,
       purse,
-      status: cleared ? "cleared" : sim.won ? "active" : "fallen",
+      status: cleared ? "cleared" : sim.won || secondWind ? "active" : "fallen",
       round: sim.won && !cleared ? run.round + 1 : run.round,
       relic_offer: offer,
       crossroads: null,
-      next_opponent: sim.won ? null : run.next_opponent,
+      next_opponent: sim.won ? null : secondWind ? restage.next_opponent : run.next_opponent,
+      ...(secondWind ? { round_seed: restage.round_seed, second_wind_used: true } : {}),
       last_result: { ...result, round: run.round, autopsy },
       updated_at: new Date().toISOString(),
     })
@@ -630,6 +700,37 @@ export async function pickGauntletRelicAction(
   const offerRow = relicOfferRow(run, relicKey);
   after(() => recordRelicOffer(service, offerRow));
 
+  revalidateGauntlet();
+  return { ok: true, run: (updated as GauntletRunRow[])[0] };
+}
+
+/**
+ * THE REMATCH: re-rolls the pending offer once per run. A fresh CSPRNG
+ * seed, the same draw the round would have made, the same size the
+ * ascension allows — stored under a CAS so a double-click re-rolls once.
+ */
+export async function rerollGauntletOfferAction(runId: number): Promise<ActionResult<{ run: GauntletRunRow }>> {
+  const user = await getBettingUser();
+  if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
+  const service = createBettingServiceClient();
+  const run = await loadOwnRun(service, runId, user.discordId);
+  if (!run) return { ok: false, error: "That run isn't yours." };
+  if (run.status !== "active" || !run.relic_offer) return { ok: false, error: "No relic is on offer." };
+  if (!aggregateEffects(run.relics).rerollOffer) return { ok: false, error: "THE REMATCH isn't in your build." };
+  if (run.reroll_used) return { ok: false, error: "The rematch was already dealt." };
+
+  const offer = offerRelics(run.relics, mulberry32(seed32()), run.round)
+    .map((relic) => relic.key)
+    .slice(0, ascensionRules(run.ascension ?? 0).offerSize);
+  const { data: updated } = await service
+    .from("gauntlet_runs")
+    .update({ relic_offer: offer, reroll_used: true, updated_at: new Date().toISOString() })
+    .eq("id", run.id)
+    .eq("status", "active")
+    .eq("reroll_used", false)
+    .not("relic_offer", "is", null)
+    .select("*");
+  if (!updated || updated.length === 0) return { ok: false, error: "That re-roll already happened — reload." };
   revalidateGauntlet();
   return { ok: true, run: (updated as GauntletRunRow[])[0] };
 }

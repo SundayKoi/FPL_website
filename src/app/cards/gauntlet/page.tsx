@@ -140,8 +140,9 @@ export default async function GauntletPage() {
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="label-dash">This week&apos;s board</span>
           <span className="text-xs text-steel">
-            Best run per player, weighed by ascension (+10% a level) · the pot (every entry fee paid, less the
-            purses banked) settles Monday — 40/25/15% to the top three, scraps for everyone who cleared round 4.
+            Best run per player, weighed by ascension (+10% a level) and drafted mode (×1.15) · the pot (every entry
+            fee paid, less the purses banked) settles Monday — 40/25/15% to the top three, scraps for everyone who
+            cleared round 4.
           </span>
         </div>
         {board.length === 0 ? (
@@ -172,6 +173,11 @@ export default async function GauntletPage() {
                       />
                     ) : null}
                     {row.cleared ? <span title="Full clear">🏆</span> : null}
+                    {row.drafted ? (
+                      <span title="Drafted from a dealt hand" className="rounded-full border border-line px-1.5 py-0.5 font-mono text-[10px] font-bold text-steel">
+                        D
+                      </span>
+                    ) : null}
                     {row.ascension > 0 ? (
                       <span
                         title={`Ascension ${row.ascension}`}

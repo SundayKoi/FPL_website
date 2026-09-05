@@ -434,6 +434,24 @@ Important RPC families include:
   downgraded), stored on `gauntlet_runs.opener`, and reach the engine as
   `RelicEffects` through `openerEffects` in `matchContextFor`, exactly as
   an heirloom does. The bracket does not price them.
+- Gauntlet rule-changers, set bonuses and drafted mode (migration
+  `20260921000001_gauntlet_rulebreakers.sql`): six relics carry flags in
+  `RelicEffects` that the engine reads as RULES rather than dials —
+  `secondWind` (a loss keeps the run active on the same round, restaged,
+  `second_wind_used` once), `oracle` (the client reads each call's ending
+  off the stored `seed2` with the same pure `simulateSecondHalf` the
+  server runs — nothing new is revealed that the row did not already
+  hold), `baronHeadStart` (the pit's starting health), `rerollOffer`
+  (`rerollGauntletOfferAction`, CAS on `reroll_used`), `purseMult` (the
+  purse step) and `bossImmunity` (`matchContextFor` drops the wall's
+  effects; the ascension's pit rule stays). `aggregateEffects` adds the
+  family set bonus at `SET_BONUS_AT` of a family, once. Drafted mode:
+  `dealGauntletHandAction` deals `DRAFTED_HAND_PER_ROLE` per role by
+  CSPRNG from the caller's shelves and records the ids in
+  `gauntlet_deals`; entry with a `dealId` checks the five against the hand
+  (`lineupFromHand`), waives the no-repeat rule, stamps `drafted`, and
+  marks the hand used. `rankGauntletWeek` pays a drafted run
+  `DRAFTED_SCORE_MULT`.
 - Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
   shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
   at entry like the lineup. It is never spent and never fielded. Everything

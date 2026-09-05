@@ -159,3 +159,20 @@ describe("offerRelics", () => {
     }
   });
 });
+
+describe("the rule-changers and the set bonus", () => {
+  it("carries every rule flag through aggregation and merging", () => {
+    const fx = aggregateEffects(["second_wind", "the_oracle", "head_start", "the_rematch", "safe_house", "the_fixer"]);
+    expect(fx).toMatchObject({ secondWind: true, oracle: true, baronHeadStart: 30, rerollOffer: true, purseMult: 1.25, bossImmunity: true });
+  });
+
+  it("pays a family's set bonus at three, once, and never at two", () => {
+    // Three ember relics: the flats they carry, plus the set's +4 fights.
+    const three = aggregateEffects(["blood_in_the_water", "overtime", "first_blood"]);
+    expect(three.fightFlat).toBe(6 + 4);
+    const two = aggregateEffects(["overtime", "glass_cannon"]);
+    expect(two.fightFlat).toBe(6 + 8);
+    const four = aggregateEffects(["blood_in_the_water", "overtime", "first_blood", "glass_cannon"]);
+    expect(four.fightFlat).toBe(6 + 8 + 4);
+  });
+});

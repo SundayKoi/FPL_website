@@ -54,17 +54,20 @@ export function matchContextFor(
   const foe = opponent?.ghost
     ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics, rules.ghostPotency))
     : traits;
-  return {
-    effects: mergeRelicEffects(
-      mergeRelicEffects(
-        mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
-        mutationEffects(lineup),
-      ),
-      openerEffects(opener),
+  const effects = mergeRelicEffects(
+    mergeRelicEffects(
+      mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
+      mutationEffects(lineup),
     ),
+    openerEffects(opener),
+  );
+  return {
+    effects,
     foe,
     arena: conditionEffects(opponent?.condition),
-    boss: { ...bossEffects(opponent?.boss), ...(rules.holdsPit ? { holdsPit: true } : {}) },
+    // THE FIXER voids the wall's rule — the ascension's pit rule is the
+    // ladder's, not a wall's, and stays.
+    boss: { ...(effects.bossImmunity ? {} : bossEffects(opponent?.boss)), ...(rules.holdsPit ? { holdsPit: true } : {}) },
     situationSeed,
     plan: opponent?.plan,
     foeCall: opponent?.ghost?.choiceKey ?? undefined,
@@ -111,4 +114,10 @@ export interface GauntletRunRow {
   ascension?: number;
   /** The opener brought along (src/lib/gauntlet/openers.ts), or null. */
   opener?: string | null;
+  /** THE SECOND WIND already caught one loss. */
+  second_wind_used?: boolean;
+  /** THE REMATCH already re-rolled one offer. */
+  reroll_used?: boolean;
+  /** The five were drafted from a dealt hand (src/lib/gauntlet/drafted.ts). */
+  drafted?: boolean;
 }
