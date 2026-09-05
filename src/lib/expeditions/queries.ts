@@ -34,6 +34,12 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
   rescued: boolean | null;
   /** The Exorcism's cleansed card. */
   cleansed: number | null;
+  /** The teams whose match day surged the payout. Empty on runs from
+   *  before surges, and on any run whose squad was not playing. */
+  surge: string[];
+  /** A moment's echo: which edition card the route dropped a copy of, and
+   *  which moment copy it echoed from. */
+  echo: { slug: string; week: string; moment: number } | null;
 };
 
 /** A run's tier, or 'lost': the HOLD on a lost card, which the board draws
@@ -56,9 +62,24 @@ export interface ExpeditionRun {
   /** A Rescue's hold, an Exorcism's card, or a hold's losing run. */
   target: number | null;
   fee: number;
+  /** Encounters the sweep has applied (a storm's delay), by leg. */
+  encounters: { key: string; leg: number }[];
+  /** The rulebook the run launched under — see TRAIL_RULES. A squad in
+   *  the field resolves under the rules it left with, never the newest. */
+  rules: number;
 }
 
-const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee";
+/** The rulebook version from which a run has the trail: encounters,
+ *  storms, the stranded bounty, the match-day surge, the echo and the
+ *  rival fork. Runs stamped below it walk their forks exactly as before. */
+export const TRAIL_RULES = 2;
+
+/** Whether this run launched under the trail rules. */
+export function hasTrail(run: Pick<ExpeditionRun, "rules">): boolean {
+  return run.rules >= TRAIL_RULES;
+}
+
+const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee, encounters, rules";
 
 interface RunDbRow {
   id: number;
@@ -80,6 +101,8 @@ interface RunDbRow {
     events?: RouteEvent[];
     rescued?: boolean | null;
     cleansed?: number | null;
+    surge?: string[] | null;
+    echo?: { slug?: string; week?: string; moment?: number } | null;
   } | null;
   claimed_at: string | null;
   forks: number | null;
@@ -87,6 +110,8 @@ interface RunDbRow {
   insured: boolean | null;
   target: number | null;
   fee: number | null;
+  encounters?: { key: string; leg: number }[] | null;
+  rules?: number | null;
 }
 
 export function mapRun(row: RunDbRow): ExpeditionRun {
@@ -116,6 +141,11 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
           events: Array.isArray(row.outcome.events) ? row.outcome.events : [],
           rescued: row.outcome.rescued ?? null,
           cleansed: row.outcome.cleansed ?? null,
+          surge: Array.isArray(row.outcome.surge) ? row.outcome.surge.map(String) : [],
+          echo:
+            row.outcome.echo && typeof row.outcome.echo.slug === "string" && typeof row.outcome.echo.week === "string"
+              ? { slug: row.outcome.echo.slug, week: row.outcome.echo.week, moment: Number(row.outcome.echo.moment ?? 0) }
+              : null,
         }
       : null,
     claimedAt: row.claimed_at,
@@ -124,6 +154,10 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
     insured: row.insured === true,
     target: row.target === null || row.target === undefined ? null : Number(row.target),
     fee: Number(row.fee ?? 0),
+    encounters: Array.isArray(row.encounters) ? row.encounters : [],
+    // A row from before the column reads as the oldest rulebook: nothing
+    // new ever applies to a run that predates the column that says it may.
+    rules: Number(row.rules ?? 1),
   };
 }
 
@@ -271,4 +305,177 @@ export async function fetchGraveyard(supabase: SupabaseClient, discordId: string
     cause: row.cause as Grave["cause"],
     diedAt: String(row.died_at),
   }));
+}
+
+/** Every open hold in the league that is NOT this collector's — what a
+ *  squad can stumble on. Oldest first: the card closest to being gone is
+ *  the one most worth carrying home. */
+export async function fetchStrangersHolds(supabase: SupabaseClient, discordId: string): Promise<LostHold[]> {
+  const { data, error } = await supabase
+    .from("expedition_runs")
+    .select("id, squad, resolves_at, target, season, discord_id")
+    .eq("tier", "lost")
+    .is("claimed_at", null)
+    .neq("discord_id", discordId)
+    .order("resolves_at", { ascending: true })
+    .limit(20);
+  if (error) return [];
+  return ((data as { id: number; squad: number[] | null; resolves_at: string; target: number | null; season: string }[]) ?? [])
+    .filter((row) => (row.squad ?? []).length > 0)
+    .map((row) => ({
+      holdId: Number(row.id),
+      cardId: Number(row.squad![0]),
+      expiresAt: row.resolves_at,
+      lostOn: row.target === null ? null : Number(row.target),
+      season: row.season,
+    }));
+}
+
+/** The league's fixtures with a time on or after `since`, soonest first —
+ *  enough calendar for the match-day surge (the launch day's games) and the
+ *  rival fork (a team's next opponent). Season-blind: the fixture table
+ *  keeps both leagues, and a team name matches or it does not. */
+export async function fetchFixturesSince(
+  supabase: SupabaseClient,
+  since: string,
+  limit = 80,
+): Promise<{ team_a: string | null; team_b: string | null; scheduled_at: string | null }[]> {
+  const { data, error } = await supabase
+    .from("fixtures")
+    .select("team_a, team_b, scheduled_at")
+    .gte("scheduled_at", since)
+    .order("scheduled_at", { ascending: true })
+    .limit(limit);
+  if (error) return [];
+  return ((data as { team_a: string | null; team_b: string | null; scheduled_at: string | null }[]) ?? []);
+}
+
+/** One line of the league's ledger: a card that fell, went missing, or was
+ *  brought back — whose, which route, and when. */
+export interface LedgerEntry {
+  /** Stable across the page: "grave-<id>" or "hold-<id>". */
+  key: string;
+  kind: "died" | "buried" | "missing" | "rescued" | "ransomed" | "carried";
+  at: string;
+  owner: { discordId: string; username: string; avatarUrl: string | null };
+  /** Who carried a stranger's card home — set on `carried` only. */
+  by: { discordId: string; username: string } | null;
+  playerName: string;
+  tier: string;
+  foil: boolean;
+  signed: boolean;
+  /** The route that lost the card, when the run is still known. */
+  route: ExpeditionTierKey | null;
+  season: string;
+}
+
+const LEDGER_KIND_RANK: Record<LedgerEntry["kind"], number> = { died: 0, buried: 1, missing: 2, rescued: 3, carried: 4, ransomed: 5 };
+
+/**
+ * The ledger of the fallen and the found, league-wide and newest first:
+ * every grave, every hold that is still open, and every hold that closed
+ * with the card coming home (a Rescue, a ransom, a stranger's squad). A
+ * hold that ran out is not listed twice — its grave already is.
+ *
+ * Service-client only: the graveyard and the holds are owner-scoped under
+ * RLS, and this page reads everybody's on purpose.
+ */
+export async function fetchLedger(supabase: SupabaseClient, limit = 120): Promise<LedgerEntry[]> {
+  const [gravesResult, holdsResult] = await Promise.all([
+    supabase
+      .from("expedition_graveyard")
+      .select("id, discord_id, season, player_name, tier, foil, signed, run_id, cause, died_at")
+      .order("died_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("expedition_runs")
+      .select("id, discord_id, season, squad, resolves_at, claimed_at, outcome, target")
+      .eq("tier", "lost")
+      .order("id", { ascending: false })
+      .limit(limit),
+  ]);
+  type GraveRow = { id: number; discord_id: string; season: string; player_name: string; tier: string; foil: boolean; signed: boolean; run_id: number | null; cause: string; died_at: string };
+  type HoldRow = { id: number; discord_id: string; season: string; squad: number[] | null; resolves_at: string; claimed_at: string | null; outcome: { rescued?: boolean; ransomed?: boolean; expired?: boolean; stranger?: string } | null; target: number | null };
+  const graves = gravesResult.error ? [] : (((gravesResult.data as GraveRow[]) ?? []));
+  const holds = holdsResult.error ? [] : (((holdsResult.data as HoldRow[]) ?? [])).filter(
+    (hold) => (hold.squad ?? []).length > 0 && !(hold.claimed_at && hold.outcome?.expired),
+  );
+  if (graves.length === 0 && holds.length === 0) return [];
+
+  const runIds = [...new Set([...graves.map((g) => g.run_id), ...holds.map((h) => h.target)].filter((id): id is number => typeof id === "number"))];
+  const cardIds = [...new Set(holds.map((h) => Number(h.squad![0])))];
+  const people = [...new Set([...graves.map((g) => g.discord_id), ...holds.map((h) => h.discord_id), ...holds.map((h) => h.outcome?.stranger).filter((id): id is string => typeof id === "string")])];
+
+  const [runsResult, cardsResult, profilesResult] = await Promise.all([
+    runIds.length > 0 ? supabase.from("expedition_runs").select("id, tier").in("id", runIds) : Promise.resolve({ data: [], error: null }),
+    cardIds.length > 0 ? supabase.from("card_inventory").select("id, player_name, tier, foil, signed").in("id", cardIds) : Promise.resolve({ data: [], error: null }),
+    people.length > 0 ? supabase.from("betting_profiles").select("discord_id, username, avatar_url").in("discord_id", people) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const routeOf = new Map<number, ExpeditionTierKey>();
+  for (const row of ((runsResult.data as { id: number; tier: string }[] | null) ?? [])) {
+    if (row.tier !== "lost") routeOf.set(Number(row.id), row.tier as ExpeditionTierKey);
+  }
+  const cardOf = new Map<number, { player_name: string; tier: string; foil: boolean; signed: boolean }>();
+  for (const row of ((cardsResult.data as { id: number; player_name: string; tier: string; foil: boolean; signed: boolean }[] | null) ?? [])) {
+    cardOf.set(Number(row.id), row);
+  }
+  const personOf = new Map<string, { username: string; avatar_url: string | null }>();
+  for (const row of ((profilesResult.data as { discord_id: string; username: string | null; avatar_url: string | null }[] | null) ?? [])) {
+    personOf.set(row.discord_id, { username: row.username ?? "Unknown", avatar_url: row.avatar_url ?? null });
+  }
+  const owner = (discordId: string) => ({
+    discordId,
+    username: personOf.get(discordId)?.username ?? "Unknown",
+    avatarUrl: personOf.get(discordId)?.avatar_url ?? null,
+  });
+
+  const entries: LedgerEntry[] = [];
+  for (const grave of graves) {
+    entries.push({
+      key: `grave-${grave.id}`,
+      kind: grave.cause === "route" ? "died" : "buried",
+      at: grave.died_at,
+      owner: owner(grave.discord_id),
+      by: null,
+      playerName: grave.player_name,
+      tier: grave.tier,
+      foil: grave.foil === true,
+      signed: grave.signed === true,
+      route: grave.run_id === null ? null : routeOf.get(Number(grave.run_id)) ?? null,
+      season: grave.season,
+    });
+  }
+  for (const hold of holds) {
+    const card = cardOf.get(Number(hold.squad![0]));
+    // A hold whose card is gone from the shelf and not expired is a card
+    // in transit — dusted or traded can't happen under the lock, so this
+    // is a read race, and the line waits for the next render.
+    if (!card) continue;
+    const kind: LedgerEntry["kind"] = hold.claimed_at === null
+      ? "missing"
+      : hold.outcome?.ransomed
+        ? "ransomed"
+        : hold.outcome?.stranger
+          ? "carried"
+          : "rescued";
+    const stranger = hold.outcome?.stranger;
+    entries.push({
+      key: `hold-${hold.id}`,
+      kind,
+      // An open hold is dated by when the card runs out, which is the
+      // number a rescuer needs; a closed one by when it closed.
+      at: hold.claimed_at ?? hold.resolves_at,
+      owner: owner(hold.discord_id),
+      by: kind === "carried" && stranger ? { discordId: stranger, username: personOf.get(stranger)?.username ?? "Unknown" } : null,
+      playerName: card.player_name,
+      tier: card.tier,
+      foil: card.foil === true,
+      signed: card.signed === true,
+      route: hold.target === null ? null : routeOf.get(Number(hold.target)) ?? null,
+      season: hold.season,
+    });
+  }
+  return entries
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at) || LEDGER_KIND_RANK[a.kind] - LEDGER_KIND_RANK[b.kind])
+    .slice(0, limit);
 }

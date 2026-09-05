@@ -7,6 +7,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import {
   fetchDeployedCopyIds,
+  fetchFixturesSince,
   fetchFragments,
   fetchGraveyard,
   fetchLostHolds,
@@ -16,6 +17,7 @@ import {
   type Grave,
   type LostHold,
 } from "@/lib/expeditions/queries";
+import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
 import { patronActive } from "@/lib/patron/flames";
@@ -27,6 +29,7 @@ export const metadata: Metadata = {
 };
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * The expedition board: three cards go out, and hours later they come back
@@ -155,6 +158,27 @@ export async function ExpeditionsPageView({
   const copies =
     offShelf.length > 0 ? [...inventory, ...(await fetchInventoryByIds(service, discordId, offShelf))] : inventory;
 
+  // The league's calendar: tonight's fixtures (the match-day surge the
+  // brief banner and the picker point at) and, for a one-roster squad on
+  // the Legendary route, who their team plays next (the rival fork). Read
+  // from a day before the oldest squad in the field set out, so a run's
+  // "next opponent" is the one that was next when it launched.
+  const now = new Date();
+  const today = easternDateOf(now);
+  const active = runs.filter((run) => run.tier !== "lost" && run.claimedAt === null);
+  const oldest = active.reduce((min, run) => Math.min(min, Date.parse(run.startedAt)), now.getTime());
+  const fixtures = await fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString());
+  const playingToday = [...teamsPlayingOn(fixtures, today).values()];
+  const copyById = new Map(copies.map((copy) => [copy.id, copy]));
+  const rivals: Record<number, string> = {};
+  for (const run of active) {
+    if (run.tier !== "legendary") continue;
+    const squad = run.squad.map((id) => copyById.get(id)).filter((copy): copy is InventoryRow => Boolean(copy));
+    const team = rosterTeam(squad);
+    const rival = team ? nextOpponent(fixtures, team, new Date(run.startedAt)) : null;
+    if (rival) rivals[run.id] = rival;
+  }
+
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -170,6 +194,9 @@ export async function ExpeditionsPageView({
             mutated, lost, or on the deepest route, dead. Every rule is on this page, and the launch
             button names which of your cards can be hurt before you press it.
           </p>
+          <Link href={`${base}/expeditions/ledger`} className="mt-3 inline-block text-sm text-coral underline-offset-4 hover:underline">
+            The league&apos;s ledger of the fallen and the found →
+          </Link>
         </div>
       </header>
 
@@ -184,10 +211,12 @@ export async function ExpeditionsPageView({
         fragments={fragments}
         patron={patronActive(wallet?.patron_until)}
         policyUsed={policyUsed}
+        playingToday={playingToday}
+        rivals={rivals}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
         // scored against rather than whatever the reader's clock says.
-        today={easternDateOf(new Date())}
+        today={today}
       />
     </main>
   );

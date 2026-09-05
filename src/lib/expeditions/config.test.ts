@@ -12,11 +12,13 @@ import {
   DAILY_LAUNCHES,
   LOOT_MULT_CAP,
   MARK_RANK,
+  MERCHANT_DOLLARS,
   maxExpeditionPayout,
   payoutRange,
   rollOutcome,
   SHINE_BONUS_CAP,
   shineOf,
+  SURGE_BONUS,
   squadMeets,
   squadShine,
   TIER_ORDER,
@@ -221,7 +223,7 @@ describe("the payout ceiling the claim RPC guards", () => {
     // resolve_expedition is the live claim; the old claim_expedition guard
     // (20260906000001) stays behind for the runs that pre-date forks.
     const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20260914000001_expedition_routes.sql"),
+      join(process.cwd(), "supabase/migrations/20260916000001_expedition_matchday.sql"),
       "utf8",
     );
     const match = sql.match(/v_dollars not between 0 and (\d+)/);
@@ -252,7 +254,7 @@ describe("the payout ceiling the claim RPC guards", () => {
     // best base x shine cap x brief bonus — read off REWARDS, so this
     // stays true through a rebalance.
     const best = Math.max(...TIER_ORDER.map((tier) => payoutRange(tier).max));
-    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP));
+    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP * (1 + SURGE_BONUS)) + MERCHANT_DOLLARS);
   });
 
   it("still refuses a payout no roll could produce", () => {

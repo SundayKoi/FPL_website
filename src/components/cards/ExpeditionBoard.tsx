@@ -28,6 +28,7 @@ import { mutationByKey } from "@/lib/cards/mutations";
 import { championCenteredUrl } from "@/lib/match-draft/champions";
 import { easternDateOf } from "@/lib/packs/week";
 import {
+  SURGE_BONUS,
   BRIEF_BONUS,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
@@ -67,9 +68,13 @@ import {
   launchExpeditionAction,
   ransomLostCardAction,
 } from "@/lib/expeditions/actions";
-import type { ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
+import { hasTrail, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
+import { banterFor, journalFor } from "@/lib/expeditions/journal";
+import { cardTeamKey } from "@/lib/expeditions/matchday";
+import { teamBadgeKey } from "@/lib/cards/build";
 import ExpeditionRules, { RISK_CLASS, RISK_LABEL, requirementLine } from "./ExpeditionRules";
 import PlayerCard3D from "./PlayerCard3D";
+import RouteMap from "./RouteMap";
 import { tierLabel } from "./CardCopyPreview";
 
 /** How a claim reads before you get to the numbers. */
@@ -194,35 +199,50 @@ function RunStatus({
   return <span className="text-sm font-semibold text-white">Back in {untilLabel(due - now)}</span>;
 }
 
-/** The fork timeline under a run: one dot per checkpoint. */
-function ForkTrail({ run }: { run: ExpeditionRun }) {
+/** The route under a run: the map with the squad on it, and the trail
+ *  journal so far. Both read the clock, so they live in one component that
+ *  repaints on its own rather than in the row. */
+function RunTrail({ run, copies }: { run: ExpeditionRun; copies: CardCopy[] }) {
   const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
-  if (run.forks === 0) return null;
-  const views = forkViews(run, new Date(now === 0 ? Date.parse(run.startedAt) : now));
+  const [showAll, setShowAll] = useState(false);
+  const clock = new Date(now === 0 ? Date.parse(run.startedAt) : now);
+  const views = forkViews(run, clock);
+  const start = Date.parse(run.startedAt);
+  const end = Date.parse(run.resolvesAt);
+  const progress = now === 0 ? null : Math.max(0, Math.min(1, (now - start) / Math.max(1, end - start)));
+  const tier = run.tier as ExpeditionTierKey;
+  const journal = journalFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, claimedAt: run.claimedAt, rules: run.rules }, copies, clock);
+  const shown = showAll ? journal : journal.slice(-3);
   return (
-    <ol className="flex items-center gap-1.5" aria-label="Forks on this run">
-      {views.map((fork) => (
-        <li
-          key={fork.index}
-          title={`Fork ${fork.index + 1}: ${fork.status}${fork.choice ? ` (${fork.choice})` : ""} · opens ${easternClock(fork.opensAt)} ET`}
-          className={`h-2.5 w-2.5 rounded-full border ${
-            fork.status === "decided"
-              ? fork.choice === "camp"
-                ? "border-mint bg-mint/60"
-                : "border-coral bg-coral"
-              : fork.status === "open"
-                ? "animate-pulse border-gold bg-gold"
-                : fork.status === "missed"
-                  ? "border-steel bg-steel/40"
-                  : "border-line bg-transparent"
-          }`}
-        >
-          <span className="sr-only">
-            Fork {fork.index + 1}: {fork.status}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div className="flex w-full flex-col gap-2">
+      <RouteMap
+        tier={tier}
+        progress={progress}
+        forks={views.map((fork) => ({ status: fork.status, pushed: fork.choice !== null && fork.choice !== "camp" }))}
+      />
+      {journal.length > 0 ? (
+        <div data-testid={`journal-${run.id}`} className="flex flex-col gap-1">
+          <ol className="flex flex-col gap-0.5">
+            {shown.map((entry, index) => (
+              <li
+                key={`${entry.at.getTime()}-${index}`}
+                className={`text-xs ${entry.kind === "encounter" ? "text-gold" : entry.kind === "arrive" || entry.kind === "home" ? "text-white" : "text-steel"}`}
+              >
+                <span className="mr-1.5 font-mono text-[10px] text-steel/70">{easternClock(entry.at)}</span>
+                {entry.text}
+              </li>
+            ))}
+          </ol>
+          {journal.length > 3 ? (
+            <button type="button" onClick={() => setShowAll((value) => !value)} className="self-start text-[10px] uppercase tracking-wide text-steel underline-offset-4 hover:text-coral hover:underline">
+              {showAll ? "Latest only" : `Whole journal (${journal.length})`}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="text-xs text-steel">The squad has just set out. The first word comes back in a few hours.</p>
+      )}
+    </div>
   );
 }
 
@@ -266,17 +286,28 @@ function SquadThumb({ copy, id }: { copy: CardCopy | undefined; id: number }) {
  * A fork the squad is standing at. The story, the options with their odds,
  * and how long until the squad decides for you.
  */
+/** The Legendary route's second fork, when a one-roster squad's real next
+ *  opponent is known: what is singing under the floor has a name. */
+export const RIVAL_FORK: { tier: ExpeditionTierKey; index: number } = { tier: "legendary", index: 1 };
+
+export function rivalStory(rival: string): string {
+  return `Something is singing under the floor and the squad knows the song — it is ${rival}'s, and they are playing them next. There is light ahead, and the singing gets louder toward it.`;
+}
+
 function ForkPrompt({
   run,
   fork,
   copies,
   busy,
+  rival = null,
   onDecide,
 }: {
   run: ExpeditionRun;
   fork: ForkView;
   copies: CardCopy[];
   busy: boolean;
+  /** The squad's team's next real opponent, when the squad is one roster. */
+  rival?: string | null;
   onDecide: (choice: ForkChoice) => void;
 }) {
   const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
@@ -284,6 +315,7 @@ function ForkPrompt({
   const story = FORKS[run.tier as ExpeditionTierKey]?.[fork.index];
   if (!def || !story) return null;
   const options = forkOptions(run.tier as ExpeditionTierKey, fork.index, copies, choiceSheet(run.forks, run.choices));
+  const banter = banterFor(run.tier as ExpeditionTierKey, fork.index, copies, run.id);
   const left = fork.closesAt.getTime() - now;
   return (
     <li data-testid={`fork-${run.id}-${fork.index}`} className="card-brand flex flex-col gap-3 border-gold/60 p-5">
@@ -298,7 +330,14 @@ function ForkPrompt({
           {now === 0 ? `Decide by ${easternClock(fork.closesAt)} ET` : left > 0 ? `${untilLabel(left)} to decide` : "Deciding…"} — silence camps
         </span>
       </div>
-      <p className="max-w-3xl text-sm text-white">{story.story}</p>
+      <p className="max-w-3xl text-sm text-white">
+        {rival && hasTrail(run) && run.tier === RIVAL_FORK.tier && fork.index === RIVAL_FORK.index ? (
+          <span data-testid="rival-story">{rivalStory(rival)}</span>
+        ) : (
+          story.story
+        )}
+        {banter ? <span data-testid="banter" className="text-steel"> {banter}</span> : null}
+      </p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {options.map((option) => (
           <button
@@ -386,6 +425,10 @@ interface Ceremony {
   outcome: ExpeditionOutcome;
   route: RouteResult;
   baseDollars: number;
+  merchant: number;
+  stranded: { holdId: number; bounty: number } | null;
+  surge: string[];
+  echo: { inventoryId: number; slug: string; playerName: string; moment: number } | null;
   bearerId: number | null;
   balance: number;
   fragments: number;
@@ -403,7 +446,16 @@ export default function ExpeditionBoard({
   policyUsed = false,
   initialPick = null,
   base = "/cards",
+  playingToday = [],
+  rivals = {},
 }: {
+  /** The teams with a fixture today (Eastern), as the schedule spells
+   *  them — a squad carrying one of their cards surges. Presentation:
+   *  the claim reads the calendar itself. */
+  playingToday?: string[];
+  /** For each run in the field, the squad's team's next real opponent —
+   *  set only on a one-roster squad with a fixture ahead. */
+  rivals?: Record<number, string>;
   /** A copy to start the squad with — the shelf's "Send out" action lands
    *  here with ?send=<id>. A hint: ignored unless it is yours and home. */
   initialPick?: number | null;
@@ -455,6 +507,7 @@ export default function ExpeditionBoard({
   const launchRef = useRef<HTMLElement | null>(null);
 
   const brief = briefFor(today);
+  const playingKeys = useMemo(() => new Set(playingToday.map(teamBadgeKey)), [playingToday]);
   const byId = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
   const sorted = useMemo(
     () => [...copies].sort((a, b) => shineOf(b) - shineOf(a) || a.playerName.localeCompare(b.playerName)),
@@ -538,6 +591,10 @@ export default function ExpeditionBoard({
         outcome: result.outcome,
         route: result.route,
         baseDollars: result.baseDollars,
+        merchant: result.merchant,
+        stranded: result.stranded,
+        surge: result.surge,
+        echo: result.echo,
         bearerId: result.bearerId,
         balance: result.balance,
         fragments: result.fragments,
@@ -583,6 +640,7 @@ export default function ExpeditionBoard({
                 fork={fork}
                 copies={run.squad.map((id) => byId.get(id)).filter((copy): copy is CardCopy => Boolean(copy))}
                 busy={pending && busyRun === run.id}
+                rival={rivals[run.id] ?? null}
                 onDecide={(choice) => decide(run, fork.index, choice)}
               />
             ))}
@@ -635,6 +693,13 @@ export default function ExpeditionBoard({
           Send a {brief.role} with the squad and whatever they find pays {Math.round(BRIEF_BONUS * 100)}% more. The brief is scored
           against the day you LAUNCH, so a run keeps the bonus it left with.
         </span>
+        {playingToday.length > 0 ? (
+          <span data-testid="match-day" className="basis-full text-xs text-white">
+            <span className="font-bold uppercase tracking-[0.14em] text-mint">Match day</span>{" "}
+            {playingToday.join(", ")} {playingToday.length === 1 ? "plays" : "play"} tonight — a squad carrying one of their cards brings home{" "}
+            +{Math.round(SURGE_BONUS * 100)}% on top.
+          </span>
+        ) : null}
         <a
           href="#expedition-rules"
           data-testid="fragments"
@@ -663,9 +728,9 @@ export default function ExpeditionBoard({
                   <div className="min-w-[9rem]">
                     <span className="label-dash">
                       {run.shine} shine{run.insured ? " · insured" : ""}
+                      {run.encounters.some((entry) => entry.key === "storm") ? " · stormed" : ""}
                     </span>
                     <p className="type-display mt-0.5 text-lg">{def?.label ?? run.tier}</p>
-                    <ForkTrail run={run} />
                   </div>
                   <div className="flex gap-2">
                     {run.squad.map((id) => (
@@ -680,6 +745,9 @@ export default function ExpeditionBoard({
                       claiming={busyRun === run.id}
                       onClaim={() => claim(run)}
                     />
+                  </div>
+                  <div className="basis-full">
+                    <RunTrail run={run} copies={run.squad.map((id) => byId.get(id)).filter((copy): copy is CardCopy => Boolean(copy))} />
                   </div>
                 </li>
               );
@@ -909,6 +977,18 @@ export default function ExpeditionBoard({
                         {status ? ` · ${status}` : ""}
                       </span>
                     </span>
+                    {(() => {
+                      const key = cardTeamKey(copy);
+                      return key !== null && playingKeys.has(key) ? (
+                        <span
+                          data-testid={`plays-${copy.id}`}
+                          title={`${copy.card?.teamName} plays tonight — +${Math.round(SURGE_BONUS * 100)}% on the run`}
+                          className="rounded-full border border-mint/60 bg-mint/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mint"
+                        >
+                          tonight
+                        </span>
+                      ) : null;
+                    })()}
                     {isProtected(copy) ? (
                       <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
                         1/1
@@ -957,7 +1037,9 @@ export default function ExpeditionBoard({
                   <>
                     <span className="font-mono font-bold text-mint">{fmtPoints(run.outcome.dollars)}</span>
                     {run.outcome.pushes > 0 ? <span className="text-steel">×{run.outcome.lootMultiplier} from {run.outcome.pushes} push{run.outcome.pushes === 1 ? "" : "es"}</span> : null}
+                    {run.outcome.surge.length > 0 ? <span className="text-mint">match day ×{1 + SURGE_BONUS}</span> : null}
                     {run.outcome.comp ? <span className="text-gold">free pack</span> : null}
+                    {run.outcome.echo ? <span className="text-gold">a moment echoed</span> : null}
                     {run.outcome.fragments > 0 ? <span className="text-purple-200">map fragment</span> : null}
                     {run.outcome.mark ? (
                       <span className="text-gold">
@@ -1038,7 +1120,7 @@ function ClaimCeremony({
   copies: Map<number, CardCopy>;
   onClose: () => void;
 }) {
-  const { outcome, route, bearerId, balance, baseDollars, fragments } = ceremony;
+  const { outcome, route, bearerId, balance, baseDollars, fragments, merchant, stranded, surge, echo } = ceremony;
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -1085,7 +1167,9 @@ function ClaimCeremony({
               <span className="sr-only"> betting dollars</span>
             </p>
             <p className="text-xs text-steel">
-              {route.lootMultiplier !== 1 ? `${fmtPoints(baseDollars)} × ${route.lootMultiplier} from the forks · ` : ""}Balance {fmtPoints(balance)}
+              {route.lootMultiplier !== 1 ? `${fmtPoints(baseDollars)} × ${route.lootMultiplier} from the forks · ` : ""}
+              {surge.length > 0 ? `× ${1 + SURGE_BONUS} match day · ` : ""}
+              {merchant > 0 ? `+${fmtPoints(merchant)} from a merchant on the trail · ` : ""}Balance {fmtPoints(balance)}
             </p>
           </>
         ) : null}
@@ -1095,11 +1179,27 @@ function ClaimCeremony({
             {briefFor(easternDateOf(new Date(ceremony.run.startedAt))).label} — the brief paid +{Math.round(BRIEF_BONUS * 100)}%.
           </p>
         ) : null}
+        {surge.length > 0 ? (
+          <p data-testid="ceremony-surge" className="text-sm text-mint">
+            {surge.join(" and ")} played on launch day — the match-day surge paid +{Math.round(SURGE_BONUS * 100)}%.
+          </p>
+        ) : null}
         {outcome.comp ? (
           <p className="text-sm text-gold">They came back with a free pack — it&apos;s waiting in the shop.</p>
         ) : null}
+        {echo ? (
+          <p data-testid="ceremony-echo" className="text-sm text-gold">
+            The moment echoed. A copy of <strong className="text-white">{echo.playerName}</strong> from that game came home with them — it&apos;s on
+            your shelf.
+          </p>
+        ) : null}
         {route.fragments > 0 ? (
           <p className="text-sm text-purple-200">A map fragment. You hold {fragments} — three open the Legendary route.</p>
+        ) : null}
+        {stranded ? (
+          <p className="text-sm text-gold">
+            They carried a stranger&apos;s lost card home. Its owner has it back, wounded, and you were paid a {fmtPoints(stranded.bounty)} bounty.
+          </p>
         ) : null}
 
         {route.events.length > 0 ? (

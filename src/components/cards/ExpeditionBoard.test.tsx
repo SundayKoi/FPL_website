@@ -15,6 +15,8 @@ const QUIET_ROUTE = (ids: number[]) => ({
   fragments: 0,
   rescued: null,
   cleansed: null,
+      surge: [],
+      echo: null,
   events: [],
 });
 
@@ -139,6 +141,8 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
     insured: false,
     target: null,
     fee: 0,
+    encounters: [],
+    rules: 2,
     ...over,
   };
 }
@@ -153,10 +157,14 @@ function renderBoard(
     fragments?: number;
     patron?: boolean;
     policyUsed?: boolean;
+    playingToday?: string[];
+    rivals?: Record<number, string>;
   } = {},
 ) {
   return render(
     <ExpeditionBoard
+      playingToday={over.playingToday}
+      rivals={over.rivals}
       copies={over.copies ?? COPIES}
       runs={over.runs ?? []}
       deployedIds={over.deployedIds ?? new Set([5])}
@@ -196,6 +204,10 @@ beforeEach(() => {
     outcome: { grade: "solid", dollars: 180, comp: true, mark: "sigil", briefHit: true },
     route: QUIET_ROUTE([5, 1, 2]),
     baseDollars: 180,
+    merchant: 0,
+    stranded: null,
+    surge: [],
+    echo: null,
     bearerId: 1,
     balance: 5000,
     fragments: 0,
@@ -394,6 +406,41 @@ describe("ExpeditionBoard — runs in the field", () => {
     }
   });
 
+  it("draws the route under a run and keeps its trail journal, folded to the latest lines", () => {
+    // Nine hours into a 24h raid with two forks: the first leg's two trail
+    // lines and the arrival at fork 1 are all in the past, so the journal
+    // has three lines to show and nothing yet to fold.
+    renderBoard({
+      runs: [
+        makeRun({
+          id: 23,
+          forks: 2,
+          startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+          resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+        }),
+      ],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    const run = screen.getByTestId("run-23");
+    expect(within(run).getByTestId("route-map")).toBeTruthy();
+    const journal = within(run).getByTestId("journal-23");
+    expect(within(journal).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
+    expect(journal.textContent).toContain("The squad reached the reactor.");
+    expect(within(run).queryByText(/just set out/)).toBeNull();
+  });
+
+  it("says the squad has just set out before the trail has anything to report", () => {
+    renderBoard({
+      runs: [makeRun({ id: 24, startedAt: new Date().toISOString(), resolvesAt: new Date(Date.now() + 24 * HOUR).toISOString() })],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    const run = screen.getByTestId("run-24");
+    expect(within(run).getByText(/The squad has just set out/)).toBeTruthy();
+    expect(within(run).queryByTestId("journal-24")).toBeNull();
+  });
+
   it("shows art for every kind of print that can march, not just player cards", () => {
     // A champions relic names its champion on champWin and a moment names
     // it on moment — neither carries a `signature`. Reading only the
@@ -466,6 +513,8 @@ describe("ExpeditionBoard — the field log", () => {
       outcome: {
         grade: "solid", dollars: 120, comp: false, mark: null, bearer: null,
         lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      surge: [],
+      echo: null,
       },
     });
   }
@@ -539,6 +588,10 @@ describe("ExpeditionBoard — the claim ceremony", () => {
       bearerId: null,
       balance: 1040,
       fragments: 0,
+      merchant: 0,
+      stranded: null,
+      surge: [],
+      echo: null,
     });
     resolvable();
 
@@ -697,6 +750,16 @@ describe("ExpeditionBoard — forks", () => {
     expect(fork.textContent).toContain("silence camps");
   });
 
+  it("lets a squad card speak at the fork", () => {
+    renderBoard({ runs: [atFork()], deployedIds: new Set([5, 1, 2]) });
+
+    const fork = screen.getByTestId("fork-40-0");
+    const banter = within(fork).getByTestId("banter");
+    // The line is seeded off the run, so it is stable — and it is one of the
+    // squad talking, not the narrator: it names a card that went out.
+    expect(banter.textContent).toMatch(/Eve|Alba|Bex/);
+  });
+
   it("answers the fork through the action and refreshes", async () => {
     renderBoard({ runs: [atFork()], deployedIds: new Set([5, 1, 2]) });
 
@@ -795,6 +858,10 @@ describe("ExpeditionBoard — the graveyard and a changed squad", () => {
       bearerId: null,
       balance: 5000,
       fragments: 0,
+      merchant: 0,
+      stranded: null,
+      surge: [],
+      echo: null,
     });
     renderBoard({
       runs: [makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() })],
@@ -810,5 +877,96 @@ describe("ExpeditionBoard — the graveyard and a changed squad", () => {
     expect(within(screen.getByTestId("fate-5")).getByTestId("mutation").querySelector(".card-mut-irradiated")).toBeTruthy();
     expect(screen.queryByTestId("fate-2")).toBeNull();
     expect(within(ceremony).getByTestId("ceremony-events").textContent).toContain("Eve came out of it irradiated");
+  });
+});
+
+describe("ExpeditionBoard — match day", () => {
+  it("names who plays tonight and chips the cards that would surge", () => {
+    const copies = [
+      makeCopy(1, "Alba", "gold", { card: { ...makeCard("Alba", "Mid"), teamName: "Solari Sun" } }),
+      makeCopy(2, "Bex", "silver", { card: { ...makeCard("Bex", "Top"), teamName: "Old Guard" } }),
+    ];
+    renderBoard({ copies, playingToday: ["Solari Sun", "Lunar Tide"] });
+
+    const banner = screen.getByTestId("match-day");
+    expect(banner.textContent).toContain("Solari Sun, Lunar Tide play tonight");
+    expect(banner.textContent).toContain("+20%");
+    expect(screen.getByTestId("plays-1")).toBeTruthy();
+    expect(screen.queryByTestId("plays-2")).toBeNull();
+  });
+
+  it("says nothing about match day on a quiet night", () => {
+    renderBoard();
+    expect(screen.queryByTestId("match-day")).toBeNull();
+  });
+
+  it("tells the ceremony the surge paid, and the log that a moment echoed", async () => {
+    claimExpeditionAction.mockResolvedValue({
+      ok: true,
+      outcome: { grade: "solid", dollars: 216, comp: false, mark: null, briefHit: false },
+      route: QUIET_ROUTE([5, 1, 2]),
+      baseDollars: 180,
+      merchant: 0,
+      stranded: null,
+      surge: ["Solari Sun"],
+      echo: { inventoryId: 900, slug: "sun-top", playerName: "Sun Top", moment: 2 },
+      bearerId: null,
+      balance: 5000,
+      fragments: 0,
+    });
+    renderBoard({
+      runs: [
+        makeRun({ id: 21, resolvesAt: new Date(Date.now() - HOUR).toISOString() }),
+        makeRun({
+          id: 22,
+          squad: [1, 2, 3],
+          claimedAt: "2026-08-28T00:00:00.000Z",
+          outcome: {
+            grade: "solid", dollars: 216, comp: false, mark: null, bearer: null, lootMultiplier: 1, pushes: 0, fragments: 0,
+            fates: [], events: [], rescued: null, cleansed: null, surge: ["Solari Sun"], echo: { slug: "sun-top", week: "2026-08-17", moment: 2 },
+          },
+        }),
+      ],
+      deployedIds: new Set([5, 1, 2]),
+    });
+
+    await click(screen.getByRole("button", { name: "Claim the Deep Raid" }));
+
+    const ceremony = screen.getByTestId("expedition-ceremony");
+    expect(within(ceremony).getByTestId("ceremony-surge").textContent).toContain("Solari Sun played on launch day");
+    expect(within(ceremony).getByTestId("ceremony-echo").textContent).toContain("Sun Top");
+    const log = screen.getByRole("region", { name: "Finished expeditions" });
+    expect(log.textContent).toContain("match day ×1.2");
+    expect(log.textContent).toContain("a moment echoed");
+  });
+});
+
+describe("ExpeditionBoard — the rival fork", () => {
+  // A 72h Legendary launched 30 hours ago with four forks: legs of 14.4h,
+  // so fork 2 (the singing dark) opened at 28.8h and is open now.
+  const legendary = () =>
+    makeRun({
+      id: 50,
+      tier: "legendary",
+      squad: [5, 1, 2],
+      forks: 4,
+      startedAt: new Date(Date.now() - 30 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 42 * HOUR).toISOString(),
+    });
+
+  it("names the squad's real next opponent at the singing dark when the page knows it", () => {
+    renderBoard({ runs: [legendary()], deployedIds: new Set([5, 1, 2]), rivals: { 50: "Lunar Tide" } });
+
+    const fork = screen.getByTestId("fork-50-1");
+    expect(within(fork).getByTestId("rival-story").textContent).toContain("it is Lunar Tide's");
+    expect(within(fork).getByText("The singing dark")).toBeTruthy();
+  });
+
+  it("keeps the written story when the squad is mixed or nothing is scheduled", () => {
+    renderBoard({ runs: [legendary()], deployedIds: new Set([5, 1, 2]) });
+
+    const fork = screen.getByTestId("fork-50-1");
+    expect(within(fork).queryByTestId("rival-story")).toBeNull();
+    expect(fork.textContent).toContain("Something is singing under the floor and the squad wants to leave.");
   });
 });

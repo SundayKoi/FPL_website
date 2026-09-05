@@ -1,18 +1,31 @@
 "use client";
 
-import { useCallback } from "react";
-import { combineTeamRows, mergeRows } from "@/lib/stats/formulas";
+import { useCallback, useEffect } from "react";
 import { formatDuration } from "@/lib/stats/format";
 import { applyForfeits } from "@/lib/stats/forfeits";
 import { fetchForfeitRecords, fetchTeamAgg } from "@/lib/stats/queries";
+import { mergeTeamRowsForScope, resolveTeamParam } from "@/lib/stats/teamProfile";
 import { awardSuperlatives, type Superlative } from "@/lib/stats/superlatives";
 import type { TeamAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
 import { ALL_SEASONS } from "./SeasonSelect";
+import TeamDetail from "./TeamDetail";
 import { EmptyCard, ErrorCard, LoadingCard, StatBar } from "./statsUi";
 import { useStatsFetch } from "./useStatsFetch";
 
-export default function TeamsTab({ season, phase, teamNames }: { season: string; phase: PhaseFilter; teamNames?: string[] }) {
+export default function TeamsTab({
+  season,
+  phase,
+  teamNames,
+  selectedTeamName,
+  onSelectTeam,
+}: {
+  season: string;
+  phase: PhaseFilter;
+  teamNames?: string[];
+  selectedTeamName: string | null;
+  onSelectTeam: (teamName: string | null) => void;
+}) {
   const loadRows = useCallback(async () => {
     const seasonParam = season === ALL_SEASONS ? undefined : season;
     const phaseParam = phase === "All" ? undefined : phase;
@@ -31,6 +44,24 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
   const rows = data?.agg ?? [];
   const forfeits = data?.forfeits ?? [];
 
+  // Merge whenever the fetch could span more than one (season,
+  // season_phase) partition — "All seasons" OR a specific season with
+  // phase="All" (the view emits one row per phase, so a single season with
+  // both Regular and Playoffs games still returns 2 rows per team).
+  const played = mergeTeamRowsForScope(rows, season, phase);
+  // After the merge, so the per-game rates stay weighted by games played.
+  const merged = applyForfeits(played, forfeits, season === ALL_SEASONS ? ALL_SEASONS : undefined);
+  const sorted = [...merged].sort((a, b) => {
+    if (b.winrate_pct !== a.winrate_pct) return b.winrate_pct - a.winrate_pct;
+    return b.games - a.games;
+  });
+
+  useEffect(() => {
+    if (!selectedTeamName) return;
+    const canonical = resolveTeamParam(sorted, selectedTeamName);
+    if (canonical && canonical !== selectedTeamName) onSelectTeam(canonical);
+  }, [onSelectTeam, selectedTeamName, sorted]);
+
   if (status === "loading") {
     return <LoadingCard label="teams" />;
   }
@@ -39,27 +70,25 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
     return <ErrorCard noun="team" />;
   }
 
+  if (selectedTeamName) {
+    const canonical = resolveTeamParam(sorted, selectedTeamName);
+    const detailRow = canonical
+      ? sorted.find((row) => row.team_name.trim() === canonical) ?? null
+      : null;
+    return (
+      <TeamDetail
+        row={detailRow}
+        teamName={canonical ?? selectedTeamName.trim()}
+        season={season}
+        phase={phase}
+        onBack={() => onSelectTeam(null)}
+      />
+    );
+  }
+
   if (rows.length === 0 && forfeits.length === 0) {
     return <EmptyCard message="There's no team data for this season/phase yet." />;
   }
-
-  // Merge whenever the fetch could span more than one (season,
-  // season_phase) partition — "All seasons" OR a specific season with
-  // phase="All" (the view emits one row per phase, so a single season with
-  // both Regular and Playoffs games still returns 2 rows per team).
-  const played =
-    season !== ALL_SEASONS && phase !== "All"
-      ? rows
-      : mergeRows(rows, (r) => r.team_name, (group) =>
-          combineTeamRows(group, season === ALL_SEASONS ? ALL_SEASONS : season),
-        );
-  // After the merge, so the per-game rates stay weighted by games played.
-  const merged = applyForfeits(played, forfeits, season === ALL_SEASONS ? ALL_SEASONS : undefined);
-
-  const sorted = [...merged].sort((a, b) => {
-    if (b.winrate_pct !== a.winrate_pct) return b.winrate_pct - a.winrate_pct;
-    return b.games - a.games;
-  });
 
   /** What each team is league-best at. A grid of ten identical numbers
    *  per team makes every team look the same; one badge saying "most
@@ -93,6 +122,12 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
             aria-label={`${row.team_name} team stats`}
             className={`card-neon flex flex-col gap-3 p-4 ${i === 0 ? "row-rank-1" : ""}`}
           >
+            <button
+              type="button"
+              aria-label={`${row.team_name} team stats`}
+              onClick={() => onSelectTeam(row.team_name)}
+              className="flex w-full flex-col gap-3 text-left"
+            >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="truncate font-display text-xl font-semibold text-white">
@@ -158,6 +193,7 @@ export default function TeamsTab({ season, phase, teamNames }: { season: string;
                 <span className="text-white">{formatDuration(row.avg_duration_min)}</span> avg
               </span>
             </div>
+            </button>
           </article>
         );
       })}

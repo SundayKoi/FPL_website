@@ -467,6 +467,22 @@ spectator draft links, and scouting are composed separately from captain result
 reporting and admin management panels, so ordinary-player branches do not load
 those mutation controls.
 
+The shared read-only dashboard may enrich the next opponent with the current
+season's `stats_team_agg` row. That aggregate is public convenience data: a
+missing row or aggregate-query failure leaves the dashboard and lineup usable.
+Roster identity, tournament codes, and draft-pattern views remain on their
+existing cookie-bound/RLS paths; an opponent roster failure is isolated from
+the signed-in team's own roster. The aggregate preview never uses the service-
+role client.
+
+The Stats team-detail URL contract is `tab=Teams&team=<name>&season=<code>&phase=<phase>`
+under `/stats` or `/academy/stats`. `phase=All` and the default season are
+omitted when they are defaults. Team queries trim and case-fold for exact
+resolution only, then canonicalize to the loaded aggregate name; fuzzy or
+ambiguous names do not select a team. Team selection and player selection are
+mutually exclusive, and leaving a team detail clears only `team` while
+retaining the Teams tab and current scope.
+
 The legacy `/captain`, `/captain/scouting`, `/academy/captain`, and
 `/academy/captain/scouting` routes are redirect-only compatibility paths to
 their equivalent canonical My Team routes. They preserve an old `team` query
@@ -789,6 +805,58 @@ stamp's date, so an Exorcism lifts it at once). The Gauntlet also refuses
 a deployed, lost or wounded card at entry, which it never checked before.
 The copy on the page and on `/admin/mutations` derives its numbers from
 the same table.
+
+The trail — the journal under each run, the encounters on it, the squad's
+line at a fork and the route map — is derived, never stored
+(`src/lib/expeditions/journal.ts`). Everything is seeded from the run id
+and the leg (`mulberry32`, the Gauntlet's generator), so the server, the
+page and the sweep agree on what happened without a table for it:
+`encountersFor` places at most one encounter per leg at 35%, and only on a
+route with forks that is not the Exorcism — a **merchant** (a flat
+`MERCHANT_DOLLARS` on top of the multiplied payout, which is why
+`maxExpeditionPayout` and `resolve_expedition`'s ceiling both add it), a
+**storm** (the sweep calls `delay_expedition` once, pushing the run's
+clock by `STORM_HOURS`, and records the leg in `expedition_runs.encounters`
+so the next sweep skips it), or a **stranded card** (only where the route
+can lose a card; at the claim, the oldest open `lost` hold belonging to
+someone else is released, its card comes home wounded, and the finder is
+paid `STRANDED_BOUNTY` on a separate `expedition_bounty` ledger row). The
+claim sends `merchant`, `stranded` and `bounty` inside `p_outcome`;
+`resolve_expedition` refuses a hold the caller owns, a hold that is not
+open, and a bounty over its cap. The journal (`journalFor`) reads the
+clock: a leg's two trail lines surface at 30% and 70% of it, the
+encounter at 50%, the arrival when the fork opens, and the fork ping quotes
+the latest line. `banterFor` is the same idea at the fork: a line from one
+of the squad, chosen by what they can actually do there.
+
+The league calendar (`src/lib/expeditions/matchday.ts`, pure over rows
+from `fixtures` and `card_editions`): `teamsPlayingOn` reads a fixture's
+day on the Eastern calendar (an 8pm Eastern fixture is the next day in
+UTC, so `fetchFixturesSince` is asked from a day before the launch);
+`surgeTeams` names the playing teams a squad carries, and the claim
+multiplies the dollars by `1 + SURGE_BONUS` after the forks and before the
+merchant, which is why `maxExpeditionPayout` and `resolve_expedition`'s
+ceiling (13575) both carry the surge. The teams go into the outcome as
+`surge` for the log. `rosterTeam` + `nextOpponent` give the page the
+rival for a one-roster squad on the Legendary route's second fork —
+copy only, computed at render, nothing stored. The echo: each moment on
+the squad rolls `ECHO_CHANCE` once at the claim (after every other draw,
+so a squad without one consumes nothing extra); a hit picks uniformly
+from `echoPool` — the archived edition of the moment's week, both sides
+of its game — and sends `echo {slug, week, moment}` in `p_outcome`.
+`resolve_expedition` checks the moment is a moment on THIS run's squad,
+mints the copy off `card_editions` (matte, unsigned, `pack_open_id` null,
+`card.echo {run, moment, date}`), lets the existing triggers stamp the
+print number and the 'minted' provenance, and returns `echo_id`. A week
+that was never archived cannot echo, and the claim never offers it.
+
+The ledger of the fallen and the found (`fetchLedger`, the public
+`/cards/expeditions/ledger`) is a service-client read across every
+owner's graveyard and every `lost` hold: open holds are "missing", a hold
+closed by a Rescue, a ransom or a stranger's squad is "found", and a hold
+that ran out is skipped because its grave is already listed. Usernames
+and avatars come from `betting_profiles`, which every public card surface
+already shows.
 
 ### Auto-dust
 

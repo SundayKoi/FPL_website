@@ -1,13 +1,8 @@
 import Link from "next/link";
-import MyResults from "@/components/captain/MyResults";
-import MyRoster from "@/components/captain/MyRoster";
-import NextMatchCard from "@/components/captain/NextMatchCard";
-import TourneyCodes from "@/components/captain/TourneyCodes";
 import { teamSlug } from "@/lib/teams/teamPage";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { MyTeamDashboardResult } from "@/lib/my-team/types";
-import TeamAccentPanel, { teamAccentFadeStyle } from "./TeamAccentPanel";
-import TeamSchedule from "./TeamSchedule";
+import { MyTeamDashboard } from "./MyTeamDashboard";
 
 const ACTION = "inline-flex rounded-full border border-action-text/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill hover:text-white";
 
@@ -125,98 +120,5 @@ export default function MyTeamGate({
     );
   }
 
-  const scoutingHref = league === "academy" ? "/academy/my-team/scouting" : "/my-team/scouting";
-  const adminQuery = dashboard.isAdmin ? `?team=${encodeURIComponent(dashboard.team.id)}` : "";
-  const teamBrand = dashboard.team;
-
-  return (
-    <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
-        <header
-          className="card-brand flex flex-wrap items-center gap-5 overflow-hidden border-t-4 p-6 sm:p-8"
-          style={{ borderTopColor: teamBrand.bannerColor }}
-        >
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded border border-white/25 bg-canvas/60 p-2 shadow-lg">
-            {teamBrand.imageUrl ? (
-              // Deployment-specific Supabase Storage hosts make next/image remotePatterns brittle here.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={teamBrand.imageUrl}
-                alt={`${teamBrand.name} logo`}
-                className="h-full w-full rounded object-contain"
-              />
-            ) : (
-              <span className="type-display text-3xl text-white/90" aria-hidden="true">
-                {teamBrand.abbreviation}
-              </span>
-            )}
-          </div>
-          <div className="min-w-0">
-            <span className="label-dash">My Team · {dashboard.season}</span>
-            <h1 className="type-display mt-2 text-5xl sm:text-6xl">{teamBrand.name}</h1>
-          </div>
-          <p className="basis-full max-w-2xl text-lg leading-8 text-muted">
-            Your next match, private tournament codes, team schedule, roster, and scouting.
-          </p>
-        </header>
-        <div
-          aria-hidden="true"
-          className="mt-5 h-1.5 rounded-full"
-          style={teamAccentFadeStyle(teamBrand.bannerColor)}
-        />
-
-        <div className="mt-8 flex flex-col gap-6">
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <TeamAccentPanel color={teamBrand.bannerColor}>
-              <NextMatchCard
-                fixture={dashboard.nextFixture}
-                myTeamName={dashboard.team.name}
-                opponentMultiOpggUrl={dashboard.opponent?.multiOpggUrl ?? null}
-                draftGames={dashboard.draftGames}
-              />
-            </TeamAccentPanel>
-            {dashboard.nextFixture && dashboard.opponent ? (
-              <TeamAccentPanel color={teamBrand.bannerColor}>
-                <Link
-                  href={`${scoutingHref}${adminQuery}`}
-                  className="card-brand group block p-5 transition hover:border-action-text/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                  aria-label={`Scout Opponent: ${dashboard.opponent.name}`}
-                >
-                  <span className="label-dash text-prestige">Premium · Scouting</span>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <h2 className="type-display text-2xl">Scout Opponent</h2>
-                    <span aria-hidden className="text-2xl text-action-text transition-transform group-hover:translate-x-1">→</span>
-                  </div>
-                  <p className="mt-2 text-sm text-muted">
-                    Draft history and player pools for <span className="font-semibold text-white">{dashboard.opponent.name}</span>.
-                  </p>
-                </Link>
-              </TeamAccentPanel>
-            ) : null}
-          </div>
-          <TeamAccentPanel color={teamBrand.bannerColor}>
-            <TourneyCodes codes={dashboard.codes} />
-          </TeamAccentPanel>
-          <TeamAccentPanel color={teamBrand.bannerColor}>
-            <TeamSchedule teamName={dashboard.team.name} fixtures={dashboard.schedule} />
-          </TeamAccentPanel>
-          <TeamAccentPanel color={teamBrand.bannerColor}>
-            <MyRoster
-              draftPlayers={dashboard.roster.draftPlayers}
-              riotAccounts={dashboard.roster.riotAccounts}
-              multiOpggUrl={dashboard.roster.multiOpggUrl}
-              playerPoolId={dashboard.playerPoolId}
-            />
-          </TeamAccentPanel>
-          <TeamAccentPanel color={teamBrand.bannerColor}>
-            <MyResults
-              teamName={dashboard.team.name}
-              games={dashboard.results.games}
-              players={dashboard.results.players}
-            />
-          </TeamAccentPanel>
-        </div>
-      </div>
-    </main>
-  );
+  return <MyTeamDashboard dashboard={dashboard} league={league} />;
 }

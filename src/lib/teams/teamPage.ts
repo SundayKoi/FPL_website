@@ -43,6 +43,12 @@ export interface TeamRecord {
   seriesPlayed: number;
 }
 
+export interface TeamGameRecord {
+  wins: number;
+  losses: number;
+  gamesPlayed: number;
+}
+
 type TeamRecordFixture = Pick<FixtureRow, "team_a" | "team_b" | "score_a" | "score_b">;
 
 /** Series win/loss record from reported fixture scores. */
@@ -60,6 +66,21 @@ export function teamRecord(rows: TeamRecordFixture[], team: string): TeamRecord 
     else if (theirs > mine) losses += 1;
   }
   return { wins, losses, seriesPlayed: wins + losses };
+}
+
+/** Individual game win/loss record from reported fixture scores. */
+export function teamGameRecord(rows: TeamRecordFixture[], team: string): TeamGameRecord {
+  let wins = 0;
+  let losses = 0;
+  for (const row of rows) {
+    if (row.score_a === null || row.score_b === null) continue;
+    const isA = sameTeam(row.team_a, team);
+    const isB = sameTeam(row.team_b, team);
+    if (!isA && !isB) continue;
+    wins += isA ? row.score_a : row.score_b;
+    losses += isA ? row.score_b : row.score_a;
+  }
+  return { wins, losses, gamesPlayed: wins + losses };
 }
 
 /** The other side of a fixture, from one team's perspective. */

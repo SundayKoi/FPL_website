@@ -1,4 +1,4 @@
-/** The shared primary OP.GG multi-search pill used by NextMatchCard and MyRoster. */
+/** The shared primary OP.GG multi-search pill used by read-only team surfaces. */
 export default function OpggMultiLink({
   href,
   label,

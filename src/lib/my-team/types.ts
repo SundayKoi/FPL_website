@@ -7,6 +7,7 @@ import type {
 import type { LeagueTeam } from "@/lib/matches/types";
 import type { LeagueKey } from "@/lib/players/identity";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { TeamAggRow } from "@/lib/stats/types";
 
 export type MyTeamSignedOut = {
   kind: "signed-out";
@@ -49,6 +50,8 @@ export type MyTeamOpponent = {
   multiOpggUrl: string | null;
   /** Only opponent enrichment is optional. Core team data failures throw. */
   scoutingUnavailable: boolean;
+  stats: TeamAggRow | null;
+  statsUnavailable: boolean;
 };
 
 export type MyTeamReadyDashboard = {

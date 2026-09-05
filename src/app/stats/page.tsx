@@ -19,6 +19,7 @@ export default async function StatsPage({
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const player = first(params.player);
   const tab = first(params.tab);
+  const team = first(params.team);
   const season = first(params.season);
   const phase = first(params.phase);
   return (
@@ -38,6 +39,7 @@ export default async function StatsPage({
           <StatsTabs
             initialPlayer={player}
             initialTab={tab}
+            initialTeam={team}
             initialSeason={season}
             initialPhase={phase}
             excludedSeasons={[seasons.academy]}
