@@ -1,8 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, it } from "vitest";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { describe, expect, it, vi } from "vitest";
 import { WEEKLY_STAT_COLUMNS } from "@/lib/stats/weekly";
 import type { PlayerCardData } from "./build";
-import { backfillTeamIdentity, fetchCardEditionWeeks, fetchWeekCards } from "./queries";
+import { backfillTeamIdentity, fetchCardEditionWeeks, fetchWeekCards, fetchWeekMoments } from "./queries";
 
 /** A frozen copy as it sits in card_inventory: whatever the card looked like
  *  the moment it was pulled. Older copies predate both the badge lookup and
@@ -95,13 +95,16 @@ function weekSupabase(
   return {
     from: (table: string) => {
       const chain: Record<string, unknown> = {};
+      let from = 0;
+      let to = rawRows.length;
+      chain.range = (start: number, end: number) => { from = start; to = end + 1; return chain; };
       for (const m of ["select", "eq", "order", "maybeSingle"]) chain[m] = () => chain;
       chain.gte = (column: string, value: unknown) => { captured.push({ column, value }); return chain; };
       chain.lt = (column: string, value: unknown) => { captured.push({ column, value }); return chain; };
       chain.then = (resolve: (r: { data: unknown; error: unknown }) => unknown) => {
         const error = errors[table] ?? null;
         return Promise.resolve({
-          data: error ? null : table === "raw_stats" ? rawRows : [],
+          data: error ? null : table === "raw_stats" ? rawRows.slice(from, to) : [],
           error,
         }).then(resolve);
       };
@@ -111,6 +114,14 @@ function weekSupabase(
 }
 
 describe("fetchWeekCards", () => {
+  it("includes players beyond the API's first thousand raw rows", async () => {
+    const rows = Array.from({ length: 1000 }, (_, i) => ({ ...statRow("Regular", "2026-08-18T00:00:00Z"), match_id: `m${i}` }));
+    rows.push(statRow("LateArrival", "2026-08-18T00:00:00Z"));
+    const cards = await fetchWeekCards(weekSupabase(rows), "S5", "2026-08-17");
+    expect(cards.map((card) => card.name)).toContain("LateArrival");
+    expect(cards.find((card) => card.name === "Regular")?.level).toBe(1000);
+  });
+
   it("attributes a Sunday-night Eastern game to the week that just ended", async () => {
     // 23:00 ET on Sunday 2026-08-23 is 03:00 UTC on Monday 2026-08-24: a
     // window written in UTC query params files it under the NEXT edition,
@@ -187,7 +198,7 @@ describe("fetchWeekCards", () => {
     const supabase = {
       from: (table: string) => {
         const chain: Record<string, unknown> = {};
-        for (const m of ["eq", "order", "maybeSingle"]) chain[m] = () => chain;
+        for (const m of ["eq", "order", "maybeSingle", "range"]) chain[m] = () => chain;
         chain.select = (columns: string) => { selects.push({ table, columns }); return chain; };
         chain.gte = () => chain;
         chain.lt = () => chain;
@@ -296,4 +307,21 @@ describe("fetchCardEditionWeeks", () => {
     // shop's week picker; a partial list still sells packs.
     expect(await fetchCardEditionWeeks(client, "S5", { pageSize: 2 })).toEqual(["2026-08-24"]);
   });
+});
+
+it("requests only the selected week's moments through the Supabase transport", async () => {
+  const urls: URL[] = [];
+  const fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input));
+    urls.push(url);
+    return new Response(JSON.stringify([{ id: 1, week_start: "2026-08-17", slug: "one", summoner_name: "One", duration_min: "32.5" }]), { status: 200 });
+  });
+  const client = createClient("http://127.0.0.1:54321", "test-anon", {
+    global: { fetch }, auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const moments = await fetchWeekMoments(client, "S5", "2026-08-17");
+  expect(urls).toHaveLength(1);
+  expect(urls[0].searchParams.get("season")).toBe("eq.S5");
+  expect(urls[0].searchParams.get("week_start")).toBe("eq.2026-08-17");
+  expect(moments[0]).toMatchObject({ weekStart: "2026-08-17", durationMin: 32.5 });
 });

@@ -294,34 +294,94 @@ function playerKey(row: { summoner_name: string; tag: string }): string {
   return `${row.summoner_name.trim().toLowerCase()}#${row.tag.trim().toLowerCase()}`;
 }
 
-/** Percentile (0-100) of the row within the cohort for one stat, matching
- *  formulas.ts's pctile shape (rank position over cohort size). */
-function pct(cohort: PlayerAggRow[], row: PlayerAggRow, pick: (r: PlayerAggRow) => number, invert = false): number {
-  const key = playerKey(row);
-  if (!cohort.some((r) => playerKey(r) === key)) return 50;
-  const value = pick(row);
-  let below = 0;
-  let equal = 0;
-  for (const peer of cohort) {
-    const peerValue = pick(peer);
-    if (peerValue < value) below += 1;
-    else if (peerValue === value) equal += 1;
+const CARD_METRICS = {
+  kda: (r: PlayerAggRow) => r.kda,
+  avg_dmg_per_min: (r: PlayerAggRow) => r.avg_dmg_per_min,
+  avg_dmg_share_pct: (r: PlayerAggRow) => r.avg_dmg_share_pct,
+  avg_dmg_taken_per_min: (r: PlayerAggRow) => r.avg_dmg_taken_per_min,
+  avg_kills: (r: PlayerAggRow) => r.avg_kills,
+  avg_assists: (r: PlayerAggRow) => r.avg_assists,
+  avg_deaths: (r: PlayerAggRow) => r.avg_deaths,
+  avg_kp_pct: (r: PlayerAggRow) => r.avg_kp_pct,
+  avg_cs_per_min: (r: PlayerAggRow) => r.avg_cs_per_min,
+  avg_gold_per_min: (r: PlayerAggRow) => r.avg_gold_per_min,
+  avg_cs_at_10: (r: PlayerAggRow) => r.avg_cs_at_10,
+  avg_gold_at_10: (r: PlayerAggRow) => r.avg_gold_at_10,
+  avg_xp_at_10: (r: PlayerAggRow) => r.avg_xp_at_10,
+  avg_vision_per_min: (r: PlayerAggRow) => r.avg_vision_per_min,
+  avg_solo_kills: (r: PlayerAggRow) => r.avg_solo_kills,
+  avg_game_duration: (r: PlayerAggRow) => r.avg_game_duration,
+  games: (r: PlayerAggRow) => r.games,
+  firstBloodsPerGame: (r: PlayerAggRow) => r.first_blood_involvements / Math.max(r.games, 1),
+  platesPerGame: (r: PlayerAggRow) => r.total_plates / Math.max(r.games, 1),
+  multiKillsPerGame: (r: PlayerAggRow) => (r.total_doubles + r.total_triples * 2 + r.total_quadras * 3 + r.total_pentas * 4) / Math.max(r.games, 1),
+  killsPerMinute: (r: PlayerAggRow) => perMinute(r, (x) => x.avg_kills),
+  deathsPerMinute: (r: PlayerAggRow) => perMinute(r, (x) => x.avg_deaths),
+  soloKillsPerMinute: (r: PlayerAggRow) => perMinute(r, (x) => x.avg_solo_kills),
+  assistsPerMinute: (r: PlayerAggRow) => perMinute(r, (x) => x.avg_assists),
+  firstBloodsPerGameOrZero: (r: PlayerAggRow) => (r.games > 0 ? r.first_blood_involvements / r.games : 0),
+};
+
+type CardMetric = keyof typeof CARD_METRICS;
+type CardPercentile = (row: PlayerAggRow, metric: CardMetric, invert?: boolean) => number;
+
+/** Midrank preserves tied values, including the single-player rank of zero.
+ * Malformed stats retain the comparison behavior of the original scanner. */
+function midrankLookup(values: number[]): (value: number) => number {
+  const denominator = values.length - 1 || 1;
+  if (values.some((value) => typeof value !== "number" || Number.isNaN(value))) {
+    return (value) => {
+      let below = 0;
+      let equal = 0;
+      for (const peer of values) {
+        if (peer < value) below += 1;
+        else if (peer === value) equal += 1;
+      }
+      return equal ? ((below + (equal - 1) / 2) / denominator) * 100 : 50;
+    };
   }
-  // MIDRANK, not sort position. Ranking by index in a sorted array gives
-  // tied players DIFFERENT percentiles purely by where they sat in the
-  // input — four bot laners who all went 2-0 came out at 40, 60, 80 and
-  // 100. With winning weighted at 30 that was up to 13 OVR of array-order
-  // noise, and a two-game week ties constantly (a winrate can only be 0,
-  // 50 or 100). Splitting the tied band down the middle gives every player
-  // with the same number the same percentile, and leaves distinct values
-  // exactly where they were.
-  // equal counts the row itself, so zero means its value compared equal to
-  // nothing — a NaN or undefined field, since NaN === NaN is false. The old
-  // sort-position code still returned some index for such a row; this would
-  // return a NEGATIVE percentile and drag every threshold that reads it.
-  if (equal === 0) return 50;
-  const p = ((below + (equal - 1) / 2) / (cohort.length - 1 || 1)) * 100;
-  return invert ? 100 - p : p;
+  const sorted = [...values].sort((a, b) => a - b);
+  const ranks = new Map<number, number>();
+  for (let start = 0; start < sorted.length;) {
+    let end = start + 1;
+    while (end < sorted.length && sorted[end] === sorted[start]) end += 1;
+    ranks.set(sorted[start], ((start + (end - start - 1) / 2) / denominator) * 100);
+    start = end;
+  }
+  return (value) => ranks.get(value) ?? 50;
+}
+
+/** Build role groups once, and index each requested stat once per group.
+ * The cache belongs to one build, so refreshed stats cannot reuse old ranks. */
+function createCardPercentiles(cohort: PlayerAggRow[]): CardPercentile {
+  const roles = new Map<string, PlayerAggRow[]>();
+  for (const row of cohort) {
+    const group = roles.get(row.role_mode);
+    if (group) group.push(row);
+    else roles.set(row.role_mode, [row]);
+  }
+  const indexes = new Map<PlayerAggRow[], {
+    identities: Set<string>;
+    metrics: Map<CardMetric, (value: number) => number>;
+  }>();
+  return (row, metric, invert = false) => {
+    const role = roles.get(row.role_mode);
+    const peers = role && role.length >= 4 ? role : cohort;
+    let index = indexes.get(peers);
+    if (!index) {
+      index = { identities: new Set(peers.map(playerKey)), metrics: new Map() };
+      indexes.set(peers, index);
+    }
+    if (!index.identities.has(playerKey(row))) return 50;
+    const pick = CARD_METRICS[metric];
+    let rank = index.metrics.get(metric);
+    if (!rank) {
+      rank = midrankLookup(peers.map(pick));
+      index.metrics.set(metric, rank);
+    }
+    const value = rank(pick(row));
+    return invert ? 100 - value : value;
+  };
 }
 
 /** Same-role cohort with the >=4-member fallback formulas.ts uses. */
@@ -484,42 +544,37 @@ export interface ArchetypeExtras {
   clutchWr: number;
 }
 
-function archetypeFacts(row: PlayerAggRow, cohort: PlayerAggRow[], extras: ArchetypeExtras): ArchetypeFacts {
-  const rc = roleCohort(cohort, row);
+function archetypeFacts(row: PlayerAggRow, extras: ArchetypeExtras, percentile: CardPercentile): ArchetypeFacts {
   return {
     role: row.role_mode,
     winrate: row.winrate_pct,
     pentas: row.total_pentas,
     streak: extras.streak,
     clutchWr: extras.clutchWr,
-    kda: pct(rc, row, (r) => r.kda),
-    dmg: pct(rc, row, (r) => r.avg_dmg_per_min),
-    dmgShare: pct(rc, row, (r) => r.avg_dmg_share_pct),
-    dmgTaken: pct(rc, row, (r) => r.avg_dmg_taken_per_min),
-    kills: pct(rc, row, (r) => r.avg_kills),
-    assists: pct(rc, row, (r) => r.avg_assists),
-    diesALot: pct(rc, row, (r) => r.avg_deaths),
-    safe: pct(rc, row, (r) => r.avg_deaths, true),
-    kp: pct(rc, row, (r) => r.avg_kp_pct),
-    cs: pct(rc, row, (r) => r.avg_cs_per_min),
-    gold: pct(rc, row, (r) => r.avg_gold_per_min),
+    kda: percentile(row, "kda"),
+    dmg: percentile(row, "avg_dmg_per_min"),
+    dmgShare: percentile(row, "avg_dmg_share_pct"),
+    dmgTaken: percentile(row, "avg_dmg_taken_per_min"),
+    kills: percentile(row, "avg_kills"),
+    assists: percentile(row, "avg_assists"),
+    diesALot: percentile(row, "avg_deaths"),
+    safe: percentile(row, "avg_deaths", true),
+    kp: percentile(row, "avg_kp_pct"),
+    cs: percentile(row, "avg_cs_per_min"),
+    gold: percentile(row, "avg_gold_per_min"),
     at10: mean([
-      pct(rc, row, (r) => r.avg_cs_at_10),
-      pct(rc, row, (r) => r.avg_gold_at_10),
-      pct(rc, row, (r) => r.avg_xp_at_10),
+      percentile(row, "avg_cs_at_10"),
+      percentile(row, "avg_gold_at_10"),
+      percentile(row, "avg_xp_at_10"),
     ]),
-    vision: pct(rc, row, (r) => r.avg_vision_per_min),
-    solo: pct(rc, row, (r) => r.avg_solo_kills),
-    fb: pct(rc, row, (r) => r.first_blood_involvements / Math.max(r.games, 1)),
-    plates: pct(rc, row, (r) => r.total_plates / Math.max(r.games, 1)),
-    multi: pct(
-      rc,
-      row,
-      (r) => (r.total_doubles + r.total_triples * 2 + r.total_quadras * 3 + r.total_pentas * 4) / Math.max(r.games, 1),
-    ),
+    vision: percentile(row, "avg_vision_per_min"),
+    solo: percentile(row, "avg_solo_kills"),
+    fb: percentile(row, "firstBloodsPerGame"),
+    plates: percentile(row, "platesPerGame"),
+    multi: percentile(row, "multiKillsPerGame"),
     // Short average games, percentile-inverted: high = closes games out.
-    fast: pct(rc, row, (r) => r.avg_game_duration, true),
-    gamesPct: pct(rc, row, (r) => r.games),
+    fast: percentile(row, "avg_game_duration", true),
+    gamesPct: percentile(row, "games"),
   };
 }
 
@@ -648,11 +703,15 @@ function claimableBy(archetype: (typeof ARCHETYPES)[number], role: string): bool
  * left over (qualified for nothing) becomes a Jack of All Trades.
  * Deterministic: ties break on player key then title name.
  */
-export function assignArchetypes(cohort: PlayerAggRow[], extrasByKey: Map<string, ArchetypeExtras>): Map<string, string> {
+export function assignArchetypes(
+  cohort: PlayerAggRow[],
+  extrasByKey: Map<string, ArchetypeExtras>,
+  percentile = createCardPercentiles(cohort),
+): Map<string, string> {
   const claims: { key: string; title: string; score: number }[] = [];
   for (const row of cohort) {
     const key = playerKey(row);
-    const facts = archetypeFacts(row, cohort, extrasByKey.get(key) ?? { streak: 0, clutchWr: row.winrate_pct / 100 });
+    const facts = archetypeFacts(row, extrasByKey.get(key) ?? { streak: 0, clutchWr: row.winrate_pct / 100 }, percentile);
     for (const archetype of ARCHETYPES) {
       if (!claimableBy(archetype, facts.role)) continue;
       const score = archetype.score(facts);
@@ -794,6 +853,7 @@ function measureValues(
   row: PlayerAggRow,
   totals: GameTotals,
   totalsByKey: Map<string, GameTotals>,
+  percentile: CardPercentile,
 ): Record<MeasureKey, number> {
   const rc = roleCohort(cohort, row);
   const peerTotals = rc.map((r) => totalsByKey.get(playerKey(r)) ?? { objectives: 0, turrets: 0, visionWork: 0, mitigated: 0 });
@@ -801,13 +861,13 @@ function measureValues(
     // kda and kp are already length-neutral (a ratio and a share); kills
     // and deaths are counts, so they go through perMinute.
     combat: mean([
-      pct(rc, row, (r) => r.kda),
-      pct(rc, row, (r) => perMinute(r, (x) => x.avg_kills)),
-      pct(rc, row, (r) => r.avg_kp_pct),
-      pct(rc, row, (r) => perMinute(r, (x) => x.avg_deaths), true),
+      percentile(row, "kda"),
+      percentile(row, "killsPerMinute"),
+      percentile(row, "avg_kp_pct"),
+      percentile(row, "deathsPerMinute", true),
     ]),
-    damage: mean([pct(rc, row, (r) => r.avg_dmg_per_min), pct(rc, row, (r) => r.avg_dmg_share_pct)]),
-    economy: mean([pct(rc, row, (r) => r.avg_cs_per_min), pct(rc, row, (r) => r.avg_gold_per_min)]),
+    damage: mean([percentile(row, "avg_dmg_per_min"), percentile(row, "avg_dmg_share_pct")]),
+    economy: mean([percentile(row, "avg_cs_per_min"), percentile(row, "avg_gold_per_min")]),
     // Laning is farm lead AND beating the player in front of you. CS and
     // gold at 10 measure the first; solo kills and first bloods measure
     // the second, and nothing on the card measured it at all before. A
@@ -819,11 +879,11 @@ function measureValues(
     // first_blood_involvements is a total for the window, so it divides by
     // games — there is one first blood per game however long it runs.
     laning: mean([
-      pct(rc, row, (r) => r.avg_cs_at_10),
-      pct(rc, row, (r) => r.avg_gold_at_10),
+      percentile(row, "avg_cs_at_10"),
+      percentile(row, "avg_gold_at_10"),
       mean([
-        pct(rc, row, (r) => perMinute(r, (x) => x.avg_solo_kills)),
-        pct(rc, row, (r) => (r.games > 0 ? r.first_blood_involvements / r.games : 0)),
+        percentile(row, "soloKillsPerMinute"),
+        percentile(row, "firstBloodsPerGameOrZero"),
       ]),
     ]),
     // Two halves, because vision_score alone cannot tell them apart.
@@ -834,7 +894,7 @@ function measureValues(
     // game gives no free credit — a bigger raw vision score across more
     // minutes is not more vision work.
     vision: mean([
-      pct(rc, row, (r) => r.avg_vision_per_min),
+      percentile(row, "avg_vision_per_min"),
       pctOf(peerTotals.map((t) => t.visionWork), totals.visionWork),
     ]),
     // Deaths per minute, not per game: surviving a 45-minute game with
@@ -850,11 +910,11 @@ function measureValues(
     // Mitigation is what armour, MR and shields absorbed: it rewards
     // being in the fight AND living, which is what the bar always meant.
     survival: mean([
-      pct(rc, row, (r) => perMinute(r, (x) => x.avg_deaths), true),
+      percentile(row, "deathsPerMinute", true),
       pctOf(peerTotals.map((t) => t.mitigated), totals.mitigated),
     ]),
-    presence: mean([pct(rc, row, (r) => r.avg_kp_pct), pct(rc, row, (r) => perMinute(r, (x) => x.avg_assists))]),
-    impact: mean([pct(rc, row, (r) => r.avg_dmg_share_pct), pct(rc, row, (r) => r.avg_kp_pct)]),
+    presence: mean([percentile(row, "avg_kp_pct"), percentile(row, "assistsPerMinute")]),
+    impact: mean([percentile(row, "avg_dmg_share_pct"), percentile(row, "avg_kp_pct")]),
     objectives: pctOf(peerTotals.map((t) => t.objectives), totals.objectives),
     turrets: pctOf(peerTotals.map((t) => t.turrets), totals.turrets),
   };
@@ -906,7 +966,7 @@ export function buildCard({
   motto = null,
   standout = false,
   totalsByKey = new Map<string, GameTotals>(),
-}: BuildCardInput): PlayerCardData {
+}: BuildCardInput, percentile = createCardPercentiles(cohort)): PlayerCardData {
   const key = playerKey(row);
 
   // buildSeasonCards already computed every cohort member's totals once to
@@ -914,7 +974,7 @@ export function buildCard({
   // gameTotals(games) a second time. A solo buildCard (no map) still needs
   // its own totals computed fresh.
   const totals = totalsByKey.get(key) ?? gameTotals(games);
-  const values = measureValues(cohort, row, totals, totalsByKey);
+  const values = measureValues(cohort, row, totals, totalsByKey, percentile);
   const bars = barsForRole(row.role_mode);
 
   // The number comes from the same measures the bars draw, so a card can be
@@ -947,7 +1007,7 @@ export function buildCard({
     archetype ??
     (() => {
       // Solo build: the player's own strongest claim, no scarcity.
-      const facts = archetypeFacts(row, cohort, { streak, clutchWr });
+      const facts = archetypeFacts(row, { streak, clutchWr }, percentile);
       let best = { title: FALLBACK_ARCHETYPE, score: 0 };
       for (const candidate of ARCHETYPES) {
         if (!claimableBy(candidate, facts.role)) continue;
@@ -1075,7 +1135,8 @@ export function buildSeasonCards({
       clutchWr: clutchRate(dated, gameLog, row.winrate_pct / 100),
     });
   }
-  const archetypes = assignArchetypes(cohort, extrasByKey);
+  const percentile = createCardPercentiles(cohort);
+  const archetypes = assignArchetypes(cohort, extrasByKey, percentile);
 
   // Objective and turret work live on the per-game rows, not on the agg
   // view, so their cohort has to be assembled here where every player's
@@ -1109,7 +1170,7 @@ export function buildSeasonCards({
         totalsByKey,
         artSkin: prefs?.skin ?? 0,
         motto: prefs?.motto ?? null,
-      });
+      }, percentile);
     })
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name))
     // Collector serials: rank in the sorted collection, best card = #001.

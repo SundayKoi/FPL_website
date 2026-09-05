@@ -77,14 +77,16 @@ async function loadCardPreview(
   supabase: SupabaseClient,
   league: CardLeague,
 ): Promise<PreviewResult<CardPreviewData>> {
-  const season = await fetchCardSeason(supabase, league);
+  const [season, { data: userData }] = await Promise.all([
+    fetchCardSeason(supabase, league),
+    supabase.auth.getUser(),
+  ]);
   if (!season) return { status: "empty", message: "Cards appear when this league has a rated season." };
 
-  const cards = await fetchCurrentWeekCards(supabase, season);
-  const { data: userData } = await supabase.auth.getUser();
   const viewer = userData.user;
-  const { data: claimRow } = viewer
-    ? await supabase
+  const [cards, { data: claimRow }] = await Promise.all([
+    fetchCurrentWeekCards(supabase, season),
+    viewer ? supabase
         .from("card_claims")
         .select("summoner_name, tag, status")
         .eq("profile_id", viewer.id)
@@ -92,7 +94,8 @@ async function loadCardPreview(
         .eq("status", "approved")
         .limit(1)
         .maybeSingle()
-    : { data: null };
+    : { data: null },
+  ]);
   const claim = claimRow as { summoner_name: string; tag: string } | null;
   const selected = selectPreviewCards(cards, claim ? cardSlug(claim.summoner_name, claim.tag) : null);
   if (!selected) return { status: "empty", message: "No rated cards are available yet." };

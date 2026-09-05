@@ -39,7 +39,6 @@ vi.mock("@/lib/home/schedule", async (importOriginal) => ({
 vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({})), PREMIER_SEASON: "S5" }));
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities: vi.fn(async () => ({})) }));
-vi.mock("@/lib/stats/weekly", () => ({ fetchLatestWeeklyStandouts: vi.fn(async () => []) }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
 vi.mock("@/lib/academy/draft", () => ({
   fetchAcademyDraftData: vi.fn(async () => ({ teams: [{ name: "Alpha" }, { name: "Beta" }] })),
@@ -56,7 +55,6 @@ vi.mock("@/lib/cards/queries", () => ({
   fetchCardSeason: vi.fn(async () => null),
   fetchCurrentWeekCards: vi.fn(async () => []),
 }));
-vi.mock("./WeeklyStandouts", () => ({ default: () => <div /> }));
 
 beforeEach(() => {
   fetchHomepageFeaturedSettings.mockImplementation(async (homepage: string) =>

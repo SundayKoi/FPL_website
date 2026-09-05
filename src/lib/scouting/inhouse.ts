@@ -190,7 +190,9 @@ export function buildInhousePlayerStats(roster: RosterPlayer[], rows: InhouseGam
   for (const row of rows) {
     const player = playerForSummoner(rosterByName, row.summoner_name);
     if (!player) continue;
-    rowsByPlayer.set(player.id, [...(rowsByPlayer.get(player.id) ?? []), row]);
+    const group = rowsByPlayer.get(player.id);
+    if (group) group.push(row);
+    else rowsByPlayer.set(player.id, [row]);
   }
 
   return roster.map((player) => {

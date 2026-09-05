@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateWeeklyPlayerRows,
-  rankLatestWeeklyStandoutsFromRows,
-  rankWeeklyStandouts,
   type WeeklyRawStatRow,
 } from "./weekly";
 
@@ -81,75 +79,5 @@ describe("aggregateWeeklyPlayerRows", () => {
       avg_dmg_per_min: 620,
       avg_vision_per_min: 1.16,
     });
-  });
-});
-
-describe("rankWeeklyStandouts", () => {
-  it("returns top players by power score with a homepage-sized limit", () => {
-    const rows = aggregateWeeklyPlayerRows([
-      raw({ summoner_name: "Carry", tag: "FPL", kills: 12, deaths: 1, assists: 8, win: true }),
-      raw({ summoner_name: "Steady", tag: "FPL", kills: 5, deaths: 3, assists: 7, win: true }),
-      raw({ summoner_name: "Quiet", tag: "FPL", kills: 1, deaths: 5, assists: 2, win: false }),
-    ]);
-
-    const standouts = rankWeeklyStandouts(rows, 2);
-
-    expect(standouts).toHaveLength(2);
-    expect(standouts[0].score).toBeGreaterThanOrEqual(standouts[1].score);
-  });
-});
-
-describe("rankLatestWeeklyStandoutsFromRows", () => {
-  it("uses the latest available week in the rows even when it is months old", () => {
-    const olderWeek = raw({
-      summoner_name: "Older",
-      game_date: "2026-03-02 20:00:00",
-      kills: 20,
-      deaths: 0,
-      assists: 20,
-    });
-    const latestWeek = raw({
-      summoner_name: "Latest",
-      game_date: "2026-04-27 21:16:00",
-      kills: 4,
-      deaths: 2,
-      assists: 8,
-    });
-
-    const standouts = rankLatestWeeklyStandoutsFromRows([olderWeek, latestWeek], 5);
-
-    expect(standouts).toHaveLength(1);
-    expect(standouts[0].summoner_name).toBe("Latest");
-  });
-
-  it("ignores newer rows from historical seasons", () => {
-    const season5 = raw({
-      summoner_name: "Season5Player",
-      game_date: "2026-04-27 21:16:00",
-      kills: 4,
-      deaths: 2,
-      assists: 8,
-    });
-    const season4 = raw({
-      summoner_name: "Season4Player",
-      season: "S4",
-      game_date: "2026-05-04 21:16:00",
-      kills: 20,
-      deaths: 0,
-      assists: 20,
-    });
-
-    const standouts = rankLatestWeeklyStandoutsFromRows([season5, season4], 5);
-
-    expect(standouts).toHaveLength(1);
-    expect(standouts[0].summoner_name).toBe("Season5Player");
-  });
-
-  it("returns no standouts when rows only exist for another season", () => {
-    expect(
-      rankLatestWeeklyStandoutsFromRows([
-        raw({ season: "S4", game_date: "2026-05-04 21:16:00" }),
-      ]),
-    ).toEqual([]);
   });
 });

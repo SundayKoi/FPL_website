@@ -9,6 +9,7 @@
 // lives in src/lib/home/awards.ts — is passed IN via options; pages resolve
 // it with fetchStandoutKey (src/lib/cards/standout.ts).
 
+import { fetchAllPages } from "@/lib/supabase/pagination";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mondayOf } from "@/lib/packs/week";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
@@ -251,22 +252,19 @@ export function backfillTeamIdentity(cards: PlayerCardData[], identity: TeamIden
  * ratings are league-relative), so per-player fetching would save nothing.
  */
 export async function fetchSeasonCards(supabase: SupabaseClient, season: string): Promise<PlayerCardData[]> {
-  const [aggResult, gamesResult, logResult, recordsResult, teamIdentity, artResult] = await Promise.all([
-    supabase.from("stats_player_agg").select("*").eq("season", season),
-    supabase
-      .from("raw_stats")
-      .select(CARD_GAME_COLUMNS)
-      .eq("season", season),
-    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
+  const [aggRows, gameRows, logRows, recordsResult, teamIdentity, artResult] = await Promise.all([
+    fetchAllPages<PlayerAggRow>((from, to) => supabase.from("stats_player_agg").select("*").eq("season", season)
+      .order("summoner_name").order("tag").order("season_phase").range(from, to)),
+    fetchAllPages<CardGameRow>((from, to) => supabase.from("raw_stats").select(CARD_GAME_COLUMNS)
+      .eq("season", season).order("id").range(from, to)),
+    fetchAllPages<Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">>((from, to) => supabase.from("stats_game_log")
+      .select("match_id, duration_min, blue_team, red_team").eq("season", season).order("match_id").range(from, to)),
     supabase.from("stats_records").select("category, summoner_name, tag").eq("season", season),
     fetchTeamIdentity(supabase, season),
     // select * on purpose: the motto column arrived in a later migration
     // than skin, and naming a missing column would fail the whole select.
     supabase.from("card_art_prefs").select("*").eq("season", season),
   ]);
-  if (aggResult.error) throw aggResult.error;
-  if (gamesResult.error) throw gamesResult.error;
-  if (logResult.error) throw logResult.error;
   // Records / team art / skin prefs are garnish — a failure (e.g. the
   // card_art_prefs migration not applied yet) must not take cards down.
   const recordRows = recordsResult.error ? [] : ((recordsResult.data as Pick<RecordRow, "category" | "summoner_name" | "tag">[]) ?? []);
@@ -277,13 +275,13 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   // The view emits one row per (season, phase) — merge Regular+Playoffs
   // into a single season row per player, same as the stats tabs do.
   const cohort = mergeRows(
-    (aggResult.data as PlayerAggRow[]) ?? [],
+    aggRows,
     (row) => cardPlayerKey(row.summoner_name, row.tag),
     (group) => combineSeasonRows(group, season),
   );
 
   const gamesByPlayer = new Map<string, CardGameRow[]>();
-  for (const game of (gamesResult.data as CardGameRow[]) ?? []) {
+  for (const game of gameRows) {
     const key = cardPlayerKey(game.summoner_name, game.tag);
     const list = gamesByPlayer.get(key) ?? [];
     list.push(game);
@@ -291,7 +289,7 @@ export async function fetchSeasonCards(supabase: SupabaseClient, season: string)
   }
 
   const gameLog = new Map<string, CardGameMeta>();
-  for (const log of (logResult.data as Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">[]) ?? []) {
+  for (const log of logRows) {
     gameLog.set(log.match_id, { durationMin: log.duration_min, blueTeam: log.blue_team, redTeam: log.red_team });
   }
 
@@ -400,28 +398,22 @@ export async function fetchWeekCards(
   const end = new Date(`${week}T00:00:00.000Z`);
   end.setUTCDate(end.getUTCDate() + 8);
 
-  const [gamesResult, logResult, teamIdentity, artResult] = await Promise.all([
-    supabase
-      .from("raw_stats")
-      .select(WEEK_GAME_COLUMNS)
-      .eq("season", season)
-      .gte("game_date", start.toISOString())
-      .lt("game_date", end.toISOString()),
-    supabase.from("stats_game_log").select("match_id, duration_min, blue_team, red_team").eq("season", season),
+  const [gameRows, logRows, teamIdentity, artResult] = await Promise.all([
+    fetchAllPages<CardGameRow>((from, to) => supabase.from("raw_stats").select(WEEK_GAME_COLUMNS)
+      .eq("season", season).gte("game_date", start.toISOString()).lt("game_date", end.toISOString())
+      .order("id").range(from, to)),
+    fetchAllPages<Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">>((from, to) => supabase.from("stats_game_log")
+      .select("match_id, duration_min, blue_team, red_team").eq("season", season)
+      .gte("game_date", start.toISOString()).lt("game_date", end.toISOString())
+      .order("match_id").range(from, to)),
     fetchTeamIdentity(supabase, season),
     supabase.from("card_art_prefs").select("*").eq("season", season),
   ]);
 
-  // Loud, exactly like fetchSeasonCards. A swallowed error here reads as
-  // "no games this week", and the drop would log "No cards — skipping" and
-  // exit green — silently losing a week that can never be re-minted.
-  if (gamesResult.error) throw gamesResult.error;
-  if (logResult.error) throw logResult.error;
-
   // Trim the padded UTC window down to the Eastern week. An empty result
   // after this is the legitimate quiet-week case — the throws above are
   // what a failure looks like.
-  const games = ((gamesResult.data as CardGameRow[]) ?? []).filter(
+  const games = gameRows.filter(
     (game) => game.game_date && mondayOf(new Date(game.game_date)) === week,
   );
   if (games.length === 0) return [];
@@ -434,11 +426,13 @@ export async function fetchWeekCards(
   const gamesByPlayer = new Map<string, CardGameRow[]>();
   for (const game of games) {
     const key = cardPlayerKey(game.summoner_name, game.tag);
-    gamesByPlayer.set(key, [...(gamesByPlayer.get(key) ?? []), game]);
+    const group = gamesByPlayer.get(key);
+    if (group) group.push(game);
+    else gamesByPlayer.set(key, [game]);
   }
 
   const gameLog = new Map<string, CardGameMeta>();
-  for (const log of (logResult.data as Pick<GameLogRow, "match_id" | "duration_min" | "blue_team" | "red_team">[]) ?? []) {
+  for (const log of logRows) {
     gameLog.set(log.match_id, { durationMin: log.duration_min, blueTeam: log.blue_team, redTeam: log.red_team });
   }
 
@@ -481,16 +475,18 @@ export interface LeagueMoment {
  * Errors return [] rather than throwing: an environment without the
  * card_moments migration should render an empty wall, not a 500.
  */
-export async function fetchSeasonMoments(supabase: SupabaseClient, season: string): Promise<LeagueMoment[]> {
+async function fetchMoments(supabase: SupabaseClient, season: string, weekStart?: string): Promise<LeagueMoment[]> {
   // select("*") on purpose: opponent/duration_min arrive in a later
   // migration than the table, and naming them here would blank the whole
   // wall on a deploy that beat the migration.
-  const { data, error } = await supabase
+  let query = supabase
     .from("card_moments")
     .select("*")
     .eq("season", season)
     .order("week_start", { ascending: false })
     .order("rarity", { ascending: false });
+  if (weekStart !== undefined) query = query.eq("week_start", weekStart);
+  const { data, error } = await query;
   if (error) return [];
   return ((data as {
     id: number;
@@ -523,6 +519,10 @@ export async function fetchSeasonMoments(supabase: SupabaseClient, season: strin
   }));
 }
 
+export function fetchSeasonMoments(supabase: SupabaseClient, season: string): Promise<LeagueMoment[]> {
+  return fetchMoments(supabase, season);
+}
+
 /** One week's minted moments — the pool a pack bought for that week can
  *  draw from. Empty is the normal case: most weeks mint none that anyone
  *  opens a pack for. */
@@ -531,7 +531,7 @@ export async function fetchWeekMoments(
   season: string,
   weekStart: string,
 ): Promise<LeagueMoment[]> {
-  return (await fetchSeasonMoments(supabase, season)).filter((moment) => moment.weekStart === weekStart);
+  return fetchMoments(supabase, season, weekStart);
 }
 
 export interface RatingHistoryPoint {

@@ -143,7 +143,9 @@ export function selectAutoDust(copies: AutoDustCandidate[], rule: AutoDustRule, 
   const bySlug = new Map<string, AutoDustCandidate[]>();
   for (const copy of copies) {
     const key = keepGroupOf(copy, rule);
-    bySlug.set(key, [...(bySlug.get(key) ?? []), copy]);
+    const group = bySlug.get(key);
+    if (group) group.push(copy);
+    else bySlug.set(key, [copy]);
   }
   const out: number[] = [];
   for (const [key, group] of bySlug) {

@@ -9,130 +9,22 @@ import {
 } from "./formulas";
 import type { ChampionAggRow, PlayerAggRow, TeamAggRow } from "./types";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Legacy source snippets being ported (docs/reference/FPL_Stats_legacy.html)
-// Reproduced verbatim (minus whitespace) for traceability. See formulas.ts
-// doc comments for the exact line ranges each export ports.
-// ─────────────────────────────────────────────────────────────────────────
-//
-// calcMVPScore(p) — lines 1228-1289:
-//   var minG=5;
-//   var sameRole=PD.filter(x=>x.mainRole===p.mainRole&&x.games>=minG);
-//   var allQualified=PD.filter(x=>x.games>=minG);
-//   if(sameRole.length<4)sameRole=allQualified;
-//   function pctile(key,invert){
-//     var sorted=sameRole.slice().sort((a,b)=>a[key]-b[key]);
-//     var idx=sorted.findIndex(x=>x.player===p.player);
-//     if(idx===-1)return 50;
-//     var pc=idx/(sorted.length-1||1)*100;
-//     return invert?100-pc:pc;
-//   }
-//   function normVal(key,val,maxGood,invert){
-//     if(invert) val=maxGood-val;
-//     var n=Math.max(0,Math.min(val/maxGood*100,100));
-//     return invert?n:n;
-//   }
-//   function blendedScore(key,maxGood,invert){
-//     var raw=normVal(key,p[key],maxGood,invert);
-//     var pct=pctile(key,invert);
-//     return raw*0.4+pct*0.6;
-//   }
-//   var weights; switch(p.mainRole){
-//     case'TOP':weights={winRate:25,kda:20,damagePerMin:18,csPerMin:12,killsPerGame:10,visionPerMin:5,deathsPerGame:10};break;
-//     case'JUNGLE':weights={winRate:25,kda:20,damagePerMin:12,killsPerGame:12,assistsPerGame:10,visionPerMin:11,deathsPerGame:10};break;
-//     case'MIDDLE':weights={winRate:25,kda:20,damagePerMin:20,csPerMin:10,killsPerGame:10,visionPerMin:5,deathsPerGame:10};break;
-//     case'BOTTOM':weights={winRate:25,kda:18,damagePerMin:22,csPerMin:12,killsPerGame:10,visionPerMin:3,deathsPerGame:10};break;
-//     case'UTILITY':weights={winRate:25,kda:18,assistsPerGame:18,visionPerMin:20,deathsPerGame:12,killsPerGame:2,damagePerMin:5};break;
-//     default:weights={winRate:25,kda:20,damagePerMin:15,csPerMin:10,killsPerGame:10,visionPerMin:10,deathsPerGame:10};
-//   }
-//   var maxBenchmarks={winRate:100,kda:6,damagePerMin:800,csPerMin:9,killsPerGame:10,deathsPerGame:8,assistsPerGame:12,visionPerMin:2};
-//   var score=0,totalWeight=0;
-//   for(var key in weights){
-//     var invert=(key==='deathsPerGame');
-//     var maxG=maxBenchmarks[key]||100;
-//     score+=blendedScore(key,maxG,invert)*weights[key]/100;
-//     totalWeight+=weights[key];
-//   }
-//   var final=Math.round(score/totalWeight*100);
-//   return Math.max(0,Math.min(100,final));
-//
-// renderMVP() min-games gate — line 1291: `const mg=5;`
-//
-// calcPowerScore(p,all) — lines 1473-1516: identical pctile/normVal shape,
-// but the per-role weights and maxBenchmarks differ (goldPerMin included,
-// no assistsPerGame outside JUNGLE/UTILITY), and it does NOT gate the
-// sameRole cohort on games>=5 (renderPower's PD is pre-filtered by the
-// caller's own min-games <select>, default 5+ — line 803 `id="prMinG"`,
-// `<option value="5" selected>`):
-//   var sameRole=all.filter(x=>x.mainRole===p.mainRole);
-//   if(sameRole.length<4)sameRole=all;
-//   ...
-//   var weights; switch(p.mainRole){
-//     case'TOP':weights={winRate:20,kda:18,damagePerMin:18,csPerMin:14,killsPerGame:10,deathsPerGame:12,goldPerMin:8};break;
-//     case'JUNGLE':weights={winRate:22,kda:18,damagePerMin:12,killsPerGame:12,assistsPerGame:12,visionPerMin:12,deathsPerGame:12};break;
-//     case'MIDDLE':weights={winRate:20,kda:18,damagePerMin:20,csPerMin:12,killsPerGame:10,deathsPerGame:12,goldPerMin:8};break;
-//     case'BOTTOM':weights={winRate:20,kda:16,damagePerMin:22,csPerMin:14,killsPerGame:10,deathsPerGame:12,goldPerMin:6};break;
-//     case'UTILITY':weights={winRate:25,kda:16,assistsPerGame:18,visionPerMin:20,deathsPerGame:14,killsPerGame:4,damagePerMin:3};break;
-//     default:weights={winRate:20,kda:18,damagePerMin:15,csPerMin:10,killsPerGame:10,deathsPerGame:12,visionPerMin:8,goldPerMin:7};
-//   }
-//   var maxBenchmarks={winRate:100,kda:6,damagePerMin:800,csPerMin:9,goldPerMin:450,killsPerGame:10,deathsPerGame:8,assistsPerGame:12,visionPerMin:2};
-//   return +Math.max(0,Math.min(100,score/totalWeight*100)).toFixed(1);
-//
-// aggregate() field basis (lines 890-891) confirms the PlayerAggRow mapping:
-//   winRate -> winrate_pct, kda -> kda, damagePerMin -> avg_dmg_per_min,
-//   csPerMin -> avg_cs_per_min, goldPerMin -> avg_gold_per_min,
-//   killsPerGame -> avg_kills, deathsPerGame -> avg_deaths,
-//   assistsPerGame -> avg_assists, visionPerMin -> avg_vision_per_min.
-//
-// combineSeasonRows: no direct legacy equivalent (the legacy sheet has no
-// season column split the way this dataset does — RAW is one flat sheet
-// and "All seasons" is simply the unfiltered RAW rows re-aggregated by
-// aggregate()). Per Task 2's migration comment and brief Step 2, "all
-// seasons" here is instead a games-weighted client-side merge of the
-// per-season stats_player_agg rows, documented in that migration:
-//   "the client recomputes games-weighted means from the underlying
-//   per-season counts/sums" — sum(games), sum(wins), and for every
-//   avg_*/kda/pct column: weighted mean = sum(value_i * games_i) / sum(games_i),
-//   except kda which (matching the view's own kda formula, see that
-//   migration's header) is recomputed from summed kills/assists/deaths,
-//   not games-weighted-averaged directly — approximated here via
-//   avg_kills/avg_deaths/avg_assists * games, matching the view's own
-//   "kda from sums, not average of per-row kda" principle at the
-//   cross-season level.
-
-// ─────────────────────────────────────────────────────────────────────────
-// NEEDS_CONTEXT note on scoutingProfile — read before editing this section.
-// The legacy dashboard's real "Scouting" derived metrics —
-// getConsistency() (lines 3930-3946, KDA coefficient-of-variation across
-// PER-GAME rows), getFormRating() (lines 3951-3987, last-5-games-vs-prior
-// split by PER-GAME date), the Laning Phase card's CS/Gold/XP diffs at
-// 5/10/15/20 vs the same-match opposing-role opponent (lines 2904-2928,
-// requires per-match_id row grouping), the damage type split (physical/
-// magic/true, lines 2895-2899), and getTeamRelativeStats' team-share
-// calculations (lines 3765-3833, requires per-match team-row grouping) —
-// ALL require per-game raw_stats rows or a same-role cohort. None of these
-// are computable from a single PlayerAggRow (one aggregated row per
-// summoner+season+phase, no per-game sequence, no cohort, no
-// physical/magic/true damage split, no CS/Gold/XP diffs at any timestamp
-// beyond @10 non-diffed averages). Per the task brief's STOP instruction,
-// this is flagged rather than silently approximated: scoutingProfile()
-// below ports ONLY the legacy report's "Core Performance / Damage
-// Profile / Economy / Vision & Map Control" card *values* (lines
-// 2880-2901, 2958-2973) that read directly off the `p` player-agg object
-// or a straightforward colAvg() reconstructible from a summed
-// PlayerAggRow column: p.kda, p.winRate, p.killsPerGame, p.deathsPerGame,
-// p.assistsPerGame, colAvg('Solo Kills') -> avg_solo_kills,
-// colAvg('Kill Participation %') -> avg_kp_pct (lines 2886-2887),
-// p.damagePerMin, p.goldPerMin, p.csPerMin,
-// colAvg('Turret Plates Destroyed') -> total_plates/games (line 2962,
-// one division reconstructing the per-game mean from the view's summed
-// column), p.visionPerMin — all present on, or one division away from,
-// PlayerAggRow. The legacy percentile bars next to each of those
-// (pctOf(key), lines 2839-2844) are cohort-relative and are NOT ported
-// here since scoutingProfile takes a single row with no cohort parameter
-// per the brief's exact signature; ScoutingProfile carries raw values only.
-
 describe("powerRanking", () => {
+  it("preserves stable tied-stat ranks within a four-player role and leaves inputs unchanged", () => {
+    const rows = ["A", "B", "C", "D"].map((tag) => playerRow({
+      summoner_name: "Same", tag, role_mode: "TOP", winrate_pct: 50,
+      kda: 3, avg_dmg_per_min: 400, avg_cs_per_min: 5, avg_gold_per_min: 300,
+      avg_kills: 4, avg_deaths: 3, avg_assists: 6, avg_vision_per_min: 1,
+    }));
+    rows.push(playerRow({ summoner_name: "Other", role_mode: "UTILITY", winrate_pct: 100 }));
+    const original = structuredClone(rows);
+    expect(powerRanking(rows).filter((row) => row.role_mode === "TOP").map(({ tag, score }) => ({ tag, score }))).toEqual([
+      { tag: "D", score: 73.8 }, { tag: "C", score: 58.6 },
+      { tag: "B", score: 43.4 }, { tag: "A", score: 28.2 },
+    ]);
+    expect(rows).toEqual(original);
+  });
+
   it("ranks a synthetic 2-player TOP cohort by hand-computed power score", () => {
     // Synthetic: 2 TOP players, games>=5 each is not required by
     // calcPowerScore itself (only renderPower's caller applies a min-games

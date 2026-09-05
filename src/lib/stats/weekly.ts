@@ -1,11 +1,5 @@
-import { createServerSupabase } from "@/lib/supabase/server";
-import { powerRanking, round1, round2 } from "./formulas";
-import type { PlayerAggRow, RankedPlayer } from "./types";
-
-/** Premier's season code — Academy passes its own (see lib/league/season.ts). */
-const HOMEPAGE_SEASON = "S5" as const;
-
-export type WeeklyStandout = RankedPlayer;
+import { round1, round2 } from "./formulas";
+import type { PlayerAggRow } from "./types";
 
 export type WeeklyRawStatRow = {
   game_date?: string | null;
@@ -88,7 +82,6 @@ export const WEEKLY_STAT_COLUMNS = [
   "xp_at_10",
 ] as const;
 
-const RAW_WEEKLY_COLUMNS = WEEKLY_STAT_COLUMNS.join(",");
 
 function num(value: number | null): number {
   return value ?? 0;
@@ -177,98 +170,4 @@ export function aggregateWeeklyPlayerRows(rows: WeeklyRawStatRow[]): PlayerAggRo
       avg_game_duration: avg(group, (row) => row.game_duration_min),
     };
   });
-}
-
-export function rankWeeklyStandouts(rows: PlayerAggRow[], limit = 5): WeeklyStandout[] {
-  return powerRanking(rows).slice(0, limit);
-}
-
-function latestWeekBounds(gameDate: string): { start: string; end: string } {
-  const latest = new Date(gameDate);
-  const start = new Date(latest);
-  const daysSinceMonday = (start.getUTCDay() + 6) % 7;
-  start.setUTCDate(start.getUTCDate() - daysSinceMonday);
-  start.setUTCHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setUTCDate(end.getUTCDate() + 7);
-
-  return {
-    start: start.toISOString(),
-    end: end.toISOString(),
-  };
-}
-
-function isWithinBounds(row: WeeklyRawStatRow, bounds: { start: string; end: string }): boolean {
-  if (!row.game_date) return false;
-  const time = new Date(row.game_date).getTime();
-  return time >= new Date(bounds.start).getTime() && time < new Date(bounds.end).getTime();
-}
-
-export function rankLatestWeeklyStandoutsFromRows(
-  rows: WeeklyRawStatRow[],
-  limit = 5,
-  season: string = HOMEPAGE_SEASON,
-): WeeklyStandout[] {
-  const seasonRows = rows.filter((row) => row.season === season);
-  const latestGameDate = seasonRows
-    .map((row) => row.game_date)
-    .filter((date): date is string => Boolean(date))
-    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-
-  if (!latestGameDate) {
-    return [];
-  }
-
-  const bounds = latestWeekBounds(latestGameDate);
-  const latestRows = seasonRows.filter((row) => isWithinBounds(row, bounds));
-  return rankWeeklyStandouts(aggregateWeeklyPlayerRows(latestRows), limit);
-}
-
-/**
- * The standout players of the most recent week with games, for one league's
- * homepage. `teamNames` narrows to a league's own teams; omit it for Premier.
- */
-export async function fetchLatestWeeklyStandouts(
-  limit = 5,
-  season: string = HOMEPAGE_SEASON,
-  teamNames?: string[],
-): Promise<WeeklyStandout[]> {
-  if (teamNames && teamNames.length === 0) return [];
-  try {
-    const supabase = await createServerSupabase();
-    let latestQuery = supabase
-      .from("raw_stats")
-      .select("game_date")
-      .eq("season", season)
-      .order("game_date", { ascending: false })
-      .limit(1);
-    if (teamNames?.length) latestQuery = latestQuery.in("team_name", teamNames);
-    const { data: latest, error: latestError } = await latestQuery.maybeSingle();
-
-    if (latestError || !latest?.game_date) {
-      return [];
-    }
-
-    const bounds = latestWeekBounds(String(latest.game_date));
-    let weekQuery = supabase
-      .from("raw_stats")
-      .select(RAW_WEEKLY_COLUMNS)
-      .eq("season", season)
-      .gte("game_date", bounds.start)
-      .lt("game_date", bounds.end);
-    if (teamNames?.length) weekQuery = weekQuery.in("team_name", teamNames);
-    const { data, error } = await weekQuery;
-
-    if (error) {
-      return [];
-    }
-
-    return rankWeeklyStandouts(
-      aggregateWeeklyPlayerRows(((data ?? []) as unknown) as WeeklyRawStatRow[]),
-      limit,
-    );
-  } catch {
-    return [];
-  }
 }

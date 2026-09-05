@@ -8,7 +8,6 @@ const {
   fetchHomepageStandings,
   fetchHomepageTwitch,
   fetchHomepageFeaturedSettings,
-  fetchLatestWeeklyStandouts,
   fetchTeamIdentities,
 } = vi.hoisted(() => ({
   fetchHomepageAwards: vi.fn(),
@@ -16,7 +15,6 @@ const {
   fetchHomepageStandings: vi.fn(),
   fetchHomepageTwitch: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
-  fetchLatestWeeklyStandouts: vi.fn(),
   fetchTeamIdentities: vi.fn(),
 }));
 
@@ -67,7 +65,6 @@ function resetMocks() {
     individualAwards: [],
     teamAwards: [],
   });
-  fetchLatestWeeklyStandouts.mockResolvedValue([]);
   fetchHomepageFeaturedSettings.mockResolvedValue({
     fixtureId: null,
     title: null,
@@ -104,9 +101,7 @@ vi.mock("@/lib/home/awards", () => ({
   PREMIER_SEASON: "S5",
 }));
 
-vi.mock("@/lib/stats/weekly", () => ({
-  fetchLatestWeeklyStandouts,
-}));
+
 
 expect.extend({
   toHaveClass(received: Element | null | undefined, ...classNames: string[]) {

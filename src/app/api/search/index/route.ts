@@ -1,3 +1,4 @@
+import { fetchAllPages } from "@/lib/supabase/pagination";
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { teamSlug } from "@/lib/teams/teamPage";
@@ -12,8 +13,10 @@ import type { SearchItem } from "@/lib/site/search";
  */
 export async function GET() {
   const supabase = await createServerSupabase();
-  const [{ data: identities }, { data: settings }] = await Promise.all([
-    supabase.from("stats_player_agg").select("summoner_name, tag"),
+  const [identities, { data: settings }] = await Promise.all([
+    fetchAllPages<{ summoner_name: string; tag: string }>((from, to) => supabase.from("stats_player_agg")
+      .select("summoner_name, tag").order("summoner_name").order("tag").order("season").order("season_phase")
+      .range(from, to)),
     supabase.from("league_settings").select("featured_draft_id, academy_draft_id").eq("id", 1).single(),
   ]);
 
@@ -39,11 +42,15 @@ export async function GET() {
     ["premier", settings?.featured_draft_id ?? null],
     ["academy", settings?.academy_draft_id ?? null],
   ] as const;
+  const ids = [...new Set(draftIds.flatMap(([, id]) => id ? [id] : []))];
+  const { data: teamRows } = ids.length
+    ? await supabase.from("teams").select("name, draft_id").in("draft_id", ids)
+    : { data: [] };
   const teams: SearchItem[] = [];
   for (const [league, draftId] of draftIds) {
     if (!draftId) continue;
-    const { data } = await supabase.from("teams").select("name").eq("draft_id", draftId);
-    for (const row of (data ?? []) as { name: string }[]) {
+    for (const row of (teamRows ?? []) as { name: string; draft_id: string }[]) {
+      if (row.draft_id !== draftId) continue;
       teams.push({
         kind: "team",
         label: row.name,

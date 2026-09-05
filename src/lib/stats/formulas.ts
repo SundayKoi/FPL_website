@@ -7,32 +7,7 @@ import type {
   TeamAggRow,
 } from "./types";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Legacy source: docs/reference/FPL_Stats_legacy.html
-//
-// Its `aggregate()` (lines 885-892) builds the per-player object (`p`)
-// that every formula below reads from. Field-name mapping to PlayerAggRow
-// (this module's input shape), confirmed against that function's
-// property list (line 891):
-//
-//   legacy `p.*`        PlayerAggRow column
-//   -------------------  -------------------
-//   winRate           -> winrate_pct
-//   kda               -> kda
-//   damagePerMin      -> avg_dmg_per_min
-//   csPerMin          -> avg_cs_per_min
-//   goldPerMin        -> avg_gold_per_min
-//   killsPerGame      -> avg_kills
-//   deathsPerGame     -> avg_deaths
-//   assistsPerGame    -> avg_assists
-//   visionPerMin      -> avg_vision_per_min
-//   mainRole          -> role_mode
-//   player            -> summoner_name
-//   games             -> games
-//
-// All fields both formulas need are present on the view (Task 2), so no
-// NEEDS_CONTEXT gap exists for Power Rankings or MVP.
-// ─────────────────────────────────────────────────────────────────────────
+// Scoring weights and benchmarks follow docs/reference/FPL_Stats_legacy.html.
 
 /** A stat key on PlayerAggRow usable in the blended percentile+normalized scoring. */
 type ScoreKey = "winrate_pct" | "kda" | "avg_dmg_per_min" | "avg_cs_per_min"
@@ -40,10 +15,6 @@ type ScoreKey = "winrate_pct" | "kda" | "avg_dmg_per_min" | "avg_cs_per_min"
 
 type Weights = Partial<Record<ScoreKey, number>>;
 
-// maxBenchmarks — from calcPowerScore (line 1504-1507); calcMVPScore's
-// table (line 1275-1278) was byte-identical minus goldPerMin:450, but the
-// MVP tab was folded into Power Rankings (see StatsTabs.tsx), so only
-// powerRanking reads this now.
 const MAX_BENCHMARKS: Record<ScoreKey, number> = {
   winrate_pct: 100,
   kda: 6,
@@ -56,69 +27,37 @@ const MAX_BENCHMARKS: Record<ScoreKey, number> = {
   avg_vision_per_min: 2,
 };
 
-/**
- * Percentile of `row` within `cohort` for `key`, ascending sort (worst=0,
- * best≈100), inverted for "lower is better" keys (deaths).
- * Ports calcMVPScore's / calcPowerScore's `pctile()` (lines 1239-1245 /
- * 1480-1486) — byte-identical in both. `findIndex` matches on
- * `summoner_name` in the legacy sheet (legacy matches on `player`, which
- * carries no tag disambiguation there); this repo's data has 6 real
- * shared-summoner_name pairs across distinct tags (different real
- * players, e.g. Aura#5950 vs Aura#RGB0 — see stats_records' `tag` column
- * fix), so matching on `summoner_name` alone can find the WRONG row's
- * index when two same-named players are both in `cohort`. Matched on
- * `${summoner_name}#${tag}` instead — unique per real player, behavior
- * otherwise unchanged (still first-matching-index, ties not deduplicated).
- */
-function pctile(cohort: PlayerAggRow[], row: PlayerAggRow, key: ScoreKey, invert: boolean): number {
-  const sorted = [...cohort].sort((a, b) => a[key] - b[key]);
-  const rowKey = `${row.summoner_name}#${row.tag}`;
-  const idx = sorted.findIndex((x) => `${x.summoner_name}#${x.tag}` === rowKey);
-  if (idx === -1) return 50;
-  const pc = (idx / (sorted.length - 1 || 1)) * 100;
-  return invert ? 100 - pc : pc;
+type Percentiles = Map<ScoreKey, Map<string, number>>;
+
+/** Sort each stat once per cohort, retaining stable ties and the first
+ * matching name+tag when duplicate identities occur in the input. */
+function percentileIndex(cohort: PlayerAggRow[]): Percentiles {
+  const result: Percentiles = new Map();
+  for (const key of Object.keys(MAX_BENCHMARKS) as ScoreKey[]) {
+    const sorted = [...cohort].sort((a, b) => a[key] - b[key]);
+    const ranks = new Map<string, number>();
+    sorted.forEach((row, index) => {
+      const identity = `${row.summoner_name}#${row.tag}`;
+      if (!ranks.has(identity)) ranks.set(identity, (index / (sorted.length - 1 || 1)) * 100);
+    });
+    result.set(key, ranks);
+  }
+  return result;
 }
 
-/**
- * Normalizes `val` onto a 0-100 scale against `maxGood` (the "perfect"
- * benchmark), clamped. Ports `normVal()` — calcMVPScore lines 1249-1253,
- * calcPowerScore lines 1487-1490 (calcMVPScore's version has a redundant
- * `invert?n:n` branch that always returns `n`; both are equivalent to
- * this single clamp).
- */
-function normVal(val: number, maxGood: number, invert: boolean): number {
-  const v = invert ? maxGood - val : val;
-  return Math.max(0, Math.min((v / maxGood) * 100, 100));
-}
-
-/**
- * Blend: 40% raw normalized value + 60% role-cohort percentile. Ports
- * `blendedScore()`/`blended()` (calcMVPScore lines 1257-1261,
- * calcPowerScore lines 1491-1493) — identical 0.4/0.6 split in both.
- */
-function blended(cohort: PlayerAggRow[], row: PlayerAggRow, key: ScoreKey, invert: boolean): number {
-  const maxGood = MAX_BENCHMARKS[key];
-  const raw = normVal(row[key], maxGood, invert);
-  const pct = pctile(cohort, row, key, invert);
-  return raw * 0.4 + pct * 0.6;
-}
-
-/** deathsPerGame (avg_deaths) is the only inverted key in both weight tables (lower is better). */
-function isInverted(key: ScoreKey): boolean {
-  return key === "avg_deaths";
-}
-
-/**
- * Weighted composite score over `weights`, gated per-key by `blended()`:
- * `sum(blended*weight)/100 / totalWeight*100`, before powerRanking's final
- * rounding/clamp step (0-100, 1 decimal). The retired mvpScores shared this
- * until the MVP tab was folded into Power Rankings — see StatsTabs.tsx.
- */
-function weightedScore(cohort: PlayerAggRow[], row: PlayerAggRow, weights: Weights): number {
+/** Blend 40% benchmark-normalized value with 60% cohort percentile. */
+function weightedScore(percentiles: Percentiles, row: PlayerAggRow, weights: Weights): number {
+  const identity = `${row.summoner_name}#${row.tag}`;
   let score = 0;
   let totalWeight = 0;
   for (const [key, weight] of Object.entries(weights) as [ScoreKey, number][]) {
-    score += (blended(cohort, row, key, isInverted(key)) * weight) / 100;
+    const invert = key === "avg_deaths";
+    const benchmark = MAX_BENCHMARKS[key];
+    const value = invert ? benchmark - row[key] : row[key];
+    const normalized = Math.max(0, Math.min((value / benchmark) * 100, 100));
+    const rank = percentiles.get(key)!.get(identity) ?? 50;
+    const percentile = invert ? 100 - rank : rank;
+    score += ((normalized * 0.4 + percentile * 0.6) * weight) / 100;
     totalWeight += weight;
   }
   return (score / totalWeight) * 100;
@@ -136,41 +75,27 @@ const POWER_WEIGHTS_DEFAULT: Weights = {
   winrate_pct: 20, kda: 18, avg_dmg_per_min: 15, avg_cs_per_min: 10, avg_kills: 10, avg_deaths: 12, avg_vision_per_min: 8, avg_gold_per_min: 7,
 };
 
-/**
- * Same-role cohort with a >=4-member fallback to the full roster. Ports
- * calcPowerScore's `sameRole` (lines 1478-1479): powerRanking passes
- * `minGames: null` since its caller renderPower already pre-filters `all`
- * by the page's own min-games <select>. The `minGames` gate existed for
- * calcMVPScore's `sameRole` (lines 1234-1236, `games>=minG` with minG=5
- * inline) — retired along with mvpScores when the MVP tab was folded into
- * Power Rankings.
- */
-function sameRoleCohort(cohort: PlayerAggRow[], row: PlayerAggRow, minGames: number | null): PlayerAggRow[] {
-  const base = minGames === null ? cohort : cohort.filter((r) => r.games >= minGames);
-  let sameRole = base.filter((r) => r.role_mode === row.role_mode);
-  if (sameRole.length < 4) sameRole = base;
-  return sameRole;
-}
-
-/**
- * Power Rankings. Ports `calcPowerScore(p, all)` (lines 1473-1516) +
- * `renderPower`'s sort/rank (line 1517: `el.sort((a,b)=>b.powerScore-a.powerScore)`).
- *
- * Does NOT apply renderPower's `prMinG` filter (default 5+, line 803
- * `<option value="5" selected>`) — that is a page-level UI control, not
- * part of the formula; callers pass the already-filtered rows they want
- * ranked, matching how `calcPowerScore(p, all)` is called with `all`
- * already pre-filtered by `renderPower`'s own `el=PD.filter(p=>p.games>=mg)`
- * (line 1517) before `el.forEach(p=>p.powerScore=calcPowerScore(p,el))`.
- *
- * Rounding: `+(...).toFixed(1)` (line 1515) -> 1 decimal place, clamped to
- * [0, 100].
- */
+/** Rank caller-filtered rows against their role when it has at least four
+ * players, otherwise against the full roster. Scores are clamped to 0–100
+ * and rounded to one decimal. Min-games filtering belongs to the caller. */
 export function powerRanking(rows: PlayerAggRow[]): RankedPlayer[] {
+  const roles = new Map<string, PlayerAggRow[]>();
+  for (const row of rows) {
+    const group = roles.get(row.role_mode);
+    if (group) group.push(row);
+    else roles.set(row.role_mode, [row]);
+  }
+  const indexes = new Map<PlayerAggRow[], Percentiles>();
   const ranked: RankedPlayer[] = rows.map((row) => {
-    const cohort = sameRoleCohort(rows, row, null);
+    const role = roles.get(row.role_mode)!;
+    const cohort = role.length >= 4 ? role : rows;
+    let percentiles = indexes.get(cohort);
+    if (!percentiles) {
+      percentiles = percentileIndex(cohort);
+      indexes.set(cohort, percentiles);
+    }
     const weights = POWER_WEIGHTS[row.role_mode] ?? POWER_WEIGHTS_DEFAULT;
-    const raw = weightedScore(cohort, row, weights);
+    const raw = weightedScore(percentiles, row, weights);
     const score = Number(Math.max(0, Math.min(100, raw)).toFixed(1));
     return { ...row, score };
   });
@@ -405,35 +330,8 @@ export function combineChampionRows(rows: ChampionAggRow[], seasonLabel?: string
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// scoutingProfile — SEE the NEEDS_CONTEXT note in formulas.test.ts above
-// this export's tests for the full rationale. Summary: the legacy
-// dashboard's real scouting-specific derived metrics — getConsistency()
-// (lines 3930-3946), getFormRating() (lines 3951-3987), the Laning Phase
-// diffs (lines 2904-2928), the damage type split (lines 2895-2899), and
-// getTeamRelativeStats() (lines 3765-3833) — all require either per-game
-// raw_stats rows or a same-role cohort, neither of which this function's
-// signature (`row: PlayerAggRow`, a single pre-aggregated row) provides.
-// Porting them here would mean either silently approximating with the
-// wrong inputs or changing the exported signature the brief specifies
-// (Task 4-7 import this exact shape) — so instead this ports only the
-// subset of the legacy Scouting report genuinely computable from one
-// PlayerAggRow: the raw (non-percentile) values shown in the "Core
-// Performance" (lines 2880-2888, all 7 rows: KDA, Win Rate, Kills/Game,
-// Deaths/Game, Assists/Game, Solo Kills/Game, Kill Participation),
-// "Damage Profile" (lines 2890-2892, 2900 — DMG/Min and DMG Taken/Min
-// only; the physical/magic/true split and DMG Per Gold on lines
-// 2893-2899 need raw_stats columns the view doesn't expose), "Economy"
-// (lines 2958-2962 — Gold/Min, CS/Min, and Turret Plates; Gold Share on
-// line 2961 and Bounty Gold on line 2963 need columns the view doesn't
-// expose), and "Vision & Map Control" (line 2968 — Vision/Min only) cards.
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Single-row scouting summary: the legacy Scouting report's raw
- * (non-percentile, non-per-game) stat lines. See the block comment above
- * for exactly which legacy card rows are and are not ported, and why.
- */
+/** Raw scouting summary from aggregate stats. Form, consistency, matchup
+ * differences and damage-type splits require per-game data and are omitted. */
 export function scoutingProfile(row: PlayerAggRow): ScoutingProfile {
   const line = (label: string, value: number, fmt: ScoutingStatLine["fmt"]): ScoutingStatLine => ({ label, value, fmt });
 
