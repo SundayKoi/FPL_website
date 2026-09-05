@@ -3,13 +3,16 @@ import "server-only";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchInventoryByIds } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
+import { fetchEditionCards } from "@/lib/cards/queries";
 import { GOLD, LIVE_RED, postCardsWebhook } from "@/lib/packs/announce";
 import { patronActive } from "@/lib/patron/flames";
 import {
+  ECHO_CHANCE,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
   MERCHANT_DOLLARS,
   SQUAD_SIZE,
+  SURGE_BONUS,
   ransomFor,
   rollOutcome,
   squadMeets,
@@ -18,7 +21,8 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { fetchPolicyUsed, fetchStrangersHolds, mapRun, type ExpeditionRun } from "./queries";
+import { fetchFixturesSince, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
+import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import {
   choiceAllowed,
@@ -43,6 +47,8 @@ import {
 // the seam: it reads the copies, applies the gates the UI also applies,
 // rolls the outcome on a CSPRNG, and hands the result to the RPC that
 // writes it once.
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type LaunchResult =
   | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean }
@@ -70,6 +76,10 @@ export type ClaimResult =
        *  card carried home for a bounty. */
       merchant: number;
       stranded: { holdId: number; bounty: number } | null;
+      /** The teams that played on the launch day and surged the payout. */
+      surge: string[];
+      /** A moment's echo: the copy the route dropped, already on the shelf. */
+      echo: { inventoryId: number; slug: string; playerName: string; moment: number } | null;
     }
   | { ok: false; error: string };
 
@@ -388,15 +398,38 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // dollars; the stranded card is another collector's open hold, the
   // oldest one, released by the RPC with a bounty — and only if one exists
   // when the squad gets home, or the journal's line stays a story.
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks });
+  // Nothing below applies to a squad that launched before the trail
+  // existed (hasTrail): it pays and comes home exactly as it set out.
+  const trail = hasTrail(run);
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules });
   const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
     const [hold] = await fetchStrangersHolds(service, discordId);
     if (hold) stranded = { holdId: hold.holdId, bounty: STRANDED_BOUNTY };
   }
-  const dollars = Math.round(base.dollars * route.lootMultiplier) + merchant;
+  // Match day: the fixtures of the LAUNCH day, on the same Eastern
+  // calendar as the brief — a squad keeps the surge it left with. Read
+  // from a day before the launch so a fixture at midnight UTC (8pm
+  // Eastern the evening before) is in the window.
+  const fixtures = trail ? await fetchFixturesSince(service, new Date(Date.parse(run.startedAt) - DAY_MS).toISOString()) : [];
+  const surge = surgeTeams(copies, teamsPlayingOn(fixtures, dateIso));
+  const dollars = Math.round(base.dollars * route.lootMultiplier * (surge.length > 0 ? 1 + SURGE_BONUS : 1)) + merchant;
   const outcome: ExpeditionOutcome = { ...base, dollars };
+  // The echo: each moment on the squad rolls once, after everything else
+  // so the scripted draws above are undisturbed on a squad without one.
+  // The copy comes from the archived edition of the moment's week; a week
+  // that was never archived has nothing to echo, and the roll is lost.
+  let echo: { slug: string; week: string; moment: number; playerName: string } | null = null;
+  for (const copy of trail ? copies : []) {
+    const moment = copy.card?.moment;
+    if (!moment || echo) continue;
+    if (expeditionRand() >= ECHO_CHANCE) continue;
+    const pool = echoPool(moment, await fetchEditionCards(service, copy.season, moment.weekStart));
+    if (pool.length === 0) continue;
+    const pick = pool[Math.min(pool.length - 1, Math.floor(expeditionRand() * pool.length))];
+    echo = { slug: pick.slug, week: moment.weekStart, moment: copy.id, playerName: pick.name };
+  }
   // A dead card cannot wear the mark.
   const dead = new Set(route.fates.filter((fate) => fate.fate === "dead").map((fate) => fate.id));
   const bearer = bearerId !== null && dead.has(bearerId) ? null : bearerId;
@@ -427,7 +460,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       rescued: route.rescued,
       cleansed: route.cleansed,
       merchant,
+      surge,
       ...(stranded ? { stranded: stranded.holdId, bounty: stranded.bounty } : {}),
+      ...(echo ? { echo: { slug: echo.slug, week: echo.week, moment: echo.moment } } : {}),
     },
   });
   if (claimError) {
@@ -437,7 +472,7 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     console.error("expeditions: claim rejected", { discordId, runId, message: claimError.message });
     return { ok: false, error: friendlyExpeditionError(claimError.message) };
   }
-  const row = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number; fragments: number } | null;
+  const row = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number; fragments: number; echo_id?: number | null } | null;
 
   // The news, best effort and AFTER the write: the dollars and the stamps
   // are already committed, and a Discord outage must never fail a claim
@@ -457,11 +492,25 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     }
   }
 
+  if (echo && row?.echo_id) {
+    try {
+      await postCardsWebhook({
+        title: "A moment echoed",
+        description: `<@${discordId}>'s squad carried a moment out on the ${EXPEDITION_TIERS[tier].label}, and it echoed: a copy of ${echo.playerName} from that game came home with them.`,
+        color: GOLD,
+      });
+    } catch (announceError) {
+      console.error("expeditions: echo announcement failed", announceError);
+    }
+  }
+
   return {
     ok: true,
     outcome,
     route,
     bearerId: bearer,
+    surge,
+    echo: echo && row?.echo_id ? { inventoryId: Number(row.echo_id), slug: echo.slug, playerName: echo.playerName, moment: echo.moment } : null,
     balance: Number(row?.balance ?? 0),
     fragments: Number(row?.fragments ?? 0),
     baseDollars: base.dollars,
@@ -554,7 +603,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
 
   const { data, error } = await service
     .from("expedition_runs")
-    .select("id, discord_id, tier, squad, forks, choices, started_at, resolves_at, pinged, encounters")
+    .select("id, discord_id, tier, squad, forks, choices, started_at, resolves_at, pinged, encounters, rules")
     .is("claimed_at", null)
     .gt("forks", 0)
     .limit(200);
@@ -574,13 +623,14 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     resolves_at: string;
     pinged: number;
     encounters: { key: string; leg: number }[] | null;
+    rules: number | null;
   }[]) ?? []) {
     const tier = row.tier as ExpeditionTierKey;
     let resolvesAt = row.resolves_at;
     // A storm whose hour has come holds the squad: the run's end moves out
     // (and every fork after it), once per storm.
     const applied = new Set((row.encounters ?? []).filter((entry) => entry.key === "storm").map((entry) => entry.leg));
-    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks })) {
+    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1) })) {
       if (storm.key !== "storm" || applied.has(storm.leg) || storm.at.getTime() > now.getTime()) continue;
       const { data: delayed, error: delayError } = await service.rpc("delay_expedition", { p_run: row.id, p_leg: storm.leg, p_hours: STORM_HOURS });
       if (delayError) {
@@ -601,7 +651,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
     const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks }, squad, now);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1) }, squad, now);
     try {
       await postCardsWebhook(
         {

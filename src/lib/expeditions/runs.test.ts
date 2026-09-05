@@ -96,6 +96,10 @@ function createService(respond: Respond) {
         call.filters[`${column}>`] = value;
         return builder;
       },
+      gte: (column: string, value: unknown) => {
+        call.filters[`${column}>=`] = value;
+        return builder;
+      },
       neq: (column: string, value: unknown) => {
         call.filters[`${column}!=`] = value;
         return builder;
@@ -155,6 +159,7 @@ interface RunSpec {
   forks?: number;
   choices?: { index: number; choice: string; at: string }[];
   pinged?: number;
+  rules?: number;
 }
 
 function runRow(spec: RunSpec = {}) {
@@ -178,6 +183,7 @@ function runRow(spec: RunSpec = {}) {
     fee: 0,
     encounters: [],
     pinged: spec.pinged ?? 0,
+    rules: spec.rules ?? 2,
   };
 }
 
@@ -188,6 +194,10 @@ function createBoard(
     run?: ReturnType<typeof runRow> | null;
     copiesError?: unknown;
     runError?: unknown;
+    /** The league calendar, as the fixtures table hands it over. */
+    fixtures?: { team_a: string | null; team_b: string | null; scheduled_at: string | null }[];
+    /** The archived edition a moment's echo mints from. */
+    editions?: { card: PlayerCardData }[];
   } = {},
 ) {
   const service = createService((call) => {
@@ -200,6 +210,8 @@ function createBoard(
       if (opts.runError) return { data: null, error: opts.runError };
       return { data: opts.run ?? null };
     }
+    if (call.table === "fixtures") return { data: opts.fixtures ?? [] };
+    if (call.table === "card_editions") return { data: opts.editions ?? [] };
     return { data: null };
   });
   createBettingServiceClient.mockReturnValue(service.client);
@@ -780,5 +792,133 @@ describe("sweepExpeditions", () => {
     );
     const update = service.calls.find((call) => call.verb === "update");
     expect(update).toMatchObject({ table: "expedition_runs", payload: { pinged: 1 }, filters: { id: 1 } });
+  });
+});
+
+describe("claimExpeditionFor — match day and the echo", () => {
+  /** The run's launch day is the 27th (Eastern); a fixture that evening is
+   *  midnight UTC on the 28th, which is exactly the day-boundary trap the
+   *  surge reads on the Eastern calendar to avoid. */
+  const MATCH_NIGHT = [{ team_a: "Solari Sun", team_b: "Lunar Tide", scheduled_at: "2026-08-28T00:00:00.000Z" }];
+
+  it("surges the payout by 20% when a squad card's team plays on the launch day, and records the team", async () => {
+    const copies = [
+      { ...copyRow({ id: 1 }), card: { slug: "doug-1", name: "Doug 1", teamName: "solari sun" } as unknown as PlayerCardData },
+      copyRow({ id: 2 }),
+      copyRow({ id: 3 }),
+    ];
+    const board = createBoard({ copies, run: runRow(), fixtures: MATCH_NIGHT });
+    board.rpc.mockResolvedValue({ data: [{ balance: 500, fragments: 0, echo_id: null }], error: null });
+    // The same scouting roll the test below makes pays 127 without a
+    // fixture; x1.2 = 152.4, rounded. No merchant: a run with no forks
+    // carries no encounters.
+    scriptRand(0.5, 0.9, 0.9);
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, surge: ["Solari Sun"], echo: null, outcome: { dollars: 152 } });
+    expect(board.rpc).toHaveBeenCalledWith(
+      "resolve_expedition",
+      expect.objectContaining({ p_outcome: expect.objectContaining({ dollars: 152, surge: ["Solari Sun"] }) }),
+    );
+    // The calendar is read from a day before the launch, so an evening
+    // fixture that is already the next day in UTC is inside the window.
+    expect(board.calls.find((call) => call.table === "fixtures")?.filters["scheduled_at>="]).toBe("2026-08-26T18:00:00.000Z");
+  });
+
+  it("does not surge a squad whose teams are not on the card that night", async () => {
+    const board = createBoard({ copies: scoutSquad, run: runRow(), fixtures: MATCH_NIGHT });
+    board.rpc.mockResolvedValue({ data: [{ balance: 500, fragments: 0 }], error: null });
+    scriptRand(0.5, 0.9, 0.9);
+
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ ok: true, surge: [], outcome: { dollars: 127 } });
+  });
+
+  it("lets a moment echo a copy of a card from its game, and names the minted copy", async () => {
+    const moment = {
+      ...copyRow({ id: 3, tier: "moment" }),
+      card: {
+        slug: "moment-7", name: "Doug 1",
+        moment: { id: 7, weekStart: "2026-08-17", teamName: "Solari Sun", opponent: "Lunar Tide", playerSlug: "doug-1" },
+      } as unknown as PlayerCardData,
+    };
+    const editions = [
+      { card: { slug: "sun-top", name: "Sun Top", teamName: "Solari Sun" } as unknown as PlayerCardData },
+      { card: { slug: "tide-mid", name: "Tide Mid", teamName: "Lunar Tide" } as unknown as PlayerCardData },
+      { card: { slug: "owl-bot", name: "Owl Bot", teamName: "Night Owls" } as unknown as PlayerCardData },
+    ];
+    const board = createBoard({ copies: [copyRow({ id: 1 }), copyRow({ id: 2 }), moment], run: runRow(), editions });
+    board.rpc.mockResolvedValue({ data: [{ balance: 500, fragments: 0, echo_id: 777 }], error: null });
+    // Every draw reads 0.1: whatever the base roll consumes, the echo's
+    // own roll is under 0.15 and the pick lands on the first of the two
+    // cards that were in the game — the owl was never in it.
+    scriptRand();
+    randomBytes.mockReturnValue(randBuffer(0.1));
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, echo: { inventoryId: 777, slug: "sun-top", playerName: "Sun Top", moment: 3 } });
+    expect(board.rpc).toHaveBeenCalledWith(
+      "resolve_expedition",
+      expect.objectContaining({ p_outcome: expect.objectContaining({ echo: { slug: "sun-top", week: "2026-08-17", moment: 3 } }) }),
+    );
+    expect(board.calls.find((call) => call.table === "card_editions")?.filters).toMatchObject({ season: "s4", edition_week: "2026-08-17" });
+    expect(postCardsWebhook).toHaveBeenCalledWith(expect.objectContaining({ title: "A moment echoed" }));
+  });
+
+  it("keeps the echo a story when the roll misses or the week was never archived", async () => {
+    const moment = {
+      ...copyRow({ id: 3, tier: "moment" }),
+      card: { slug: "moment-7", name: "Doug 1", moment: { id: 7, weekStart: "2026-08-17", teamName: "Solari Sun" } } as unknown as PlayerCardData,
+    };
+    const board = createBoard({ copies: [copyRow({ id: 1 }), copyRow({ id: 2 }), moment], run: runRow(), editions: [] });
+    board.rpc.mockResolvedValue({ data: [{ balance: 500, fragments: 0, echo_id: null }], error: null });
+    scriptRand();
+    randomBytes.mockReturnValue(randBuffer(0.1));
+
+    expect(await claimExpeditionFor("42", 9)).toMatchObject({ ok: true, echo: null });
+    const sent = (board.rpc.mock.calls[0] as unknown[])[1] as { p_outcome: Record<string, unknown> };
+    expect(sent.p_outcome).not.toHaveProperty("echo");
+  });
+});
+
+describe("the rulebook a run launched under", () => {
+  it("meets nothing on the trail and takes no surge on a run stamped before the trail existed", async () => {
+    // Run 9 as a raid carries a seeded merchant under the trail rules (see
+    // "multiplies the base by what the forks earned"); stamped 1, the same
+    // run pays its base and nothing more, and the calendar is never read.
+    const copies = [
+      { ...copyRow({ id: 1 }), card: { slug: "doug-1", name: "Doug 1", teamName: "Solari Sun" } as unknown as PlayerCardData },
+      copyRow({ id: 2 }),
+      copyRow({ id: 3 }),
+    ];
+    const board = createBoard({
+      copies,
+      run: runRow({ tier: "raid", shine: 12, forks: 2, rules: 1 }),
+      fixtures: [{ team_a: "Solari Sun", team_b: "Lunar Tide", scheduled_at: "2026-08-28T00:00:00.000Z" }],
+    });
+    board.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    scriptRand(0.5, 0.9, 0.5);
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, merchant: 0, stranded: null, surge: [], echo: null, outcome: { dollars: 260 } });
+    expect(board.calls.some((call) => call.table === "fixtures")).toBe(false);
+  });
+
+  it("never storms a run stamped before the trail existed", async () => {
+    // Runs 1 and 2 carry seeded storms under the trail rules (see the
+    // sweep test); stamped 1, the sweep leaves their clocks alone.
+    const rows = [1, 2].map((id) =>
+      runRow({ id, tier: "raid", forks: 2, startedAt: "2026-08-27T18:00:00.000Z", resolvesAt: "2026-08-28T18:00:00.000Z", rules: 1 }),
+    );
+    const service = createService((call) => (call.table === "expedition_runs" ? { data: rows } : { data: [] }));
+    service.rpc.mockResolvedValue({ data: 0, error: null });
+    createBettingServiceClient.mockReturnValue(service.client);
+
+    const result = await sweepExpeditions(new Date("2026-08-28T12:00:00.000Z"));
+
+    expect(result.storms).toBe(0);
+    expect(service.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
   });
 });

@@ -8,8 +8,11 @@
 import { fmtPoints } from "@/lib/betting/format";
 import { MUTATIONS } from "@/lib/cards/mutations";
 import {
+  ECHO_CHANCE,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
+  MERCHANT_DOLLARS,
+  SURGE_BONUS,
   LOST_DAYS,
   RANSOM_BASE,
   RANSOM_PER_SHINE,
@@ -20,6 +23,7 @@ import {
   type RouteRisk,
 } from "@/lib/expeditions/config";
 import { CURSED_AGAIN_LOST, DEAD_NEEDS_PUSHES, FORKS, FRAGMENT_CHANCE } from "@/lib/expeditions/routes";
+import { ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -199,6 +203,55 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             purple counter above the brief) and never expire. <strong className="text-white">{EXPEDITION_TIERS.legendary.fragments} fragments</strong> are
             spent to open one Legendary route; the route itself never drops one.
           </p>
+        </div>
+        <div data-testid="rule-trail" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+          <h4 className="text-sm font-bold text-white">On the trail — what happens between the forks</h4>
+          <p>
+            Every run draws its route as a map with the squad moving along it, and keeps a journal that fills in as
+            the hours pass. Between checkpoints, each leg has a {pct(ENCOUNTER_CHANCE)} chance of an encounter. None
+            of them asks you anything:
+          </p>
+          <ul className="flex flex-col gap-1 pl-4 [list-style:disc]">
+            <li>
+              <strong className="text-white">A merchant</strong> pays a flat {fmtPoints(MERCHANT_DOLLARS)} on top of whatever the run
+              brings home.
+            </li>
+            <li>
+              <strong className="text-white">A storm</strong> holds the squad up {STORM_HOURS} hours. The clock on the run moves with
+              it, and so does every fork after it.
+            </li>
+            <li>
+              <strong className="text-white">A stranded card</strong> — only on a route that can lose one. The squad finds another
+              collector&apos;s lost card and carries it home: they get it back wounded, you are paid a{" "}
+              {fmtPoints(STRANDED_BOUNTY)} bounty by the house. Your own lost cards never come home this way.
+            </li>
+          </ul>
+          <p>
+            At each fork one of the squad has a word to say — a teammate vouching, a signed card offering the
+            favour, a foil at a dark fork. It is colour, not a hint: the odds on the buttons are the truth.{" "}
+            <strong className="text-white">A squad already in the field when a rule changes keeps the rules it left with.</strong>
+          </p>
+        </div>
+        <div
+          data-testid="rule-matchday"
+          className="grid gap-3 rounded-lg border border-mint/40 bg-mint/5 p-3 text-sm text-steel sm:grid-cols-2"
+        >
+          <div className="flex flex-col gap-1">
+            <h4 className="text-sm font-bold text-mint">Match day</h4>
+            <p>
+              On a day a team plays, its cards bring home <strong className="text-white">{pct(SURGE_BONUS)} more</strong> from any
+              run — one card of theirs on the squad is enough, and it stacks with the brief and the forks. Scored
+              against the day you launch, like the brief; the banner above says who is on tonight.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <h4 className="text-sm font-bold text-gold">The echo</h4>
+            <p>
+              A <strong className="text-white">moment</strong> carried on a run has a {pct(ECHO_CHANCE)} chance to echo: the route drops
+              a copy of a card from the game that moment happened in, either side, from that week&apos;s edition.
+              A moment is never at risk out there — this is what it is for.
+            </p>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {MUTATIONS.map((mutation) => (

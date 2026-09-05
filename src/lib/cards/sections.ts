@@ -89,6 +89,7 @@ export function cardsSections(base: string): CardsSection[] {
               },
             ]),
         { label: "Expeditions", href: `${base}/expeditions`, blurb: "Send three cards out; they come back changed" },
+        { label: "The ledger", href: `${base}/expeditions/ledger`, blurb: "Every card lost, found and buried, league-wide" },
         { label: "Weekly Draw", href: `${base}/draw`, blurb: "Every copy is a ticket; one wins every week" },
         { label: "Pack stats", href: `${base}/stats`, blurb: "What the league has opened and pulled" },
       ],

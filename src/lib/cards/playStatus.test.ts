@@ -21,6 +21,7 @@ function run(overrides: Partial<ExpeditionRun>): ExpeditionRun {
     target: null,
     fee: 0,
     encounters: [],
+    rules: 2,
     ...overrides,
   } as ExpeditionRun;
 }
@@ -55,6 +56,8 @@ describe("playStatuses", () => {
       outcome: {
         grade: "solid", dollars: 100, comp: false, mark: null, bearer: null,
         lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      surge: [],
+      echo: null,
       },
     });
     const out = run({ id: 2, resolvesAt: "2026-08-26T20:30:00Z" });
@@ -76,6 +79,8 @@ describe("playStatuses", () => {
       outcome: {
         grade: "solid", dollars: 100, comp: false, mark: null, bearer: null,
         lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+      surge: [],
+      echo: null,
       },
     });
     expect(playStatuses({ ...quiet, expeditions: [back, atFork] }).expeditions).toEqual({

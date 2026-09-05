@@ -610,6 +610,18 @@ card and bring it home — the owner gets it back wounded, the finder banks
 a $150 bounty. At each fork one of the squad has a word to say about the
 choice.
 
+The league's own calendar reaches the routes too. On a day a team plays,
+any run carrying one of its cards brings home 20% more (the match-day
+surge, scored against the launch day like the brief; the board says who is
+on tonight). A squad drawn from one roster that reaches the Legendary
+route's second fork hears its real next opponent named as what is singing
+under the floor. A moment card carried on a run has a 15% chance to echo:
+the route drops a copy of a card from the game the moment happened in,
+minted off that week's edition. And `/cards/expeditions/ledger` is the
+public ledger of the fallen and the found — every card lost, missing,
+rescued, ransomed, carried home or buried, league-wide, with the owner and
+the route.
+
 What a card can come home as: **wounded** (benched from expeditions and
 the Gauntlet for three days), **lost** (a hold row keeps it locked in the
 collection for seven days, during which a Rescue or a ransom — $300 plus

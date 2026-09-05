@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchDeployedCopyIds, fetchRuns } from "./queries";
+import { fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns } from "./queries";
 
 type QueryCall = { table: string; filters: Record<string, unknown> };
 type QueryResult = { data: unknown; error: unknown };
@@ -25,6 +25,14 @@ function createService(respond: Respond) {
       },
       is: (column: string, value: unknown) => {
         call.filters[column] = value;
+        return builder;
+      },
+      in: (column: string, values: unknown) => {
+        call.filters[column] = values;
+        return builder;
+      },
+      gte: (column: string, value: unknown) => {
+        call.filters[`${column}>=`] = value;
         return builder;
       },
       order: () => builder,
@@ -82,6 +90,7 @@ describe("fetchRuns", () => {
         target: null,
         fee: 0,
         encounters: [],
+        rules: 1,
       },
       {
         id: 3,
@@ -93,6 +102,7 @@ describe("fetchRuns", () => {
         outcome: {
           grade: "jackpot", dollars: 520, comp: true, mark: "legend", bearer: 22,
           lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
+          surge: [], echo: null,
         },
         claimedAt: "2026-08-27T19:00:00.000Z",
         forks: 0,
@@ -101,6 +111,7 @@ describe("fetchRuns", () => {
         target: null,
         fee: 0,
         encounters: [],
+        rules: 1,
       },
     ]);
     expect(service.calls[0]).toMatchObject({
@@ -149,5 +160,83 @@ describe("fetchDeployedCopyIds", () => {
     const service = createService(() => ({ data: null, error: { message: "boom" } }));
 
     expect(await fetchDeployedCopyIds(service.client, "42")).toEqual(new Set());
+  });
+});
+
+describe("fetchFixturesSince", () => {
+  it("reads the calendar from the date on, and as empty when the table is missing", async () => {
+    const rows = [{ team_a: "A", team_b: "B", scheduled_at: "2026-09-08T00:00:00.000Z" }];
+    const service = createService(() => ({ data: rows }));
+
+    expect(await fetchFixturesSince(service.client, "2026-09-01T00:00:00.000Z")).toEqual(rows);
+    expect(service.calls[0]).toMatchObject({ table: "fixtures", filters: { "scheduled_at>=": "2026-09-01T00:00:00.000Z" } });
+
+    const broken = createService(() => ({ data: null, error: { message: "relation does not exist" } }));
+    expect(await fetchFixturesSince(broken.client, "2026-09-01T00:00:00.000Z")).toEqual([]);
+  });
+});
+
+describe("fetchLedger", () => {
+  const GRAVES = [
+    { id: 1, discord_id: "42", season: "s4", player_name: "Doug", tier: "gold", foil: false, signed: false, run_id: 900, cause: "route", died_at: "2026-08-27T10:00:00.000Z" },
+    { id: 2, discord_id: "43", season: "s4", player_name: "Eve", tier: "platinum", foil: true, signed: false, run_id: null, cause: "unrescued", died_at: "2026-08-26T10:00:00.000Z" },
+  ];
+  const HOLDS = [
+    // Still missing: dated by when it runs out.
+    { id: 10, discord_id: "42", season: "s4", squad: [501], resolves_at: "2026-09-02T10:00:00.000Z", claimed_at: null, outcome: null, target: 901 },
+    // Carried home by a stranger's squad.
+    { id: 11, discord_id: "43", season: "s4", squad: [502], resolves_at: "2026-09-01T10:00:00.000Z", claimed_at: "2026-08-28T10:00:00.000Z", outcome: { rescued: true, by: 950, stranger: "44" }, target: 901 },
+    // Ransomed.
+    { id: 12, discord_id: "42", season: "s4", squad: [503], resolves_at: "2026-09-01T10:00:00.000Z", claimed_at: "2026-08-25T10:00:00.000Z", outcome: { ransomed: true, dollars: 340 }, target: null },
+    // Ran out: the grave (id 2) already lists it, so the hold is skipped.
+    { id: 13, discord_id: "43", season: "s4", squad: [504], resolves_at: "2026-08-26T10:00:00.000Z", claimed_at: "2026-08-26T10:00:00.000Z", outcome: { expired: true }, target: 901 },
+  ];
+  const service = () =>
+    createService((call) => {
+      if (call.table === "expedition_graveyard") return { data: GRAVES };
+      if (call.table === "expedition_runs" && call.filters.tier === "lost") return { data: HOLDS };
+      if (call.table === "expedition_runs") return { data: [{ id: 900, tier: "legendary" }, { id: 901, tier: "legend" }] };
+      if (call.table === "card_inventory")
+        return {
+          data: [
+            { id: 501, player_name: "Fay", tier: "gold", foil: false, signed: true },
+            { id: 502, player_name: "Gus", tier: "silver", foil: false, signed: false },
+            { id: 503, player_name: "Hal", tier: "diamond", foil: true, signed: false },
+          ],
+        };
+      if (call.table === "betting_profiles")
+        return { data: [{ discord_id: "42", username: "Kai", avatar_url: null }, { discord_id: "44", username: "Rio", avatar_url: "https://cdn/rio.png" }] };
+      return { data: null };
+    });
+
+  it("lists every grave and every hold that is open or came home, newest first, with owners and routes", async () => {
+    const ledger = await fetchLedger(service().client);
+
+    expect(ledger.map((entry) => [entry.key, entry.kind, entry.playerName, entry.owner.username, entry.route])).toEqual([
+      ["hold-10", "missing", "Fay", "Kai", "legend"],
+      ["hold-11", "carried", "Gus", "Unknown", "legend"],
+      ["grave-1", "died", "Doug", "Kai", "legendary"],
+      ["grave-2", "buried", "Eve", "Unknown", null],
+      ["hold-12", "ransomed", "Hal", "Kai", null],
+    ]);
+    expect(ledger[1].by).toEqual({ discordId: "44", username: "Rio" });
+    expect(ledger[0]).toMatchObject({ signed: true, at: "2026-09-02T10:00:00.000Z" });
+  });
+
+  it("looks the routes, cards and people up once each, by id", async () => {
+    const board = service();
+    await fetchLedger(board.client);
+
+    const byId = board.calls.filter((call) => call.table === "expedition_runs" && Array.isArray(call.filters.id));
+    expect(byId).toHaveLength(1);
+    expect((byId[0].filters.id as number[]).sort()).toEqual([900, 901]);
+    expect(board.calls.find((call) => call.table === "card_inventory")?.filters.id).toEqual([501, 502, 503]);
+    expect((board.calls.find((call) => call.table === "betting_profiles")?.filters.discord_id as string[]).sort()).toEqual(["42", "43", "44"]);
+  });
+
+  it("is empty when nothing has ever been lost", async () => {
+    const empty = createService(() => ({ data: [] }));
+    expect(await fetchLedger(empty.client)).toEqual([]);
+    expect(empty.calls).toHaveLength(2);
   });
 });
