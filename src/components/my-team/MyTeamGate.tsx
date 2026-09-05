@@ -47,7 +47,7 @@ export default function MyTeamGate({
         <span className="label-dash">My Team</span>
         <h1 className="type-display mt-3 text-3xl sm:text-4xl">Sign in to see your team</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Your roster, schedule, tournament codes, draft viewing, and scouting live here after Discord sign-in.
+          Your roster, schedule, tournament codes, draft links, and scouting live here after Discord sign-in.
         </p>
         <Link href={`/login?redirect=${path}`} className={`${ACTION} mt-5`}>Sign in</Link>
       </GateCard>

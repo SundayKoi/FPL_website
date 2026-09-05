@@ -1,23 +1,18 @@
-import { teamStatsHref } from "@/lib/stats/links";
-import type { LeagueKey } from "@/lib/players/identity";
+import Link from "next/link";
 import type { MyTeamOpponent } from "@/lib/my-team/types";
 import TeamStatsRadar from "@/components/stats/TeamStatsRadar";
 
 const LINK_CLASS = "inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
+type OpponentTeamStatsCardProps = {
+  opponent: MyTeamOpponent;
+  draftScoutingHref: string;
+};
+
 export function OpponentTeamStatsCard({
   opponent,
-  season,
-  league,
   draftScoutingHref,
-}: {
-  opponent: MyTeamOpponent;
-  season: string;
-  league: LeagueKey;
-  draftScoutingHref: string;
-}) {
-  const statsHref = teamStatsHref({ league, teamName: opponent.name, season });
-
+}: OpponentTeamStatsCardProps) {
   return (
     <section className="card-brand flex flex-col gap-4 p-5" aria-label={`Opponent profile: ${opponent.name}`}>
       <div>
@@ -41,12 +36,9 @@ export function OpponentTeamStatsCard({
       )}
 
       <div className="flex flex-wrap gap-2 border-t border-border-subtle/50 pt-4">
-        <a href={statsHref} className={`${LINK_CLASS} border-action-text/60 text-action-text hover:bg-action-fill hover:text-white`}>
-          Open full team stats →
-        </a>
-        <a href={draftScoutingHref} className={`${LINK_CLASS} border-border-strong text-muted hover:border-action-text hover:text-action-text`}>
-          View draft patterns →
-        </a>
+        <Link href={draftScoutingHref} className={`${LINK_CLASS} border-action-text/60 font-bold text-action-text hover:bg-action-fill hover:text-white`}>
+          Open scouting page →
+        </Link>
       </div>
     </section>
   );

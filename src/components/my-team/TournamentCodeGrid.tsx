@@ -48,7 +48,12 @@ export function TournamentCodeGrid({ fixture, codes }: { fixture: FixtureRow | n
         {slots.map((slot) => (
           <article key={slot.gameNumber} className="flex min-h-28 flex-col justify-between rounded border border-border-subtle/60 bg-canvas/60 p-3">
             <div className="flex items-center justify-between gap-2"><span className="font-mono text-xs uppercase tracking-wide text-prestige">Game {slot.gameNumber}</span>{slot.code ? <CopyButton label={`Game ${slot.gameNumber}`} text={slot.code.code} /> : null}</div>
-            {slot.code ? <code className="mt-4 break-all font-mono text-sm text-white">{slot.code.code}</code> : <p className="mt-4 text-sm text-muted">Not posted yet</p>}
+            {slot.code ? (
+              <div className="mt-4 space-y-1">
+                <code className="block break-all font-mono text-sm text-white">{slot.code.code}</code>
+                {slot.code.note ? <p className="text-xs text-muted">{slot.code.note}</p> : null}
+              </div>
+            ) : <p className="mt-4 text-sm text-muted">Not posted yet</p>}
           </article>
         ))}
       </div>

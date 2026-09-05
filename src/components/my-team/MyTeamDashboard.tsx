@@ -32,12 +32,17 @@ export function MyTeamDashboard({ dashboard, league }: { dashboard: MyTeamReadyD
         <MyTeamHeader team={dashboard.team} season={dashboard.season} record={record} />
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-start">
-          <TeamAccentPanel color={dashboard.team.bannerColor}>
-            <MyTeamMatchHero fixture={dashboard.nextFixture} myTeamName={dashboard.team.name} canOpenCaptainDraft={dashboard.isCaptain || dashboard.isAdmin} />
-          </TeamAccentPanel>
+          <div className="flex min-w-0 flex-col gap-6">
+            <TeamAccentPanel color={dashboard.team.bannerColor}>
+              <MyTeamMatchHero fixture={dashboard.nextFixture} myTeamName={dashboard.team.name} canOpenCaptainDraft={dashboard.isCaptain || dashboard.isAdmin} />
+            </TeamAccentPanel>
+            <TeamAccentPanel color={dashboard.team.bannerColor}>
+              <TournamentCodeGrid fixture={dashboard.nextFixture} codes={dashboard.codes} />
+            </TeamAccentPanel>
+          </div>
           {dashboard.opponent ? (
             <TeamAccentPanel color={dashboard.team.bannerColor}>
-              <OpponentTeamStatsCard opponent={dashboard.opponent} season={dashboard.season} league={league} draftScoutingHref={draftScoutingHref} />
+              <OpponentTeamStatsCard opponent={dashboard.opponent} draftScoutingHref={draftScoutingHref} />
             </TeamAccentPanel>
           ) : null}
         </div>
@@ -58,9 +63,6 @@ export function MyTeamDashboard({ dashboard, league }: { dashboard: MyTeamReadyD
           </TeamAccentPanel>
           <TeamAccentPanel color={dashboard.team.bannerColor}>
             <MyTeamPerformance teamName={dashboard.team.name} games={dashboard.results.games} players={dashboard.results.players} />
-          </TeamAccentPanel>
-          <TeamAccentPanel color={dashboard.team.bannerColor}>
-            <TournamentCodeGrid fixture={dashboard.nextFixture} codes={dashboard.codes} />
           </TeamAccentPanel>
         </div>
       </div>

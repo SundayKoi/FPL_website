@@ -46,11 +46,11 @@ export function MyTeamMatchHero({
       <div className="mt-5 flex flex-wrap gap-2">
         {canOpenCaptainDraft ? (
           <Link href={`${matchDraftHref(fixture)}?layout=board`} className={`${LINK_CLASS} border-action-text/60 text-action-text hover:bg-action-fill hover:text-white`}>
-            Open captain view →
+            Open captain draft link →
           </Link>
         ) : null}
         <Link href={`${matchDraftHref(fixture)}?layout=stage`} className={`${LINK_CLASS} border-border-strong text-muted hover:border-action-text hover:text-action-text`}>
-          Open spectator view →
+          Open spectator draft link →
         </Link>
       </div>
     </section>
