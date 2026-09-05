@@ -68,7 +68,8 @@ import {
   launchExpeditionAction,
   ransomLostCardAction,
 } from "@/lib/expeditions/actions";
-import { hasTrail, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
+import { hasTrail, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
+import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
 import { cardTeamKey } from "@/lib/expeditions/matchday";
 import { teamBadgeKey } from "@/lib/cards/build";
@@ -300,6 +301,7 @@ function ForkPrompt({
   copies,
   busy,
   rival = null,
+  convoy = null,
   onDecide,
 }: {
   run: ExpeditionRun;
@@ -308,6 +310,8 @@ function ForkPrompt({
   busy: boolean;
   /** The squad's team's next real opponent, when the squad is one roster. */
   rival?: string | null;
+  /** The convoy this run rides in, with the partner's answer so far. */
+  convoy?: ConvoyView | null;
   onDecide: (choice: ForkChoice) => void;
 }) {
   const now = useSyncExternalStore(subscribeClock, readClock, readServerClock);
@@ -338,6 +342,20 @@ function ForkPrompt({
         )}
         {banter ? <span data-testid="banter" className="text-steel"> {banter}</span> : null}
       </p>
+      {convoy ? (
+        <p data-testid="convoy-fork" className="rounded-md border border-gold/40 bg-gold/5 px-3 py-1.5 text-xs text-white">
+          <span className="font-bold uppercase tracking-[0.14em] text-gold">Convoy</span>{" "}
+          {convoy.partner
+            ? (() => {
+                const theirs = convoy.partner.choices.find((entry) => entry.index === fork.index)?.choice ?? null;
+                const verdict = convoyVerdict(null, theirs);
+                return `${convoy.partner.username} ${theirs === null ? "hasn't answered yet" : theirs === "camp" ? "says camp" : `says push (${theirs})`}. ${
+                  verdict === "camping" ? "The convoy camps here whatever you say." : "It pushes only if you both push — a camp on either side camps it."
+                }`;
+              })()
+            : `Nobody joined with code ${convoy.code} before the first fork — the squad walks alone.`}
+        </p>
+      ) : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {options.map((option) => (
           <button
@@ -448,7 +466,10 @@ export default function ExpeditionBoard({
   base = "/cards",
   playingToday = [],
   rivals = {},
+  convoys = {},
 }: {
+  /** The convoys the runs in the field ride in, by run id. */
+  convoys?: Record<number, ConvoyView>;
   /** The teams with a fixture today (Eastern), as the schedule spells
    *  them — a squad carrying one of their cards surges. Presentation:
    *  the claim reads the calendar itself. */
@@ -492,6 +513,8 @@ export default function ExpeditionBoard({
       ),
   );
   const [insured, setInsured] = useState(false);
+  const [convoyMode, setConvoyMode] = useState<"solo" | "new" | "join">("solo");
+  const [joinCode, setJoinCode] = useState("");
   const [rescueTarget, setRescueTarget] = useState<number | null>(holds[0]?.holdId ?? null);
   const [cleanseTarget, setCleanseTarget] = useState<number | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -543,7 +566,8 @@ export default function ExpeditionBoard({
     const squadIds = squad.map((copy) => copy.id);
     const target = def.target === "lost" ? rescueTarget : def.target === "afflicted" ? (cleanseTarget ?? afflictedInSquad[0]?.id ?? null) : null;
     startTransition(async () => {
-      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && def.risk !== "none", target });
+      const convoy = convoyMode === "new" ? "new" : convoyMode === "join" ? normaliseConvoyCode(joinCode) : null;
+      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && def.risk !== "none", target, convoy });
       setBusyTier(null);
       if (!result.ok) {
         setLaunchError(result.error);
@@ -551,8 +575,16 @@ export default function ExpeditionBoard({
       }
       setPicked(new Set());
       setInsured(false);
+      setConvoyMode("solo");
+      setJoinCode("");
       setNotice(
-        `${def.label} is out. Back ${easternClock(result.resolvesAt)} ET${def.forks > 0 ? `, with ${def.forks} fork${def.forks === 1 ? "" : "s"} to answer on the way` : ""}.${result.fee > 0 ? ` ${fmtPoints(result.fee)} paid.` : ""}${result.freePolicy ? " This week's free policy covers it." : ""}`,
+        `${def.label} is out. Back ${easternClock(result.resolvesAt)} ET${def.forks > 0 ? `, with ${def.forks} fork${def.forks === 1 ? "" : "s"} to answer on the way` : ""}.${result.fee > 0 ? ` ${fmtPoints(result.fee)} paid.` : ""}${result.freePolicy ? " This week's free policy covers it." : ""}${
+          convoy === "new" && result.convoyCode
+            ? ` Convoy code ${result.convoyCode} — share it; a partner can join until the first fork opens.`
+            : convoy
+              ? " You're in the convoy: one clock, one set of forks."
+              : ""
+        }`,
       );
       router.refresh();
     });
@@ -641,6 +673,7 @@ export default function ExpeditionBoard({
                 copies={run.squad.map((id) => byId.get(id)).filter((copy): copy is CardCopy => Boolean(copy))}
                 busy={pending && busyRun === run.id}
                 rival={rivals[run.id] ?? null}
+                convoy={convoys[run.id] ?? null}
                 onDecide={(choice) => decide(run, fork.index, choice)}
               />
             ))}
@@ -730,6 +763,13 @@ export default function ExpeditionBoard({
                       {run.shine} shine{run.insured ? " · insured" : ""}
                       {run.encounters.some((entry) => entry.key === "storm") ? " · stormed" : ""}
                     </span>
+                    {convoys[run.id] ? (
+                      <span data-testid={`convoy-${run.id}`} className="block text-xs text-gold">
+                        {convoys[run.id].partner
+                          ? `Convoy with ${convoys[run.id].partner!.username}`
+                          : `Convoy code ${convoys[run.id].code} — waiting for a partner`}
+                      </span>
+                    ) : null}
                     <p className="type-display mt-0.5 text-lg">{def?.label ?? run.tier}</p>
                   </div>
                   <div className="flex gap-2">
@@ -785,6 +825,36 @@ export default function ExpeditionBoard({
             <span className="text-white">Insure this run</span>
             <span className="text-xs text-steel">
               {freePolicy ? "free this week (patron)" : `${fmtPoints(INSURANCE_FEE)} at launch`} — lost becomes wounded, dead becomes lost
+            </span>
+          </label>
+          <label className="flex items-center gap-2">
+            <span className="text-white">Convoy</span>
+            <select
+              data-testid="convoy-mode"
+              value={convoyMode}
+              onChange={(event) => setConvoyMode(event.target.value as "solo" | "new" | "join")}
+              className="rounded-md border border-line bg-navy px-2 py-1 text-xs text-white"
+            >
+              <option value="solo">Go alone</option>
+              <option value="new">Start a convoy — get a code</option>
+              <option value="join">Join a convoy with a code</option>
+            </select>
+            {convoyMode === "join" ? (
+              <input
+                aria-label="Convoy code"
+                value={joinCode}
+                onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                maxLength={8}
+                placeholder="ABC234"
+                className="w-24 rounded-md border border-line bg-navy px-2 py-1 font-mono text-xs uppercase text-white"
+              />
+            ) : null}
+            <span className="text-xs text-steel">
+              {convoyMode === "solo"
+                ? "two squads, one clock, one set of forks — a fork pushes only if you both push"
+                : convoyMode === "new"
+                  ? "a partner joins the same route with your code before the first fork opens"
+                  : "the same route as the host, before their first fork opens"}
             </span>
           </label>
           {holds.length > 0 ? (

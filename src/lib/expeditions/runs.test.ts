@@ -51,6 +51,7 @@ type QueryCall = {
   verb: "select" | "insert" | "update";
   payload?: unknown;
   filters: Record<string, unknown>;
+  columns?: string;
 };
 
 type QueryResult = { data: unknown; error: unknown; count: number | null };
@@ -69,7 +70,10 @@ function createService(respond: Respond) {
       return { data: result.data ?? null, error: result.error ?? null, count: result.count ?? null };
     };
     const builder = {
-      select: () => builder,
+      select: (columns?: string) => {
+        call.columns = columns;
+        return builder;
+      },
       insert: (payload: unknown) => {
         call.verb = "insert";
         call.payload = payload;
@@ -160,6 +164,7 @@ interface RunSpec {
   choices?: { index: number; choice: string; at: string }[];
   pinged?: number;
   rules?: number;
+  convoy?: number | null;
 }
 
 function runRow(spec: RunSpec = {}) {
@@ -184,6 +189,7 @@ function runRow(spec: RunSpec = {}) {
     encounters: [],
     pinged: spec.pinged ?? 0,
     rules: spec.rules ?? 2,
+    convoy: spec.convoy ?? null,
   };
 }
 
@@ -353,7 +359,7 @@ describe("launchExpeditionFor", () => {
 
     const result = await launchExpeditionFor("42", "scout", [1, 2, 3]);
 
-    expect(result).toEqual({ ok: true, runId: 7, resolvesAt: "2026-08-29T02:00:00.000Z", fee: 0, freePolicy: false });
+    expect(result).toEqual({ ok: true, runId: 7, resolvesAt: "2026-08-29T02:00:00.000Z", fee: 0, freePolicy: false, convoyCode: null });
     expect(board.rpc).toHaveBeenCalledWith("launch_expedition", {
       p_user: "42",
       p_season: "s4",
@@ -367,6 +373,7 @@ describe("launchExpeditionFor", () => {
       p_fragments: 0,
       p_target: null,
       p_policy_week: null,
+      p_convoy: null,
     });
   });
 
@@ -920,5 +927,102 @@ describe("the rulebook a run launched under", () => {
 
     expect(result.storms).toBe(0);
     expect(service.rpc).not.toHaveBeenCalledWith("delay_expedition", expect.anything());
+  });
+});
+
+describe("convoys", () => {
+  /** A raid at its first fork, ridden in convoy 5. */
+  const convoyRun = (over: RunSpec = {}) =>
+    runRow({ tier: "raid", forks: 2, startedAt: "2026-08-28T09:00:00.000Z", resolvesAt: "2026-08-29T09:00:00.000Z", convoy: 5, ...over });
+  const convoyRow = { id: 5, host_id: "42", host_run: 9, guest_id: "77", guest_run: 10 };
+
+  function convoyBoard(opts: { run?: ReturnType<typeof runRow>; partnerChoices?: { index: number; choice: string; at: string }[] } = {}) {
+    const service = createService((call) => {
+      if (call.table === "card_inventory") {
+        const wanted = (call.filters.id as number[]) ?? [];
+        return { data: scoutSquad.filter((row) => wanted.includes(row.id)) };
+      }
+      if (call.table === "expedition_convoys") return { data: convoyRow };
+      if (call.table === "expedition_runs" && call.filters.id === 10) return { data: { choices: opts.partnerChoices ?? [] } };
+      if (call.table === "expedition_runs") return { data: opts.run ?? convoyRun() };
+      if (call.table === "betting_profiles") return { data: { username: "Rio" } };
+      return { data: [] };
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    return service;
+  }
+
+  it("reads every column the page reads, so a claim sees the rulebook and the convoy", async () => {
+    const board = createBoard({ copies: scoutSquad, run: runRow() });
+    await claimExpeditionFor("42", 9);
+    const read = board.calls.find((call) => call.table === "expedition_runs" && call.filters.id === 9);
+    expect(read?.columns).toContain("rules");
+    expect(read?.columns).toContain("convoy");
+    expect(read?.columns).toContain("encounters");
+  });
+
+  it("opens a convoy at launch and hands back the code", async () => {
+    const board = createBoard({ copies: scoutSquad });
+    board.rpc.mockResolvedValue({ data: [{ run_id: 7, resolves_at: "2026-08-29T02:00:00.000Z", convoy_code: "ABC234" }], error: null });
+
+    expect(await launchExpeditionFor("42", "scout", [1, 2, 3], { convoy: "new" })).toMatchObject({ ok: true, convoyCode: "ABC234" });
+    expect(board.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_convoy: "new" }));
+  });
+
+  it("tidies a join code, refuses a malformed one before the RPC, and tells the host when someone joins", async () => {
+    const board = createBoard({ copies: scoutSquad });
+    expect(await launchExpeditionFor("42", "scout", [1, 2, 3], { convoy: "abc" })).toMatchObject({ ok: false });
+    expect(board.rpc).not.toHaveBeenCalled();
+
+    const joining = convoyBoard();
+    joining.rpc.mockResolvedValue({ data: [{ run_id: 10, resolves_at: "2026-08-29T09:00:00.000Z", convoy_code: "ABC234" }], error: null });
+    expect(await launchExpeditionFor("77", "scout", [1, 2, 3], { convoy: " abc234 " })).toMatchObject({ ok: true, convoyCode: "ABC234" });
+    expect(joining.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_convoy: "ABC234" }));
+    expect(postCardsWebhook).toHaveBeenCalledWith(expect.objectContaining({ title: "A convoy is rolling" }), "<@42>");
+  });
+
+  it("translates the convoy refusals", () => {
+    expect(friendlyExpeditionError("convoy is full")).toBe("That convoy already has its two squads.");
+    expect(friendlyExpeditionError("convoy has moved on")).toContain("too late");
+    expect(friendlyExpeditionError("no such convoy")).toContain("code");
+  });
+
+  it("pings the partner when a fork is answered and they have not", async () => {
+    const board = convoyBoard();
+    board.rpc.mockResolvedValue({ data: [{ closes_at: "2026-08-29T01:00:00.000Z" }], error: null });
+
+    expect(await decideForkFor("42", 9, 0, "push")).toEqual({ ok: true, closesAt: "2026-08-29T01:00:00.000Z" });
+    expect(postCardsWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Convoy — The reactor", description: expect.stringContaining("your call") }),
+      "<@77>",
+    );
+  });
+
+  it("says the convoy camps when the partner already camped, with no mention", async () => {
+    const board = convoyBoard({ partnerChoices: [{ index: 0, choice: "camp", at: "" }] });
+    board.rpc.mockResolvedValue({ data: [{ closes_at: "2026-08-29T01:00:00.000Z" }], error: null });
+
+    await decideForkFor("42", 9, 0, "push");
+    expect(postCardsWebhook).toHaveBeenCalledWith(expect.objectContaining({ description: expect.stringContaining("the convoy camps") }), undefined);
+  });
+
+  it("resolves a convoy run off both sheets: a push the partner did not match camps", async () => {
+    // Both forks pushed on my sheet; the partner pushed the first and
+    // stayed silent at the second. The route walks push, camp: one push
+    // (x1.25 on a raid), not two (x1.5).
+    const board = convoyBoard({
+      run: convoyRun({
+        startedAt: "2026-08-27T09:00:00.000Z", resolvesAt: "2026-08-28T09:00:00.000Z", shine: 12,
+        choices: [{ index: 0, choice: "push", at: "" }, { index: 1, choice: "push", at: "" }],
+      }),
+      partnerChoices: [{ index: 0, choice: "push", at: "" }],
+    });
+    board.rpc.mockResolvedValue({ data: [{ balance: 700, fragments: 0 }], error: null });
+    // Grade solid, mark miss, then fork 0's push: victim, no wound, no reward; fork 1 camps (no rolls).
+    scriptRand(0.5, 0.9, 0.5, 0.99, 0, 0.99);
+
+    const result = await claimExpeditionFor("42", 9);
+
+    expect(result).toMatchObject({ ok: true, route: { pushes: 1, lootMultiplier: 1.25 } });
   });
 });

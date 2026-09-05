@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
-import type { ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
+import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import ExpeditionBoard from "./ExpeditionBoard";
 
 /** A route that changed nothing: every card home, no forks pushed. */
@@ -143,6 +143,7 @@ function makeRun(over: Partial<ExpeditionRun> & { id: number }): ExpeditionRun {
     fee: 0,
     encounters: [],
     rules: 2,
+    convoy: null,
     ...over,
   };
 }
@@ -159,10 +160,12 @@ function renderBoard(
     policyUsed?: boolean;
     playingToday?: string[];
     rivals?: Record<number, string>;
+    convoys?: Record<number, ConvoyView>;
   } = {},
 ) {
   return render(
     <ExpeditionBoard
+      convoys={over.convoys}
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -313,7 +316,7 @@ describe("ExpeditionBoard — tier cards", () => {
     await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
 
     expect(launchExpeditionAction).toHaveBeenCalledTimes(1);
-    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3], { insured: false, target: null });
+    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3], { insured: false, target: null, convoy: null });
     expect(refresh).toHaveBeenCalledTimes(1);
     // The squad went out — the picker is empty again rather than still
     // offering the three cards that just left.
@@ -717,7 +720,7 @@ describe("ExpeditionBoard — the rules of the road", () => {
     // An Exorcism cannot hurt a card, so the policy is not sent with it.
     // Squad order is shelf order, not click order (the RPC doesn't care;
     // the field strip does).
-    expect(launchExpeditionAction).toHaveBeenCalledWith("exorcism", [1, 2, 7], { insured: false, target: 7 });
+    expect(launchExpeditionAction).toHaveBeenCalledWith("exorcism", [1, 2, 7], { insured: false, target: 7, convoy: null });
   });
 });
 
@@ -814,7 +817,7 @@ describe("ExpeditionBoard — missing cards", () => {
 
     await click(screen.getByRole("button", { name: "Launch Rescue" }));
 
-    expect(launchExpeditionAction).toHaveBeenCalledWith("rescue", [1, 2, 3], { insured: false, target: 70 });
+    expect(launchExpeditionAction).toHaveBeenCalledWith("rescue", [1, 2, 3], { insured: false, target: 70, convoy: null });
   });
 
   it("says a Rescue has nobody to go after when nothing is lost", () => {
@@ -968,5 +971,55 @@ describe("ExpeditionBoard — the rival fork", () => {
     const fork = screen.getByTestId("fork-50-1");
     expect(within(fork).queryByTestId("rival-story")).toBeNull();
     expect(fork.textContent).toContain("Something is singing under the floor and the squad wants to leave.");
+  });
+});
+
+describe("ExpeditionBoard — convoys", () => {
+  const atFork = () =>
+    makeRun({
+      id: 50,
+      tier: "raid",
+      squad: [5, 1, 2],
+      forks: 2,
+      convoy: 5,
+      startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+    });
+
+  it("sends the convoy choice with the launch, tidied", async () => {
+    renderBoard();
+    pickTwelveShineSquad();
+    fireEvent.change(screen.getByTestId("convoy-mode"), { target: { value: "join" } });
+    fireEvent.change(screen.getByLabelText("Convoy code"), { target: { value: " abc234 " } });
+
+    await click(screen.getByRole("button", { name: "Launch Deep Raid" }));
+
+    expect(launchExpeditionAction).toHaveBeenCalledWith("raid", [1, 2, 3], { insured: false, target: null, convoy: "ABC234" });
+  });
+
+  it("shows the code on a run waiting for a partner, and the partner once they joined", () => {
+    renderBoard({
+      runs: [atFork(), makeRun({ id: 51, tier: "legend", squad: [3, 4, 1], convoy: 6 })],
+      deployedIds: new Set([5, 1, 2, 3, 4]),
+      convoys: {
+        50: { code: "ABC234", host: true, partner: null },
+        51: { code: "ZZZ999", host: false, partner: { discordId: "77", username: "Rio", runId: 60, choices: [] } },
+      },
+    });
+
+    expect(screen.getByTestId("convoy-50").textContent).toContain("ABC234");
+    expect(screen.getByTestId("convoy-51").textContent).toContain("Convoy with Rio");
+  });
+
+  it("tells the fork what the partner said and what that means", () => {
+    renderBoard({
+      runs: [atFork()],
+      deployedIds: new Set([5, 1, 2]),
+      convoys: { 50: { code: "ABC234", host: true, partner: { discordId: "77", username: "Rio", runId: 60, choices: [{ index: 0, choice: "camp", at: "" }] } } },
+    });
+
+    const line = within(screen.getByTestId("fork-50-0")).getByTestId("convoy-fork");
+    expect(line.textContent).toContain("Rio says camp");
+    expect(line.textContent).toContain("camps here whatever you say");
   });
 });

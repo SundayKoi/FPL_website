@@ -21,10 +21,12 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { fetchFixturesSince, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchFixturesSince, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
+import { convoySheet, normaliseConvoyCode } from "./convoy";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
 import {
+  FORKS,
   choiceAllowed,
   choiceSheet,
   forkViews,
@@ -51,7 +53,7 @@ import {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type LaunchResult =
-  | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean }
+  | { ok: true; runId: number; resolvesAt: string; fee: number; freePolicy: boolean; convoyCode: string | null }
   | { ok: false; error: string };
 
 export interface LaunchOptions {
@@ -60,6 +62,8 @@ export interface LaunchOptions {
   insured?: boolean;
   /** A Rescue's hold id, or an Exorcism's card id. */
   target?: number | null;
+  /** "new" opens a convoy and hands back its code; a code joins one. */
+  convoy?: "new" | string | null;
 }
 
 export type ClaimResult =
@@ -116,6 +120,11 @@ export function friendlyExpeditionError(message: string): string {
     return "You've sent out every expedition you get today — come back tomorrow.";
   }
   if (/card not owned/i.test(message)) return "Those cards aren't yours.";
+  if (/no such convoy/i.test(message)) return "No convoy has that code — check it with whoever gave it to you.";
+  if (/convoy is full/i.test(message)) return "That convoy already has its two squads.";
+  if (/cannot join your own convoy/i.test(message)) return "That's your own convoy — share the code, don't join it.";
+  if (/convoy is another route/i.test(message)) return "That convoy is on a different route — pick the same one to ride along.";
+  if (/convoy has moved on/i.test(message)) return "That convoy has reached its first fork — too late to join it.";
   if (/card already deployed|card is on expedition/i.test(message)) {
     return "One of those cards is already out on an expedition.";
   }
@@ -244,6 +253,12 @@ export async function launchExpeditionFor(
   }
   const fee = def.fee + (insured && !freePolicy ? INSURANCE_FEE : 0);
 
+  // A convoy needs forks to share; a code is tidied the way the box
+  // tidies it, so what was read aloud in Discord is what is looked up.
+  const convoy = options.convoy === "new" ? "new" : options.convoy ? normaliseConvoyCode(options.convoy) : null;
+  if (convoy !== null && def.forks === 0) return { ok: false, error: "A convoy needs a route with forks to share." };
+  if (convoy !== null && convoy !== "new" && convoy.length !== 6) return { ok: false, error: "That convoy code isn't right — it's six letters and numbers." };
+
   const { data, error } = await service.rpc("launch_expedition", {
     p_user: discordId,
     p_season: season,
@@ -257,15 +272,68 @@ export async function launchExpeditionFor(
     p_fragments: def.fragments,
     p_target: target,
     p_policy_week: policyWeek,
+    p_convoy: convoy,
   });
   if (error) return { ok: false, error: friendlyExpeditionError(error.message) };
 
-  const row = (Array.isArray(data) ? data[0] : data) as { run_id: number; resolves_at: string } | null;
+  const row = (Array.isArray(data) ? data[0] : data) as { run_id: number; resolves_at: string; convoy_code?: string | null } | null;
   if (!row) return { ok: false, error: GENERIC_EXPEDITION_ERROR };
-  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy };
+  const code = row.convoy_code ?? null;
+  if (convoy !== null && convoy !== "new" && code) await announceConvoyJoin(service, discordId, code, tier);
+  return { ok: true, runId: Number(row.run_id), resolvesAt: row.resolves_at, fee, freePolicy, convoyCode: code };
 }
 
-const RUN_COLUMNS = "id, tier, squad, shine, started_at, resolves_at, outcome, claimed_at, forks, choices, insured, target, fee";
+/** Who is on the other side of a convoy from `discordId`, with their run's
+ *  answers so far. Null before anyone joins, or off a convoy. */
+async function convoyPartner(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  convoyId: number,
+): Promise<{ discordId: string; username: string; runId: number; choices: RecordedChoice[] } | null> {
+  const { data } = await service
+    .from("expedition_convoys")
+    .select("host_id, host_run, guest_id, guest_run")
+    .eq("id", convoyId)
+    .maybeSingle();
+  const convoy = data as { host_id: string; host_run: number; guest_id: string | null; guest_run: number | null } | null;
+  if (!convoy) return null;
+  const partnerId = convoy.host_id === discordId ? convoy.guest_id : convoy.host_id;
+  const partnerRun = convoy.host_id === discordId ? convoy.guest_run : convoy.host_run;
+  if (!partnerId || !partnerRun) return null;
+  const [{ data: run }, { data: profile }] = await Promise.all([
+    service.from("expedition_runs").select("choices").eq("id", partnerRun).maybeSingle(),
+    service.from("betting_profiles").select("username").eq("discord_id", partnerId).maybeSingle(),
+  ]);
+  return {
+    discordId: partnerId,
+    username: (profile as { username?: string | null } | null)?.username ?? "Unknown",
+    runId: Number(partnerRun),
+    choices: Array.isArray((run as { choices?: RecordedChoice[] } | null)?.choices) ? (run as { choices: RecordedChoice[] }).choices : [],
+  };
+}
+
+async function announceConvoyJoin(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  code: string,
+  tier: ExpeditionTierKey,
+): Promise<void> {
+  try {
+    const { data } = await service.from("expedition_convoys").select("host_id").eq("code", code).maybeSingle();
+    const host = (data as { host_id?: string } | null)?.host_id;
+    if (!host) return;
+    await postCardsWebhook(
+      {
+        title: "A convoy is rolling",
+        description: `<@${discordId}> joined <@${host}>'s convoy on the ${EXPEDITION_TIERS[tier].label}. One clock, one set of forks: a fork pushes only if you both push.`,
+        color: GOLD,
+      },
+      `<@${host}>`,
+    );
+  } catch (announceError) {
+    console.error("expeditions: convoy announcement failed", announceError);
+  }
+}
 
 async function readRun(discordId: string, runId: number): Promise<{ run: ExpeditionRun | null; error: boolean }> {
   const service = createBettingServiceClient();
@@ -318,7 +386,38 @@ export async function decideForkFor(
   });
   if (rpcError) return { ok: false, error: friendlyExpeditionError(rpcError.message) };
   const row = (Array.isArray(data) ? data[0] : data) as { closes_at: string } | null;
-  return { ok: true, closesAt: row?.closes_at ?? open.closesAt.toISOString() };
+  const closesAt = row?.closes_at ?? open.closesAt.toISOString();
+
+  // In a convoy the answer is news for the other squad: the argument is
+  // the game, so it goes to the channel with a real mention. Best effort,
+  // after the write.
+  if (run.convoy !== null) {
+    try {
+      const partner = await convoyPartner(service, discordId, run.convoy);
+      if (partner) {
+        const theirs = partner.choices.find((entry) => entry.index === index)?.choice ?? null;
+        const story = FORKS[run.tier as ExpeditionTierKey]?.[index];
+        const by = new Date(closesAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+        const verdict =
+          theirs === null
+            ? `<@${partner.discordId}>, your call — the fork closes ${by} ET, and silence camps.`
+            : theirs === "camp" || choice === "camp"
+              ? "One of you is camping, so the convoy camps here."
+              : "You both pushed — the convoy pushes.";
+        await postCardsWebhook(
+          {
+            title: `Convoy — ${story?.title ?? `fork ${index + 1}`}`,
+            description: `<@${discordId}> says ${choice === "camp" ? "camp" : `push (${choice})`} at ${story?.title.toLowerCase() ?? "the fork"} on the ${EXPEDITION_TIERS[run.tier as ExpeditionTierKey].label}. ${verdict}`,
+            color: GOLD,
+          },
+          theirs === null ? `<@${partner.discordId}>` : undefined,
+        );
+      }
+    } catch (announceError) {
+      console.error("expeditions: convoy fork announcement failed", announceError);
+    }
+  }
+  return { ok: true, closesAt };
 }
 
 /**
@@ -380,13 +479,19 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     ? squad[Math.min(squad.length - 1, Math.floor(expeditionRand() * squad.length))] ?? null
     : null;
 
+  // In a convoy the sheet is both squads': a fork pushed only if both
+  // pushed (convoySheet). Each run still rolls its own loot and its own
+  // harm off that sheet.
+  const partner = run.convoy !== null ? await convoyPartner(service, discordId, run.convoy) : null;
+  const sheet = partner ? convoySheet(run.forks, run.choices, partner.choices) : choiceSheet(run.forks, run.choices);
+
   // The route: what the forks made of it and what the squad looks like.
   const route = resolveRoute(
     {
       tier,
       forks: run.forks,
       copies,
-      choices: choiceSheet(run.forks, run.choices),
+      choices: sheet,
       insured: run.insured,
       grade: base.grade,
       target: run.target,
@@ -401,7 +506,7 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // Nothing below applies to a squad that launched before the trail
   // existed (hasTrail): it pays and comes home exactly as it set out.
   const trail = hasTrail(run);
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules });
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy });
   const merchant = encounters.some((entry) => entry.key === "merchant") ? MERCHANT_DOLLARS : 0;
   let stranded: { holdId: number; bounty: number } | null = null;
   if (encounters.some((entry) => entry.key === "stranded")) {
@@ -603,7 +708,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
 
   const { data, error } = await service
     .from("expedition_runs")
-    .select("id, discord_id, tier, squad, forks, choices, started_at, resolves_at, pinged, encounters, rules")
+    .select("id, discord_id, tier, squad, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy")
     .is("claimed_at", null)
     .gt("forks", 0)
     .limit(200);
@@ -624,13 +729,14 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     pinged: number;
     encounters: { key: string; leg: number }[] | null;
     rules: number | null;
+    convoy: number | null;
   }[]) ?? []) {
     const tier = row.tier as ExpeditionTierKey;
     let resolvesAt = row.resolves_at;
     // A storm whose hour has come holds the squad: the run's end moves out
     // (and every fork after it), once per storm.
     const applied = new Set((row.encounters ?? []).filter((entry) => entry.key === "storm").map((entry) => entry.leg));
-    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1) })) {
+    for (const storm of encountersFor({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy })) {
       if (storm.key !== "storm" || applied.has(storm.leg) || storm.at.getTime() > now.getTime()) continue;
       const { data: delayed, error: delayError } = await service.rpc("delay_expedition", { p_run: row.id, p_leg: storm.leg, p_hours: STORM_HOURS });
       if (delayError) {
@@ -651,7 +757,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
     const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1) }, squad, now);
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy }, squad, now);
     try {
       await postCardsWebhook(
         {

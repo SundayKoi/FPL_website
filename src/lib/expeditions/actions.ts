@@ -52,6 +52,7 @@ export async function launchExpeditionAction(
   const result = await launchExpeditionFor(user.discordId, tier, squadIds, {
     insured: options.insured === true,
     target: typeof options.target === "number" ? options.target : null,
+    convoy: typeof options.convoy === "string" && options.convoy.length > 0 ? options.convoy.slice(0, 12) : null,
   });
   // Only on success: a refused launch changed nothing, and busting the
   // page cache on every rejected click would make a mis-picked squad cost

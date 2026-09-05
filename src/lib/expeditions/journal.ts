@@ -150,7 +150,7 @@ function fill(template: string, squad: Squad, rand: () => number): string {
  * has none — nothing on the trail interrupts a rite — and a run from
  * before forks existed has no legs to carry them.
  */
-export function encountersFor(run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number }): Encounter[] {
+export function encountersFor(run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number; convoy?: number | null }): Encounter[] {
   // A run that launched before the trail existed meets nothing on it: its
   // clock, its payout and its squad are exactly what it set out with.
   if (run.rules !== undefined && run.rules < TRAIL_RULES) return [];
@@ -161,7 +161,9 @@ export function encountersFor(run: { id: number; tier: ExpeditionTierKey; starte
     if (rand() >= ENCOUNTER_CHANCE) return;
     // Stranded cards only turn up on routes that can lose one — that is
     // where the lost are.
-    const keys: EncounterKey[] = ["merchant", "storm"];
+    // A convoy rides one clock for two squads: a storm on one run would
+    // pull the forks apart, so convoys meet everything but weather.
+    const keys: EncounterKey[] = run.convoy ? ["merchant"] : ["merchant", "storm"];
     if (EXPEDITION_TIERS[run.tier].risk === "lost" || EXPEDITION_TIERS[run.tier].risk === "dead") keys.push("stranded");
     out.push({ leg: index, key: pick(keys, rand), at: at(leg, 0.5) });
   });
@@ -174,7 +176,7 @@ export function encountersFor(run: { id: number; tier: ExpeditionTierKey; starte
  * makes the page worth coming back to.
  */
 export function journalFor(
-  run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; claimedAt?: string | null; rules?: number },
+  run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; claimedAt?: string | null; rules?: number; convoy?: number | null },
   squad: Squad,
   now: Date,
 ): JournalEntry[] {

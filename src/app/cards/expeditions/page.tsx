@@ -6,6 +6,7 @@ import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import {
+  fetchConvoyViews,
   fetchDeployedCopyIds,
   fetchFixturesSince,
   fetchFragments,
@@ -167,7 +168,10 @@ export async function ExpeditionsPageView({
   const today = easternDateOf(now);
   const active = runs.filter((run) => run.tier !== "lost" && run.claimedAt === null);
   const oldest = active.reduce((min, run) => Math.min(min, Date.parse(run.startedAt)), now.getTime());
-  const fixtures = await fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString());
+  const [fixtures, convoys] = await Promise.all([
+    fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
+    fetchConvoyViews(service, discordId, active),
+  ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   const copyById = new Map(copies.map((copy) => [copy.id, copy]));
   const rivals: Record<number, string> = {};
@@ -213,6 +217,7 @@ export async function ExpeditionsPageView({
         policyUsed={policyUsed}
         playingToday={playingToday}
         rivals={rivals}
+        convoys={convoys}
         // Resolved server-side on the Eastern calendar the whole card
         // economy keeps, so the banner names the brief a launch is actually
         // scored against rather than whatever the reader's clock says.
