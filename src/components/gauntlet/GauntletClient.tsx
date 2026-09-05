@@ -34,6 +34,7 @@ import {
   type StoredMatchResult,
 } from "@/lib/gauntlet/run";
 import { PURSE_MAX, canBank, purseStep } from "@/lib/gauntlet/purse";
+import { ASCENSION_LEVELS, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP, ascensionRules } from "@/lib/gauntlet/ascension";
 import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
 import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
 import type { MomentFamily } from "@/lib/cards/moments";
@@ -194,6 +195,7 @@ export default function GauntletClient({
   weekBest,
   lastLineup,
   heirlooms,
+  ascensionUnlocked = 0,
 }: {
   initialRun: GauntletRunRow | null;
   options: Record<GauntletRole, GauntletOption[]>;
@@ -205,6 +207,8 @@ export default function GauntletClient({
   lastLineup: number[];
   /** Moments and roster plates on the shelf — a run may bring one. */
   heirlooms: HeirloomOption[];
+  /** The top of the ladder this player has unlocked this season. */
+  ascensionUnlocked?: number;
 }) {
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
@@ -233,6 +237,9 @@ export default function GauntletClient({
   /** The shelf relic coming along, if any. Null is a real answer — most
    *  runs bring nothing, and the picker must never imply otherwise. */
   const [heirloomId, setHeirloomId] = useState<number | null>(null);
+  /** The level to draft at. Defaults to the top unlocked — the ladder is
+   *  for climbing — and a player can always step back down. */
+  const [ascension, setAscension] = useState<number>(ascensionUnlocked);
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
@@ -295,7 +302,7 @@ export default function GauntletClient({
   function start() {
     setError(null);
     startTransition(async () => {
-      const result = await startGauntletRunAction(picks, heirloomId);
+      const result = await startGauntletRunAction(picks, heirloomId, ascension);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -507,6 +514,38 @@ export default function GauntletClient({
             ) : null}
           </div>
         ) : null}
+        <div data-testid="ascension-picker" className="flex flex-col gap-2">
+          <span className="label-dash">Ascension</span>
+          <p className="text-xs text-muted">
+            {ascensionUnlocked === 0
+              ? "Clear all eight rounds and the next level of the ladder opens for the season: a named rule change on top of everything below it. The board weighs a run by its level."
+              : `You have unlocked ascension ${ascensionUnlocked}. Each level is a rule on top of the ones before it; the board and the purse pay +${Math.round(ASCENSION_SCORE_STEP * 100)}% and +${Math.round(ASCENSION_PURSE_STEP * 100)}% a level.`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: ascensionUnlocked + 1 }, (_, level) => (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={ascension === level}
+                onClick={() => setAscension(level)}
+                className={`rounded-full px-3 py-1.5 font-mono text-xs font-bold transition ${
+                  ascension === level ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                }`}
+              >
+                {level === 0 ? "A0 · the Gauntlet" : `A${level} · ${ASCENSION_LEVELS[level - 1].title}`}
+              </button>
+            ))}
+          </div>
+          {ascension > 0 ? (
+            <ul className="flex flex-col gap-1 font-mono text-[11px] leading-4 text-coral">
+              {ASCENSION_LEVELS.slice(0, ascension).map((entry) => (
+                <li key={entry.level}>
+                  A{entry.level} · <b>{entry.title}</b> — {entry.rule}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
         {repeatsLast ? (
           <p className="rounded-lg border border-gold/45 bg-gold/5 px-3 py-2 text-xs leading-5 text-gold">
             This is the same five you ran last time. Move at least one card — a re-run should be a different
@@ -566,8 +605,9 @@ export default function GauntletClient({
         <div className="flex flex-wrap items-baseline gap-4">
           <span className="label-dash">
             {over
-              ? `RUN ${run.status === "banked" ? "ABANDONED" : run.status.toUpperCase()}`
+              ? `RUN ${run.status === "banked" ? "BANKED" : run.status.toUpperCase()}`
               : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
+            {(run.ascension ?? 0) > 0 ? ` · ASCENSION ${run.ascension}` : ""}
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
           <span className="text-xs text-muted">run score</span>
@@ -590,6 +630,13 @@ export default function GauntletClient({
           ) : null}
         </div>
         <LineupRow lineup={run.lineup} />
+        {(run.ascension ?? 0) > 0 ? (
+          <p data-testid="ascension-rules" className="font-mono text-[11px] leading-4 text-coral">
+            {ASCENSION_LEVELS.slice(0, ascensionRules(run.ascension ?? 0).level)
+              .map((entry) => `A${entry.level} ${entry.title}: ${entry.rule}`)
+              .join(" · ")}
+          </p>
+        ) : null}
         {!over ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle/40 pt-3">
             <button

@@ -34,6 +34,8 @@ import { recordRelicOffer, recordRound, relicOfferRow, roundLogRow } from "./tel
 import { heirloomOf, type StoredHeirloom } from "./heirlooms";
 import { GAUNTLET_ENTRY_FEE, type GauntletRunRow, matchContextFor } from "./run";
 import { canBank, purseStep } from "./purse";
+import { ascensionRules, clampAscension } from "./ascension";
+import { fetchAscension } from "./queries";
 import {
   GAUNTLET_ROLES,
   GAUNTLET_ROUNDS,
@@ -78,6 +80,9 @@ export async function startGauntletRunAction(
   /** One moment or roster plate from the shelf, brought along for the run.
    *  Never spent, never fielded — see lib/gauntlet/heirlooms.ts. */
   heirloomId?: number | null,
+  /** The ascension to fight at — clamped to what this player has unlocked
+   *  this season (src/lib/gauntlet/ascension.ts). */
+  ascension = 0,
 ): Promise<ActionResult<{ run: GauntletRunRow }>> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
@@ -199,6 +204,12 @@ export async function startGauntletRunAction(
     }
   }
 
+  // The level: whatever was asked for, never above what a clear unlocked.
+  // A stale page asking for a level you don't hold plays level 0's rules
+  // rather than being refused — the request was a preference, not a claim.
+  const unlocked = await fetchAscension(service, user.discordId, season);
+  const level = clampAscension(ascension, unlocked);
+
   // A re-run has to be a different run. Checked BEFORE the fee is taken,
   // so a refused entry never costs anything.
   const { data: lastRuns } = await service
@@ -233,7 +244,7 @@ export async function startGauntletRunAction(
   // The seed this run's own bracket is drawn with. Rolled once, here, and
   // never again — a run's eight opponents are fixed the moment it starts.
   const ghostSeed = seed32();
-  const opponent = await stageOpponent(service, lineupAvg, 1, thisWeek, ghostSeed);
+  const opponent = await stageOpponent(service, lineupAvg, 1, thisWeek, ghostSeed, level);
   const { data: inserted, error: insertError } = await service
     .from("gauntlet_runs")
     .insert({
@@ -246,6 +257,7 @@ export async function startGauntletRunAction(
       ghost_seed: ghostSeed,
       heirloom,
       next_opponent: opponent,
+      ascension: level,
     })
     .select("*")
     .single();
@@ -290,7 +302,7 @@ export async function fightGauntletRoundAction(
   if (run.crossroads) return { ok: false, error: "The game is paused at the crossroads — make the call." };
   if (run.round_seed === null || !run.next_opponent) return { ok: false, error: "No fight is staged — reload." };
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0);
   const state = simulateFirstHalf(run.lineup, run.next_opponent.cards, ctx, mulberry32(run.round_seed));
   const seed2 = seed32();
 
@@ -346,7 +358,7 @@ export async function chooseGauntletPathAction(
     return { ok: false, error: "That call isn't on the table." };
   }
 
-  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup);
+  const ctx = matchContextFor(run.relics, run.next_opponent, weekSeed(run.week_start, run.round), run.heirloom, run.lineup, run.ascension ?? 0);
   const sim = simulateSecondHalf(
     run.crossroads.state,
     choiceKey,
@@ -369,12 +381,18 @@ export async function chooseGauntletPathAction(
   const cleared = sim.won && run.round >= GAUNTLET_ROUNDS;
   // The offer derives from the SAME stored seed (offset stream), so a
   // raced retry offers the same three relics.
+  // A level-3 run's offer is two of the same three, so a raced retry
+  // still sees the same cards.
   const offer =
-    sim.won && !cleared ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1), run.round).map((r) => r.key) : null;
+    sim.won && !cleared
+      ? offerRelics(run.relics, mulberry32(run.crossroads.seed2 + 1), run.round)
+          .map((r) => r.key)
+          .slice(0, ascensionRules(run.ascension ?? 0).offerSize)
+      : null;
 
   // The purse: a won round adds its step; a lost one leaves the number on
   // the row for the record and pays nothing (purse_paid stays zero).
-  const purse = (run.purse ?? 0) + (sim.won ? purseStep(run.round) : 0);
+  const purse = (run.purse ?? 0) + (sim.won ? purseStep(run.round, run.ascension ?? 0) : 0);
 
   const { data: updated } = await service
     .from("gauntlet_runs")
@@ -421,6 +439,13 @@ export async function chooseGauntletPathAction(
     const { error: purseError } = await service.rpc("gauntlet_cash_out", { p_user: user.discordId, p_run: run.id });
     if (purseError) console.error("gauntlet: purse collect on clear failed", { runId: run.id, purseError });
     else finalRow = (await loadOwnRun(service, run.id, user.discordId)) ?? finalRow;
+    // The ladder: a clear at this level unlocks the next for the season.
+    const { error: ascendError } = await service.rpc("gauntlet_ascend", {
+      p_user: user.discordId,
+      p_season: run.season,
+      p_level: run.ascension ?? 0,
+    });
+    if (ascendError) console.error("gauntlet: ascend on clear failed", { runId: run.id, ascendError });
   }
 
   // A full clear is the mode's rarest event — the channel hears about it.
@@ -435,7 +460,7 @@ export async function chooseGauntletPathAction(
       const who = (profile as { username: string | null } | null)?.username ?? "Someone";
       await postCardsWebhook({
         title: "⚔🏆 THE GAUNTLET FALLS",
-        description: `**${who}** cleared all eight rounds — final score **${(run.score + score).toLocaleString()}**, purse **$${purse}** collected.\nThe bracket is undefeated no more.`,
+        description: `**${who}** cleared all eight rounds${(run.ascension ?? 0) > 0 ? ` at **ascension ${run.ascension}**` : ""} — final score **${(run.score + score).toLocaleString()}**, purse **$${purse}** collected.\n${(run.ascension ?? 0) >= 5 ? "There is no higher." : `Ascension ${(run.ascension ?? 0) + 1} is open to them.`}`,
         color: GOLD,
       });
     } catch (error) {
@@ -504,16 +529,17 @@ async function stageOpponent(
   round: number,
   weekStart: string,
   ghostSeed: number | null,
+  ascension = 0,
 ) {
   const roundSeed = weekSeed(weekStart, round);
   try {
     const pool = await fetchGhostPool(service, weekStart);
     const ghost = drawGhostBracket(pool, ghostSeed, weekStart).get(round);
-    if (ghost) return ghostOpponent(ghost, lineupAvg, round, mulberry32(roundSeed));
+    if (ghost) return ghostOpponent(ghost, lineupAvg, round, mulberry32(roundSeed), ascension);
   } catch (error) {
     console.error("gauntlet: ghost pool lookup failed", error);
   }
-  return generateOpponent(lineupAvg, round, mulberry32(roundSeed));
+  return generateOpponent(lineupAvg, round, mulberry32(roundSeed), ascension);
 }
 
 /** Takes one relic from the pending offer and stages the next fight —
@@ -532,7 +558,7 @@ export async function pickGauntletRelicAction(
   if (!run.relic_offer.includes(relicKey)) return { ok: false, error: "That relic wasn't offered." };
 
   const seed = seed32();
-  const opponent = await stageOpponent(service, run.lineup_avg, run.round, run.week_start, run.ghost_seed);
+  const opponent = await stageOpponent(service, run.lineup_avg, run.round, run.week_start, run.ghost_seed, run.ascension ?? 0);
   const { data: updated } = await service
     .from("gauntlet_runs")
     .update({

@@ -4,6 +4,7 @@
 
 import type { Autopsy } from "./autopsy";
 import { bossEffects } from "./bosses";
+import { ascensionRules } from "./ascension";
 import type { OpponentTeam } from "./opponents";
 import { aggregateEffects, mergeRelicEffects } from "./relics";
 import { heirloomEffects, type StoredHeirloom } from "./heirlooms";
@@ -38,13 +39,17 @@ export function matchContextFor(
    *  plate is worth nothing without the roster it belongs to. */
   heirloom?: StoredHeirloom | null,
   lineup: GauntletCard[] = [],
+  /** The run's ascension: how much of a ghost's build defends, and
+   *  whether the pit is theirs every round. */
+  ascension = 0,
 ): MatchContext {
+  const rules = ascensionRules(ascension);
   // A ghost's "traits" are their BUILD: the relics they were holding when
   // they stood here. Flats add on top of any authored traits, so a future
   // ghost that also wears one is not a special case.
   const traits = aggregateTraits(opponent?.traits ?? []);
   const foe = opponent?.ghost
-    ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics))
+    ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics, rules.ghostPotency))
     : traits;
   return {
     effects: mergeRelicEffects(
@@ -53,7 +58,7 @@ export function matchContextFor(
     ),
     foe,
     arena: conditionEffects(opponent?.condition),
-    boss: bossEffects(opponent?.boss),
+    boss: { ...bossEffects(opponent?.boss), ...(rules.holdsPit ? { holdsPit: true } : {}) },
     situationSeed,
     plan: opponent?.plan,
     foeCall: opponent?.ghost?.choiceKey ?? undefined,
@@ -95,4 +100,7 @@ export interface GauntletRunRow {
   purse?: number;
   /** What the purse actually paid — set once by gauntlet_cash_out. */
   purse_paid?: number;
+  /** The ascension the run was fought at (src/lib/gauntlet/ascension.ts).
+   *  Undefined on a row read before the ladder; treat as 0. */
+  ascension?: number;
 }

@@ -13,8 +13,9 @@ import {
   type GauntletRole,
   GAUNTLET_ROLES,
 } from "./sim";
-import { type GhostBrief, GHOST_TARGET_RELIEF, ghostPlanOf, normalizeGhost, teamMean } from "./ghosts";
+import { type GhostBrief, ghostPlanOf, normalizeGhost, teamMean } from "./ghosts";
 import { bossFor } from "./bosses";
+import { ascensionRules } from "./ascension";
 import { rollCondition, rollTraits } from "./traits";
 import { type FoePlan, rollFoePlan } from "./foe";
 import type { MeasureKey } from "@/lib/cards/measures";
@@ -151,8 +152,8 @@ export function bracketTarget(lineupAvg: number, round: number): number {
  * bracket's 0.7%, because traits are most of a round's difficulty budget
  * and round 1's ghost has no relics at all to replace them with.
  */
-export function roundRules(round: number, rand: () => number) {
-  const boss = bossFor(round, rand);
+export function roundRules(round: number, rand: () => number, ascension = 0) {
+  const boss = bossFor(round, rand, ascension);
   const condition = rollCondition(round, rand);
   const traits = rollTraits(round, rand);
   return { boss, condition, traits };
@@ -174,9 +175,13 @@ export function ghostOpponent(
   /** The round's condition and wall still apply — they are the rules of
    *  the round, not a property of who is standing in it. */
   rand: () => number,
+  /** The run's ascension: where the walls stand, what a ghost's five are
+   *  priced at, and the flat bump on the bracket. */
+  ascension = 0,
 ): OpponentTeam {
-  const { boss, condition, traits } = roundRules(round, rand);
-  const target = bracketTarget(lineupAvg, round) + (boss ? BOSS_RATING_BUMP : 0) - GHOST_TARGET_RELIEF;
+  const rules = ascensionRules(ascension);
+  const { boss, condition, traits } = roundRules(round, rand, ascension);
+  const target = bracketTarget(lineupAvg, round) + (boss ? BOSS_RATING_BUMP : 0) - rules.ghostRelief + rules.bracketBump;
   const cards = normalizeGhost(ghost.lineup, target);
   const avg = cards.length > 0 ? Math.round(teamMean(cards)) : target;
   const style = compStyleOf(cards);
@@ -212,7 +217,7 @@ export function ghostOpponent(
  * the style's bank; stats sample around the target with the style's shape
  * pushed hot and cold, so the team plays like what it's called.
  */
-export function generateOpponent(lineupAvg: number, round: number, rand: () => number): OpponentTeam {
+export function generateOpponent(lineupAvg: number, round: number, rand: () => number, ascension = 0): OpponentTeam {
   // The round's rules come off the front of the stream, before anything
   // about the team, so a ghost round and a generated round play under the
   // same patch behind the same wall.
@@ -222,12 +227,12 @@ export function generateOpponent(lineupAvg: number, round: number, rand: () => n
   // makes the round read as a WALL on the way past — a boss that is only
   // a rule disappears into the ramp, and one that is only a bump teaches
   // nothing. Both, and neither alone.
-  const { boss, condition, traits } = roundRules(round, rand);
+  const { boss, condition, traits } = roundRules(round, rand, ascension);
   const bossBump = boss ? BOSS_RATING_BUMP : 0;
 
   const styles: CompStyle[] = ["poke", "dive", "protect"];
   const style = styles[Math.min(2, Math.floor(rand() * 3))];
-  const target = bracketTarget(lineupAvg, round);
+  const target = bracketTarget(lineupAvg, round) + ascensionRules(ascension).bracketBump;
   const shape = STYLE_SHAPE[style];
 
   const bank = [...NAME_BANKS[style]];

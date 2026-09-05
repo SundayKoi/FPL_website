@@ -190,10 +190,26 @@ export async function fetchGauntletWeekStats(
   };
 }
 
+/** What a player has unlocked on the ladder this season. 0 until the
+ *  first clear, and 0 when the table is not there yet. */
+export async function fetchAscension(supabase: SupabaseClient, discordId: string, season: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("gauntlet_ascension")
+    .select("unlocked")
+    .eq("discord_id", discordId)
+    .eq("season", season)
+    .maybeSingle();
+  if (error || !data) return 0;
+  return Number((data as { unlocked: number }).unlocked ?? 0);
+}
+
 export interface GauntletBoardRow {
   discordId: string;
   username: string;
   score: number;
+  /** The score as the board weighs it — see src/lib/gauntlet/ascension.ts. */
+  weighted: number;
+  ascension: number;
   round: number;
   cleared: boolean;
   /** Active patron's flame key, for the board's flame dot. */
@@ -210,11 +226,13 @@ export async function fetchGauntletBoard(
 ): Promise<GauntletBoardRow[]> {
   const { data, error } = await supabase
     .from("gauntlet_runs")
-    .select("discord_id, score, round, status")
+    .select("discord_id, score, round, status, ascension")
     .eq("season", season)
     .eq("week_start", week);
   if (error) return [];
-  const ranked = rankGauntletWeek((data as { discord_id: string; score: number; round: number; status: string }[]) ?? []).slice(0, limit);
+  const ranked = rankGauntletWeek(
+    (data as { discord_id: string; score: number; round: number; status: string; ascension?: number | null }[]) ?? [],
+  ).slice(0, limit);
   if (ranked.length === 0) return [];
   const { data: profiles } = await supabase
     .from("betting_profiles")
@@ -231,6 +249,8 @@ export async function fetchGauntletBoard(
       discordId: row.discordId,
       username: profile?.username ?? "Unknown",
       score: row.score,
+      weighted: row.weighted,
+      ascension: row.ascension,
       round: row.round,
       cleared: row.cleared,
       flame: profile && patronActive(profile.patron_until) ? profile.patron_flame ?? "ember" : null,
