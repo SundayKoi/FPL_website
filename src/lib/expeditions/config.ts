@@ -466,6 +466,11 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
   },
 };
 
+/** What a merchant met on the trail pays, flat, on top of the run's
+ *  dollars (journal.ts rolls the meeting). Small on purpose: an encounter
+ *  is a beat, not a payout. */
+export const MERCHANT_DOLLARS = 75;
+
 /** The most the forks can multiply a payout by. A Legendary route pushed
  *  at every fork with a one-roster squad would otherwise reach 3.4x; the
  *  cap keeps the ceiling the claim RPC guards at a number the economy can
@@ -512,7 +517,8 @@ export function maxExpeditionPayout(): number {
       );
     }
   }
-  return most;
+  // The merchant's flat is the one thing added after the multiplier.
+  return most + MERCHANT_DOLLARS;
 }
 
 /** How much each point of shine ABOVE the tier's gate adds to the payout,

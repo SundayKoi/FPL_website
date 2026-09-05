@@ -790,6 +790,29 @@ a deployed, lost or wounded card at entry, which it never checked before.
 The copy on the page and on `/admin/mutations` derives its numbers from
 the same table.
 
+The trail — the journal under each run, the encounters on it, the squad's
+line at a fork and the route map — is derived, never stored
+(`src/lib/expeditions/journal.ts`). Everything is seeded from the run id
+and the leg (`mulberry32`, the Gauntlet's generator), so the server, the
+page and the sweep agree on what happened without a table for it:
+`encountersFor` places at most one encounter per leg at 35%, and only on a
+route with forks that is not the Exorcism — a **merchant** (a flat
+`MERCHANT_DOLLARS` on top of the multiplied payout, which is why
+`maxExpeditionPayout` and `resolve_expedition`'s ceiling both add it), a
+**storm** (the sweep calls `delay_expedition` once, pushing the run's
+clock by `STORM_HOURS`, and records the leg in `expedition_runs.encounters`
+so the next sweep skips it), or a **stranded card** (only where the route
+can lose a card; at the claim, the oldest open `lost` hold belonging to
+someone else is released, its card comes home wounded, and the finder is
+paid `STRANDED_BOUNTY` on a separate `expedition_bounty` ledger row). The
+claim sends `merchant`, `stranded` and `bounty` inside `p_outcome`;
+`resolve_expedition` refuses a hold the caller owns, a hold that is not
+open, and a bounty over its cap. The journal (`journalFor`) reads the
+clock: a leg's two trail lines surface at 30% and 70% of it, the
+encounter at 50%, the arrival when the fork opens, and the fork ping quotes
+the latest line. `banterFor` is the same idea at the fork: a line from one
+of the squad, chosen by what they can actually do there.
+
 ### Auto-dust
 
 A collector can set one rule (`card_auto_dust`, one row per Discord id,
