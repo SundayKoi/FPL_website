@@ -239,6 +239,7 @@ export interface GauntletBoardRow {
   /** The score as the board weighs it — see src/lib/gauntlet/ascension.ts. */
   weighted: number;
   ascension: number;
+  drafted: boolean;
   round: number;
   cleared: boolean;
   /** Active patron's flame key, for the board's flame dot. */
@@ -255,12 +256,12 @@ export async function fetchGauntletBoard(
 ): Promise<GauntletBoardRow[]> {
   const { data, error } = await supabase
     .from("gauntlet_runs")
-    .select("discord_id, score, round, status, ascension")
+    .select("discord_id, score, round, status, ascension, drafted")
     .eq("season", season)
     .eq("week_start", week);
   if (error) return [];
   const ranked = rankGauntletWeek(
-    (data as { discord_id: string; score: number; round: number; status: string; ascension?: number | null }[]) ?? [],
+    (data as { discord_id: string; score: number; round: number; status: string; ascension?: number | null; drafted?: boolean | null }[]) ?? [],
   ).slice(0, limit);
   if (ranked.length === 0) return [];
   const { data: profiles } = await supabase
@@ -280,6 +281,7 @@ export async function fetchGauntletBoard(
       score: row.score,
       weighted: row.weighted,
       ascension: row.ascension,
+      drafted: row.drafted,
       round: row.round,
       cleared: row.cleared,
       flame: profile && patronActive(profile.patron_until) ? profile.patron_flame ?? "ember" : null,

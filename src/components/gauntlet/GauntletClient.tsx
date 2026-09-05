@@ -18,6 +18,8 @@ import {
   benchSwapGauntletAction,
   bankGauntletRunAction,
   chooseGauntletPathAction,
+  dealGauntletHandAction,
+  rerollGauntletOfferAction,
   fightGauntletRoundAction,
   pickGauntletRelicAction,
   resetGauntletRunAction,
@@ -37,6 +39,8 @@ import { PURSE_MAX, canBank, purseStep } from "@/lib/gauntlet/purse";
 import { ASCENSION_LEVELS, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP, ascensionRules } from "@/lib/gauntlet/ascension";
 import { contractsForWeek } from "@/lib/gauntlet/contracts";
 import { OPENER_BY_KEY, nextOpener, unlockedOpeners } from "@/lib/gauntlet/openers";
+import { DRAFTED_SCORE_MULT } from "@/lib/gauntlet/drafted";
+import { SET_BONUS_AT, SET_BONUS_TEXT, completedSets } from "@/lib/gauntlet/relics";
 import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
 import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
 import type { MomentFamily } from "@/lib/cards/moments";
@@ -51,7 +55,9 @@ import {
   type GauntletRole,
   LANE_KEY,
   makeTrialist,
+  mulberry32,
   previewCrossroadsChoice,
+  simulateSecondHalf,
 } from "@/lib/gauntlet/sim";
 
 /** Rarity reads at a glance on the pick screen — steel, cyan, gold. */
@@ -253,6 +259,8 @@ export default function GauntletClient({
   const [ascension, setAscension] = useState<number>(ascensionUnlocked);
   /** The opener to bring. Null brings nothing — most runs will. */
   const [openerKey, setOpenerKey] = useState<string | null>(null);
+  /** Drafted mode: the hand dealt, when one is. Null drafts from the shelf. */
+  const [deal, setDeal] = useState<{ dealId: number; ids: number[] } | null>(null);
   /** Contracts finished by the round that just resolved, for the strip
    *  under the tape. */
   const [contractNews, setContractNews] = useState<{ key: string; title: string; reward: number }[]>([]);
@@ -324,15 +332,44 @@ export default function GauntletClient({
   function start() {
     setError(null);
     startTransition(async () => {
-      const result = await startGauntletRunAction(picks, heirloomId, ascension, openerKey);
+      const result = await startGauntletRunAction(picks, heirloomId, ascension, openerKey, deal?.dealId ?? null);
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setLastFight(null);
       setRun(result.run);
+      setDeal(null);
       // The header's attempts/best strip is server-rendered — let it catch up.
       router.refresh();
+    });
+  }
+
+  /** Drafted mode: deal a hand, and draft from it. */
+  function dealHandNow() {
+    setError(null);
+    startTransition(async () => {
+      const result = await dealGauntletHandAction();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setDeal({ dealId: result.dealId, ids: result.ids });
+      setPicks({});
+    });
+  }
+
+  /** THE REMATCH: re-roll the offer once. */
+  function reroll() {
+    if (!run) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await rerollGauntletOfferAction(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setRun(result.run);
     });
   }
 
@@ -473,7 +510,7 @@ export default function GauntletClient({
                   }
                 >
                   <option value="">Trialist (55)</option>
-                  {options[role].map((option) => (
+                  {options[role].filter((option) => !deal || deal.ids.includes(option.inventoryId)).map((option) => (
                     <option key={option.inventoryId} value={option.inventoryId}>
                       {option.name} · {option.overall}
                       {/* Both shelves field, so the option has to say which
@@ -538,6 +575,22 @@ export default function GauntletClient({
             ) : null}
           </div>
         ) : null}
+        <div data-testid="drafted-mode" className="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle bg-surface/50 px-3 py-2">
+          <span className="label-dash">Drafted mode</span>
+          <span className="text-xs text-muted">
+            {deal
+              ? `You were dealt ${deal.ids.length} cards — build from those. The board pays a drafted run ×${DRAFTED_SCORE_MULT}, and the no-repeat rule is waived.`
+              : `Deal a hand — three random cards per role from your own shelf — and draft from those instead of your best five. The board pays it ×${DRAFTED_SCORE_MULT}.`}
+          </span>
+          <button
+            type="button"
+            onClick={deal ? () => { setDeal(null); setPicks({}); } : dealHandNow}
+            disabled={pending}
+            className="ml-auto rounded-full border border-border-strong bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
+          >
+            {deal ? "Draft from the whole shelf instead" : "Deal me a hand"}
+          </button>
+        </div>
         {weekContracts.length > 0 ? (
           <div data-testid="contracts" className="flex flex-col gap-2 rounded-lg border border-mint/40 bg-mint/5 p-3">
             <div className="flex flex-wrap items-baseline gap-2">
@@ -640,14 +693,14 @@ export default function GauntletClient({
             </ul>
           ) : null}
         </div>
-        {repeatsLast ? (
+        {repeatsLast && !deal ? (
           <p className="rounded-lg border border-gold/45 bg-gold/5 px-3 py-2 text-xs leading-5 text-gold">
             This is the same five you ran last time. Move at least one card — a re-run should be a different
             run, not the same one rolled again.
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-4">
-          <button type="button" onClick={start} disabled={pending || short || repeatsLast} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
+          <button type="button" onClick={start} disabled={pending || short || (repeatsLast && !deal)} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
             {pending ? "Entering…" : `Enter the Gauntlet — ${fmtPoints(GAUNTLET_ENTRY_FEE)}`}
           </button>
           <span className="text-xs text-muted">
@@ -691,7 +744,9 @@ export default function GauntletClient({
   const theirCall = theirCallKey ? CHOICE_BY_KEY.get(theirCallKey) ?? null : null;
   // The same context the server fights under — relics, their traits, the
   // round's condition — so the odds printed on a choice are the odds.
-  const runCtx = matchContextFor(run.relics, run.next_opponent);
+  const runCtx = matchContextFor(
+    run.relics, run.next_opponent, undefined, run.heirloom, run.lineup, run.ascension ?? 0, run.opener ?? null,
+  );
 
   return (
     <section ref={stageRef} className="flex scroll-mt-6 flex-col gap-6">
@@ -702,6 +757,7 @@ export default function GauntletClient({
               ? `RUN ${run.status === "banked" ? "BANKED" : run.status.toUpperCase()}`
               : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
             {(run.ascension ?? 0) > 0 ? ` · ASCENSION ${run.ascension}` : ""}
+            {run.drafted ? " · DRAFTED" : ""}
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
           <span className="text-xs text-muted">run score</span>
@@ -732,6 +788,17 @@ export default function GauntletClient({
           ) : null}
         </div>
         <LineupRow lineup={run.lineup} />
+        {completedSets(run.relics).length > 0 ? (
+          <p data-testid="set-bonus" className="font-mono text-[11px] leading-4 text-gold">
+            {completedSets(run.relics).map((family) => `${family.toUpperCase()} SET (${SET_BONUS_AT}): ${SET_BONUS_TEXT[family]}`).join(" · ")}
+          </p>
+        ) : null}
+        {run.second_wind_used && run.status === "active" && lastFight && !lastFight.won ? (
+          <p data-testid="second-wind" className="rounded-lg border border-[#ff7a3d]/60 bg-[#ff7a3d]/10 px-3 py-2 text-xs text-[#ff7a3d]">
+            THE SECOND WIND — the round is lost, the run is not. Round {run.round} again, against a fresh opponent. It does not
+            happen twice.
+          </p>
+        ) : null}
         {(run.ascension ?? 0) > 0 ? (
           <p data-testid="ascension-rules" className="font-mono text-[11px] leading-4 text-coral">
             {ASCENSION_LEVELS.slice(0, ascensionRules(run.ascension ?? 0).level)
@@ -878,6 +945,12 @@ export default function GauntletClient({
                 : 1;
               const pays = preview ? daringAt(choice.scoreBonus, chance) : 0;
               const odds = Math.round(chance * 100);
+              // THE ORACLE: the second half is sealed — its seed is on the
+              // row — so with the relic held, each call's ending is simply
+              // read off it. The same pure function the server will run.
+              const oracle = runCtx.effects.oracle
+                ? simulateSecondHalf(run.crossroads!.state, choice.key, run.lineup, run.next_opponent!.cards, runCtx, mulberry32(run.crossroads!.seed2))
+                : null;
               return (
                 <button
                   key={choice.key}
@@ -919,6 +992,14 @@ export default function GauntletClient({
                   <span className="mt-2.5 border-t border-border-subtle/60 pt-2 text-[11px] leading-4 text-muted">
                     ↳ {choice.consequence.note}
                   </span>
+                  {oracle ? (
+                    <span
+                      data-testid="oracle"
+                      className={`mt-2 rounded-md border px-2 py-1 font-mono text-[10.5px] ${oracle.won ? "border-mint/60 text-mint" : "border-coral/60 text-coral"}`}
+                    >
+                      THE ORACLE: this call {oracle.won ? "WINS" : "LOSES"} the game · whistle at {oracle.momentum} momentum
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -934,6 +1015,16 @@ export default function GauntletClient({
         <div className="card-brand flex flex-col gap-4 p-6">
           <div>
             <span className="label-dash text-coral">ROUND {run.round - 1} CLEARED · CHOOSE YOUR RELIC</span>
+            {runCtx.effects.rerollOffer && !run.reroll_used ? (
+              <button
+                type="button"
+                onClick={reroll}
+                disabled={pending}
+                className="ml-3 rounded-full border border-[#a8e6ff]/60 bg-[#a8e6ff]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#a8e6ff] transition hover:bg-[#a8e6ff]/20 disabled:opacity-50"
+              >
+                THE REMATCH — deal again
+              </button>
+            ) : null}
             <p className="mt-1 text-xs text-muted">
               One of three, run-scoped. The other two are burned — choosing is the game. Rares get likelier
               the deeper you go, and the offer leans toward what you are already building — never so far

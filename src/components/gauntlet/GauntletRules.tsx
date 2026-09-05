@@ -11,7 +11,8 @@ import { PURSE_MAX, PURSE_STEPS, purseAfter } from "@/lib/gauntlet/purse";
 import { ASCENSION_LEVELS, ASCENSION_MAX, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP } from "@/lib/gauntlet/ascension";
 import { CONTRACTS_PER_WEEK, CONTRACT_CATALOG } from "@/lib/gauntlet/contracts";
 import { OPENER_CATALOG } from "@/lib/gauntlet/openers";
-import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
+import { RELIC_CATALOG, SET_BONUS_AT, SET_BONUS_TEXT } from "@/lib/gauntlet/relics";
+import { DRAFTED_HAND_PER_ROLE, DRAFTED_SCORE_MULT } from "@/lib/gauntlet/drafted";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
 import { BOUNTY_MULT } from "@/lib/gauntlet/ghosts";
@@ -542,6 +543,31 @@ export default function GauntletRules() {
         <p>
           Reading the card matters: over a thousand simulated runs, a player who takes whatever is offered
           first clears about 1% of the time, and one who reads what&apos;s on offer clears about 6%.
+        </p>
+        <p>
+          <b className="text-white">Six relics change a rule instead of a number.</b> THE SECOND WIND lets the run
+          survive its first loss. THE ORACLE shows how each crossroads call ends before you choose. HEAD START
+          begins every Baron you start 30% down. THE REMATCH re-rolls one offer per run. THE SAFE HOUSE adds 25%
+          to every purse step. THE FIXER voids a wall&apos;s rule. Every one prints its rule on the card.
+        </p>
+        <p>
+          <b className="text-white">Set bonuses.</b> Hold {SET_BONUS_AT} relics of one family and the family&apos;s
+          signature lands on top, once:{" "}
+          <span style={{ color: "#ff7a3d" }}>ember</span> {SET_BONUS_TEXT.ember};{" "}
+          <span style={{ color: "#9b6dff" }}>void</span> {SET_BONUS_TEXT.void};{" "}
+          <span style={{ color: "#a8e6ff" }}>ice</span> {SET_BONUS_TEXT.ice};{" "}
+          <span style={{ color: "#e8c14b" }}>gold</span> {SET_BONUS_TEXT.gold}. A fourth of the family adds nothing
+          more — the offer stops leaning at two, and the set pays at three.
+        </p>
+      </Section>
+
+      <Section title="Drafted mode — play the hand you are dealt">
+        <p>
+          Your best five walk in every time, and the no-repeat rule only asks one card to move. Drafted mode
+          deals you a <b className="text-white">hand</b> — {DRAFTED_HAND_PER_ROLE} random eligible cards per role from
+          your own shelf — and the run is built from those. Trialists still fill what the hand can&apos;t. The
+          board pays a drafted run <b className="text-white">×{DRAFTED_SCORE_MULT}</b>, the no-repeat rule is waived,
+          and a hand is one run&apos;s: deal again for the next.
         </p>
       </Section>
 

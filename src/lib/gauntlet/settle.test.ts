@@ -38,6 +38,19 @@ describe("rankGauntletWeek — ascension", () => {
   });
 });
 
+describe("rankGauntletWeek — drafted", () => {
+  it("pays a drafted run 15% more on the board", () => {
+    const ranked = rankGauntletWeek([
+      { discord_id: "ann", score: 1000, round: 5, status: "fallen", ascension: 0, drafted: true },
+      { discord_id: "bob", score: 1100, round: 5, status: "fallen", ascension: 0, drafted: false },
+    ]);
+    expect(ranked.map((r) => [r.discordId, r.weighted, r.drafted])).toEqual([
+      ["ann", 1150, true],
+      ["bob", 1100, false],
+    ]);
+  });
+});
+
 describe("gauntletPot", () => {
   it("is the fees less what the purses already paid, never below zero", () => {
     expect(gauntletPot([{ purse_paid: 0 }, { purse_paid: 48 }, { purse_paid: null }, {}])).toBe(4 * 50 - 48);
