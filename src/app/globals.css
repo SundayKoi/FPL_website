@@ -1229,11 +1229,13 @@ body {
   background-repeat: no-repeat;
   animation: mutIrradiatedRings 3.2s ease-out infinite, mutIrradiatedBreathe 2.8s ease-in-out infinite;
   &::before {
-    /* the trefoil, burned into the top-right corner and nowhere else */
+    /* the trefoil, burned in under the rating ring and nowhere else: the
+       ring (pt-3 + h-14) and its serial line end at ~82px, and the corner
+       above them belongs to the OVR, which the symbol used to sit on */
     content: "";
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 88px;
+    right: 12px;
     width: 46px;
     height: 46px;
     border-radius: 50%;
