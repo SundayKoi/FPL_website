@@ -159,8 +159,8 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
     {
       key: "stattrak",
       name: "StatTrak™",
-      look: "An orange counter on the back and a pill on the front, counting the fantasy points this copy scores while you own it. Trade it and it resets to zero for the new owner.",
-      how: "Rolled on every player card. The count starts at zero the moment it is pulled and climbs with every Fantasy week the copy is fielded.",
+      look: "An orange counter on the back and a pill on the front, counting the player's Fantasy Pts — the stats tab's tally — for every game they play while you hold the copy, fielded or not. Trade it and it resets to zero for the new owner.",
+      how: "Rolled on every player card. The count starts at zero the moment it is pulled and climbs after every match night the player plays.",
       odds: `${oneIn(STATTRAK_CHANCE)} cards`,
       perPack: perPackPct(STATTRAK_CHANCE),
       value: "No change to dust: the number is the value.",

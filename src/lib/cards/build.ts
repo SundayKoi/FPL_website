@@ -233,11 +233,12 @@ export interface PlayerCardData {
    *  it this season), `of` the checklist it overran. Priced
    *  ×SECRET_DUST_MULT; one per pack at most. */
   secret?: { number: number; of: number } | null;
-  /** StatTrak: a counter of the fantasy points this copy scored in its
-   *  current owner's hands. `points` is bumped by the weekly drop and
-   *  reset to zero when the copy changes hands; `since` is when the count
-   *  started. Never priced. */
-  stattrak?: { points: number; since: string } | null;
+  /** StatTrak: a counter of the pictured player's Fantasy Pts (the stats
+   *  tab's tally, game by game) for every game played while this copy is
+   *  held — fielded or not. `points` is bumped by the weekly drop,
+   *  `through` is the last game counted, and both reset when the copy
+   *  changes hands; `since` is when the count started. Never priced. */
+  stattrak?: { points: number; since: string; through?: string | null } | null;
   /** How many times this copy has been fielded (expedition, Gauntlet run,
    *  scored Fantasy week). Bumped by SQL (wear_cards, migration 20260922);
    *  read as a grade by src/lib/cards/wear.ts. Never priced. */

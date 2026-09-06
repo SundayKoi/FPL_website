@@ -5,7 +5,7 @@ begin;
 set local search_path = public, extensions;
 create extension if not exists pgtap with schema extensions;
 \ir helpers/_fixtures.sql.inc
-select plan(17);
+select plan(19);
 
 insert into public.profiles (id, discord_id, display_name)
 values ('00000000-0000-0000-0000-0000000e0099'::uuid, 'wear-0099', 'Wearer'),
@@ -61,10 +61,12 @@ select throws_ok($$
   'P0001', 'card is slabbed', 'a slabbed copy cannot go on an expedition');
 
 -- === StatTrak ===============================================================
-select ok(public.bump_stattrak(tests.wear_id(1), 71.5), 'a week''s points land on a StatTrak copy');
+select ok(public.bump_stattrak(tests.wear_id(1), 71.5, '2026-08-25T02:00:00Z'), 'a game''s points land on a StatTrak copy');
 select is((select (card -> 'stattrak' ->> 'points')::numeric from public.card_inventory where id = tests.wear_id(1)), 71.5::numeric,
   'and are counted');
-select ok(not public.bump_stattrak(tests.wear_id(2), 50), 'a copy without the counter takes nothing');
+select ok(not public.bump_stattrak(tests.wear_id(1), 71.5, '2026-08-25T02:00:00Z'), 'the same games do not count twice');
+select ok(not public.bump_stattrak(tests.wear_id(1), 10, '2026-08-20T02:00:00Z'), 'nor do games before the last counted');
+select ok(not public.bump_stattrak(tests.wear_id(2), 50, '2026-08-25T02:00:00Z'), 'a copy without the counter takes nothing');
 update public.card_inventory set discord_id = 'next-0099' where id = tests.wear_id(1);
 select is((select (card -> 'stattrak' ->> 'points')::numeric from public.card_inventory where id = tests.wear_id(1)), 0::numeric,
   'a transfer zeroes the count for the new owner');

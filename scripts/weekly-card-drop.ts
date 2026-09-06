@@ -43,6 +43,7 @@ import {
 import { lastCompletedWeek } from "../src/lib/fantasy/week";
 import { PACK_COST } from "../src/lib/packs/config";
 import { mondayOf } from "../src/lib/packs/week";
+import { stattrakCredits, type TrackedCopy } from "../src/lib/cards/stattrak";
 import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 import { formatMatchWinPayouts, type MatchWinPayoutLine } from "../src/lib/betting/match-wins";
 
@@ -329,9 +330,6 @@ async function scoreFantasyWeek(
     // inventoryId survives a rename, and card_inventory.slug is updated by
     // one — so resolve through it before scoring anything.
     const identities = new Map<number, CurrentIdentity>();
-    // Copies carrying a StatTrak counter, so the week's points can land on
-    // them once the lineup is scored (migration 20260922).
-    const tracked = new Set<number>();
     const inventoryIds = inventoryIdsIn(unscored);
     if (inventoryIds.length > 0) {
       // Paged on the primary key: PostgREST caps an unpaged select at
@@ -342,16 +340,15 @@ async function scoreFantasyWeek(
       for (let from = 0; from < inventoryIds.length; from += pageSize) {
         const { data: copies, error: copyError } = await supabase
           .from("card_inventory")
-          .select("id, slug, player_name, mutation, stattrak:card->stattrak")
+          .select("id, slug, player_name, mutation")
           .in("id", inventoryIds.slice(from, from + pageSize));
         if (copyError) throw copyError;
-        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string; mutation: string | null; stattrak: unknown }[])) {
+        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string; mutation: string | null }[])) {
           identities.set(copy.id, {
             slug: copy.slug,
             playerName: copy.player_name,
             mutation: (copy.mutation as CurrentIdentity["mutation"]) ?? null,
           });
-          if (copy.stattrak) tracked.add(copy.id);
         }
       }
     }
@@ -372,21 +369,16 @@ async function scoreFantasyWeek(
           .eq("season", season)
           .eq("week_start", week);
         if (updateError) throw updateError;
-        // A scored week is a fielding: every copy in it wears one, and a
-        // StatTrak copy counts its slot's points. Best effort, after the
-        // score is safe — a cosmetic that fails must not unscore a week.
+        // A scored week is a fielding: every copy in it wears one. Best
+        // effort, after the score is safe — a cosmetic that fails must not
+        // unscore a week. (StatTrak is not tied to fielding; see
+        // creditStatTrak.)
         const fieldedIds = Object.values(lineup.slots)
           .map((slot) => slot?.inventoryId)
           .filter((id): id is number => typeof id === "number");
         if (fieldedIds.length > 0) {
           const { error: wearError } = await supabase.rpc("wear_cards", { p_ids: fieldedIds });
           if (wearError) console.error(`[${label}] wear_cards failed for ${lineup.discordId}: ${wearError.message}`);
-        }
-        for (const [role, slot] of Object.entries(lineup.slots)) {
-          const points = breakdown[role as keyof typeof breakdown]?.points ?? 0;
-          if (!slot || !tracked.has(slot.inventoryId) || points <= 0) continue;
-          const { error: trakError } = await supabase.rpc("bump_stattrak", { p_id: slot.inventoryId, p_points: points });
-          if (trakError) console.error(`[${label}] bump_stattrak failed for copy ${slot.inventoryId}: ${trakError.message}`);
         }
       } else {
         console.log(`[${label}] [dry-run] would score ${lineup.discordId}: ${score.toFixed(1)} pts`);
@@ -729,6 +721,70 @@ async function postEclipseBoard(
   );
 }
 
+/**
+ * Credits every StatTrak copy with its player's Fantasy Pts for the week
+ * just played — the stats tab's own tally, game by game, for every game
+ * dated after the copy was pulled or last counted (src/lib/cards/stattrak.ts).
+ * Fielding does not matter. Idempotent: `stattrak.through` moves to the
+ * last game counted and bump_stattrak refuses anything not past it, so a
+ * re-run of the drop credits nothing twice. Best effort throughout — a
+ * counter is not worth a failed drop.
+ */
+async function creditStatTrak(supabase: SupabaseClient, label: string, season: string, editionWeek: string): Promise<void> {
+  // The tracked copies, paged on the primary key like every other shelf read.
+  const copies: TrackedCopy[] = [];
+  const pageSize = 500;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("card_inventory")
+      .select("id, slug, stattrak:card->stattrak")
+      .eq("season", season)
+      .not("card->stattrak", "is", null)
+      .order("id")
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.warn(`[${label}] StatTrak: could not read the tracked copies: ${error.message}`);
+      return;
+    }
+    const batch = (data ?? []) as TrackedCopy[];
+    copies.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  if (copies.length === 0) {
+    console.log(`[${label}] StatTrak: no tracked copies this season.`);
+    return;
+  }
+
+  // The week's games, on the same padded-then-trimmed window fetchWeekCards
+  // uses, so the boundary is mondayOf's and nobody else's.
+  const start = new Date(`${editionWeek}T00:00:00.000Z`);
+  start.setUTCDate(start.getUTCDate() - 1);
+  const end = new Date(`${editionWeek}T00:00:00.000Z`);
+  end.setUTCDate(end.getUTCDate() + 8);
+  const { data: rows, error: rowsError } = await supabase
+    .from("raw_stats")
+    .select(FANTASY_STAT_COLUMNS)
+    .eq("season", season)
+    .gte("game_date", start.toISOString())
+    .lt("game_date", end.toISOString());
+  if (rowsError) {
+    console.warn(`[${label}] StatTrak: could not read the week's games: ${rowsError.message}`);
+    return;
+  }
+  const weekRows = (((rows ?? []) as unknown) as WeeklyRawStatRow[]).filter(
+    (row) => row.game_date && mondayOf(new Date(row.game_date)) === editionWeek,
+  );
+
+  const credits = stattrakCredits(copies, weekRows);
+  let landed = 0;
+  for (const credit of credits) {
+    const { data: ok, error } = await supabase.rpc("bump_stattrak", { p_id: credit.id, p_points: credit.points, p_through: credit.through });
+    if (error) console.error(`[${label}] StatTrak: bump failed for copy ${credit.id}: ${error.message}`);
+    else if (ok) landed += 1;
+  }
+  console.log(`[${label}] StatTrak: ${copies.length} tracked cop${copies.length === 1 ? "y" : "ies"}, ${weekRows.length} games in the week of ${editionWeek}, ${landed} credited.`);
+}
+
 /** Pays out last week's Gauntlet pot and posts the podium. The settle
  *  helper is burn-first idempotent, so a re-run of this job is a no-op. */
 async function settleLastGauntletWeek(
@@ -813,6 +869,11 @@ async function main(): Promise<void> {
 
   for (const { league, season } of seasons) {
     await processSeason(supabase, league, season, webhookUrl, origin);
+    try {
+      await creditStatTrak(supabase, LEAGUE_LABELS[league], season, mondayOf(new Date()));
+    } catch (error) {
+      console.error(`[${LEAGUE_LABELS[league]}] StatTrak pass failed:`, error);
+    }
     // Non-fatal by construction: fantasy is a later migration than the card
     // drop, and an environment without it (or a bad week of stats) must
     // still get its snapshots and its movers post.

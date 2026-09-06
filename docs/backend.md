@@ -163,10 +163,15 @@ removes or rewrites the slab or moves the wear under it. A slabbed copy
 is refused everywhere it could be fielded: the `expedition_runs_slab_guard`
 trigger in SQL, and `slabRefusal()` (src/lib/cards/wear.ts) in the
 Gauntlet and Fantasy server actions, whose pickers also leave it out. It
-can still be sold, traded and dusted. `bump_stattrak(p_id, p_points)` adds
-a scored week's slot points to a StatTrak copy (the weekly drop calls it
-after `wear_cards`), and the `stattrak_reset` trigger zeroes the count and
-restarts `since` on any change of `discord_id`, so a count is one owner's.
+can still be sold, traded and dusted. `bump_stattrak(p_id, p_points, p_through)` (migration 20260924) adds the
+pictured player's Fantasy Pts — `gamePoints()` from
+`src/lib/stats/fantasyPoints.ts`, the stats tab's own tally — for every
+game dated after the copy's `stattrak.through` (or `since`), fielded or
+not, and moves `through` to the last game counted; the weekly drop's
+`creditStatTrak` pass computes the credits with the pure
+`stattrakCredits()` (`src/lib/cards/stattrak.ts`) and is idempotent. The
+`stattrak_reset` trigger zeroes the count and restarts `since` on any
+change of `discord_id`, dropping `through`, so a count is one owner's.
 Grades (Factory New 0, Minimal Wear 1–2, Field-Tested 3–5, Well-Worn
 6–10, Battle-Scarred 11+) are read in TS only; SQL stores the count.
 
