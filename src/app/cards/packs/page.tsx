@@ -115,10 +115,30 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
             Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
             ratings — every card is stamped with the week it was pulled, so a player you open twice in
             different weeks is two different prints. Every copy comes printed in a random skin of that
-            player&apos;s signature champion, and foils are a rare pull on any tier.
+            player&apos;s signature champion, and foils are a rare pull on any tier.{" "}
+            <Link href={`${base}/rarities`} className="text-gold underline-offset-4 hover:underline">
+              Every rarity a card can pull, with the odds →
+            </Link>
           </p>
         </div>
       </header>
+
+      {/* The finishes are new, and the shop is where a person finds out.
+          One line, permanent for now: it is not a week notice with a
+          deadline, it is a change to what a pack is. */}
+      <Link
+        href={`${base}/rarities#finishes`}
+        className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm transition hover:border-gold/70"
+      >
+        <span className="rounded-full border border-gold/70 bg-gold/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.18em] text-gold">
+          New in packs
+        </span>
+        <span className="text-white">
+          Three new finishes: <strong>★ Shiny</strong>, <strong>StatTrak™</strong> and <strong>Secret</strong> — rolled on
+          top of every foil, autograph and Eclipse, in every pack.
+        </span>
+        <span className="text-xs text-steel">How they work, and the real odds →</span>
+      </Link>
 
       <ThisWeekStrip notices={weekNotices({ liveWindow, chase, championsWindow, championComps })} />
 

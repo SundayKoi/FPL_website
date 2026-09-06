@@ -2569,6 +2569,55 @@ body {
   .pack-card-back:hover { transform: none; }
 }
 
+/* ── Finishes — Shiny, Secret, StatTrak (src/lib/packs/rarities.ts) ──────
+   Real pulls, drawn by PlayerCard3D. Each is a film over the face with
+   nothing written on it: the words live in the badge row and on the back,
+   where the card already keeps its words. */
+
+/* Shiny: the art itself, in the wrong colours. Set on the splash img. */
+@utility card-shiny-art {
+  filter: hue-rotate(150deg) saturate(1.35) contrast(1.05);
+}
+@keyframes cardShinyBurst {
+  0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  40% { transform: scale(1.3) rotate(25deg); opacity: 0; }
+}
+/* Two glints high on the art — above the identity block, clear of the
+   badge row's right edge, never over a stat. */
+@utility card-shiny-burst {
+  &::before, &::after {
+    content: "✦";
+    position: absolute;
+    color: #fff;
+    text-shadow: 0 0 10px #ff9be7, 0 0 20px #fff;
+    animation: cardShinyBurst 3.6s ease-out infinite;
+    pointer-events: none;
+  }
+  &::before { left: 20%; top: 26%; font-size: 24px; }
+  &::after { right: 22%; top: 42%; font-size: 16px; animation-delay: 1.4s; }
+}
+
+/* Secret: a gold line just inside the frame, and a breath of gold rising
+   from the foot. No band, no text — the serial line says what it is. */
+@utility card-secret-frame {
+  box-shadow:
+    inset 0 0 0 2px rgb(245 182 46 / 0.8),
+    inset 0 0 18px rgb(245 182 46 / 0.3),
+    inset 0 -20px 28px -16px rgb(245 182 46 / 0.55);
+}
+
+/* StatTrak: the LED on the back's counter. */
+@keyframes cardLedBlink { 0%, 92%, 100% { opacity: 1; } 96% { opacity: 0.35; } }
+@utility card-stattrak-led {
+  text-shadow: 0 0 8px rgb(255 138 42 / 0.9);
+  animation: cardLedBlink 4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-shiny-burst::before, .card-shiny-burst::after, .card-stattrak-led { animation: none; }
+  .card-shiny-burst::before, .card-shiny-burst::after { opacity: 0.6; }
+}
+
 /* ── Overlay mockups — /admin/overlays only. ─────────────────────────────
    Proposed treatments beyond the foil ladder (src/lib/cards/overlayMockups.ts),
    drawn over real cards through PlayerCard3D's `overlay` prop. None of these

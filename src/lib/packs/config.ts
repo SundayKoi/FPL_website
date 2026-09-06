@@ -312,6 +312,61 @@ export function rollFoilType(rand: () => number): MintableFoilType {
  */
 export const SIGNED_DUST_BASE = 1200;
 
+// === Finishes: Shiny, Secret, StatTrak ======================================
+//
+// Three more things a player-card print can come out as, each rolled on its
+// own gate AFTER the parallel, the autograph and the Eclipse have been
+// settled, and each independent of them — a Shiny can be foil, a Secret can
+// be signed. None of them touches a moment, a roster plate, a champions
+// relic or an Eclipse: those are already the rare thing they are. Rolled in
+// src/lib/packs/rarities.ts; drawn in PlayerCard3D; explained on
+// /cards/rarities, which reads these numbers rather than restating them.
+
+/**
+ * Shiny — the same card in the wrong colours: the art hue-shifted, a
+ * sparkle burst over it. One in sixty-four, the number every collector
+ * already knows from the game that invented the idea. That is 7.6% of
+ * packs, a little rarer than a foil (FOIL_CHANCE × PACK_SIZE ≈ 30% of
+ * packs): a shiny is a thing you tell the channel about, not a thing you
+ * expect from a night of ripping.
+ */
+export const SHINY_CHANCE = 1 / 64;
+
+/** What a Shiny does to dust: half again. Less than the Aurora rung (×3):
+ *  it is a colour, not a parallel, and the money-printer guardrail (see
+ *  SIGNED_DUST_BASE) has no room for another doubling on a 1-in-64 gate. */
+export const SHINY_DUST_MULT = 1.5;
+
+/**
+ * StatTrak — a counter on the copy that tracks the fantasy points it scores
+ * in YOUR hands, and resets when it changes hands. One in fifty, roughly
+ * one pack in ten: common enough that most collectors will hold one, rare
+ * enough that a high count is a story about a card somebody kept fielding.
+ * Worth nothing extra to dust: the counter is the value, and a counter
+ * you have not run up yet is worth exactly what the card under it is.
+ */
+export const STATTRAK_CHANCE = 0.02;
+
+/**
+ * Secret — a print numbered past the checklist. Numbered from the top of
+ * the collection: in a season of 120 cards, the first Secret found is
+ * #121/120, the next #122/120. One in five hundred per card, one per
+ * thousand packs' worth of prints — a hair rarer than an Eclipse gate
+ * (ECLIPSE_CHANCE, 0.5%) but on ANY player card rather than the Card of
+ * the Week, so it is the rarest thing an ordinary pull can be. Announced
+ * to the channel when it lands, like an Eclipse. At most one per pack.
+ */
+export const SECRET_CHANCE = 0.002;
+
+/** What a Secret does to dust: doubles it, over the parallel. On any
+ *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
+ *  under what a signature adds; only a Secret Cracked Ice challenger beats
+ *  the autograph, and that is a 1-in-500 on a 1-in-555 on a 1-in-100 —
+ *  a card the league may never see. The guardrail (SIGNED_DUST_BASE)
+ *  holds: at these gates the finishes add under a dollar to a pack's
+ *  expected dust. */
+export const SECRET_DUST_MULT = 2;
+
 /** The rarity bucket a card tier belongs to. */
 export function rarityOf(tier: CardTierKey): RarityClass {
   return RARITY_BY_TIER[tier];
@@ -358,6 +413,10 @@ export function dustValueOf(row: {
    *  changes a price (MUTATION_EFFECTS.dustMult): Cursed halves it,
    *  Hardened adds a quarter, Voidtouched doubles it. */
   mutation?: string | null;
+  /** The finishes (SHINY_DUST_MULT, SECRET_DUST_MULT). Read off the card
+   *  json by callers that hold it; a stored copy's flags live there too. */
+  shiny?: boolean;
+  secret?: boolean;
 }): number {
   // Nothing at all for a copy that cannot be dusted — before any pricing,
   // because the autograph bonus is a flat add and would otherwise put a
@@ -377,6 +436,10 @@ export function dustValueOf(row: {
   // Rounded because the middle of the ladder is fractional (2.5) and dust
   // is a whole-number currency — an un-rounded 62.5 would drift the ledger.
   if (row.foil) value = Math.round(value * FOIL_TYPE_DUST_MULT[foilTypeOf(row.foilType)]);
+  // The finishes multiply the print like a parallel does, under the ink:
+  // a signature is a flat add on ANY card, and stays the biggest number.
+  if (row.shiny) value = Math.round(value * SHINY_DUST_MULT);
+  if (row.secret) value = Math.round(value * SECRET_DUST_MULT);
   if (row.signed) value += SIGNED_DUST_BASE;
   // Last, over the whole number: a curse halves a signed foil's ink too.
   const mutation = row.mutation ? MUTATION_EFFECTS[row.mutation as MutationKey] : undefined;

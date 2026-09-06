@@ -44,7 +44,14 @@ vi.mock("./skins", () => ({
   splashArtExists: vi.fn(async () => true),
   rollPrint: vi.fn(async () => 0),
 }));
-vi.mock("./announce", () => ({ postCardsWebhook: vi.fn(), GOLD: 0 }));
+const { postCardsWebhook } = vi.hoisted(() => ({ postCardsWebhook: vi.fn() }));
+vi.mock("./announce", () => ({ postCardsWebhook, GOLD: 0 }));
+// The finishes roll off the same CSPRNG as everything else, so a test that
+// wants one has to say so: the roller is swapped, the stamper is real.
+const { rollPackFinishes } = vi.hoisted(() => ({
+  rollPackFinishes: vi.fn((prints: unknown[]) => prints.map(() => ({ shiny: false, stattrak: false, secret: false }))),
+}));
+vi.mock("./rarities", async (importOriginal) => ({ ...(await importOriginal<typeof import("./rarities")>()), rollPackFinishes }));
 
 const { openChampionsPack, openPackFor, refundPackComp, spendPackComp } = await import("./open");
 
@@ -160,7 +167,7 @@ function createService(respond: Respond) {
 
 /** The rest of the open flow's reads, answered the boring way so each test
  *  only has to say what it cares about. */
-function createShop(opts: { comps?: Record<string, number>; insertError?: unknown } = {}) {
+function createShop(opts: { comps?: Record<string, number>; insertError?: unknown; secretsFound?: number } = {}) {
   const table = createCompTable(opts.comps ?? {});
   const service = createService((call) => {
     if (call.table === "card_pack_comps") return table.respond(call);
@@ -178,6 +185,8 @@ function createShop(opts: { comps?: Record<string, number>; insertError?: unknow
       // flow inserts one and `.single()`s it.
       return { data: Array.isArray(call.payload) ? [{ id: 501 }] : { id: 501 } };
     }
+    // The season's Secret count, for a Secret's over-number.
+    if (call.table === "card_inventory" && call.verb === "select") return { data: [], count: opts.secretsFound ?? 0 };
     return { data: null };
   });
   createBettingServiceClient.mockReturnValue(service.client);
@@ -192,8 +201,64 @@ function stampedOpenIds(calls: QueryCall[]): unknown[] {
   return rows.map((row) => row.pack_open_id);
 }
 
+/** The card json the inventory insert froze, one per print. */
+function insertedCards(calls: QueryCall[]): Record<string, unknown>[] {
+  const insert = calls.find((call) => call.table === "card_inventory" && call.verb === "insert");
+  const rows = (Array.isArray(insert?.payload) ? insert!.payload : [insert?.payload]) as { card: Record<string, unknown> }[];
+  return rows.map((row) => row.card);
+}
+
 beforeEach(() => {
   createBettingServiceClient.mockReset();
+  postCardsWebhook.mockClear();
+  rollPackFinishes.mockClear();
+});
+
+describe("openPackFor finishes", () => {
+  it("freezes nothing extra into an ordinary pull", async () => {
+    const shop = createShop();
+    shop.rpc.mockResolvedValue({ data: 77, error: null });
+
+    await openPackFor("42", "premier");
+
+    const [card] = insertedCards(shop.calls);
+    expect(card.shiny).toBeUndefined();
+    expect(card.stattrak).toBeUndefined();
+    expect(card.secret).toBeUndefined();
+    // No Secret, no count read: the only card_inventory call is the insert.
+    expect(shop.calls.filter((call) => call.table === "card_inventory")).toHaveLength(1);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("freezes a Shiny and a zeroed StatTrak into the copy", async () => {
+    rollPackFinishes.mockReturnValueOnce([{ shiny: true, stattrak: true, secret: false }]);
+    const shop = createShop();
+    shop.rpc.mockResolvedValue({ data: 77, error: null });
+
+    await openPackFor("42", "premier");
+
+    const [card] = insertedCards(shop.calls);
+    expect(card.shiny).toBe(true);
+    expect(card.stattrak).toMatchObject({ points: 0 });
+    expect(typeof (card.stattrak as { since: string }).since).toBe("string");
+    expect(card.secret).toBeUndefined();
+  });
+
+  it("numbers a Secret past the checklist from the season's count, and tells the channel", async () => {
+    rollPackFinishes.mockReturnValueOnce([{ shiny: false, stattrak: false, secret: true }]);
+    const shop = createShop({ secretsFound: 2 });
+    shop.rpc.mockResolvedValue({ data: 77, error: null });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const [card] = insertedCards(shop.calls);
+    // The stubbed roll carries no collectionSize, so the checklist is 0 and
+    // the third Secret of the season is #3 past it.
+    expect(card.secret).toEqual({ number: 3, of: 0 });
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("SECRET") });
+  });
 });
 
 describe("spendPackComp", () => {

@@ -40,7 +40,16 @@ export function cardsSections(base: string): CardsSection[] {
       href: `${base}/collection`,
       blurb: "Every copy you own, your binder, your team sets",
     },
-    { key: "packs", label: "Packs", href: `${base}/packs`, blurb: "Open a pack from any week's edition" },
+    {
+      key: "packs",
+      label: "Packs",
+      href: `${base}/packs`,
+      blurb: "Open a pack from any week's edition",
+      children: [
+        { label: "Open packs", href: `${base}/packs`, blurb: "Open a pack from any week's edition" },
+        { label: "Rarities", href: `${base}/rarities`, blurb: "Every rarity a card can pull, with the real odds" },
+      ],
+    },
     {
       key: "browse",
       label: "Browse",
