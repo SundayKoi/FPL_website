@@ -162,6 +162,19 @@ after `wear_cards`), and the `stattrak_reset` trigger zeroes the count and
 restarts `since` on any change of `discord_id`, so a count is one owner's.
 Grades (Factory New 0, Minimal Wear 1–2, Field-Tested 3–5, Well-Worn
 6–10, Battle-Scarred 11+) are read in TS only; SQL stores the count.
+
+**True pull rates** (migration 20260923, pgTAP 0100). `card_provenance`
+gained `season` and, on the `minted` row, `print` — the flat facts of the
+copy at mint (tier, foil, foil_type, signed, alt, shiny, secret,
+stattrak, moment, team, champ, edition_week), written by
+`record_card_provenance()` in the insert's own statement. Because the
+row has no FK, it survives `dust_card`, so `fetchEconomyStats` reads a
+season's mints (`event = 'minted'`, paged through `fetchAllRows`' new
+`where` argument) into `pulled` — player cards only — and the stats page
+prints them as "Pull rates" beside the configured gate, above the held
+counts, which keep their survivorship bias and say so. Mints from before
+the migration carry no print and are left out; the section dates itself
+from the first counted mint.
 `/cards/rarities` (and the academy twin) prints every rarity from
 `src/lib/cards/rarityGuide.ts`, whose numbers import from the config; the
 Discord announcement (`src/lib/cards/rarityAnnouncement.ts`) is posted
