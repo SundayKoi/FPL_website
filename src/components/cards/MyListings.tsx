@@ -12,9 +12,9 @@
 // a decision anyone regrets.
 
 import { useState, useTransition } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
-import { editionLabel } from "@/lib/packs/week";
 import { cancelListing } from "@/lib/market/actions";
 import type { ListingStatus } from "@/lib/market/queries";
 import { expiryLabel, type BoardCopy } from "./MarketBoard";
@@ -88,7 +88,7 @@ export default function MyListings({ listings }: { listings: MyListing[] }) {
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
               {listing.copy?.playerName ?? "Card no longer available"}
             </span>
-            {listing.copy ? <span className="text-steel">{editionLabel(listing.copy.editionWeek)}</span> : null}
+            {listing.copy ? <span className="text-steel">{copyEditionLabel(listing.copy.editionWeek, listing.copy.relic === true)}</span> : null}
             <span className="font-mono text-sm font-bold text-gold">{fmtPoints(listing.ask)}</span>
             <span className="text-steel">{statusLabel(listing)}</span>
             {listing.status === "open" && listing.stale ? (

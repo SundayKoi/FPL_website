@@ -20,6 +20,7 @@
 // pre-empted.
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { gradeOf, wearOf } from "@/lib/cards/wear";
 import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import CountUp from "@/components/home/CountUp";
@@ -1047,6 +1048,7 @@ export default function ExpeditionBoard({
                         {tierLabel(copy.tier)}
                         {copy.role ? ` · ${copy.role}` : ""}
                         {mutation ? ` · ${mutation.label}` : ""}
+                        {wearOf(copy.card) > 0 && !sealed ? ` · ${gradeOf(copy.card).label}` : ""}
                         {status ? ` · ${status}` : ""}
                       </span>
                     </span>

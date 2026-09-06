@@ -21,11 +21,11 @@
 // copies and almost none of them get looked at.
 
 import { useMemo, useState, useTransition } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { CardLeague } from "@/lib/cards/queries";
-import { editionLabel } from "@/lib/packs/week";
 import { createTradeAction, fetchInventoryCardAction, fetchPartnerInventoryAction } from "@/lib/trades/actions";
 import type { Collector } from "@/lib/trades/queries";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
@@ -137,13 +137,13 @@ function CardPicker({
               checked={chosen.has(card.id)}
               disabled={disabled || deployed}
               onChange={() => onToggle(card.id)}
-              aria-label={`${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)}`}
+              aria-label={`${card.playerName} ${card.overall} ${copyEditionLabel(card.editionWeek, card.card)}`}
               className="accent-coral"
             />
             <span className="min-w-0 flex-1 truncate font-semibold text-white">{card.playerName}</span>
             <span className="font-mono font-bold text-mint">{card.overall}</span>
             <span className="text-muted">{tierLabel(card.tier)}</span>
-            <span className="text-muted">{editionLabel(card.editionWeek)}</span>
+            <span className="text-muted">{copyEditionLabel(card.editionWeek, card.card)}</span>
             {card.signed ? (
               <span className="font-black text-gold" title="Autographed copy">
                 ✍
@@ -182,7 +182,7 @@ function CardPicker({
               signed: card.signed,
               altArt: card.altArt,
             }}
-            label={`View ${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)} card`}
+            label={`View ${card.playerName} ${card.overall} ${copyEditionLabel(card.editionWeek, card.card)} card`}
             className="shrink-0 rounded-md border border-border-strong bg-surface px-2 text-[11px] text-muted transition hover:border-action-text hover:text-action-text focus-visible:border-action-text focus-visible:outline-none"
           >
             <span aria-hidden>⤢</span>

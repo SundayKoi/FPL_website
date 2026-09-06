@@ -29,6 +29,7 @@
 // not a workbench.
 
 import { useState, useTransition } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { useUrlState } from "@/lib/ui/useUrlState";
@@ -223,7 +224,7 @@ function CopyCaption({
         {count > 1 ? <span className="ml-1.5 text-xs font-bold text-steel">×{count}</span> : null}
       </span>
       <div className="flex flex-wrap justify-center gap-1">
-        <span className={CHIP}>{editionLabel(row.editionWeek)}</span>
+        <span className={CHIP}>{copyEditionLabel(row.editionWeek, row.card)}</span>
         <span className={CHIP}>{row.card.tier.label}</span>
         {print ? (
           <span
@@ -349,7 +350,7 @@ function PickCell({
           </span>
         </span>
         <span className="text-[10px] uppercase tracking-wide text-steel">
-          {keepsake ? "Can't be dusted" : locked ? "On expedition" : editionLabel(row.editionWeek)}
+          {keepsake ? "Can't be dusted" : locked ? "On expedition" : copyEditionLabel(row.editionWeek, row.card)}
         </span>
       </button>
     </div>

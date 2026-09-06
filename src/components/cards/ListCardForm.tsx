@@ -14,10 +14,10 @@
 // error renders inline rather than being pre-empted by a disabled button.
 
 import { useMemo, useState, useTransition } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import EmptyShelf from "./EmptyShelf";
 import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
-import { editionLabel } from "@/lib/packs/week";
 import { createListing } from "@/lib/market/actions";
 import { MAX_LISTING_ASK, MAX_NOTE_CHARS, LISTING_DAYS } from "@/lib/market/config";
 import { fetchInventoryCardAction } from "@/lib/trades/actions";
@@ -139,13 +139,13 @@ export default function ListCardForm({
                         setChosen(card.id);
                         setPosted(null);
                       }}
-                      aria-label={`${card.playerName} ${card.overall} ${editionLabel(card.editionWeek)}`}
+                      aria-label={`${card.playerName} ${card.overall} ${copyEditionLabel(card.editionWeek, card.card)}`}
                       className="accent-coral"
                     />
                     <span className="min-w-0 flex-1 truncate font-semibold text-white">{card.playerName}</span>
                     <span className="font-mono font-bold text-mint">{card.overall}</span>
                     <span className="text-steel">{tierLabel(card.tier)}</span>
-                    <span className="text-steel">{editionLabel(card.editionWeek)}</span>
+                    <span className="text-steel">{copyEditionLabel(card.editionWeek, card.card)}</span>
                     {card.signed ? (
                       <span className="font-black text-gold" title="Autographed copy">
                         ✍

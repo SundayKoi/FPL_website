@@ -21,8 +21,8 @@
 // portal to coordinate, and a card that isn't on screen costs nothing.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { editionLabel } from "@/lib/packs/week";
 import { tierLabel } from "@/lib/cards/tier";
 import PlayerCard3D from "./PlayerCard3D";
 
@@ -194,7 +194,7 @@ export default function CardCopyPreview({
             <div className="flex flex-col items-center gap-1.5 text-center">
               <span className="text-sm font-semibold text-white">{caption.playerName}</span>
               <div className="flex flex-wrap justify-center gap-1">
-                {caption.editionWeek ? <span className={CHIP}>{editionLabel(caption.editionWeek)}</span> : null}
+                {caption.editionWeek ? <span className={CHIP}>{copyEditionLabel(caption.editionWeek, card)}</span> : null}
                 {caption.tier ? <span className={CHIP}>{tierLabel(caption.tier)}</span> : null}
                 {caption.printNumber && caption.printRun ? (
                   <span
