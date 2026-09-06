@@ -51,6 +51,29 @@ import TeamCard from "./TeamCard";
 
 /** Fixed sparkle placements (percent coords + stagger) for the top-tier
  *  glint layer — deterministic so SSR and client agree. */
+/** One stamp a copy carries, as both the front's coin and the back's chip. */
+interface CardStamp {
+  key: string;
+  testId: string;
+  /** What the coin shows — a glyph, or a glyph and a short count. */
+  glyph: string;
+  accent: string;
+  /** The whole story, on hover. */
+  title: string;
+  /** The ledger's words. */
+  label: string;
+  detail: string | null;
+}
+
+/** A stamp coin: 20px, one glyph, its colour on the rim. */
+function Coin({ testId, title, accent, children }: { testId: string; title: string; accent: string; children: React.ReactNode }) {
+  return (
+    <span data-testid={testId} title={title} aria-label={title} className="card-coin" style={{ ["--coin" as string]: accent }}>
+      {children}
+    </span>
+  );
+}
+
 const SPARKLES = [
   { left: "12%", top: "8%", delay: "0s", size: "text-sm" },
   { left: "82%", top: "14%", delay: "0.9s", size: "text-xs" },
@@ -253,6 +276,31 @@ function PlayerCardFace({
   const wear = wearOf(card);
   const grade = gradeOf(card);
   const slabbed = isSlabbed(card);
+  const woundedUntilLabel = benched
+    ? new Date(card.wounded!.until).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })
+    : null;
+  // Every stamp this copy carries, in the order the strip and the back's
+  // ledger both print them. One list so the two can never disagree.
+  const stamps: CardStamp[] = [
+    ...(card.live ? [{ key: "live", testId: "live-stamp", glyph: "●", accent: "#f87171", title: `Opened live — ${card.live.label}`, label: "Live", detail: card.live.label }] : []),
+    ...(card.chase ? [{ key: "chase", testId: "chase-stamp", glyph: "★", accent: "#f5b62e", title: `First to the chase: ${card.chase.title}`, label: "Chase", detail: card.chase.title }] : []),
+    ...(card.autograph ? [{ key: "signed", testId: "signed-stamp", glyph: "✍", accent: "#f5b62e", title: "Signed — the player's own ink", label: "Signed", detail: null }] : []),
+    ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
+    ...(card.secret
+      ? [{ key: "secret", testId: "secret-stamp", glyph: "#", accent: "#f5b62e", title: `Secret — numbered past the checklist: ${secretSerialLabel(card.secret)}. Never on the list.`, label: "Secret", detail: secretSerialLabel(card.secret) }]
+      : []),
+    ...(card.stattrak
+      ? [{ key: "stattrak", testId: "stattrak-stamp", glyph: `▮ ${stattrakLabel(card.stattrak.points)}`, accent: "#ff8a2a", title: `StatTrak™ — ${stattrakLabel(card.stattrak.points)} Fantasy Pts the player has scored while this owner held the card. Resets when traded.`, label: "StatTrak™", detail: `${stattrakLabel(card.stattrak.points)} pts` }]
+      : []),
+    ...(slabbed
+      ? [{ key: "slab", testId: "slab-stamp", glyph: `◇ ${grade.key.toUpperCase()}`, accent: "#dbe7ff", title: `Slabbed — sealed at ${grade.label} after ${card.slab!.wear} fielding${card.slab!.wear === 1 ? "" : "s"}. Can never be fielded again.`, label: "Slabbed", detail: grade.label }]
+      : wear > 0
+        ? [{ key: "wear", testId: "wear-stamp", glyph: grade.key.toUpperCase(), accent: "#d6dde8", title: `${grade.label} — fielded ${wear} time${wear === 1 ? "" : "s"}`, label: grade.label, detail: `fielded ${wear}×` }]
+        : []),
+    ...(benched
+      ? [{ key: "wounded", testId: "wounded", glyph: "✚", accent: "#fca5a5", title: `Wounded — benched from expeditions and the Gauntlet until ${woundedUntilLabel} ET`, label: "Wounded", detail: `until ${woundedUntilLabel} ET` }]
+      : []),
+  ];
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = isEclipse
     ? "card-frame-eclipse"
@@ -637,77 +685,10 @@ function PlayerCardFace({
                   {FOIL_TYPE_LABELS[parallel]}
                 </span>
               ) : null}
-              {/* Provenance stamps: how this copy entered the world. Frozen
-                  into the card json at mint, so they survive trades. */}
-              {card.live ? (
-                <span
-                  data-testid="live-stamp"
-                  className="rounded-full border border-red-400/60 bg-red-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-red-300"
-                  title={`Opened live — ${card.live.label}`}
-                >
-                  ● Live
-                </span>
-              ) : null}
-              {card.chase ? (
-                <span
-                  data-testid="chase-stamp"
-                  className="rounded-full border border-gold/70 bg-gold/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-gold"
-                  title={`First to the chase: ${card.chase.title}`}
-                >
-                  ★ Chase
-                </span>
-              ) : null}
-              {/* The finishes (src/lib/packs/rarities.ts). Pills like the
-                  stamps above, so they take no room the card did not already
-                  give its badges; the art and the frame carry the look. */}
-              {card.shiny ? (
-                <span
-                  data-testid="shiny-stamp"
-                  className="rounded-full border border-[#ff9be7]/70 bg-[#ff9be7]/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#ffd1f3]"
-                  title="Shiny — the art in the wrong colours. One print in sixty-four."
-                >
-                  ★ Shiny
-                </span>
-              ) : null}
-              {card.secret ? (
-                <span
-                  data-testid="secret-stamp"
-                  className="rounded-full border border-gold/80 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-gold [text-shadow:0_0_8px_rgb(245_182_46/0.7)]"
-                  title={`Secret — numbered past the checklist: ${secretSerialLabel(card.secret)}. Never on the list.`}
-                >
-                  Secret
-                </span>
-              ) : null}
-              {card.stattrak ? (
-                <span
-                  data-testid="stattrak-stamp"
-                  className="rounded-full border border-[#ff8a2a]/70 bg-[#0b0603]/85 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#ff8a2a]"
-                  title={`StatTrak™ — ${stattrakLabel(card.stattrak.points)} Fantasy Pts the player has scored while this owner held the card. Resets when traded.`}
-                >
-                  StatTrak™ <span className="font-mono tabular-nums">{stattrakLabel(card.stattrak.points)}</span>
-                </span>
-              ) : null}
-              {/* Wear and the slab (src/lib/cards/wear.ts). Factory New is
-                  silent on an open copy — every copy starts there and a
-                  pill saying so on all of them would say nothing. A slab
-                  always shows its grade: the grade is what was sealed. */}
-              {slabbed ? (
-                <span
-                  data-testid="slab-stamp"
-                  className="rounded-full border border-[#dbe7ff]/80 bg-[#dbe7ff]/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#eef4ff]"
-                  title={`Slabbed — sealed at ${grade.label} after ${card.slab!.wear} fielding${card.slab!.wear === 1 ? "" : "s"}. Can never be fielded again.`}
-                >
-                  Slab · {grade.label}
-                </span>
-              ) : wear > 0 ? (
-                <span
-                  data-testid="wear-stamp"
-                  className="rounded-full border border-white/35 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/80"
-                  title={`${grade.label} — fielded ${wear} time${wear === 1 ? "" : "s"}`}
-                >
-                  {grade.label}
-                </span>
-              ) : null}
+              {/* Everything else a copy can be — live, chase, ink, the
+                  finishes, wear, a wound — lives in the coin strip below, not
+                  here: the header is the tier, the parallel and the rating,
+                  and nothing else competes with them. */}
               </div>
               <div className="flex flex-col items-end gap-0.5">
                 <div
@@ -742,11 +723,20 @@ function PlayerCardFace({
                 </span>
               </div>
             ) : null}
-            {card.autograph ? (
-              <div className="relative mt-1 flex justify-center">
-                <span className="rounded-full border border-gold/70 bg-black/70 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-gold">
-                  ✍ Signed
-                </span>
+            {/* The coin strip: one small coin per stamp, in a fixed order, in
+                one row under the rating. A copy can carry up to eight of
+                them (live, chase, ink, shiny, secret, StatTrak, wear or slab,
+                a wound) and they still fit in a single line without touching
+                the art's centre, the name, or each other. Each coin says its
+                whole story on hover; the back's ledger spells them out for
+                anyone without a pointer. */}
+            {stamps.length > 0 ? (
+              <div data-testid="card-stamps" className="relative mt-1 flex flex-wrap items-center justify-end gap-1 px-3">
+                {stamps.map((stamp) => (
+                  <Coin key={stamp.key} testId={stamp.testId} title={stamp.title} accent={stamp.accent}>
+                    {stamp.glyph}
+                  </Coin>
+                ))}
               </div>
             ) : null}
 
@@ -949,15 +939,6 @@ function PlayerCardFace({
                 {overlay.chip ? <span className="card-ov-chip">{overlay.chip}</span> : null}
               </div>
             ) : null}
-            {benched ? (
-              <span
-                data-testid="wounded"
-                title={`Wounded — benched from expeditions and the Gauntlet until ${new Date(card.wounded!.until).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", timeZone: "America/New_York" })} ET`}
-                className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full border border-red-400/70 bg-black/75 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-red-300"
-              >
-                Wounded
-              </span>
-            ) : null}
           </div>
         </div>
 
@@ -1071,13 +1052,33 @@ function PlayerCardFace({
                 not a stat — and rendered only when a caller holding an
                 inventory row passes it, since the live card has no copy to
                 be a number of. */}
-            {slabbed || wear > 0 ? (
-              // The copy's service record — a fact about THIS copy, so it
-              // sits with the print line rather than the player's stats.
-              <div data-testid="wear-record" className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
-                {slabbed
-                  ? `Sealed ${new Date(card.slab!.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} · ${grade.label} · never fielded again`
-                  : `Fielded ${wear} time${wear === 1 ? "" : "s"} · ${grade.label}`}
+            {/* The ledger: every coin on the front, spelled out — and the
+                copy's service record with them. Chips, so eight stamps are
+                two short rows rather than eight lines. */}
+            {stamps.length > 0 || mutation ? (
+              <div data-testid="card-stamps-back" className="flex flex-wrap justify-center gap-1">
+                {stamps.map((stamp) => (
+                  <span
+                    key={stamp.key}
+                    data-testid={stamp.key === "wear" || stamp.key === "slab" ? "wear-record" : undefined}
+                    className="rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
+                    style={{ borderColor: `${stamp.accent}80`, color: stamp.accent }}
+                  >
+                    {stamp.key === "slab"
+                      ? `Sealed ${new Date(card.slab!.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} · ${grade.label} · never fielded again`
+                      : stamp.key === "wear"
+                        ? `Fielded ${wear} time${wear === 1 ? "" : "s"} · ${grade.label}`
+                        : `${stamp.label}${stamp.detail ? ` · ${stamp.detail}` : ""}`}
+                  </span>
+                ))}
+                {mutation ? (
+                  <span
+                    className="rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
+                    style={{ borderColor: `${mutation.accent}80`, color: mutation.accent }}
+                  >
+                    {mutation.label}
+                  </span>
+                ) : null}
               </div>
             ) : null}
             {card.stattrak ? (
