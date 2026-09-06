@@ -129,6 +129,11 @@ function walkoutLabels(pull: Pull): string[] {
   else if (rarityRank(rarity) >= rarityRank("epic")) labels.push("💎 DIAMOND PULL");
   if (pull.signed) labels.push("✍ SIGNED");
   if (pull.foil && isAltArt(pull)) labels.push("✦ FOIL ALT ART");
+  // The finishes (src/lib/packs/rarities.ts). A Secret is the rarest thing
+  // an ordinary pull can be and a Shiny is rarer than a foil; both earn
+  // the walkout. StatTrak is one pack in ten — a badge in the line.
+  if (pull.card.secret) labels.push("🔒 SECRET");
+  if (pull.card.shiny) labels.push("★ SHINY");
   return labels;
 }
 
@@ -651,6 +656,8 @@ export default function PackOpening({
         signed: pull.signed,
         moment: Boolean(pull.card.moment),
         champWin: Boolean(pull.card.champWin),
+        shiny: Boolean(pull.card.shiny),
+        secret: Boolean(pull.card.secret),
       },
       patron,
     );
@@ -819,6 +826,30 @@ export default function PackOpening({
                             className="rounded-full border border-cyan/50 bg-cyan/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-cyan"
                           >
                             Alt
+                          </span>
+                        ) : null}
+                        {pull.card.shiny ? (
+                          <span
+                            title="Shiny — the art in the wrong colours"
+                            className="rounded-full border border-[#ff9be7]/60 bg-[#ff9be7]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffd1f3]"
+                          >
+                            Shiny
+                          </span>
+                        ) : null}
+                        {pull.card.secret ? (
+                          <span
+                            title={`Secret — numbered past the checklist, #${pull.card.secret.number}/${pull.card.secret.of}`}
+                            className="rounded-full border border-gold bg-gold/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-gold"
+                          >
+                            Secret
+                          </span>
+                        ) : null}
+                        {pull.card.stattrak ? (
+                          <span
+                            title="StatTrak — counts the fantasy points it scores for you"
+                            className="rounded-full border border-[#ff8a2a]/60 bg-[#ff8a2a]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-[#ff8a2a]"
+                          >
+                            StatTrak
                           </span>
                         ) : null}
                         {/* Picking happens on the SUMMARY, not mid-reveal: a

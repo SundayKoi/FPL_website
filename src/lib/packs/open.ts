@@ -23,6 +23,7 @@ import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
 import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
+import { rollPackFinishes, secretSerialLabel, stampFinishes } from "./rarities";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
@@ -422,6 +423,28 @@ export async function openPackFor(
     }
   }
 
+  // ── The finishes: Shiny, StatTrak, Secret ──────────────────────────
+  // Rolled last, over whatever the print already is, and drawn only for
+  // prints that can take one — so nothing above moved. A Secret needs one
+  // read (how many the season has found, for its over-number), paid only
+  // when one actually rolled: one pack in a thousand.
+  const finishes = rollPackFinishes(prints, rand);
+  let secretsFound = 0;
+  if (finishes.some((roll) => roll.secret)) {
+    const { count } = await service
+      .from("card_inventory")
+      .select("id", { count: "exact", head: true })
+      .eq("season", season)
+      .not("card->secret", "is", null);
+    secretsFound = count ?? 0;
+  }
+  const mintedAt = new Date();
+  for (let index = 0; index < prints.length; index += 1) {
+    const roll = finishes[index];
+    if (!roll.shiny && !roll.stattrak && !roll.secret) continue;
+    prints[index] = { ...prints[index], card: stampFinishes(prints[index].card, roll, { secretsFound, now: mintedAt }) };
+  }
+
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(
@@ -477,6 +500,12 @@ export async function openPackFor(
   const eclipsePrint = prints.find((print) => print.foilType === ECLIPSE_FOIL_TYPE);
   if (eclipsePrint) {
     await announceEclipseClaim(service, discordId, eclipsePrint, stampedWeek, league);
+  }
+  // A Secret is the rarest thing an ordinary pull can be — same news,
+  // same door, same reasoning about ordering.
+  const secretPrint = prints.find((print) => print.card.secret);
+  if (secretPrint) {
+    await announceSecretClaim(service, discordId, secretPrint, stampedWeek, league);
   }
 
   // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
@@ -608,6 +637,45 @@ async function announceEclipseClaim(
 ` +
       `One of one. Nobody else will ever own this card.` +
       (vaultUrl ? `\n[The Vault](${vaultUrl}) — every one found, and every one still out there.` : ""),
+    color: GOLD,
+    ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
+  });
+}
+
+/** A Secret landing: the print numbered past the checklist. Points at the
+ *  rarities page, because "what is that number" is the question it
+ *  raises, and that page is the answer. */
+async function announceSecretClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean },
+  editionWeek: string,
+  league: CardLeague,
+): Promise<void> {
+  const { data } = await service
+    .from("betting_profiles")
+    .select("username, patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  const row = data as { username: string; patron_until: string | null } | null;
+  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const { card } = print;
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
+  const traits = [
+    `${card.tier.label} ${card.role}`,
+    ...(print.foil ? [`✨ ${parallelLabelFor(card.season, foilTypeOf(print.foilType), FOIL_TYPE_LABELS[foilTypeOf(print.foilType)])}`] : []),
+    ...(card.shiny ? ["★ Shiny"] : []),
+    ...(print.signed ? ["✍️ Signed"] : []),
+  ].join(" · ");
+  await postCardsWebhook({
+    title: "🔒 A SECRET HAS BEEN FOUND",
+    description:
+      `**${who}** pulled **${card.name} ${card.secret ? secretSerialLabel(card.secret) : ""}** — ${editionLabel(editionWeek)} edition.\n` +
+      `${card.overall} OVR · ${traits}\n\n` +
+      `A print numbered past the checklist. It was never on the list.` +
+      (raritiesUrl ? `\n[Every rarity a card can pull](${raritiesUrl})` : ""),
     color: GOLD,
     ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
   });

@@ -79,6 +79,10 @@ interface OwnedCardRow {
   signed: boolean | null;
   /** The generated column off card.mutation — what dust pricing reads. */
   mutation: string | null;
+  /** The finishes, read straight off the card json (PostgREST aliases):
+   *  dust pricing multiplies on them (packs/config.ts). */
+  shiny?: boolean | null;
+  secret?: { number: number; of: number } | null;
 }
 
 /** Both card pages, in both leagues — a dusted or traded card has to leave
@@ -143,7 +147,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret")
     .eq("id", inventoryId)
     .maybeSingle();
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
@@ -167,6 +171,8 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
       foilType: row.foil_type,
       signed: row.signed === true,
       mutation: row.mutation,
+      shiny: Boolean(row.shiny),
+      secret: Boolean(row.secret),
     },
     await dustsAsPatron(service, user.discordId),
   );
@@ -207,7 +213,7 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret")
     .in("id", ids);
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
 
@@ -249,6 +255,8 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
         foilType: row.foil_type,
         signed: row.signed === true,
         mutation: row.mutation,
+        shiny: Boolean(row.shiny),
+        secret: Boolean(row.secret),
       },
       patron,
     );
@@ -331,7 +339,7 @@ export async function createTradeAction(input: {
   if (allIds.length > 0) {
     const { data, error } = await service
       .from("card_inventory")
-      .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
+      .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret")
       .in("id", allIds);
     if (error) return { ok: false, error: "Couldn't read those cards — try again." };
 

@@ -24,7 +24,7 @@ describe("cardsSections", () => {
 
   it("keeps every old destination reachable as a sub-tab", () => {
     const hrefs = cardsSections("/cards").flatMap((section) => (section.children ?? []).map((child) => child.href));
-    for (const page of ["teams", "compare", "moments", "vault", "trades", "fantasy", "gauntlet", "expeditions", "draw", "stats"]) {
+    for (const page of ["teams", "compare", "moments", "vault", "trades", "fantasy", "gauntlet", "expeditions", "draw", "stats", "rarities"]) {
       expect(hrefs).toContain(`/cards/${page}`);
     }
   });

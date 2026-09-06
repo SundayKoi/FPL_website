@@ -40,6 +40,7 @@ import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
+import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 
 /** What an overlay mockup hands the renderer: the layers and the accent. */
 export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
@@ -478,7 +479,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
@@ -515,7 +516,7 @@ function PlayerCardFace({
                 alt=""
                 className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${
                   forceFoil ? "card-art-parallax" : ""
-                }`}
+                } ${card.shiny ? "card-shiny-art" : ""}`}
                 loading="lazy"
                 // Decoding off the main thread: a wall of splash art otherwise
                 // blocks the frame it lands in, which is felt as scroll jank.
@@ -593,6 +594,12 @@ function PlayerCardFace({
               >
                 {card.tier.label}
               </span>
+              {/* Everything between the tier and the rating, in one row that
+                  wraps: the parallel, the provenance stamps, the finishes.
+                  Wrapping is what keeps a loaded copy (a signed Shiny Secret
+                  opened live) from pushing its badges under the rating ring
+                  or off the card — the header grows a line instead. */}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1 px-1.5" data-testid="card-badges">
               {/* Which parallel, said out loud. A ladder nobody can see is
                   not a ladder — half the point of pulling a Cracked Ice is
                   knowing you did. Prisma stays unlabelled: it is the base,
@@ -646,6 +653,37 @@ function PlayerCardFace({
                   ★ Chase
                 </span>
               ) : null}
+              {/* The finishes (src/lib/packs/rarities.ts). Pills like the
+                  stamps above, so they take no room the card did not already
+                  give its badges; the art and the frame carry the look. */}
+              {card.shiny ? (
+                <span
+                  data-testid="shiny-stamp"
+                  className="rounded-full border border-[#ff9be7]/70 bg-[#ff9be7]/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#ffd1f3]"
+                  title="Shiny — the art in the wrong colours. One print in sixty-four."
+                >
+                  ★ Shiny
+                </span>
+              ) : null}
+              {card.secret ? (
+                <span
+                  data-testid="secret-stamp"
+                  className="rounded-full border border-gold/80 bg-black/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-gold [text-shadow:0_0_8px_rgb(245_182_46/0.7)]"
+                  title={`Secret — numbered past the checklist: ${secretSerialLabel(card.secret)}. Never on the list.`}
+                >
+                  Secret
+                </span>
+              ) : null}
+              {card.stattrak ? (
+                <span
+                  data-testid="stattrak-stamp"
+                  className="rounded-full border border-[#ff8a2a]/70 bg-[#0b0603]/85 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#ff8a2a]"
+                  title={`StatTrak™ — ${stattrakLabel(card.stattrak.points)} fantasy points scored in this owner's hands. Resets when traded.`}
+                >
+                  StatTrak™ <span className="font-mono tabular-nums">{stattrakLabel(card.stattrak.points)}</span>
+                </span>
+              ) : null}
+              </div>
               <div className="flex flex-col items-end gap-0.5">
                 <div
                   className="flex h-14 w-14 flex-col items-center justify-center rounded-full border-2 bg-canvas/85 text-center"
@@ -654,7 +692,18 @@ function PlayerCardFace({
                   <CountUp value={card.overall} className="text-xl font-black leading-none text-white" />
                   <span className="text-[8px] font-bold uppercase tracking-widest text-muted">OVR</span>
                 </div>
-                {card.serial > 0 ? (
+                {card.secret ? (
+                  // The over-number takes the serial's own line: a Secret's
+                  // whole point is a number past the checklist, and the
+                  // checklist number is the one it replaces.
+                  <span
+                    data-testid="secret-serial"
+                    className="font-mono text-[9px] font-black text-gold [text-shadow:0_0_6px_rgb(245_182_46/0.8)]"
+                    title="Numbered past the checklist"
+                  >
+                    {secretSerialLabel(card.secret)}
+                  </span>
+                ) : card.serial > 0 ? (
                   <span className="font-mono text-[9px] font-bold text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]">
                     #{String(card.serial).padStart(3, "0")}/{card.collectionSize}
                   </span>
@@ -827,6 +876,16 @@ function PlayerCardFace({
                 ))}
               </div>
             ) : null}
+            {/* The finishes' own light: a Shiny's sparkle burst, a Secret's
+                gold inner frame. Both are films over the whole face with
+                nothing written on them — every word the card says stays
+                where it was, and nothing sits under a label. */}
+            {card.shiny ? (
+              <div aria-hidden data-testid="shiny-burst" className="card-shiny-burst pointer-events-none absolute inset-0 overflow-hidden rounded-xl" />
+            ) : null}
+            {card.secret ? (
+              <div aria-hidden data-testid="secret-frame" className="card-secret-frame pointer-events-none absolute inset-0 rounded-xl" />
+            ) : null}
             {mutation ? (
               <div
                 aria-hidden
@@ -974,6 +1033,21 @@ function PlayerCardFace({
                 not a stat — and rendered only when a caller holding an
                 inventory row passes it, since the live card has no copy to
                 be a number of. */}
+            {card.stattrak ? (
+              // The counter proper. On the back with the print line because
+              // it is a fact about THIS copy in THESE hands — the front
+              // carries the number in a pill, the back explains it.
+              <div
+                data-testid="stattrak-counter"
+                className="flex items-center justify-between gap-2 rounded-md border border-[#ff8a2a]/50 bg-[#0b0603] px-2.5 py-1.5"
+                title={`Counting since ${new Date(card.stattrak.since).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} — resets when the copy changes hands`}
+              >
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#ff8a2a]">StatTrak™ fantasy pts</span>
+                <span className="card-stattrak-led font-mono text-base font-bold tabular-nums tracking-[0.18em] text-[#ff8a2a]">
+                  {stattrakLabel(card.stattrak.points).padStart(5, "0")}
+                </span>
+              </div>
+            ) : null}
             {print ? (
               <div className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
                 Print #{print.number} of {print.of} · {editionLabel(print.editionWeek)}

@@ -228,7 +228,7 @@ export default function DustControls({
         <ul className="flex w-full flex-col gap-1">
           {copies.map((copy) => {
             // Patrons melt for 20% more — same helper the server credits by.
-            const value = patronDustValue(copy, patron);
+            const value = patronDustValue({ ...copy, shiny: Boolean(copy.card.shiny), secret: Boolean(copy.card.secret) }, patron);
             const deployed = deployedIds?.has(copy.id) ?? false;
             // A one-of-one has no dust value to quote. The server refuses it
             // anyway; the button saying so first is what stops a price that

@@ -56,6 +56,14 @@ describe("auto-dust", () => {
     expect(selectAutoDust([plain, changed, cursed], rule, new Map())).toEqual([]);
   });
 
+  it("never dusts a Secret, and treats a Shiny as a foil for the skip", () => {
+    const secret = copy("s", "bronze", 30, { secret: true });
+    const shiny = copy("h", "bronze", 30, { shiny: true });
+    expect(eligibleForAutoDust(secret, { ...rule, skipFoil: false })).toBe(false);
+    expect(eligibleForAutoDust(shiny, { ...rule, skipFoil: true })).toBe(false);
+    expect(eligibleForAutoDust(shiny, { ...rule, skipFoil: false })).toBe(true);
+  });
+
   it("never dusts an Eclipse, a moment, a relic or a plate", () => {
     const eclipse = copy("a", "bronze", 30, { foil: true, foilType: "eclipse" });
     const relic = copy("b", "bronze", 30, { relic: true });
