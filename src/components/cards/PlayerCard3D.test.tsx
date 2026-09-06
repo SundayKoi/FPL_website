@@ -344,7 +344,7 @@ describe("PlayerCard3D", () => {
     // The pen runs across it on pick-up: the sweep is keyed to the frame's
     // data-motion in globals.css, so the class is all the markup carries.
     expect(ink.className).toContain("card-ink-write");
-    expect(screen.getByText("✍ Signed")).toBeTruthy();
+    expect(container.querySelector("[data-testid='signed-stamp']")?.getAttribute("title")).toContain("Signed");
   });
 
   it("leaves an unsigned card unmarked", () => {
@@ -726,7 +726,7 @@ describe("provenance stamps", () => {
     // The burst is a film: it writes no text of its own.
     expect(container.querySelector("[data-testid='shiny-burst']")?.textContent).toBe("");
     // The pill sits in the badge row with the other stamps, not over the art.
-    expect(container.querySelector("[data-testid='card-badges'] [data-testid='shiny-stamp']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='card-stamps'] [data-testid='shiny-stamp']")).toBeTruthy();
   });
 
   it("draws a Secret as a gold inner frame, a pill, and the over-number on the serial line", () => {
@@ -746,6 +746,7 @@ describe("provenance stamps", () => {
     const { container } = render(<PlayerCard3D card={trackedCard} />);
 
     expect(container.querySelector("[data-testid='stattrak-stamp']")?.textContent).toContain("1,284");
+    expect(container.querySelector("[data-testid='card-stamps-back']")?.textContent).toContain("StatTrak™ · 1,284 pts");
     const counter = container.querySelector("[data-testid='stattrak-counter']");
     expect(counter?.textContent).toContain("1,284");
     expect(counter?.getAttribute("title")).toContain("Sep 7, 2026");
@@ -762,10 +763,16 @@ describe("provenance stamps", () => {
     } as typeof card;
     const { container } = render(<PlayerCard3D card={loaded} forceFoil foilType="ice" />);
 
-    const row = container.querySelector("[data-testid='card-badges']");
-    for (const id of ["live-stamp", "chase-stamp", "shiny-stamp", "secret-stamp", "stattrak-stamp"]) {
-      expect(row?.querySelector(`[data-testid='${id}']`)).toBeTruthy();
-    }
+    // The header holds the tier, the parallel and the rating only; every
+    // stamp sits in the coin strip, in one row, in a fixed order.
+    const header = container.querySelector("[data-testid='card-badges']");
+    expect(header?.querySelector("[data-testid='live-stamp']")).toBeNull();
+    const strip = container.querySelector("[data-testid='card-stamps']");
+    const order = [...strip!.querySelectorAll("[data-testid]")].map((el) => el.getAttribute("data-testid"));
+    expect(order).toEqual(["live-stamp", "chase-stamp", "shiny-stamp", "secret-stamp", "stattrak-stamp"]);
+    // And the back spells each one out.
+    const ledger = container.querySelector("[data-testid='card-stamps-back']")?.textContent ?? "";
+    for (const word of ["Live · Finals", "Chase · Any Jhin", "Shiny", "Secret · #121/120", "StatTrak™"]) expect(ledger).toContain(word);
     // The rating ring and the identity block are untouched by any of it.
     expect(container.querySelector("[data-testid='card-identity']")).toBeTruthy();
     expect(container.textContent).toContain("OVR");
@@ -778,13 +785,14 @@ describe("provenance stamps", () => {
     fresh.unmount();
 
     const tested = render(<PlayerCard3D card={{ ...card, wear: 4 } as typeof card} />);
-    expect(tested.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("Field-Tested");
+    expect(tested.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("FT");
+    expect(tested.container.querySelector("[data-testid='wear-stamp']")?.getAttribute("title")).toContain("Field-Tested");
     expect(tested.container.querySelector("[data-testid='wear-layer']")).toBeNull();
     expect(tested.container.querySelector("[data-testid='wear-record']")?.textContent).toContain("Fielded 4 times");
     tested.unmount();
 
     const scarred = render(<PlayerCard3D card={{ ...card, wear: 14 } as typeof card} />);
-    expect(scarred.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("Battle-Scarred");
+    expect(scarred.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("BS");
     expect(scarred.container.querySelector("[data-testid='wear-layer']")?.className).toContain("card-wear-bs");
     expect(scarred.container.querySelector("[data-testid='wear-layer']")?.textContent).toBe("");
   });
@@ -795,7 +803,8 @@ describe("provenance stamps", () => {
 
     expect(container.querySelector("[data-testid='slab-frame']")).toBeTruthy();
     expect(container.querySelector("[data-testid='slab-frame']")?.textContent).toBe("");
-    expect(container.querySelector("[data-testid='slab-stamp']")?.textContent).toBe("Slab · Minimal Wear");
+    expect(container.querySelector("[data-testid='slab-stamp']")?.textContent).toBe("◇ MW");
+    expect(container.querySelector("[data-testid='slab-stamp']")?.getAttribute("title")).toContain("Minimal Wear");
     expect(container.querySelector("[data-testid='wear-stamp']")).toBeNull();
     expect(container.querySelector("[data-testid='wear-layer']")).toBeNull();
     expect(container.querySelector("[data-testid='wear-record']")?.textContent).toContain("Sealed Sep 7, 2026 · Minimal Wear");
@@ -837,7 +846,7 @@ describe("provenance stamps", () => {
     const { unmount } = render(
       <PlayerCard3D card={{ ...card, wounded: { until: new Date(Date.now() + 3_600_000).toISOString(), run: 1 } }} interactive={false} />,
     );
-    expect(screen.getByTestId("wounded").textContent).toBe("Wounded");
+    expect(screen.getByTestId("wounded").getAttribute("title")).toContain("Wounded");
     unmount();
 
     render(<PlayerCard3D card={{ ...card, wounded: { until: "2020-01-01T00:00:00.000Z", run: 1 } }} interactive={false} />);
