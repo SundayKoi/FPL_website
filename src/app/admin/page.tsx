@@ -156,7 +156,7 @@ export default async function AdminPage() {
       label: "Card overlays",
       stat: "Proposal preview",
       statTone: "text-gold",
-      description: "Thirteen treatments beyond the foil ladder — hologram stamps, constellations, living records — on real cards. Mints nothing.",
+      description: "Treatments beyond the foil ladder — hologram stamps, printing plates, ghost rares, wear and slabbing — on real cards. Mints nothing.",
       href: "/admin/overlays",
     },
     {

@@ -10,6 +10,9 @@ describe("the overlay mockups", () => {
       expect(entry.blurb.length).toBeGreaterThan(20);
       expect(entry.earn.length).toBeGreaterThan(10);
       expect(OVERLAY_GROUP_TITLES[entry.group]).toBeTruthy();
+      // A variant set is the whole idea, so an entry with variants has no
+      // front of its own to draw twice.
+      if (entry.variants) expect(entry.variants.length).toBeGreaterThan(1);
     }
   });
 
@@ -19,7 +22,13 @@ describe("the overlay mockups", () => {
     // simply subtle. Every class named here has to exist.
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
     for (const entry of OVERLAY_MOCKUPS) {
-      for (const cls of [...entry.front, ...(entry.back ?? []), ...(entry.artEcho ? [entry.artEcho] : [])]) {
+      const layers = [
+        ...entry.front,
+        ...(entry.back ?? []),
+        ...(entry.artEcho ? [entry.artEcho] : []),
+        ...(entry.variants ?? []).flatMap((variant) => [...variant.front, ...(variant.artEcho ? [variant.artEcho] : [])]),
+      ];
+      for (const cls of layers) {
         expect(css.includes(`@utility ${cls} `) || css.includes(`@utility ${cls}\n`) || css.includes(`@utility ${cls}{`), cls).toBe(true);
       }
     }

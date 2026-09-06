@@ -2589,7 +2589,10 @@ body {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-shadow: 0 0 8px color-mix(in srgb, var(--ov-accent, #fff) 60%, transparent);
+  z-index: 2;
 }
+
+/* ── Kept ─────────────────────────────────────────────────────────────── */
 
 /* Hologram stamp — a conic rainbow seal, hue-shifted by the pointer's x. */
 @utility card-ov-holo-stamp {
@@ -2636,106 +2639,6 @@ body {
   transition: transform 80ms linear;
 }
 
-/* Ghost double — the art again, offset, drained, translucent. */
-@utility card-ov-ghost {
-  transform: translate(-7px, -5px) scale(1.02);
-  opacity: 0.32;
-  filter: grayscale(1) contrast(1.2);
-  mix-blend-mode: screen;
-  -webkit-mask-image: linear-gradient(180deg, black 0 60%, transparent 100%);
-  mask-image: linear-gradient(180deg, black 0 60%, transparent 100%);
-}
-
-/* Constellation back — the stat bars as stars, joined. The shape here is
-   one player's; a shipped version draws it from the ten bars. */
-@utility card-ov-constellation {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(circle at 18% 22%, rgb(255 255 255 / 0.95) 0 1.6px, transparent 2.6px),
-    radial-gradient(circle at 34% 12%, rgb(201 216 255 / 0.9) 0 1.3px, transparent 2.3px),
-    radial-gradient(circle at 56% 20%, rgb(255 255 255 / 0.95) 0 2px, transparent 3px),
-    radial-gradient(circle at 78% 30%, rgb(201 216 255 / 0.9) 0 1.4px, transparent 2.4px),
-    radial-gradient(circle at 70% 52%, rgb(255 255 255 / 0.95) 0 1.8px, transparent 2.8px),
-    radial-gradient(circle at 46% 46%, rgb(201 216 255 / 0.9) 0 1.3px, transparent 2.3px),
-    radial-gradient(circle at 28% 62%, rgb(255 255 255 / 0.95) 0 1.6px, transparent 2.6px),
-    radial-gradient(circle at 40% 80%, rgb(201 216 255 / 0.9) 0 1.3px, transparent 2.3px),
-    radial-gradient(circle at 62% 76%, rgb(255 255 255 / 0.95) 0 1.8px, transparent 2.8px),
-    radial-gradient(circle at 82% 88%, rgb(201 216 255 / 0.9) 0 1.4px, transparent 2.4px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolyline points='18,22 34,12 56,20 78,30 70,52 46,46 28,62 40,80 62,76 82,88' fill='none' stroke='rgba(201,216,255,0.35)' stroke-width='0.4' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-  background-size: 100% 100%;
-  opacity: 0.9;
-  &::after {
-    /* the glint: one bright star that follows the pointer */
-    content: "";
-    position: absolute;
-    left: calc(var(--gx, 50) * 1%);
-    top: calc(var(--gy, 50) * 1%);
-    width: 6px;
-    height: 6px;
-    margin: -3px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #fff 0 30%, rgb(201 216 255 / 0.6) 50%, transparent 70%);
-    box-shadow: 0 0 10px 3px rgb(201 216 255 / 0.5);
-  }
-}
-
-/* Momentum heat foil — cold to hot, top to bottom, shimmering. */
-@keyframes ovHeatShimmer {
-  0%, 100% { background-position: 0 0, 0 0; }
-  50% { background-position: 0 0, 30% 0; }
-}
-@utility card-ov-heat {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(180deg, rgb(60 140 255 / 0.42) 0%, rgb(60 140 255 / 0.12) 30%, transparent 48%, rgb(255 120 40 / 0.18) 62%, rgb(255 80 30 / 0.5) 100%),
-    repeating-linear-gradient(100deg, transparent 0 14px, rgb(255 255 255 / 0.06) 14px 16px);
-  background-size: 100% 100%, 300% 100%;
-  mix-blend-mode: screen;
-  animation: ovHeatShimmer 6s ease-in-out infinite;
-}
-
-/* Record corona — a turning gold ring in the top-right, and a crack. */
-@keyframes ovCoronaTurn { to { transform: rotate(360deg); } }
-@keyframes ovCoronaCount {
-  0% { --ov-count: 0; }
-  100% { --ov-count: 9; }
-}
-@utility card-ov-corona {
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 28px 2px rgb(245 182 46 / 0.22);
-  border-radius: 12px;
-  &::before {
-    content: "";
-    position: absolute;
-    top: 44px;
-    right: 10px;
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    background: conic-gradient(from 0deg, rgb(245 182 46 / 0) 0 20%, #f5b62e 30%, #fff5d0 36%, #f5b62e 42%, rgb(245 182 46 / 0) 55%, rgb(245 182 46 / 0.4) 80%, rgb(245 182 46 / 0) 100%);
-    -webkit-mask-image: radial-gradient(circle, transparent 0 21px, black 22px 27px, transparent 28px);
-    mask-image: radial-gradient(circle, transparent 0 21px, black 22px 27px, transparent 28px);
-    animation: ovCoronaTurn 4s linear infinite;
-    filter: drop-shadow(0 0 6px rgb(245 182 46 / 0.8));
-  }
-  &::after {
-    /* the crack: a hairline across the ring, hidden until the record falls
-       (shown here so the shape can be judged) */
-    content: "";
-    position: absolute;
-    top: 68px;
-    right: 6px;
-    width: 66px;
-    height: 2px;
-    transform: rotate(-28deg);
-    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9) 30%, rgb(255 255 255 / 0.9) 70%, transparent);
-    opacity: 0.55;
-  }
-}
-
 /* Ink that writes itself — the autograph is masked left-to-right and the
    mask sweeps on, then holds, then the loop restarts. */
 @keyframes ovInkWrite {
@@ -2750,142 +2653,412 @@ body {
   animation: ovInkWrite 5s ease-in-out infinite;
 }
 
-/* Provenance watermark — initials tiled inside a border band. */
-@utility card-ov-provenance {
+/* ── From sports cards ────────────────────────────────────────────────── */
+
+/* Printing plates — one ink colour over a drained card, with the
+   registration marks a real plate carries. */
+@utility card-ov-plate {
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='22'%3E%3Ctext x='4' y='15' font-family='monospace' font-size='9' font-weight='700' fill='rgba(216,200,168,0.55)'%3EKL · RIO · ZB%3C/text%3E%3C/svg%3E");
-  background-size: 64px 22px;
+  background: rgb(245 245 240 / 0.92);
+  mix-blend-mode: lighten;
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgb(0 0 0 / 0.6);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(0 0 0 / 0.6) 0 1px, transparent 2px), linear-gradient(rgb(0 0 0 / 0.5), rgb(0 0 0 / 0.5)) center/1px 100% no-repeat, linear-gradient(rgb(0 0 0 / 0.5), rgb(0 0 0 / 0.5)) center/100% 1px no-repeat;
+    mix-blend-mode: multiply;
+  }
+  &::before { left: 8px; bottom: 8px; }
+  &::after { right: 8px; top: 8px; }
+}
+@utility card-ov-plate-c { background: rgb(0 174 239 / 0.85); mix-blend-mode: screen; filter: contrast(1.3); }
+@utility card-ov-plate-m { background: rgb(236 0 140 / 0.82); mix-blend-mode: screen; filter: contrast(1.3); }
+@utility card-ov-plate-y { background: rgb(255 241 0 / 0.85); mix-blend-mode: screen; filter: contrast(1.3); }
+@utility card-ov-plate-k { background: rgb(20 20 20 / 0.55); mix-blend-mode: saturation; }
+
+/* Patch card — a window at the bottom with the map and the kills. */
+@utility card-ov-patch {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "";
+    position: absolute;
+    left: 14px;
+    bottom: 96px;
+    width: 74px;
+    height: 74px;
+    border-radius: 6px;
+    border: 2px solid rgb(200 161 110 / 0.9);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.8), inset 0 0 12px rgb(0 0 0 / 0.8), 0 4px 10px rgb(0 0 0 / 0.6);
+    background:
+      radial-gradient(circle at 28% 66%, rgb(255 90 90) 0 2.5px, transparent 3.5px),
+      radial-gradient(circle at 52% 44%, rgb(255 90 90) 0 2.5px, transparent 3.5px),
+      radial-gradient(circle at 70% 30%, rgb(255 90 90) 0 2.5px, transparent 3.5px),
+      radial-gradient(circle at 64% 70%, rgb(255 90 90) 0 2.5px, transparent 3.5px),
+      linear-gradient(135deg, rgb(40 70 40) 0 46%, rgb(80 120 70) 46% 54%, rgb(40 70 40) 54% 100%),
+      #1d2b1d;
+  }
+  &::after {
+    content: "GAME-WORN";
+    position: absolute;
+    left: 14px;
+    bottom: 84px;
+    width: 78px;
+    text-align: center;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: rgb(200 161 110);
+    text-shadow: 0 1px 2px #000;
+  }
+}
+
+/* Superfractor — diamond-cut gold, the brightest thing on the site. */
+@keyframes ovSuperSweep {
+  0%, 100% { background-position: 0 0, 0 0; }
+  50% { background-position: 60px 60px, 0 0; }
+}
+@utility card-ov-superfractor {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0) 0 8px, rgb(255 255 255 / 0.55) 8px 9px, rgb(255 209 102 / 0) 9px 18px),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0) 0 8px, rgb(255 209 102 / 0.5) 8px 9px, rgb(255 255 255 / 0) 9px 18px),
+    linear-gradient(calc(var(--gx, 50) * 3.6deg), rgb(255 160 40 / 0.55), rgb(255 230 140 / 0.7) 40%, rgb(255 120 30 / 0.55) 70%, rgb(255 240 200 / 0.75));
+  background-size: 36px 36px, 36px 36px, 100% 100%;
+  mix-blend-mode: screen;
+  animation: ovSuperSweep 3s ease-in-out infinite;
+  box-shadow: inset 0 0 0 3px rgb(255 209 102 / 0.9), inset 0 0 30px 4px rgb(255 160 40 / 0.6);
+  border-radius: 12px;
+}
+
+/* Redemption — a voucher: the art dimmed, a perforated stub across it. */
+@utility card-ov-redemption {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 10 20 / 0.55);
+  &::before {
+    content: "REDEMPTION · FINALS MVP · TBD";
+    position: absolute;
+    left: -10px;
+    right: -10px;
+    top: 46%;
+    padding: 10px 0;
+    text-align: center;
+    transform: rotate(-8deg);
+    background: repeating-linear-gradient(90deg, #f5b62e 0 6px, #e0a020 6px 12px);
+    color: #1a1200;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    border-top: 2px dashed #1a1200;
+    border-bottom: 2px dashed #1a1200;
+    box-shadow: 0 6px 14px rgb(0 0 0 / 0.6);
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 2px dashed rgb(245 182 46 / 0.6);
+    border-radius: 10px;
+  }
+}
+
+/* Rookie stamp — the RC roundel, embossed. */
+@utility card-ov-rookie {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "RC";
+    position: absolute;
+    left: 12px;
+    top: 44px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-display, sans-serif);
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    color: #fff;
+    background: radial-gradient(circle at 35% 30%, #ff8896, #c8102e 60%, #7a0018);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), inset 0 -2px 3px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.7), 0 0 0 1.5px #fff;
+    text-shadow: 0 1px 1px rgb(0 0 0 / 0.7);
+  }
+}
+
+/* Dual auto — a second scrawl beside the first. */
+@utility card-ov-dual-ink {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "";
+    position: absolute;
+    left: 10px;
+    bottom: 118px;
+    width: 46%;
+    height: 44px;
+    transform: rotate(5deg);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 70'%3E%3Cpath d='M10 40 C 26 10, 40 70, 58 34 S 84 6, 100 36 S 126 70, 142 30 S 172 10, 188 42 C 196 58, 208 46, 214 30' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;
+    filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35));
+  }
+}
+
+/* ── From trading card games ──────────────────────────────────────────── */
+
+/* Reverse holo — the rainbow lives in the border band; the art is matte. */
+@utility card-ov-reverse-holo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(calc(var(--gx, 50) * 3.6deg), #ff5a8c, #ffd26e, #78f0a5, #5fb9ff, #d27dff, #ff5a8c);
+  background-size: 200% 200%;
   -webkit-mask-image: linear-gradient(black, black) content-box, linear-gradient(black, black);
   mask-image: linear-gradient(black, black) content-box, linear-gradient(black, black);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  padding: 16px;
-  opacity: 0.75;
+  padding: 12px;
+  border-radius: 12px;
   mix-blend-mode: screen;
+  opacity: 0.85;
 }
 
-/* Match-day glow — the border pulses in the team's colour. */
-@keyframes ovMatchday {
-  0%, 100% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ov-accent) 55%, transparent), 0 0 14px color-mix(in srgb, var(--ov-accent) 35%, transparent); }
-  50% { box-shadow: inset 0 0 0 3px var(--ov-accent), 0 0 30px color-mix(in srgb, var(--ov-accent) 70%, transparent); }
+/* Ghost rare — a white emboss that clears as you tilt into the light.
+   The distance of the pointer from centre (0..1) sets how much art shows. */
+@utility card-ov-ghost-rare {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgb(255 255 255 / 0.12) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, rgb(240 244 255 / 0.96), rgb(225 232 250 / 0.96));
+  opacity: calc(0.96 - 0.9 * max(var(--gx, 50) - 50, 50 - var(--gx, 50)) / 50);
+  transition: opacity 120ms linear;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.9), inset 0 0 40px rgb(200 210 240 / 0.8);
+  border-radius: 12px;
 }
-@utility card-ov-matchday {
+
+/* Etched foil — fine lines whose brightness follows the light. */
+@utility card-ov-etched {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(calc(var(--gx, 50) * 1.2deg + 20deg), rgb(255 255 255 / 0.0) 0 2px, rgb(255 255 255 / 0.35) 2px 2.6px, rgb(0 0 0 / 0.25) 2.6px 3.2px, transparent 3.2px 5px),
+    radial-gradient(circle at calc(var(--gx, 50) * 1%) calc(var(--gy, 50) * 1%), rgb(255 255 255 / 0.5), transparent 45%);
+  mix-blend-mode: overlay;
+  opacity: 0.9;
+}
+
+/* Shiny — the art hue-shifted (on the echo), plus a sparkle burst. */
+@utility card-ov-shiny {
+  filter: hue-rotate(150deg) saturate(1.35) contrast(1.05);
+}
+@keyframes ovShinyBurst {
+  0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  40% { transform: scale(1.3) rotate(25deg); opacity: 0; }
+}
+@utility card-ov-shiny-sparkle {
+  position: absolute;
+  inset: 0;
+  &::before, &::after {
+    content: "✦";
+    position: absolute;
+    color: #fff;
+    text-shadow: 0 0 10px #ff9be7, 0 0 20px #fff;
+    animation: ovShinyBurst 3.6s ease-out infinite;
+  }
+  &::before { left: 22%; top: 24%; font-size: 26px; }
+  &::after { right: 18%; top: 40%; font-size: 18px; animation-delay: 1.4s; }
+}
+
+/* Over-numbered secret — a black-gold band along the bottom edge. */
+@utility card-ov-secret {
   position: absolute;
   inset: 0;
   border-radius: 12px;
-  animation: ovMatchday 1.8s ease-in-out infinite;
-  &::before {
-    content: "● LIVE";
+  box-shadow: inset 0 0 0 2px rgb(245 182 46 / 0.75), inset 0 -22px 30px -14px rgb(245 182 46 / 0.7);
+  &::after {
+    content: "NOT ON THE CHECKLIST";
     position: absolute;
-    right: 10px;
-    top: 10px;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 0.7);
-    color: var(--ov-accent);
-    font-size: 9px;
+    left: 0;
+    right: 0;
+    bottom: 6px;
+    text-align: center;
+    font-size: 7px;
+    letter-spacing: 0.3em;
     font-weight: 900;
-    letter-spacing: 0.16em;
+    color: rgb(245 182 46);
   }
 }
 
-/* Live spree — flame licks rising up the right edge. */
-@keyframes ovSpreeRise {
-  from { background-position: 100% 120%, 100% 140%, 100% 110%; }
-  to { background-position: 100% -20%, 100% -40%, 100% -10%; }
-}
-@utility card-ov-spree {
-  position: absolute;
-  inset: 0;
-  background-image:
-    radial-gradient(ellipse 18px 60px at 100% 50%, rgb(255 122 61 / 0.9), transparent 70%),
-    radial-gradient(ellipse 26px 90px at 100% 50%, rgb(255 200 80 / 0.55), transparent 70%),
-    radial-gradient(ellipse 12px 40px at 100% 50%, rgb(255 255 200 / 0.8), transparent 70%);
-  background-size: 60px 160px, 80px 220px, 40px 120px;
-  background-repeat: repeat-y;
-  animation: ovSpreeRise 2.4s linear infinite;
-  mix-blend-mode: screen;
-  box-shadow: inset -14px 0 30px -10px rgb(255 122 61 / 0.6);
-}
+/* ── From digital collectibles ────────────────────────────────────────── */
 
-/* Night pull — a navy wash, stars, a thin moon. */
-@utility card-ov-night {
+/* StatTrak — an LED counter. */
+@keyframes ovLedBlink { 0%, 92%, 100% { opacity: 1; } 96% { opacity: 0.35; } }
+@utility card-ov-stattrak {
   position: absolute;
   inset: 0;
-  background-image:
-    radial-gradient(circle at 12% 18%, rgb(255 255 255 / 0.9) 0 1px, transparent 1.8px),
-    radial-gradient(circle at 30% 9%, rgb(255 255 255 / 0.7) 0 0.8px, transparent 1.5px),
-    radial-gradient(circle at 52% 14%, rgb(255 255 255 / 0.9) 0 1.2px, transparent 2px),
-    radial-gradient(circle at 66% 6%, rgb(255 255 255 / 0.6) 0 0.8px, transparent 1.5px),
-    radial-gradient(circle at 88% 24%, rgb(255 255 255 / 0.8) 0 1px, transparent 1.8px),
-    radial-gradient(circle at 40% 28%, rgb(255 255 255 / 0.6) 0 0.7px, transparent 1.4px),
-    linear-gradient(180deg, rgb(20 30 80 / 0.55), rgb(20 30 80 / 0.15) 45%, rgb(10 15 40 / 0.4));
-  mix-blend-mode: normal;
   &::before {
-    content: "";
+    content: "STATTRAK™ FANTASY PTS";
     position: absolute;
-    top: 14px;
-    right: 16px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: #fff4c8;
-    box-shadow: 0 0 18px rgb(255 244 200 / 0.7);
-    -webkit-mask-image: radial-gradient(circle at 70% 40%, transparent 0 11px, black 12px);
-    mask-image: radial-gradient(circle at 70% 40%, transparent 0 11px, black 12px);
-  }
-}
-
-/* Supernova — rays turning behind a burning core. */
-@keyframes ovNovaTurn { to { transform: rotate(360deg); } }
-@keyframes ovNovaPulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 0.9; }
-}
-@utility card-ov-supernova {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  &::before {
-    content: "";
-    position: absolute;
-    inset: -60%;
-    background: repeating-conic-gradient(from 0deg, rgb(255 209 102 / 0) 0 6deg, rgb(255 209 102 / 0.28) 8deg 10deg, rgb(255 255 255 / 0) 12deg 20deg);
-    animation: ovNovaTurn 28s linear infinite;
-    mix-blend-mode: screen;
+    left: 12px;
+    top: 44px;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: #ff8a2a;
+    text-shadow: 0 0 6px rgb(255 138 42 / 0.8);
   }
   &::after {
-    content: "";
+    content: "01284";
     position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.85) 0 4%, rgb(255 209 102 / 0.55) 12%, rgb(255 120 40 / 0.25) 26%, transparent 48%);
-    mix-blend-mode: screen;
-    animation: ovNovaPulse 3s ease-in-out infinite;
+    left: 12px;
+    top: 55px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #0b0603;
+    border: 1px solid rgb(255 138 42 / 0.6);
+    font-family: ui-monospace, monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: #ff8a2a;
+    text-shadow: 0 0 8px rgb(255 138 42 / 0.9);
+    animation: ovLedBlink 4s linear infinite;
   }
 }
 
-/* Patina — sepia, edge wear, scratches. */
-@utility card-ov-patina {
+/* Wear — three grades of scuff, then the slab. */
+@utility card-ov-wear-fn {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35), inset 0 0 18px rgb(255 255 255 / 0.12);
+}
+@utility card-ov-wear-ww {
   position: absolute;
   inset: 0;
   border-radius: 12px;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg stroke='rgba(255,255,255,0.35)' stroke-width='0.6' fill='none'%3E%3Cpath d='M10 100 L48 62'/%3E%3Cpath d='M70 20 L96 44'/%3E%3Cpath d='M20 30 L28 26'/%3E%3C/g%3E%3C/svg%3E"),
-    radial-gradient(ellipse at 50% 50%, transparent 55%, rgb(60 40 10 / 0.55) 100%),
-    linear-gradient(180deg, rgb(200 161 110 / 0.28), rgb(120 80 30 / 0.32));
-  background-size: 120px 120px, 100% 100%, 100% 100%;
-  mix-blend-mode: multiply;
-  box-shadow: inset 0 0 0 3px rgb(90 60 20 / 0.35), inset 0 0 26px 6px rgb(60 40 10 / 0.45);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cg stroke='rgba(255,255,255,0.32)' stroke-width='0.7' fill='none'%3E%3Cpath d='M12 110 L54 70'/%3E%3Cpath d='M80 22 L104 50'/%3E%3Cpath d='M30 40 L36 35'/%3E%3Cpath d='M100 120 L126 96'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 50%, transparent 70%, rgb(255 255 255 / 0.12) 100%);
+  background-size: 140px 140px, 100% 100%;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.18);
+  mix-blend-mode: screen;
+}
+@utility card-ov-wear-bs {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg stroke='rgba(255,255,255,0.5)' stroke-width='0.9' fill='none'%3E%3Cpath d='M6 100 L52 58'/%3E%3Cpath d='M70 14 L100 46'/%3E%3Cpath d='M20 30 L34 22'/%3E%3Cpath d='M88 110 L116 84'/%3E%3Cpath d='M40 90 L46 100'/%3E%3Cpath d='M60 60 L84 72'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle at 0 0, rgb(255 255 255 / 0.55), transparent 22%),
+    radial-gradient(circle at 100% 100%, rgb(255 255 255 / 0.5), transparent 20%),
+    radial-gradient(circle at 100% 0, rgb(255 255 255 / 0.35), transparent 16%),
+    radial-gradient(ellipse at 50% 50%, transparent 60%, rgb(120 100 80 / 0.45) 100%);
+  background-size: 120px 120px, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  box-shadow: inset 0 0 0 3px rgb(230 220 200 / 0.35), inset 0 0 26px rgb(60 40 20 / 0.5);
+  filter: contrast(0.95);
+}
+@utility card-ov-slab {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 7px rgb(220 235 255 / 0.35), inset 0 0 0 9px rgb(255 255 255 / 0.55), inset 0 0 24px rgb(255 255 255 / 0.25);
+  background: linear-gradient(115deg, transparent 40%, rgb(255 255 255 / 0.18) 50%, transparent 60%);
+  &::before {
+    content: "FPL GRADE · 10 · GEM MINT";
+    position: absolute;
+    left: 9px;
+    right: 9px;
+    top: 9px;
+    padding: 6px 0;
+    text-align: center;
+    background: #f2f4f8;
+    color: #1a1f2b;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    border-bottom: 2px solid #c8102e;
+  }
   &::after {
-    /* a worn corner */
-    content: "";
+    content: "SEALED · CANNOT BE FIELDED";
+    position: absolute;
+    left: 9px;
+    right: 9px;
+    bottom: 9px;
+    padding: 4px 0;
+    text-align: center;
+    background: rgb(242 244 248 / 0.92);
+    color: #1a1f2b;
+    font-size: 7px;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+  }
+}
+
+/* Infinity split — a border, a corner flare, krackle across the face. */
+@utility card-ov-split-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 3px #d27dff, inset 0 0 0 5px rgb(0 0 0 / 0.6), inset 0 0 22px rgb(210 125 255 / 0.5);
+}
+@keyframes ovSplitFlare { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+@utility card-ov-split-flare {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 200deg at 100% 0%, rgb(255 90 140 / 0.7), rgb(255 210 110 / 0.7), rgb(120 240 165 / 0.7), rgb(95 185 255 / 0.7), transparent 60%);
+  mix-blend-mode: screen;
+  animation: ovSplitFlare 2.6s ease-in-out infinite;
+}
+@utility card-ov-split-krackle {
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cg stroke='rgba(210,125,255,0.85)' stroke-width='0.5' fill='none'%3E%3Cpath d='M0 30 L18 42 L14 60 L36 70 L30 92 L52 100'/%3E%3Cpath d='M100 20 L80 34 L86 52 L64 60 L70 82 L48 96'/%3E%3Cpath d='M36 70 L48 52 L64 60'/%3E%3Cpath d='M52 100 L60 118 L44 140'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;
+  filter: drop-shadow(0 0 3px rgb(210 125 255 / 0.9));
+  opacity: 0.8;
+}
+
+/* Souvenir sticker — the fixture, angled, with a foil edge. */
+@utility card-ov-souvenir {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "SOUVENIR · T1 vs GEN · 3 SEP";
     position: absolute;
     right: -6px;
-    bottom: -6px;
-    width: 34px;
-    height: 34px;
+    top: 44px;
+    padding: 5px 9px;
+    transform: rotate(-9deg);
+    background: linear-gradient(90deg, #2ee6a8, #9be7ff);
+    color: #06251b;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1.5px #fff, 0 3px 8px rgb(0 0 0 / 0.6);
+  }
+}
+
+/* Serial match — the OVR ring lights up. */
+@keyframes ovSerialGlow { 0%, 100% { box-shadow: 0 0 8px 2px rgb(245 182 46 / 0.5); } 50% { box-shadow: 0 0 18px 6px rgb(245 182 46 / 0.9); } }
+@utility card-ov-serial-match {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "";
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgb(230 210 170 / 0.55), transparent 65%);
+    animation: ovSerialGlow 1.8s ease-in-out infinite;
   }
 }
