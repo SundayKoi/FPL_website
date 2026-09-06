@@ -779,7 +779,10 @@ function PlayerCardFace({
                   alt={`${card.name}'s autograph`}
                   data-testid="autograph"
                   decoding="async"
-                  className={`pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain ${overlay?.ink ? "card-ov-ink-write" : ""}`}
+                  // Ink that writes itself: fully signed at rest, and the pen
+                  // runs across it once each time the card is picked up
+                  // (globals.css keys the sweep to the frame's data-motion).
+                  className={`pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain ${overlay?.ink ? "card-ov-ink-write" : "card-ink-write"}`}
                   style={{
                     transform: "rotate(-6deg)",
                     filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",

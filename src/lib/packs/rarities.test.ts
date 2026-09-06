@@ -88,8 +88,10 @@ describe("the finishes' CSS", () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
-    for (const layer of ["card-shiny-art", "card-shiny-burst", "card-secret-frame", "card-stattrak-led", "card-wear-ww", "card-wear-bs", "card-slab"]) {
+    for (const layer of ["card-shiny-art", "card-shiny-burst", "card-secret-frame", "card-stattrak-led", "card-wear-ww", "card-wear-bs", "card-slab", "card-ink-write"]) {
       expect(css, layer).toContain(`@utility ${layer}`);
     }
+    // The ink sweep runs only while the card is held.
+    expect(css).toContain('[data-motion="live"] .card-ink-write');
   });
 });

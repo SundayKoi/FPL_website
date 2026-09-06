@@ -2659,6 +2659,30 @@ body {
   .card-slab { animation: none; background-position: 50% 0; }
 }
 
+/* Ink that writes itself — the real one. The autograph is masked
+   left-to-right; at rest the mask sits fully open (the card is signed),
+   and while the card is held (data-motion="live" on the frame) the mask
+   sweeps across once, so every pick-up signs the card again. The mockup's
+   card-ov-ink-write loops forever; this one signs and stops. */
+@keyframes cardInkWrite {
+  0% { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+  100% { -webkit-mask-position: 0 0; mask-position: 0 0; }
+}
+@utility card-ink-write {
+  -webkit-mask-image: linear-gradient(90deg, black 0 45%, transparent 55%);
+  mask-image: linear-gradient(90deg, black 0 45%, transparent 55%);
+  -webkit-mask-size: 220% 100%;
+  mask-size: 220% 100%;
+  -webkit-mask-position: 0 0;
+  mask-position: 0 0;
+}
+[data-motion="live"] .card-ink-write {
+  animation: cardInkWrite 1.4s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-motion="live"] .card-ink-write { animation: none; }
+}
+
 /* ── Overlay mockups — /admin/overlays only. ─────────────────────────────
    Proposed treatments beyond the foil ladder (src/lib/cards/overlayMockups.ts),
    drawn over real cards through PlayerCard3D's `overlay` prop. None of these
