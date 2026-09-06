@@ -62,6 +62,7 @@ export function toBoardListing(listing: MarketListing): BoardListing {
           signed: listing.copy.signed,
           altArt: listing.copy.altArt,
           editionWeek: listing.copy.editionWeek,
+          relic: Boolean(listing.copy.card?.champWin),
         }
       : null,
   };
