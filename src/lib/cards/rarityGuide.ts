@@ -15,6 +15,7 @@ import { MUTATION_EFFECTS, MUTATIONS } from "./mutations";
 import { LINE_TIERS, lineTierLabel, seasonLineOf } from "./skinLines";
 import { TEAM_DUST, TEAM_PULL_CHANCE } from "./teamCards";
 import { tierLabel } from "./tier";
+import { WEAR_GRADES } from "./wear";
 import {
   ALT_SKIN_CHANCE,
   DUST_VALUES,
@@ -60,7 +61,7 @@ export interface RarityEntry {
 }
 
 export interface RaritySection {
-  key: "tiers" | "parallels" | "finishes" | "inserts" | "stamps" | "next";
+  key: "tiers" | "parallels" | "finishes" | "inserts" | "stamps" | "wear";
   title: string;
   intro: string;
   entries: RarityEntry[];
@@ -276,22 +277,29 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
     },
   ];
 
-  const next: RarityEntry[] = [
+  const gradeWords = WEAR_GRADES.map((grade, index) => {
+    const next = WEAR_GRADES[index + 1];
+    const range = next ? (grade.min === next.min - 1 ? `${grade.min}` : `${grade.min}–${next.min - 1}`) : `${grade.min}+`;
+    return `${grade.label} (${range})`;
+  }).join(", ");
+  const wear: RarityEntry[] = [
     {
       key: "wear",
       name: "Wear grades",
-      look: "Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred — the copy's history, from how often it has been fielded.",
-      how: "Coming next. Every copy, from its own record.",
+      look: `${gradeWords} — a pill in the badge row from the first fielding, scuffs on the face from Well-Worn on. The back keeps the count.`,
+      how: "Every copy, from its own record: an expedition launch, a Gauntlet run and a scored Fantasy week each count one. A copy that stays on the shelf stays Factory New.",
       odds: "every copy",
-      value: "Cosmetic.",
+      value: "Cosmetic. Nothing prices wear.",
+      fresh: true,
     },
     {
       key: "slab",
       name: "Slabbing",
-      look: "Seal a copy in acrylic: it keeps its grade forever and can never be fielded again.",
-      how: "Coming next. A choice the owner makes once.",
-      odds: "your call",
+      look: "An acrylic case around the card with the grade it was sealed at. The wear under it never moves again.",
+      how: "Your call, once, from the copy's drawer on your collection. A slabbed copy can never be fielded again — not on an expedition, not in the Gauntlet, not in Fantasy — and the seal can never be taken off. It can still be sold, traded or dusted.",
+      odds: "your choice",
       value: "Cosmetic — and permanent.",
+      fresh: true,
     },
   ];
 
@@ -329,10 +337,10 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
       entries: stamps,
     },
     {
-      key: "next",
-      title: "Coming next",
-      intro: "Not live yet — laid out here so the rarities page is the whole map, not the map so far.",
-      entries: next,
+      key: "wear",
+      title: "Wear and slabbing",
+      intro: "A copy's history, worn on the card — and the one way to freeze it.",
+      entries: wear,
     },
   ];
 }

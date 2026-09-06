@@ -14,6 +14,7 @@
 // pack-open discipline, applied to a game.
 
 import { randomBytes } from "node:crypto";
+import { isSlabbed, slabRefusal } from "@/lib/cards/wear";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { getBettingUser } from "@/lib/betting/wallet";
@@ -163,6 +164,7 @@ export async function startGauntletRunAction(
     if (row.card.moment || row.card.champWin || row.card.team) {
       return { ok: false, error: `${row.player_name} is a relic — relics watch from the shelf.` };
     }
+    if (isSlabbed(row.card)) return { ok: false, error: slabRefusal(row.player_name) };
     if (row.role !== role) return { ok: false, error: `${row.player_name} doesn't play ${role}.` };
     if (deployed.has(row.id)) return { ok: false, error: `${row.player_name} is away on an expedition.` };
     // The bench: a wounded card sits out the Gauntlet until its stamp says.
@@ -320,6 +322,14 @@ export async function startGauntletRunAction(
         ? "You already have a live run — finish it or walk away first."
         : `The run didn't start${refundError ? " and the fee couldn't be returned — staff have been notified" : " — your fee was returned"}.`,
     };
+  }
+
+  // A run is a fielding: every real card in it wears one. Best effort,
+  // same as the hand below — the run exists either way.
+  const fielded = lineup.map((card) => card.inventoryId).filter((id): id is number => typeof id === "number" && id > 0);
+  if (fielded.length > 0) {
+    const { error: wearError } = await service.rpc("wear_cards", { p_ids: fielded });
+    if (wearError) console.error("gauntlet: wear_cards failed", { discordId: user.discordId, wearError });
   }
 
   // The hand is spent. Best effort: a run that started is a run that

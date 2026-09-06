@@ -41,6 +41,7 @@ import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
+import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
 
 /** What an overlay mockup hands the renderer: the layers and the accent. */
 export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
@@ -249,6 +250,9 @@ function PlayerCardFace({
   // reader, and the hydrated browser reads the clock once it is in charge.
   const minute = useSyncExternalStore(subscribeNever, readMinute, readServerMinute);
   const benched = minute > 0 && Boolean(card.wounded?.until) && new Date(card.wounded!.until).getTime() > minute;
+  const wear = wearOf(card);
+  const grade = gradeOf(card);
+  const slabbed = isSlabbed(card);
   // Card of the Week outshines its tier: molten-gold animated frame.
   const frameClass = isEclipse
     ? "card-frame-eclipse"
@@ -479,7 +483,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}
@@ -681,6 +685,27 @@ function PlayerCardFace({
                   title={`StatTrak™ — ${stattrakLabel(card.stattrak.points)} fantasy points scored in this owner's hands. Resets when traded.`}
                 >
                   StatTrak™ <span className="font-mono tabular-nums">{stattrakLabel(card.stattrak.points)}</span>
+                </span>
+              ) : null}
+              {/* Wear and the slab (src/lib/cards/wear.ts). Factory New is
+                  silent on an open copy — every copy starts there and a
+                  pill saying so on all of them would say nothing. A slab
+                  always shows its grade: the grade is what was sealed. */}
+              {slabbed ? (
+                <span
+                  data-testid="slab-stamp"
+                  className="rounded-full border border-[#dbe7ff]/80 bg-[#dbe7ff]/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#eef4ff]"
+                  title={`Slabbed — sealed at ${grade.label} after ${card.slab!.wear} fielding${card.slab!.wear === 1 ? "" : "s"}. Can never be fielded again.`}
+                >
+                  Slab · {grade.label}
+                </span>
+              ) : wear > 0 ? (
+                <span
+                  data-testid="wear-stamp"
+                  className="rounded-full border border-white/35 bg-black/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/80"
+                  title={`${grade.label} — fielded ${wear} time${wear === 1 ? "" : "s"}`}
+                >
+                  {grade.label}
                 </span>
               ) : null}
               </div>
@@ -886,6 +911,16 @@ function PlayerCardFace({
             {card.secret ? (
               <div aria-hidden data-testid="secret-frame" className="card-secret-frame pointer-events-none absolute inset-0 rounded-xl" />
             ) : null}
+            {/* Wear: scuffs from Well-Worn on, screened over the face so
+                every line of text stays legible under them. The slab: an
+                acrylic frame just inside the edge, and a light across it —
+                a case around the card, not a label over it. */}
+            {grade.layer ? (
+              <div aria-hidden data-testid="wear-layer" className={`${grade.layer} pointer-events-none absolute inset-0 overflow-hidden rounded-xl`} />
+            ) : null}
+            {slabbed ? (
+              <div aria-hidden data-testid="slab-frame" className="card-slab pointer-events-none absolute inset-0 rounded-xl" />
+            ) : null}
             {mutation ? (
               <div
                 aria-hidden
@@ -1033,6 +1068,15 @@ function PlayerCardFace({
                 not a stat — and rendered only when a caller holding an
                 inventory row passes it, since the live card has no copy to
                 be a number of. */}
+            {slabbed || wear > 0 ? (
+              // The copy's service record — a fact about THIS copy, so it
+              // sits with the print line rather than the player's stats.
+              <div data-testid="wear-record" className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
+                {slabbed
+                  ? `Sealed ${new Date(card.slab!.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} · ${grade.label} · never fielded again`
+                  : `Fielded ${wear} time${wear === 1 ? "" : "s"} · ${grade.label}`}
+              </div>
+            ) : null}
             {card.stattrak ? (
               // The counter proper. On the back with the print line because
               // it is a fact about THIS copy in THESE hands — the front

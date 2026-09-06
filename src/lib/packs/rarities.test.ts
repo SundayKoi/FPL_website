@@ -88,7 +88,7 @@ describe("the finishes' CSS", () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
-    for (const layer of ["card-shiny-art", "card-shiny-burst", "card-secret-frame", "card-stattrak-led"]) {
+    for (const layer of ["card-shiny-art", "card-shiny-burst", "card-secret-frame", "card-stattrak-led", "card-wear-ww", "card-wear-bs", "card-slab"]) {
       expect(css, layer).toContain(`@utility ${layer}`);
     }
   });

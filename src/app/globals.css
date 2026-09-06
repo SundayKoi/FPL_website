@@ -2618,6 +2618,45 @@ body {
   .card-shiny-burst::before, .card-shiny-burst::after { opacity: 0.6; }
 }
 
+/* Wear: scuffs, from Well-Worn on. Screened so they lighten rather than
+   darken — no vignette, nothing over the stat rail gets harder to read. */
+@utility card-wear-ww {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cg stroke='rgba(255,255,255,0.28)' stroke-width='0.7' fill='none'%3E%3Cpath d='M12 110 L54 70'/%3E%3Cpath d='M80 22 L104 50'/%3E%3Cpath d='M30 40 L36 35'/%3E%3Cpath d='M100 120 L126 96'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 50% 50%, transparent 72%, rgb(255 255 255 / 0.1) 100%);
+  background-size: 140px 140px, 100% 100%;
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.14);
+  mix-blend-mode: screen;
+}
+@utility card-wear-bs {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg stroke='rgba(255,255,255,0.42)' stroke-width='0.9' fill='none'%3E%3Cpath d='M6 100 L52 58'/%3E%3Cpath d='M70 14 L100 46'/%3E%3Cpath d='M20 30 L34 22'/%3E%3Cpath d='M88 110 L116 84'/%3E%3Cpath d='M40 90 L46 100'/%3E%3Cpath d='M60 60 L84 72'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(circle at 0 0, rgb(255 255 255 / 0.45), transparent 20%),
+    radial-gradient(circle at 100% 100%, rgb(255 255 255 / 0.4), transparent 18%),
+    radial-gradient(circle at 100% 0, rgb(255 255 255 / 0.3), transparent 14%);
+  background-size: 120px 120px, 100% 100%, 100% 100%, 100% 100%;
+  box-shadow: inset 0 0 0 3px rgb(230 220 200 / 0.3);
+  mix-blend-mode: screen;
+}
+
+/* The slab: a case around the card. Two acrylic rings just inside the
+   edge and one slow light across the face — no label bars, nothing the
+   card says is under it. */
+@keyframes cardSlabLight { 0% { background-position: -140% 0; } 100% { background-position: 240% 0; } }
+@utility card-slab {
+  box-shadow:
+    inset 0 0 0 6px rgb(220 235 255 / 0.28),
+    inset 0 0 0 8px rgb(255 255 255 / 0.5),
+    inset 0 0 22px rgb(255 255 255 / 0.18);
+  background: linear-gradient(115deg, transparent 42%, rgb(255 255 255 / 0.16) 50%, transparent 58%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: cardSlabLight 9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-slab { animation: none; background-position: 50% 0; }
+}
+
 /* ── Overlay mockups — /admin/overlays only. ─────────────────────────────
    Proposed treatments beyond the foil ladder (src/lib/cards/overlayMockups.ts),
    drawn over real cards through PlayerCard3D's `overlay` prop. None of these

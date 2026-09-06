@@ -122,7 +122,8 @@ export async function FantasyPageView({
     ...seasonTotals.map((row) => row.discordId),
   ]);
 
-  const options: LineupInventoryOption[] = inventory.map((row) => ({
+  // A slabbed copy is sealed — it is not offered, and the action refuses it.
+  const options: LineupInventoryOption[] = inventory.filter((row) => !row.card.slab).map((row) => ({
     id: row.id,
     slug: row.slug,
     playerName: row.playerName,

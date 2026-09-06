@@ -1015,19 +1015,22 @@ export default function ExpeditionBoard({
               const selected = picked.has(copy.id);
               const worth = shineOf(copy);
               const mutation = copy.card?.mutation ? mutationByKey(copy.card.mutation.key) : undefined;
+              const sealed = Boolean(copy.card?.slab);
               const status = lost
                 ? "lost"
                 : deployed
                   ? "on expedition"
-                  : benchedUntil
-                    ? `wounded until ${easternClock(benchedUntil)} ET`
-                    : null;
+                  : sealed
+                    ? "slabbed — sealed, never fielded again"
+                    : benchedUntil
+                      ? `wounded until ${easternClock(benchedUntil)} ET`
+                      : null;
               return (
                 <li key={copy.id}>
                   <button
                     type="button"
                     onClick={() => toggle(copy.id)}
-                    disabled={deployed || lost || benchedUntil !== null || (!selected && full)}
+                    disabled={deployed || lost || sealed || benchedUntil !== null || (!selected && full)}
                     aria-pressed={selected}
                     aria-label={`${copy.playerName} — ${worth} shine`}
                     title={status ? `${status[0].toUpperCase()}${status.slice(1)}.` : undefined}

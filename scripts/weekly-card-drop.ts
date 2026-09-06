@@ -329,6 +329,9 @@ async function scoreFantasyWeek(
     // inventoryId survives a rename, and card_inventory.slug is updated by
     // one — so resolve through it before scoring anything.
     const identities = new Map<number, CurrentIdentity>();
+    // Copies carrying a StatTrak counter, so the week's points can land on
+    // them once the lineup is scored (migration 20260922).
+    const tracked = new Set<number>();
     const inventoryIds = inventoryIdsIn(unscored);
     if (inventoryIds.length > 0) {
       // Paged on the primary key: PostgREST caps an unpaged select at
@@ -339,15 +342,16 @@ async function scoreFantasyWeek(
       for (let from = 0; from < inventoryIds.length; from += pageSize) {
         const { data: copies, error: copyError } = await supabase
           .from("card_inventory")
-          .select("id, slug, player_name, mutation")
+          .select("id, slug, player_name, mutation, stattrak:card->stattrak")
           .in("id", inventoryIds.slice(from, from + pageSize));
         if (copyError) throw copyError;
-        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string; mutation: string | null }[])) {
+        for (const copy of ((copies ?? []) as { id: number; slug: string; player_name: string; mutation: string | null; stattrak: unknown }[])) {
           identities.set(copy.id, {
             slug: copy.slug,
             playerName: copy.player_name,
             mutation: (copy.mutation as CurrentIdentity["mutation"]) ?? null,
           });
+          if (copy.stattrak) tracked.add(copy.id);
         }
       }
     }
@@ -368,6 +372,22 @@ async function scoreFantasyWeek(
           .eq("season", season)
           .eq("week_start", week);
         if (updateError) throw updateError;
+        // A scored week is a fielding: every copy in it wears one, and a
+        // StatTrak copy counts its slot's points. Best effort, after the
+        // score is safe — a cosmetic that fails must not unscore a week.
+        const fieldedIds = Object.values(lineup.slots)
+          .map((slot) => slot?.inventoryId)
+          .filter((id): id is number => typeof id === "number");
+        if (fieldedIds.length > 0) {
+          const { error: wearError } = await supabase.rpc("wear_cards", { p_ids: fieldedIds });
+          if (wearError) console.error(`[${label}] wear_cards failed for ${lineup.discordId}: ${wearError.message}`);
+        }
+        for (const [role, slot] of Object.entries(lineup.slots)) {
+          const points = breakdown[role as keyof typeof breakdown]?.points ?? 0;
+          if (!slot || !tracked.has(slot.inventoryId) || points <= 0) continue;
+          const { error: trakError } = await supabase.rpc("bump_stattrak", { p_id: slot.inventoryId, p_points: points });
+          if (trakError) console.error(`[${label}] bump_stattrak failed for copy ${slot.inventoryId}: ${trakError.message}`);
+        }
       } else {
         console.log(`[${label}] [dry-run] would score ${lineup.discordId}: ${score.toFixed(1)} pts`);
       }
