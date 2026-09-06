@@ -2676,11 +2676,38 @@ body {
   -webkit-mask-position: 0 0;
   mask-position: 0 0;
 }
+/* The pen tip: a glint that rides the wet edge of the ink. The mask's edge
+   crosses the signature from -10% to 110% of its width as mask-position
+   runs 100% → 0 (a 220%-wide mask over a 100% box), so the pen runs the
+   same path on the same clock and the same easing, and reads as the thing
+   doing the writing. Invisible at rest. */
+@keyframes cardInkPen {
+  0% { left: -10%; opacity: 0; }
+  6% { opacity: 1; }
+  94% { opacity: 1; }
+  100% { left: 110%; opacity: 0; }
+}
+@utility card-ink-pen {
+  position: absolute;
+  top: 46%;
+  left: -10%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(circle, #fff 0 2px, rgb(255 244 200 / 0.9) 3px, transparent 7px);
+  box-shadow: 0 0 10px 3px rgb(255 240 190 / 0.75), 0 0 22px 6px rgb(245 182 46 / 0.35);
+  pointer-events: none;
+}
 [data-motion="live"] .card-ink-write {
-  animation: cardInkWrite 1.4s ease-out both;
+  animation: cardInkWrite 2.2s ease-out both;
+}
+[data-motion="live"] .card-ink-pen {
+  animation: cardInkPen 2.2s ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
-  [data-motion="live"] .card-ink-write { animation: none; }
+  [data-motion="live"] .card-ink-write, [data-motion="live"] .card-ink-pen { animation: none; }
 }
 
 /* Stamp coins — the strip under the rating where every stamp a copy

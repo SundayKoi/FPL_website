@@ -763,21 +763,27 @@ function PlayerCardFace({
                 // Right-anchored rather than centered: the name/team lines
                 // above are left-aligned, and a centered signature ran
                 // straight through the team name.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={card.autograph}
-                  alt={`${card.name}'s autograph`}
-                  data-testid="autograph"
-                  decoding="async"
-                  // Ink that writes itself: fully signed at rest, and the pen
-                  // runs across it once each time the card is picked up
-                  // (globals.css keys the sweep to the frame's data-motion).
-                  className={`pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain ${overlay?.ink ? "card-ov-ink-write" : "card-ink-write"}`}
-                  style={{
-                    transform: "rotate(-6deg)",
-                    filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
-                  }}
-                />
+                // Ink that writes itself: fully signed at rest, and each time
+                // the card is picked up the signature re-inks left to right
+                // with a pen-tip glint riding the wet edge (globals.css keys
+                // both to the frame's data-motion). The box holds the ink and
+                // the pen at the same angle a hand signs at.
+                <div
+                  data-testid="autograph-box"
+                  className="pointer-events-none absolute -top-[3.75rem] right-2 w-[50%]"
+                  style={{ transform: "rotate(-6deg)" }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={card.autograph}
+                    alt={`${card.name}'s autograph`}
+                    data-testid="autograph"
+                    decoding="async"
+                    className={`block w-full object-contain ${overlay?.ink ? "card-ov-ink-write" : "card-ink-write"}`}
+                    style={{ filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))" }}
+                  />
+                  {overlay?.ink ? null : <span aria-hidden data-testid="autograph-pen" className="card-ink-pen" />}
+                </div>
               ) : null}
               <div className="rounded-lg bg-black/65 px-3 py-1.5 text-center backdrop-blur-[2px]">
                 <span className="font-display text-base font-bold not-italic text-white">{card.archetype}</span>
