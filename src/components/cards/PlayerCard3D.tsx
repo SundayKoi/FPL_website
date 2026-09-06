@@ -39,6 +39,10 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
+import type { OverlayMockup } from "@/lib/cards/overlayMockups";
+
+/** What an overlay mockup hands the renderer: the layers and the accent. */
+export type OverlayPreview = Pick<OverlayMockup, "front" | "back" | "chip" | "artEcho" | "ink" | "accent">;
 import { lineTreatmentFor } from "@/lib/cards/skinLines";
 import MomentPlate from "./MomentPlate";
 import TeamCard from "./TeamCard";
@@ -135,8 +139,12 @@ function PlayerCardFace({
   className = "",
   preview: previewProp = null,
   mutation: mutationProp = null,
+  overlay = null,
 }: {
   card: PlayerCardData;
+  /** A proposed overlay (src/lib/cards/overlayMockups.ts) drawn over the
+   *  card. /admin/overlays only — nothing minted can reach these layers. */
+  overlay?: OverlayPreview | null;
   /** An expedition mutation drawn over the whole front, foil and all.
    *  Normally read off `card.mutation` (a minted copy that came home
    *  changed); the prop is for /admin/mutations, which previews the
@@ -285,7 +293,14 @@ function PlayerCardFace({
   // these mounted at once. Only the two nodes that actually move get touched.
   const writeTilt = useCallback((tiltX: number, tiltY: number, glareX: number, glareY: number) => {
     const frame = frameRef.current;
-    if (frame) frame.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+    if (frame) {
+      frame.style.transform = `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
+      // The pointer's place on the card as two custom properties, so a
+      // CSS-only layer (an overlay mockup's hologram, a constellation's
+      // glint) can answer the tilt without a ref and a write of its own.
+      frame.style.setProperty("--gx", String(Math.round(glareX)));
+      frame.style.setProperty("--gy", String(Math.round(glareY)));
+    }
     const glare = glareRef.current;
     if (glare) {
       glare.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgb(255 255 255 / 0.5), transparent 55%)`;
@@ -518,6 +533,12 @@ function PlayerCardFace({
                 }}
               />
             ) : null}
+            {splash && overlay?.artEcho ? (
+              // A second copy of the art for an overlay that needs one — a
+              // parallax layer, a ghost. Mockup only; see overlayMockups.ts.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={splash} alt="" aria-hidden data-testid="art-echo" className={`absolute inset-0 h-full w-full object-cover object-[center_18%] ${overlay.artEcho}`} decoding="async" />
+            ) : null}
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/85" />
             {/* Eclipse's ground: the shadow and the bleed of light around
                 the card's rim. Two placements matter here.
@@ -684,7 +705,7 @@ function PlayerCardFace({
                   alt={`${card.name}'s autograph`}
                   data-testid="autograph"
                   decoding="async"
-                  className="pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain"
+                  className={`pointer-events-none absolute -top-[3.75rem] right-2 w-[50%] object-contain ${overlay?.ink ? "card-ov-ink-write" : ""}`}
                   style={{
                     transform: "rotate(-6deg)",
                     filter: "drop-shadow(0 1px 3px rgb(0 0 0 / 0.95)) drop-shadow(0 0 8px rgb(255 255 255 / 0.35))",
@@ -818,6 +839,19 @@ function PlayerCardFace({
                 <span className="card-mut-chip">{mutation.label}</span>
               </div>
             ) : null}
+            {overlay && (overlay.front.length > 0 || overlay.chip) ? (
+              <div
+                aria-hidden
+                data-testid="overlay"
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
+                style={{ ["--ov-accent" as string]: overlay.accent }}
+              >
+                {overlay.front.map((layer) => (
+                  <div key={layer} className={layer} />
+                ))}
+                {overlay.chip ? <span className="card-ov-chip">{overlay.chip}</span> : null}
+              </div>
+            ) : null}
             {benched ? (
               <span
                 data-testid="wounded"
@@ -943,6 +977,13 @@ function PlayerCardFace({
             {print ? (
               <div className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
                 Print #{print.number} of {print.of} · {editionLabel(print.editionWeek)}
+              </div>
+            ) : null}
+            {overlay?.back?.length ? (
+              <div aria-hidden data-testid="overlay-back" className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" style={{ ["--ov-accent" as string]: overlay.accent }}>
+                {overlay.back.map((layer) => (
+                  <div key={layer} className={layer} />
+                ))}
               </div>
             ) : null}
           </div>
@@ -1155,6 +1196,8 @@ export default function PlayerCard3D(props: {
   /** See PlayerCardFace: an expedition mutation. A minted copy's own
    *  stamp (card.mutation) wins over this. */
   mutation?: MutationOverlay | null;
+  /** See PlayerCardFace: an overlay mockup. Admin mockup pages only. */
+  overlay?: OverlayPreview | null;
 }) {
   // A pulled moment is stored as a card copy so the shelf, trades, dust,
   // the binder and the pack reveal all carry it without changes — but it is
