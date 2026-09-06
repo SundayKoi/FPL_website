@@ -341,6 +341,9 @@ describe("PlayerCard3D", () => {
     const ink = container.querySelector('[data-testid="autograph"]') as HTMLImageElement;
     expect(ink).toBeTruthy();
     expect(ink.getAttribute("src")).toBe(autograph);
+    // The pen runs across it on pick-up: the sweep is keyed to the frame's
+    // data-motion in globals.css, so the class is all the markup carries.
+    expect(ink.className).toContain("card-ink-write");
     expect(screen.getByText("✍ Signed")).toBeTruthy();
   });
 
