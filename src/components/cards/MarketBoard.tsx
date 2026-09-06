@@ -23,13 +23,13 @@
 // else's asking price.
 
 import { useState, useTransition } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
 import { fmtPoints } from "@/lib/betting/format";
 import { easternStamp, relativeTime } from "@/lib/time";
 import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import { useUrlState } from "@/lib/ui/useUrlState";
-import { editionLabel } from "@/lib/packs/week";
 import { buyListing } from "@/lib/market/actions";
 import { fetchInventoryCardAction } from "@/lib/trades/actions";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
@@ -46,6 +46,8 @@ export interface BoardCopy {
   signed: boolean;
   altArt: boolean;
   editionWeek: string;
+  /** A champions relic: its "edition" is the Faceless Drop, not a week. */
+  relic?: boolean;
 }
 
 export interface BoardListing {
@@ -183,7 +185,7 @@ function ListingRow({
               <>
                 <span className="font-mono font-bold text-mint">{copy.overall}</span>
                 <span className="text-steel">{tierLabel(copy.tier)}</span>
-                <span className="text-steel">{editionLabel(copy.editionWeek)}</span>
+                <span className="text-steel">{copyEditionLabel(copy.editionWeek, copy.relic === true)}</span>
                 {copy.signed ? (
                   <span className="font-black text-gold" title="Autographed copy">
                     ✍

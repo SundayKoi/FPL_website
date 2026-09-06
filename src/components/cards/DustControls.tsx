@@ -36,6 +36,7 @@
 // skin it wears, and you can't weigh that against $120 by reading it.
 
 import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/system/Toast";
@@ -44,7 +45,6 @@ import { useAutoDisarm } from "@/lib/ui/useAutoDisarm";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import { canDust, patronDustValue } from "@/lib/packs/config";
-import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
 import { slabCardAction } from "@/lib/cards/slab-actions";
@@ -102,7 +102,7 @@ function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
         ]),
   ];
   return (
-    <ul aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`} className="flex shrink-0 flex-wrap items-center gap-1">
+    <ul aria-label={`Use the ${copyEditionLabel(copy.editionWeek, copy.card)} copy`} className="flex shrink-0 flex-wrap items-center gap-1">
       {actions.map((action) => (
         <li key={action.label}>
           <Link
@@ -268,7 +268,7 @@ export default function DustControls({
             const keepsake = !canDust(copy);
             const isArmed = armed === copy.id;
             const art = artless.has(copy.id) ? null : copyArtUrl(copy.card);
-            const describe = `${editionLabel(copy.editionWeek)} ${tierLabel(copy.tier)} copy of ${playerName}`;
+            const describe = `${copyEditionLabel(copy.editionWeek, copy.card)} ${tierLabel(copy.tier)} copy of ${playerName}`;
             return (
               <li
                 key={copy.id}
@@ -300,7 +300,7 @@ export default function DustControls({
                   />
                 ) : null}
                 <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-[10px] text-muted">
-                  <span className="font-semibold uppercase tracking-wide">{editionLabel(copy.editionWeek)}</span>
+                  <span className="font-semibold uppercase tracking-wide">{copyEditionLabel(copy.editionWeek, copy.card)}</span>
                   <span>{tierLabel(copy.tier)}</span>
                   {copy.signed ? (
                     <span className="font-black text-gold" title="Autographed copy">

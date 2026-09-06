@@ -13,6 +13,7 @@
 // pack-opening moment. No WebGL — layered gradients and blend modes do it.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { copyEditionLabel } from "@/lib/cards/copyEdition";
 
 /** The clock as a store, to the minute: 0 on the server (no clock there),
  *  the wall clock once hydrated. Nothing subscribes — a bench that lifts
@@ -33,7 +34,6 @@ import CountUp from "@/components/home/CountUp";
 import { championCenteredUrl, championIconUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { FOIL_TYPE_LABELS, foilTypeOf, type FoilType } from "@/lib/packs/config";
-import { editionLabel } from "@/lib/packs/week";
 import PatronFlame from "@/components/patron/PatronFlame";
 import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
@@ -1094,7 +1094,7 @@ function PlayerCardFace({
             ) : null}
             {print ? (
               <div className="text-center text-[10px] font-bold uppercase tracking-[0.16em] text-steel">
-                Print #{print.number} of {print.of} · {editionLabel(print.editionWeek)}
+                Print #{print.number} of {print.of} · {copyEditionLabel(print.editionWeek, card)}
               </div>
             ) : null}
             {overlay?.back?.length ? (
