@@ -692,6 +692,20 @@ describe("ExpeditionBoard — the rules of the road", () => {
     expect((screen.getByRole("button", { name: "Launch Deep Raid" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it("calls a moment or a plate a relic, not a one-of-one, and keeps it off the same routes", () => {
+    const moment = makeCopy(7, "Big Game", "gold", { role: "Mid", card: { moment: { id: 1 } } });
+    renderBoard({ copies: [...COPIES, moment] });
+    const chip = screen.getByText("Big Game").closest("button")!;
+    expect(within(chip).getByText("relic")).toBeTruthy();
+    expect(within(chip).queryByText("1/1")).toBeNull();
+    pick("Big Game", 6);
+    pick("Dov", 16);
+    pick("Cyn", 7);
+
+    const legend = screen.getByTestId("tier-legend");
+    expect(within(legend).getByText("Big Game is a relic and cannot go on a route where a card can be lost.")).toBeTruthy();
+  });
+
   it("holds the Legendary route behind three fragments", () => {
     renderBoard({ fragments: 1 });
     pick("Dov", 16);
