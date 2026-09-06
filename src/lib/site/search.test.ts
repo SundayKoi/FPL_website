@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeQuery, rankSearch, type SearchItem } from "./search";
+import { normalizeQuery, createSearch, type SearchItem } from "./search";
 
 const ITEMS: SearchItem[] = [
   { kind: "page", label: "Stats", href: "/stats", hint: "League" },
@@ -19,32 +19,33 @@ describe("normalizeQuery", () => {
   });
 });
 
-describe("rankSearch", () => {
+describe("createSearch", () => {
+  const search = createSearch(ITEMS);
   it("returns nothing for an empty query", () => {
-    expect(rankSearch("   ", ITEMS)).toEqual([]);
+    expect(search("   ")).toEqual([]);
   });
 
   it("puts the exact name first and its longer cousins after", () => {
-    expect(rankSearch("stats", ITEMS).map((item) => item.label)).toEqual(["Stats", "Pack stats"]);
-    expect(rankSearch("doug", ITEMS).map((item) => item.label)).toEqual(["Doug", "Douglas"]);
+    expect(search("stats").map((item) => item.label)).toEqual(["Stats", "Pack stats"]);
+    expect(search("doug").map((item) => item.label)).toEqual(["Doug", "Douglas"]);
   });
 
   it("finds a page by what people call it", () => {
-    expect(rankSearch("supporters", ITEMS)[0]?.label).toBe("Patrons");
-    expect(rankSearch("eclipse", ITEMS)[0]?.label).toBe("The Vault");
+    expect(search("supporters")[0]?.label).toBe("Patrons");
+    expect(search("eclipse")[0]?.label).toBe("The Vault");
   });
 
   it("matches a pasted Riot id and an accented name typed plain", () => {
-    expect(rankSearch("Doug#NA1", ITEMS)[0]?.label).toBe("Doug");
-    expect(rankSearch("nandu", ITEMS)[0]?.label).toBe("Ñandú");
+    expect(search("Doug#NA1")[0]?.label).toBe("Doug");
+    expect(search("nandu")[0]?.label).toBe("Ñandú");
   });
 
   it("needs every word to match somewhere", () => {
-    expect(rankSearch("neon dynasty", ITEMS).map((item) => item.label)).toEqual(["Neon Dynasty"]);
-    expect(rankSearch("neon vault", ITEMS)).toEqual([]);
+    expect(search("neon dynasty").map((item) => item.label)).toEqual(["Neon Dynasty"]);
+    expect(search("neon vault")).toEqual([]);
   });
 
   it("caps the list", () => {
-    expect(rankSearch("a", ITEMS, 2)).toHaveLength(2);
+    expect(search("a", 2)).toHaveLength(2);
   });
 });

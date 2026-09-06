@@ -386,6 +386,72 @@ Important RPC families include:
   bonused legend jackpot was refused — and since `rollOutcome` re-rolls on
   each attempt, retrying paid a lower grade and closed the run. Any guard
   that encodes a config rule in SQL needs a test bridging the two.
+- The Gauntlet's purse (`src/lib/gauntlet/purse.ts`, migration
+  `20260918000001_gauntlet_purse.sql`): every won round adds `PURSE_STEPS`
+  to `gauntlet_runs.purse` in the same CAS update that advances the round.
+  `gauntlet_cash_out(p_user, p_run)` is the one door: under the row lock it
+  moves a live run to `banked` (refused with 'fight in progress' while
+  `crossroads` is set — the purse is on the table from the first half to
+  the whistle), or collects a `cleared` run, pays `purse` on a
+  `gauntlet_purse` ledger row, and stamps `purse_paid` so it can never pay
+  twice. A fallen run keeps its `purse` for the record and pays nothing.
+  `chooseGauntletPathAction` calls the door on a clear; if that fails the
+  end screen offers "Collect" through `bankGauntletRunAction`. Walking
+  away between fights IS banking (`resetGauntletRunAction` delegates).
+  The sink is unchanged: `gauntletPot` subtracts the week's `purse_paid`
+  from the fees before the 40/25/15 shares, and `purse.test.ts` holds the
+  schedule to returning under half the fee on average under every
+  stopping rule at the advertised clear curves.
+- Gauntlet ascension (`src/lib/gauntlet/ascension.ts`, migration
+  `20260919000001_gauntlet_ascension.sql`): `gauntlet_ascension` holds
+  what each player has unlocked per season; `gauntlet_ascend(p_user,
+  p_season, p_level)` is called by the claim of a cleared run and is a
+  `greatest`, so it is idempotent and never skips a level. Every run is
+  stamped with `ascension` at entry (clamped to what is unlocked —
+  `clampAscension`, a stale request plays level 0 rather than being
+  refused) and the level reaches the engine through `ascensionRules`:
+  the gate walls' rounds (`gateRoundsAt` in bosses.ts), a ghost's relic
+  potency and target relief (`matchContextFor`, `ghostOpponent`), the
+  offer size (sliced in `chooseGauntletPathAction` off the same seeded
+  three, so a retry offers the same cards), the bracket bump
+  (`generateOpponent`/`ghostOpponent`) and the Pit King's `holdsPit`
+  folded into the boss effects. The board and the settlement rank by
+  `weightedScore` (+10% a level) and the purse by `ascensionPurseMult`;
+  the round log carries `ascension` so the balance report can split lift
+  by level. Nothing about a level is rolled: every rule is printed on the
+  draft screen, the run header and the rulebook.
+- Gauntlet contracts and openers (`src/lib/gauntlet/contracts.ts`,
+  `openers.ts`, migration `20260920000001_gauntlet_contracts.sql`):
+  `contractsForWeek` draws three off `weekSeed(week, 99)`, the same for
+  the league; `chooseGauntletPathAction` runs `contractsSatisfied` over a
+  won round (the half state, the result, the opponent) and pays each new
+  one through `gauntlet_complete_contract`, whose primary key
+  `(discord_id, season, week_start, contract_key)` is the "once" — the
+  door returns 0 when the insert did not land and pays nothing.
+  `gauntlet_payout` learns `gauntlet_contract`. Openers are unlocked by
+  the season's count of finished contracts (`fetchContractProgress`),
+  validated at entry (`openerAllowed` — an unearned key is refused, not
+  downgraded), stored on `gauntlet_runs.opener`, and reach the engine as
+  `RelicEffects` through `openerEffects` in `matchContextFor`, exactly as
+  an heirloom does. The bracket does not price them.
+- Gauntlet rule-changers, set bonuses and drafted mode (migration
+  `20260921000001_gauntlet_rulebreakers.sql`): six relics carry flags in
+  `RelicEffects` that the engine reads as RULES rather than dials —
+  `secondWind` (a loss keeps the run active on the same round, restaged,
+  `second_wind_used` once), `oracle` (the client reads each call's ending
+  off the stored `seed2` with the same pure `simulateSecondHalf` the
+  server runs — nothing new is revealed that the row did not already
+  hold), `baronHeadStart` (the pit's starting health), `rerollOffer`
+  (`rerollGauntletOfferAction`, CAS on `reroll_used`), `purseMult` (the
+  purse step) and `bossImmunity` (`matchContextFor` drops the wall's
+  effects; the ascension's pit rule stays). `aggregateEffects` adds the
+  family set bonus at `SET_BONUS_AT` of a family, once. Drafted mode:
+  `dealGauntletHandAction` deals `DRAFTED_HAND_PER_ROLE` per role by
+  CSPRNG from the caller's shelves and records the ids in
+  `gauntlet_deals`; entry with a `dealId` checks the five against the hand
+  (`lineupFromHand`), waives the no-repeat rule, stamps `drafted`, and
+  marks the hand used. `rankGauntletWeek` pays a drafted run
+  `DRAFTED_SCORE_MULT`.
 - Gauntlet heirlooms: a run may bring ONE moment or roster plate from the
   shelf (`src/lib/gauntlet/heirlooms.ts`), frozen into `gauntlet_runs.heirloom`
   at entry like the lineup. It is never spent and never fielded. Everything

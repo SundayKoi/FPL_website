@@ -4,6 +4,8 @@
 
 import type { Autopsy } from "./autopsy";
 import { bossEffects } from "./bosses";
+import { ascensionRules } from "./ascension";
+import { openerEffects } from "./openers";
 import type { OpponentTeam } from "./opponents";
 import { aggregateEffects, mergeRelicEffects } from "./relics";
 import { heirloomEffects, type StoredHeirloom } from "./heirlooms";
@@ -38,22 +40,34 @@ export function matchContextFor(
    *  plate is worth nothing without the roster it belongs to. */
   heirloom?: StoredHeirloom | null,
   lineup: GauntletCard[] = [],
+  /** The run's ascension: how much of a ghost's build defends, and
+   *  whether the pit is theirs every round. */
+  ascension = 0,
+  /** The opener the run brought (src/lib/gauntlet/openers.ts). */
+  opener: string | null = null,
 ): MatchContext {
+  const rules = ascensionRules(ascension);
   // A ghost's "traits" are their BUILD: the relics they were holding when
   // they stood here. Flats add on top of any authored traits, so a future
   // ghost that also wears one is not a special case.
   const traits = aggregateTraits(opponent?.traits ?? []);
   const foe = opponent?.ghost
-    ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics))
+    ? mergeTraitEffects(traits, ghostTraitEffects(opponent.ghost.relics, rules.ghostPotency))
     : traits;
-  return {
-    effects: mergeRelicEffects(
+  const effects = mergeRelicEffects(
+    mergeRelicEffects(
       mergeRelicEffects(aggregateEffects(relicKeys), heirloomEffects(heirloom, lineup)),
       mutationEffects(lineup),
     ),
+    openerEffects(opener),
+  );
+  return {
+    effects,
     foe,
     arena: conditionEffects(opponent?.condition),
-    boss: bossEffects(opponent?.boss),
+    // THE FIXER voids the wall's rule — the ascension's pit rule is the
+    // ladder's, not a wall's, and stays.
+    boss: { ...(effects.bossImmunity ? {} : bossEffects(opponent?.boss)), ...(rules.holdsPit ? { holdsPit: true } : {}) },
     situationSeed,
     plan: opponent?.plan,
     foeCall: opponent?.ghost?.choiceKey ?? undefined,
@@ -89,4 +103,21 @@ export interface GauntletRunRow {
   /** The seed this run's own eight opponents are drawn with. Null on runs
    *  started before the private draw shipped — those keep the week's. */
   ghost_seed: number | null;
+  /** The purse so far: real dollars, banked between fights or lost with
+   *  the run (src/lib/gauntlet/purse.ts). Undefined on a row read before
+   *  the purse migration; treat as 0. */
+  purse?: number;
+  /** What the purse actually paid — set once by gauntlet_cash_out. */
+  purse_paid?: number;
+  /** The ascension the run was fought at (src/lib/gauntlet/ascension.ts).
+   *  Undefined on a row read before the ladder; treat as 0. */
+  ascension?: number;
+  /** The opener brought along (src/lib/gauntlet/openers.ts), or null. */
+  opener?: string | null;
+  /** THE SECOND WIND already caught one loss. */
+  second_wind_used?: boolean;
+  /** THE REMATCH already re-rolled one offer. */
+  reroll_used?: boolean;
+  /** The five were drafted from a dealt hand (src/lib/gauntlet/drafted.ts). */
+  drafted?: boolean;
 }

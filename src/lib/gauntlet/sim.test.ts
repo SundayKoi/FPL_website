@@ -651,9 +651,11 @@ describe("relics", () => {
     expect(flats.crossroadsBonus).toBe(8);
     expect(flats.scoreFlat).toBe(60);
 
-    // Multiplier dials stack multiplicatively; flat dials add.
+    // Multiplier dials stack multiplicatively; flat dials add. Four of the
+    // five are gold, so the gold SET (three of a family) lands too: its
+    // 1.1 on goldMult compounds with THE BOUNTY BOARD's 1.2.
     const dials = aggregateEffects(["bounty_board", "deep_pockets", "high_roller", "the_playbook", "smoke_start"]);
-    expect(dials.goldMult).toBeCloseTo(1.2);
+    expect(dials.goldMult).toBeCloseTo(1.2 * 1.1);
     expect(dials.goldEdgeMult).toBeCloseTo(1.6);
     expect(dials.daringMult).toBeCloseTo(2.2 * 1.3);
     expect(dials.baronWindowFlat).toBe(7);
@@ -755,6 +757,8 @@ describe("relics", () => {
       "fightFlat", "lanesFlat", "holdFlat", "crossroadsBonus", "scoreFlat",
       "goldMult", "goldEdgeMult", "daringMult", "baronBurnMult", "baronWindowFlat",
       "comebackFlat", "commitmentMult", "chemistryMult", "draftMult",
+      // The rule-changers: read by the run state or the client, not a check.
+      "secondWind", "oracle", "baronHeadStart", "rerollOffer", "purseMult", "bossImmunity",
     ]);
     for (const relic of RELIC_CATALOG) {
       for (const key of Object.keys(relic.effects)) expect(known.has(key), `${relic.key}.${key}`).toBe(true);

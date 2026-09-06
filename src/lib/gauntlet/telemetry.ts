@@ -41,6 +41,8 @@ export interface RoundLogRow {
   /** The run you were standing in, when the opponent was a real one.
    *  Null against a generated team. This is the whole defence record. */
   ghost_run_id: number | null;
+  /** The ascension the round was fought at. */
+  ascension: number;
 }
 
 /** One resolved relic offer: three went out, one came back. */
@@ -82,6 +84,7 @@ export function roundLogRow(
     boss_key: run.next_opponent?.boss ?? null,
     plan_key: run.next_opponent?.plan ?? null,
     ghost_run_id: run.next_opponent?.ghost?.runId ?? null,
+    ascension: Number(run.ascension ?? 0),
   };
 }
 

@@ -13,6 +13,7 @@
 // function (tsc reports "excessively deep" instantiation), so this trades a
 // few repeated lines for types that actually check.
 
+import { fetchAllPages } from "@/lib/supabase/pagination";
 import { createClient } from "@/lib/supabase/client";
 import { forfeitRecord, type ForfeitRecord } from "./forfeits";
 import type { FantasyStatRow } from "./fantasyPoints";
@@ -24,47 +25,6 @@ import type {
   RecordRow,
   TeamAggRow,
 } from "./types";
-
-/**
- * Every row of a query, in pages.
- *
- * PostgREST caps a response at max_rows — 1000 here — and says nothing when
- * it does. An unpaged select therefore returns a plausible-looking prefix,
- * which is how a leaderboard quietly loses half a season and how the pack
- * shop quietly lost its oldest edition weeks. Every fetcher in this file
- * reads "all of X", so every one of them needs this.
- *
- * Takes a thunk that BUILDS the query for a page rather than a query to
- * page over: Supabase's PostgrestFilterBuilder generics do not survive
- * being threaded through a user-defined generic function (tsc reports
- * "excessively deep"), which is the same reason the .eq() chains below are
- * written out per-fetcher. Keeping the builder inside the caller keeps its
- * types intact and confines the cast to one place.
- *
- * The caller must order by something TOTAL. Paging on a non-unique key lets
- * the database repeat a row on one page and skip another, and a skipped row
- * is invisible — the failure this function exists to prevent.
- */
-const PAGE_SIZE = 1000;
-const MAX_PAGES = 100;
-
-async function fetchAllPages<T>(
-  buildPage: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const from = page * PAGE_SIZE;
-    const { data, error } = await buildPage(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-    const batch = (data as T[]) ?? [];
-    rows.push(...batch);
-    // A short page is the last page. Equal-to-PAGE_SIZE has to try again:
-    // a result that exactly fills the window is indistinguishable from one
-    // that was truncated by it.
-    if (batch.length < PAGE_SIZE) break;
-  }
-  return rows;
-}
 
 export async function fetchPlayerKeysForTeams(teamNames: string[]): Promise<Set<string>> {
   if (!teamNames.length) return new Set();

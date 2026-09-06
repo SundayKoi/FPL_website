@@ -7,7 +7,12 @@
 
 import { CROSSROADS_CATALOG } from "@/lib/gauntlet/crossroads";
 import { GAUNTLET_ENTRY_FEE } from "@/lib/gauntlet/run";
-import { RELIC_CATALOG } from "@/lib/gauntlet/relics";
+import { PURSE_MAX, PURSE_STEPS, purseAfter } from "@/lib/gauntlet/purse";
+import { ASCENSION_LEVELS, ASCENSION_MAX, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP } from "@/lib/gauntlet/ascension";
+import { CONTRACTS_PER_WEEK, CONTRACT_CATALOG } from "@/lib/gauntlet/contracts";
+import { OPENER_CATALOG } from "@/lib/gauntlet/openers";
+import { RELIC_CATALOG, SET_BONUS_AT, SET_BONUS_TEXT } from "@/lib/gauntlet/relics";
+import { DRAFTED_HAND_PER_ROLE, DRAFTED_SCORE_MULT } from "@/lib/gauntlet/drafted";
 import { FINAL_BOSSES, FINAL_ROUND, GATE_BOSSES, GATE_ROUND } from "@/lib/gauntlet/bosses";
 import { FOE_PLANS } from "@/lib/gauntlet/foe";
 import { BOUNTY_MULT } from "@/lib/gauntlet/ghosts";
@@ -54,15 +59,124 @@ export default function GauntletRules() {
         <p>
           Entry is <b className="text-white">{GAUNTLET_ENTRY_FEE} betting dollars</b>, and it&apos;s gone the
           moment you enter — it feeds the week&apos;s pot and nothing refunds it. Draft one card per role and
-          climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over. You can{" "}
-          <b className="text-white">walk away</b> from a live run to free the slot for a fresh draft, but
-          walking away pays nothing — no refund, no reward; the score you&apos;d already won just stands on the
-          board like a fallen run&apos;s. The bracket scales to <i>your</i> lineup&apos;s average: round 1
+          climb {GAUNTLET_ROUNDS} rounds. Lose once and the run is over. Every round you win adds to a{" "}
+          <b className="text-gold">purse</b> of real dollars; between fights you can{" "}
+          <b className="text-white">bank it</b> and end the run, or push on and risk it — see the purse
+          section below. The bracket scales to <i>your</i> lineup&apos;s average: round 1
           starts well under it and round {GAUNTLET_ROUNDS} ends over it, with a wall standing at rounds{" "}
-          {GATE_ROUND} and {FINAL_ROUND}. For a player who reads what&apos;s on offer: about 94% clear round 1,
+          {GATE_ROUND} and {FINAL_ROUND} (three walls from ascension 1). For a player who reads what&apos;s on offer: about 94% clear round 1,
           four in ten reach round {GATE_ROUND}, and roughly one run in twenty clears all eight. A stacked shelf
           gets a harder bracket — but not a proportionally harder one, so your cards do count. See below.
         </p>
+      </Section>
+
+      <Section title="The purse — bank or push">
+        <p>
+          Every round you win adds to the purse, and the purse is <b className="text-gold">real betting dollars</b>:
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] border-collapse text-left text-xs">
+            <thead>
+              <tr className="border-b border-border-subtle text-[10px] uppercase tracking-[0.16em] text-muted">
+                <th className="py-1.5 pr-3 font-semibold">Round won</th>
+                {PURSE_STEPS.map((_, index) => (
+                  <th key={index} className="py-1.5 pr-3 font-mono font-semibold">{index + 1}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border-subtle/40">
+                <td className="py-2 pr-3 text-white">Adds</td>
+                {PURSE_STEPS.map((step, index) => (
+                  <td key={index} className="py-2 pr-3 font-mono text-mint">+{step}</td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-2 pr-3 text-white">Purse after</td>
+                {PURSE_STEPS.map((_, index) => (
+                  <td key={index} className="py-2 pr-3 font-mono text-gold">{purseAfter(index + 1)}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <b className="text-white">Between fights, the purse is yours to take.</b> Bank it and the run ends: the
+          dollars go to your wallet and the score you already won stands on the board. Push on instead and the
+          whole purse rides on the next round — <b className="text-white">lose once and it is gone</b>, along
+          with the run. A full clear pays the whole {PURSE_MAX} on the spot.
+        </p>
+        <p>
+          Once the first half of a fight has been played the purse is on the table until the whistle: walking
+          away mid-fight forfeits it. The purse never touches the score, the board, or the odds — it is only
+          the question of when to stop. It comes out of the same pot the entries paid into, so Monday&apos;s
+          prizes are what is left after the week&apos;s purses.
+        </p>
+      </Section>
+
+      <Section title="Ascension — the ladder above a clear">
+        <p>
+          Clear all eight rounds and <b className="text-white">the next ascension opens</b> for the rest of the
+          season. You pick the level at the draft — any level you have unlocked, and you can always step back
+          down. Each level is a <b className="text-white">named rule change</b> on top of every level below it,
+          never a quiet bigger number; the ladder stops at {ASCENSION_MAX}.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {ASCENSION_LEVELS.map((entry) => (
+            <div key={entry.level} className="rounded-lg border border-coral/40 bg-coral/5 p-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-coral">
+                A{entry.level} · {entry.title}
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{entry.rule}</p>
+              <p className="mt-1 font-mono text-[10.5px] leading-4 text-muted">↳ {entry.counter}</p>
+            </div>
+          ))}
+        </div>
+        <p>
+          The board weighs a run by its level: <b className="text-white">+{Math.round(ASCENSION_SCORE_STEP * 100)}% score
+          per ascension</b>, so a level-3 run&apos;s 1,000 stands as 1,300 against a level-0 run&apos;s 1,000, and
+          Monday&apos;s prizes follow the weighted board. The purse pays +{Math.round(ASCENSION_PURSE_STEP * 100)}% a level
+          too. Climbing difficulty is how you win the week; grinding level 0 is not.
+        </p>
+      </Section>
+
+      <Section title="Contracts and openers — the kit you earn">
+        <p>
+          Every Monday <b className="text-white">{CONTRACTS_PER_WEEK} contracts</b> rotate in, the same three for the
+          whole league, drawn from the catalog below. A contract is checked against every round you{" "}
+          <b className="text-white">win</b> and paid once a week, the first time a round does it — in dollars, to
+          your wallet, on the spot. They are the reason to draft a different five: this week&apos;s contracts want
+          one.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {CONTRACT_CATALOG.map((contract) => (
+            <div key={contract.key} className="rounded-lg border border-mint/40 bg-mint/5 p-3">
+              <p className="flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-mint">
+                {contract.title}
+                <span className="font-mono normal-case tracking-normal text-gold">+{contract.reward}</span>
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{contract.blurb}</p>
+            </div>
+          ))}
+        </div>
+        <p>
+          Every contract you finish this season counts toward <b className="text-white">openers</b>: small
+          starting perks, picked at the draft, one per run, kept for the season. They unlock in order by the
+          count, never by runs played or dollars spent — the only permanent power in the mode, and it is earned
+          by playing every way the Gauntlet asks to be played. Like an heirloom, the bracket does not rise to
+          meet one.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {OPENER_CATALOG.map((opener) => (
+            <div key={opener.key} className="rounded-lg border border-gold/40 bg-gold/5 p-3">
+              <p className="flex items-baseline justify-between gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
+                ◆ {opener.title}
+                <span className="font-mono normal-case tracking-normal text-muted">{opener.unlockAt} contracts</span>
+              </p>
+              <p className="mt-1 text-xs leading-4 text-white">{opener.effect}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section title="The match, beat by beat">
@@ -430,6 +544,31 @@ export default function GauntletRules() {
           Reading the card matters: over a thousand simulated runs, a player who takes whatever is offered
           first clears about 1% of the time, and one who reads what&apos;s on offer clears about 6%.
         </p>
+        <p>
+          <b className="text-white">Six relics change a rule instead of a number.</b> THE SECOND WIND lets the run
+          survive its first loss. THE ORACLE shows how each crossroads call ends before you choose. HEAD START
+          begins every Baron you start 30% down. THE REMATCH re-rolls one offer per run. THE SAFE HOUSE adds 25%
+          to every purse step. THE FIXER voids a wall&apos;s rule. Every one prints its rule on the card.
+        </p>
+        <p>
+          <b className="text-white">Set bonuses.</b> Hold {SET_BONUS_AT} relics of one family and the family&apos;s
+          signature lands on top, once:{" "}
+          <span style={{ color: "#ff7a3d" }}>ember</span> {SET_BONUS_TEXT.ember};{" "}
+          <span style={{ color: "#9b6dff" }}>void</span> {SET_BONUS_TEXT.void};{" "}
+          <span style={{ color: "#a8e6ff" }}>ice</span> {SET_BONUS_TEXT.ice};{" "}
+          <span style={{ color: "#e8c14b" }}>gold</span> {SET_BONUS_TEXT.gold}. A fourth of the family adds nothing
+          more — the offer stops leaning at two, and the set pays at three.
+        </p>
+      </Section>
+
+      <Section title="Drafted mode — play the hand you are dealt">
+        <p>
+          Your best five walk in every time, and the no-repeat rule only asks one card to move. Drafted mode
+          deals you a <b className="text-white">hand</b> — {DRAFTED_HAND_PER_ROLE} random eligible cards per role from
+          your own shelf — and the run is built from those. Trialists still fill what the hand can&apos;t. The
+          board pays a drafted run <b className="text-white">×{DRAFTED_SCORE_MULT}</b>, the no-repeat rule is waived,
+          and a hand is one run&apos;s: deal again for the next.
+        </p>
       </Section>
 
       <Section title="Scoring and the weekly pot">
@@ -439,10 +578,10 @@ export default function GauntletRules() {
           <b className="text-gold">daring bonus</b> for a landed crossroads gamble (worth more the deeper
           the run got — a call landed in round 8 pays more than twice the same call in round 1), plus shine
           (foils and signatures pay a little score — more with THE SHOWCASE), minus 40 per trialist. Losses pay nothing.{" "}
-          <b className="text-white">Score is board points, never dollars</b> — nothing in a run puts money in
-          your wallet, and walking away refunds nothing. The only money the Gauntlet ever pays out is
-          Monday&apos;s settlement of the pot (every entry fee paid that week):{" "}
-          <b className="text-white">40 / 25 / 15%</b> to the week&apos;s top three scores, with scraps for
+          <b className="text-white">Score is board points, never dollars.</b> The dollars a run can pay are the{" "}
+          <b className="text-gold">purse</b> (above), banked between fights or lost with the run, and
+          Monday&apos;s settlement of the pot — every entry fee paid that week, less the purses it already paid
+          out: <b className="text-white">40 / 25 / 15%</b> to the week&apos;s top three scores, with scraps for
           everyone who cleared round 4. Best run per player counts.
         </p>
       </Section>

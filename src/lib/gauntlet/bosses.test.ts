@@ -3,6 +3,7 @@ import {
   BOSS_BY_KEY,
   bossEffects,
   bossFor,
+  gateRoundsAt,
   FINAL_BOSSES,
   FINAL_ROUND,
   GATE_BOSSES,
@@ -53,5 +54,21 @@ describe("the boss catalog", () => {
     for (const boss of FINAL_BOSSES) expect(bossRoundOf(boss.key)).toBe(FINAL_ROUND);
     expect(bossRoundOf(null)).toBeNull();
     expect(bossRoundOf("not-a-boss")).toBeNull();
+  });
+});
+
+describe("the walls under ascension", () => {
+  it("moves the gate to rounds 3 and 6 from level 1, and keeps the final at 8", () => {
+    expect(gateRoundsAt(0)).toEqual([4]);
+    expect(gateRoundsAt(1)).toEqual([3, 6]);
+    expect(gateRoundsAt(5)).toEqual([3, 6]);
+    expect(isBossRound(3, 1)).toBe(true);
+    expect(isBossRound(6, 1)).toBe(true);
+    expect(isBossRound(4, 1)).toBe(false);
+    expect(isBossRound(8, 1)).toBe(true);
+    expect(GATE_BOSSES).toContain(bossFor(3, mulberry32(3), 1));
+    expect(GATE_BOSSES).toContain(bossFor(6, mulberry32(6), 1));
+    expect(bossFor(4, mulberry32(4), 1)).toBeNull();
+    expect(FINAL_BOSSES).toContain(bossFor(8, mulberry32(8), 1));
   });
 });

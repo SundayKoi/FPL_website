@@ -1,26 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { LoadingCard } from "./statsUi";
 import { fetchPlayerAgg, fetchSeasons } from "@/lib/stats/queries";
 import { scopeSeasons } from "@/lib/stats/scope";
 import { resolvePlayerParam } from "@/lib/stats/resolvePlayer";
-import ChampionsTab from "./ChampionsTab";
 import LeaderboardTab from "./LeaderboardTab";
-import FantasyPointsTab from "./FantasyPointsTab";
-import PlayerDetail from "./PlayerDetail";
-import PlayersTab, { type SelectedPlayer } from "./PlayersTab";
-import HeadToHeadTab from "./HeadToHeadTab";
-import RecordsTab from "./RecordsTab";
+import type { SelectedPlayer } from "./PlayersTab";
 import SeasonSelect, { ALL_SEASONS, type PhaseFilter } from "./SeasonSelect";
-import TeamsTab from "./TeamsTab";
-import TimelineTab from "./TimelineTab";
 
-// No Power Rankings tab, and so no MVP tab either — the two were
-// near-identical weighted percentile ladders and Power Rankings had
-// absorbed MVP. Both are gone now that a player card's OVR is the league's
-// rating: two ladders that ranked the same players differently was one
-// ladder too many, and the card is the one people actually read. The tab's
-// component stays in the tree for the moment; nothing routes to it.
+const loading = () => <LoadingCard label="stats" />;
+const ChampionsTab = dynamic(() => import("./ChampionsTab"), { loading });
+const FantasyPointsTab = dynamic(() => import("./FantasyPointsTab"), { loading });
+const PlayerDetail = dynamic(() => import("./PlayerDetail"), { loading });
+const PlayersTab = dynamic(() => import("./PlayersTab"), { loading });
+const HeadToHeadTab = dynamic(() => import("./HeadToHeadTab"), { loading });
+const RecordsTab = dynamic(() => import("./RecordsTab"), { loading });
+const TeamsTab = dynamic(() => import("./TeamsTab"), { loading });
+const TimelineTab = dynamic(() => import("./TimelineTab"), { loading });
+
 const TABS = [
   "Leaderboard",
   "Fantasy Pts",

@@ -1,20 +1,11 @@
 "use client";
 
-// The search palette: ⌘K anywhere, or the button in the header.
-//
-// The site has a hundred routes behind nineteen header links, and the thing
-// people said most was "I can't find it". This is the answer for the person
-// who knows the name of what they want: type a page, a player or a team and
-// go. Pages come from the site map (src/lib/site/directory.ts) and are on
-// the client already; players and teams are one fetch the first time the
-// palette opens, kept for the rest of the visit.
-
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { LeagueView } from "@/lib/league/context";
 import { siteDestinations } from "@/lib/site/directory";
-import { rankSearch, type SearchItem } from "@/lib/site/search";
+import { createSearch, type SearchItem } from "@/lib/site/search";
 
 /** Loaded once per visit, shared by every palette instance. */
 let indexPromise: Promise<SearchItem[]> | null = null;
@@ -59,10 +50,11 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
     [league],
   );
 
+  const search = useMemo(() => createSearch([...pages, ...(remote ?? [])]), [pages, remote]);
   const results = useMemo<SearchItem[]>(() => {
-    if (query.trim()) return rankSearch(query, [...pages, ...(remote ?? [])], 12);
+    if (query.trim()) return search(query, 12);
     return SUGGESTED.map((label) => pages.find((page) => page.label === label)).filter((page): page is SearchItem => Boolean(page));
-  }, [query, pages, remote]);
+  }, [query, pages, search]);
   const active = results.length === 0 ? -1 : Math.min(cursor, results.length - 1);
 
   function openPalette() {

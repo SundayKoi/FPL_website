@@ -3,22 +3,24 @@ import { useEffect, useState } from "react";
 import { remainingMs } from "@/lib/time";
 
 export function useCountdown(closesAt: string | null, offsetMs: number) {
-  const [ms, setMs] = useState(() => (closesAt ? remainingMs(closesAt, offsetMs) : 0));
-  const [prevKey, setPrevKey] = useState(closesAt);
+  const secondsRemaining = () => closesAt ? Math.ceil(remainingMs(closesAt, offsetMs) / 1000) : 0;
+  const [secondsLeft, setSecondsLeft] = useState(secondsRemaining);
+  const [previous, setPrevious] = useState({ closesAt, offsetMs });
 
-  if (closesAt !== prevKey) {
-    setPrevKey(closesAt);
-    setMs(closesAt ? remainingMs(closesAt, offsetMs) : 0);
+  if (closesAt !== previous.closesAt || offsetMs !== previous.offsetMs) {
+    setPrevious({ closesAt, offsetMs });
+    setSecondsLeft(secondsRemaining());
   }
 
   useEffect(() => {
-    if (!closesAt) return;
-    const id = setInterval(() => setMs(remainingMs(closesAt, offsetMs)), 250);
+    if (!closesAt || remainingMs(closesAt, offsetMs) <= 0) return;
+    const id = setInterval(() => {
+      const seconds = Math.ceil(remainingMs(closesAt, offsetMs) / 1000);
+      setSecondsLeft(seconds);
+      if (seconds <= 0) clearInterval(id);
+    }, 250);
     return () => clearInterval(id);
   }, [closesAt, offsetMs]);
 
-  return {
-    secondsLeft: Math.ceil(ms / 1000),
-    expired: closesAt !== null && ms <= 0,
-  };
+  return { secondsLeft, expired: closesAt !== null && secondsLeft <= 0 };
 }

@@ -97,21 +97,28 @@ export const BOSS_BY_KEY = new Map(
   [...GATE_BOSSES, ...FINAL_BOSSES].map((boss) => [boss.key, boss]),
 );
 
-/** Which rounds carry a wall. */
+/** Which rounds carry a wall at level 0. Ascension 1 moves the gate to
+ *  rounds 3 and 6 (src/lib/gauntlet/ascension.ts); the final is always 8. */
 export const GATE_ROUND = 4;
 export const FINAL_ROUND = 8;
 
-export function isBossRound(round: number): boolean {
-  return round === GATE_ROUND || round === FINAL_ROUND;
+/** Where the gate walls stand at a level — [4], or [3, 6] from level 1. */
+export function gateRoundsAt(ascension = 0): number[] {
+  return ascension >= 1 ? [3, 6] : [GATE_ROUND];
+}
+
+export function isBossRound(round: number, ascension = 0): boolean {
+  return gateRoundsAt(ascension).includes(round) || round === FINAL_ROUND;
 }
 
 /**
  * Who stands at a given round this week. Seeded by the WEEK rather than
  * the run, so everyone in the league fights the same wall for seven days
- * — which is the whole point of having something to argue about.
+ * — which is the whole point of having something to argue about. Which
+ * rounds carry one depends on the run's ascension.
  */
-export function bossFor(round: number, rand: () => number): BossDef | null {
-  const pool = round === GATE_ROUND ? GATE_BOSSES : round === FINAL_ROUND ? FINAL_BOSSES : null;
+export function bossFor(round: number, rand: () => number, ascension = 0): BossDef | null {
+  const pool = gateRoundsAt(ascension).includes(round) ? GATE_BOSSES : round === FINAL_ROUND ? FINAL_BOSSES : null;
   if (!pool) return null;
   return pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
 }

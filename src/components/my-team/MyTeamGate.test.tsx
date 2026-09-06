@@ -171,9 +171,9 @@ describe("MyTeamGate", () => {
     expect(accentFades.every((fade) => fade.getAttribute("style")?.includes("linear-gradient"))).toBe(true);
     expect(screen.getAllByText("vs Enemy Team")).toHaveLength(1);
     expect(screen.queryByRole("link", { name: /captain.*view/i })).toBeNull();
-    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: /open spectator draft link/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=stage");
-    expect(screen.getByRole("link", { name: /view draft patterns/i }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: /open scouting page/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
 
     expect(screen.getByRole("heading", { name: /team performance details/i })).toBeTruthy();

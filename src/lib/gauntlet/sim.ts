@@ -811,7 +811,8 @@ function baronDance(
     9,
     34,
   );
-  const hpLeft = yoursToStart ? clamp(100 - burn * window, 0, 100) : 100;
+  // HEAD START: a Baron you start begins part-way down.
+  const hpLeft = yoursToStart ? clamp(100 - (effects.baronHeadStart ?? 0) - burn * window, 0, 100) : 100;
 
   // Whoever started it holds the pit — the advantage follows the start,
   // not the home side. (v2 handed it to the player unconditionally, which

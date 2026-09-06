@@ -16,7 +16,10 @@ import { useRouter } from "next/navigation";
 import { fmtPoints } from "@/lib/betting/format";
 import {
   benchSwapGauntletAction,
+  bankGauntletRunAction,
   chooseGauntletPathAction,
+  dealGauntletHandAction,
+  rerollGauntletOfferAction,
   fightGauntletRoundAction,
   pickGauntletRelicAction,
   resetGauntletRunAction,
@@ -32,6 +35,12 @@ import {
   matchContextFor,
   type StoredMatchResult,
 } from "@/lib/gauntlet/run";
+import { PURSE_MAX, canBank, purseStep } from "@/lib/gauntlet/purse";
+import { ASCENSION_LEVELS, ASCENSION_PURSE_STEP, ASCENSION_SCORE_STEP, ascensionRules } from "@/lib/gauntlet/ascension";
+import { contractsForWeek } from "@/lib/gauntlet/contracts";
+import { OPENER_BY_KEY, nextOpener, unlockedOpeners } from "@/lib/gauntlet/openers";
+import { DRAFTED_SCORE_MULT } from "@/lib/gauntlet/drafted";
+import { SET_BONUS_AT, SET_BONUS_TEXT, completedSets } from "@/lib/gauntlet/relics";
 import type { GauntletOption, HeirloomOption } from "@/lib/gauntlet/queries";
 import { heirloomBlurb, plateMatches } from "@/lib/gauntlet/heirlooms";
 import type { MomentFamily } from "@/lib/cards/moments";
@@ -46,7 +55,9 @@ import {
   type GauntletRole,
   LANE_KEY,
   makeTrialist,
+  mulberry32,
   previewCrossroadsChoice,
+  simulateSecondHalf,
 } from "@/lib/gauntlet/sim";
 
 /** Rarity reads at a glance on the pick screen — steel, cyan, gold. */
@@ -192,6 +203,10 @@ export default function GauntletClient({
   weekBest,
   lastLineup,
   heirlooms,
+  ascensionUnlocked = 0,
+  week = "",
+  contractsDone = [],
+  contractsSeason = 0,
 }: {
   initialRun: GauntletRunRow | null;
   options: Record<GauntletRole, GauntletOption[]>;
@@ -203,6 +218,14 @@ export default function GauntletClient({
   lastLineup: number[];
   /** Moments and roster plates on the shelf — a run may bring one. */
   heirlooms: HeirloomOption[];
+  /** The top of the ladder this player has unlocked this season. */
+  ascensionUnlocked?: number;
+  /** Monday of the week — the contracts rotate on it. */
+  week?: string;
+  /** Contract keys finished this week, and the season's running count
+   *  (which unlocks openers). */
+  contractsDone?: string[];
+  contractsSeason?: number;
 }) {
   const router = useRouter();
   const [run, setRun] = useState<GauntletRunRow | null>(initialRun);
@@ -231,6 +254,22 @@ export default function GauntletClient({
   /** The shelf relic coming along, if any. Null is a real answer — most
    *  runs bring nothing, and the picker must never imply otherwise. */
   const [heirloomId, setHeirloomId] = useState<number | null>(null);
+  /** The level to draft at. Defaults to the top unlocked — the ladder is
+   *  for climbing — and a player can always step back down. */
+  const [ascension, setAscension] = useState<number>(ascensionUnlocked);
+  /** The opener to bring. Null brings nothing — most runs will. */
+  const [openerKey, setOpenerKey] = useState<string | null>(null);
+  /** Drafted mode: the hand dealt, when one is. Null drafts from the shelf. */
+  const [deal, setDeal] = useState<{ dealId: number; ids: number[] } | null>(null);
+  /** Contracts finished by the round that just resolved, for the strip
+   *  under the tape. */
+  const [contractNews, setContractNews] = useState<{ key: string; title: string; reward: number }[]>([]);
+  /** Keys finished this week, as this session knows them — the server's
+   *  list plus whatever the rounds played here just paid. */
+  const [doneKeys, setDoneKeys] = useState<string[]>(contractsDone);
+  const weekContracts = week ? contractsForWeek(week) : [];
+  const openers = unlockedOpeners(contractsSeason);
+  const upcoming = nextOpener(contractsSeason);
   const [swapOut, setSwapOut] = useState<number | "">("");
   const [swapIn, setSwapIn] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
@@ -293,15 +332,44 @@ export default function GauntletClient({
   function start() {
     setError(null);
     startTransition(async () => {
-      const result = await startGauntletRunAction(picks, heirloomId);
+      const result = await startGauntletRunAction(picks, heirloomId, ascension, openerKey, deal?.dealId ?? null);
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setLastFight(null);
       setRun(result.run);
+      setDeal(null);
       // The header's attempts/best strip is server-rendered — let it catch up.
       router.refresh();
+    });
+  }
+
+  /** Drafted mode: deal a hand, and draft from it. */
+  function dealHandNow() {
+    setError(null);
+    startTransition(async () => {
+      const result = await dealGauntletHandAction();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setDeal({ dealId: result.dealId, ids: result.ids });
+      setPicks({});
+    });
+  }
+
+  /** THE REMATCH: re-roll the offer once. */
+  function reroll() {
+    if (!run) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await rerollGauntletOfferAction(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setRun(result.run);
     });
   }
 
@@ -334,6 +402,8 @@ export default function GauntletClient({
       }
       setTapeDone(false);
       setJustPlayed(true);
+      setContractNews(result.contracts ?? []);
+      if (result.contracts?.length) setDoneKeys((current) => [...current, ...result.contracts.map((entry) => entry.key)]);
       setLastFight(result.run.last_result ?? { ...result.result, round: run.round });
       setRun(result.run);
       showStage();
@@ -356,10 +426,14 @@ export default function GauntletClient({
 
   function reset() {
     if (!run) return;
+    const purse = run.purse ?? 0;
+    const banking = canBank(run);
     if (
       typeof window !== "undefined" &&
       !window.confirm(
-        "Walk away from this run? You get NOTHING back — no refund, no reward. The entry fee stays in the week's pot; the score you've already won stands on the board.",
+        banking
+          ? `Bank ${fmtPoints(purse)} and end the run? The purse is paid to your wallet; the entry fee stays in the week's pot and the score you've already won stands on the board.`
+          : `Walk away mid-fight? The purse (${fmtPoints(purse)}) is on the table and you FORFEIT it. No refund, no reward; the score you've already won stands on the board.`,
       )
     ) {
       return;
@@ -371,7 +445,23 @@ export default function GauntletClient({
         setError(result.error);
         return;
       }
-      setRun({ ...run, status: "banked", relic_offer: null, crossroads: null, score: result.score });
+      setRun({ ...run, status: "banked", relic_offer: null, crossroads: null, score: result.score, purse_paid: result.paid });
+      router.refresh();
+    });
+  }
+
+  /** Bank between fights, or collect a cleared run's purse if the clear
+   *  itself failed to pay it. */
+  function bank() {
+    if (!run) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await bankGauntletRunAction(run.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setRun(result.run);
       router.refresh();
     });
   }
@@ -420,7 +510,7 @@ export default function GauntletClient({
                   }
                 >
                   <option value="">Trialist (55)</option>
-                  {options[role].map((option) => (
+                  {options[role].filter((option) => !deal || deal.ids.includes(option.inventoryId)).map((option) => (
                     <option key={option.inventoryId} value={option.inventoryId}>
                       {option.name} · {option.overall}
                       {/* Both shelves field, so the option has to say which
@@ -485,14 +575,132 @@ export default function GauntletClient({
             ) : null}
           </div>
         ) : null}
-        {repeatsLast ? (
+        <div data-testid="drafted-mode" className="flex flex-wrap items-center gap-3 rounded-lg border border-border-subtle bg-surface/50 px-3 py-2">
+          <span className="label-dash">Drafted mode</span>
+          <span className="text-xs text-muted">
+            {deal
+              ? `You were dealt ${deal.ids.length} cards — build from those. The board pays a drafted run ×${DRAFTED_SCORE_MULT}, and the no-repeat rule is waived.`
+              : `Deal a hand — three random cards per role from your own shelf — and draft from those instead of your best five. The board pays it ×${DRAFTED_SCORE_MULT}.`}
+          </span>
+          <button
+            type="button"
+            onClick={deal ? () => { setDeal(null); setPicks({}); } : dealHandNow}
+            disabled={pending}
+            className="ml-auto rounded-full border border-border-strong bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
+          >
+            {deal ? "Draft from the whole shelf instead" : "Deal me a hand"}
+          </button>
+        </div>
+        {weekContracts.length > 0 ? (
+          <div data-testid="contracts" className="flex flex-col gap-2 rounded-lg border border-mint/40 bg-mint/5 p-3">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="label-dash text-mint">This week&apos;s contracts</span>
+              <span className="text-xs text-muted">
+                Three things to go and do. Each pays once a week, the first time a round you win does it — and every one
+                finished counts toward your openers ({contractsSeason} this season).
+              </span>
+            </div>
+            <ul className="grid gap-2 sm:grid-cols-3">
+              {weekContracts.map((contract) => {
+                const done = doneKeys.includes(contract.key);
+                return (
+                  <li
+                    key={contract.key}
+                    data-testid={`contract-${contract.key}`}
+                    className={`rounded-lg border px-3 py-2 text-xs ${done ? "border-mint/60 bg-mint/10" : "border-border-subtle bg-surface/50"}`}
+                  >
+                    <span className="flex items-baseline justify-between gap-2">
+                      <b className={done ? "text-mint" : "text-white"}>{contract.title}</b>
+                      <span className="font-mono text-gold">{done ? "paid" : `+${fmtPoints(contract.reward)}`}</span>
+                    </span>
+                    <span className="mt-0.5 block text-muted">{contract.blurb}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+        <div data-testid="opener-picker" className="flex flex-col gap-2">
+          <span className="label-dash">Opener — optional</span>
+          <p className="text-xs text-muted">
+            A small starting perk, kept for the season, unlocked by contracts finished — the only permanent
+            power in the Gauntlet.{" "}
+            {upcoming
+              ? `Next: ${upcoming.opener.title} at ${upcoming.opener.unlockAt} contracts (${upcoming.remaining} to go).`
+              : "You have unlocked every opener."}
+          </p>
+          {openers.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={openerKey === null}
+                onClick={() => setOpenerKey(null)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  openerKey === null ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                }`}
+              >
+                Bring nothing
+              </button>
+              {openers.map((opener) => (
+                <button
+                  key={opener.key}
+                  type="button"
+                  aria-pressed={openerKey === opener.key}
+                  title={opener.effect}
+                  onClick={() => setOpenerKey(opener.key)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    openerKey === opener.key ? "bg-gold text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                  }`}
+                >
+                  ◆ {opener.title}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {openerKey ? (
+            <p className="font-mono text-[11px] leading-4 text-gold">↳ {OPENER_BY_KEY.get(openerKey)?.effect}</p>
+          ) : null}
+        </div>
+        <div data-testid="ascension-picker" className="flex flex-col gap-2">
+          <span className="label-dash">Ascension</span>
+          <p className="text-xs text-muted">
+            {ascensionUnlocked === 0
+              ? "Clear all eight rounds and the next level of the ladder opens for the season: a named rule change on top of everything below it. The board weighs a run by its level."
+              : `You have unlocked ascension ${ascensionUnlocked}. Each level is a rule on top of the ones before it; the board and the purse pay +${Math.round(ASCENSION_SCORE_STEP * 100)}% and +${Math.round(ASCENSION_PURSE_STEP * 100)}% a level.`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: ascensionUnlocked + 1 }, (_, level) => (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={ascension === level}
+                onClick={() => setAscension(level)}
+                className={`rounded-full px-3 py-1.5 font-mono text-xs font-bold transition ${
+                  ascension === level ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                }`}
+              >
+                {level === 0 ? "A0 · the Gauntlet" : `A${level} · ${ASCENSION_LEVELS[level - 1].title}`}
+              </button>
+            ))}
+          </div>
+          {ascension > 0 ? (
+            <ul className="flex flex-col gap-1 font-mono text-[11px] leading-4 text-coral">
+              {ASCENSION_LEVELS.slice(0, ascension).map((entry) => (
+                <li key={entry.level}>
+                  A{entry.level} · <b>{entry.title}</b> — {entry.rule}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+        {repeatsLast && !deal ? (
           <p className="rounded-lg border border-gold/45 bg-gold/5 px-3 py-2 text-xs leading-5 text-gold">
             This is the same five you ran last time. Move at least one card — a re-run should be a different
             run, not the same one rolled again.
           </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-4">
-          <button type="button" onClick={start} disabled={pending || short || repeatsLast} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
+          <button type="button" onClick={start} disabled={pending || short || (repeatsLast && !deal)} className="btn-primary px-5 py-2.5 text-sm disabled:opacity-50">
             {pending ? "Entering…" : `Enter the Gauntlet — ${fmtPoints(GAUNTLET_ENTRY_FEE)}`}
           </button>
           <span className="text-xs text-muted">
@@ -536,7 +744,9 @@ export default function GauntletClient({
   const theirCall = theirCallKey ? CHOICE_BY_KEY.get(theirCallKey) ?? null : null;
   // The same context the server fights under — relics, their traits, the
   // round's condition — so the odds printed on a choice are the odds.
-  const runCtx = matchContextFor(run.relics, run.next_opponent);
+  const runCtx = matchContextFor(
+    run.relics, run.next_opponent, undefined, run.heirloom, run.lineup, run.ascension ?? 0, run.opener ?? null,
+  );
 
   return (
     <section ref={stageRef} className="flex scroll-mt-6 flex-col gap-6">
@@ -544,13 +754,33 @@ export default function GauntletClient({
         <div className="flex flex-wrap items-baseline gap-4">
           <span className="label-dash">
             {over
-              ? `RUN ${run.status === "banked" ? "ABANDONED" : run.status.toUpperCase()}`
+              ? `RUN ${run.status === "banked" ? "BANKED" : run.status.toUpperCase()}`
               : `ROUND ${run.round} OF ${GAUNTLET_ROUNDS}`}
+            {(run.ascension ?? 0) > 0 ? ` · ASCENSION ${run.ascension}` : ""}
+            {run.drafted ? " · DRAFTED" : ""}
           </span>
           <span className="font-mono text-xl font-bold">{run.score.toLocaleString()}</span>
           <span className="text-xs text-muted">run score</span>
-          {run.relics.length > 0 ? (
+          <span
+            data-testid="purse"
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-sm font-bold ${
+              over && (run.purse_paid ?? 0) === 0 && (run.purse ?? 0) > 0 ? "border-coral/50 text-coral line-through" : "border-gold/50 text-gold"
+            }`}
+            title="The purse: real dollars, banked between fights or lost with the run"
+          >
+            {fmtPoints(run.purse ?? 0)}
+          </span>
+          <span className="text-xs text-muted">purse{over ? ((run.purse_paid ?? 0) > 0 ? " · paid" : (run.purse ?? 0) > 0 ? " · lost" : "") : ""}</span>
+          {run.relics.length > 0 || run.opener ? (
             <span className="ml-auto flex flex-wrap gap-1.5">
+              {run.opener && OPENER_BY_KEY.has(run.opener) ? (
+                <span
+                  title={OPENER_BY_KEY.get(run.opener)!.effect}
+                  className="rounded-full border border-gold/50 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gold"
+                >
+                  ◆ {OPENER_BY_KEY.get(run.opener)!.title}
+                </span>
+              ) : null}
               {run.relics.map((key) => (
                 <RelicChip key={key} relicKey={key} />
               ))}
@@ -558,6 +788,24 @@ export default function GauntletClient({
           ) : null}
         </div>
         <LineupRow lineup={run.lineup} />
+        {completedSets(run.relics).length > 0 ? (
+          <p data-testid="set-bonus" className="font-mono text-[11px] leading-4 text-gold">
+            {completedSets(run.relics).map((family) => `${family.toUpperCase()} SET (${SET_BONUS_AT}): ${SET_BONUS_TEXT[family]}`).join(" · ")}
+          </p>
+        ) : null}
+        {run.second_wind_used && run.status === "active" && lastFight && !lastFight.won ? (
+          <p data-testid="second-wind" className="rounded-lg border border-[#ff7a3d]/60 bg-[#ff7a3d]/10 px-3 py-2 text-xs text-[#ff7a3d]">
+            THE SECOND WIND — the round is lost, the run is not. Round {run.round} again, against a fresh opponent. It does not
+            happen twice.
+          </p>
+        ) : null}
+        {(run.ascension ?? 0) > 0 ? (
+          <p data-testid="ascension-rules" className="font-mono text-[11px] leading-4 text-coral">
+            {ASCENSION_LEVELS.slice(0, ascensionRules(run.ascension ?? 0).level)
+              .map((entry) => `A${entry.level} ${entry.title}: ${entry.rule}`)
+              .join(" · ")}
+          </p>
+        ) : null}
         {!over ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle/40 pt-3">
             <button
@@ -566,11 +814,12 @@ export default function GauntletClient({
               disabled={pending}
               className="rounded-full border border-border-strong bg-surface px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-50"
             >
-              Walk away — keep nothing
+              {canBank(run) ? `Bank ${fmtPoints(run.purse ?? 0)} and end the run` : "Walk away — forfeit the purse"}
             </button>
             <span className="text-[11px] text-muted">
-              Ends the run for no reward — the fee stays in the pot. Score is board points, never dollars;
-              the only money the Gauntlet pays is Monday&apos;s pot, to the top of the board.
+              {canBank(run)
+                ? "Between fights the purse is yours to take. The fee stays in the pot; the score already won stands on the board."
+                : "The first half has been played: the purse is on the table until the whistle. Leaving now pays nothing."}
             </span>
           </div>
         ) : null}
@@ -606,6 +855,12 @@ export default function GauntletClient({
                   ) : null}
                 </p>
               ) : null}
+              {contractNews.length > 0 ? (
+                <p data-testid="contract-news" className="rounded-lg border border-mint/50 bg-mint/10 px-3 py-2 text-xs text-mint">
+                  Contract{contractNews.length === 1 ? "" : "s"} complete:{" "}
+                  {contractNews.map((entry) => `${entry.title} (+${fmtPoints(entry.reward)})`).join(", ")} — paid to your wallet.
+                </p>
+              ) : null}
               {lastFight.players?.length ? (
                 <Scoreboard players={lastFight.players} mvp={lastFight.mvp} />
               ) : null}
@@ -622,11 +877,18 @@ export default function GauntletClient({
           </span>
           <p className="text-sm text-muted">
             {run.status === "cleared"
-              ? "Eight rounds, no falls. The board will remember."
+              ? `Eight rounds, no falls. The board will remember${(run.purse_paid ?? 0) > 0 ? `, and the full purse (${fmtPoints(run.purse_paid ?? 0)}) is in your wallet` : ""}.`
               : run.status === "banked"
-                ? "Nothing paid, nothing owed — the score you'd already won stands on the board."
-                : `The Gauntlet keeps what it takes. Best this week: ${Math.max(weekBest, run.score).toLocaleString()}.`}
+                ? (run.purse_paid ?? 0) > 0
+                  ? `You banked ${fmtPoints(run.purse_paid ?? 0)} — it's in your wallet. The score you'd already won stands on the board.`
+                  : "Nothing paid, nothing owed — the score you'd already won stands on the board."
+                : `The Gauntlet keeps what it takes${(run.purse ?? 0) > 0 ? ` — the purse (${fmtPoints(run.purse ?? 0)}) went with it` : ""}. Best this week: ${Math.max(weekBest, run.score).toLocaleString()}.`}
           </p>
+          {run.status === "cleared" && (run.purse ?? 0) > 0 && (run.purse_paid ?? 0) === 0 ? (
+            <button type="button" onClick={bank} disabled={pending} className="btn-pill px-4 py-2 text-sm disabled:opacity-50">
+              Collect the purse — {fmtPoints(run.purse ?? 0)}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -683,6 +945,12 @@ export default function GauntletClient({
                 : 1;
               const pays = preview ? daringAt(choice.scoreBonus, chance) : 0;
               const odds = Math.round(chance * 100);
+              // THE ORACLE: the second half is sealed — its seed is on the
+              // row — so with the relic held, each call's ending is simply
+              // read off it. The same pure function the server will run.
+              const oracle = runCtx.effects.oracle
+                ? simulateSecondHalf(run.crossroads!.state, choice.key, run.lineup, run.next_opponent!.cards, runCtx, mulberry32(run.crossroads!.seed2))
+                : null;
               return (
                 <button
                   key={choice.key}
@@ -724,6 +992,14 @@ export default function GauntletClient({
                   <span className="mt-2.5 border-t border-border-subtle/60 pt-2 text-[11px] leading-4 text-muted">
                     ↳ {choice.consequence.note}
                   </span>
+                  {oracle ? (
+                    <span
+                      data-testid="oracle"
+                      className={`mt-2 rounded-md border px-2 py-1 font-mono text-[10.5px] ${oracle.won ? "border-mint/60 text-mint" : "border-coral/60 text-coral"}`}
+                    >
+                      THE ORACLE: this call {oracle.won ? "WINS" : "LOSES"} the game · whistle at {oracle.momentum} momentum
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -739,6 +1015,16 @@ export default function GauntletClient({
         <div className="card-brand flex flex-col gap-4 p-6">
           <div>
             <span className="label-dash text-coral">ROUND {run.round - 1} CLEARED · CHOOSE YOUR RELIC</span>
+            {runCtx.effects.rerollOffer && !run.reroll_used ? (
+              <button
+                type="button"
+                onClick={reroll}
+                disabled={pending}
+                className="ml-3 rounded-full border border-[#a8e6ff]/60 bg-[#a8e6ff]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#a8e6ff] transition hover:bg-[#a8e6ff]/20 disabled:opacity-50"
+              >
+                THE REMATCH — deal again
+              </button>
+            ) : null}
             <p className="mt-1 text-xs text-muted">
               One of three, run-scoped. The other two are burned — choosing is the game. Rares get likelier
               the deeper you go, and the offer leans toward what you are already building — never so far
@@ -775,6 +1061,28 @@ export default function GauntletClient({
               ))}
             </div>
           ) : null}
+          <div
+            data-testid="bank-or-push"
+            className="flex flex-wrap items-center gap-3 rounded-xl border border-gold/50 bg-gold/5 px-4 py-3"
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gold">Bank or push</span>
+            <span className="text-sm text-white">
+              Purse <b className="font-mono">{fmtPoints(run.purse ?? 0)}</b>. Round {run.round} pays{" "}
+              <b className="font-mono text-mint">+{fmtPoints(purseStep(run.round))}</b> if you win it — and takes the whole
+              purse if you don&apos;t.
+            </span>
+            <button
+              type="button"
+              onClick={bank}
+              disabled={pending}
+              className="ml-auto rounded-full border border-gold bg-gold/15 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-gold transition hover:bg-gold/30 disabled:opacity-50"
+            >
+              Bank {fmtPoints(run.purse ?? 0)} and stop
+            </button>
+            <span className="basis-full text-[11px] text-muted">
+              Pick a relic to push on. A full clear pays {fmtPoints(PURSE_MAX)}; the score is board points either way.
+            </span>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {(run.relic_offer ?? []).map((key) => {
               const relic = RELIC_BY_KEY.get(key) ?? RELIC_CATALOG[0];

@@ -38,16 +38,6 @@ export interface MatchCode {
   created_at: string;
 }
 
-/** One row of `announcements`. */
-export interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  pinned: boolean;
-  created_by: string | null;
-  created_at: string;
-}
-
 /** Resolved server-side context for the signed-in visitor. */
 export interface CaptainContext {
   profileId: string | null;
@@ -391,16 +381,6 @@ export async function fetchMyResults(
   return { games, players };
 }
 
-/** Announcements, pinned first then newest. */
-export async function fetchAnnouncements(supabase: SupabaseClient): Promise<Announcement[]> {
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("*")
-    .order("pinned", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data as Announcement[]) ?? [];
-}
 
 /**
  * Sets which team was on blue for a `needs_side` game and re-queues it as

@@ -48,7 +48,12 @@ describe("the round log row", () => {
       boss_key: "the_wall",
       plan_key: "brawl",
       ghost_run_id: null,
+      ascension: 0,
     });
+  });
+
+  it("records the ascension the round was fought at", () => {
+    expect(roundLogRow({ ...run, ascension: 3 } as GauntletRunRow, "hold", result).ascension).toBe(3);
   });
 
   it("records the relics the round was FOUGHT with, not the ones taken after", () => {

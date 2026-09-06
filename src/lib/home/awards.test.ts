@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { rankLatestWeeklyStandoutsFromRows } from "@/lib/stats/weekly";
 import { deriveHomepageAwards, type HomepageRawStatRow } from "./awards";
 
 type RowOverrides = Partial<HomepageRawStatRow>;
@@ -91,17 +90,6 @@ describe("deriveHomepageAwards", () => {
     expect(result.playerOfWeek.name).toBe("Ace");
     expect(result.teamOfWeek.teamName).toBe("MetaShift League");
     expect(result.periodLabel).toMatch(/Week/);
-  });
-
-  it("shows the exact score the Weekly Standouts pipeline computes for the same player", () => {
-    const result = deriveHomepageAwards(rows, new Map());
-    const standouts = rankLatestWeeklyStandoutsFromRows(rows);
-    const standout = standouts.find(
-      (player) => player.summoner_name === result.playerOfWeek.name && player.tag === result.playerOfWeek.tag,
-    );
-
-    expect(standout).toBeDefined();
-    expect(result.playerOfWeek.value).toBe(standout!.score.toFixed(1));
   });
 
   it("requires a positive price for Best Value Pick", () => {

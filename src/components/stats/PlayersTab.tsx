@@ -36,8 +36,10 @@ export default function PlayersTab({
   const loadRows = useCallback(async () => {
     const seasonParam = season === ALL_SEASONS ? undefined : season;
     const phaseParam = phase === "All" ? undefined : phase;
-    const data = await fetchPlayerAgg(seasonParam, phaseParam);
-    const keys = teamNames ? await fetchPlayerKeysForTeams(teamNames) : null;
+    const [data, keys] = await Promise.all([
+      fetchPlayerAgg(seasonParam, phaseParam),
+      teamNames ? fetchPlayerKeysForTeams(teamNames) : null,
+    ]);
     return keys ? filterStatsRowsByPlayerKeys(data, keys) : data;
   }, [season, phase, teamNames]);
   const { data, status } = useStatsFetch(loadRows, `${season}::${phase}`);

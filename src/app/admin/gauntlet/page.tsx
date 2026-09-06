@@ -7,6 +7,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { buildBalanceReport, type BalanceFlag } from "@/lib/gauntlet/balance";
 import { fetchBalanceTape, windowStart } from "@/lib/gauntlet/balanceQueries";
 import { currentWeek } from "@/lib/gauntlet/queries";
+import AnnounceGauntletButton from "@/components/admin/AnnounceGauntletButton";
 
 export const metadata: Metadata = {
   title: "Gauntlet balance — FPL Admin",
@@ -87,6 +88,15 @@ export default async function GauntletBalancePage() {
           </p>
         ) : null}
       </header>
+
+      <section aria-label="Announce" className="card-brand flex flex-col gap-2 p-5">
+        <h2 className="type-display text-2xl">Tell the channel</h2>
+        <p className="text-sm text-muted">
+          Posts the overhaul announcement — the purse, ascension, contracts and openers, the new relics, drafted
+          mode — to the cards channel with a link to the rulebook. Once is plenty.
+        </p>
+        <AnnounceGauntletButton />
+      </section>
 
       <section aria-label="Findings" className="card-brand flex flex-col gap-3 p-5">
         <h2 className="type-display text-2xl">Findings</h2>

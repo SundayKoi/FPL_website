@@ -21,18 +21,18 @@ const fixture: FixtureRow = {
 describe("MyTeamMatchHero", () => {
   afterEach(cleanup);
 
-  it("gives ordinary members only the spectator view", () => {
+  it("gives ordinary members only the spectator draft link", () => {
     render(<MyTeamMatchHero fixture={fixture} myTeamName="Meridian" canOpenCaptainDraft={false} />);
 
-    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=stage");
+    expect(screen.getByRole("link", { name: /open spectator draft link/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=stage");
     expect(screen.queryByRole("link", { name: /captain/i })).toBeNull();
   });
 
-  it("gives captains both role-appropriate links", () => {
+  it("gives captains both role-appropriate draft links", () => {
     render(<MyTeamMatchHero fixture={fixture} myTeamName="Meridian" canOpenCaptainDraft />);
 
-    expect(screen.getByRole("link", { name: /open captain view/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=board");
-    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=stage");
+    expect(screen.getByRole("link", { name: /open captain draft link/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=board");
+    expect(screen.getByRole("link", { name: /open spectator draft link/i }).getAttribute("href")).toBe("/match-draft/fixture-1?layout=stage");
   });
 
   it("shows a scheduled-empty state without draft links", () => {

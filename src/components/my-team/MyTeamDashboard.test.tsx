@@ -43,7 +43,8 @@ describe("MyTeamDashboard", () => {
     const performance = screen.getByText("Team performance details").closest("details")!;
     const codes = screen.getByRole("region", { name: "Tournament codes" });
 
-    expect([header, hero, opponent, lineup, overview, performance, codes].every((item, index, items) => index === 0 || follows(items[index - 1], item))).toBe(true);
+    expect([header, hero, codes, opponent, lineup, overview, performance].every((item, index, items) => index === 0 || follows(items[index - 1], item))).toBe(true);
+    expect(codes.parentElement?.parentElement?.className).toContain("flex");
   });
 
   it("keeps the ordinary member view read-only and exposes real destinations", () => {
@@ -55,9 +56,10 @@ describe("MyTeamDashboard", () => {
     };
     render(<MyTeamDashboard dashboard={dashboard({ codes: [{ id: "code", fixture_id: fixture.id, season: "S5", team_a_id: "team-1", team_b_id: "team-2", game_number: 1, code: "CODE-1", note: null, created_by: null, created_at: "2026-08-01T00:00:00Z" }], opponent: { ...dashboard().opponent!, stats, statsUnavailable: false } })} league="premier" />);
 
-    expect(screen.getByRole("link", { name: /open spectator view/i })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /open captain view/i })).toBeNull();
-    expect(screen.getByRole("link", { name: /open full team stats/i }).getAttribute("href")).toBe("/stats?tab=Teams&team=Enemy+Team&season=S5");
+    expect(screen.getByRole("link", { name: /open spectator draft link/i })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /open captain draft link/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /open scouting page/i }).getAttribute("href")).toBe("/my-team/scouting");
+    expect(screen.queryByRole("link", { name: /open full team stats/i })).toBeNull();
     expect(screen.getAllByRole("article")).toHaveLength(3);
     expect(screen.queryByText(/ready for friday|readiness|\d\/\d ready/i)).toBeNull();
   });

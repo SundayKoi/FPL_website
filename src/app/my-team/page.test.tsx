@@ -204,10 +204,10 @@ describe("My Team page", () => {
     expect(screen.getByText("TOURNEY-CODE")).toBeTruthy();
     expect(screen.getByRole("heading", { name: /what comes next/i })).toBeTruthy();
     expect(screen.getByText("Signed In Player")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: /open captain view/i })).toBeNull();
-    expect(screen.getByRole("link", { name: /open spectator view/i }).getAttribute("href"))
+    expect(screen.queryByRole("link", { name: /open captain draft link/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /open spectator draft link/i }).getAttribute("href"))
       .toBe("/match-draft/fixture-1?layout=stage");
-    expect(screen.getByRole("link", { name: /view draft patterns/i }).getAttribute("href"))
+    expect(screen.getByRole("link", { name: /open scouting page/i }).getAttribute("href"))
       .toBe("/my-team/scouting");
     expect(screen.queryByText("Report a Result")).toBeNull();
     expect(screen.queryByText("Admin code editor")).toBeNull();
