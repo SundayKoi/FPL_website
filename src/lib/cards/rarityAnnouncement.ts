@@ -23,7 +23,7 @@ export function rarityAnnouncement(siteUrl: string): AnnouncementEmbed {
     "",
     `**★ Shiny — ${oneIn(SHINY_CHANCE)} cards (${perPackPct(SHINY_CHANCE)}).** The same card in the wrong colours: the art hue-shifted with a sparkle over it. Can be foil, can be signed. Dusts ×${SHINY_DUST_MULT}.`,
     "",
-    `**📟 StatTrak™ — ${oneIn(STATTRAK_CHANCE)} cards (${perPackPct(STATTRAK_CHANCE)}).** A counter on the card that tracks the fantasy points it scores while YOU own it. Trade it and it resets to zero for the new owner.`,
+    `**📟 StatTrak™ — ${oneIn(STATTRAK_CHANCE)} cards (${perPackPct(STATTRAK_CHANCE)}).** A counter on the card that tracks the player's Fantasy Pts (the stats tab's tally) for every game they play while YOU hold it — fielded or not. Trade it and it resets to zero for the new owner.`,
     "",
     `**🔒 Secret — ${oneIn(SECRET_CHANCE)} cards.** A print numbered past the checklist: in a 120-card season the first Secret found is #121/120. Gold inside the frame, one per pack at most, announced here when it lands. Dusts ×${SECRET_DUST_MULT}, and auto-dust will never touch one.`,
     "",
