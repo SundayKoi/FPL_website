@@ -54,7 +54,7 @@ export function cardsSections(base: string): CardsSection[] {
       key: "browse",
       label: "Browse",
       href: `${base}/browse`,
-      blurb: "Every player's card, and the rarest of them",
+      blurb: "Every player's card, and the rarest of them — open to everyone",
       children: [
         { label: "All cards", href: `${base}/browse`, blurb: "Every player's card, rated from this season's stats" },
         { label: "Team cards", href: `${base}/teams`, blurb: "Every roster as one composite card" },

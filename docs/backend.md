@@ -116,6 +116,13 @@ academy's Play tab). Pages do not draw their own back links or league
 toggles. Every old URL still resolves; the map decides which tab it lights.
 A page the map does not list (`/cards/claims`, a redirect) lights nothing.
 
+Browse is public. Every page under the Browse tab (all cards, team cards,
+Compare, Moments, the Vault) and the per-card share pages render without
+a session: everything they read carries an `anon` select grant, and
+nothing on them claims, customises, buys, trades or fields a card. The
+premium gate stays on Home, My Collection, Packs, Market and Play, and
+`CardsGate` now offers the signed-out visitor the Browse door.
+
 Cards Home (`src/app/cards/page.tsx`) is about the viewer and the week —
 their card or claim, a one-line shelf count with today's free rip, this
 week's notices, the draw, and a "what's where" line per tab — and reads only

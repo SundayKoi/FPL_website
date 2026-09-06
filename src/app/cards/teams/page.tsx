@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import TeamCardsSection from "@/components/cards/TeamCardsSection";
 import { fetchCardSeason, fetchCurrentWeekCards, fetchLatestGameWeek, fetchTeamIdentity, type CardLeague } from "@/lib/cards/queries";
-import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
@@ -11,29 +9,9 @@ export const metadata: Metadata = {
   description: "Every roster as a composite card, rated by its five best players.",
 };
 
-/** Premium (same gate as the hub): the team-card collection on its own
- *  page, so it isn't buried under the full player grid. */
+/** The team-card collection on its own page, so it isn't buried under
+ *  the full player grid. Public, like every page under Browse. */
 export async function TeamCardsPageView({ league = "premier" }: { league?: CardLeague }) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
-  const access = await drafterAccess();
-  if (!access.signedIn || !access.allowed) {
-    return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Team cards</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-steel">
-          Team cards are part of the premium card collection.
-          {access.signedIn ? " Grab the premium role in the Discord to browse them." : " Sign in with Discord to check your access."}
-        </p>
-        {!access.signedIn && (
-          <Link href={`/login?redirect=${base}/teams`} className="btn-pill mt-2">
-            Sign in with Discord
-          </Link>
-        )}
-      </main>
-    );
-  }
-
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
   const [cards, identity, week] = season
