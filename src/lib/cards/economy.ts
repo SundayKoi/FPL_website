@@ -97,10 +97,84 @@ export interface EconomyStats {
   bestPull: { playerName: string; overall: number; tier: string } | null;
   /** The player who has been pulled the most times. */
   mostPulled: { playerName: string; copies: number } | null;
+  /**
+   * Copies PULLED — read from the `minted` provenance rows, which survive
+   * the melt (migration 20260923). The true rates: a signed copy that was
+   * dusted an hour later still counts here. Player cards only; moments,
+   * plates and relics are left out so the rates are "per card in a pack".
+   * `since` is the first mint that carries a print — rows minted before
+   * the migration have none and are not counted — or null when nothing
+   * has minted since.
+   */
+  pulled: PulledStats;
   /** How many wallets were left out, so the number is honest about it. */
   excludedCount: number;
   /** The paging cap was hit and these figures are a floor, not a total. */
   truncated: boolean;
+}
+
+export interface PulledStats {
+  cards: number;
+  foils: number;
+  foilsByType: Record<FoilType, number>;
+  signed: number;
+  altArts: number;
+  shiny: number;
+  stattrak: number;
+  secret: number;
+  since: string | null;
+}
+
+/** One `minted` provenance row, as the print was frozen by the trigger. */
+interface MintRow {
+  to_discord: string | null;
+  at: string;
+  print: {
+    tier?: string;
+    foil?: boolean;
+    foil_type?: string | null;
+    signed?: boolean;
+    alt?: boolean;
+    shiny?: boolean;
+    secret?: boolean;
+    stattrak?: boolean;
+    moment?: boolean;
+    team?: boolean;
+    champ?: boolean;
+  } | null;
+}
+
+/** The pull rates off a season's mints, dev wallets removed. */
+export function pulledStats(mints: MintRow[]): PulledStats {
+  const stats: PulledStats = {
+    cards: 0,
+    foils: 0,
+    foilsByType: Object.fromEntries(FOIL_TYPES.map((type) => [type, 0])) as Record<FoilType, number>,
+    signed: 0,
+    altArts: 0,
+    shiny: 0,
+    stattrak: 0,
+    secret: 0,
+    since: null,
+  };
+  for (const mint of mints) {
+    const print = mint.print;
+    if (!print) continue;
+    if (!stats.since || mint.at < stats.since) stats.since = mint.at;
+    if (print.moment || print.team || print.champ) continue;
+    stats.cards += 1;
+    if (print.foil) {
+      stats.foils += 1;
+      const type = foilTypeOf(print.foil_type);
+      if (type in stats.foilsByType) stats.foilsByType[type as FoilType] += 1;
+    }
+    if (print.signed) stats.signed += 1;
+    if (print.alt) stats.altArts += 1;
+    if (print.shiny) stats.shiny += 1;
+    if (print.stattrak) stats.stattrak += 1;
+    if (print.secret) stats.secret += 1;
+  }
+  return stats;
 }
 
 interface InventoryStatRow {
@@ -153,16 +227,15 @@ export async function fetchAllRows<T>(
   season: string,
   pageSize = 1000,
   maxPages = 100,
+  /** Further equality filters, applied after the season's. */
+  where: Record<string, string> = {},
 ): Promise<{ rows: T[]; truncated: boolean }> {
   const rows: T[] = [];
   for (let page = 0; page < maxPages; page += 1) {
     const from = page * pageSize;
-    const { data, error } = await supabase
-      .from(table)
-      .select(columns)
-      .eq("season", season)
-      .order("id")
-      .range(from, from + pageSize - 1);
+    let query = supabase.from(table).select(columns).eq("season", season);
+    for (const [column, value] of Object.entries(where)) query = query.eq(column, value);
+    const { data, error } = await query.order("id").range(from, from + pageSize - 1);
     // An error on the first page means no data at all (a missing table, say);
     // on a later page it means we stop with what we have. Either way the
     // caller gets rows it can aggregate rather than an exception.
@@ -195,7 +268,7 @@ export async function fetchEconomyStats(
   const { pageSize = 1000, maxPages = 100 } = paging;
   const excluded = await excludedIds(supabase, excludeNames);
 
-  const [opensPage, inventoryPage, momentsResult, runsPage] = await Promise.all([
+  const [opensPage, inventoryPage, momentsResult, runsPage, mintsPage] = await Promise.all([
     fetchAllRows<{ discord_id: string; cost: number }>(
       supabase,
       "card_pack_opens",
@@ -225,11 +298,15 @@ export async function fetchEconomyStats(
       claimed_at: string | null;
       outcome: { grade?: string; dollars?: number; comp?: boolean; mark?: string | null } | null;
     }>(supabase, "expedition_runs", "id, discord_id, tier, claimed_at, outcome", season, pageSize, maxPages),
+    // The mints, which outlive the copies: the true pull rates. A deploy
+    // that predates the print column reads as no mints at all.
+    fetchAllRows<MintRow>(supabase, "card_provenance", "id, to_discord, at, print", season, pageSize, maxPages, { event: "minted" }),
   ]);
 
   const opens = opensPage.rows.filter((row) => !excluded.has(row.discord_id));
   const runs = runsPage.rows.filter((row) => !excluded.has(row.discord_id));
   const cards = inventoryPage.rows.filter((row) => !excluded.has(row.discord_id));
+  const pulled = pulledStats(mintsPage.rows.filter((row) => !row.to_discord || !excluded.has(row.to_discord)));
 
   const copiesByPlayer = new Map<string, number>();
   let best: EconomyStats["bestPull"] = null;
@@ -331,7 +408,8 @@ export async function fetchEconomyStats(
     expeditions,
     bestPull: best,
     mostPulled: mostPulled ? { playerName: mostPulled[0], copies: mostPulled[1] } : null,
+    pulled,
     excludedCount: excluded.size,
-    truncated: opensPage.truncated || inventoryPage.truncated || runsPage.truncated,
+    truncated: opensPage.truncated || inventoryPage.truncated || runsPage.truncated || mintsPage.truncated,
   };
 }
