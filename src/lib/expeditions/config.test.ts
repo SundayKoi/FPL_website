@@ -58,6 +58,12 @@ describe("shineOf", () => {
     expect(shineOf(copy({ tier: "gold", signed: true }))).toBe(3 + 4);
     expect(shineOf(copy({ tier: "gold", foil: true, foilType: "prisma", signed: true }))).toBe(3 + 1 + 4);
   });
+  it("adds the finishes: Shiny at Aurora, Secret at Refractor, StatTrak nothing", () => {
+    expect(shineOf(copy({ tier: "gold", card: { shiny: true } }))).toBe(3 + 2);
+    expect(shineOf(copy({ tier: "gold", card: { secret: { number: 121, of: 120 } } }))).toBe(3 + 3);
+    expect(shineOf(copy({ tier: "gold", card: { stattrak: { points: 900, since: "" } } }))).toBe(3);
+    expect(shineOf(copy({ tier: "gold", foil: true, foilType: "ice", card: { shiny: true, secret: {} } }))).toBe(3 + 4 + 2 + 3);
+  });
   it("scores relics and moments flat 6", () => {
     expect(shineOf(copy({ card: { champWin: {} } }))).toBe(6);
     expect(shineOf(copy({ card: { moment: {} } }))).toBe(6);

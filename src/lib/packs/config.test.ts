@@ -20,6 +20,8 @@ import {
   MAX_DUST_BATCH,
   ALL_FOIL_TYPES,
   foilTypeOf,
+  SECRET_DUST_MULT,
+  SHINY_DUST_MULT,
 } from "./config";
 
 describe("dustValueOf", () => {
@@ -29,6 +31,17 @@ describe("dustValueOf", () => {
     expect(dustValueOf({ tier: "emerald", foil: false, signed: false })).toBe(DUST_VALUES.rare);
     expect(dustValueOf({ tier: "diamond", foil: false, signed: false })).toBe(DUST_VALUES.epic);
     expect(dustValueOf({ tier: "challenger", foil: false, signed: false })).toBe(DUST_VALUES.legendary);
+  });
+
+  it("multiplies the finishes under the ink, over the parallel", () => {
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: false, shiny: true })).toBe(Math.round(DUST_VALUES.epic * SHINY_DUST_MULT));
+    expect(dustValueOf({ tier: "diamond", foil: false, signed: false, secret: true })).toBe(DUST_VALUES.epic * SECRET_DUST_MULT);
+    expect(dustValueOf({ tier: "diamond", foil: true, signed: true, shiny: true, secret: true })).toBe(
+      Math.round(Math.round(DUST_VALUES.epic * FOIL_DUST_MULT) * SHINY_DUST_MULT) * SECRET_DUST_MULT + SIGNED_DUST_BASE,
+    );
+    // On an ordinary tier even the whole stack stays under what a
+    // signature adds: the autograph is still the price on a common card.
+    expect(dustValueOf({ tier: "gold", foil: true, foilType: "ice", signed: false, shiny: true, secret: true })).toBeLessThan(SIGNED_DUST_BASE);
   });
 
   it("doubles a foil and adds the flat autograph bonus on top", () => {

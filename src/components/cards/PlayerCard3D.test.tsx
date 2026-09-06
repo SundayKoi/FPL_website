@@ -705,6 +705,67 @@ describe("provenance stamps", () => {
 
     expect(container.querySelector("[data-testid='live-stamp']")).toBeNull();
     expect(container.querySelector("[data-testid='chase-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='shiny-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='secret-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='stattrak-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='shiny-burst']")).toBeNull();
+    expect(container.querySelector("[data-testid='secret-frame']")).toBeNull();
+    expect(container.querySelector("[data-testid='stattrak-counter']")).toBeNull();
+  });
+
+  it("draws a Shiny as the art recoloured, a burst, and a pill — nothing else moves", () => {
+    const shinyCard = { ...card, shiny: true } as typeof card;
+    const { container } = render(<PlayerCard3D card={shinyCard} />);
+
+    expect(container.querySelector("img.card-shiny-art")).toBeTruthy();
+    expect(container.querySelector("[data-testid='shiny-burst']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='shiny-stamp']")).toBeTruthy();
+    // The burst is a film: it writes no text of its own.
+    expect(container.querySelector("[data-testid='shiny-burst']")?.textContent).toBe("");
+    // The pill sits in the badge row with the other stamps, not over the art.
+    expect(container.querySelector("[data-testid='card-badges'] [data-testid='shiny-stamp']")).toBeTruthy();
+  });
+
+  it("draws a Secret as a gold inner frame, a pill, and the over-number on the serial line", () => {
+    const secretCard = { ...card, secret: { number: 121, of: 120 } } as typeof card;
+    const { container } = render(<PlayerCard3D card={secretCard} />);
+
+    expect(container.querySelector("[data-testid='secret-frame']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='secret-frame']")?.textContent).toBe("");
+    expect(container.querySelector("[data-testid='secret-stamp']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='secret-serial']")?.textContent).toBe("#121/120");
+    // The checklist serial it overran is replaced, not doubled up.
+    expect(container.textContent).not.toContain(`#${String(card.serial).padStart(3, "0")}/`);
+  });
+
+  it("draws a StatTrak as a pill on the front and the counter on the back", () => {
+    const trackedCard = { ...card, stattrak: { points: 1284, since: "2026-09-07T04:00:00.000Z" } } as typeof card;
+    const { container } = render(<PlayerCard3D card={trackedCard} />);
+
+    expect(container.querySelector("[data-testid='stattrak-stamp']")?.textContent).toContain("1,284");
+    const counter = container.querySelector("[data-testid='stattrak-counter']");
+    expect(counter?.textContent).toContain("1,284");
+    expect(counter?.getAttribute("title")).toContain("Sep 7, 2026");
+  });
+
+  it("keeps every stamp visible together, in the badge row, on a loaded copy", () => {
+    const loaded = {
+      ...card,
+      live: { label: "Finals" },
+      chase: { title: "Any Jhin" },
+      shiny: true,
+      secret: { number: 121, of: 120 },
+      stattrak: { points: 0, since: "2026-09-07T04:00:00.000Z" },
+    } as typeof card;
+    const { container } = render(<PlayerCard3D card={loaded} forceFoil foilType="ice" />);
+
+    const row = container.querySelector("[data-testid='card-badges']");
+    for (const id of ["live-stamp", "chase-stamp", "shiny-stamp", "secret-stamp", "stattrak-stamp"]) {
+      expect(row?.querySelector(`[data-testid='${id}']`)).toBeTruthy();
+    }
+    // The rating ring and the identity block are untouched by any of it.
+    expect(container.querySelector("[data-testid='card-identity']")).toBeTruthy();
+    expect(container.textContent).toContain("OVR");
   });
 
   it("draws an expedition mutation over the front only when asked", () => {

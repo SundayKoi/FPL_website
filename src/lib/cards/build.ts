@@ -224,6 +224,20 @@ export interface PlayerCardData {
   live?: { label: string } | null;
   /** Stamped on the FIRST copy to match a week's chase. */
   chase?: { title: string } | null;
+  /** The finishes — src/lib/packs/rarities.ts rolls them at mint, over the
+   *  parallel and the ink, and freezes them here like every other stamp.
+   *  Shiny: the art hue-shifted, priced ×SHINY_DUST_MULT. */
+  shiny?: boolean | null;
+  /** Secret: a print numbered PAST the checklist — `number` is the
+   *  over-number (collection size + how many Secrets had been found before
+   *  it this season), `of` the checklist it overran. Priced
+   *  ×SECRET_DUST_MULT; one per pack at most. */
+  secret?: { number: number; of: number } | null;
+  /** StatTrak: a counter of the fantasy points this copy scored in its
+   *  current owner's hands. `points` is bumped by the weekly drop and
+   *  reset to zero when the copy changes hands; `since` is when the count
+   *  started. Never priced. */
+  stattrak?: { points: number; since: string } | null;
 }
 
 // OVR maps the Power Ranking score (0-100, role-weighted blended

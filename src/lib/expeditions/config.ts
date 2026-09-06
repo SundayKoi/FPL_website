@@ -194,6 +194,14 @@ const FOIL_SHINE: Record<FoilType, number> = {
  *  worth sending". */
 const SIGNED_SHINE = 4;
 
+/** What the finishes add (packs/rarities.ts). Shiny sits at Aurora, Secret
+ *  at Refractor: rarer than both on the gate, held under Cracked Ice for
+ *  the same reason the ladder is flat — a lucky colour must not carry a
+ *  squad past a tier it has no business running. StatTrak adds nothing:
+ *  the counter is not a property of the print. */
+const SHINY_SHINE = 2;
+const SECRET_SHINE = 3;
+
 /** What a champions relic or a pulled moment is worth. Flat, because
  *  neither has a real tier to index — the placeholder they carry would
  *  otherwise score them as an ordinary card of that band. Six lands them
@@ -216,6 +224,8 @@ export function shineOf(copy: CardCopy): number {
   // foil minted before parallels existed is a Prisma.
   if (copy.foil) shine += FOIL_SHINE[foilTypeOf(copy.foilType)];
   if (copy.signed) shine += SIGNED_SHINE;
+  if (copy.card?.shiny) shine += SHINY_SHINE;
+  if (copy.card?.secret) shine += SECRET_SHINE;
   return shine;
 }
 

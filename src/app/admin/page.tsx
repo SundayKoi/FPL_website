@@ -160,6 +160,13 @@ export default async function AdminPage() {
       href: "/admin/overlays",
     },
     {
+      label: "Announcements",
+      stat: "Prepared posts",
+      statTone: "text-gold",
+      description: "Every announcement the site has ready for the cards channel — the new rarities, the Gauntlet overhaul — read it, then send it.",
+      href: "/admin/announce",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

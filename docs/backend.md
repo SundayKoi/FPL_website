@@ -128,6 +128,28 @@ busy week is one row above the buy button instead of four banners. Page
 titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
 Draw, Team cards); routes did not move.
 
+**Finishes (Shiny, StatTrak, Secret).** Three stamps a player-card print
+can take on top of its parallel and its ink, rolled in
+`src/lib/packs/rarities.ts` from the gates in `src/lib/packs/config.ts`
+(`SHINY_CHANCE`, `STATTRAK_CHANCE`, `SECRET_CHANCE`) AFTER the Eclipse
+pass in `openPackFor` and only for eligible prints (never a moment, plate,
+relic or Eclipse), so every earlier draw in a pack is undisturbed. They
+are frozen into the card json like `live`/`chase` — `card.shiny`,
+`card.stattrak {points, since}`, `card.secret {number, of}` — with no new
+columns: dust callers read them through PostgREST aliases
+(`shiny:card->shiny, secret:card->secret`) and `dustValueOf` multiplies
+by `SHINY_DUST_MULT`/`SECRET_DUST_MULT` under the autograph add. A Secret
+is numbered past the checklist from a count of the season's existing
+Secrets (`card->secret is not null`), at most one per pack, and is
+announced to the cards channel like an Eclipse. Auto-dust never touches a
+Secret and treats a Shiny as a foil for the skip rule. Expedition shine:
+Shiny +2, Secret +3. The StatTrak counter is a placeholder until the
+weekly drop bumps it and a transfer trigger resets it (next slice).
+`/cards/rarities` (and the academy twin) prints every rarity from
+`src/lib/cards/rarityGuide.ts`, whose numbers import from the config; the
+Discord announcement (`src/lib/cards/rarityAnnouncement.ts`) is posted
+from `/admin/announce`.
+
 Under a tab, pages share `CardsPageHeader` (eyebrow "Browse · Premier ·
 Season S5", the sub-tab's own name as the title, one paragraph). The Market
 tab is three pages on one loader (`src/app/cards/market/load.ts`): Listings

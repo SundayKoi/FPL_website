@@ -86,6 +86,8 @@ interface DustRow {
   foil_type: string | null;
   signed: boolean | null;
   mutation: string | null;
+  shiny?: boolean | null;
+  secret?: unknown;
 }
 
 /**
@@ -100,7 +102,7 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
 
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret")
     .in("id", wanted);
   if (error) throw new Error(error.message);
   const owned = ((data as DustRow[]) ?? []).filter((row) => row.discord_id === discordId);
@@ -120,11 +122,16 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
   for (const row of owned) {
     // A mutated copy is skipped here as well as in the selection: the
     // selection reads the shelf, this reads the row under the RPC's lock.
-    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation) {
+    // A Secret is skipped the same way: the rarest ordinary pull is not
+    // a thing a rule nobody re-read should melt.
+    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation || row.secret) {
       skipped += 1;
       continue;
     }
-    const rowValue = patronDustValue({ tier: row.tier, foil: row.foil, foilType: row.foil_type, signed: row.signed === true }, patron);
+    const rowValue = patronDustValue(
+      { tier: row.tier, foil: row.foil, foilType: row.foil_type, signed: row.signed === true, shiny: Boolean(row.shiny) },
+      patron,
+    );
     const { data: next, error: rpcError } = await service.rpc("dust_card", { p_user: discordId, p_inventory: row.id, p_value: rowValue });
     if (rpcError) {
       skipped += 1;
