@@ -149,7 +149,9 @@ by `SHINY_DUST_MULT`/`SECRET_DUST_MULT` under the autograph add. A Secret
 is numbered past the checklist from a count of the season's existing
 Secrets (`card->secret is not null`), at most one per pack, and is
 announced to the cards channel like an Eclipse. Auto-dust never touches a
-Secret and treats a Shiny as a foil for the skip rule. Expedition shine:
+Secret or a slabbed copy, keeps a Shiny and a StatTrak copy unless the
+rule's `skip_finishes` toggle (migration 20260925, default on) is turned
+off, and treats a Shiny as a foil for the skip-foil rule besides. Expedition shine:
 Shiny +2, Secret +3.
 
 **Wear, slabbing, the StatTrak counter** (migration 20260922, pgTAP

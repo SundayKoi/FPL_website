@@ -56,12 +56,24 @@ describe("auto-dust", () => {
     expect(selectAutoDust([plain, changed, cursed], rule, new Map())).toEqual([]);
   });
 
-  it("never dusts a Secret, and treats a Shiny as a foil for the skip", () => {
+  it("never dusts a Secret or a slabbed copy, whatever the rule says", () => {
     const secret = copy("s", "bronze", 30, { secret: true });
+    const slab = copy("l", "bronze", 30, { slab: true });
+    const loose = { ...rule, skipFoil: false, skipSigned: false, skipFinishes: false };
+    expect(eligibleForAutoDust(secret, loose)).toBe(false);
+    expect(eligibleForAutoDust(slab, loose)).toBe(false);
+  });
+
+  it("keeps the finishes unless told otherwise, and still treats a Shiny as a foil", () => {
     const shiny = copy("h", "bronze", 30, { shiny: true });
-    expect(eligibleForAutoDust(secret, { ...rule, skipFoil: false })).toBe(false);
-    expect(eligibleForAutoDust(shiny, { ...rule, skipFoil: true })).toBe(false);
-    expect(eligibleForAutoDust(shiny, { ...rule, skipFoil: false })).toBe(true);
+    const tracked = copy("t", "bronze", 30, { stattrak: true });
+    // The default rule keeps both.
+    expect(eligibleForAutoDust(shiny, { ...rule, skipFoil: false })).toBe(false);
+    expect(eligibleForAutoDust(tracked, rule)).toBe(false);
+    // Opting in melts them — but a Shiny is still a foil to the foil skip.
+    expect(eligibleForAutoDust(tracked, { ...rule, skipFinishes: false })).toBe(true);
+    expect(eligibleForAutoDust(shiny, { ...rule, skipFinishes: false, skipFoil: true })).toBe(false);
+    expect(eligibleForAutoDust(shiny, { ...rule, skipFinishes: false, skipFoil: false })).toBe(true);
   });
 
   it("never dusts an Eclipse, a moment, a relic or a plate", () => {
