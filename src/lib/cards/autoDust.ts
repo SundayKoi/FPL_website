@@ -46,6 +46,10 @@ export interface AutoDustRule {
   onRip: boolean;
   skipFoil: boolean;
   skipSigned: boolean;
+  /** Leave the finishes alone — a Shiny, a StatTrak copy. On by default:
+   *  melting the rare thing about a pull is a choice, not a side effect.
+   *  (A Secret and a slabbed copy are never a rule's to melt at all.) */
+  skipFinishes: boolean;
 }
 
 export const DEFAULT_AUTO_DUST: AutoDustRule = {
@@ -57,6 +61,7 @@ export const DEFAULT_AUTO_DUST: AutoDustRule = {
   onRip: true,
   skipFoil: true,
   skipSigned: true,
+  skipFinishes: true,
 };
 
 export const MAX_KEEP_COPIES = 10;
@@ -81,9 +86,14 @@ export interface AutoDustCandidate {
    *  dusted by rule, for the same reason as a mutation — it is unlike
    *  every other copy of its print. */
   secret?: boolean;
-  /** A Shiny counts as a foil for the skip-foil rule: it is the same kind
-   *  of thing, a print you would not want swept up for being a duplicate. */
+  /** A Shiny counts as a foil for the skip-foil rule, and as a finish for
+   *  skip-finishes: the same kind of thing, a print you would not want
+   *  swept up for being a duplicate. */
   shiny?: boolean;
+  /** A StatTrak copy: a count its owner has been building. A finish. */
+  stattrak?: boolean;
+  /** Sealed by its owner — never a rule's to melt. */
+  slab?: boolean;
   /** Older copies are kept ahead of newer ones. */
   acquiredAt?: string;
   /** The Monday of the print's week — what a per-edition keep groups on.
@@ -99,7 +109,7 @@ export function keepGroupOf(copy: { slug: string; editionWeek?: string | null },
 }
 
 export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
-  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; secret?: unknown; shiny?: unknown };
+  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; secret?: unknown; shiny?: unknown; stattrak?: unknown; slab?: unknown };
   return {
     id: row.id,
     slug: row.slug,
@@ -112,6 +122,8 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
     mutation: row.mutation ?? null,
     secret: Boolean(card.secret),
     shiny: Boolean(card.shiny),
+    stattrak: Boolean(card.stattrak),
+    slab: Boolean(card.slab),
     acquiredAt: row.acquiredAt,
     editionWeek: row.editionWeek,
   };
@@ -124,7 +136,9 @@ export function eligibleForAutoDust(copy: AutoDustCandidate, rule: AutoDustRule)
   if (copy.relic) return false;
   if (copy.mutation) return false;
   if (copy.secret) return false;
+  if (copy.slab) return false;
   if (copy.foilType === ECLIPSE_FOIL_TYPE) return false;
+  if (rule.skipFinishes && (copy.shiny || copy.stattrak)) return false;
   if (rule.skipFoil && (copy.foil || copy.shiny)) return false;
   if (rule.skipSigned && copy.signed) return false;
   const rank = tierRank(copy.tier);

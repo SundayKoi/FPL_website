@@ -28,12 +28,13 @@ interface RuleRow {
   on_rip: boolean;
   skip_foil: boolean;
   skip_signed: boolean;
+  skip_finishes: boolean | null;
 }
 
 export async function fetchAutoDustRule(service: Service, discordId: string): Promise<AutoDustRule> {
   const { data } = await service
     .from("card_auto_dust")
-    .select("enabled, max_tier, max_overall, keep_copies, per_edition, on_rip, skip_foil, skip_signed")
+    .select("enabled, max_tier, max_overall, keep_copies, per_edition, on_rip, skip_foil, skip_signed, skip_finishes")
     .eq("discord_id", discordId)
     .maybeSingle();
   const row = data as RuleRow | null;
@@ -47,6 +48,8 @@ export async function fetchAutoDustRule(service: Service, discordId: string): Pr
     onRip: row.on_rip,
     skipFoil: row.skip_foil,
     skipSigned: row.skip_signed,
+    // Null only on a row older than the column; the default is to keep.
+    skipFinishes: row.skip_finishes !== false,
   });
 }
 
@@ -62,6 +65,7 @@ export async function saveAutoDustRule(service: Service, discordId: string, rule
       on_rip: rule.onRip,
       skip_foil: rule.skipFoil,
       skip_signed: rule.skipSigned,
+      skip_finishes: rule.skipFinishes,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "discord_id" },
@@ -88,6 +92,7 @@ interface DustRow {
   mutation: string | null;
   shiny?: boolean | null;
   secret?: unknown;
+  slab?: unknown;
 }
 
 /**
@@ -102,7 +107,7 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
 
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret, slab:card->slab")
     .in("id", wanted);
   if (error) throw new Error(error.message);
   const owned = ((data as DustRow[]) ?? []).filter((row) => row.discord_id === discordId);
@@ -122,9 +127,10 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
   for (const row of owned) {
     // A mutated copy is skipped here as well as in the selection: the
     // selection reads the shelf, this reads the row under the RPC's lock.
-    // A Secret is skipped the same way: the rarest ordinary pull is not
-    // a thing a rule nobody re-read should melt.
-    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation || row.secret) {
+    // A Secret and a slabbed copy are skipped the same way: the rarest
+    // ordinary pull, and a copy its owner sealed on purpose, are not
+    // things a rule nobody re-read should melt.
+    if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation || row.secret || row.slab) {
       skipped += 1;
       continue;
     }
