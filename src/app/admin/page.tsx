@@ -153,6 +153,13 @@ export default async function AdminPage() {
       href: "/admin/mutations",
     },
     {
+      label: "Card overlays",
+      stat: "Proposal preview",
+      statTone: "text-gold",
+      description: "Thirteen treatments beyond the foil ladder — hologram stamps, constellations, living records — on real cards. Mints nothing.",
+      href: "/admin/overlays",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",
