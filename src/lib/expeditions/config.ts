@@ -143,6 +143,13 @@ export function isProtected(copy: CardCopy): boolean {
   );
 }
 
+/** What a protected copy is called: an Eclipse is the one-of-one, and a
+ *  moment, a plate or a champions relic is a relic. Both are kept off
+ *  the routes that can lose a card; only one of them is unique. */
+export function protectedNoun(copy: CardCopy): "one of one" | "a relic" {
+  return copy.foilType === "eclipse" ? "one of one" : "a relic";
+}
+
 /** When a copy is benched, or null. `now` is passed in (the file has no
  *  clock): a card wounded until 4pm is free at 4pm on every caller's
  *  reading, not on whichever module loaded first. */
@@ -256,7 +263,7 @@ export function squadMeets(
   // per card so the launcher says WHICH card is the problem.
   if (RISK_RANK[def.risk] >= RISK_RANK.lost) {
     for (const copy of copies) {
-      if (isProtected(copy)) reasons.push(`${copy.playerName} is one of one and cannot go on a route where a card can be lost.`);
+      if (isProtected(copy)) reasons.push(`${copy.playerName} is ${protectedNoun(copy)} and cannot go on a route where a card can be lost.`);
     }
   }
   if (now) {

@@ -1063,9 +1063,22 @@ export default function ExpeditionBoard({
                       ) : null;
                     })()}
                     {isProtected(copy) ? (
-                      <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
-                        1/1
-                      </span>
+                      // The Eclipse is the one-of-one; a moment, a plate or a
+                      // champions relic is protected the same way but is
+                      // not unique, and a "1/1" on a plate read as a claim.
+                      copy.foilType === "eclipse" ? (
+                        <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
+                          1/1
+                        </span>
+                      ) : (
+                        <span
+                          aria-hidden
+                          title="A relic — never boards a route that can lose it"
+                          className="rounded-full border border-purple-300/50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-purple-200"
+                        >
+                          relic
+                        </span>
+                      )
                     ) : null}
                     {copy.signed ? (
                       <span aria-hidden className="text-xs font-black text-gold">

@@ -130,7 +130,7 @@ export function friendlyExpeditionError(message: string): string {
   }
   if (/card is wounded/i.test(message)) return "One of those cards is wounded and benched.";
   if (/card is slabbed/i.test(message)) return "One of those cards is sealed in a slab — a slabbed card can't be fielded.";
-  if (/card is one of one/i.test(message)) return "A one-of-one can't go on a route where it could be lost.";
+  if (/card is one of one/i.test(message)) return "A one-of-one or a relic can't go on a route where it could be lost.";
   if (/card is cursed/i.test(message)) return "That card is Cursed — it can't change hands for a week.";
   if (/card is not afflicted/i.test(message)) return "That card has nothing to exorcise.";
   if (/target not in squad|target not wanted|cleansed not the target/i.test(message)) {
