@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import CardsGallery from "@/components/cards/CardsGallery";
-import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
-import { drafterAccess } from "@/lib/match-draft/access";
 import { createServerSupabase } from "@/lib/supabase/server";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
@@ -13,24 +11,11 @@ export const metadata: Metadata = {
 
 /** The wall of every player's card — what "Player Cards" always meant,
  *  given its own page so it opens at the top instead of five panels down
- *  the hub. Same premium gate as the hub. */
+ *  the hub. PUBLIC, like the rest of Browse: the cards are the league's
+ *  own players, and the wall is the advertisement for everything behind
+ *  the gate. Everything it reads is anon-readable; nothing on it can be
+ *  claimed, customised, bought or fielded — those doors stay premium. */
 export async function BrowsePageView({ league = "premier" }: { league?: CardLeague } = {}) {
-  const base = league === "academy" ? "/academy/cards" : "/cards";
-  const access = await drafterAccess();
-  if (!access.signedIn) {
-    return (
-      <CardsGate
-        section="Browse"
-        title="Sign in to browse the cards"
-        body="Player cards are a perk for premium Discord members — sign in with Discord to check your access."
-        signIn={`${base}/browse`}
-      />
-    );
-  }
-  if (!access.allowed) {
-    return <CardsGate section="Browse" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
-  }
-
   const supabase = await createServerSupabase();
   const season = await fetchCardSeason(supabase, league);
   const cards = season ? await fetchCurrentWeekCards(supabase, season) : [];

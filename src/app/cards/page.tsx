@@ -95,8 +95,10 @@ async function loadHomeExtras(
  * your shelf, today's free pack, the chase, the draw — and then a line on
  * each tab so the words are met with their meaning.
  *
- * Gated by the premium role like the rest of Cards; the per-card share pages
- * stay public so cards can actually be flexed.
+ * Gated by the premium role, like everything that claims, buys, trades or
+ * fields a card. Browse (every player, team, moment, the Vault, Compare)
+ * and the per-card share pages are public: the collection is the
+ * advertisement, and the gate points at it.
  */
 export async function CardsPageView({ league = "premier" }: { league?: CardLeague }) {
   const base = league === "academy" ? "/academy/cards" : "/cards";
@@ -106,13 +108,14 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
       <CardsGate
         section="Cards"
         title="Sign in to see the card collection"
-        body="Player cards are a perk for premium Discord members — sign in with Discord to check your access."
+        body="Your own card, packs, the market and the games are for premium Discord members — sign in with Discord to check your access."
         signIn={base}
+        browse={`${base}/browse`}
       />
     );
   }
   if (!access.allowed) {
-    return <CardsGate section="Cards" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return <CardsGate section="Cards" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} browse={`${base}/browse`} />;
   }
 
   const supabase = await createServerSupabase();
