@@ -7,6 +7,7 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { FANTASY_ROLES, type FantasyRole } from "./config";
 import type { StoredSlot, StoredSlots } from "./scoring";
 import { validateLineup, type LineupSlotInput } from "./validate";
+import { slabRefusal } from "@/lib/cards/wear";
 import { currentFantasyWeek, isLocked } from "./week";
 
 type SubmitResult = { ok: true; weekStart: string } | { ok: false; error: string };
@@ -21,6 +22,8 @@ interface InventoryDbRow {
   overall: number;
   edition_week: string;
   foil: boolean;
+  /** `card->slab`, aliased in the select: a sealed copy cannot be fielded. */
+  slab?: unknown;
 }
 
 /**
@@ -61,7 +64,7 @@ export async function submitLineupAction(
   const ids = chosen.map((slot) => slot.id);
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, slug, player_name, role, overall, edition_week, foil")
+    .select("id, discord_id, season, slug, player_name, role, overall, edition_week, foil, slab:card->slab")
     .in("id", [...new Set(ids)]);
   if (error) return { ok: false, error: "Couldn't read your collection — try again." };
 
@@ -76,6 +79,8 @@ export async function submitLineupAction(
   if (chosen.some((slot) => !owned.has(slot.id))) {
     return { ok: false, error: "You can only field cards you own." };
   }
+  const sealed = chosen.map((slot) => owned.get(slot.id)!).find((row) => row.slab);
+  if (sealed) return { ok: false, error: slabRefusal(sealed.player_name) };
 
   const slots: LineupSlotInput[] = chosen.map((slot) => {
     const row = owned.get(slot.id)!;

@@ -47,6 +47,8 @@ import { canDust, patronDustValue } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
 import { dustCardAction } from "@/lib/trades/actions";
 import { rerollPrintAction } from "@/lib/cards/reroll-actions";
+import { slabCardAction } from "@/lib/cards/slab-actions";
+import { gradeOf, isSlabbed } from "@/lib/cards/wear";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
 import { provenanceLinesFor } from "./provenanceLines";
 
@@ -86,11 +88,18 @@ function copyArtUrl(card: PlayerCardData): string | null {
  *  dropdown: a menu that pops out of a row can be clipped by whatever
  *  scrolls or contains the row, and four short words fit. */
 function CopyActions({ copy, base }: { copy: DustCopy; base: string }) {
+  // A slabbed copy can still change hands; it can never be fielded, so
+  // the two doors that field it are not offered.
+  const sealed = isSlabbed(copy.card);
   const actions = [
     { label: "Sell", href: `${base}/market?sell=${copy.id}` },
     { label: "Trade", href: `${base}/trades?offer=${copy.id}` },
-    { label: "Send out", href: `${base}/expeditions?send=${copy.id}` },
-    { label: "Field", href: `${base}/fantasy?field=${copy.id}` },
+    ...(sealed
+      ? []
+      : [
+          { label: "Send out", href: `${base}/expeditions?send=${copy.id}` },
+          { label: "Field", href: `${base}/fantasy?field=${copy.id}` },
+        ]),
   ];
   return (
     <ul aria-label={`Use the ${editionLabel(copy.editionWeek)} copy`} className="flex shrink-0 flex-wrap items-center gap-1">
@@ -145,6 +154,8 @@ export default function DustControls({
   // The re-roll die arms separately from dusting — the two must never
   // share a confirm state, one destroys and one redecorates.
   const [dieArmed, setDieArmed] = useState<number | null>(null);
+  const [slabArmed, setSlabArmed] = useState<number | null>(null);
+  useAutoDisarm(slabArmed !== null, () => setSlabArmed(null));
   const [error, setError] = useState<string | null>(null);
   useAutoDisarm(armed !== null, () => setArmed(null));
   useAutoDisarm(dieArmed !== null, () => setDieArmed(null));
@@ -203,9 +214,30 @@ export default function DustControls({
     });
   }
 
+  function handleSlab(copy: DustCopy) {
+    setError(null);
+    setArmed(null);
+    setDieArmed(null);
+    if (slabArmed !== copy.id) {
+      setSlabArmed(copy.id); // first click arms — a slab is forever
+      return;
+    }
+    setSlabArmed(null);
+    startTransition(async () => {
+      const result = await slabCardAction(copy.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      notify(`Sealed a ${playerName} copy at ${gradeOf(copy.card).label}. It can never be fielded again.`);
+      router.refresh();
+    });
+  }
+
   function handleDust(copy: DustCopy) {
     setError(null);
     setDieArmed(null);
+    setSlabArmed(null);
     if (armed !== copy.id) {
       setArmed(copy.id); // first click only arms — nothing is destroyed yet
       return;
@@ -280,6 +312,11 @@ export default function DustControls({
                       ✦
                     </span>
                   ) : null}
+                  {isSlabbed(copy.card) ? (
+                    <span className="rounded-full border border-white/40 px-1.5 font-black uppercase tracking-wide text-white/80" title="Slabbed — sealed, never fielded again">
+                      Slab · {gradeOf(copy.card).label}
+                    </span>
+                  ) : null}
                 </span>
                 {patron && !copy.card.moment ? (
                   <button
@@ -317,6 +354,19 @@ export default function DustControls({
                   ⤢
                 </CardCopyPreview>
                 {deployed ? null : <CopyActions copy={copy} base={base} />}
+                {!deployed && !isSlabbed(copy.card) && !copy.card.moment && !copy.card.team && !copy.card.champWin ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSlab(copy)}
+                    disabled={pending}
+                    title={`Slab this copy: seal it at ${gradeOf(copy.card).label} forever. It can still be sold or traded, but never fielded again.`}
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition disabled:opacity-40 ${
+                      slabArmed === copy.id ? "border-white bg-white text-canvas" : "border-line text-steel hover:border-white hover:text-white"
+                    }`}
+                  >
+                    {slabArmed === copy.id ? "Seal it forever?" : "Slab"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => handleDust(copy)}

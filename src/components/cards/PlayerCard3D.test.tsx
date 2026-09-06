@@ -768,6 +768,36 @@ describe("provenance stamps", () => {
     expect(container.textContent).toContain("OVR");
   });
 
+  it("says nothing about wear on a Factory New copy, then grades it, then scuffs it", () => {
+    const fresh = render(<PlayerCard3D card={card} />);
+    expect(fresh.container.querySelector("[data-testid='wear-stamp']")).toBeNull();
+    expect(fresh.container.querySelector("[data-testid='wear-layer']")).toBeNull();
+    fresh.unmount();
+
+    const tested = render(<PlayerCard3D card={{ ...card, wear: 4 } as typeof card} />);
+    expect(tested.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("Field-Tested");
+    expect(tested.container.querySelector("[data-testid='wear-layer']")).toBeNull();
+    expect(tested.container.querySelector("[data-testid='wear-record']")?.textContent).toContain("Fielded 4 times");
+    tested.unmount();
+
+    const scarred = render(<PlayerCard3D card={{ ...card, wear: 14 } as typeof card} />);
+    expect(scarred.container.querySelector("[data-testid='wear-stamp']")?.textContent).toBe("Battle-Scarred");
+    expect(scarred.container.querySelector("[data-testid='wear-layer']")?.className).toContain("card-wear-bs");
+    expect(scarred.container.querySelector("[data-testid='wear-layer']")?.textContent).toBe("");
+  });
+
+  it("draws a slab as a case with the sealed grade, and never the live wear", () => {
+    const slabbed = { ...card, wear: 9, slab: { wear: 2, at: "2026-09-07T00:00:00.000Z" } } as typeof card;
+    const { container } = render(<PlayerCard3D card={slabbed} />);
+
+    expect(container.querySelector("[data-testid='slab-frame']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='slab-frame']")?.textContent).toBe("");
+    expect(container.querySelector("[data-testid='slab-stamp']")?.textContent).toBe("Slab · Minimal Wear");
+    expect(container.querySelector("[data-testid='wear-stamp']")).toBeNull();
+    expect(container.querySelector("[data-testid='wear-layer']")).toBeNull();
+    expect(container.querySelector("[data-testid='wear-record']")?.textContent).toContain("Sealed Sep 7, 2026 · Minimal Wear");
+  });
+
   it("draws an expedition mutation over the front only when asked", () => {
     const { unmount } = render(<PlayerCard3D card={card} interactive={false} />);
     expect(screen.queryByTestId("mutation")).toBeNull();

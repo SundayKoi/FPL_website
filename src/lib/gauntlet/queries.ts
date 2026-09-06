@@ -100,6 +100,8 @@ export function buildGauntletOptions(
   >;
   for (const row of rows) {
     if (row.card.moment || row.card.champWin || row.card.team) continue;
+    // A slabbed copy is sealed: not offered, and refused on entry anyway.
+    if (row.card.slab) continue;
     const role = row.role as GauntletRole;
     if (!byRole[role]) continue;
     byRole[role].push({

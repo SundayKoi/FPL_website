@@ -238,6 +238,15 @@ export interface PlayerCardData {
    *  reset to zero when the copy changes hands; `since` is when the count
    *  started. Never priced. */
   stattrak?: { points: number; since: string } | null;
+  /** How many times this copy has been fielded (expedition, Gauntlet run,
+   *  scored Fantasy week). Bumped by SQL (wear_cards, migration 20260922);
+   *  read as a grade by src/lib/cards/wear.ts. Never priced. */
+  wear?: number | null;
+  /** The owner sealed the copy: `wear` is the count frozen at that moment,
+   *  `at` when. A slabbed copy can never be fielded again — refused in SQL
+   *  for expeditions and server-side for the Gauntlet and Fantasy — and
+   *  the slab itself can never be removed (slab_seal trigger). */
+  slab?: { wear: number; at: string } | null;
 }
 
 // OVR maps the Power Ranking score (0-100, role-weighted blended

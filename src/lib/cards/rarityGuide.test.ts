@@ -44,6 +44,12 @@ describe("rarityGuide", () => {
     expect(entry("relic")).toBeTruthy();
   });
 
+  it("spells out the wear grades from the thresholds that grade them", () => {
+    expect(entry("wear").look).toContain("Factory New (0), Minimal Wear (1–2), Field-Tested (3–5), Well-Worn (6–10), Battle-Scarred (11+)");
+    expect(entry("slab").how).toContain("never be fielded again");
+    expect(guide.map((section) => section.key)).not.toContain("next");
+  });
+
   it("gives every entry the four lines the page prints", () => {
     for (const section of guide) {
       expect(section.entries.length).toBeGreaterThan(0);

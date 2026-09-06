@@ -57,6 +57,8 @@ function Samples({ card }: { card: PlayerCardData }) {
       label: "Secret",
       card: { ...card, secret: { number: card.collectionSize + 1, of: card.collectionSize } },
     },
+    { key: "worn", label: "Battle-Scarred", card: { ...card, wear: 14 } },
+    { key: "slab", label: "Slabbed", card: { ...card, wear: 2, slab: { wear: 2, at: new Date().toISOString() } } },
   ];
   return (
     <ul className="flex flex-wrap justify-center gap-6">
@@ -82,17 +84,18 @@ export async function RaritiesPageView({ league = "premier" }: { league?: CardLe
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6">
       <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Rarities">
-        Everything a card can come out of a pack as, and how often. Every number on this page is read from the
-        same setting the shop rolls with, so what it says is what you get. New this release: three finishes —
-        Shiny, StatTrak and Secret — rolled on top of everything that was already here.
+        Everything a card can come out of a pack as, and how often — and what it can become in your hands.
+        Every number on this page is read from the same setting the shop rolls with, so what it says is what
+        you get. New this release: three finishes — Shiny, StatTrak and Secret — rolled on top of everything
+        that was already here, and wear grades with slabbing for every copy you own.
       </CardsPageHeader>
 
       {sample ? (
         <section aria-label="The finishes, on a card" className="flex flex-col gap-4">
           <Samples card={sample} />
           <p className="text-center text-xs text-muted">
-            Flip a card to see its back. The StatTrak counter lives there; the Secret&apos;s over-number takes the
-            serial line under the rating.
+            Flip a card to see its back. The StatTrak counter and the wear record live there; the Secret&apos;s
+            over-number takes the serial line under the rating.
           </p>
         </section>
       ) : null}
