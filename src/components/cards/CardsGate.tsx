@@ -17,6 +17,7 @@ export default function CardsGate({
   title,
   body,
   signIn,
+  browse,
 }: {
   /** The eyebrow — which part of Cards this is. */
   section: string;
@@ -25,6 +26,9 @@ export default function CardsGate({
   /** Where to land after signing in; rendering the button at all means
    *  the viewer is signed out. */
   signIn?: string;
+  /** The public way in — Browse is open to everyone, so a gate that only
+   *  said "no" would be hiding the one door that is unlocked. */
+  browse?: string;
 }) {
   return (
     <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
@@ -34,6 +38,11 @@ export default function CardsGate({
       {signIn ? (
         <Link href={`/login?redirect=${signIn}`} className="btn-pill mt-2">
           Sign in with Discord
+        </Link>
+      ) : null}
+      {browse ? (
+        <Link href={browse} className="text-sm text-action-text underline-offset-4 hover:underline">
+          Or just browse the cards — every player, team and moment is open to everyone →
         </Link>
       ) : null}
     </main>

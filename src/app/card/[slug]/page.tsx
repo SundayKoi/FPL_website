@@ -352,7 +352,7 @@ export default async function CardSharePage({
       <p className="max-w-md text-center text-xs text-muted">
         Cards rebuild themselves from the season&apos;s stats after every match night.{" "}
         <Link href={collectionHref} className="text-action-text underline-offset-4 hover:underline">
-          Premium members browse the whole collection →
+          Browse the whole collection →
         </Link>
       </p>
     </main>
