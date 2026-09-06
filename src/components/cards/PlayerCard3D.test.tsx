@@ -344,6 +344,9 @@ describe("PlayerCard3D", () => {
     // The pen runs across it on pick-up: the sweep is keyed to the frame's
     // data-motion in globals.css, so the class is all the markup carries.
     expect(ink.className).toContain("card-ink-write");
+    // And a pen tip rides the wet edge; the box carries the signing angle.
+    expect(container.querySelector("[data-testid='autograph-pen']")).toBeTruthy();
+    expect((container.querySelector("[data-testid='autograph-box']") as HTMLElement).style.transform).toContain("rotate(-6deg)");
     expect(container.querySelector("[data-testid='signed-stamp']")?.getAttribute("title")).toContain("Signed");
   });
 
