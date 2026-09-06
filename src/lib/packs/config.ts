@@ -338,8 +338,9 @@ export const SHINY_CHANCE = 1 / 64;
 export const SHINY_DUST_MULT = 1.5;
 
 /**
- * StatTrak — a counter on the copy that tracks the fantasy points it scores
- * in YOUR hands, and resets when it changes hands. One in fifty, roughly
+ * StatTrak — a counter on the copy that tracks the pictured player's
+ * Fantasy Pts for every game played while it is in YOUR hands, fielded
+ * or not, and resets when it changes hands. One in fifty, roughly
  * one pack in ten: common enough that most collectors will hold one, rare
  * enough that a high count is a story about a card somebody kept fielding.
  * Worth nothing extra to dust: the counter is the value, and a counter

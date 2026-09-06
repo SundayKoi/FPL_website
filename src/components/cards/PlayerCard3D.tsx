@@ -682,7 +682,7 @@ function PlayerCardFace({
                 <span
                   data-testid="stattrak-stamp"
                   className="rounded-full border border-[#ff8a2a]/70 bg-[#0b0603]/85 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#ff8a2a]"
-                  title={`StatTrak™ — ${stattrakLabel(card.stattrak.points)} fantasy points scored in this owner's hands. Resets when traded.`}
+                  title={`StatTrak™ — ${stattrakLabel(card.stattrak.points)} Fantasy Pts the player has scored while this owner held the card. Resets when traded.`}
                 >
                   StatTrak™ <span className="font-mono tabular-nums">{stattrakLabel(card.stattrak.points)}</span>
                 </span>
@@ -1084,7 +1084,7 @@ function PlayerCardFace({
               <div
                 data-testid="stattrak-counter"
                 className="flex items-center justify-between gap-2 rounded-md border border-[#ff8a2a]/50 bg-[#0b0603] px-2.5 py-1.5"
-                title={`Counting since ${new Date(card.stattrak.since).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} — resets when the copy changes hands`}
+                title={`The player's Fantasy Pts, every game since ${new Date(card.stattrak.since).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })} — resets when the copy changes hands`}
               >
                 <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#ff8a2a]">StatTrak™ fantasy pts</span>
                 <span className="card-stattrak-led font-mono text-base font-bold tabular-nums tracking-[0.18em] text-[#ff8a2a]">
