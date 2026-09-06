@@ -10,6 +10,7 @@ const { dustManyAction } = vi.hoisted(() => ({ dustManyAction: vi.fn() }));
 vi.mock("@/lib/trades/actions", () => ({ dustCardAction: vi.fn(), dustManyAction }));
 // server-only transitively, same as trades/actions — mocked so jsdom can load.
 vi.mock("@/lib/cards/reroll-actions", () => ({ rerollPrintAction: vi.fn() }));
+vi.mock("@/lib/cards/slab-actions", () => ({ slabCardAction: vi.fn() }));
 // Same for the binder pin: the actions module is server-only, and the
 // button's own behaviour is covered in BinderPinButton.test.tsx.
 vi.mock("@/lib/binder/actions", () => ({ toggleBinderCardAction: vi.fn() }));

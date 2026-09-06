@@ -129,6 +129,7 @@ export function friendlyExpeditionError(message: string): string {
     return "One of those cards is already out on an expedition.";
   }
   if (/card is wounded/i.test(message)) return "One of those cards is wounded and benched.";
+  if (/card is slabbed/i.test(message)) return "One of those cards is sealed in a slab — a slabbed card can't be fielded.";
   if (/card is one of one/i.test(message)) return "A one-of-one can't go on a route where it could be lost.";
   if (/card is cursed/i.test(message)) return "That card is Cursed — it can't change hands for a week.";
   if (/card is not afflicted/i.test(message)) return "That card has nothing to exorcise.";
@@ -224,6 +225,10 @@ export async function launchExpeditionFor(
   // Every reason at once, the way squadMeets reports them: a squad short
   // of two things should hear both rather than being sent back twice.
   if (!gate.ok) return { ok: false, error: gate.reasons.join(" ") };
+
+  // Sealed copies never go out. The table refuses them too (a trigger on
+  // expedition_runs); this is the friendly word before the round trip.
+  if (copies.some((copy) => copy.card?.slab)) return { ok: false, error: friendlyExpeditionError("card is slabbed") };
 
   if (def.target === "afflicted") {
     const afflicted = copies.find((copy) => copy.id === target);

@@ -143,8 +143,25 @@ is numbered past the checklist from a count of the season's existing
 Secrets (`card->secret is not null`), at most one per pack, and is
 announced to the cards channel like an Eclipse. Auto-dust never touches a
 Secret and treats a Shiny as a foil for the skip rule. Expedition shine:
-Shiny +2, Secret +3. The StatTrak counter is a placeholder until the
-weekly drop bumps it and a transfer trigger resets it (next slice).
+Shiny +2, Secret +3.
+
+**Wear, slabbing, the StatTrak counter** (migration 20260922, pgTAP
+0099). `card.wear` counts fieldings: `wear_cards(p_ids)` (service-only)
+is called by the Gauntlet on run start and by the weekly drop for every
+scored lineup, and a trigger on `expedition_runs` calls it for the squad
+in the launch's own transaction. `slab_card(p_user, p_inventory)` seals a
+copy (`card.slab {wear, at}`) after proving ownership and that it is not
+away on a route; the `slab_seal` trigger then refuses any update that
+removes or rewrites the slab or moves the wear under it. A slabbed copy
+is refused everywhere it could be fielded: the `expedition_runs_slab_guard`
+trigger in SQL, and `slabRefusal()` (src/lib/cards/wear.ts) in the
+Gauntlet and Fantasy server actions, whose pickers also leave it out. It
+can still be sold, traded and dusted. `bump_stattrak(p_id, p_points)` adds
+a scored week's slot points to a StatTrak copy (the weekly drop calls it
+after `wear_cards`), and the `stattrak_reset` trigger zeroes the count and
+restarts `since` on any change of `discord_id`, so a count is one owner's.
+Grades (Factory New 0, Minimal Wear 1–2, Field-Tested 3–5, Well-Worn
+6–10, Battle-Scarred 11+) are read in TS only; SQL stores the count.
 `/cards/rarities` (and the academy twin) prints every rarity from
 `src/lib/cards/rarityGuide.ts`, whose numbers import from the config; the
 Discord announcement (`src/lib/cards/rarityAnnouncement.ts`) is posted
