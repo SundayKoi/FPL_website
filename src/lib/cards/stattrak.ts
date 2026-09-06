@@ -42,7 +42,7 @@ export function stattrakCredits(copies: TrackedCopy[], rows: FantasyStatRow[]): 
     if (!row.game_date) continue;
     const at = new Date(row.game_date).getTime();
     if (!Number.isFinite(at)) continue;
-    const slug = cardSlug(row.summoner_name, row.tag ?? "");
+    const slug = cardSlug(row.summoner_name ?? "", row.tag ?? "");
     const list = bySlug.get(slug) ?? [];
     list.push({ at, iso: new Date(at).toISOString(), points: gamePoints(row) });
     bySlug.set(slug, list);
