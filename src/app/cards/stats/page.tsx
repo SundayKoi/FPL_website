@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
-import { FOIL_TYPES, FOIL_TYPE_LABELS } from "@/lib/packs/config";
+import {
+  FOIL_CHANCE,
+  FOIL_TYPES,
+  FOIL_TYPE_LABELS,
+  FOIL_TYPE_WEIGHTS,
+  SECRET_CHANCE,
+  SHINY_CHANCE,
+  SIGNED_CHANCE,
+  STATTRAK_CHANCE,
+} from "@/lib/packs/config";
+import { oneIn } from "@/lib/cards/rarityGuide";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fmtPoints } from "@/lib/betting/format";
@@ -35,6 +45,23 @@ function rate(part: number, whole: number): string | undefined {
   return rateOf(part, whole, "cards");
 }
 
+const foilWeightTotal = FOIL_TYPES.reduce((sum, type) => sum + FOIL_TYPE_WEIGHTS[type], 0);
+
+/** "1 in 98 cards · gate 1 in 100" — the observed rate beside the configured
+ *  one, so the dice can be read against the book. With nothing pulled yet
+ *  it shows the gate alone. */
+function gate(part: number, whole: number, chance: number, qualifier = ""): string {
+  const book = `gate ${oneIn(chance)}${qualifier ? ` ${qualifier}` : ""}`;
+  const seen = rate(part, whole);
+  return seen ? `${seen} · ${book}` : book;
+}
+
+/** "6 Sep 2026" — when the counting started. */
+function pulledSince(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** The same rate, over something that isn't a card — runs, mostly. */
 function rateOf(part: number, whole: number, unit: string): string | undefined {
   if (part <= 0 || whole <= 0) return undefined;
@@ -60,9 +87,10 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Stats</h1>
           <hr className="accent-rule mt-4 w-40 sm:w-56" />
           <p className="mt-3 max-w-2xl text-sm text-steel">
-            Everything the league has opened, spent and is holding this season. Card counts are what
-            exists right now — dusting destroys a copy, so a card someone melted down is gone from
-            these figures as well as from their collection.
+            Everything the league has opened, spent and is holding this season. The pull rates count at
+            the mint and never forget a copy; every other card count is what exists right now — dusting
+            destroys a copy, so a card someone melted down is gone from those figures as well as from
+            their collection.
             {stats && stats.excludedCount > 0 ? (
               <>
                 {" "}
@@ -74,6 +102,45 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
           </p>
         </div>
       </header>
+
+      {stats && stats.pulled.cards > 0 ? (
+        // The true rates. Every figure here is a MINT, read from provenance,
+        // which the melt cannot reach — so "1 in 100 signed" stays 1 in 100
+        // however many commons were dusted around it. Beside each, the gate
+        // the shop rolls at, so the league can see the dice against the
+        // book. Player cards only: moments, plates and relics are not pack
+        // odds.
+        <section aria-label="Pull rates" className="flex flex-col gap-4">
+          <div>
+            <span className="label-dash">Pull rates · since {pulledSince(stats.pulled.since)}</span>
+            <p className="mt-2 max-w-2xl text-sm text-steel">
+              What packs actually gave out, counted at the mint rather than on the shelf — a copy that was
+              dusted still counts here. The second number on each is the gate the shop rolls at.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Figure value={stats.pulled.cards.toLocaleString()} label="Player cards pulled" note="Moments, plates and relics not counted" />
+            <Figure value={stats.pulled.signed.toLocaleString()} label="Signed" note={gate(stats.pulled.signed, stats.pulled.cards, SIGNED_CHANCE, "of signable cards")} />
+            <Figure value={stats.pulled.foils.toLocaleString()} label="Foils" note={gate(stats.pulled.foils, stats.pulled.cards, FOIL_CHANCE)} />
+            <Figure value={stats.pulled.altArts.toLocaleString()} label="Alternate prints" note={rate(stats.pulled.altArts, stats.pulled.cards)} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {FOIL_TYPES.map((type) => (
+              <Figure
+                key={type}
+                value={(stats.pulled.foilsByType[type] ?? 0).toLocaleString()}
+                label={parallelLabelFor(season, type, FOIL_TYPE_LABELS[type])}
+                note={gate(stats.pulled.foilsByType[type] ?? 0, stats.pulled.cards, FOIL_CHANCE * (FOIL_TYPE_WEIGHTS[type] / foilWeightTotal))}
+              />
+            ))}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <Figure value={stats.pulled.shiny.toLocaleString()} label="Shiny" note={gate(stats.pulled.shiny, stats.pulled.cards, SHINY_CHANCE)} />
+            <Figure value={stats.pulled.stattrak.toLocaleString()} label="StatTrak™" note={gate(stats.pulled.stattrak, stats.pulled.cards, STATTRAK_CHANCE)} />
+            <Figure value={stats.pulled.secret.toLocaleString()} label="Secret" note={gate(stats.pulled.secret, stats.pulled.cards, SECRET_CHANCE)} />
+          </div>
+        </section>
+      ) : null}
 
       {!stats || stats.cardsPulled === 0 ? (
         <p className="text-sm text-steel">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { excludedCollectorNames, fetchEconomyStats, DEFAULT_EXCLUDED_COLLECTORS } from "./economy";
+import { excludedCollectorNames, fetchEconomyStats, pulledStats, DEFAULT_EXCLUDED_COLLECTORS } from "./economy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Enough of PostgREST's builder for the reads this module makes —
@@ -298,5 +298,59 @@ describe("fetchEconomyStats", () => {
       card_moments: { error: { message: "relation does not exist" } },
     });
     expect((await fetchEconomyStats(supabase, "S5")).momentsMinted).toBe(0);
+  });
+});
+
+describe("pulledStats", () => {
+  const mint = (print: Record<string, unknown> | null, at = "2026-09-06T05:00:00.000Z") => ({ to_discord: "u1", at, print });
+
+  it("counts what was printed, player cards only, and dates the first counted mint", () => {
+    const stats = pulledStats([
+      mint({ foil: true, foil_type: "ice", signed: true, alt: true, shiny: true }, "2026-09-06T06:00:00.000Z"),
+      mint({ foil: false, stattrak: true }),
+      mint({ foil: true, foil_type: null, secret: true }),
+      mint({ moment: true, foil: true }),
+      mint({ team: true }),
+      mint({ champ: true, signed: true }),
+      // Minted before the print existed: no print, not counted, not dated.
+      mint(null, "2026-01-01T00:00:00.000Z"),
+    ]);
+    expect(stats.cards).toBe(3);
+    expect(stats.foils).toBe(2);
+    expect(stats.foilsByType).toMatchObject({ prisma: 1, ice: 1 });
+    expect(stats.signed).toBe(1);
+    expect(stats.altArts).toBe(1);
+    expect(stats.shiny).toBe(1);
+    expect(stats.stattrak).toBe(1);
+    expect(stats.secret).toBe(1);
+    expect(stats.since).toBe("2026-09-06T05:00:00.000Z");
+  });
+
+  it("reads as nothing when no mint carries a print", () => {
+    const stats = pulledStats([mint(null)]);
+    expect(stats.cards).toBe(0);
+    expect(stats.since).toBeNull();
+  });
+});
+
+describe("fetchEconomyStats pull rates", () => {
+  it("reads the mints from provenance and leaves dev wallets out", async () => {
+    const supabase = client({
+      betting_profiles: PROFILES,
+      card_pack_opens: { data: [], error: null },
+      card_inventory: { data: [], error: null },
+      card_provenance: {
+        data: [
+          { to_discord: "u1", at: "2026-09-06T05:00:00.000Z", print: { signed: true } },
+          { to_discord: "dev1", at: "2026-09-06T05:00:00.000Z", print: { signed: true } },
+        ],
+        error: null,
+      },
+    });
+    const stats = await fetchEconomyStats(supabase, "S5");
+    expect(stats.pulled.cards).toBe(1);
+    expect(stats.pulled.signed).toBe(1);
+    // Held counts are untouched by a mint that has since been melted.
+    expect(stats.cardsPulled).toBe(0);
   });
 });
