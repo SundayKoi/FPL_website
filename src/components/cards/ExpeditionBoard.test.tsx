@@ -693,7 +693,7 @@ describe("ExpeditionBoard — the rules of the road", () => {
   });
 
   it("calls a moment or a plate a relic, not a one-of-one, and keeps it off the same routes", () => {
-    const moment = makeCopy(7, "Big Game", "gold", { role: "Mid", card: { moment: { id: 1 } } });
+    const moment = makeCopy(7, "Big Game", "gold", { role: "Mid", card: { moment: { id: 1 } as never } });
     renderBoard({ copies: [...COPIES, moment] });
     const chip = screen.getByText("Big Game").closest("button")!;
     expect(within(chip).getByText("relic")).toBeTruthy();
