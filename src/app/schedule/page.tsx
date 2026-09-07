@@ -27,6 +27,8 @@ import CollapsibleScheduleStage from "@/components/schedule/CollapsibleScheduleS
 import { fetchTeamIdentities } from "@/lib/teams/identity";
 import UpNextBanner from "@/components/schedule/UpNextBanner";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+import HomeStandings from "@/components/home/HomeStandings";
+import { fetchHomepageStandings, type HomeStandingsData } from "@/lib/home/standings";
 
 export const metadata: Metadata = {
   title: "Schedule — FPL",
@@ -90,6 +92,11 @@ export default async function SchedulePage({
     ((draftsResult.data as { fixture_id: string }[] | null) ?? []).map((row) => row.fixture_id),
   );
   const fixtures = season ? allFixtures.filter((f) => f.season === season) : [];
+  const standingsSeason = season ?? leagueSeasons.premier;
+  const standings: HomeStandingsData = await fetchHomepageStandings(standingsSeason).catch(() => ({
+    teams: [],
+    race: [],
+  }));
 
   const grouped = groupByStage(fixtures);
   const upNext = nextUp(fixtures, new Date());
@@ -98,7 +105,7 @@ export default async function SchedulePage({
 
   return (
     <main className="page-backdrop flex-1">
-      <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
+      <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <header className="border-b border-border-subtle pb-8">
           <div>
             <span className="label-dash">LEAGUE CALENDAR</span>
@@ -165,35 +172,41 @@ export default async function SchedulePage({
           </div>
         )}
 
-        <div className="mt-10 flex flex-col gap-12">
-          {groups.map((group) => (
-            <section key={group}>
-              <h2 className="label-dash">{group}</h2>
-              <div className="mt-4 flex flex-col gap-4">
-                {grouped
-                  .filter(({ meta }) => meta.group === group)
-                  .map(({ meta, fixtures: stageFixtures }) => (
-                    <CollapsibleScheduleStage
-                      key={meta.stage}
-                      stageId={meta.stage}
-                      label={meta.label}
-                      note={meta.note}
-                      initiallyOpen={defaultOpenStages.has(meta.stage)}
-                    >
-                      {stageFixtures.length === 0 ? (
-                        <p className="px-4 py-4 text-sm text-muted">
-                          Matchups TBD — check back once they&apos;re announced.
-                        </p>
-                      ) : (
-                        stageFixtures.map((fixture) => (
-                          <FixtureCard key={fixture.id} fixture={fixture} identities={identities} draftedFixtureIds={draftedFixtureIds} />
-                        ))
-                      )}
-                    </CollapsibleScheduleStage>
-                  ))}
-              </div>
-            </section>
-          ))}
+        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] xl:gap-10">
+          <div className="min-w-0 flex flex-col gap-12">
+            {groups.map((group) => (
+              <section key={group}>
+                <h2 className="label-dash">{group}</h2>
+                <div className="mt-4 flex flex-col gap-4">
+                  {grouped
+                    .filter(({ meta }) => meta.group === group)
+                    .map(({ meta, fixtures: stageFixtures }) => (
+                      <CollapsibleScheduleStage
+                        key={meta.stage}
+                        stageId={meta.stage}
+                        label={meta.label}
+                        note={meta.note}
+                        initiallyOpen={defaultOpenStages.has(meta.stage)}
+                      >
+                        {stageFixtures.length === 0 ? (
+                          <p className="px-4 py-4 text-sm text-muted">
+                            Matchups TBD — check back once they&apos;re announced.
+                          </p>
+                        ) : (
+                          stageFixtures.map((fixture) => (
+                            <FixtureCard key={fixture.id} fixture={fixture} identities={identities} draftedFixtureIds={draftedFixtureIds} />
+                          ))
+                        )}
+                      </CollapsibleScheduleStage>
+                    ))}
+                </div>
+              </section>
+            ))}
+          </div>
+
+          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start" aria-label={`${standingsSeason} team standings`}>
+            <HomeStandings teams={standings.teams} seasonLabel={standingsSeason} />
+          </aside>
         </div>
       </div>
     </main>
