@@ -3,9 +3,9 @@ import Link from "next/link";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import type { PlayerCardData } from "@/lib/cards/build";
-import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { rarityGuide, type RarityEntry } from "@/lib/cards/rarityGuide";
+import { sampleFor } from "@/lib/cards/samples";
 
 export const metadata: Metadata = {
   title: "Rarities — FPL",
@@ -13,8 +13,17 @@ export const metadata: Metadata = {
 };
 
 function Entry({ entry }: { entry: RarityEntry }) {
+  // Dribb, wearing this one rarity: the specimen above the words. A real
+  // card would change every week and carry whatever else it had pulled;
+  // the made-up one shows exactly this entry and nothing else.
+  const sample = sampleFor(entry.key);
   return (
     <li className="card-brand flex flex-col gap-2 p-4">
+      {sample ? (
+        <div className="flex justify-center pb-2" data-testid={`rarity-sample-${entry.key}`}>
+          <PlayerCard3D card={sample.card} forceFoil={sample.foil} foilType={sample.foilType} interactive />
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-black text-white">
           {entry.name}
@@ -43,41 +52,9 @@ function Entry({ entry }: { entry: RarityEntry }) {
   );
 }
 
-/**
- * The three finishes, on a real card from this week, so a reader sees what
- * the words mean. Nothing is minted: these are the live card with the
- * frozen fields a pull would carry, rendered exactly as a pulled copy is.
- */
-function Samples({ card }: { card: PlayerCardData }) {
-  const samples: { key: string; label: string; card: PlayerCardData }[] = [
-    { key: "shiny", label: "Shiny", card: { ...card, shiny: true } },
-    { key: "stattrak", label: "StatTrak™", card: { ...card, stattrak: { points: 1284, since: new Date().toISOString() } } },
-    {
-      key: "secret",
-      label: "Secret",
-      card: { ...card, secret: { number: card.collectionSize + 1, of: card.collectionSize } },
-    },
-    { key: "worn", label: "Battle-Scarred", card: { ...card, wear: 14 } },
-    { key: "slab", label: "Slabbed", card: { ...card, wear: 2, slab: { wear: 2, at: new Date().toISOString() } } },
-  ];
-  return (
-    <ul className="flex flex-wrap justify-center gap-6">
-      {samples.map((sample) => (
-        <li key={sample.key} className="flex flex-col items-center gap-2">
-          <PlayerCard3D card={sample.card} interactive />
-          <span className="text-xs font-bold uppercase tracking-[0.18em] text-muted">{sample.label}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export async function RaritiesPageView({ league = "premier" }: { league?: CardLeague }) {
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const cards = season ? await fetchCurrentWeekCards(service, season) : [];
-  // The best card of the week makes the clearest sample; any card would do.
-  const sample = [...cards].sort((a, b) => b.overall - a.overall)[0] ?? null;
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const guide = rarityGuide(season, league);
 
@@ -90,15 +67,11 @@ export async function RaritiesPageView({ league = "premier" }: { league?: CardLe
         that was already here, and wear grades with slabbing for every copy you own.
       </CardsPageHeader>
 
-      {sample ? (
-        <section aria-label="The finishes, on a card" className="flex flex-col gap-4">
-          <Samples card={sample} />
-          <p className="text-center text-xs text-muted">
-            Flip a card to see its back. The StatTrak counter and the wear record live there; the Secret&apos;s
-            over-number takes the serial line under the rating.
-          </p>
-        </section>
-      ) : null}
+      <p className="-mt-4 text-xs text-muted">
+        Every entry below is shown on the same made-up card — Dribb, a 99 in every column, on Bard — wearing
+        only that rarity. Flip a card to see its back: the StatTrak counter and the wear record live there,
+        and the Secret&apos;s over-number takes the serial line under the rating.
+      </p>
 
       <nav aria-label="Sections" className="flex flex-wrap gap-2">
         {guide.map((section) => (
