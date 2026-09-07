@@ -9,6 +9,7 @@
 // should render an empty board rather than 500.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
 import type { CardFate, RecordedChoice, RouteEvent } from "./routes";
 
@@ -258,6 +259,26 @@ export async function fetchFragments(supabase: SupabaseClient, discordId: string
     .maybeSingle();
   if (error || !data) return 0;
   return Number((data as { fragments: number }).fragments ?? 0);
+}
+
+/** How many runs this collector has insured since Monday, Eastern — what
+ *  the weekly cap (INSURANCE_PER_WEEK / PATRON_INSURANCE_PER_WEEK) is
+ *  measured against. Read off the runs themselves rather than the policy
+ *  table, which only records the patron's free one. Holds never count. */
+export async function fetchInsuredThisWeek(supabase: SupabaseClient, discordId: string, weekStart: string): Promise<number> {
+  // A day early in UTC, then trimmed on the Eastern calendar: Monday
+  // midnight ET is Monday 04:00 or 05:00 UTC depending on the season, and
+  // the calendar the cap keeps is the Eastern one.
+  const since = new Date(new Date(`${weekStart}T00:00:00Z`).getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("expedition_runs")
+    .select("started_at")
+    .eq("discord_id", discordId)
+    .eq("insured", true)
+    .neq("tier", "lost")
+    .gte("started_at", since);
+  if (error || !Array.isArray(data)) return 0;
+  return (data as { started_at: string }[]).filter((row) => easternDateOf(new Date(row.started_at)) >= weekStart).length;
 }
 
 /** Whether this week's free policy is spent. */

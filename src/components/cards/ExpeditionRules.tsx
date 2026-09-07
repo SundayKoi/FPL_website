@@ -11,6 +11,8 @@ import {
   ECHO_CHANCE,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
+  INSURANCE_PER_WEEK,
+  PATRON_INSURANCE_PER_WEEK,
   MERCHANT_DOLLARS,
   SURGE_BONUS,
   LOST_DAYS,
@@ -171,8 +173,8 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               not coming back.
             </li>
             <li>
-              <strong className="text-white">Insurance</strong> ({fmtPoints(INSURANCE_FEE)} at launch; a patron&apos;s first policy each week is
-              free) turns lost into wounded and dead into lost.
+              <strong className="text-white">Insurance</strong> ({fmtPoints(INSURANCE_FEE)} at launch) turns lost into wounded and dead
+              into lost. {INSURANCE_PER_WEEK} policy a week; patrons get {PATRON_INSURANCE_PER_WEEK}, the first of them free.
             </li>
             <li>
               <strong className="text-white">Never at risk:</strong> an Eclipse, a moment, a champions relic or a team plate cannot board a

@@ -10,6 +10,7 @@ import {
   ECHO_CHANCE,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
+  insurancePerWeek,
   MERCHANT_DOLLARS,
   SQUAD_SIZE,
   SURGE_BONUS,
@@ -21,7 +22,7 @@ import {
   type ExpeditionOutcome,
   type ExpeditionTierKey,
 } from "./config";
-import { RUN_COLUMNS, fetchFixturesSince, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
+import { RUN_COLUMNS, fetchFixturesSince, fetchInsuredThisWeek, fetchPolicyUsed, fetchStrangersHolds, hasTrail, mapRun, type ExpeditionRun } from "./queries";
 import { convoySheet, normaliseConvoyCode } from "./convoy";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
@@ -57,8 +58,8 @@ export type LaunchResult =
   | { ok: false; error: string };
 
 export interface LaunchOptions {
-  /** Buy the policy: lost becomes wounded, dead becomes lost. Free once a
-   *  week for a patron; INSURANCE_FEE otherwise. */
+  /** Buy the policy: lost becomes wounded, dead becomes lost. Once an
+   *  Eastern week (twice for a patron, the first free); INSURANCE_FEE. */
   insured?: boolean;
   /** A Rescue's hold id, or an Exorcism's card id. */
   target?: number | null;
@@ -138,6 +139,7 @@ export function friendlyExpeditionError(message: string): string {
   if (/policy already used/i.test(message)) return "This week's free policy is already spent.";
   if (/policy is a patron perk|policy without insurance/i.test(message)) return "The free policy is a patron perk.";
   if (/patron road/i.test(message)) return "The Gilded Road is a patron perk — it opens with the flame.";
+  if (/insurance used up/i.test(message)) return "This week's insurance is spent — one policy a week, two for patrons.";
   if (/insufficient balance/i.test(message)) return "You can't cover the fee.";
   if (/bad ransom/i.test(message)) return "That ransom didn't add up — refresh and try again.";
   if (/already claimed/i.test(message)) return "That expedition has already been claimed.";
@@ -251,8 +253,13 @@ export async function launchExpeditionFor(
   }
   if (def.patron && !patron) return { ok: false, error: friendlyExpeditionError("patron road") };
   if (insured) {
+    const week = mondayOf(new Date());
+    // The weekly cap, read off the runs already insured since Monday. The
+    // RPC counts again under the wallet lock ('insurance used up').
+    if ((await fetchInsuredThisWeek(service, discordId, week)) >= insurancePerWeek(patron)) {
+      return { ok: false, error: friendlyExpeditionError("insurance used up") };
+    }
     if (patron) {
-      const week = mondayOf(new Date());
       if (!(await fetchPolicyUsed(service, discordId, week))) {
         freePolicy = true;
         policyWeek = week;

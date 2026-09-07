@@ -158,6 +158,7 @@ function renderBoard(
     fragments?: number;
     patron?: boolean;
     policyUsed?: boolean;
+    insuredThisWeek?: number;
     playingToday?: string[];
     rivals?: Record<number, string>;
     convoys?: Record<number, ConvoyView>;
@@ -177,6 +178,7 @@ function renderBoard(
       fragments={over.fragments}
       patron={over.patron}
       policyUsed={over.policyUsed}
+      insuredThisWeek={over.insuredThisWeek}
     />,
   );
 }
@@ -260,7 +262,7 @@ describe("ExpeditionBoard — tier cards", () => {
 
     const gilded = screen.getByTestId("tier-gilded");
     expect(within(gilded).getByTestId("tier-gilded-patron")).toBeTruthy();
-    expect(within(gilded).getByText("patrons only · 6 shine")).toBeTruthy();
+    expect(within(gilded).getByText("patrons only · 6 shine · 3 signed")).toBeTruthy();
     expect(within(gilded).getByTestId("tier-gilded-locked")).toBeTruthy();
     const button = screen.getByRole("button", { name: "Launch The Gilded Road" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
@@ -697,6 +699,22 @@ describe("ExpeditionBoard — the rules of the road", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /Insure this run/ }));
     expect(screen.getByTestId("consent-legendary").textContent).toContain("can be lost");
     expect(screen.getByTestId("consent-legend").textContent).toContain("wounded");
+  });
+
+  it("caps insurance at one policy a week, two for a patron", () => {
+    renderBoard();
+    expect(screen.getByTestId("insurance-note").textContent).toContain("1 of 1 left this week");
+
+    cleanup();
+    renderBoard({ insuredThisWeek: 1 });
+    const box = screen.getByRole("checkbox", { name: /Insure this run/ }) as HTMLInputElement;
+    expect(box.disabled).toBe(true);
+    expect(screen.getByTestId("insurance-note").textContent).toContain("spent for the week — 1 a week, 2 for patrons");
+
+    cleanup();
+    renderBoard({ patron: true, insuredThisWeek: 1 });
+    expect((screen.getByRole("checkbox", { name: /Insure this run/ }) as HTMLInputElement).disabled).toBe(false);
+    expect(screen.getByTestId("insurance-note").textContent).toContain("1 of 2 left this week");
   });
 
   it("keeps a one-of-one off the routes that can lose it, saying which card", () => {

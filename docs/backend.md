@@ -537,8 +537,12 @@ Important RPC families include:
   per tier — `tier already out`; holds never occupy one; there is no
   per-day launch limit since 20260926000001), keeps the Gilded Road to
   patrons (`patron road`, off `betting_profiles.patron_until`; migration
-  20260927000001 — the route is a patron perk, its payouts sit under the
-  Deep Raid's, and nothing about it changes anyone's odds), refuses a copy that is already
+  20260927000001 — the route is a patron perk behind three signed cards,
+  it pays 1,000–3,000 base, and nothing about it changes anyone's odds),
+  caps insurance at one policy an Eastern week (two for a patron —
+  `insurance used up`, counted off the runs insured since Monday; migration
+  20260928000001, which also lifts `resolve_expedition`'s payout ceiling to
+  `maxExpeditionPayout()`), refuses a copy that is already
   deployed or lost, wounded (`card is wounded`), or one of one on a route
   past wounded (`card is one of one`), checks a Rescue's hold and an
   Exorcism's afflicted target, spends fragments and the weekly free policy

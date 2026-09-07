@@ -12,6 +12,7 @@ import {
   fetchFragments,
   fetchGraveyard,
   fetchLostHolds,
+  fetchInsuredThisWeek,
   fetchPolicyUsed,
   fetchRuns,
   type ExpeditionRun,
@@ -115,7 +116,7 @@ export async function ExpeditionsPageView({
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
   const week = mondayOf(new Date());
-  const [inventory, runs, deployedIds, holds, graves, fragments, policyUsed, wallet]: [
+  const [inventory, runs, deployedIds, holds, graves, fragments, policyUsed, insuredThisWeek, wallet]: [
     InventoryRow[],
     ExpeditionRun[],
     Set<number>,
@@ -123,6 +124,7 @@ export async function ExpeditionsPageView({
     Grave[],
     number,
     boolean,
+    number,
     { patron_until?: string | null } | null,
   ] = season
     ? await Promise.all([
@@ -136,6 +138,7 @@ export async function ExpeditionsPageView({
         fetchGraveyard(service, discordId, season),
         fetchFragments(service, discordId),
         fetchPolicyUsed(service, discordId, week),
+        fetchInsuredThisWeek(service, discordId, week),
         service
           .from("betting_profiles")
           .select("patron_until")
@@ -143,7 +146,7 @@ export async function ExpeditionsPageView({
           .maybeSingle()
           .then((result) => (result.data as { patron_until?: string | null } | null) ?? null, () => null),
       ])
-    : [[], [], new Set<number>(), [], [], 0, false, null];
+    : [[], [], new Set<number>(), [], [], 0, false, 0, null];
 
   // A run must always be able to name its own cards. The season read above
   // is the collection as this page browses it, and a squad can sit outside
@@ -215,6 +218,7 @@ export async function ExpeditionsPageView({
         fragments={fragments}
         patron={patronActive(wallet?.patron_until)}
         policyUsed={policyUsed}
+        insuredThisWeek={insuredThisWeek}
         playingToday={playingToday}
         rivals={rivals}
         convoys={convoys}
