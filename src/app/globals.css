@@ -3229,3 +3229,150 @@ body {
     animation: ovSerialGlow 1.8s ease-in-out infinite;
   }
 }
+
+/* ── The Dribb card — /admin/dribb only. ───────────────────────────────
+   Four proposed looks for the five-copy chase print
+   (src/lib/cards/dribbMockups.ts), drawn through PlayerCard3D's `overlay`
+   prop like every overlay proposal. None of these can reach a minted copy
+   until the card ships with a stamp of its own. */
+
+/* Celestial — a drifting star field under a Caretaker-blue wash. */
+@keyframes ovDribbStars {
+  0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: -160px 90px, 120px -70px, -60px -140px, 0 0; }
+}
+@utility card-ov-dribb-celestial {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    radial-gradient(1.2px 1.2px at 20% 30%, rgb(255 240 200 / 0.95), transparent 60%),
+    radial-gradient(1px 1px at 70% 60%, rgb(200 220 255 / 0.9), transparent 60%),
+    radial-gradient(1.6px 1.6px at 45% 80%, rgb(255 220 150 / 0.95), transparent 60%),
+    linear-gradient(180deg, rgb(24 16 84 / 0.55), rgb(12 8 48 / 0.15) 40%, rgb(8 4 40 / 0.6));
+  background-size: 140px 140px, 190px 190px, 230px 230px, 100% 100%;
+  animation: ovDribbStars 40s linear infinite;
+  mix-blend-mode: screen;
+  box-shadow: inset 0 0 0 2px rgb(255 217 138 / 0.8), inset 0 0 36px 4px rgb(60 40 160 / 0.6);
+}
+/* The halo — a slow gold ring behind the rating, masked to a band. */
+@keyframes ovDribbHalo { to { transform: rotate(360deg); } }
+@utility card-ov-dribb-halo {
+  position: absolute;
+  inset: 0;
+  &::before {
+    content: "";
+    position: absolute;
+    right: -6px;
+    top: -6px;
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 20%, rgb(255 217 138 / 0.95) 35%, rgb(255 250 230 / 1) 42%, transparent 60%, rgb(255 200 90 / 0.8) 80%, transparent 100%);
+    -webkit-mask: radial-gradient(circle, transparent 58%, black 62%, black 74%, transparent 78%);
+    mask: radial-gradient(circle, transparent 58%, black 62%, black 74%, transparent 78%);
+    animation: ovDribbHalo 7s linear infinite;
+    filter: drop-shadow(0 0 6px rgb(255 217 138 / 0.8));
+  }
+}
+
+/* Kintsugi — black glass, gold seams that catch the pointer. */
+@utility card-ov-dribb-kintsugi {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    linear-gradient(27deg, transparent 49.7%, rgb(255 226 150 / 0.95) 49.85% 50.15%, transparent 50.3%),
+    linear-gradient(-62deg, transparent 49.7%, rgb(255 226 150 / 0.9) 49.85% 50.15%, transparent 50.3%),
+    linear-gradient(78deg, transparent 49.7%, rgb(243 211 122 / 0.9) 49.85% 50.15%, transparent 50.3%),
+    linear-gradient(-18deg, transparent 49.7%, rgb(255 240 190 / 0.9) 49.85% 50.15%, transparent 50.3%),
+    linear-gradient(112deg, transparent 49.7%, rgb(255 226 150 / 0.85) 49.85% 50.15%, transparent 50.3%),
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgb(4 4 10 / 0.55) 100%);
+  background-size: 100% 100%, 60% 50%, 45% 40%, 70% 60%, 50% 45%, 100% 100%;
+  background-position: 0 0, 100% 0, 0 100%, 100% 100%, 0 0, 0 0;
+  background-repeat: no-repeat;
+  /* The seams live at the edges and corners: the middle of the card, where
+     the name and the rail sit, is masked clear. */
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 48%, transparent 45%, black 80%);
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 48%, transparent 45%, black 80%);
+  opacity: calc(0.6 + 0.4 * (1 - max(var(--gx, 50) - 50, 50 - var(--gx, 50)) / 50));
+  transition: opacity 120ms linear;
+  filter: drop-shadow(0 0 5px rgb(255 226 150 / 0.8));
+  box-shadow: inset 0 0 0 3px rgb(243 211 122 / 0.95), inset 0 0 0 5px rgb(4 4 10 / 0.8), inset 0 0 28px 2px rgb(243 211 122 / 0.35);
+}
+
+/* Aether — thin-film shimmer cycling the spectrum. */
+@keyframes ovDribbAether { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+@utility card-ov-dribb-aether {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    repeating-linear-gradient(115deg, rgb(255 255 255 / 0) 0 6px, rgb(255 255 255 / 0.18) 6px 7px, rgb(255 255 255 / 0) 7px 14px),
+    linear-gradient(calc(var(--gx, 50) * 3.6deg), rgb(255 110 199 / 0.55), rgb(255 209 102 / 0.5) 25%, rgb(126 242 184 / 0.5) 50%, rgb(107 185 255 / 0.55) 75%, rgb(200 107 255 / 0.55));
+  mix-blend-mode: color-dodge;
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(180deg, black 45%, rgb(0 0 0 / 0.35) 70%, rgb(0 0 0 / 0.25));
+  mask-image: linear-gradient(180deg, black 45%, rgb(0 0 0 / 0.35) 70%, rgb(0 0 0 / 0.25));
+  animation: ovDribbAether 9s linear infinite;
+  box-shadow: inset 0 0 0 2px rgb(201 166 255 / 0.85), inset 0 0 30px 3px rgb(201 166 255 / 0.35);
+}
+/* Its colour-split echo of the art, sliding against the base copy. */
+@utility card-ov-dribb-aberration {
+  transform: translate(calc((var(--gx, 50) - 50) * 0.12%), calc((var(--gy, 50) - 50) * 0.12%)) scale(1.04);
+  filter: hue-rotate(160deg) saturate(1.6) contrast(1.1);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(ellipse 50% 60% at 50% 40%, black 50%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 60% at 50% 40%, black 50%, transparent 100%);
+  transition: transform 80ms linear;
+}
+
+/* Corona — a flare orbiting the border, the rim burning, embers rising. */
+@keyframes ovDribbFlare { to { transform: rotate(360deg); } }
+@keyframes ovDribbRim {
+  0%, 100% { box-shadow: inset 0 0 0 2px rgb(255 245 220 / 0.9), inset 0 0 22px 3px rgb(255 140 40 / 0.6); }
+  50% { box-shadow: inset 0 0 0 3px rgb(255 255 255 / 1), inset 0 0 40px 8px rgb(255 170 60 / 0.85); }
+}
+@utility card-ov-dribb-corona {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: ovDribbRim 2.4s ease-in-out infinite;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -60%;
+    background: conic-gradient(from 0deg,
+      transparent 0 28%, rgb(255 140 40 / 0.95) 38%, rgb(255 243 196 / 1) 44%, rgb(255 120 30 / 0.95) 50%, transparent 58%,
+      transparent 72%, rgb(255 140 40 / 0.9) 82%, rgb(255 243 196 / 1) 88%, rgb(255 120 30 / 0.9) 94%, transparent 100%);
+    animation: ovDribbFlare 3.2s linear infinite;
+  }
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 13px;
+}
+@keyframes ovDribbEmbers {
+  0% { background-position: 0 100%, 40px 100%, 90px 100%; opacity: 0.9; }
+  100% { background-position: 30px -60px, -20px -120px, 60px -90px; opacity: 0.2; }
+}
+@utility card-ov-dribb-embers {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    radial-gradient(3px 3px at 30% 90%, rgb(255 200 120 / 1), transparent 60%),
+    radial-gradient(2.5px 2.5px at 60% 95%, rgb(255 160 60 / 1), transparent 60%),
+    radial-gradient(3.5px 3.5px at 80% 88%, rgb(255 230 180 / 1), transparent 60%),
+    radial-gradient(2px 2px at 15% 70%, rgb(255 180 90 / 1), transparent 60%);
+  background-size: 90px 130px, 120px 160px, 110px 150px, 70px 110px;
+  background-repeat: repeat;
+  animation: ovDribbEmbers 5s linear infinite;
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-ov-dribb-celestial, .card-ov-dribb-halo::before, .card-ov-dribb-aether, .card-ov-dribb-corona, .card-ov-dribb-corona::before, .card-ov-dribb-embers { animation: none; }
+}

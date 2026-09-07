@@ -13,6 +13,7 @@
 // salvage on cards already owned — never income, never a pull.
 
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
+import { EXPEDITION_TIERS, INSURANCE_PER_WEEK, PATRON_INSURANCE_PER_WEEK, payoutRange } from "@/lib/expeditions/config";
 import { PATRON_DUST_MULT } from "@/lib/packs/config";
 import { SOVEREIGN_TENURE_DAYS } from "./flames";
 
@@ -80,8 +81,10 @@ export const PATRON_PERKS: PatronPerk[] = [
     icon: "🛤",
     title: "The Gilded Road",
     blurb:
-      "A seventh expedition only patrons can walk: half a day, two forks, and a squad any shelf can field. " +
-      "It pays between a scouting run and a raid — a route of your own, never better odds on anyone else's.",
+      `A seventh expedition only patrons can walk: ${EXPEDITION_TIERS.gilded.durationHours / 24} days, two forks, and ` +
+      `${EXPEDITION_TIERS.gilded.minSigned} signed cards to set out. It pays $${payoutRange("gilded").min.toLocaleString("en-US")}–` +
+      `$${payoutRange("gilded").max.toLocaleString("en-US")} — a route of your own, never better odds on anyone else's. ` +
+      `Patrons also insure ${PATRON_INSURANCE_PER_WEEK} runs a week instead of ${INSURANCE_PER_WEEK}, the first of them free.`,
     headline: true,
     href: "/cards/expeditions",
   },

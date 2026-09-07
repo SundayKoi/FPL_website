@@ -88,9 +88,9 @@ export const EXPEDITION_TIERS: Record<ExpeditionTierKey, ExpeditionTierDef> = {
     what: "A short walk for pocket money. One fork — push for a bigger bag or camp and keep what you have. Nothing here can hurt a card.",
   },
   gilded: {
-    key: "gilded", label: "The Gilded Road", durationHours: 12, minShine: 6, minFoils: 0, minSigned: 0,
+    key: "gilded", label: "The Gilded Road", durationHours: 48, minShine: 6, minFoils: 0, minSigned: 3,
     forks: 2, risk: "wounded", fee: 0, fragments: 0, target: "none", patron: true,
-    what: "The patrons' road: half a day, two forks, and a squad any collection can field. The toll bridge can harden a card; the lantern market can send one home wounded.",
+    what: "The patrons' road: two days, two forks, and three signed cards to walk it. It pays like nothing else on the board. The toll bridge can harden a card; the lantern market can send one home wounded.",
   },
   raid: {
     key: "raid", label: "Deep Raid", durationHours: 24, minShine: 12, minFoils: 1, minSigned: 0,
@@ -134,6 +134,18 @@ export const LOST_DAYS = 7;
 /** Insurance: a launch-time fee that turns lost into wounded and dead into
  *  lost. Patrons get one policy a week for nothing (see patron/perks.ts). */
 export const INSURANCE_FEE = 150;
+
+/** How many runs a collector can insure in one Eastern week, and how many
+ *  a patron can. A policy on every launch made the harm ladder a fee
+ *  rather than a risk; one a week makes it a choice about WHICH run. The
+ *  RPC counts insured launches since Monday ('insurance used up'); the
+ *  board and the action read the same numbers to say so first. */
+export const INSURANCE_PER_WEEK = 1;
+export const PATRON_INSURANCE_PER_WEEK = 2;
+
+export function insurancePerWeek(patron: boolean): number {
+  return patron ? PATRON_INSURANCE_PER_WEEK : INSURANCE_PER_WEEK;
+}
 
 /** What buying a lost card back costs: a floor plus a share of its shine,
  *  so a signed Cracked Ice challenger (16 shine) ransoms for 940 and a
@@ -412,9 +424,13 @@ interface TierRewards {
  *
  *   scout   8h: 0.50x40 + 0.45x100 + 0.05x250          = $77.50
  *               three a day                            → $232.50/day
- *   gilded 12h: 0.40x80 + 0.45x180 + 0.15x400          = $173.00
- *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $182.00/run
- *               two a day, patrons only                → $364.00/day
+ *   gilded 48h: 0.40x1000 + 0.45x2000 + 0.15x3000      = $1,750.00
+ *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $1,759.00/run
+ *               half a run a day, patrons only         → $879.50/day
+ *               THE ONE LINE OVER THE STREAK, on purpose: it takes three
+ *               signed cards (1% of pulls each) locked for two days, and
+ *               it is a patron's route. Held under twice the streak by
+ *               the guardrail test rather than under it.
  *   raid   24h: 0.35x120 + 0.50x260 + 0.15x600         = $262.00
  *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $271.00/day
  *   legend 48h: 0.25x400 + 0.50x850 + 0.25x2000        = $1,025.00
@@ -442,17 +458,17 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
     comp: { poor: 0, solid: 0, jackpot: 0 },
     mark: { kind: "trail", chance: { poor: 0, solid: 0, jackpot: 0.08 } },
   },
-  // The patrons' road. A run pays about two scouts for a half-day and a
-  // squad any shelf can field — a perk that is a ROUTE, not a rate: the
-  // grades, the comp and the mark are all held under the Deep Raid's, so
-  // a patron with a raid-worthy squad still runs the raid. Two a day is
-  // $364, well under the streak, and it lands in the same "recurring
-  // wallet rewards" bucket the patron fairness note already names.
+  // The patrons' road. Three signed cards is the hardest gate on the
+  // board — real ink is 1% of pulls — so the run that needs three of them
+  // pays like nothing else: a thousand at worst, three at best, over two
+  // days. A perk that is a ROUTE, not a rate: the odds on every other run
+  // are untouched, and it lands in the same "recurring wallet rewards"
+  // bucket the patron fairness note already names.
   gilded: {
     weights: { poor: 0.4, solid: 0.45, jackpot: 0.15 },
-    dollars: { poor: 80, solid: 180, jackpot: 400 },
+    dollars: { poor: 1000, solid: 2000, jackpot: 3000 },
     comp: { poor: 0, solid: 0, jackpot: 0.3 },
-    mark: { kind: "sigil", chance: { poor: 0, solid: 0.05, jackpot: 0.2 } },
+    mark: { kind: "sigil", chance: { poor: 0, solid: 0.1, jackpot: 0.3 } },
   },
   raid: {
     weights: { poor: 0.35, solid: 0.5, jackpot: 0.15 },

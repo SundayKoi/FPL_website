@@ -33,6 +33,7 @@ import {
   BRIEF_BONUS,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
+  insurancePerWeek,
   MARK_RANK,
   SHINE_BONUS_CAP,
   SQUAD_SIZE,
@@ -463,6 +464,7 @@ export default function ExpeditionBoard({
   fragments = 0,
   patron = false,
   policyUsed = false,
+  insuredThisWeek = 0,
   initialPick = null,
   base = "/cards",
   playingToday = [],
@@ -503,6 +505,8 @@ export default function ExpeditionBoard({
   /** Whether the free weekly policy is theirs to spend, and whether it is spent. */
   patron?: boolean;
   policyUsed?: boolean;
+  /** Runs insured since Monday, Eastern — against insurancePerWeek(patron). */
+  insuredThisWeek?: number;
 }) {
   const router = useRouter();
   const [picked, setPicked] = useState<ReadonlySet<number>>(
@@ -549,6 +553,7 @@ export default function ExpeditionBoard({
     .flatMap((run) => forkViews(run, now).filter((fork) => fork.status === "open").map((fork) => ({ run, fork })));
   const afflictedInSquad = squad.filter((copy) => copy.card?.mutation?.key === "haunted" || copy.card?.mutation?.key === "cursed");
   const freePolicy = patron && !policyUsed;
+  const insuranceLeft = Math.max(0, insurancePerWeek(patron) - insuredThisWeek);
 
   function toggle(id: number) {
     setLaunchError(null);
@@ -568,7 +573,7 @@ export default function ExpeditionBoard({
     const target = def.target === "lost" ? rescueTarget : def.target === "afflicted" ? (cleanseTarget ?? afflictedInSquad[0]?.id ?? null) : null;
     startTransition(async () => {
       const convoy = convoyMode === "new" ? "new" : convoyMode === "join" ? normaliseConvoyCode(joinCode) : null;
-      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && def.risk !== "none", target, convoy });
+      const result = await launchExpeditionAction(tier, squadIds, { insured: insured && insuranceLeft > 0 && def.risk !== "none", target, convoy });
       setBusyTier(null);
       if (!result.ok) {
         setLaunchError(result.error);
@@ -819,13 +824,16 @@ export default function ExpeditionBoard({
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={insured}
+              checked={insured && insuranceLeft > 0}
+              disabled={insuranceLeft === 0}
               onChange={(event) => setInsured(event.target.checked)}
-              className="h-4 w-4 accent-[var(--color-gold)]"
+              className="h-4 w-4 accent-[var(--color-gold)] disabled:cursor-not-allowed disabled:opacity-50"
             />
             <span className="text-white">Insure this run</span>
-            <span className="text-xs text-steel">
-              {freePolicy ? "free this week (patron)" : `${fmtPoints(INSURANCE_FEE)} at launch`} — lost becomes wounded, dead becomes lost
+            <span data-testid="insurance-note" className="text-xs text-steel">
+              {insuranceLeft === 0
+                ? `spent for the week — ${insurancePerWeek(false)} a week, ${insurancePerWeek(true)} for patrons`
+                : `${freePolicy ? "free this week (patron)" : `${fmtPoints(INSURANCE_FEE)} at launch`} · ${insuranceLeft} of ${insurancePerWeek(patron)} left this week — lost becomes wounded, dead becomes lost`}
             </span>
           </label>
           <label className="flex items-center gap-2">
@@ -963,7 +971,8 @@ export default function ExpeditionBoard({
                 ) : null}
                 {patronLocked ? (
                   <p data-testid={`tier-${key}-locked`} className="text-xs text-gold">
-                    A patron perk. The road opens with the flame — same squad rules, no better odds than the ladder.
+                    A patron perk. The road opens with the flame: {def.minSigned} signed cards to set out, and the biggest bag on the
+                    board. Every other run&apos;s odds are untouched.
                   </p>
                 ) : null}
                 {needsHold ? <p className="text-xs text-steel">Nothing is lost. A Rescue needs a card to go after.</p> : null}

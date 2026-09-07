@@ -53,13 +53,14 @@ describe("the ladder", () => {
     expect(FORKS.legendary.some((fork) => fork.pushRisk.dead > 0)).toBe(true);
     expect(DEAD_NEEDS_PUSHES).toBe(2);
   });
-  it("keeps the Gilded Road a patron route, priced under the raid", () => {
+  it("keeps the Gilded Road a patron route behind three signatures, and pays for it", () => {
     expect(EXPEDITION_TIERS.gilded.patron).toBe(true);
     for (const tier of TIER_ORDER) if (tier !== "gilded") expect(EXPEDITION_TIERS[tier].patron).toBe(false);
-    // A route, not a rate: nothing on the patrons' road beats the raid.
+    // The hardest gate on the board buys the biggest bag — never a card.
+    expect(EXPEDITION_TIERS.gilded.minSigned).toBe(3);
     expect(EXPEDITION_TIERS.gilded.risk).toBe("wounded");
-    expect(payoutRange("gilded").max).toBeLessThan(payoutRange("raid").max);
-    expect(payoutRange("gilded").min).toBeLessThan(payoutRange("raid").min);
+    expect(payoutRange("gilded")).toEqual({ min: 1000, max: 3000 });
+    expect(payoutRange("gilded").max).toBeGreaterThan(payoutRange("legend").max);
     for (const fork of FORKS.gilded) {
       expect(fork.pushRisk.lost).toBe(0);
       expect(fork.pushRisk.dead).toBe(0);
