@@ -104,7 +104,7 @@ export default function GuessTheCardBoard({
           <span className="label-dash">Daily game · Admin testing</span>
           <h1 className="type-display mt-2 text-4xl sm:text-5xl">Guess the Card</h1>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
-            Identify the anonymous {leagueLabel} player from one completed game. Five guesses. A new frozen puzzle at midnight UTC.
+            Identify the anonymous {leagueLabel} player from one completed game. Five guesses. A new puzzle at midnight Eastern.
           </p>
         </div>
         <div className="flex flex-col items-end gap-3">

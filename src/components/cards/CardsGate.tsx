@@ -1,50 +1,48 @@
-import Link from "next/link";
+import AccessWall, { PREMIUM_GATE_TITLE, type AccessReason } from "@/components/access/AccessWall";
+import { PREMIUM_NAME } from "@/lib/site/discord";
+
+export { PREMIUM_GATE_TITLE };
+
+/** The sentence every gated cards page says when the viewer lacks the role. */
+export const PREMIUM_GATE_BODY = `Cards are part of ${PREMIUM_NAME}. Join the Discord, grab the role, and come back — card links you've been sent still work without it.`;
 
 /**
- * The one sentence every gated cards page says when the viewer lacks the
- * role. There used to be two: pages that read the premium role said
- * "Premium members only", pages that read the wallet said "FPL Better
- * members only" — and both checks look at the same Discord role, so a
- * visitor bounced between two names for one thing.
+ * The cards pages' wall — AccessWall with the cards defaults filled in.
+ * `browse` is no longer optional in spirit: a wall that only said "no" was
+ * hiding the one door that is unlocked, so every cards wall points at
+ * Browse unless told otherwise.
  */
-export const PREMIUM_GATE_TITLE = "Premium members only";
-export const PREMIUM_GATE_BODY =
-  "Cards are part of FPL Premium. Grab the premium role in the Discord and come back — card links you've been sent still work without it.";
-
-/** The full-page refusal, in the shape every cards page already used. */
 export default function CardsGate({
   section,
   title,
   body,
   signIn,
+  reason,
   browse,
+  note,
 }: {
-  /** The eyebrow — which part of Cards this is. */
   section: string;
-  title: string;
-  body: string;
-  /** Where to land after signing in; rendering the button at all means
-   *  the viewer is signed out. */
+  title?: string;
+  body?: string;
+  /** Where to land after signing in. Passing it means the viewer is signed
+   *  out; the wall offers the sign-in button. */
   signIn?: string;
-  /** The public way in — Browse is open to everyone, so a gate that only
-   *  said "no" would be hiding the one door that is unlocked. */
-  browse?: string;
+  /** Explicit reason; inferred from `signIn` when absent. */
+  reason?: AccessReason;
+  /** The public way in. Defaults to the premier Browse; pass the academy
+   *  one on academy pages, or `null` for a wall outside the cards section. */
+  browse?: string | null;
+  note?: string;
 }) {
   return (
-    <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-      <span className="label-dash">{section}</span>
-      <h1 className="type-display text-3xl sm:text-4xl">{title}</h1>
-      <p className="max-w-md text-sm text-steel">{body}</p>
-      {signIn ? (
-        <Link href={`/login?redirect=${signIn}`} className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      ) : null}
-      {browse ? (
-        <Link href={browse} className="text-sm text-action-text underline-offset-4 hover:underline">
-          Or just browse the cards — every player, team and moment is open to everyone →
-        </Link>
-      ) : null}
-    </main>
+    <AccessWall
+      section={section}
+      reason={reason ?? (signIn ? "signed-out" : "no-role")}
+      redirect={signIn ?? "/cards"}
+      title={title}
+      body={body}
+      browse={browse === null ? undefined : browse ?? "/cards/browse"}
+      note={note}
+    />
   );
 }

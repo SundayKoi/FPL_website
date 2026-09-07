@@ -561,7 +561,7 @@ export default function FpldleBoard({
             <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-muted">Next puzzle</span>
             <span className="font-mono text-xl text-gold" aria-live="polite">{formatCountdown(remaining)}</span>
             <span data-testid="fpldle-local-reset" className="block text-xs text-muted">
-              {localResetTime ? `Resets at ${localResetTime}` : "Resets at your local time"}
+              {localResetTime ? `Midnight Eastern · ${localResetTime} for you` : "Resets at midnight Eastern"}
             </span>
           </div>
           {game.canReset ? (
@@ -663,7 +663,7 @@ export default function FpldleBoard({
                 <p className="mt-1 text-sm text-mint">+${reward.amount} betting dollars credited{reward.alreadyClaimed ? " previously" : ""}.</p>
               ) : status === "lost" ? (
                 <p className="mt-1 text-sm text-muted">Answer: {answer ? `${answer.name}#${answer.tag}` : "answer reveal unavailable"}</p>
-              ) : <p className="mt-1 text-sm text-muted">New puzzle at 00:00 UTC.</p>}
+              ) : <p className="mt-1 text-sm text-muted">New puzzle at midnight Eastern.</p>}
             </div>
             {guesses.length > 0 ? <button type="button" onClick={() => void copyShareGrid()} className="rounded border border-border-strong px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted hover:border-action-text hover:text-white">{shared ? "Copied" : "Copy share grid"}</button> : null}
           </div>

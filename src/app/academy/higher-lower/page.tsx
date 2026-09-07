@@ -20,7 +20,7 @@ export default async function AcademyHigherLowerPage() {
     game = await getHigherLowerGame("academy");
   } catch (error) {
     if (error instanceof HigherLowerError && error.code === "FORBIDDEN") {
-      return <HigherLowerAccessNotice league="Academy" />;
+      return <HigherLowerAccessNotice league="Academy" message={error.message} />;
     }
     return <HigherLowerUnavailable league="Academy" />;
   }

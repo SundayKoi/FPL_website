@@ -70,11 +70,11 @@ describe("PremiumHub betting preview", () => {
   it("links members to the daily puzzle for the selected league", () => {
     render(<PremiumHub snapshot={snapshot} />);
 
-    const announcement = screen.getByRole("complementary", { name: "New feature announcement" });
-    expect(announcement.textContent).toContain("FPL'dle and Higher or Lower are here");
-    expect(announcement.textContent).toContain("one shared reward");
-    expect(within(announcement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/fpldle");
-    expect(within(announcement).getByRole("link", { name: /play higher or lower/i }).getAttribute("href")).toBe("/higher-lower");
+    // The stale "new feature" banner is gone; the daily games section is
+    // the one place that lists them, and it says when they reset.
+    expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
+    expect(screen.getAllByText(/reset at midnight Eastern/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/midnight UTC/)).toBeNull();
 
     const destinations = screen.getByRole("navigation", { name: "Premium destinations" });
     expect(within(destinations).queryByRole("link", { name: /FPL'dle/ })).toBeNull();
@@ -82,8 +82,8 @@ describe("PremiumHub betting preview", () => {
     expect(dailyGames.getAttribute("id")).toBe("daily-games");
     expect(within(dailyGames).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/fpldle");
     expect(within(dailyGames).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/higher-lower");
-    expect(within(dailyGames).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/guess-the-card");
-    expect(within(dailyGames).getByText("Admin test")).toBeTruthy();
+    expect(within(dailyGames).queryByRole("link", { name: /Guess the Card/ })).toBeNull();
+    expect(within(dailyGames).queryByText("Admin test")).toBeNull();
     const higherLowerPreview = screen.getByRole("img", { name: "Higher or Lower game preview" });
     expect(within(higherLowerPreview).getAllByTestId("higher-lower-preview-card")).toHaveLength(2);
     expect(within(higherLowerPreview).getByText("↑")).toBeTruthy();
@@ -93,14 +93,15 @@ describe("PremiumHub betting preview", () => {
 
     cleanup();
     render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} />);
-    const academyAnnouncement = screen.getByRole("complementary", { name: "New feature announcement" });
-    expect(within(academyAnnouncement).getByRole("link", { name: /play fpl'dle/i }).getAttribute("href")).toBe("/academy/fpldle");
-    expect(within(academyAnnouncement).getByRole("link", { name: /play higher or lower/i }).getAttribute("href")).toBe("/academy/higher-lower");
     const academyDailyGames = screen.getByRole("region", { name: "Daily games" });
     expect(academyDailyGames.getAttribute("id")).toBe("daily-games");
     expect(within(academyDailyGames).getByRole("link", { name: /FPL'dle/ }).getAttribute("href")).toBe("/academy/fpldle");
     expect(within(academyDailyGames).getByRole("link", { name: /Higher or Lower/ }).getAttribute("href")).toBe("/academy/higher-lower");
-    expect(within(academyDailyGames).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
+    // Still in testing: members are not offered it; staff are.
+    expect(within(academyDailyGames).queryByRole("link", { name: /Guess the Card/ })).toBeNull();
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const }} staff />);
+    expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
   });
 
   it("keeps card-specific deep links out of the hub", () => {

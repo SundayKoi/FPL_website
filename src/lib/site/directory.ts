@@ -44,7 +44,6 @@ function leagueGroup(view: LeagueView): SiteGroup {
       { label: "Schedule", href: leaguePath("schedule", view), blurb: "Every fixture, past results and what is next", keywords: ["fixtures", "matches", "games", "results"] },
       { label: "Stats", href: leaguePath("stats", view), blurb: "Player and champion numbers from every game", keywords: ["kda", "leaderboard", "champions"] },
       { label: "My Team", href: leaguePath("my-team", view), blurb: "Your roster, your scouting, your week", keywords: ["scouting"] },
-      { label: "Box scores", href: view === "academy" ? "/academy/box-score" : "/box-score", blurb: "Every game's scoreboard, side by side", keywords: ["scoreboard", "match history"] },
       { label: "Auction Draft", href: "/draft", blurb: "The season's draft board and every nomination", keywords: ["draft room", "auction"] },
     ],
   };
@@ -95,11 +94,10 @@ function dailyGroup(view: LeagueView): SiteGroup {
   return {
     key: "daily",
     label: "Daily games",
-    blurb: "One a day, for the whole league",
+    blurb: "One a day, for the whole league — reset at midnight Eastern",
     items: [
       { label: "FPL'dle", href: `${prefix}/fpldle`, blurb: "Guess the player of the day", keywords: ["wordle", "fpldle", "daily puzzle"] },
       { label: "Higher or Lower", href: `${prefix}/higher-lower`, blurb: "Which card rates higher? Keep the streak alive", keywords: ["higher lower", "streak"] },
-      { label: "Guess the Card", href: `${prefix}/guess-the-card`, blurb: "Name the card from its stats", keywords: ["guess"] },
     ],
   };
 }

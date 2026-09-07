@@ -211,6 +211,29 @@ body {
 }
 
 /* Semantic primary CTA — size classes stay inline. */
+/* The coral pill — the primary action on the cards pages ("Rip it", "Open
+   a pack →", "Send them out"). Fifteen buttons wore this class before it
+   existed; they rendered as bare text, and the first-time flow's most
+   important button was the one with no button on it. */
+@utility btn-coral {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-coral) 80%, transparent);
+  background: var(--color-coral);
+  color: var(--color-navy);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--color-coral) 70%, transparent);
+  &:hover { background: color-mix(in srgb, var(--color-coral) 88%, white); transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  &:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 3px; }
+}
+
 @utility btn-primary {
   border-radius: 0.25rem;
   background: var(--color-action-fill);
