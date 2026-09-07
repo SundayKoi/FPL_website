@@ -21,6 +21,7 @@
  * games have been ingested, mirroring the weekly-brief jobs.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { pathToFileURL } from "node:url";
 import {
   fetchAllCardSeasons,
   fetchLatestGameWeek,
@@ -46,6 +47,8 @@ import { mondayOf } from "../src/lib/packs/week";
 import { stattrakCredits, type TrackedCopy } from "../src/lib/cards/stattrak";
 import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 import { formatMatchWinPayouts, type MatchWinPayoutLine } from "../src/lib/betting/match-wins";
+import { dailyGameDate } from "../src/lib/dailyDay";
+import { refreshHigherLowerSnapshot } from "../src/lib/higher-lower/snapshot";
 
 interface SnapshotRow {
   slug: string;
@@ -54,6 +57,13 @@ interface SnapshotRow {
 }
 
 const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
+
+export interface HigherLowerRefreshFailure {
+  league: CardLeague;
+  season: string;
+  puzzleDate: string;
+  error: unknown;
+}
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -89,12 +99,13 @@ function parseMatchWinPayment(data: unknown): { paid: boolean; amount: number } 
   return { paid: payment.paid === true, amount: Number(payment.amount ?? 0) };
 }
 
-async function processSeason(
+export async function processSeason(
   supabase: SupabaseClient,
   league: CardLeague,
   season: string,
   webhookUrl: string | null,
   origin: string | null,
+  higherLowerRefreshFailures: HigherLowerRefreshFailure[] = [],
 ): Promise<void> {
   const label = LEAGUE_LABELS[league];
   const hubPath = league === "academy" ? "/academy/cards" : "/cards";
@@ -210,6 +221,18 @@ async function processSeason(
     } else {
       const removed = pruned > 0 ? `, removed ${pruned} no longer in that week's pool` : "";
       console.log(`[${label}] Archived ${editionCards.length} cards as the ${editionWeek} edition${removed}.`);
+      const puzzleDate = dailyGameDate();
+      try {
+        const snapshot = await refreshHigherLowerSnapshot(supabase, league, season, puzzleDate);
+        console.log(
+          `[${label}] Higher or Lower refreshed: date=${puzzleDate}, `
+          + `weeks=${snapshot.editionWeeks.join(",")}, candidates=${snapshot.candidateCount}`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[${label}] Higher or Lower refresh failed: date=${puzzleDate}, season=${season} — ${message}`);
+        higherLowerRefreshFailures.push({ league, season, puzzleDate, error });
+      }
       // The week's crowns are also the week's ECLIPSE slots — five new
       // one-of-ones enter the pool the moment the edition lands, and a
       // board that grows in silence may as well not grow. Announced only
@@ -864,18 +887,17 @@ async function assertIngestIsFresh(
   throw new Error(`[${label}] Refusing to drop: ${verdict.message}`);
 }
 
-async function main(): Promise<void> {
-  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false },
-  });
-  const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
-  const origin = process.env.SITE_ORIGIN?.replace(/\/$/, "") ?? null;
-
+export async function runWeeklyCardDrop(
+  supabase: SupabaseClient,
+  webhookUrl: string | null,
+  origin: string | null,
+): Promise<void> {
   const seasons = await fetchAllCardSeasons(supabase);
   if (seasons.length === 0) throw new Error("league_settings has no seasons configured");
+  const higherLowerRefreshFailures: HigherLowerRefreshFailure[] = [];
 
   for (const { league, season } of seasons) {
-    await processSeason(supabase, league, season, webhookUrl, origin);
+    await processSeason(supabase, league, season, webhookUrl, origin, higherLowerRefreshFailures);
     try {
       await creditStatTrak(supabase, LEAGUE_LABELS[league], season, mondayOf(new Date()));
     } catch (error) {
@@ -906,9 +928,34 @@ async function main(): Promise<void> {
       }
     }
   }
+
+  if (higherLowerRefreshFailures.length > 0) {
+    const summary = higherLowerRefreshFailures
+      .map(({ league, season, puzzleDate, error }) => {
+        const message = error instanceof Error ? error.message : String(error);
+        return `${LEAGUE_LABELS[league]} season ${season} date ${puzzleDate}: ${message}`;
+      })
+      .join("; ");
+    console.error(
+      "Higher or Lower refresh failures were recorded after the remaining card-drop work completed. "
+      + "The job will fail so GitHub Actions exposes an incomplete refresh and success-dependent downstream workflows do not continue.",
+    );
+    throw new Error(`Higher or Lower refresh incomplete: ${summary}`);
+  }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+async function main(): Promise<void> {
+  const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+    auth: { persistSession: false },
+  });
+  const webhookUrl = process.env.DISCORD_CARDS_WEBHOOK_URL ?? null;
+  const origin = process.env.SITE_ORIGIN?.replace(/\/$/, "") ?? null;
+  await runWeeklyCardDrop(supabase, webhookUrl, origin);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

@@ -55,7 +55,8 @@ export function concealHigherLowerCard(card: PlayerCardData & { editionWeek?: st
   };
 }
 
-/** Monday of the UTC competition week. Daily card editions use Eastern weeks; this game does not. */
+/** Monday of the UTC settlement week. Daily puzzle dates use the Eastern
+ * calendar via dailyGameDate; settlement keeps its existing weekly boundary. */
 export function utcWeekStart(date: Date): string {
   const day = date.getUTCDay();
   const daysSinceMonday = day === 0 ? 6 : day - 1;

@@ -20,7 +20,7 @@ select is(has_function_privilege('service_role', 'public.settle_higher_lower_wee
 
 select throws_ok(
   $$select * from public.settle_higher_lower_week('2099-01-06')$$,
-  null, null, 'settlement rejects a non-Monday UTC date'
+  null, null, 'settlement rejects a non-Monday settlement date'
 );
 
 insert into public.profiles (id, display_name)
@@ -147,7 +147,7 @@ select * from public.start_higher_lower_run(
 );
 select is((select count(*) from public.higher_lower_daily_runs
   where puzzle_date = '2099-01-05' and profile_id = '00000000-0000-0000-0000-000000000741'), 2::bigint,
-  'one member can have one run per league on the same UTC date');
+  'one member can have one run per league on the same Eastern puzzle date');
 
 insert into public.higher_lower_daily_runs (
   puzzle_date, league, profile_id, discord_id, random_seed, run_state,

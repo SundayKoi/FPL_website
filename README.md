@@ -103,6 +103,21 @@ Anthropic are external integrations used by specific workflows.
 - `.github/workflows/` — nightly stats ingestion and weekly homepage/card jobs.
 - `e2e/` — Playwright specs and their self-seeding fixtures.
 
+### Scheduled card pipeline
+
+The weekly card drop follows ingest → moment-card minting → card drop → weekly
+draw. After each league's weekly edition is archived successfully, the drop
+also refreshes Higher or Lower for that run's current `America/New_York`
+calendar date from the two newest frozen editions. The refresh is additive: a
+date that already has a pool can temporarily contain three weeks when a new
+edition lands, while later dates select the newest two. Page load and starting
+a run retain the same lazy refresh as recovery.
+
+If a refresh fails, both league drops finish, then the job exits nonzero so
+GitHub Actions exposes the incomplete refresh and the success-dependent weekly
+draw does not continue. Operators can retry only this connection with
+`npm run refresh:higher-lower`.
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.9+ (Node 22 is recommended)
