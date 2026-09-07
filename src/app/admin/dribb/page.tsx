@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
-import { DRIBB_COPIES, DRIBB_LOOKS, DRIBB_RATES, dribbPacksPerPull } from "@/lib/cards/dribbMockups";
+import { AETHER_VARIANTS, DRIBB_COPIES, DRIBB_LOOKS, DRIBB_RATES, dribbPacksPerPull } from "@/lib/cards/dribbMockups";
 import { sampleCard } from "@/lib/cards/samples";
 import { ECLIPSE_CHANCE, PACK_SIZE, SECRET_CHANCE } from "@/lib/packs/config";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -49,7 +49,8 @@ export default async function DribbPreviewPage() {
         <p className="max-w-3xl text-sm text-gold">
           Preview only. Nothing on this page mints, prices or writes anything, and no minted copy can wear these
           layers. Pick a look and it ships with a stamp of its own, a counter capped at {DRIBB_COPIES}, and a gate
-          in the roller.
+          in the roller. Below the four, {AETHER_VARIANTS.length} pushes on Aether — the shimmer and the split art,
+          each with one more thing.
         </p>
       </header>
 
@@ -85,8 +86,8 @@ export default async function DribbPreviewPage() {
         </p>
       </section>
 
-      {DRIBB_LOOKS.map((look) => (
-        <section key={look.key} data-testid={`dribb-${look.key}`} aria-label={look.title} className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      {[...DRIBB_LOOKS, ...AETHER_VARIANTS].map((look, index) => (
+        <section key={look.key} data-testid={`dribb-${look.key}`} aria-label={look.title} className={`flex flex-col gap-4 lg:flex-row lg:items-start ${index === DRIBB_LOOKS.length ? "border-t border-line pt-10" : ""}`}>
           {/* One card, no foil: a unique print has no parallel to wear, so
               the look IS the finish. */}
           <div className="flex flex-col items-center gap-2">
