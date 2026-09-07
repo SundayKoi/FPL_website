@@ -9,7 +9,7 @@ import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchPatronTenureDays } from "@/lib/patron/queries";
 import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
-import { GOD_PACK_CHANCE, GOD_PACK_ODDS_DENOMINATOR, PACK_COST, PACK_SIZE } from "@/lib/packs/config";
+import { PACK_COST, PACK_SIZE } from "@/lib/packs/config";
 import {
   fetchChampionsWindow,
   fetchChase,
@@ -131,12 +131,6 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
         </span>
         <span className="text-xs text-steel">How they work, and the real odds →</span>
       </Link>
-      <p className="mt-3 max-w-2xl rounded-lg border border-gold/30 bg-gold/5 px-3 py-2 text-xs font-semibold text-gold">
-        God Pack odds: exactly 1 in {GOD_PACK_ODDS_DENOMINATOR} standard openings ({(GOD_PACK_CHANCE * 100).toFixed(3)}%).
-        Paid, daily, and comped standard packs share the same odds; specialty drops are excluded. God Packs contain
-        five special foils with a signed finale whenever the edition has eligible ink.
-      </p>
-
       <ThisWeekStrip notices={weekNotices({ liveWindow, chase, championsWindow, championComps })} />
 
       <PackShop
