@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fmtPoints } from "@/lib/betting/format";
+import BalanceChip from "@/components/BalanceChip";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { signOut } from "@/lib/auth/actions";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -15,18 +15,11 @@ export default async function AuthButton() {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-2">
-        <span className="hidden text-sm text-muted sm:inline">
+        <span className="hidden text-sm text-muted md:inline">
           {profile?.display_name ?? user.email}
         </span>
         {bettingUser?.allowed ? (
-          <Link
-            href="/economy"
-            title="Your betting dollars — what they buy and every way to earn more"
-            className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-gold transition hover:bg-gold/20"
-            aria-label={`Premium wallet balance ${fmtPoints(bettingUser.balance)}`}
-          >
-            {fmtPoints(bettingUser.balance)}
-          </Link>
+          <BalanceChip balance={bettingUser.balance} />
         ) : (
           // Signed in without the role — new, or lapsed. The chip used to
           // simply vanish, which told a lapsed member nothing.

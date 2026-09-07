@@ -1,5 +1,7 @@
 "use client";
 
+import BalanceChip from "@/components/BalanceChip";
+
 // The pack counter: a till, and nothing more.
 //
 // Buying and rolling both happen server-side the moment the button is
@@ -231,36 +233,40 @@ export default function PackShop({
 
   return (
     <section className="flex flex-col gap-6">
-      <div className="card-brand flex flex-wrap items-center gap-4 p-5">
-        <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-sm font-semibold text-gold">
-          {fmtPoints(balance)}
-        </span>
-        <div className="flex flex-col">
-          <span className="label-dash">Pack price</span>
-          <span className="text-sm font-semibold text-white">{fmtPoints(packCost)}</span>
+      <div className="card-brand flex flex-col gap-4 p-5">
+        {/* Row one: the actions. The free rip is the primary button while
+            it is there — for someone with zero packs the paid one used to
+            be — and the paid pack takes over once today's is ripped. */}
+        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDailyRip}
+            disabled={pending || ripsLeft <= 0}
+            title={patron ? "Patrons rip twice a day" : "One free pack per day"}
+            className={
+              ripsLeft > 0
+                ? "btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                : "rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
+            }
+          >
+            {ripsLeft > 0
+              ? `Daily Rip — free${patron && ripsLeft > 1 ? ` (${ripsLeft} left)` : ""}`
+              : "Ripped today ✓"}
+          </button>
+          {ripStreak && ripStreak > 1 ? (
+            <span className="text-xs font-semibold text-gold">🔥 {ripStreak}-day streak</span>
+          ) : null}
         </div>
-        {editionWeeks.length > 0 ? (
-          <label className="flex flex-col gap-1 text-xs text-steel">
-            Edition
-            <select
-              value={week}
-              onChange={(event) => setWeek(event.target.value)}
-              disabled={pending}
-              className="input-brand px-3 py-2 text-sm disabled:opacity-60"
-            >
-              {editionWeeks.map((value, index) => (
-                <option key={value} value={value}>
-                  {editionLabel(value, editionWeeks.length - index)}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
         <button
           type="button"
           onClick={handleOpen}
           disabled={pending}
-          className="btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          className={
+            ripsLeft > 0 && freePacksLeft === 0
+              ? "rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-60"
+              : "btn-coral px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          }
         >
           {pending
             ? "Opening…"
@@ -278,20 +284,30 @@ export default function PackShop({
             {compsLeft > 0 ? `FREE (${compsLeft} left)` : fmtPoints(CHAMPIONS_PACK_COST)}
           </button>
         ) : null}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleDailyRip}
-            disabled={pending || ripsLeft <= 0}
-            title={patron ? "Patrons rip twice a day" : "One free pack per day"}
-            className="rounded-full border border-gold/60 bg-gold/10 px-5 py-2.5 text-sm font-semibold text-gold transition hover:bg-gold/20 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {ripsLeft > 0
-              ? `Daily Rip — free${patron && ripsLeft > 1 ? ` (${ripsLeft} left)` : ""}`
-              : "Ripped today ✓"}
-          </button>
-          {ripStreak && ripStreak > 1 ? (
-            <span className="text-xs font-semibold text-gold">🔥 {ripStreak}-day streak</span>
+        </div>
+        {/* Row two: the settings — wallet, price, which week's edition. */}
+        <div className="flex flex-wrap items-center gap-4 border-t border-line/50 pt-3">
+          <BalanceChip balance={balance} size="md" />
+          <div className="flex flex-col">
+            <span className="label-dash">Pack price</span>
+            <span className="text-sm font-semibold text-white">{fmtPoints(packCost)}</span>
+          </div>
+          {editionWeeks.length > 0 ? (
+            <label className="flex flex-col gap-1 text-xs text-steel">
+              Edition
+              <select
+                value={week}
+                onChange={(event) => setWeek(event.target.value)}
+                disabled={pending}
+                className="input-brand px-3 py-2 text-sm disabled:opacity-60"
+              >
+                {editionWeeks.map((value, index) => (
+                  <option key={value} value={value}>
+                    {editionLabel(value, editionWeeks.length - index)}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
         </div>
         {patron ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import BalanceChip from "@/components/BalanceChip";
+
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import GuessTheCard from "./GuessTheCard";
@@ -184,7 +186,8 @@ export default function GuessTheCardBoard({
 
           {game.reward ? (
             <p className="mt-4 rounded border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-gold">
-              Shared daily reward: <strong>${game.reward.amount}</strong> betting dollars · balance ${game.reward.balance.toLocaleString("en-US")}
+              Shared daily reward: <strong>${game.reward.amount}</strong> betting dollars credited.{" "}
+              <BalanceChip balance={game.reward.balance} />
             </p>
           ) : null}
 

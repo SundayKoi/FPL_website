@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import RulesPanel from "@/components/site/RulesPanel";
+import { MAX_OPEN_WANTS } from "@/lib/market/config";
 import WantsBoard from "@/components/cards/WantsBoard";
 import type { CardLeague } from "@/lib/cards/queries";
 import { loadMarket } from "../load";
@@ -32,10 +34,19 @@ export async function BountiesPageView({ league = "premier" }: { league?: CardLe
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Bounties">
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Bounties" tabHref={`${cardsBase(league)}/market`}>
         The market from the other side: post a bounty on a card you need, and whoever holds one can sell
         it to you at that price. Holding a card somebody wants? Fill their bounty from your shelf.
       </CardsPageHeader>
+
+      <RulesPanel
+        items={[
+          "Post a bounty on a card you want, at the price you will pay. Nothing is taken from your wallet until someone fills it.",
+          `You can have ${MAX_OPEN_WANTS} bounties open at once, and you can withdraw one any time before it is filled.`,
+          "Holding a card somebody wants? Fill their bounty straight from your shelf and the dollars are yours at once.",
+          "A copy on an expedition or in a fantasy lineup still being scored cannot be used to fill a bounty.",
+        ]}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">Wanted</h2>

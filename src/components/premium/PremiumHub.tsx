@@ -4,6 +4,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import PatronSupportModal from "@/components/premium/PatronSupportModal";
 import PremiumStartHere from "@/components/premium/PremiumStartHere";
 import { fmtPoints } from "@/lib/betting/format";
+import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
 import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
 import type { MarketCardData } from "@/lib/betting/types";
 import type { PlayerCardData } from "@/lib/cards/build";
@@ -17,7 +18,7 @@ const LEAGUES: { key: CardLeague; label: string }[] = [
 
 const PREMIUM_LINKS = [
   { label: "Cards", href: "/cards", note: "Your collection, packs, market and games" },
-  { label: "Betting Exchange", href: "/betting", note: "Markets, pick'em, and wallet" },
+  { label: "Betting", href: "/betting", note: "Markets, pick'em, and wallet" },
   { label: "The Daily Stu", href: "/bangers", note: "Judge the league's hottest takes" },
   { label: "Match Drafter", href: "/drafter", note: "Run a private pick / ban lobby" },
 ] as const;
@@ -297,7 +298,7 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
 
           <FeatureCard
             eyebrow="Live markets"
-            title="Betting Exchange"
+            title="Betting"
             description="See your wallet and the next event worth watching."
             href="/betting"
             className="lg:col-span-3"
@@ -323,7 +324,7 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
           <FeatureCard
             eyebrow="Community read"
             title="The Daily Stu"
-            description="Rate the latest take and vote once a day for $200, or $300 while your patron flame is active."
+            description={`Rate the latest take and vote once a day. ${DAILY_REWARD_SENTENCE}`}
             href="/bangers"
             className="lg:col-span-3"
           >

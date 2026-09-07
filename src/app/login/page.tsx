@@ -28,11 +28,16 @@ export default function LoginPage() {
   return (
     <main className="page-backdrop flex min-h-full flex-1 flex-col items-center justify-center gap-6 px-6 py-16">
       <div className="flex max-w-sm flex-1 flex-col items-center justify-center gap-6">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 text-center">
           <Image src="/fpl-logo.png" width={96} height={96} alt="" />
           <span className="type-display text-2xl">
             FPL <span className="text-muted font-body not-italic">DRAFT</span>
           </span>
+          <h1 className="type-display text-3xl">Sign in</h1>
+          <p className="max-w-xs text-sm leading-6 text-muted">
+            Discord is the league&apos;s sign-in. It is how the site knows your wallet, your cards and your team —
+            and, with the FPL Premium role, it opens the cards, the betting and the daily games.
+          </p>
         </div>
         <button
           className="btn-pill w-full"

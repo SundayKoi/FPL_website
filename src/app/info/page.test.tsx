@@ -9,7 +9,7 @@ describe("InfoPage", () => {
   it("links to the standalone Info destinations", async () => {
     render(await InfoPage());
 
-    expect(screen.getByRole("heading", { name: "Info", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "About the league", level: 1 })).toBeTruthy();
     expect(screen.getByRole("link", { name: "League Links" }).getAttribute("href")).toBe(
       "/league-links",
     );
@@ -21,14 +21,12 @@ describe("InfoPage", () => {
     );
   });
 
-  it("shows the support-the-devs destination with the PayPal link and developer links", async () => {
+  it("links to the support page instead of repeating it", async () => {
     render(await InfoPage());
 
-    expect(screen.getByRole("heading", { name: "Support the Devs", level: 2 })).toBeTruthy();
-    expect(screen.getByAltText("PayPal QR code for Zachari Bultman")).toBeTruthy();
-    const paypalLink = screen.getByRole("link", { name: /support via paypal/i });
-    expect(paypalLink.getAttribute("href")).toBe("https://www.paypal.com/paypalme/ZBultman");
-    expect(screen.getByRole("link", { name: "Venmo Zachari Bultman" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Venmo Matthew Wolanski" })).toBeTruthy();
+    // The identical support section used to render here AND on /support-devs.
+    expect(screen.getByRole("link", { name: "Support the Devs" }).getAttribute("href")).toBe("/support-devs");
+    expect(screen.queryByAltText("PayPal QR code for Zachari Bultman")).toBeNull();
+    expect(screen.getByRole("link", { name: "Premium & Patron" }).getAttribute("href")).toBe("/membership");
   });
 });

@@ -135,7 +135,6 @@ export default async function CollectionSections({
             Roster sets →
           </a>
         </div>
-        <AutoDustPanel initialRule={autoDustRule} candidates={inventory.map(candidateFromInventory)} />
         <CollectionGrid
           inventory={inventory}
           pinnedIds={binderSlots.filter((id): id is number => id !== null)}
@@ -144,6 +143,9 @@ export default async function CollectionSections({
           printRuns={printRuns}
           base={base}
         />
+        {/* Below the shelf, not above it: a new collector's first control
+            should be their cards, not a rule for melting them. */}
+        <AutoDustPanel initialRule={autoDustRule} candidates={inventory.map(candidateFromInventory)} />
       </section>
 
       {season && activeSetWeek ? (
@@ -151,7 +153,7 @@ export default async function CollectionSections({
       ) : null}
 
       {binder ? (
-        <BinderEditor unlocked={binderUnlocked} slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
+        <BinderEditor unlocked={binderUnlocked} slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} base={base} />
       ) : null}
     </>
   );

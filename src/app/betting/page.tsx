@@ -7,13 +7,16 @@ export const metadata: Metadata = {
   title: "Betting — FPL",
 };
 
+/** "Sep 7, 8:00 PM ET" — league time, labelled, like every other event
+ *  on the site. It used to print in the viewer's zone with no label. */
 function nextLockLabel(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return `${new Date(iso).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+    timeZone: "America/New_York",
+  })} ET`;
 }
 
 function EventCard({ event }: { event: EventSummary }) {
@@ -54,10 +57,10 @@ export default async function BettingIndexPage() {
 
   return (
     <div>
-      <span className="label-dash">Franchise Premier League</span>
-      <h1 className="type-display mt-2 text-4xl sm:text-5xl">Events</h1>
+      <span className="label-dash">FPL Premium · Events</span>
+      <h1 className="type-display mt-2 text-4xl sm:text-5xl">Betting</h1>
       <p className="mt-3 max-w-2xl text-sm text-muted">
-        Pick your event to see its pick&apos;em and open markets.
+        Pick an event to see its pick&apos;em and open markets. Every time here is Eastern.
       </p>
       <details className="mt-4 max-w-2xl rounded-lg border border-border-subtle bg-surface/60 px-4 py-3 text-sm text-muted">
         <summary className="cursor-pointer font-semibold text-white">How betting works</summary>

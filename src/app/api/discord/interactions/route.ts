@@ -30,10 +30,10 @@ import "@/lib/betting/discord/rip";
 // copy) handler — same registration-at-module-load convention again.
 import "@/lib/betting/discord/flex";
 
-// Exact copy of the old bot's NO_ACCESS_MSG (bot/main.py) — same wording
-// users already saw from the gateway bot's paid-access gate.
+// The old bot's NO_ACCESS_MSG (bot/main.py), with the product's one name:
+// the role is FPL Premium everywhere on the site now.
 const NO_ACCESS_MSG =
-  "FPL Exchange is for **FPL Better** members — ask the staff about getting access.";
+  "Betting is for **FPL Premium** members — ask the staff about getting the role.";
 
 // Replay guard per Discord docs
 // (https://discord.com/developers/docs/interactions/receiving-and-responding#security-and-authorization):

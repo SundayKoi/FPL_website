@@ -3,11 +3,11 @@ import Link from "next/link";
 import AccessWall from "@/components/access/AccessWall";
 import PremiumBackLink from "@/components/premium/PremiumBackLink";
 import { getBettingUser } from "@/lib/betting/wallet";
-import { fmtPoints } from "@/lib/betting/format";
+import BalanceChip from "@/components/BalanceChip";
 
 /** Server-side gate for the whole /betting section: signed-out visitors get
  * a sign-in prompt (reusing /login's Discord flow, with a redirect back to
- * where they were headed); signed-in visitors without FPL Better access get
+ * where they were headed); signed-in visitors without FPL Premium access get
  * a plain "members only" message. Only an allowed visitor sees the nav +
  * balance chip + the page underneath. */
 export default async function BettingLayout({ children }: { children: ReactNode }) {
@@ -64,9 +64,7 @@ export default async function BettingLayout({ children }: { children: ReactNode 
                 Admin
               </Link>
             )}
-            <span className="rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-sm font-semibold text-gold">
-              {fmtPoints(user.balance)}
-            </span>
+            <BalanceChip balance={user.balance} size="md" />
           </div>
         </div>
       </nav>

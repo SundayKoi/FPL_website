@@ -9,7 +9,8 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import RulesPanel from "@/components/site/RulesPanel";
 
 export const metadata: Metadata = {
   title: "Trade offers — FPL",
@@ -138,11 +139,20 @@ export async function TradesPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers">
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers" tabHref={`${cardsBase(league)}/market`}>
         Trade cards and betting dollars with other collectors — either side of an offer can be cards,
         money, or both. Nothing moves until the other person accepts, and a card fielded in this
         week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
       </CardsPageHeader>
+      <RulesPanel
+        items={[
+          "Pick a collector, choose what you give and what you want back — cards, betting dollars, or both on either side.",
+          "Nothing moves until they accept. They can decline, and you can withdraw an offer any time before then.",
+          "A copy out on an expedition, or in a fantasy lineup that is still being scored, cannot be offered by either side.",
+          "Offers waiting on you show as a badge on the Market tab and on the Trade offers sub-tab.",
+        ]}
+      />
+
       <TradeInbox
         incoming={trades.incoming.map(toInboxTrade)}
         outgoing={trades.outgoing.map(toInboxTrade)}

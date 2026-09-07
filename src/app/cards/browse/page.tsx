@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import CardsGallery from "@/components/cards/CardsGallery";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
 import { createServerSupabase } from "@/lib/supabase/server";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "All Players — FPL",
@@ -22,7 +22,7 @@ export async function BrowsePageView({ league = "premier" }: { league?: CardLeag
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="All players">
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="All cards" tabHref={`${cardsBase(league)}/browse`}>
         The whole league as living trading cards — overall rating, tier, archetype, and form, rebuilt from
         real season stats after every match night. Hover to tilt, click to flip, and open a card to share
         it straight into Discord.

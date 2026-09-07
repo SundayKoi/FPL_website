@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GlossaryLink } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import { Suspense } from "react";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
@@ -14,7 +14,6 @@ export const metadata: Metadata = {
   description: "Every card you own, your binder, and your team sets.",
 };
 
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /**
  * The shelf: every copy the viewer owns, the roster sets those copies
@@ -76,18 +75,11 @@ export async function CollectionPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">
-          Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-        </span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">My Collection</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          Every copy you own, one shelf per player with the best print on top. Open a player&apos;s
-          prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder
-          are further down.
-        </p>
-        <GlossaryLink />
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("My Collection", league, season)} title="My Collection" glossary>
+        Every copy you own, one shelf per player with the best print on top. Open a player&apos;s
+        prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder
+        are further down.
+      </CardsPageHeader>
 
       <Suspense fallback={<CollectionSectionsFallback />}>
         <CollectionSections

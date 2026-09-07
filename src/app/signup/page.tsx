@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { SignupRow } from "@/lib/signup/types";
 import AdminSignupsTable from "@/components/signup/AdminSignupsTable";
@@ -52,8 +53,12 @@ export default async function SignupPage() {
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">Sign Up</h1>
           <hr className="accent-rule mt-5 w-48 sm:w-64" />
           <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
-            Enter the {season} player pool. Check the Info page for eligibility rules —
-            ranked-game minimums, account level, and the rank cap — before you submit.
+            Enter the {season} player pool. The eligibility rules — ranked-game minimums, account level, and the
+            rank cap — are in the{" "}
+            <Link href="/rulebook" className="text-action-text underline-offset-4 hover:underline">
+              Rulebook
+            </Link>
+            ; read them before you submit.
           </p>
         </header>
 

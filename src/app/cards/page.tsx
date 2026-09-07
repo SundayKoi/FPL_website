@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import ClaimFinder from "@/components/cards/ClaimFinder";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
@@ -30,7 +31,6 @@ export const metadata: Metadata = {
   description: "Your card, your shelf, and what's happening in the card game this week — a premium member perk.",
 };
 
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /** "Aug 24" — the draw week is a plain calendar date, printed as UTC so no
  *  reader's timezone slides it back onto the wrong Sunday. */
@@ -169,16 +169,10 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header>
-        <span className="label-dash">
-          Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-        </span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">Cards</h1>
-        <p className="mt-3 max-w-2xl text-sm text-steel">
-          Every player in the league as a living trading card, rated from this season&apos;s stats. Collect
-          them from packs, put them to work, and show them off.
-        </p>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Cards", league, season)} title="Cards">
+        Every player in the league as a living trading card, rated from this season&apos;s stats. Collect
+        them from packs, put them to work, and show them off.
+      </CardsPageHeader>
 
       {/* You first: your card, or the claim that makes one yours. */}
       {myClaim && myClaim.status === "approved" && mySlug ? (

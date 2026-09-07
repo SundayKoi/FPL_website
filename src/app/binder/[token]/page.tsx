@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import BackLink from "@/components/site/BackLink";
 import { notFound } from "next/navigation";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { tierLabel } from "@/lib/cards/tier";
@@ -57,6 +57,9 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
 
   return (
     <main className="page-backdrop mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
+      <div>
+        <BackLink href="/cards/browse" label="Browse the cards" />
+      </div>
       <header className={`relative flex flex-wrap items-center gap-4 ${flame ? "rounded-2xl p-5" : ""}`}>
         {flame ? <PatronFlame flame={flame} /> : null}
         {binder.ownerAvatarUrl ? (
@@ -109,9 +112,6 @@ export default async function BinderPage({ params }: { params: Promise<{ token: 
         </section>
       )}
 
-      <Link href="/cards" className="text-xs text-muted underline-offset-4 hover:text-action-text hover:underline">
-        ← FPL player cards
-      </Link>
     </main>
   );
 }

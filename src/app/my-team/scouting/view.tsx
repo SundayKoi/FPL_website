@@ -1,4 +1,5 @@
 import MyTeamGate from "@/components/my-team/MyTeamGate";
+import BackLink from "@/components/site/BackLink";
 import OpponentScout from "@/components/captain/OpponentScout";
 import { fetchMyRoster } from "@/lib/captain/queries";
 import { leaguePath } from "@/lib/league/links";
@@ -44,7 +45,7 @@ function ScoutingUnavailable({ core = false }: { core?: boolean }) {
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
         <section className="card-brand p-5" aria-label={core ? "My Team unavailable" : "Scouting unavailable"}>
-          <span className="label-dash text-prestige">Premium · Scouting</span>
+          <span className="label-dash text-prestige">My Team · Scouting</span>
           <p className="mt-2 text-sm text-muted">
             {core ? "My Team is temporarily unavailable." : "Scouting data is temporarily unavailable."}
           </p>
@@ -133,6 +134,7 @@ export async function MyTeamScoutingPageView({
   return (
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+        <BackLink href={leaguePath("my-team", league)} label="My Team" className="mb-5" />
         <header className="border-b border-border-subtle pb-8">
           <div>
             <span className="label-dash">My Team · {dashboard.season}</span>
@@ -188,19 +190,19 @@ export async function MyTeamScoutingPageView({
 
         {invalidScoutTarget ? (
           <section className="card-brand mt-8 p-5" aria-label="Scouting target unavailable">
-            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <span className="label-dash text-prestige">My Team · Scouting</span>
             <p className="mt-2 text-sm text-muted">That team is unavailable in this league. Choose an active team to view its report.</p>
           </section>
         ) : !scoutTeam ? (
           <section className="card-brand mt-8 p-5">
-            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <span className="label-dash text-prestige">My Team · Scouting</span>
             <p className="mt-2 text-sm text-muted">No upcoming opponent to scout. Choose a team above to view its available report.</p>
           </section>
         ) : scoutingSource ? (
           <OpponentScout key={scoutTeam.id} source={scoutingSource} perspective="team" />
         ) : scoutingError ? (
           <section className="card-brand mt-8 p-5" aria-label="Scouting unavailable">
-            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <span className="label-dash text-prestige">My Team · Scouting</span>
             <p className="mt-2 text-sm text-muted">Scouting data is temporarily unavailable.</p>
             <p className="mt-2 text-sm text-muted">The report for {scoutTeam.name} could not be loaded.</p>
           </section>

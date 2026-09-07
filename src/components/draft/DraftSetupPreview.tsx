@@ -31,7 +31,7 @@ export default function DraftSetupPreview({
             href="/draft"
             className="rounded border border-border-strong px-3 py-2 text-sm font-semibold text-muted hover:border-action-text hover:text-action-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
           >
-            ← Draft Central
+            ← Auction Draft
           </Link>
         </div>
       </section>

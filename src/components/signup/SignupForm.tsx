@@ -254,7 +254,7 @@ export default function SignupForm({
       <label className={labelClass}>
         Would you like to be a captain this season?
         <span className={hintClass}>
-          Captains draft and run a team for the whole split (see the Info page for what that
+          Captains draft and run a team for the whole split (the Rulebook says what that
           involves).
         </span>
         <select

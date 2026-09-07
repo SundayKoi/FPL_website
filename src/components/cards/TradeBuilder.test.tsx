@@ -265,10 +265,10 @@ describe("TradeBuilder", () => {
   });
 
   it("surfaces a failed collection load", async () => {
-    fetchPartnerInventoryAction.mockResolvedValue({ ok: false, error: "FPL Better members only." });
+    fetchPartnerInventoryAction.mockResolvedValue({ ok: false, error: "FPL Premium members only." });
     renderBuilder();
     await pickPartner();
 
-    expect(screen.getByText("FPL Better members only.")).toBeTruthy();
+    expect(screen.getByText("FPL Premium members only.")).toBeTruthy();
   });
 });
