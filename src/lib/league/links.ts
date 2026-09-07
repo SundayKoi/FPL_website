@@ -5,6 +5,7 @@ export type LeaguePage =
   | "home"
   | "players"
   | "stats"
+  | "standings"
   | "schedule"
   | "teams"
   | "captain"
@@ -16,6 +17,7 @@ const PREMIER_PATHS: Record<Exclude<LeaguePage, "home">, string> = {
   players: "/players",
   stats: "/stats",
   schedule: "/schedule",
+  standings: "/standings",
   teams: "/teams",
   captain: "/captain",
   "my-team": "/my-team",
@@ -53,6 +55,7 @@ const PAIRED_PREFIXES = [
   ["/players", "/academy/players"],
   ["/teams", "/academy/teams"],
   ["/schedule", "/academy/schedule"],
+  ["/standings", "/academy/standings"],
   ["/stats", "/academy/stats"],
   ["/", "/academy"],
 ] as const;

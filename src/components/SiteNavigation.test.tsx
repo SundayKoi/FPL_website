@@ -121,6 +121,7 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("menuitem", { name: /^Players$/ }).getAttribute("href")).toBe("/players");
     expect(screen.getByRole("menuitem", { name: /^Teams$/ }).getAttribute("href")).toBe("/teams");
     expect(screen.getByRole("menuitem", { name: /^Schedule$/ }).getAttribute("href")).toBe("/schedule");
+    expect(screen.getByRole("menuitem", { name: /^Standings$/ }).getAttribute("href")).toBe("/standings");
     expect(screen.getByRole("menuitem", { name: /^Stats$/ }).getAttribute("href")).toBe("/stats");
     // Both drafts under League: the auction that builds rosters and the pick/ban tool.
     expect(screen.getByRole("menuitem", { name: /^Auction Draft$/ }).getAttribute("href")).toBe("/draft");

@@ -79,9 +79,10 @@ function leagueDropdownLinks(view: LeagueView, showBroadcaster: boolean): Dropdo
     ["Players", "players"],
     ["Teams", "teams"],
     ["Schedule", "schedule"],
+    ["Standings", "standings"],
     ["Stats", "stats"],
   ].map(([label, page]) => ({
-    href: leaguePath(page as "players" | "teams" | "schedule" | "stats", view),
+    href: leaguePath(page as "players" | "teams" | "schedule" | "standings" | "stats", view),
     label,
   }));
 
