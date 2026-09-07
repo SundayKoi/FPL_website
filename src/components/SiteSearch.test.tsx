@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import SiteSearch from "./SiteSearch";
 
@@ -68,6 +68,18 @@ describe("SiteSearch", () => {
     });
     expect(push).toHaveBeenCalledWith("/academy/cards/stats");
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("badges the pages that need the role so a wall is never a surprise", async () => {
+    render(<SiteSearch league="premier" />);
+    fireEvent.click(screen.getByRole("button", { name: /search the site/i }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "packs" } });
+    const packs = screen.getByRole("option", { name: /^Packs/ });
+    expect(within(packs).getByText("Premium")).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "vault" } });
+    const vault = screen.getByRole("option", { name: /The Vault/ });
+    expect(within(vault).queryByText("Premium")).toBeNull();
   });
 
   it("says so when nothing matches", async () => {

@@ -8,6 +8,21 @@ export const metadata: Metadata = {
 
 const infoDestinations = [
   {
+    href: "/membership",
+    label: "Premium & Patron",
+    description: "The two ways to pay for FPL, side by side: what each costs, what each gets you, how to get it.",
+  },
+  {
+    href: "/economy",
+    label: "Betting dollars",
+    description: "Where the play money comes from and where it goes, with every figure.",
+  },
+  {
+    href: "/glossary",
+    label: "Glossary",
+    description: "Shine, dust, relic, binder, purse: the words the cards use, explained.",
+  },
+  {
     href: "/league-links",
     label: "League Links",
     description: "Payment, MasterDoc, and the shared resources captains use during the season.",

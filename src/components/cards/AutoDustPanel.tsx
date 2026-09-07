@@ -74,7 +74,7 @@ export default function AutoDustPanel({ initialRule, candidates }: { initialRule
   };
 
   return (
-    <section aria-label="Auto-dust" className="card-brand flex flex-col gap-3 p-4 text-sm">
+    <section id="auto-dust" aria-label="Auto-dust" className="card-brand flex scroll-mt-24 flex-col gap-3 p-4 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col">
           <span className="label-dash">Auto-dust</span>

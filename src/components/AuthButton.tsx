@@ -20,8 +20,8 @@ export default async function AuthButton() {
         </span>
         {bettingUser?.allowed ? (
           <Link
-            href="/betting"
-            title="Your betting dollars — what packs, bets, listings and tables are paid with"
+            href="/economy"
+            title="Your betting dollars — what they buy and every way to earn more"
             className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-semibold text-gold transition hover:bg-gold/20"
             aria-label={`Premium wallet balance ${fmtPoints(bettingUser.balance)}`}
           >

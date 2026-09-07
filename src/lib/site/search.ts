@@ -9,6 +9,8 @@ export interface SearchItem {
   /** Shown beside the label: the group, the league, the tag. */
   hint?: string;
   keywords?: string[];
+  /** Behind the premium role — rendered with a pill so the click is no surprise. */
+  gated?: boolean;
 }
 
 /** Lowercase, no accents, one space between words. "Name#TAG" becomes

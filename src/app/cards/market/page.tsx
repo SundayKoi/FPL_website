@@ -44,7 +44,7 @@ export async function MarketPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Listings">
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Listings" glossary>
         Put a copy up at a fixed price and anyone can take it — no haggling, no waiting for an answer. A
         listing stands for {LISTING_DAYS} days. Looking for a card nobody has listed? Post a bounty on the
         next tab.

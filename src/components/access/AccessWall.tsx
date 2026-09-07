@@ -78,7 +78,10 @@ export default function AccessWall({
                 Find the Discord
               </Link>
             )}
-            <Link href="/premium" className="btn-pill text-sm">
+            {/* The membership page, not the Premium HQ gate: it says what the
+                role costs, what patronage is, and how to get either — the
+                gate only sells one of them. */}
+            <Link href="/membership" className="btn-pill text-sm">
               {reason === "lapsed" ? `Get ${PREMIUM_NAME} back` : `What ${PREMIUM_NAME} is`}
             </Link>
           </>

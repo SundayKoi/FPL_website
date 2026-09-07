@@ -5,6 +5,9 @@ import { getBettingUser } from "@/lib/betting/wallet";
 import { fetchEventSummaries, fetchMarketCards } from "@/lib/betting/queries";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { fetchCardSeason, fetchCurrentWeekCards, type CardLeague } from "@/lib/cards/queries";
+import { fetchAutoDustRule } from "@/lib/cards/autoDustServer";
+import { fetchPackOpenCount } from "@/lib/packs/queries";
+import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchBangerPosts, fetchDailyBanger } from "@/lib/bangers/queries";
 import { rating, type BangerPost } from "@/lib/bangers/feed";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -34,11 +37,33 @@ export interface BangerPreviewData {
   score: number;
 }
 
+/**
+ * The "start here" checklist for a new member: five things, each read
+ * live so the tick is real. Null when the viewer has no Discord identity
+ * to read against (the first row is then the only one that matters).
+ */
+export interface StartChecklist {
+  /** Signed in through Discord — a wallet and a collection can exist. */
+  discordLinked: boolean;
+  /** A claim on their own card this season: "approved", "pending", or none. */
+  claim: "approved" | "pending" | null;
+  /** The claimed card's page — where the signature pad is. */
+  cardHref: string | null;
+  /** The claimed card carries an autograph. */
+  signed: boolean;
+  /** At least one pack opened this season. */
+  packOpened: boolean;
+  /** An auto-dust rule is switched on. */
+  autoDust: boolean;
+}
+
 export interface PremiumHubSnapshot {
   league: CardLeague;
   cards: PreviewResult<CardPreviewData>;
   betting: PreviewResult<BettingPreviewData>;
   banger: PreviewResult<BangerPreviewData>;
+  /** Absent when the checklist could not be read; the hub then shows nothing. */
+  start?: StartChecklist | null;
 }
 
 export function resolvePremiumLeague(value: string | string[] | undefined): CardLeague {
@@ -132,6 +157,62 @@ async function loadBangerPreview(): Promise<PreviewResult<BangerPreviewData>> {
   return { status: "ready", data: { post, score: rating(post) } };
 }
 
+/**
+ * Five live reads for the checklist, every one narrow and by the
+ * viewer's own ids: their claim (profile id), their signature (the
+ * claimed card's name and tag), their pack count and their auto-dust
+ * rule (Discord id, service client — those tables have no public policy).
+ * Read-only: the hub must never be the reason a wallet or a rule exists.
+ */
+async function loadStartChecklist(supabase: SupabaseClient, league: CardLeague): Promise<StartChecklist | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const viewer = userData.user;
+  if (!viewer) return null;
+  const discordId = viewer.identities?.find((identity) => identity.provider === "discord")?.id ?? null;
+  const season = await fetchCardSeason(supabase, league);
+  if (!discordId || !season) {
+    return { discordLinked: Boolean(discordId), claim: null, cardHref: null, signed: false, packOpened: false, autoDust: false };
+  }
+
+  const service = createBettingServiceClient();
+  const [claimRow, packs, rule] = await Promise.all([
+    supabase
+      .from("card_claims")
+      .select("summoner_name, tag, status")
+      .eq("profile_id", viewer.id)
+      .eq("season", season)
+      .in("status", ["approved", "pending"])
+      .order("status", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then((result) => result.data as { summoner_name: string; tag: string; status: "approved" | "pending" } | null, () => null),
+    fetchPackOpenCount(service, discordId, season).catch(() => 0),
+    fetchAutoDustRule(service, discordId).catch(() => null),
+  ]);
+
+  let signed = false;
+  if (claimRow?.status === "approved") {
+    const { data: prefs } = await supabase
+      .from("card_art_prefs")
+      .select("signature")
+      .eq("season", season)
+      .eq("summoner_name", claimRow.summoner_name)
+      .eq("tag", claimRow.tag)
+      .maybeSingle()
+      .then((result) => result, () => ({ data: null }));
+    signed = Boolean((prefs as { signature: string | null } | null)?.signature);
+  }
+
+  return {
+    discordLinked: true,
+    claim: claimRow?.status ?? null,
+    cardHref: claimRow ? `/card/${cardSlug(claimRow.summoner_name, claimRow.tag)}` : null,
+    signed,
+    packOpened: packs > 0,
+    autoDust: rule?.enabled ?? false,
+  };
+}
+
 async function safePreview<T>(load: () => Promise<PreviewResult<T>>, message: string): Promise<PreviewResult<T>> {
   try {
     return await load();
@@ -146,12 +227,13 @@ async function safePreview<T>(load: () => Promise<PreviewResult<T>>, message: st
  */
 export async function loadPremiumHubSnapshot(league: CardLeague): Promise<PremiumHubSnapshot> {
   const supabase = await createServerSupabase();
-  const [cards, betting, banger] = await Promise.all([
+  const [cards, betting, banger, start] = await Promise.all([
     safePreview(() => loadCardPreview(supabase, league), "Card preview is temporarily unavailable."),
     safePreview(() => loadBettingPreview(league), "Betting preview is temporarily unavailable."),
     safePreview(loadBangerPreview, "The Daily Stu preview is temporarily unavailable."),
+    loadStartChecklist(supabase, league).catch(() => null),
   ]);
-  return { league, cards, betting, banger };
+  return { league, cards, betting, banger, start };
 }
 
 /** Payment is intentionally loaded only by the locked gate, never by member HQ. */

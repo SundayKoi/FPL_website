@@ -215,7 +215,7 @@ export async function CardsPageView({ league = "premier" }: { league?: CardLeagu
         </section>
       ) : null}
       {!myClaim && viewerProfileId && cards.length > 0 ? (
-        <section className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-line bg-panel px-5 py-4">
+        <section id="claim" className="flex scroll-mt-24 flex-wrap items-start justify-between gap-4 rounded-lg border border-line bg-panel px-5 py-4">
           <div>
             <span className="label-dash">Claim your card</span>
             <p className="mt-1 max-w-md text-sm text-steel">

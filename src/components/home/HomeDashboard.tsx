@@ -1,3 +1,4 @@
+import HomeOrientation from "./HomeOrientation";
 import SiteDirectoryGrid from "./SiteDirectoryGrid";
 import FeaturedMatchup from "./FeaturedMatchup";
 import HomeStandings from "./HomeStandings";
@@ -16,6 +17,7 @@ import type { HomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import type { TeamIdentity } from "@/lib/teams/identity";
 import type { PlayerCardData } from "@/lib/cards/build";
 import type { FixtureRow } from "@/lib/schedule/types";
+import type { HomeViewer } from "@/lib/home/viewer";
 
 type HomeDashboardProps = {
   ariaLabel: string;
@@ -37,6 +39,8 @@ type HomeDashboardProps = {
   /** Passed through to UpcomingSchedule — Academy has its own schedule page. */
   scheduleBasePath?: string;
   scheduleTeamBasePath?: string | null;
+  /** Who is looking — decides the third door of the orientation block. */
+  viewer?: HomeViewer;
 };
 
 /**
@@ -59,7 +63,9 @@ export default function HomeDashboard({
   cardsBasePath,
   scheduleBasePath,
   scheduleTeamBasePath,
+  viewer = "signed-out",
 }: HomeDashboardProps) {
+  const league = cardsBasePath?.startsWith("/academy") ? "academy" : "premier";
   const isLive = twitch.status.state === "live";
   const tickerItems = buildTickerItems({
     live: isLive,
@@ -72,6 +78,12 @@ export default function HomeDashboard({
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 sm:py-10">
         <section aria-label={ariaLabel} className="space-y-6">
+          <HomeOrientation
+            league={league}
+            viewer={viewer}
+            fixture={featuredFixture}
+            seasonLabel={seasonLabel ?? schedule.season}
+          />
           <LiveTicker items={tickerItems} />
           <div className="grid gap-6 lg:grid-cols-[2fr_1fr] xl:gap-8">
             <FeaturedMatchup
@@ -104,7 +116,7 @@ export default function HomeDashboard({
             basePath={scheduleBasePath}
             teamBasePath={scheduleTeamBasePath}
           />
-          <SiteDirectoryGrid league={cardsBasePath?.startsWith("/academy") ? "academy" : "premier"} />
+          <SiteDirectoryGrid league={league} />
         </section>
       </div>
     </main>
