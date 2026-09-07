@@ -7,14 +7,9 @@ import {
   requestPlayerIdentityClaim,
   withdrawPlayerIdentityClaim,
 } from "@/lib/players/identityActions";
-import type { LeagueKey } from "@/lib/players/identity";
+import type { LeagueKey, PlayerRosterClaimState } from "@/lib/players/identity";
 
-export type PlayerRosterClaimState =
-  | "unclaimed"
-  | "pending"
-  | "claimed"
-  | "mine-pending"
-  | "mine-approved";
+export type { PlayerRosterClaimState } from "@/lib/players/identity";
 
 const ACTION =
   "rounded-full border border-border-strong px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-muted transition hover:border-action-text hover:text-action-text disabled:opacity-40";

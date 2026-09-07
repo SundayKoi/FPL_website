@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LeagueKey } from "@/lib/players/identity";
-import type { PlayerRosterClaimState } from "@/components/teams/PlayerRosterClaim";
+import type { LeagueKey, PlayerRosterClaimState } from "@/lib/players/identity";
 
 type RosterIdentity = {
   id: string;
@@ -12,8 +11,65 @@ export type RosterClaimPresentation = {
   claimLinkId: string | null;
 };
 
+export type RosterClaimTarget = RosterClaimPresentation & {
+  playerPoolId: string;
+  leagueTeamId: string;
+  league: LeagueKey;
+  season: string;
+  returnPath: string;
+  signedIn: boolean;
+  unavailable: boolean;
+};
+
+export type RosterClaimTargetInput = {
+  playerPoolId: string;
+  leagueTeamId: string;
+  returnPath: string;
+};
+
 const PUBLIC_STATES = new Set(["unclaimed", "pending", "claimed"]);
 const UNAVAILABLE = "Roster claim status is unavailable";
+
+export function buildRosterClaimTargets(
+  entries: RosterClaimTargetInput[],
+  states: Record<string, RosterClaimPresentation>,
+  league: LeagueKey,
+  season: string,
+  signedIn: boolean,
+  unavailable = false,
+): Record<string, RosterClaimTarget> {
+  return Object.fromEntries(entries.map((entry) => [
+    entry.playerPoolId,
+    {
+      ...entry,
+      league,
+      season,
+      signedIn,
+      unavailable,
+      state: states[entry.playerPoolId]?.state ?? "unclaimed",
+      claimLinkId: states[entry.playerPoolId]?.claimLinkId ?? null,
+    },
+  ]));
+}
+
+export async function fetchRosterClaimTargets(
+  supabase: SupabaseClient,
+  entries: RosterClaimTargetInput[],
+  league: LeagueKey,
+  season: string,
+  viewerProfileId: string | null,
+): Promise<Record<string, RosterClaimTarget>> {
+  if (!entries.length) return {};
+
+  const states = await fetchRosterClaimStates(
+    supabase,
+    entries.map((entry) => ({ id: entry.playerPoolId, canonicalPlayerId: entry.playerPoolId })),
+    league,
+    season,
+    viewerProfileId,
+  );
+  return buildRosterClaimTargets(entries, states, league, season, viewerProfileId !== null);
+}
 
 /** Combines a public-safe neutral state with, for an authenticated viewer,
  * one separately RLS-scoped self row. Profile IDs never leave this mapper. */

@@ -53,6 +53,7 @@ export interface Player {
 
 export interface RosterSlotView {
   id: string;
+  playerPoolId?: string | null;
   role: LolRole;
   displayName: string;
   opggUrl?: string | null;

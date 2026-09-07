@@ -10,6 +10,7 @@ import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 
 
 export type CanonicalPlayerPoolRow = {
+  id?: string;
   season_key: string;
   display_name: string;
   role: RoleSection["key"];
@@ -96,6 +97,7 @@ export function adaptCanonicalPlayerPool(
       rank: row.rank ?? "—",
       min: minLookup.get(normalizePlayerName(row.display_name)) ?? 0,
       opggUrl: row.opgg_url ?? "#",
+      playerPoolId: row.id,
     });
   }
 

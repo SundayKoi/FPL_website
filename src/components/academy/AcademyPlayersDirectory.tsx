@@ -8,6 +8,7 @@ import type {
   PlayerIdentityLinkRow,
   VerifiedProfileOption,
 } from "@/components/players/PlayerIdentityAdmin";
+import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
 
 type Props = {
   players: AcademySheetPlayer[];
@@ -17,6 +18,7 @@ type Props = {
   identitySeason?: string;
   identityLinks?: PlayerIdentityLinkRow[];
   identityProfiles?: VerifiedProfileOption[];
+  playerClaims?: Record<string, RosterClaimTarget>;
 };
 
 export default function AcademyPlayersDirectory({
@@ -27,6 +29,7 @@ export default function AcademyPlayersDirectory({
   identitySeason,
   identityLinks = [],
   identityProfiles = [],
+  playerClaims = {},
 }: Props) {
   const roleKey = (role: string) => {
     const normalized = role.toLowerCase();
@@ -44,6 +47,7 @@ export default function AcademyPlayersDirectory({
             name: player.display_name,
             rank: player.rank ?? "—",
             min: 0,
+            playerPoolId: player.id,
             opggUrl:
               individualOpggUrl(
                 player.opgg_url ?? sheetByName.get(normalizePlayerName(player.display_name))?.opggUrl,
@@ -66,6 +70,7 @@ export default function AcademyPlayersDirectory({
       identitySeason={identitySeason}
       identityLinks={identityLinks}
       identityProfiles={identityProfiles}
+      playerClaims={playerClaims}
       showFreeAgency={false}
       showMinSort={false}
       emptyStateMessages={{ "season-5": "Academy player data is unavailable right now." }}
