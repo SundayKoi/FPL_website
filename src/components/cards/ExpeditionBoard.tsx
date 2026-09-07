@@ -971,7 +971,8 @@ export default function ExpeditionBoard({
                 ) : null}
                 {patronLocked ? (
                   <p data-testid={`tier-${key}-locked`} className="text-xs text-gold">
-                    A patron perk. The road opens with the flame — same squad rules, no better odds than the ladder.
+                    A patron perk. The road opens with the flame: {def.minSigned} signed cards to set out, and the biggest bag on the
+                    board. Every other run&apos;s odds are untouched.
                   </p>
                 ) : null}
                 {needsHold ? <p className="text-xs text-steel">Nothing is lost. A Rescue needs a card to go after.</p> : null}

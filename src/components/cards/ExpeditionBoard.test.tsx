@@ -269,6 +269,14 @@ describe("ExpeditionBoard — tier cards", () => {
     expect(button.textContent).toBe("Patrons only");
   });
 
+  it("explains the Gilded Road in the rules of the road", () => {
+    renderBoard();
+    const rule = screen.getByTestId("rule-gilded");
+    expect(rule.textContent).toContain("3 signed cards");
+    expect(rule.textContent).toContain("$1,000–$3,000");
+    expect(screen.getByTestId("insurance-note").textContent).toContain("1 of 1 left this week");
+  });
+
   it("opens the Gilded Road to a patron", () => {
     renderBoard({ patron: true });
 
