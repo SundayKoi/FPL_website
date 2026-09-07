@@ -694,7 +694,18 @@ when any validation fails. Operators can inspect `cron.job` and
 `cron.job_run_details`, correct the catalog or schedule data, and—using an
 authorized service-role context—retry with the original Tuesday 1:00 AM
 Eastern anchor by calling `generate_weekly_betting_markets(anchor)`. The
-generator never resolves, cancels, or recreates weekly events.
+generator never resolves, cancels, or recreates weekly events. Each successful run also calls
+`ensure_weekly_betting_pickems(target_monday)` to create one pick'em per league
+from that exact fixture slate. Titles come from the published stage (`week_4`
+becomes `Week 4`), not a calendar-week calculation. Existing pick'ems must match
+the event, title, kickoff lock, and exact market IDs; mismatches abort the whole
+transaction. Retries preserve cards and carryover, and single-series slates
+are skipped because pick'ems require at least two legs. New slates require
+open markets before kickoff and atomically claim the existing jackpot bank,
+in event-ID order, just like manual creation. The result includes pick'em
+created/existing/skipped counts. Service-role operators can repair missing
+pick'ems alone with `ensure_weekly_betting_pickems('YYYY-MM-DD')` after verifying
+the Monday and fixture stage; it refuses incomplete market coverage.
 
 Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
