@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -60,7 +60,7 @@ export async function RaritiesPageView({ league = "premier" }: { league?: CardLe
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Rarities">
+      <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Rarities" tabHref={`${cardsBase(league)}/packs`}>
         Everything a card can come out of a pack as, and how often — and what it can become in your hands.
         Every number on this page is read from the same setting the shop rolls with, so what it says is what
         you get. New this release: three finishes — Shiny, StatTrak and Secret — rolled on top of everything

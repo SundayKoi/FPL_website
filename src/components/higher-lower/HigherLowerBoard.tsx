@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import ResetCountdown from "@/components/daily/ResetCountdown";
+import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { preloadArt } from "@/lib/cards/artUrls";
@@ -342,7 +343,7 @@ export default function HigherLowerBoard({
             Every round shows a complete reference card and a concealed challenger. The timer starts only when a round begins, and one miss ends your run. Play again as often as you like.
           </p>
           <p className="max-w-xl text-xs leading-6 text-gold">
-            Finish any daily game to claim the shared reward: $200 betting dollars, or $300 while your patron flame is active.
+            {DAILY_REWARD_SENTENCE}
           </p>
           <button type="button" onClick={start} disabled={pending} className="btn-rivalry rounded-full px-7 py-3 text-sm uppercase tracking-wide">
             {pending ? "Starting…" : "Start Run →"}

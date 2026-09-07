@@ -29,6 +29,7 @@ import type { CardLeague } from "@/lib/cards/queries";
 import { createTradeAction, fetchInventoryCardAction, fetchPartnerInventoryAction } from "@/lib/trades/actions";
 import type { Collector } from "@/lib/trades/queries";
 import CardCopyPreview, { tierLabel } from "./CardCopyPreview";
+import EmptyShelf from "./EmptyShelf";
 
 /** An owned copy as the builder lists it — flat columns, plus the frozen card
  *  when the caller happens to hold it (your own shelf does; a partner's
@@ -335,6 +336,7 @@ export default function TradeBuilder({
         </select>
       </label>
 
+      {mine.length === 0 ? <EmptyShelf base={league === "academy" ? "/academy/cards" : "/cards"} goal="have something to offer" /> : null}
       {partner === "" ? (
         <p className="text-sm text-muted">Pick someone to see what they have.</p>
       ) : (

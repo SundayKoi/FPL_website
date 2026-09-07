@@ -46,7 +46,7 @@ export default function OpponentScout({
 
   return <section aria-labelledby="scouting-heading" className="mt-8 space-y-4">
     <header className="card-brand p-5">
-      <span className="label-dash text-prestige">Premium · Scouting</span>
+      <span className="label-dash text-prestige">My Team · Scouting</span>
       <h2 id="scouting-heading" className="type-display mt-2 text-3xl">Scouting</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted">{mode === "inhouse" ? "Champion performance from all available in-house games." : "A clear record of draft patterns and history. This section presents scouting context only."}</p>
       <p className="mt-3 text-sm text-muted"><span className="label-dash">{subjectLabel}</span> <span className="font-semibold text-white">{subjectName}</span></p>

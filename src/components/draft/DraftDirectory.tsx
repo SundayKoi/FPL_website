@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Draft } from "@/lib/draft/types";
 import UpcomingDraftCard from "./UpcomingDraftCard";
 
-export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
+export default function DraftDirectory({ drafts, showAdmin = false }: { drafts: Draft[]; showAdmin?: boolean }) {
   const upcomingDrafts = drafts
     .filter((draft) => draft.status === "setup" && draft.starts_at)
     .sort((left, right) => new Date(left.starts_at!).getTime() - new Date(right.starts_at!).getTime());
@@ -15,20 +15,24 @@ export default function DraftDirectory({ drafts }: { drafts: Draft[] }) {
       >
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <span className="label-dash">LEAGUE OPERATIONS</span>
+            <span className="label-dash">THE SEASON STARTS HERE</span>
             <h1 id="draft-central-title" className="type-display mt-2 text-4xl sm:text-5xl">
-              Draft Central
+              Auction Draft
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
               Get ready for the next room, follow active boards, and revisit every completed draft.
             </p>
           </div>
-          <Link
-            href="/admin"
-            className="text-sm text-muted underline underline-offset-4 hover:text-white focus-visible:text-white"
-          >
-            Admin
-          </Link>
+          {showAdmin ? (
+            // Presentation only, like the header's Admin link: /admin
+            // re-checks the staff tier. Everyone else used to see this.
+            <Link
+              href="/admin"
+              className="text-sm text-muted underline underline-offset-4 hover:text-white focus-visible:text-white"
+            >
+              Admin
+            </Link>
+          ) : null}
         </div>
 
         {upcomingDrafts.length > 0 && (

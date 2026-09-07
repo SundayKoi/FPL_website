@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import DraftDirectory from "@/components/draft/DraftDirectory";
 import type { Draft } from "@/lib/draft/types";
+import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createServerSupabase } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default async function DraftPage() {
     .select("*")
     .order("created_at", { ascending: false });
   const drafts = (data as Draft[]) ?? [];
+  const staff = await fetchStaffTier(supabase).catch(() => ({ isAdmin: false, isOwner: false, isBroadcaster: false }));
 
-  return <DraftDirectory drafts={drafts} />;
+  return <DraftDirectory drafts={drafts} showAdmin={staff.isAdmin || staff.isOwner} />;
 }

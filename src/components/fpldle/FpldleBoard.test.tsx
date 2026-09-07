@@ -196,7 +196,7 @@ describe("FpldleBoard", () => {
 
     expect(screen.getByRole("note").textContent).toContain("Possible players include substitutes (subs)");
     const reward = screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent;
-    expect(reward).toContain("one shared reward");
+    expect(reward).toContain("One shared reward a day");
     expect(reward).toContain("$200");
     expect(reward).toContain("$300");
     expect(screen.queryByRole("complementary", { name: "New feature announcement" })).toBeNull();
@@ -206,7 +206,7 @@ describe("FpldleBoard", () => {
     render(<FpldleBoard game={{ ...game(), patron: true }} league="premier" submitGuess={vi.fn()} revealAnswer={vi.fn()} resetPuzzle={resetPuzzle()} />);
 
     const reward = screen.getByRole("complementary", { name: "FPL'dle reward" }).textContent;
-    expect(reward).toContain("one shared reward");
+    expect(reward).toContain("One shared reward a day");
     expect(reward).toContain("$200");
     expect(reward).toContain("$300");
   });

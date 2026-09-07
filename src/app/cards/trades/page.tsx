@@ -9,7 +9,7 @@ import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "Trade offers — FPL",
@@ -138,7 +138,7 @@ export async function TradesPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers">
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, season)} title="Trade offers" tabHref={`${cardsBase(league)}/market`}>
         Trade cards and betting dollars with other collectors — either side of an offer can be cards,
         money, or both. Nothing moves until the other person accepts, and a card fielded in this
         week&apos;s fantasy lineup can&apos;t be traded until the week is scored.

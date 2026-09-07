@@ -178,7 +178,7 @@ describe("POST /api/discord/interactions", () => {
     expect(res.status).toBe(200);
     expect(body.type).toBe(4);
     expect(body.data.flags).toBe(64);
-    expect(body.data.embeds[0].description).toContain("FPL Better");
+    expect(body.data.embeds[0].description).toContain("FPL Premium");
   });
 
   it("denies a DM (no member field) when a role is required", async () => {
@@ -196,7 +196,7 @@ describe("POST /api/discord/interactions", () => {
     const res = await POST(req);
     const body = await res.json();
 
-    expect(body.data.embeds[0].description).toContain("FPL Better");
+    expect(body.data.embeds[0].description).toContain("FPL Premium");
   });
 
   it("allows a command from a member with the required role", async () => {

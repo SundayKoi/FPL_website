@@ -3,7 +3,7 @@ import MomentWall from "@/components/cards/MomentWall";
 import { fetchCardSeason, fetchSeasonMoments, type CardLeague } from "@/lib/cards/queries";
 import { MOMENTS_PER_WEEK, MOMENT_PULL_CHANCE } from "@/lib/cards/moments";
 import { createServerSupabase } from "@/lib/supabase/server";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "Moments — FPL",
@@ -19,7 +19,7 @@ export async function MomentsPageView({ league = "premier" }: { league?: CardLea
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="Moments">
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="Moments" tabHref={`${cardsBase(league)}/browse`}>
         A player card is a season average, which is exactly what buries the one night someone went off.
         These are the other half — one game, the real stat line, the date it happened. At most{" "}
         {MOMENTS_PER_WEEK} mint per week, and only the rarest of what actually happened. Each one can only

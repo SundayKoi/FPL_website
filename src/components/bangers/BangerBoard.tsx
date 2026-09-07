@@ -120,7 +120,9 @@ function LocalResetTime({ endsAt }: { endsAt: string }) {
     );
   }, [endsAt]);
 
-  return <p className="mt-3 text-xs text-white/45">{resetLabel ? `Resets ${resetLabel}` : "Resets at your local time"}</p>;
+  // League time first, the viewer's own beside it — the shape every
+  // other daily game uses.
+  return <p className="mt-3 text-xs text-white/45">{resetLabel ? `Resets midnight ET · ${resetLabel} for you` : "Resets at midnight ET"}</p>;
 }
 
 export default function BangerBoard({ posts, dailyBanger, settings, patron = false, initialVotes = {}, initialDailyVote, initialDailyRewardAmount }: { posts: BangerPost[]; dailyBanger: (BangerPost & { checkDate: string; startsAt: string; endsAt: string }) | null; settings: BangerBoardSettings; patron?: boolean; initialVotes?: Partial<Record<string, Vote>>; initialDailyVote?: Vote; initialDailyRewardAmount?: number }) {
@@ -223,10 +225,15 @@ export default function BangerBoard({ posts, dailyBanger, settings, patron = fal
       <section className="relative border-b border-banana/20 px-5 pb-14 pt-14 sm:px-10 sm:pt-20">
         <div className="pointer-events-none absolute -right-8 -top-8 text-[10rem] opacity-[0.08] sm:text-[16rem]" aria-hidden="true">🐒</div>
         <div className="mx-auto max-w-6xl">
-          <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-banana"><span className="text-lg">🍌</span> Premium dispatch · The Daily Stu</div>
+          <div className="mb-6 flex items-center gap-3 text-xs font-bold uppercase tracking-[0.24em] text-banana"><span className="text-lg">🍌</span> Premium dispatch</div>
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div>
-              <h1 className="max-w-3xl font-display text-5xl font-bold uppercase italic leading-[0.9] tracking-[-0.05em] text-white sm:text-7xl">{settings.heroTitle}</h1>
+              <h1 className="max-w-3xl font-display text-5xl font-bold uppercase italic leading-[0.9] tracking-[-0.05em] text-white sm:text-7xl">The Daily Stu</h1>
+              {settings.heroTitle && settings.heroTitle.trim().toLowerCase() !== "the daily stu" ? (
+                // The admin-typed headline used to BE the h1, so the page was
+                // called one thing in the menu and another on arrival.
+                <p className="mt-4 max-w-3xl font-display text-2xl font-bold uppercase italic text-banana sm:text-3xl">{settings.heroTitle}</p>
+              ) : null}
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/60">The community court for the takes, theories, and timeline turbulence of <span className="font-semibold text-white">@Stuart69Davis</span>.</p>
               <div className="mt-8 flex flex-wrap items-center gap-4"><a href="https://x.com/Stuart69Davis" target="_blank" rel="noopener noreferrer" className="rounded-full bg-banana px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-jungle transition hover:bg-white">Open X profile ↗</a><span className="text-xs uppercase tracking-[0.16em] text-white/35">{posts.length} archived transmissions</span></div>
             </div>
@@ -241,7 +248,7 @@ export default function BangerBoard({ posts, dailyBanger, settings, patron = fal
 
       <section className="mx-auto max-w-6xl px-5 pt-12 sm:px-10">
         <div className="rounded-3xl border border-mint/30 bg-gradient-to-br from-[#173b2c] to-jungle-card p-6 shadow-[0_18px_50px_rgba(0,0,0,0.25)] sm:p-8">
-          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · vote once a day for ${listedDailyReward}</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
+          <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="label-dash">Daily reward · shared with FPL&apos;dle and Higher or Lower</p><h2 className="mt-2 font-display text-3xl font-bold uppercase italic text-white sm:text-4xl">{settings.dailyTitle}</h2></div><span className="text-4xl">🎁 🍌</span></div>
           {dailyBanger && dailyDisplayPost ? <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end"><div><TweetIdentity date={formatPostDate(dailyDisplayPost.publishedAt)} /><p className="mt-4 max-w-3xl text-xl leading-snug text-white/85">{dailyDisplayPost.text}</p><BangerMeter score={rating(dailyDisplayPost)} voteCount={totalVotes(dailyDisplayPost)} className="mt-5 max-w-xl" /></div><div>{dailyVote ? <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">{dailyPending ? "Saving vote…" : dailyRewardAmount ? `✓ $${dailyRewardAmount} bonus claimed` : "✓ Bonus claimed"}</p> : <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-mint">Vote once a day → get ${listedDailyReward}</p>}<VoteButtons post={dailyDisplayPost} currentVote={dailyDisplayVote} onVote={voteDaily} disabled={dailyPending || Boolean(dailyVote)} />{dailyMessage ? <p className="mt-3 text-xs text-white/45" role="status" aria-live="polite">{dailyMessage}</p> : null}<LocalResetTime endsAt={dailyBanger.endsAt} /></div></div> : <p className="mt-6 text-sm text-white/50">No verified tweets are available for today&apos;s check yet.</p>}
         </div>
       </section>

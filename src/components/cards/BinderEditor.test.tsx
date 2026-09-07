@@ -58,7 +58,8 @@ describe("BinderEditor", () => {
 
     // Discoverable before you own anything — otherwise the only way to
     // learn the binder exists is to already have cards in it.
-    expect(screen.getByText(/open a pack/i)).toBeTruthy();
+    expect(screen.getByTestId("empty-shelf")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /open a pack/i }).getAttribute("href")).toBe("/cards/packs");
     expect(screen.getByRole("link", { name: /view binder/i }).getAttribute("href")).toBe("/binder/tok");
     expect(screen.queryByLabelText("Slot 1")).toBeNull();
   });

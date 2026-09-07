@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import BalanceChip from "@/components/BalanceChip";
+import { DAILY_REWARD_SENTENCE } from "@/lib/betting/daily";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import type {
@@ -541,7 +543,7 @@ export default function FpldleBoard({
     <main className="page-backdrop mx-auto flex w-full max-w-[1800px] min-w-0 flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
       <aside aria-label="FPL&apos;dle reward" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
         <span className="label-dash">Daily reward</span>
-        <p className="mt-2 text-white">Complete any daily game to claim one shared reward: $200 betting dollars, or $300 while your patron flame is active. FPL&apos;dle pays when you solve within five guesses.</p>
+        <p className="mt-2 text-white">{DAILY_REWARD_SENTENCE} FPL&apos;dle pays when you solve within five guesses.</p>
       </aside>
       <p role="note" className="rounded border border-gold/40 bg-gold/5 px-4 py-3 text-sm text-muted">
         <span className="font-semibold text-gold">Reminder:</span> Possible players include substitutes (subs).
@@ -660,7 +662,10 @@ export default function FpldleBoard({
               <span className="label-dash">Puzzle complete</span>
               <p className="type-display mt-1 text-2xl">{status === "won" ? `Solved in ${guesses.length}` : "Out of guesses"}</p>
               {status === "won" && reward ? (
-                <p className="mt-1 text-sm text-mint">+${reward.amount} betting dollars credited{reward.alreadyClaimed ? " previously" : ""}.</p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-mint">
+                  <span>+${reward.amount} betting dollars credited{reward.alreadyClaimed ? " previously" : ""}.</span>
+                  <BalanceChip balance={reward.balance} />
+                </p>
               ) : status === "lost" ? (
                 <p className="mt-1 text-sm text-muted">Answer: {answer ? `${answer.name}#${answer.tag}` : "answer reveal unavailable"}</p>
               ) : <p className="mt-1 text-sm text-muted">New puzzle at midnight Eastern.</p>}

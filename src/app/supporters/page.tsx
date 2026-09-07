@@ -5,7 +5,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import PatronFlame from "@/components/patron/PatronFlame";
 
 export const metadata: Metadata = {
-  title: "League Patrons — FPL",
+  title: "Patrons — FPL",
   description: "The people whose support keeps the site and its tools running.",
 };
 
@@ -36,8 +36,8 @@ export default async function SupportersPage() {
   return (
     <main className="page-backdrop mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-12 text-white sm:px-6">
       <header>
-        <span className="label-dash">League Patrons</span>
-        <h1 className="type-display mt-2 text-4xl sm:text-5xl">The Flame Holders</h1>
+        <span className="label-dash">The Flame Holders</span>
+        <h1 className="type-display mt-2 text-4xl sm:text-5xl">Patrons</h1>
         <p className="mt-4 max-w-2xl text-sm leading-6 text-muted">
           Patrons cover what the league costs to run — hosting, the tools, the AI that helps build it. In
           return they carry the flame. Nothing they pay for changes a card&apos;s odds, anyone&apos;s rating, or

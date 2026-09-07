@@ -9,7 +9,7 @@ import { groupUnclaimedByWeek, vaultTotals, type FoundEclipse, type VaultData } 
 import { fetchVault } from "@/lib/cards/vaultQueries";
 import { ECLIPSE_FOIL_TYPE } from "@/lib/packs/config";
 import { editionLabel } from "@/lib/packs/week";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 
 export const metadata: Metadata = {
   title: "The Vault — FPL",
@@ -126,7 +126,7 @@ export async function VaultPageView({ league = "premier" }: { league?: CardLeagu
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="The Vault">
+      <CardsPageHeader eyebrow={cardsEyebrow("Browse", league, season)} title="The Vault" tabHref={`${cardsBase(league)}/browse`}>
         An Eclipse can only fall on a Card of the Week, and only one of each will ever exist. This is the
         register: every one that has been found, who holds it now and everywhere it has been — and, below,
         every crowned print still waiting for somebody to pull it. An unclaimed one stays claimable forever
