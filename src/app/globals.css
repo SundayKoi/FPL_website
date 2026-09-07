@@ -3373,6 +3373,116 @@ body {
   animation: ovDribbEmbers 5s linear infinite;
   mix-blend-mode: screen;
 }
+/* ── Aether, pushed — four variations on the shimmer. ─────────────── */
+
+/* Prism: a rainbow ring orbiting the border, masked to the edge band. */
+@keyframes ovDribbPrism { to { transform: rotate(360deg); } }
+@utility card-ov-dribb-aether-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 7px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -60%;
+    background: conic-gradient(from 0deg, #ff6ec7, #ffd166, #7ef2b8, #6bb9ff, #c86bff, #ff6ec7);
+    animation: ovDribbPrism 6s linear infinite;
+    filter: saturate(1.5) brightness(1.2);
+  }
+}
+/* A bar of white light leaking across the face. */
+@keyframes ovDribbLeak { 0% { background-position: -150% 0; } 60%, 100% { background-position: 250% 0; } }
+@utility card-ov-dribb-aether-leak {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image: linear-gradient(105deg, transparent 42%, rgb(255 255 255 / 0.55) 50%, transparent 58%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: ovDribbLeak 4.5s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+/* Rift: a slanted band where everything behind is inverted. A rotated
+   child rather than a clip-path: Chromium applies a backdrop filter to the
+   element's box, not to its clip, so the clip alone drew a rectangle. */
+@keyframes ovDribbRift { 0%, 100% { transform: rotate(-11deg) translateY(0); } 50% { transform: rotate(-11deg) translateY(-6px); } }
+@utility card-ov-dribb-aether-rift {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    left: -25%;
+    width: 150%;
+    top: 44%;
+    height: 9%;
+    backdrop-filter: invert(0.9) hue-rotate(150deg) saturate(1.6) contrast(1.1);
+    border-top: 2px solid rgb(210 125 255 / 0.95);
+    border-bottom: 2px solid rgb(126 242 184 / 0.95);
+    box-shadow: 0 0 14px 2px rgb(210 125 255 / 0.6);
+    animation: ovDribbRift 3.6s ease-in-out infinite;
+  }
+}
+/* The echo, slid harder for the rift. */
+@utility card-ov-dribb-aberration-wide {
+  transform: translate(calc((var(--gx, 50) - 50) * 0.3%), calc((var(--gy, 50) - 50) * 0.3%)) scale(1.06);
+  filter: hue-rotate(200deg) saturate(1.8) contrast(1.15);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  -webkit-mask-image: radial-gradient(ellipse 50% 60% at 50% 40%, black 50%, transparent 100%);
+  mask-image: radial-gradient(ellipse 50% 60% at 50% 40%, black 50%, transparent 100%);
+  transition: transform 80ms linear;
+}
+
+/* Nebula: violet and teal clouds rolling under the shimmer, faint stars. */
+@keyframes ovDribbNebula {
+  0% { background-position: 0% 0%, 100% 100%, 0 0; }
+  50% { background-position: 60% 30%, 30% 60%, 0 0; }
+  100% { background-position: 0% 0%, 100% 100%, 0 0; }
+}
+@utility card-ov-dribb-aether-nebula {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 30% 35%, rgb(150 80 255 / 0.75), transparent 70%),
+    radial-gradient(ellipse 55% 50% at 75% 70%, rgb(60 220 200 / 0.6), transparent 70%),
+    radial-gradient(1px 1px at 20% 20%, rgb(255 255 255 / 0.9), transparent 60%);
+  background-size: 200% 200%, 200% 200%, 90px 90px;
+  animation: ovDribbNebula 18s ease-in-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+/* Glass: a specular highlight at the pointer, caustics crawling, a bevel. */
+@keyframes ovDribbCaustic { to { background-position: 0 0, 140px 90px; } }
+@utility card-ov-dribb-aether-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background-image:
+    radial-gradient(circle at calc(var(--gx, 50) * 1%) calc(var(--gy, 50) * 1%), rgb(255 255 255 / 0.5), rgb(255 255 255 / 0.12) 18%, transparent 38%),
+    repeating-linear-gradient(25deg, transparent 0 11px, rgb(255 255 255 / 0.16) 11px 12px, transparent 12px 26px);
+  background-size: 100% 100%, 140px 90px;
+  animation: ovDribbCaustic 6s linear infinite;
+  mix-blend-mode: screen;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.9),
+    inset 2px 2px 0 1px rgb(255 255 255 / 0.55),
+    inset -2px -2px 0 1px rgb(120 160 200 / 0.55),
+    inset 0 0 24px 2px rgb(223 243 255 / 0.35);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card-ov-dribb-celestial, .card-ov-dribb-halo::before, .card-ov-dribb-aether, .card-ov-dribb-corona, .card-ov-dribb-corona::before, .card-ov-dribb-embers { animation: none; }
+  .card-ov-dribb-celestial, .card-ov-dribb-halo::before, .card-ov-dribb-aether, .card-ov-dribb-corona, .card-ov-dribb-corona::before, .card-ov-dribb-embers,
+  .card-ov-dribb-aether-ring::before, .card-ov-dribb-aether-leak, .card-ov-dribb-aether-rift::before, .card-ov-dribb-aether-nebula, .card-ov-dribb-aether-glass { animation: none; }
 }
