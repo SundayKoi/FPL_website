@@ -575,13 +575,14 @@ won.
 ## Card expeditions
 
 Send three owned cards out on a route and answer the forks as the squad
-reaches them. `/cards/expeditions` (`/academy/cards/expeditions`) offers six
-runs, and the page prints every rule before the click ("The rules of the
-road"):
+reaches them. `/cards/expeditions` (`/academy/cards/expeditions`) offers seven
+runs — one of them, the Gilded Road, for patrons only — and the page prints
+every rule before the click ("The rules of the road"):
 
 | Run | Away | Forks | Entry | Worst case |
 | --- | --- | --- | --- | --- |
 | Scouting Run | 8h | 1 | anyone | nothing |
+| The Gilded Road | 12h | 2 | patrons only, 6 shine | wounded |
 | Deep Raid | 24h | 2 | 12 shine, a foil | wounded |
 | Legend Hunt | 48h | 3 | 20 shine, two foils, an autograph | lost |
 | Rescue | 12h | 1 | 8 shine, and a lost card to go after | lost |

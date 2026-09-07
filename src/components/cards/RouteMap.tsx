@@ -2,7 +2,7 @@
 // marker moving along it. Hook-free and static apart from the marker's
 // position, which the board hands in as a fraction of the run elapsed.
 //
-// Six routes, six shapes. The path is what makes a fork a PLACE — "the
+// Seven routes, seven shapes. The path is what makes a fork a PLACE — "the
 // vault door" is the third bend on the Legend Hunt — and the marker is
 // what makes "back in 14h" a squad somewhere on it.
 
@@ -15,6 +15,7 @@ import { FORKS, type ForkStatus } from "@/lib/expeditions/routes";
  *  legendary's spiral into the rift. */
 const PATHS: Record<ExpeditionTierKey, string> = {
   scout: "M6 44 C 40 44, 60 20, 100 24 S 160 40, 194 18",
+  gilded: "M6 36 C 30 34, 50 22, 80 24 S 120 40, 150 30 S 180 16, 194 26",
   raid: "M6 20 C 40 22, 50 50, 90 48 S 130 12, 160 30 S 190 44, 194 30",
   legend: "M6 14 C 30 14, 40 42, 70 44 S 110 20, 130 34 S 150 54, 194 50",
   rescue: "M6 40 C 60 40, 90 20, 120 26 S 170 40, 194 22",

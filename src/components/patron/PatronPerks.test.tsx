@@ -17,7 +17,11 @@ describe("PatronPerks", () => {
     render(<PatronPerks />);
 
     expect(screen.getByText("A seat at the design table")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /have a look/i }).getAttribute("href")).toBe("/skin-lines");
+    const links = screen.getAllByRole("link", { name: /have a look/i }).map((link) => link.getAttribute("href"));
+    expect(links).toContain("/skin-lines");
+    // The patrons' expedition links to the board it opens on.
+    expect(screen.getByText("The Gilded Road")).toBeTruthy();
+    expect(links).toContain("/cards/expeditions");
   });
 
   it("includes the same headline perk in the compact cards preview", () => {

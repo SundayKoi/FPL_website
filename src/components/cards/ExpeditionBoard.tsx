@@ -805,7 +805,7 @@ export default function ExpeditionBoard({
       {/* ── The rules ─────────────────────────────────────────────────── */}
       <ExpeditionRules />
 
-      {/* ── The six runs ──────────────────────────────────────────────── */}
+      {/* ── The seven runs ────────────────────────────────────────────── */}
       <section ref={launchRef} aria-label="Expedition routes" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h2 className="type-display text-2xl sm:text-3xl">Choose a run</h2>
@@ -900,17 +900,30 @@ export default function ExpeditionBoard({
             const needsHold = def.target === "lost" && holds.length === 0;
             const needsAfflicted = def.target === "afflicted" && full && afflictedInSquad.length === 0;
             const shortFragments = def.fragments > fragments;
-            const blocked = !gate.ok || isOut || needsHold || needsAfflicted || shortFragments || pending;
+            // The patrons' road, locked for everyone else. Presentation
+            // only: the action and the RPC both refuse it on their own.
+            const patronLocked = def.patron && !patron;
+            const blocked = !gate.ok || isOut || needsHold || needsAfflicted || shortFragments || patronLocked || pending;
             const range = payoutRange(key);
             return (
               <article
                 key={key}
                 data-testid={`tier-${key}`}
-                className={`card-brand flex flex-col gap-3 p-5 transition ${gate.ok && !isOut && !needsHold && !needsAfflicted && !shortFragments ? "border-mint/50" : ""}`}
+                className={`card-brand flex flex-col gap-3 p-5 transition ${gate.ok && !isOut && !needsHold && !needsAfflicted && !shortFragments && !patronLocked ? "border-mint/50" : def.patron ? "border-gold/40" : ""}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <h3 className="type-display text-xl">{def.label}</h3>
+                    <h3 className="type-display flex items-center gap-2 text-xl">
+                      {def.label}
+                      {def.patron ? (
+                        <span
+                          data-testid={`tier-${key}-patron`}
+                          className="rounded-full border border-gold/70 bg-gold/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-gold"
+                        >
+                          🔥 Patrons
+                        </span>
+                      ) : null}
+                    </h3>
                     <p className="mt-0.5 text-xs uppercase tracking-wide text-steel">
                       {def.durationHours} hours away · {def.forks} fork{def.forks === 1 ? "" : "s"}
                     </p>
@@ -948,6 +961,11 @@ export default function ExpeditionBoard({
                     Already in the field. One {def.label} at a time — bring this one home first.
                   </p>
                 ) : null}
+                {patronLocked ? (
+                  <p data-testid={`tier-${key}-locked`} className="text-xs text-gold">
+                    A patron perk. The road opens with the flame — same squad rules, no better odds than the ladder.
+                  </p>
+                ) : null}
                 {needsHold ? <p className="text-xs text-steel">Nothing is lost. A Rescue needs a card to go after.</p> : null}
                 {needsAfflicted ? <p className="text-xs text-coral">Put a Haunted or Cursed card in the squad to cleanse it.</p> : null}
                 {shortFragments ? (
@@ -972,7 +990,7 @@ export default function ExpeditionBoard({
                   aria-label={`Launch ${def.label}`}
                   className={`mt-auto px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${def.risk === "dead" ? "btn-pill border-red-400/70 text-red-200" : "btn-coral"}`}
                 >
-                  {busyTier === key ? "Sending…" : isOut ? "Still out there" : def.risk === "dead" ? "Send them in, knowing" : "Send them out"}
+                  {busyTier === key ? "Sending…" : isOut ? "Still out there" : patronLocked ? "Patrons only" : def.risk === "dead" ? "Send them in, knowing" : "Send them out"}
                 </button>
               </article>
             );

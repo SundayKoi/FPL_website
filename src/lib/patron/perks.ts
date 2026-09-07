@@ -76,6 +76,16 @@ export const PATRON_PERKS: PatronPerk[] = [
     headline: true,
   },
   {
+    key: "gilded-road",
+    icon: "🛤",
+    title: "The Gilded Road",
+    blurb:
+      "A seventh expedition only patrons can walk: half a day, two forks, and a squad any shelf can field. " +
+      "It pays between a scouting run and a raid — a route of your own, never better odds on anyone else's.",
+    headline: true,
+    href: "/cards/expeditions",
+  },
+  {
     key: "binder",
     icon: "📚",
     title: `The ${PATRON_BINDER_SLOTS}-slot binder`,
