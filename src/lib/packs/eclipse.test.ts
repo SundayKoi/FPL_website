@@ -36,11 +36,11 @@ describe("Eclipse is outside the foil ladder", () => {
 });
 
 describe("the drop rate is the one that was agreed", () => {
-  it("is one in five hundred Card-of-the-Week pulls", () => {
-    expect(ECLIPSE_CHANCE).toBe(1 / 500);
+  it("is one in two hundred and fifty Card-of-the-Week pulls", () => {
+    expect(ECLIPSE_CHANCE).toBe(1 / 250);
   });
 
-  it("works out at roughly one Eclipse per few-thousand packs", () => {
+  it("works out at roughly one Eclipse per thousand-odd packs", () => {
     // The gate in front of the rate is what makes the number small. A Card
     // of the Week is the top card in each role, and the roller picks
     // uniformly inside a rarity class, so it lands in a few percent of
@@ -49,11 +49,11 @@ describe("the drop rate is the one that was agreed", () => {
     const perPack = (gate: number) => 1 - (1 - gate * ECLIPSE_CHANCE) ** 5;
     const thin = 1 / perPack(0.044);
     const typical = 1 / perPack(0.021);
-    expect(Math.round(thin)).toBeGreaterThan(1500);
-    expect(Math.round(typical)).toBeLessThan(8000);
+    expect(Math.round(thin)).toBeGreaterThan(700);
+    expect(Math.round(typical)).toBeLessThan(4000);
     // And the headline claim: rare, but not once-a-decade rare.
-    expect(Math.round(thin)).toBeLessThan(4000);
-    expect(Math.round(typical)).toBeGreaterThan(3000);
+    expect(Math.round(thin)).toBeLessThan(2000);
+    expect(Math.round(typical)).toBeGreaterThan(1500);
   });
 
   it("is rare enough that a season of packs usually yields at most one", () => {
