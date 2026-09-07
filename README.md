@@ -572,6 +572,19 @@ workflow run and a button press — in either order, or overlapping — still
 leave exactly one winner per week; the later one just reports who already
 won.
 
+## Access walls and the Discord invite
+
+Every gated page (Betting, the cards pages, the daily games, the Match
+Drafter, the skin-line preview) renders one shared wall,
+`src/components/access/AccessWall.tsx`. A signed-out visitor gets "Sign in
+with Discord" back to the page they wanted; a signed-in visitor without the
+premium role gets "Join the Discord", "What FPL Premium is" (`/premium`),
+and on a cards page the public Browse door. The invite comes from
+`NEXT_PUBLIC_DISCORD_INVITE_URL`; until it is set the button falls back to
+`/league-links`. Guess the Card is still in admin testing and is listed
+only for staff (the header, Premium HQ and the site directory all hide it
+from members); every other refusal renders a wall rather than redirecting.
+
 ## Card expeditions
 
 Send three owned cards out on a route and answer the forks as the squad

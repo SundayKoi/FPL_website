@@ -66,22 +66,25 @@ function staff() {
 const previewed = () => screen.getAllByTestId("card").filter((node) => node.getAttribute("data-preview"));
 
 describe("the skin-line mockup page", () => {
-  it("sends anyone who is neither staff nor a patron to the support desk", async () => {
+  it("shows anyone who is neither staff nor a patron the wall, pointing at patronage", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
     readViewerDiscordId.mockResolvedValue("111");
     fetchPatronActive.mockResolvedValue(false);
     fetchAllCardSeasons.mockResolvedValue([]);
-    await SkinLinesPreviewPage();
-    expect(redirect).toHaveBeenCalledWith("/support-devs");
+    render(await SkinLinesPreviewPage());
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByTestId("access-wall").getAttribute("data-reason")).toBe("no-role");
+    expect(screen.getByRole("link", { name: /become a patron/i }).getAttribute("href")).toBe("/support-devs");
   });
 
-  it("sends a signed-out visitor to the support desk without asking about patronage", async () => {
+  it("shows a signed-out visitor the wall with a sign-in button, without asking about patronage", async () => {
     fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false });
     readViewerDiscordId.mockResolvedValue(null);
     fetchAllCardSeasons.mockResolvedValue([]);
-    await SkinLinesPreviewPage();
+    render(await SkinLinesPreviewPage());
     expect(fetchPatronActive).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith("/support-devs");
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByTestId("access-wall").getAttribute("data-reason")).toBe("signed-out");
   });
 
   it("lets an active patron in, and points them back at the cards rather than the admin hub", async () => {

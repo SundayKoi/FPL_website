@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ResetCountdown from "@/components/daily/ResetCountdown";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { preloadArt } from "@/lib/cards/artUrls";
@@ -317,7 +318,9 @@ export default function HigherLowerBoard({
         </div>
         {game.state === "not_started" ? (
           <span className="text-sm text-steel">Unlimited replays · server-timed</span>
-        ) : (
+        ) : null}
+        <ResetCountdown expiresAt={game.expiresAt} label="Next puzzle" />
+        {game.state === "not_started" ? null : (
           <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
             {game.state === "perfect" ? "Perfect" : "Complete"}
           </span>

@@ -34,7 +34,7 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
   },
 ];
 
-function premiumDropdownLinks(premiumHref: string, view: LeagueView): DropdownLink[] {
+function premiumDropdownLinks(premiumHref: string, view: LeagueView, showTesting: boolean): DropdownLink[] {
   // The daily games are destinations of their own, not an anchor on the
   // hub: "Daily Games" landed people half-way down a page and they had to
   // find the game again from there.
@@ -46,7 +46,9 @@ function premiumDropdownLinks(premiumHref: string, view: LeagueView): DropdownLi
     { href: "/drafter", label: "Match Drafter" },
     { href: `${prefix}/fpldle`, label: "FPL'dle" },
     { href: `${prefix}/higher-lower`, label: "Higher or Lower" },
-    { href: `${prefix}/guess-the-card`, label: "Guess the Card" },
+    // Still in admin testing: a member who clicked it was bounced straight
+    // back to Premium HQ with no explanation.
+    ...(showTesting ? [{ href: `${prefix}/guess-the-card`, label: "Guess the Card" }] : []),
   ];
 }
 
@@ -129,7 +131,7 @@ export default function SiteNavigation({
   const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
-    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref, league) },
+    { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref, league, showAdmin) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
   ];

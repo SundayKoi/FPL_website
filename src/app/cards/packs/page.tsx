@@ -54,7 +54,7 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
   }
 
   if (!user.allowed) {
-    return <CardsGate section="Packs" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return <CardsGate section="Packs" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} browse={`${base}/browse`} />;
   }
 
   const service = createBettingServiceClient();

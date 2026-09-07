@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
-import { getBettingUser } from "@/lib/betting/wallet";
+import { readBettingIdentity } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { fetchRuns } from "@/lib/expeditions/queries";
@@ -25,7 +25,9 @@ const NOBODY: ShelfStatus = { balance: null, offers: 0, forks: 0 };
  */
 export async function cardsShelfStatus(league: CardLeague): Promise<ShelfStatus> {
   try {
-    const user = await getBettingUser();
+    // Read-only on purpose: this runs on every cards page, Browse included,
+    // and a chip must never be the reason a wallet exists.
+    const user = await readBettingIdentity();
     if (!user) return NOBODY;
     const service = createBettingServiceClient();
     const season = await fetchCardSeason(service, league);

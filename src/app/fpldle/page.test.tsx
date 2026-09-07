@@ -26,12 +26,15 @@ vi.mock("@/lib/fpldle/actions", () => ({
 afterEach(() => cleanup());
 
 describe("FpldlePage", () => {
-  it("redirects non-premium callers to Premium HQ", async () => {
-    getFpldleGame.mockRejectedValue(new FpldleError("FORBIDDEN", "Premium members only."));
+  it("walls non-premium callers instead of bouncing them to Premium HQ", async () => {
+    getFpldleGame.mockRejectedValue(new FpldleError("FORBIDDEN", "FPL'dle is available to Premium members."));
 
-    await FpldlePage();
+    render(await FpldlePage());
 
-    expect(redirect).toHaveBeenCalledWith("/premium");
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByTestId("access-wall").getAttribute("data-reason")).toBe("no-role");
+    expect(screen.getByRole("link", { name: /discord/i })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/premium");
   });
 
   it("keeps unavailable-state handling for non-authorization failures", async () => {

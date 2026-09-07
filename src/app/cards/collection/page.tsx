@@ -50,7 +50,15 @@ export async function CollectionPageView({
     );
   }
   if (!user.allowed) {
-    return <CardsGate section="My collection" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return (
+      <CardsGate
+        section="My collection"
+        title={PREMIUM_GATE_TITLE}
+        body={PREMIUM_GATE_BODY}
+        browse={`${base}/browse`}
+        note="If you held cards before, they are still here — nothing is dusted, traded or lost while the role is off. It all opens again the moment it is back."
+      />
+    );
   }
 
   const service = createBettingServiceClient();

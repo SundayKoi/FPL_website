@@ -167,6 +167,13 @@ export default async function AdminPage() {
       href: "/admin/dribb",
     },
     {
+      label: "Guess the Card",
+      stat: "In testing",
+      statTone: "text-gold",
+      description: "The third daily game, open to staff only until it is ready. Members no longer see it in the menu or on Premium HQ.",
+      href: "/guess-the-card",
+    },
+    {
       label: "Announcements",
       stat: "Prepared posts",
       statTone: "text-gold",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import AccessWall from "@/components/access/AccessWall";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fetchStaffTier } from "@/lib/auth/staffTier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -71,7 +71,19 @@ export default async function SkinLinesPreviewPage() {
   if (!staff) {
     const discordId = await readViewerDiscordId(supabase);
     const patron = discordId ? await fetchPatronActive(service, discordId) : false;
-    if (!patron) redirect("/support-devs");
+    if (!patron) {
+      return (
+        <AccessWall
+          section="Skin-line parallels"
+          reason={discordId ? "no-role" : "signed-out"}
+          redirect="/skin-lines"
+          title="A seat at the design table"
+          body="This preview is one of the things patronage buys: proposals drawn on real cards before anything mints, and a say before it does. Patrons and staff can open it."
+          browse="/support-devs"
+          browseLabel="Become a patron →"
+        />
+      );
+    }
   }
 
   const seasons = await fetchAllCardSeasons(service);

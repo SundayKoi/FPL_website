@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
+import CardsGate from "@/components/cards/CardsGate";
 import ExpeditionBoard from "@/components/cards/ExpeditionBoard";
 import { bettingAccess } from "@/lib/betting/access";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -72,17 +73,13 @@ export async function ExpeditionsPageView({
 
   if (!viewer) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Card expeditions</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Sign in to send a squad out</h1>
-        <p className="max-w-md text-sm text-steel">
-          Expeditions field cards from your collection and pay into your wallet — sign in
-          with Discord to check your access.
-        </p>
-        <Link href={`/login?redirect=${base}/expeditions`} className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      </main>
+      <CardsGate
+        section="Card expeditions"
+        title="Sign in to send a squad out"
+        body="Expeditions field cards from your collection and pay into your wallet — sign in with Discord to check your access."
+        signIn={`${base}/expeditions`}
+        browse={`${base}/browse`}
+      />
     );
   }
 
@@ -96,20 +93,29 @@ export async function ExpeditionsPageView({
       () => ({ data: null }),
     );
   const discordId = (profile as { discord_id: string | null } | null)?.discord_id ?? null;
-  // No linked Discord id means no betting profile and no shelf — the same
-  // dead end as failing the role check, and it reads the same to the player.
-  const allowed = discordId ? (await bettingAccess(discordId)).allowed : false;
-
-  if (!discordId || !allowed) {
+  // A profile with no Discord id is an account that never linked one (or
+  // linked it before the column existed). That is not "no role", and it
+  // must not read like it: the fix is a fresh sign-in, not a purchase.
+  if (!discordId) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Card expeditions</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-steel">
-          An expedition pays betting dollars, and only premium members have a wallet to pay into.
-          Grab the premium role in the Discord and come back to send a squad out.
-        </p>
-      </main>
+      <CardsGate
+        section="Card expeditions"
+        reason="signed-out"
+        title="Your Discord account isn't linked yet"
+        body="Expeditions read your collection by your Discord id, and this account hasn't got one attached. Sign out and back in with Discord and it will."
+        signIn={`${base}/expeditions`}
+        browse={`${base}/browse`}
+      />
+    );
+  }
+  const allowed = (await bettingAccess(discordId)).allowed;
+  if (!allowed) {
+    return (
+      <CardsGate
+        section="Card expeditions"
+        body="An expedition pays betting dollars, and only members have a wallet to pay into. The role opens it."
+        browse={`${base}/browse`}
+      />
     );
   }
 

@@ -228,10 +228,9 @@ function HigherLowerPreview({ referenceCard, challengerCard }: { referenceCard: 
   );
 }
 
-export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot }) {
+export default function PremiumHub({ snapshot, staff = false }: { snapshot: PremiumHubSnapshot; staff?: boolean }) {
   const base = snapshot.league === "academy" ? "/academy/cards" : "/cards";
   const leagueLabel = snapshot.league === "academy" ? "Academy" : "Premier";
-  const fpldleHref = snapshot.league === "academy" ? "/academy/fpldle" : "/fpldle";
   const higherLowerHref = snapshot.league === "academy" ? "/academy/higher-lower" : "/higher-lower";
   const guessTheCardHref = snapshot.league === "academy" ? "/academy/guess-the-card" : "/guess-the-card";
   const higherLowerPreviewCards = snapshot.cards.status === "ready"
@@ -240,24 +239,6 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
 
   return (
     <main className="page-backdrop mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6 lg:px-8">
-      <aside aria-label="New feature announcement" className="rounded border border-league-accent/50 bg-league-accent/10 px-4 py-3 text-sm text-muted">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <span className="label-dash">New feature announcement</span>
-            <p className="mt-2 text-white">
-              FPL&apos;dle and Higher or Lower are here: complete either daily game to claim one shared reward — $200 betting dollars, or $300 while your patron flame is active. Solve FPL&apos;dle within five guesses or take on 45 Higher or Lower rounds with unlimited replays.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Link href={fpldleHref} className="rounded border border-action-text/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill/10">
-              Play FPL&apos;dle →
-            </Link>
-            <Link href={higherLowerHref} className="rounded border border-action-text/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-action-text transition hover:bg-action-fill/10">
-              Play Higher or Lower →
-            </Link>
-          </div>
-        </div>
-      </aside>
       <nav aria-label="Premium destinations" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PREMIUM_LINKS.map((link) => (
           <Link key={link.href} href={link.href} className="rounded-lg border border-border-strong bg-surface/60 p-4 transition hover:border-action-text/60">
@@ -396,7 +377,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
         <SectionHeading
           eyebrow="Daily games"
           title="Daily games"
-          description="Three daily games, one shared reward, refreshed at midnight UTC."
+          description={`${staff ? "Three" : "Two"} daily games and The Daily Stu, one shared reward a day, reset at midnight Eastern.`}
         />
         <h2 id="daily-games-heading" className="sr-only">Daily games</h2>
         <div className="grid gap-5 lg:grid-cols-12">
@@ -409,7 +390,7 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           >
             <div className="flex min-h-28 items-center rounded-lg border border-border-subtle bg-gradient-to-br from-league-accent/15 via-canvas/70 to-league-secondary/10 p-5">
               <p className="text-sm leading-6 text-muted">
-                One shared puzzle for every {leagueLabel} Premium member, refreshed at midnight UTC.
+                One shared puzzle for every {leagueLabel} Premium member, reset at midnight Eastern.
               </p>
             </div>
           </FeatureCard>
@@ -422,21 +403,25 @@ export default function PremiumHub({ snapshot }: { snapshot: PremiumHubSnapshot 
           >
             <HigherLowerPreview {...higherLowerPreviewCards} />
           </FeatureCard>
+          {staff ? (
+            // Still in admin testing: advertising it to members sent them
+            // to a page that bounced them straight back here.
           <FeatureCard
-            eyebrow="Daily Guess the Card"
-            title="Guess the Card"
-            description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
-            href={guessTheCardHref}
-            className="lg:col-span-4"
-          >
-            <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border-subtle bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-display text-lg font-bold text-white">?????#????</span>
-                <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
+              eyebrow="Daily Guess the Card"
+              title="Guess the Card"
+              description={`Reconstruct the ${leagueLabel} carry from five player guesses.`}
+              href={guessTheCardHref}
+              className="lg:col-span-4"
+            >
+              <div className="flex min-h-28 flex-col justify-between rounded-lg border border-border-subtle bg-gradient-to-br from-league-secondary/10 via-canvas/70 to-league-accent/10 p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-display text-lg font-bold text-white">?????#????</span>
+                  <span className="rounded-full border border-gold/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Admin test</span>
+                </div>
+                <p className="mt-5 text-sm leading-6 text-muted">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
               </div>
-              <p className="mt-5 text-sm leading-6 text-muted">Role first. Misses unlock the champion, combat, damage, and economy rails.</p>
-            </div>
-          </FeatureCard>
+            </FeatureCard>
+          ) : null}
         </div>
       </section>
 

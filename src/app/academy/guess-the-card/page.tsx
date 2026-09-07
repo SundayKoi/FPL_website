@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import DailyGameWall from "@/components/daily/DailyGameWall";
 import GuessTheCardBoard from "@/components/guess-the-card/GuessTheCardBoard";
 import GuessTheCardUnavailable from "@/components/guess-the-card/GuessTheCardUnavailable";
 import { resetGuessTheCardPuzzleAction, submitGuessTheCardAction } from "@/lib/guess-the-card/actions";
@@ -15,7 +15,9 @@ export default async function AcademyGuessTheCardPage() {
   try {
     game = await getGuessTheCardGame("academy");
   } catch (error) {
-    if (error instanceof GuessTheCardError && error.code === "FORBIDDEN") redirect("/premium?league=academy");
+    if (error instanceof GuessTheCardError && error.code === "FORBIDDEN") {
+      return <DailyGameWall league="Academy" game="Guess the Card" redirect="/academy/guess-the-card" message={error.message} testing />;
+    }
     return <GuessTheCardUnavailable league="Academy" />;
   }
   return <GuessTheCardBoard initialGame={game} submitGuess={submitGuessTheCardAction} resetPuzzle={resetGuessTheCardPuzzleAction} />;

@@ -28,7 +28,7 @@ describe("siteDirectory", () => {
 
   it("reaches the orphaned pages the audit found", () => {
     const hrefs = siteDestinations("premier").map((item) => item.href);
-    for (const href of ["/supporters", "/cards/trades", "/fpldle", "/higher-lower", "/guess-the-card", "/box-score", "/cards/vault"]) {
+    for (const href of ["/supporters", "/cards/trades", "/fpldle", "/higher-lower", "/cards/vault"]) {
       expect(hrefs).toContain(href);
     }
   });

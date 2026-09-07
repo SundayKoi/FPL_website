@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import DailyGameWall from "@/components/daily/DailyGameWall";
 import FpldleBoard from "@/components/fpldle/FpldleBoard";
 import FpldleUnavailable from "@/components/fpldle/FpldleUnavailable";
 import { resetFpldlePuzzleAction, submitFpldleGuessAction, revealFpldleAnswerAction } from "@/lib/fpldle/actions";
@@ -15,7 +15,9 @@ export default async function FpldlePage() {
   try {
     game = await getFpldleGame("premier");
   } catch (error) {
-    if (error instanceof FpldleError && error.code === "FORBIDDEN") redirect("/premium");
+    if (error instanceof FpldleError && error.code === "FORBIDDEN") {
+      return <DailyGameWall league="Premier" game="FPL'dle" redirect="/fpldle" message={error.message} />;
+    }
     return <FpldleUnavailable league="Premier" />;
   }
   return <FpldleBoard key={game.date} game={game} league="premier" submitGuess={submitFpldleGuessAction} revealAnswer={revealFpldleAnswerAction} resetPuzzle={resetFpldlePuzzleAction} />;

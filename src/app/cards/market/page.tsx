@@ -39,7 +39,7 @@ export async function MarketPageView({
     );
   }
   if (market.kind === "denied") {
-    return <CardsGate section="Market" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return <CardsGate section="Market" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} browse={`${base}/browse`} />;
   }
 
   return (

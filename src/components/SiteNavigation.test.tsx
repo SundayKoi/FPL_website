@@ -241,7 +241,6 @@ describe("SiteNavigation", () => {
       "Match Drafter",
       "FPL'dle",
       "Higher or Lower",
-      "Guess the Card",
     ]);
     expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
       "/premium",
@@ -250,7 +249,6 @@ describe("SiteNavigation", () => {
       "/drafter",
       "/fpldle",
       "/higher-lower",
-      "/guess-the-card",
     ]);
 
     cleanup();
@@ -264,7 +262,6 @@ describe("SiteNavigation", () => {
       "/drafter",
       "/academy/fpldle",
       "/academy/higher-lower",
-      "/academy/guess-the-card",
     ]);
   });
 
@@ -338,7 +335,9 @@ describe("SiteNavigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
     expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/fpldle");
     expect(screen.getByRole("menuitem", { name: /^Higher or Lower$/ }).getAttribute("href")).toBe("/higher-lower");
-    expect(screen.getByRole("menuitem", { name: /^Guess the Card$/ }).getAttribute("href")).toBe("/guess-the-card");
+    // Still in admin testing: a member must not be offered a game that
+    // bounces them. Staff see it.
+    expect(screen.queryByRole("menuitem", { name: /^Guess the Card$/ })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^Daily Games$/ })).toBeNull();
     cleanup();
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
+import CardsGate from "@/components/cards/CardsGate";
 import FantasyLeaderboard, {
   type FantasySeasonRow,
   type FantasyWeeklyRow,
@@ -46,21 +47,6 @@ function lockLabelEastern(weekStart: string): string {
   });
 }
 
-function Gate({ title, body, signIn }: { title: string; body: string; signIn?: string }) {
-  return (
-    <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-      <span className="label-dash">Fantasy</span>
-      <h1 className="type-display text-3xl sm:text-4xl">{title}</h1>
-      <p className="max-w-md text-sm text-steel">{body}</p>
-      {signIn && (
-        <Link href={`/login?redirect=${signIn}`} className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      )}
-    </main>
-  );
-}
-
 /**
  * The fantasy layer of the card-pack economy: field one owned card per role
  * each week and get paid in betting dollars for a top-three finish.
@@ -82,18 +68,21 @@ export async function FantasyPageView({
   const user = await getBettingUser();
   if (!user) {
     return (
-      <Gate
+      <CardsGate
+        section="Fantasy"
         title="Sign in to play fantasy"
-        body="Field a weekly lineup out of the cards you own and play for betting dollars. Sign in with Discord to use the betting site."
+        body="Field a weekly lineup out of the cards you own and play for betting dollars. Sign in with Discord to check your access."
         signIn={`${base}/fantasy`}
+        browse={`${base}/browse`}
       />
     );
   }
   if (!user.allowed) {
     return (
-      <Gate
-        title="Premium members only"
-        body="Fantasy lineups pay out of the betting wallet, so they're part of FPL Premium — grab the premium role in the Discord."
+      <CardsGate
+        section="Fantasy"
+        body="Fantasy lineups pay out of the betting wallet, and the wallet comes with the role."
+        browse={`${base}/browse`}
       />
     );
   }
@@ -102,7 +91,11 @@ export async function FantasyPageView({
   const season = await fetchCardSeason(service, league);
   if (!season) {
     return (
-      <Gate title="No season yet" body="Fantasy opens once a season is set up for this league." />
+      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
+        <span className="label-dash">Fantasy</span>
+        <h1 className="type-display text-3xl sm:text-4xl">No season yet</h1>
+        <p className="max-w-md text-sm text-steel">Fantasy opens once a season is set up for this league.</p>
+      </main>
     );
   }
 

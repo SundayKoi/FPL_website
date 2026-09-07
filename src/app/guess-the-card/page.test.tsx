@@ -28,12 +28,14 @@ afterEach(() => {
 });
 
 describe("GuessTheCardPage", () => {
-  it("redirects non-admin callers to Premium HQ", async () => {
+  it("tells non-admin callers it is still in testing instead of bouncing them", async () => {
     getGuessTheCardGame.mockRejectedValue(new GuessTheCardError("FORBIDDEN", "Admin testing only."));
 
-    await GuessTheCardPage();
+    render(await GuessTheCardPage());
 
-    expect(redirect).toHaveBeenCalledWith("/premium");
+    expect(redirect).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("still in testing");
+    expect(screen.getByRole("link", { name: /back to premium hq/i }).getAttribute("href")).toBe("/premium");
   });
 
   it("keeps data warm-up failures inside the game page", async () => {

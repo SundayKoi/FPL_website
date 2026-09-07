@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
 import Link from "next/link";
+import CardsGate from "@/components/cards/CardsGate";
 import TradeBuilder, { type TradeCardOption } from "@/components/cards/TradeBuilder";
 import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -82,30 +83,24 @@ export async function TradesPageView({
 
   if (!user) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Trade offers</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Sign in to trade cards</h1>
-        <p className="max-w-md text-sm text-steel">
-          Trades move cards and betting dollars between collectors, so they ride on your
-          wallet — sign in with Discord to check your access.
-        </p>
-        <Link href={`/login?redirect=${base}/trades`} className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      </main>
+      <CardsGate
+        section="Trade offers"
+        title="Sign in to trade cards"
+        body="Trades move cards and betting dollars between collectors, so they ride on your wallet — sign in with Discord to check your access."
+        signIn={`${base}/trades`}
+        browse={`${base}/browse`}
+      />
     );
   }
 
   if (!user.allowed) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Trade offers</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-steel">
-          Trades can carry betting dollars, and only premium members have a wallet to spend. Grab the
-          premium role in the Discord and come back to start dealing.
-        </p>
-      </main>
+      <CardsGate
+        section="Trade offers"
+        body="Trades can carry betting dollars, and only members have a wallet to spend. The role opens the table."
+        browse={`${base}/browse`}
+        note="Any offers waiting for you stay where they are until you're back."
+      />
     );
   }
 
