@@ -1,15 +1,42 @@
 import MyTeamGate from "@/components/my-team/MyTeamGate";
 import OpponentScout from "@/components/captain/OpponentScout";
+import { fetchMyRoster } from "@/lib/captain/queries";
 import { leaguePath } from "@/lib/league/links";
 import { loadMyTeamDashboard } from "@/lib/my-team/queries";
 import type { LeagueKey } from "@/lib/players/identity";
 import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
+import type { ScoutFixtureRow, ScoutRosterPlayer } from "@/lib/scouting/types";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { normalizeName } from "@/lib/captain/teamNames";
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function nextFixtureForTeam(fixtures: ScoutFixtureRow[], teamName: string): ScoutFixtureRow | undefined {
+  const target = normalizeName(teamName);
+  return fixtures
+    .filter((fixture) =>
+      fixture.score_a === null &&
+      fixture.score_b === null &&
+      (normalizeName(fixture.team_a) === target || normalizeName(fixture.team_b) === target),
+    )
+    .sort((a, b) => {
+      const aTime = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.POSITIVE_INFINITY;
+      return aTime - bTime || a.id.localeCompare(b.id);
+    })[0];
+}
+
+function scoutingRoster(roster: Awaited<ReturnType<typeof fetchMyRoster>>): ScoutRosterPlayer[] {
+  return roster.draftPlayers.map((player) => ({
+    id: player.id,
+    displayName: player.display_name,
+    role: player.role,
+    ...(player.opgg_url ? { opggUrl: player.opgg_url } : {}),
+  }));
 }
 
 function ScoutingUnavailable({ core = false }: { core?: boolean }) {
@@ -35,7 +62,10 @@ export async function MyTeamScoutingPageView({
   league?: LeagueKey;
   searchParams: SearchParams;
 }) {
-  const requestedTeamId = first((await searchParams).team);
+  const params = await searchParams;
+  const requestedTeamId = first(params.team);
+  const requestedScoutId = first(params.scout);
+  const hasScoutTarget = params.scout !== undefined;
   const supabase = await createServerSupabase();
 
   let dashboard;
@@ -47,26 +77,33 @@ export async function MyTeamScoutingPageView({
   }
 
   if (dashboard.kind !== "ready") {
-    return <MyTeamGate dashboard={dashboard} league={league} />;
+    const query = new URLSearchParams();
+    if (requestedTeamId) query.set("team", requestedTeamId);
+    if (requestedScoutId) query.set("scout", requestedScoutId);
+    const path = `${leaguePath("scouting", league)}${query.toString() ? `?${query.toString()}` : ""}`;
+    return <MyTeamGate dashboard={dashboard} league={league} redirectPath={path} />;
   }
 
-  const nextFixture = dashboard.nextFixture;
-  const opponent = dashboard.opponent;
+  const requestedScoutTeam = hasScoutTarget
+    ? dashboard.activeTeams.find((team) => team.id === requestedScoutId) ?? null
+    : null;
+  const defaultScoutTeam = !hasScoutTarget ? dashboard.opponent?.team ?? null : null;
+  const scoutTeam = requestedScoutTeam ?? defaultScoutTeam;
+  const invalidScoutTarget = hasScoutTarget && !requestedScoutTeam;
   let scoutingSource: Parameters<typeof OpponentScout>[0]["source"] | null = null;
-  let scoutingError = opponent?.scoutingUnavailable ?? false;
+  let scoutingError = invalidScoutTarget;
 
-  if (nextFixture && opponent && !scoutingError && opponent.roster) {
+  if (scoutTeam && !invalidScoutTarget) {
     try {
       const history = await fetchScoutingHistory(supabase, {
         league,
         leagueTeamNames: dashboard.teams.map((team) => team.name),
       });
-      const roster = opponent.roster.draftPlayers.map((player) => ({
-        id: player.id,
-        displayName: player.display_name,
-        role: player.role,
-        ...(player.opgg_url ? { opggUrl: player.opgg_url } : {}),
-      }));
+      const rosterData = dashboard.opponent?.team?.id === scoutTeam.id
+        ? dashboard.opponent.roster
+        : await fetchMyRoster(supabase, scoutTeam.id, dashboard.season, league);
+      if (!rosterData) throw new Error("scouting roster unavailable");
+      const roster = scoutingRoster(rosterData);
       let ingestedGames: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
       try {
         ingestedGames = await fetchIngestedScoutingGames(supabase, roster, history.fixtures, league);
@@ -75,10 +112,10 @@ export async function MyTeamScoutingPageView({
       }
       scoutingSource = {
         ...history,
-        opponentName: opponent.name,
-        teamName: opponent.name,
+        opponentName: scoutTeam.name,
+        teamName: scoutTeam.name,
         currentSeason: dashboard.season,
-        nextFixture,
+        nextFixture: nextFixtureForTeam(history.fixtures, scoutTeam.name),
         roster,
         ...(ingestedGames ? { ingestedGames } : {}),
         inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
@@ -87,9 +124,11 @@ export async function MyTeamScoutingPageView({
       console.error("Unable to load scouting", error);
       scoutingError = true;
     }
-  } else if (nextFixture && opponent && !opponent.roster) {
-    scoutingError = true;
   }
+
+  const selectedTeamId = scoutTeam?.id ?? "";
+  const selectorTarget = invalidScoutTarget ? "" : selectedTeamId;
+  const teamQuery = dashboard.isAdmin ? dashboard.team.id : undefined;
 
   return (
     <main className="page-backdrop flex-1">
@@ -98,12 +137,36 @@ export async function MyTeamScoutingPageView({
           <div>
             <span className="label-dash">My Team · {dashboard.season}</span>
             <h1 className="type-display mt-3 text-5xl sm:text-6xl">Scouting</h1>
-            <p className="mt-4 text-lg leading-8 text-muted">Review your next opponent&apos;s draft history.</p>
+            <p className="mt-4 text-lg leading-8 text-muted">Review a team&apos;s draft history, roster, and player pools.</p>
           </div>
         </header>
 
+        {dashboard.activeTeams.length > 0 ? (
+          <form action={leaguePath("scouting", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
+            {teamQuery ? <input type="hidden" name="team" value={teamQuery} /> : null}
+            <label htmlFor="scouting-target" className="flex flex-col gap-1 text-xs text-muted">
+              Team to scout
+              <select
+                id="scouting-target"
+                name="scout"
+                defaultValue={selectorTarget}
+                className="input-brand px-2 py-1.5 text-sm"
+              >
+                <option value="">Select a team</option>
+                {dashboard.activeTeams.map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="rounded-full bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
+              View report
+            </button>
+          </form>
+        ) : null}
+
         {dashboard.isAdmin && dashboard.activeTeams.length > 1 ? (
           <form action={leaguePath("scouting", league)} method="get" className="mt-6 flex flex-wrap items-end gap-2">
+            {requestedScoutId ? <input type="hidden" name="scout" value={requestedScoutId} /> : null}
             <label htmlFor="scouting-team-switch" className="flex flex-col gap-1 text-xs text-muted">
               Viewing team (admin)
               <select
@@ -123,17 +186,23 @@ export async function MyTeamScoutingPageView({
           </form>
         ) : null}
 
-        {!nextFixture || !opponent ? (
+        {invalidScoutTarget ? (
+          <section className="card-brand mt-8 p-5" aria-label="Scouting target unavailable">
+            <span className="label-dash text-prestige">Premium · Scouting</span>
+            <p className="mt-2 text-sm text-muted">That team is unavailable in this league. Choose an active team to view its report.</p>
+          </section>
+        ) : !scoutTeam ? (
           <section className="card-brand mt-8 p-5">
             <span className="label-dash text-prestige">Premium · Scouting</span>
-            <p className="mt-2 text-sm text-muted">No upcoming opponent to scout.</p>
+            <p className="mt-2 text-sm text-muted">No upcoming opponent to scout. Choose a team above to view its available report.</p>
           </section>
         ) : scoutingSource ? (
-          <OpponentScout source={scoutingSource} />
+          <OpponentScout key={scoutTeam.id} source={scoutingSource} perspective="team" />
         ) : scoutingError ? (
           <section className="card-brand mt-8 p-5" aria-label="Scouting unavailable">
             <span className="label-dash text-prestige">Premium · Scouting</span>
             <p className="mt-2 text-sm text-muted">Scouting data is temporarily unavailable.</p>
+            <p className="mt-2 text-sm text-muted">The report for {scoutTeam.name} could not be loaded.</p>
           </section>
         ) : null}
       </div>

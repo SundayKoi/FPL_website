@@ -15,6 +15,7 @@ import { academyOpggUrlForPlayer } from "@/lib/academy/playerSheet";
 import { fetchAcademyPlayers, individualOpggUrl } from "@/lib/academy/playerSheet";
 import { normalizePlayerName } from "@/lib/players/freeAgency";
 import { formatKickoff, stageMeta } from "@/lib/schedule/format";
+import { leaguePath } from "@/lib/league/links";
 import type { FixtureRow } from "@/lib/schedule/types";
 import { sideRows, type DraftSummaryGame } from "@/components/matches/MatchDraftSummary";
 import { linkedAccountLabel, linkedAccountUrls } from "@/lib/players/linkedAccounts";
@@ -185,6 +186,7 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
     ];
   });
   const multiOpggUrl = opggMultiSearchUrlFromRosterPlayers(team.players);
+  const scoutingHref = `${leaguePath("scouting", league)}?scout=${encodeURIComponent(leagueTeamId ?? "")}`;
   const winRate =
     record.seriesPlayed > 0 ? ((record.wins / record.seriesPlayed) * 100).toFixed(0) : null;
 
@@ -246,6 +248,12 @@ export async function TeamPageContent({ params, league = "premier" }: { params: 
                 Team OP.GG Multi
               </a>
             ) : null}
+            <Link
+              href={scoutingHref}
+              className="mt-3 inline-flex rounded-full border border-action-text/80 bg-action-fill px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-action-fill/80"
+            >
+              Scouting report
+            </Link>
           </div>
         </header>
 

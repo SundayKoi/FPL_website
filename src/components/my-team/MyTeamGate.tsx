@@ -36,12 +36,15 @@ function GateCard({ children }: { children: React.ReactNode }) {
 export default function MyTeamGate({
   dashboard,
   league,
+  redirectPath,
 }: {
   dashboard: MyTeamDashboardResult;
   league: LeagueKey;
+  redirectPath?: string;
 }) {
   if (dashboard.kind === "signed-out") {
-    const path = gatePath(league);
+    const path = redirectPath ?? gatePath(league);
+    const redirectQuery = path.includes("?") ? encodeURIComponent(path) : path;
     return (
       <GateCard>
         <span className="label-dash">My Team</span>
@@ -49,7 +52,7 @@ export default function MyTeamGate({
         <p className="mt-3 text-sm leading-6 text-muted">
           Your roster, schedule, tournament codes, draft links, and scouting live here after Discord sign-in.
         </p>
-        <Link href={`/login?redirect=${path}`} className={`${ACTION} mt-5`}>Sign in</Link>
+        <Link href={`/login?redirect=${redirectQuery}`} className={`${ACTION} mt-5`}>Sign in</Link>
       </GateCard>
     );
   }
