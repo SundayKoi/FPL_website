@@ -9,7 +9,6 @@ import {
   briefFor,
   EXPEDITION_TIERS,
   expectedDailyDollars,
-  DAILY_LAUNCHES,
   LOOT_MULT_CAP,
   MARK_RANK,
   MERCHANT_DOLLARS,
@@ -28,7 +27,7 @@ import {
  *  the per-day scaling taken back out, so a test can talk about a run. */
 function perRunDollars(tier: "scout" | "raid" | "legend"): number {
   const perDay = expectedDailyDollars(tier);
-  return perDay / Math.min(24 / EXPEDITION_TIERS[tier].durationHours, DAILY_LAUNCHES);
+  return perDay / (24 / EXPEDITION_TIERS[tier].durationHours);
 }
 
 // A fixture, not a real row: shineOf reads seven of card_inventory's columns
@@ -113,7 +112,10 @@ describe("EXPEDITION_TIERS", () => {
   it("pays under a pack a day at every tier, comps included", () => {
     // The balance guardrail: expeditions supplement the economy, never
     // replace it. See the arithmetic on REWARDS.
-    expect(expectedDailyDollars("scout")).toBeCloseTo(77.5, 2);
+    // With no daily launch limit a tier relaunches the moment it lands:
+    // a scout (8h) three times a day, a raid once, a legend hunt every
+    // other day.
+    expect(expectedDailyDollars("scout")).toBeCloseTo(3 * 77.5, 2);
     expect(expectedDailyDollars("raid")).toBeCloseTo(271, 2);
     expect(expectedDailyDollars("legend")).toBeCloseTo(543.75, 2);
     // The guardrail: a click of /daily must never be the worse option, and
@@ -128,9 +130,11 @@ describe("EXPEDITION_TIERS", () => {
     expect(expectedDailyDollars("legendary")).toBeLessThan(MAXED_DAILY_STREAK);
     expect(expectedDailyDollars("exorcism")).toBe(0);
     // The scouting run is the one anybody can field with any three cards,
-    // so it keeps the stricter original rule as well: an ungated loop must
-    // never pay for a pack a day.
-    expect(expectedDailyDollars("scout")).toBeLessThan(PACK_COST);
+    // so it keeps a stricter rule as well: one scouting RUN must never pay
+    // for a pack. (The rule used to be "a scouting DAY", when a day was one
+    // launch; with the daily limit gone a day of scouting is three runs,
+    // and the per-day number is held by the streak ceiling above instead.)
+    expect(perRunDollars("scout")).toBeLessThan(PACK_COST);
     // And the ladder has to climb, or the gates ask for foils and signatures
     // in exchange for nothing.
     expect(expectedDailyDollars("scout")).toBeLessThan(expectedDailyDollars("raid"));
@@ -144,10 +148,11 @@ describe("EXPEDITION_TIERS", () => {
     expect(MAXED_DAILY_STREAK).toBe(550);
   });
 
-  it("prices a day by launches allowed, not only by run length", () => {
-    // The bug in the first pass: three eight-hour runs fit in a day, but
-    // launch_expedition permits one. A scouting day is one scouting run.
-    expect(expectedDailyDollars("scout")).toBeCloseTo(perRunDollars("scout"), 2);
+  it("prices a day by run length, now that nothing else caps a launch", () => {
+    // launch_expedition no longer counts launches per day (20260926000001);
+    // the only ceiling is one run out per tier, so a day of a tier is
+    // however many of its runs fit in twenty-four hours.
+    expect(expectedDailyDollars("scout")).toBeCloseTo(perRunDollars("scout") * 3, 2);
     // A 48h run still lands every other day, so it counts as half of one.
     expect(expectedDailyDollars("legend")).toBeCloseTo(perRunDollars("legend") / 2, 2);
   });

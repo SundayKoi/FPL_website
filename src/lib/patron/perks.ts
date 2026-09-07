@@ -15,7 +15,6 @@
 import { BINDER_SLOTS, PATRON_BINDER_SLOTS } from "@/lib/binder/queries";
 import { PATRON_DUST_MULT } from "@/lib/packs/config";
 import { SOVEREIGN_TENURE_DAYS } from "./flames";
-import { DAILY_LAUNCHES, PATRON_DAILY_LAUNCHES } from "@/lib/expeditions/config";
 
 export interface PatronPerk {
   key: string;
@@ -30,16 +29,6 @@ export interface PatronPerk {
   href?: string;
 }
 
-/** Launches per Eastern day, patron vs not.
- *
- *  These were a second pair of literals restating DAILY_LAUNCHES and
- *  PATRON_DAILY_LAUNCHES, which were themselves restating the `v_limit :=
- *  case when patron then 2 else 1` inside launch_expedition — four
- *  constants and a SQL literal for two numbers, none of them connected.
- *  Now there is one TS source, and a test (expeditions/launchLimit.test.ts)
- *  reads the live migration and holds the SQL to it. */
-export const BASE_EXPEDITION_LAUNCHES = DAILY_LAUNCHES;
-export const PATRON_EXPEDITION_LAUNCHES = PATRON_DAILY_LAUNCHES;
 
 const EXTRA_SLOTS = PATRON_BINDER_SLOTS - BINDER_SLOTS;
 const DUST_BONUS_PCT = Math.round((PATRON_DUST_MULT - 1) * 100);
@@ -84,15 +73,6 @@ export const PATRON_PERKS: PatronPerk[] = [
     icon: "🃏",
     title: "A second Daily Rip",
     blurb: "Patrons rip twice a day instead of once. Same odds on both — just another go at them.",
-    headline: true,
-  },
-  {
-    key: "expeditions",
-    icon: "🧭",
-    title: "A second expedition",
-    blurb:
-      `Launch ${PATRON_EXPEDITION_LAUNCHES} expeditions a day instead of ${BASE_EXPEDITION_LAUNCHES} — two ` +
-      `squads of three out in the field at once, earning while you sleep.`,
     headline: true,
   },
   {
