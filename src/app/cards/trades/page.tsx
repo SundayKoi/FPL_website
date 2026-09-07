@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
-import Link from "next/link";
 import CardsGate from "@/components/cards/CardsGate";
 import TradeBuilder, { type TradeCardOption } from "@/components/cards/TradeBuilder";
 import TradeInbox, { type InboxTrade } from "@/components/cards/TradeInbox";

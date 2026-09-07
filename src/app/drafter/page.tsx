@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import AccessWall from "@/components/access/AccessWall";
 import CreateLobbyForm from "@/components/match-draft/CreateLobbyForm";
 import { drafterAccess } from "@/lib/match-draft/access";

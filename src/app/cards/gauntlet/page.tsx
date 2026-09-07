@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import CardsGate from "@/components/cards/CardsGate";
 import EmptyShelf from "@/components/cards/EmptyShelf";
 import GauntletClient from "@/components/gauntlet/GauntletClient";
