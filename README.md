@@ -582,7 +582,7 @@ every rule before the click ("The rules of the road"):
 | Run | Away | Forks | Entry | Worst case |
 | --- | --- | --- | --- | --- |
 | Scouting Run | 8h | 1 | anyone | nothing |
-| The Gilded Road | 12h | 2 | patrons only, 6 shine | wounded |
+| The Gilded Road | 48h | 2 | patrons only, 6 shine, three autographs | wounded |
 | Deep Raid | 24h | 2 | 12 shine, a foil | wounded |
 | Legend Hunt | 48h | 3 | 20 shine, two foils, an autograph | lost |
 | Rescue | 12h | 1 | 8 shine, and a lost card to go after | lost |
@@ -641,8 +641,8 @@ Hardened, Haunted, Cursed or Voidtouched, one per copy, permanent (an
 Exorcism removes the two bad ones), drawn on the card everywhere it shows
 and read by Fantasy scoring, the Gauntlet sim and dust pricing
 (`src/lib/cards/mutations.ts`, `MUTATION_EFFECTS`). Insurance ($150 at
-launch, a patron's first policy each week free) turns lost into wounded
-and dead into lost. An Eclipse, a moment, a champions relic or a team plate
+launch; one policy an Eastern week, two for a patron with the first free)
+turns lost into wounded and dead into lost. An Eclipse, a moment, a champions relic or a team plate
 never boards a route that can lose it. A one-roster Legend Hunt squad
 ignored at two forks is lost as one. Map fragments drop off Legend Hunts
 (35% on solid, every jackpot) and Deep Raid jackpots (25%).

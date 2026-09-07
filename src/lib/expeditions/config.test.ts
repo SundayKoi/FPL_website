@@ -122,8 +122,15 @@ describe("EXPEDITION_TIERS", () => {
     // an expedition must never be the better one. Nothing on the board
     // out-earns a maxed daily streak on base rates.
     for (const tier of TIER_ORDER) {
+      if (tier === "gilded") continue;
       expect(expectedDailyDollars(tier)).toBeLessThan(MAXED_DAILY_STREAK);
     }
+    // The one exception, on purpose: the Gilded Road asks for three signed
+    // cards (1% of pulls each) locked for two days, and it is a patron's
+    // route. It is allowed over the streak, and held under twice it.
+    expect(expectedDailyDollars("gilded")).toBeGreaterThan(MAXED_DAILY_STREAK);
+    expect(expectedDailyDollars("gilded")).toBeLessThan(2 * MAXED_DAILY_STREAK);
+    expect(expectedDailyDollars("gilded")).toBeCloseTo(879.5, 2);
     // The Legendary route is three days and three fragments; even so its
     // base rate stays under the streak, and the forks — where its money
     // is — are paid for in risk.
@@ -234,7 +241,7 @@ describe("the payout ceiling the claim RPC guards", () => {
     // resolve_expedition is the live claim; the old claim_expedition guard
     // (20260906000001) stays behind for the runs that pre-date forks.
     const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20260916000001_expedition_matchday.sql"),
+      join(process.cwd(), "supabase/migrations/20260928000001_expedition_gilded_price_weekly_insurance.sql"),
       "utf8",
     );
     const match = sql.match(/v_dollars not between 0 and (\d+)/);

@@ -11,6 +11,8 @@ import {
   ECHO_CHANCE,
   EXPEDITION_TIERS,
   INSURANCE_FEE,
+  INSURANCE_PER_WEEK,
+  PATRON_INSURANCE_PER_WEEK,
   MERCHANT_DOLLARS,
   SURGE_BONUS,
   LOST_DAYS,
@@ -114,6 +116,21 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
         </table>
       </div>
 
+      {/* ── The patrons' road ─────────────────────────────────────── */}
+      <div
+        data-testid="rule-gilded"
+        className="flex flex-col gap-1 rounded-lg border border-gold/50 bg-gold/10 p-3 text-sm text-steel"
+      >
+        <h4 className="text-sm font-bold text-gold">The Gilded Road — patrons only</h4>
+        <p>
+          A route of its own for patrons: {EXPEDITION_TIERS.gilded.durationHours / 24} days, {EXPEDITION_TIERS.gilded.forks} forks, and{" "}
+          <strong className="text-white">{EXPEDITION_TIERS.gilded.minSigned} signed cards</strong> in the squad to set out — the hardest
+          gate on the board, and the biggest bag: {fmtPoints(payoutRange("gilded").min)}–{fmtPoints(payoutRange("gilded").max)} on the
+          base rate, before shine, the brief and the forks. Worst case wounded; nothing on it can lose a card. The forks, the
+          odds and the payouts of every other run are exactly what they are for everyone.
+        </p>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         {/* ── Forks ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-2 text-sm text-steel">
@@ -150,7 +167,7 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
               <strong className="text-gold">Wounded.</strong> The card comes home but sits out expeditions and Gauntlet
-              lineups for {woundedDays} days. The lightest harm, and the only one a Deep Raid can do.
+              lineups for {woundedDays} days. The lightest harm, and the only one a Deep Raid or the Gilded Road can do.
             </li>
             <li>
               <strong className="text-coral">Lost.</strong> The card does not come home. It stays in your collection, locked,
@@ -171,8 +188,8 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
               not coming back.
             </li>
             <li>
-              <strong className="text-white">Insurance</strong> ({fmtPoints(INSURANCE_FEE)} at launch; a patron&apos;s first policy each week is
-              free) turns lost into wounded and dead into lost.
+              <strong className="text-white">Insurance</strong> ({fmtPoints(INSURANCE_FEE)} at launch) turns lost into wounded and dead
+              into lost. {INSURANCE_PER_WEEK} policy a week; patrons get {PATRON_INSURANCE_PER_WEEK}, the first of them free.
             </li>
             <li>
               <strong className="text-white">Never at risk:</strong> an Eclipse, a moment, a champions relic or a team plate cannot board a
