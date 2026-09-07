@@ -6,6 +6,7 @@ const {
   serverClient,
   loadMyTeamDashboard,
   fetchScoutingHistory,
+  fetchMyRoster,
   fetchIngestedScoutingGames,
   fetchInhousePlayerStats,
   opponentScout,
@@ -13,6 +14,7 @@ const {
   serverClient: { from: vi.fn() },
   loadMyTeamDashboard: vi.fn(),
   fetchScoutingHistory: vi.fn(),
+  fetchMyRoster: vi.fn(),
   fetchIngestedScoutingGames: vi.fn(),
   fetchInhousePlayerStats: vi.fn(),
   opponentScout: vi.fn((props: { source: { opponentName: string } }) => (
@@ -24,6 +26,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => serverClient),
 }));
 vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard }));
+vi.mock("@/lib/captain/queries", () => ({ fetchMyRoster }));
 vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
 vi.mock("@/components/captain/OpponentScout", () => ({
   default: (props: { source: { opponentName: string } }) => opponentScout(props),
@@ -149,6 +152,38 @@ describe("My Team scouting page", () => {
     expect(loadMyTeamDashboard).toHaveBeenCalledWith(serverClient, "academy", "team-1");
     expect(container.querySelector("form[method='get']")?.getAttribute("action"))
       .toBe("/academy/my-team/scouting");
+  });
+
+  it("loads a non-admin-selected team and keeps the admin context separate", async () => {
+    loadMyTeamDashboard.mockResolvedValue(ready());
+    fetchMyRoster.mockResolvedValue({ draftPlayers: [], riotAccounts: [] });
+    fetchScoutingHistory.mockResolvedValue({ fixtures: [], drafts: [] });
+    fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchInhousePlayerStats.mockResolvedValue([]);
+
+    const { container } = render(await MyTeamScoutingPageView({
+      league: "premier",
+      searchParams: Promise.resolve({ team: "team-1", scout: "team-1" }),
+    }));
+
+    expect(fetchMyRoster).toHaveBeenCalledWith(serverClient, "team-1", "S5", "premier");
+    expect(screen.getByText("Scouting dashboard: My Team")).toBeTruthy();
+    expect((container.querySelector("select[name='scout']") as HTMLSelectElement).value).toBe("team-1");
+    expect(container.querySelector("input[name='team']")).toBeNull();
+  });
+
+  it("shows a clear unavailable state for an invalid or cross-league target", async () => {
+    loadMyTeamDashboard.mockResolvedValue(ready());
+
+    const { container } = render(await MyTeamScoutingPageView({
+      league: "academy",
+      searchParams: Promise.resolve({ scout: "premier-team-id" }),
+    }));
+
+    expect(screen.getByText(/unavailable in this league/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View report" })).toBeTruthy();
+    expect(fetchScoutingHistory).not.toHaveBeenCalled();
+    expect(container.querySelector("select[name='scout']")).toBeTruthy();
   });
 
   it("keeps the page available when scouting enrichment fails", async () => {

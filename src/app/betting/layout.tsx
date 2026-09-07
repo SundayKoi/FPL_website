@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import AccessWall from "@/components/access/AccessWall";
 import PremiumBackLink from "@/components/premium/PremiumBackLink";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { fmtPoints } from "@/lib/betting/format";
@@ -14,41 +15,25 @@ export default async function BettingLayout({ children }: { children: ReactNode 
 
   if (!user) {
     return (
-      <div className="flex flex-1 flex-col">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6">
-          <PremiumBackLink />
-        </div>
-        <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-          <span className="label-dash">FPL Better</span>
-          <h1 className="type-display text-3xl sm:text-4xl">Sign in to place bets</h1>
-          <p className="max-w-md text-sm text-muted">
-            The betting arena is a perk for FPL Better Discord members — sign in with Discord to check your access.
-          </p>
-          <Link href="/login?redirect=/betting" className="btn-pill mt-2">
-            Sign in with Discord
-          </Link>
-        </main>
-      </div>
+      <AccessWall
+        section="Betting"
+        reason="signed-out"
+        redirect="/betting"
+        title="Sign in to place bets"
+        body="Betting dollars, the markets and the pick'em ride on your Discord account — sign in to check your access."
+      />
     );
   }
-
   if (!user.allowed) {
     return (
-      <div className="flex flex-1 flex-col">
-        <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6">
-          <PremiumBackLink />
-        </div>
-        <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-          <span className="label-dash">FPL Better</span>
-          <h1 className="type-display text-3xl sm:text-4xl">FPL Better members only</h1>
-          <p className="max-w-md text-sm text-muted">
-            Betting is a perk for FPL Better Discord members. Join the FPL Better role in Discord and come back.
-          </p>
-        </main>
-      </div>
+      <AccessWall
+        section="Betting"
+        reason="no-role"
+        redirect="/betting"
+        body="Betting is part of FPL Premium — the Discord role that opens the wallet, the cards and the games. Join the Discord, grab the role, and sign in again."
+      />
     );
   }
-
   return (
     <div className="flex flex-1 flex-col">
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6">

@@ -24,7 +24,7 @@ import { buildWeekSets } from "@/lib/cards/sets";
 import { fetchSetClaimState, fetchSetEditionCards, setKey } from "@/lib/cards/setQueries";
 import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory, fetchPrintRuns } from "@/lib/packs/queries";
-import { binderSlotsFor, type Binder } from "@/lib/binder/queries";
+import { PATRON_BINDER_SLOTS, binderSlotsFor, type Binder } from "@/lib/binder/queries";
 
 export default async function CollectionSections({
   discordId,
@@ -81,11 +81,14 @@ export default async function CollectionSections({
   ]);
   const [setEditionCards, setClaims] = setReads;
 
-  // Slots are 1-indexed in the table and positional in the editor.
-  // Patrons shelve nine; everyone else six (binderSlotsFor).
-  const binderSlots: (number | null)[] = Array.from({ length: binderSlotsFor(patron) }, (_, index) => {
+  // Slots are 1-indexed in the table and positional in the editor. All
+  // nine render for everyone: the patron three are locked for a
+  // non-patron rather than missing, so a lapsed patron sees what is still
+  // pinned there instead of watching it vanish without a word.
+  const binderSlots: (number | null)[] = Array.from({ length: PATRON_BINDER_SLOTS }, (_, index) => {
     return binder?.cards.find((entry) => entry.slot === index + 1)?.inventoryId ?? null;
   });
+  const binderUnlocked = binderSlotsFor(patron);
   const binderOptions: BinderOption[] = inventory.map((row) => ({
     inventoryId: row.id,
     playerName: row.playerName,
@@ -148,7 +151,7 @@ export default async function CollectionSections({
       ) : null}
 
       {binder ? (
-        <BinderEditor slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
+        <BinderEditor unlocked={binderUnlocked} slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
       ) : null}
     </>
   );

@@ -46,6 +46,7 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
         href: item.href,
         hint: item.group,
         keywords: item.keywords,
+        ...(item.gated ? { gated: true } : {}),
       })),
     [league],
   );
@@ -196,7 +197,15 @@ export default function SiteSearch({ league }: { league: LeagueView }) {
                     }`}
                   >
                     <span className="min-w-0 truncate font-semibold">{item.label}</span>
-                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-steel">
+                    <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-steel">
+                      {item.gated ? (
+                        <span
+                          title="Needs the FPL Premium role"
+                          className="rounded-full border border-gold/50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-gold"
+                        >
+                          Premium
+                        </span>
+                      ) : null}
                       {item.hint ?? KIND_LABEL[item.kind]}
                     </span>
                   </Link>

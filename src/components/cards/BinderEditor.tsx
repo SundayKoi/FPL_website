@@ -37,12 +37,16 @@ export default function BinderEditor({
   options,
   token,
   title,
+  unlocked = slots.length,
 }: {
-  /** slot number -> the copy pinned there, or null. Always length 6. */
+  /** slot number -> the copy pinned there, or null. Always length 9. */
   slots: (number | null)[];
   options: BinderOption[];
   token: string;
   title: string | null;
+  /** How many of the slots this viewer may set: six, or nine for a
+   *  patron. Slots past it render locked, keeping whatever they hold. */
+  unlocked?: number;
 }) {
   const [picked, setPicked] = useState(slots);
   const [name, setName] = useState(title ?? "");
@@ -79,7 +83,7 @@ export default function BinderEditor({
         <span className="text-xs uppercase tracking-[0.16em] text-muted">Public by link</span>
       </div>
       <p className="max-w-2xl text-sm text-muted">
-        {slots.length > 6
+        {unlocked > 6
           ? "Nine copies on display — the patron shelf, and slot 1 gets the pedestal glow on your public page."
           : "Up to six copies on display (patrons shelve nine, with a pedestal on slot 1)."}{" "}
         Anyone with the link can see them — the rest of your collection stays private. Add cards with the ☆
@@ -133,12 +137,15 @@ export default function BinderEditor({
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {options.length === 0 ? null : picked.map((inventoryId, index) => (
-          <label key={index} className="flex flex-col gap-1 text-xs text-muted">
+          <label key={index} className={`flex flex-col gap-1 text-xs text-muted ${index >= unlocked ? "opacity-60" : ""}`} data-testid={index >= unlocked ? "binder-slot-locked" : undefined}>
             Slot {index + 1}
+            {index >= unlocked ? <span className="text-[10px] uppercase tracking-[0.14em] text-gold">Patron slot{inventoryId !== null ? " · still pinned" : ""}</span> : null}
             <select
               value={inventoryId ?? ""}
               onChange={(event) => choose(index, event.target.value)}
-              className="input-brand px-3 py-2 text-sm"
+              disabled={index >= unlocked}
+              title={index >= unlocked ? "A patron slot — become a patron to arrange it" : undefined}
+              className="input-brand px-3 py-2 text-sm disabled:cursor-not-allowed"
             >
               <option value="">— empty —</option>
               {options.map((option) => (

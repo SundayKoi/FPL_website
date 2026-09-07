@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GlossaryLink } from "@/components/cards/CardsPageHeader";
 import { Suspense } from "react";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
@@ -50,7 +51,15 @@ export async function CollectionPageView({
     );
   }
   if (!user.allowed) {
-    return <CardsGate section="My collection" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return (
+      <CardsGate
+        section="My collection"
+        title={PREMIUM_GATE_TITLE}
+        body={PREMIUM_GATE_BODY}
+        browse={`${base}/browse`}
+        note="If you held cards before, they are still here — nothing is dusted, traded or lost while the role is off. It all opens again the moment it is back."
+      />
+    );
   }
 
   const service = createBettingServiceClient();
@@ -77,6 +86,7 @@ export async function CollectionPageView({
           prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder
           are further down.
         </p>
+        <GlossaryLink />
       </header>
 
       <Suspense fallback={<CollectionSectionsFallback />}>

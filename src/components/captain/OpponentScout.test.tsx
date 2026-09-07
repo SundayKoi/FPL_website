@@ -91,6 +91,14 @@ describe("OpponentScout", () => {
     expect(screen.getByRole("heading", { name: "In-house champion stats" })).toBeTruthy();
     expect(screen.getByText("No in-house games found")).toBeTruthy();
   });
+  it("renders a team report without a next fixture", () => {
+    render(<OpponentScout source={{ ...source, nextFixture: undefined, drafts: [] }} perspective="team" />);
+
+    expect(screen.getByText("Team")).toBeTruthy();
+    expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Next fixture")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Player pools" })).toBeTruthy();
+  });
   it("handles no drafts and unavailable current roster independently", () => {
     renderScout({ drafts: [], roster: [] });
     expect(screen.getByText("No recorded drafts for this opponent yet")).toBeTruthy();

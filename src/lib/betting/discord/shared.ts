@@ -4,14 +4,15 @@
 import "server-only";
 import type { createBettingServiceClient } from "../service-client";
 import type { DiscordInteraction } from "./registry";
+import { SIGNUP_BONUS_AMOUNT } from "../daily";
 
 type BettingServiceClient = ReturnType<typeof createBettingServiceClient>;
 
 /** One-time signup credit for a Discord id's first contact with the wallet
  * system, granted via `grant_signup_bonus` before every wallet-touching
- * handler runs (the "ensure-user" pattern) — matches wallet.ts's
- * `SIGNUP_BONUS_AMOUNT`, which does the same thing for the web login path. */
-export const SIGNUP_BONUS = 1000;
+ * handler runs (the "ensure-user" pattern) — the same constant wallet.ts
+ * uses on the web login path, so the two can never drift. */
+export const SIGNUP_BONUS = SIGNUP_BONUS_AMOUNT;
 
 /** SITE_URL is the spec'd/primary name; NEXT_PUBLIC_SITE_URL (the rest of
  * the repo's canonical-origin var — see auth/siteOrigin.ts) is accepted as a

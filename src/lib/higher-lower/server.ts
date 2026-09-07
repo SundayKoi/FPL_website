@@ -13,7 +13,7 @@ import {
   rankHigherLowerWeek,
   utcWeekStart,
 } from "./rules";
-import { dailyGameDate } from "@/lib/dailyDay";
+import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
 import type {
   HigherLowerChoice,
   HigherLowerCompletionReason,
@@ -313,6 +313,7 @@ async function buildGame(
   if (!run || run.run_state === "not_started") {
     return {
       date: puzzleDate,
+      expiresAt: dailyGameResetAt(puzzleDate),
       weekStart,
       league,
       state: "not_started",
@@ -343,6 +344,7 @@ async function buildGame(
   const awaitingChoice = run.run_state === "awaiting_choice";
   return {
     date: puzzleDate,
+    expiresAt: dailyGameResetAt(puzzleDate),
     weekStart,
     league,
     state: run.run_state,

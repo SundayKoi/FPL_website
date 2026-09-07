@@ -24,6 +24,9 @@ export interface SiteDestination {
   /** A page under a tab (a cards sub-tab). The home grid shows only the
    *  top level; search sees everything. */
   nested?: boolean;
+  /** Behind the premium role. Search shows it with a "Premium" pill so a
+   *  click that lands on a wall is never a surprise. */
+  gated?: boolean;
 }
 
 export interface SiteGroup {
@@ -43,8 +46,8 @@ function leagueGroup(view: LeagueView): SiteGroup {
       { label: "Teams", href: leaguePath("teams", view), blurb: "Every franchise, its roster and its record", keywords: ["franchises", "rosters"] },
       { label: "Schedule", href: leaguePath("schedule", view), blurb: "Every fixture, past results and what is next", keywords: ["fixtures", "matches", "games", "results"] },
       { label: "Stats", href: leaguePath("stats", view), blurb: "Player and champion numbers from every game", keywords: ["kda", "leaderboard", "champions"] },
-      { label: "My Team", href: leaguePath("my-team", view), blurb: "Your roster, your scouting, your week", keywords: ["scouting"] },
-      { label: "Box scores", href: view === "academy" ? "/academy/box-score" : "/box-score", blurb: "Every game's scoreboard, side by side", keywords: ["scoreboard", "match history"] },
+      { label: "My Team", href: leaguePath("my-team", view), blurb: "Your roster, your scouting, your week" },
+      { label: "Scouting", href: `${leaguePath("my-team", view)}/scouting`, blurb: "Your next opponent's champions and habits", nested: true, keywords: ["scout", "opponent"] },
       { label: "Auction Draft", href: "/draft", blurb: "The season's draft board and every nomination", keywords: ["draft room", "auction"] },
     ],
   };
@@ -53,17 +56,24 @@ function leagueGroup(view: LeagueView): SiteGroup {
 function cardsGroup(view: LeagueView): SiteGroup {
   const base = view === "academy" ? "/academy/cards" : "/cards";
   const items: SiteDestination[] = [];
+  // Browse and its sub-pages are open to everyone, and so are the odds,
+  // the pack statistics and the league-wide ledger; everything that owns,
+  // opens, trades or plays needs the role.
+  const OPEN = new Set([`${base}/rarities`, `${base}/stats`, `${base}/expeditions/ledger`]);
   for (const section of cardsSections(base)) {
+    const gated = section.key !== "browse";
     items.push({
       label: section.key === "home" ? "Cards" : section.label,
       href: section.href,
       blurb: section.blurb,
       keywords: section.key === "home" ? ["player cards", "collect", "collection hub"] : section.key === "collection" ? ["binder", "my cards"] : section.key === "packs" ? ["open a pack", "rip", "daily rip"] : undefined,
+      ...(gated ? { gated: true } : {}),
     });
     for (const child of section.children ?? []) {
       // The first sub-tab is the tab's own page — already listed above.
       if (child.href === section.href) continue;
-      items.push({ label: child.label, href: child.href, blurb: child.blurb, nested: true });
+      const childGated = gated && !OPEN.has(child.href);
+      items.push({ label: child.label, href: child.href, blurb: child.blurb, nested: true, ...(childGated ? { gated: true } : {}) });
     }
   }
   return {
@@ -82,10 +92,12 @@ function premiumGroup(view: LeagueView): SiteGroup {
     blurb: "The extras: betting dollars, the show, the drafter",
     items: [
       { label: "Premium HQ", href: premiumHref, blurb: "Everything premium in one place", keywords: ["premium hub"] },
-      { label: "Betting", href: "/betting", blurb: "Bet betting dollars on the week's games", keywords: ["bets", "pickems", "props", "wallet", "dollars"] },
-      { label: "Betting leaderboard", href: "/betting/leaderboard", blurb: "Who has the most betting dollars", nested: true, keywords: ["richest"] },
-      { label: "The Daily Stu", href: "/bangers", blurb: "The show, every day", keywords: ["bangers", "podcast", "stu"] },
-      { label: "Match Drafter", href: "/drafter", blurb: "Run a pick-ban draft with friends", keywords: ["pick ban", "draft tool", "lobby"] },
+      { label: "Betting", href: "/betting", blurb: "Bet betting dollars on the week's games", keywords: ["bets", "pickems", "props", "wallet", "dollars"], gated: true },
+      { label: "Betting leaderboard", href: "/betting/leaderboard", blurb: "Who has the most betting dollars", keywords: ["richest"], gated: true },
+      { label: "Your betting profile", href: "/betting/profile", blurb: "Your bets, your record, your ledger", nested: true, keywords: ["my bets", "history"], gated: true },
+      { label: "The Daily Stu", href: "/bangers", blurb: "The show, every day", keywords: ["bangers", "podcast", "stu"], gated: true },
+      { label: "Match Drafter", href: "/drafter", blurb: "Run a pick-ban draft with friends", keywords: ["pick ban", "draft tool", "lobby"], gated: true },
+      { label: "Skin lines", href: "/skin-lines", blurb: "The parallels patrons are voting on", nested: true, keywords: ["parallels", "foils", "mockups"], gated: true },
     ],
   };
 }
@@ -95,11 +107,10 @@ function dailyGroup(view: LeagueView): SiteGroup {
   return {
     key: "daily",
     label: "Daily games",
-    blurb: "One a day, for the whole league",
+    blurb: "One a day, for the whole league — reset at midnight Eastern",
     items: [
-      { label: "FPL'dle", href: `${prefix}/fpldle`, blurb: "Guess the player of the day", keywords: ["wordle", "fpldle", "daily puzzle"] },
-      { label: "Higher or Lower", href: `${prefix}/higher-lower`, blurb: "Which card rates higher? Keep the streak alive", keywords: ["higher lower", "streak"] },
-      { label: "Guess the Card", href: `${prefix}/guess-the-card`, blurb: "Name the card from its stats", keywords: ["guess"] },
+      { label: "FPL'dle", href: `${prefix}/fpldle`, blurb: "Guess the player of the day", keywords: ["wordle", "fpldle", "daily puzzle"], gated: true },
+      { label: "Higher or Lower", href: `${prefix}/higher-lower`, blurb: "Which card rates higher? Keep the streak alive", keywords: ["higher lower", "streak"], gated: true },
     ],
   };
 }
@@ -110,9 +121,13 @@ const INFO_GROUP: SiteGroup = {
   blurb: "How the league works and how to be part of it",
   items: [
     { label: "About the league", href: "/info", blurb: "What FPL is and how a season runs", keywords: ["info", "about", "faq"] },
+    { label: "Premium & Patron", href: "/membership", blurb: "What each costs, what each gets you, how to get it", keywords: ["premium", "patron", "price", "membership", "how to get premium", "role"] },
+    { label: "Betting dollars", href: "/economy", blurb: "Every way to earn them and spend them, with the figures", keywords: ["economy", "money", "earn", "wallet", "daily", "weekly"] },
+    { label: "Glossary", href: "/glossary", blurb: "Shine, dust, relic, binder, purse — the words, explained", keywords: ["shine", "dust", "relic", "terms", "what is"] },
     { label: "Sign Up", href: "/signup", blurb: "Register to play next season", keywords: ["register", "join"] },
     { label: "Rulebook", href: "/rulebook", blurb: "Every rule, in one place", keywords: ["rules"] },
     { label: "League Links", href: "/league-links", blurb: "Discord, Twitch, the sheets, and the rest", keywords: ["discord", "twitch", "links"] },
+    { label: "Identity claims", href: "/identity-claims", blurb: "Roster identity requests waiting on a captain or admin", nested: true, keywords: ["riot id", "claim identity", "verify"] },
     { label: "Patrons", href: "/supporters", blurb: "The Flame Holders who keep the lights on", keywords: ["supporters", "patron", "flame holders", "perks"] },
     { label: "Support the Devs", href: "/support-devs", blurb: "Chip in for the people who build the site", keywords: ["donate", "tip"] },
   ],

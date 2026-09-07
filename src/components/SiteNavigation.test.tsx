@@ -33,7 +33,8 @@ describe("SiteNavigation", () => {
     expect(screen.getByRole("button", { name: /league menu/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /play menu/i })).toBeNull();
     expect(screen.getByRole("button", { name: /info menu/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("href")).toBe("/cards");
+    expect(screen.queryByRole("link", { name: /^Cards$/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /cards menu/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /premium menu/i })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /^Premium$/ })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Betting$/ })).toBeNull();
@@ -93,6 +94,9 @@ describe("SiteNavigation", () => {
 
     expect(infoMenu.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("menuitem", { name: /^Info$/ }).getAttribute("href")).toBe("/info");
+    // Where a visitor looks for "how do I get in" — and where it was missing.
+    expect(screen.getByRole("menuitem", { name: /^Premium & Patron$/ }).getAttribute("href")).toBe("/membership");
+    expect(screen.getByRole("menuitem", { name: /^Betting dollars$/ }).getAttribute("href")).toBe("/economy");
     expect(screen.getByRole("menuitem", { name: /^Sign Up$/ }).getAttribute("href")).toBe("/signup");
     expect(screen.getByRole("menuitem", { name: /^League Links$/ }).getAttribute("href")).toBe(
       "/league-links",
@@ -203,7 +207,7 @@ describe("SiteNavigation", () => {
     cleanup();
     pathname.value = "/cards/compare";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /cards menu/i }).getAttribute("aria-current")).toBe("page");
     expect(
       screen.getByRole("button", { name: /premium menu/i }).getAttribute("aria-current"),
     ).toBeNull();
@@ -212,22 +216,46 @@ describe("SiteNavigation", () => {
   it("keeps Cards on the current league and active on card share routes", () => {
     pathname.value = "/academy/teams";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("href")).toBe("/academy/cards");
+    fireEvent.click(screen.getByRole("button", { name: /cards menu/i }));
+    expect(screen.getByRole("menuitem", { name: /^Cards home$/ }).getAttribute("href")).toBe("/academy/cards");
+    expect(screen.getByRole("menuitem", { name: /^Browse$/ }).getAttribute("href")).toBe("/academy/cards/browse");
 
     cleanup();
     pathname.value = "/academy/cards/expeditions";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /cards menu/i }).getAttribute("aria-current")).toBe("page");
 
     cleanup();
     pathname.value = "/card/some-slug";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /cards menu/i }).getAttribute("aria-current")).toBe("page");
 
     cleanup();
     pathname.value = "/binder/some-user";
     render(<SiteNavigation authSlot={<span>Account</span>} />);
-    expect(screen.getByRole("link", { name: /^Cards$/ }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: /cards menu/i }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("lists the six cards tabs in the Cards dropdown, the public Browse first", () => {
+    render(<SiteNavigation authSlot={<span>Account</span>} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /cards menu/i }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent?.trim())).toEqual([
+      "Browse",
+      "Cards home",
+      "My Collection",
+      "Packs",
+      "Market",
+      "Play",
+    ]);
+    expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
+      "/cards/browse",
+      "/cards",
+      "/cards/collection",
+      "/cards/packs",
+      "/cards/market",
+      "/cards/play",
+    ]);
   });
 
   it("lists the premium destinations in the Premium dropdown", () => {
@@ -241,7 +269,6 @@ describe("SiteNavigation", () => {
       "Match Drafter",
       "FPL'dle",
       "Higher or Lower",
-      "Guess the Card",
     ]);
     expect(screen.getAllByRole("menuitem").map((item) => item.getAttribute("href"))).toEqual([
       "/premium",
@@ -250,7 +277,6 @@ describe("SiteNavigation", () => {
       "/drafter",
       "/fpldle",
       "/higher-lower",
-      "/guess-the-card",
     ]);
 
     cleanup();
@@ -264,7 +290,6 @@ describe("SiteNavigation", () => {
       "/drafter",
       "/academy/fpldle",
       "/academy/higher-lower",
-      "/academy/guess-the-card",
     ]);
   });
 
@@ -338,7 +363,9 @@ describe("SiteNavigation", () => {
     fireEvent.click(screen.getByRole("button", { name: /premium menu/i }));
     expect(screen.getByRole("menuitem", { name: /^FPL'dle$/ }).getAttribute("href")).toBe("/fpldle");
     expect(screen.getByRole("menuitem", { name: /^Higher or Lower$/ }).getAttribute("href")).toBe("/higher-lower");
-    expect(screen.getByRole("menuitem", { name: /^Guess the Card$/ }).getAttribute("href")).toBe("/guess-the-card");
+    // Still in admin testing: a member must not be offered a game that
+    // bounces them. Staff see it.
+    expect(screen.queryByRole("menuitem", { name: /^Guess the Card$/ })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^Daily Games$/ })).toBeNull();
     cleanup();
 

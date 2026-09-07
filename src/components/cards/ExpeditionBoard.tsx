@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 // The expedition board: read the rules, pick three cards, choose a route,
 // answer the forks as the squad reaches them, and — hours later — find out
 // who came back and what they came back as.
@@ -1020,7 +1022,10 @@ export default function ExpeditionBoard({
             <b className="font-semibold text-white">
               {picked.size}/{SQUAD_SIZE}
             </b>{" "}
-            picked · <b className="font-semibold text-mint">{shine}</b> shine
+            picked · <b className="font-semibold text-mint">{shine}</b>{" "}
+            <Link href="/glossary#shine" className="underline decoration-dotted underline-offset-4 hover:text-white" title="What shine is">
+              shine
+            </Link>
           </span>
           {picked.size > 0 ? (
             <button

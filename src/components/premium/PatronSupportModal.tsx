@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type MouseEvent } from "react";
 import PatronPerks from "@/components/patron/PatronPerks";
 import { PATRON_PAYPAL_HREF, PATRON_VENMO_LINKS } from "@/lib/patron/links";
+import { PATRON_PRICE_LABEL } from "@/lib/site/discord";
 
 export default function PatronSupportModal() {
   const [open, setOpen] = useState(false);
@@ -69,7 +70,7 @@ export default function PatronSupportModal() {
                   Become a patron
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                  Support the people building FPL for $3–$5 per month. Pick whatever level feels right; every bit
+                  Support the people building FPL for {PATRON_PRICE_LABEL}. Pick whatever level feels right; every bit
                   helps cover website costs, hosting, broadcasts, and tools.
                 </p>
               </div>

@@ -12,6 +12,8 @@ export interface PremiumAccess {
   allowed: boolean;
   /** Discord could not answer; callers may show the safe degraded state. */
   inconclusive: boolean;
+  /** Admin or owner — the only people who see what is still in testing. */
+  staff: boolean;
 }
 
 /**
@@ -32,30 +34,31 @@ export async function premiumAccess(): Promise<PremiumAccess> {
   const supabase = await createServerSupabase();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
-  if (!user) return { signedIn: false, allowed: false, inconclusive: false };
+  if (!user) return { signedIn: false, allowed: false, inconclusive: false, staff: false };
 
   const staffTier = await fetchStaffTier(supabase);
   if (staffTier.isAdmin || staffTier.isOwner) {
-    return { signedIn: true, allowed: true, inconclusive: false };
+    return { signedIn: true, allowed: true, inconclusive: false, staff: true };
   }
 
   const discordId = user.identities?.find((identity) => identity.provider === "discord")?.id;
-  if (!discordId) return { signedIn: true, allowed: false, inconclusive: false };
+  if (!discordId) return { signedIn: true, allowed: false, inconclusive: false, staff: false };
 
   // Local development and test environments may intentionally omit Discord.
   if (!process.env.DISCORD_BOT_TOKEN) {
-    return { signedIn: true, allowed: true, inconclusive: false };
+    return { signedIn: true, allowed: true, inconclusive: false, staff: false };
   }
 
   const member = await fetchGuildMember(discordId, premiumGuildId());
   if (member === null) {
     console.warn(`premiumAccess: Discord membership check inconclusive for ${discordId}`);
-    return { signedIn: true, allowed: true, inconclusive: true };
+    return { signedIn: true, allowed: true, inconclusive: true, staff: false };
   }
 
   return {
     signedIn: true,
     allowed: member.inGuild && member.roles.includes(premiumRoleId()),
     inconclusive: false,
+    staff: false,
   };
 }

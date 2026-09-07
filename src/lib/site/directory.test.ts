@@ -28,9 +28,30 @@ describe("siteDirectory", () => {
 
   it("reaches the orphaned pages the audit found", () => {
     const hrefs = siteDestinations("premier").map((item) => item.href);
-    for (const href of ["/supporters", "/cards/trades", "/fpldle", "/higher-lower", "/guess-the-card", "/box-score", "/cards/vault"]) {
+    for (const href of ["/supporters", "/cards/trades", "/fpldle", "/higher-lower", "/cards/vault"]) {
       expect(hrefs).toContain(href);
     }
+  });
+
+  it("marks what needs the role, and leaves the public doors open", () => {
+    const items = siteDestinations("premier");
+    const gated = (label: string) => items.find((item) => item.label === label)?.gated ?? false;
+    for (const label of ["Packs", "My Collection", "Market", "Betting", "FPL'dle", "Match Drafter", "The Gauntlet"]) {
+      expect(gated(label), label).toBe(true);
+    }
+    for (const label of ["Browse", "The Vault", "Moments", "Rarities", "Pack stats", "Premium HQ", "Schedule", "Glossary"]) {
+      expect(gated(label), label).toBe(false);
+    }
+  });
+
+  it("reaches the pages the second audit found missing, and the three new ones", () => {
+    const hrefs = siteDestinations("premier").map((item) => item.href);
+    for (const href of ["/betting/profile", "/identity-claims", "/skin-lines", "/my-team/scouting", "/membership", "/economy", "/glossary"]) {
+      expect(hrefs).toContain(href);
+    }
+    // The leaderboard is a destination of its own, not a page under Betting.
+    expect(siteDestinations("premier").find((item) => item.href === "/betting/leaderboard")?.nested).toBeFalsy();
+    expect(siteDestinations("academy").map((item) => item.href)).toContain("/academy/my-team/scouting");
   });
 
   it("keeps cards sub-pages out of the top level but in the flat list", () => {

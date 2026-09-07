@@ -42,6 +42,8 @@ export interface HigherLowerLeaderboardRow {
 
 export interface HigherLowerGame {
   date: string;
+  /** When this puzzle's day ends — midnight Eastern, as an instant. */
+  expiresAt: string;
   weekStart: string;
   league: HigherLowerLeague;
   state: HigherLowerRunState;

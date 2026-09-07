@@ -27,7 +27,7 @@ export async function BountiesPageView({ league = "premier" }: { league?: CardLe
     );
   }
   if (market.kind === "denied") {
-    return <CardsGate section="Market" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} />;
+    return <CardsGate section="Market" title={PREMIUM_GATE_TITLE} body={PREMIUM_GATE_BODY} browse={`${base}/browse`} />;
   }
 
   return (

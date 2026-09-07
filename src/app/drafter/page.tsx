@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import AccessWall from "@/components/access/AccessWall";
 import CreateLobbyForm from "@/components/match-draft/CreateLobbyForm";
 import { drafterAccess } from "@/lib/match-draft/access";
 
@@ -14,29 +14,25 @@ export default async function DrafterLandingPage() {
   const access = await drafterAccess();
   if (!access.signedIn) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Drafter</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Sign in to create draft lobbies</h1>
-        <p className="max-w-md text-sm text-muted">
-          The drafter is a perk for premium Discord members — sign in with Discord to check your access.
-          Draft links you&apos;ve been sent still work without signing in.
-        </p>
-        <Link href="/login?redirect=/drafter" className="btn-pill mt-2">
-          Sign in with Discord
-        </Link>
-      </main>
+      <AccessWall
+        section="Match Drafter"
+        reason="signed-out"
+        redirect="/drafter"
+        title="Sign in to create draft lobbies"
+        body="Running a pick / ban lobby is a member perk — sign in with Discord to check your access."
+        note="Draft links you've been sent still work without signing in."
+      />
     );
   }
   if (!access.allowed) {
     return (
-      <main className="page-backdrop flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">Drafter</span>
-        <h1 className="type-display text-3xl sm:text-4xl">Premium members only</h1>
-        <p className="max-w-md text-sm text-muted">
-          Creating draft lobbies is a perk for premium Discord members. Grab the premium role in the
-          Discord and come back — draft links you&apos;ve been sent still work without it.
-        </p>
-      </main>
+      <AccessWall
+        section="Match Drafter"
+        reason="no-role"
+        redirect="/drafter"
+        body="Creating draft lobbies comes with the role. Join the Discord, grab it, and come back."
+        note="Draft links you've been sent still work without it."
+      />
     );
   }
   return (

@@ -18,7 +18,7 @@ import { BRAND, GREEN, embed, errMsg, msg } from "./respond";
 import type { DiscordEmbed } from "./respond";
 import { ensureUser, requireMember, siteUrl } from "./shared";
 import type { DiscordUser } from "./shared";
-import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP } from "../daily";
+import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP, WEEKLY_AMOUNT } from "../daily";
 
 // Escalating daily-bonus tuning lives in ../daily.ts — this file is
 // server-only, and the expedition guardrail has to be able to read what a
@@ -28,7 +28,6 @@ import { DAILY_AMOUNT, DAILY_STREAK_MAX, DAILY_STREAK_STEP } from "../daily";
 // Weekly twin — bigger, slower, same escalation shape. No source-bot
 // counterpart to port; tuned so a maxed week (1750) roughly matches a maxed
 // week of dailies staying interesting without dwarfing them.
-const WEEKLY_AMOUNT = 1000;
 const WEEKLY_STREAK_STEP = 250;
 const WEEKLY_STREAK_MAX = 4;
 

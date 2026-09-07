@@ -17,5 +17,5 @@ export async function PremiumPageView({
   const query = await searchParams;
   const league = resolvePremiumLeague(query.league);
   const snapshot = await loadPremiumHubSnapshot(league);
-  return <PremiumHub snapshot={snapshot} />;
+  return <PremiumHub snapshot={snapshot} staff={access.staff} />;
 }

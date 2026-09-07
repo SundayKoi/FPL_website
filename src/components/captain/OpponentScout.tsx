@@ -34,7 +34,7 @@ export default function OpponentScout({
   const currentSeasonFixtures = source.fixtures.filter((fixture) => fixture.season === source.currentSeason);
   const currentSeasonRecord = teamRecord(currentSeasonFixtures, subjectName);
   const currentSeasonGameRecord = teamGameRecord(currentSeasonFixtures, subjectName);
-  const fixtureOpponentName = perspective === "team"
+  const fixtureOpponentName = source.nextFixture && perspective === "team"
     ? scoutKey(source.nextFixture.team_a) === scoutKey(subjectName)
       ? source.nextFixture.team_b ?? source.opponentName
       : scoutKey(source.nextFixture.team_b) === scoutKey(subjectName)
@@ -49,13 +49,13 @@ export default function OpponentScout({
       <span className="label-dash text-prestige">Premium · Scouting</span>
       <h2 id="scouting-heading" className="type-display mt-2 text-3xl">Scouting</h2>
       <p className="mt-2 max-w-2xl text-sm text-muted">{mode === "inhouse" ? "Champion performance from all available in-house games." : "A clear record of draft patterns and history. This section presents scouting context only."}</p>
-      <p className="mt-3 text-sm text-muted"><span className="label-dash">{subjectLabel}</span> <span className="font-semibold text-white">{source.opponentName}</span></p>
+      <p className="mt-3 text-sm text-muted"><span className="label-dash">{subjectLabel}</span> <span className="font-semibold text-white">{subjectName}</span></p>
       {mode === "regular" ? <label className="mt-4 flex items-center gap-3 text-sm text-muted">Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className="input-brand px-3 py-2"><option value="season">Current season</option><option value="recent">Recent 5 series</option><option value="all">All history</option></select></label> : null}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-6">
         <div><span className="label-dash">Series record</span><p className="type-display mt-1 text-2xl">{currentSeasonRecord.wins}-{currentSeasonRecord.losses}</p><p className="text-xs text-muted">{currentSeasonRecord.seriesPlayed} series · current season</p></div>
         <div><span className="label-dash">Game record</span><p className="type-display mt-1 text-2xl">{currentSeasonGameRecord.wins}-{currentSeasonGameRecord.losses}</p><p className="text-xs text-muted">{currentSeasonGameRecord.gamesPlayed} games · current season</p></div>
         {mode === "regular" && hasDrafts ? <>
-          <div><span className="label-dash">Next fixture</span><p className="mt-1 text-sm font-semibold text-white">{formatKickoff(source.nextFixture.scheduled_at)}</p><p className="text-xs text-muted">Bo{source.nextFixture.best_of} · vs {fixtureOpponentName}</p></div>
+          {source.nextFixture ? <div><span className="label-dash">Next fixture</span><p className="mt-1 text-sm font-semibold text-white">{formatKickoff(source.nextFixture.scheduled_at)}</p><p className="text-xs text-muted">Bo{source.nextFixture.best_of} · vs {fixtureOpponentName}</p></div> : null}
           <div><span className="label-dash">Drafts sampled</span><p className="type-display mt-1 text-2xl">{data.gamesSampled}</p></div>
           <div><span className="label-dash">Blue-side share</span><p className="type-display mt-1 text-2xl">{blueShare}%</p><p className="text-xs text-muted">{data.blueGames} of {data.gamesSampled} games</p></div>
           <div><span className="label-dash">Subject</span><p className="type-display mt-1 text-2xl">{source.opponentName}</p></div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardsGate from "@/components/cards/CardsGate";
 import EmptyShelf from "@/components/cards/EmptyShelf";
 import GauntletClient from "@/components/gauntlet/GauntletClient";
 import GauntletRules from "@/components/gauntlet/GauntletRules";
@@ -36,23 +37,22 @@ export const metadata: Metadata = {
 export default async function GauntletPage() {
   const user = await getBettingUser();
 
-  if (!user || !user.allowed) {
+  if (!user) {
     return (
-      <main className="bg-hash flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <span className="label-dash">The Gauntlet</span>
-        <h1 className="type-display text-3xl sm:text-4xl">
-          {user ? "Premium members only" : "Sign in to run the Gauntlet"}
-        </h1>
-        <p className="max-w-md text-sm text-steel">
-          A run costs betting dollars and fields cards from your collection — you need the wallet and the
-          shelf both.
-        </p>
-        {!user ? (
-          <Link href="/login?redirect=/cards/gauntlet" className="btn-pill mt-2">
-            Sign in with Discord
-          </Link>
-        ) : null}
-      </main>
+      <CardsGate
+        section="The Gauntlet"
+        title="Sign in to run the Gauntlet"
+        body="A run costs betting dollars and fields cards from your collection — sign in with Discord to check your access."
+        signIn="/cards/gauntlet"
+      />
+    );
+  }
+  if (!user.allowed) {
+    return (
+      <CardsGate
+        section="The Gauntlet"
+        body="A run costs betting dollars and fields cards from your collection — you need the wallet and the shelf both, and both come with the role."
+      />
     );
   }
 
@@ -105,8 +105,15 @@ export default async function GauntletPage() {
           <p className="mt-3 max-w-2xl text-sm text-steel">
             Draft five from your shelf — one per role, premier or academy — and climb an eight-round bracket scaled to your
             lineup. Every game pauses at 20:00 for your call — the stats and stakes printed on each choice.
-            Win, add to the purse, pick a relic, go again — or bank the purse and stop; lose once and the run
-            and the purse are gone. Entry is {GAUNTLET_ENTRY_FEE} betting dollars; the money out is the purse you
+            Win, add to the{" "}
+            <Link href="/glossary#purse" className="underline decoration-dotted underline-offset-4 hover:text-white">
+              purse
+            </Link>
+            , pick a{" "}
+            <Link href="/glossary#relic-gauntlet" className="underline decoration-dotted underline-offset-4 hover:text-white">
+              relic
+            </Link>
+            , go again — or bank the purse and stop; lose once and the run and the purse are gone. Entry is {GAUNTLET_ENTRY_FEE} betting dollars; the money out is the purse you
             bank and Monday&apos;s pot to the top of the board. Every roll is in the rulebook below.
           </p>
         </div>

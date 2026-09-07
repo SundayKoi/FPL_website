@@ -71,7 +71,7 @@ export default async function BettingIndexPage() {
             proportion to what they staked. The odds you see are the live split, and they move until the market locks.
           </li>
           <li>Each market locks at its game time. You can cash out an open bet before then at the current line.</li>
-          <li>Pick&apos;em is separate and free: call every game of the event and climb its own table.</li>
+          <li>Pick&apos;em is its own pool: stake what you like on a full card of calls, and the perfect cards split it.</li>
         </ul>
       </details>
 
