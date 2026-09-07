@@ -25,7 +25,7 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
     key: "info",
     label: "Info",
     links: [
-      { href: "/info", label: "Info" },
+      { href: "/info", label: "About the league" },
       { href: "/membership", label: "Premium & Patron" },
       { href: "/economy", label: "Betting dollars" },
       { href: "/signup", label: "Sign Up" },

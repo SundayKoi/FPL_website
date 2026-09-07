@@ -21,6 +21,9 @@ describe("league page links", () => {
     });
     expect(pairedLeagueHref("/fpldle", "academy")).toBe("/academy/fpldle");
     expect(pairedLeagueHref("/academy/fpldle", "premier")).toBe("/fpldle");
+    // Every daily game has a mirror; switching league used to drop these on the academy home.
+    expect(pairedLeagueHref("/higher-lower", "academy")).toBe("/academy/higher-lower");
+    expect(pairedLeagueHref("/academy/guess-the-card", "premier")).toBe("/guess-the-card");
   });
 
   it("keeps the canonical Scouting route and selected admin team", () => {

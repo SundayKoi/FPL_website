@@ -39,7 +39,7 @@ export default async function DrafterLandingPage() {
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 page-backdrop px-4 py-10 text-white">
       <header>
         <span className="label-dash">Pick / ban tool</span>
-        <h1 className="type-display mt-2 text-4xl text-white">Drafter</h1>
+        <h1 className="type-display mt-2 text-4xl text-white">Match Drafter</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
           Run a full LCS-style pick/ban phase for any custom game. Create a lobby, send each captain
           their secret link, and share the spectator link with everyone else — ready checks, a 30

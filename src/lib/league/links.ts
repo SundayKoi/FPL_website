@@ -46,6 +46,8 @@ export function leaguePageLinks(
 
 const PAIRED_PREFIXES = [
   ["/fpldle", "/academy/fpldle"],
+  ["/higher-lower", "/academy/higher-lower"],
+  ["/guess-the-card", "/academy/guess-the-card"],
   ["/my-team/scouting", "/academy/my-team/scouting"],
   ["/my-team", "/academy/my-team"],
   ["/players", "/academy/players"],

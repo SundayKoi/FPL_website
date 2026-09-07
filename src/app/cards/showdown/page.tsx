@@ -17,7 +17,7 @@ export default async function ShowdownPage() {
   const [lobby, week] = await Promise.all([loadLobby(), loadWeekBoard()]);
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow="Play · Premier" title="Showdown">
+      <CardsPageHeader eyebrow="Play · Premier" title="Showdown" tabHref="/cards/play">
         Hold&apos;em with the cards you collect. The board comes from this week&apos;s edition, your hole cards
         come from your own shelf, and the stakes are betting dollars. No card is ever on the line.
       </CardsPageHeader>

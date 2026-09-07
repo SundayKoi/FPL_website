@@ -151,7 +151,7 @@ export default async function CollectionSections({
       ) : null}
 
       {binder ? (
-        <BinderEditor unlocked={binderUnlocked} slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} />
+        <BinderEditor unlocked={binderUnlocked} slots={binderSlots} options={binderOptions} token={binder.token} title={binder.title} base={base} />
       ) : null}
     </>
   );

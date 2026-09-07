@@ -29,7 +29,7 @@ function renderScout(overrides: Partial<ScoutSource> = {}) { return render(<Oppo
 describe("OpponentScout", () => {
   it("renders the Scouting page and changes sampled scope", () => {
     renderScout();
-    expect(screen.getByText("Premium · Scouting")).toBeTruthy();
+    expect(screen.getByText("My Team · Scouting")).toBeTruthy();
     expect(screen.getByText("Opponent")).toBeTruthy();
     expect(screen.getAllByText("Night Vale").length).toBeGreaterThan(0);
     const seriesRecord = screen.getByText("Series record").parentElement;

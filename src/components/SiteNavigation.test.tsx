@@ -93,7 +93,7 @@ describe("SiteNavigation", () => {
     fireEvent.click(infoMenu);
 
     expect(infoMenu.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByRole("menuitem", { name: /^Info$/ }).getAttribute("href")).toBe("/info");
+    expect(screen.getByRole("menuitem", { name: /^About the league$/ }).getAttribute("href")).toBe("/info");
     // Where a visitor looks for "how do I get in" — and where it was missing.
     expect(screen.getByRole("menuitem", { name: /^Premium & Patron$/ }).getAttribute("href")).toBe("/membership");
     expect(screen.getByRole("menuitem", { name: /^Betting dollars$/ }).getAttribute("href")).toBe("/economy");
@@ -175,7 +175,7 @@ describe("SiteNavigation", () => {
     expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
 
     fireEvent.click(infoMenu);
-    fireEvent.click(screen.getByRole("menuitem", { name: /^Info$/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^About the league$/ }));
     expect(infoMenu.getAttribute("aria-expanded")).toBe("false");
 
     fireEvent.click(infoMenu);

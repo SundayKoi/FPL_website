@@ -1,3 +1,4 @@
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import { fmtPoints } from "@/lib/betting/format";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -7,7 +8,6 @@ import { fetchBettingUsernames } from "@/lib/fantasy/queries";
 import { WEEKLY_DRAW_POT } from "@/lib/packs/config";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /** "Week of Aug 24" — the stored week is a plain calendar date, so it is
  *  read back and printed as UTC. Letting the browser's timezone parse it
@@ -63,21 +63,12 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Weekly Draw</h1>
-          <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the
-            same — a Bronze common has exactly the odds a Challenger foil does. Every Tuesday one copy
-            comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and the winning
-            card is stamped with a laurel it wears forever.
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Play", league, season)} title="Weekly Draw" tabHref={`${cardsBase(league)}/play`}>
+        {DRAW_TAGLINE} Every copy in your collection is a ticket, and the draw treats them all the
+        same — a Bronze common has exactly the odds a Challenger foil does. Nothing to enter: every
+        Tuesday one copy comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and
+        the winning card is stamped with a laurel it wears forever.
+      </CardsPageHeader>
 
       {history.length === 0 ? (
         <p className="text-sm text-steel">{DRAW_EMPTY_HEADLINE}</p>

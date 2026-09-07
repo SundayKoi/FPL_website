@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import PackShop from "@/components/cards/PackShop";
 import ThisWeekStrip from "@/components/cards/ThisWeekStrip";
@@ -27,7 +28,6 @@ export const metadata: Metadata = {
   description: "Spend betting dollars on packs of player cards and build a collection.",
 };
 
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /**
  * The pack shop. Reads getBettingUser() rather than drafterAccess() because
@@ -105,23 +105,15 @@ export async function PacksPageView({ league = "premier" }: { league?: CardLeagu
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            Premium · {LEAGUE_LABELS[league]} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Packs</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
-            ratings — every card is stamped with the week it was pulled, so a player you open twice in
-            different weeks is two different prints. Every copy comes printed in a random skin of that
-            player&apos;s signature champion, and foils are a rare pull on any tier.{" "}
-            <Link href={`${base}/rarities`} className="text-gold underline-offset-4 hover:underline">
-              Every rarity a card can pull, with the odds →
-            </Link>
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Packs">
+        Packs cost betting dollars and contain {PACK_SIZE} player cards, each frozen at this week&apos;s
+        ratings — every card is stamped with the week it was pulled, so a player you open twice in
+        different weeks is two different prints. Every copy comes printed in a random skin of that
+        player&apos;s signature champion, and foils are a rare pull on any tier.{" "}
+        <Link href={`${base}/rarities`} className="text-gold underline-offset-4 hover:underline">
+          Every rarity a card can pull, with the odds →
+        </Link>
+      </CardsPageHeader>
 
       {/* The finishes are new, and the shop is where a person finds out.
           One line, permanent for now: it is not a week notice with a

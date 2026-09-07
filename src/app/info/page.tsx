@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SupportDevSection from "@/components/info/SupportDevSection";
 
 export const metadata: Metadata = {
   title: "About the league — FPL",
@@ -21,6 +20,11 @@ const infoDestinations = [
     href: "/glossary",
     label: "Glossary",
     description: "Shine, dust, relic, binder, purse: the words the cards use, explained.",
+  },
+  {
+    href: "/support-devs",
+    label: "Support the Devs",
+    description: "Chip in for the people who build and run the site — PayPal and Venmo, and what patrons get.",
   },
   {
     href: "/league-links",
@@ -44,11 +48,13 @@ export default async function InfoPage() {
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <header className="max-w-3xl">
-          <span className="label-dash">THE LEAGUE</span>
-          <h1 className="type-display mt-3 text-5xl sm:text-6xl">Info</h1>
+          <span className="label-dash">FRANCHISE PREMIER LEAGUE</span>
+          <h1 className="type-display mt-3 text-5xl sm:text-6xl">About the league</h1>
           <hr className="accent-rule mt-5 w-48 sm:w-64" />
           <p className="mt-4 text-lg leading-8 text-muted">
-            League links, official rules, and signup details live on their own pages now.
+            A League of Legends draft league: franchises draft at auction, play a season, and every game feeds
+            the cards, the betting and the daily games. How to join, the rules, the links and the two ways to pay
+            for it are all a page away.
           </p>
         </header>
 
@@ -69,7 +75,6 @@ export default async function InfoPage() {
           ))}
         </section>
 
-        <SupportDevSection className="mt-8" />
       </div>
     </main>
   );

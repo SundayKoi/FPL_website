@@ -144,7 +144,7 @@ export async function dustCardAction(inventoryId: number): Promise<DustResult> {
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const service = createBettingServiceClient();
   const { data, error } = await service
@@ -211,7 +211,7 @@ export async function dustManyAction(inventoryIds: number[]): Promise<DustAllRes
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const service = createBettingServiceClient();
   const { data, error } = await service
@@ -313,7 +313,7 @@ export async function createTradeAction(input: {
 }): Promise<CreateResult> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const toDiscordId = typeof input?.toDiscordId === "string" ? input.toDiscordId.trim() : "";
   if (!toDiscordId) return { ok: false, error: "Pick someone to trade with." };
@@ -415,7 +415,7 @@ export async function fetchPartnerInventoryAction(
 ): Promise<PartnerInventoryResult> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const target = typeof discordId === "string" ? discordId.trim() : "";
   if (!target) return { ok: false, error: "Pick someone to trade with." };
@@ -461,7 +461,7 @@ export async function fetchInventoryCardAction(inventoryId: number): Promise<Inv
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const service = createBettingServiceClient();
   const { data, error } = await service.from("card_inventory").select("id, card").eq("id", inventoryId).maybeSingle();
@@ -492,7 +492,7 @@ export async function fetchProvenanceAction(inventoryId: number): Promise<Proven
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const service = createBettingServiceClient();
   return { ok: true, events: await fetchProvenance(service, inventoryId) };
@@ -514,7 +514,7 @@ export async function respondTradeAction(tradeId: number, accept: boolean): Prom
 
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
-  if (!user.allowed) return { ok: false, error: "FPL Better members only." };
+  if (!user.allowed) return { ok: false, error: "FPL Premium members only." };
 
   const service = createBettingServiceClient();
   const { data, error } = await service

@@ -12,6 +12,7 @@ import { useState, useTransition } from "react";
 import { setBinderSlotAction, setBinderTitleAction } from "@/lib/binder/actions";
 import { editionLabel } from "@/lib/packs/week";
 import { tierLabel } from "./CardCopyPreview";
+import EmptyShelf from "./EmptyShelf";
 
 export interface BinderOption {
   inventoryId: number;
@@ -38,7 +39,10 @@ export default function BinderEditor({
   token,
   title,
   unlocked = slots.length,
+  base = "/cards",
 }: {
+  /** "/cards" or "/academy/cards" — where the empty state's pack button goes. */
+  base?: string;
   /** slot number -> the copy pinned there, or null. Always length 9. */
   slots: (number | null)[];
   options: BinderOption[];
@@ -129,11 +133,7 @@ export default function BinderEditor({
 
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
-      {options.length === 0 ? (
-        <p className="text-sm text-muted">
-          Nothing to display yet — open a pack and the copies you pull become choosable here.
-        </p>
-      ) : null}
+      {options.length === 0 ? <EmptyShelf base={base} goal="have something to pin" /> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {options.length === 0 ? null : picked.map((inventoryId, index) => (

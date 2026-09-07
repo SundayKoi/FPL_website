@@ -43,3 +43,10 @@ export const PATRON_RECURRING_MULT = 1.5;
 export function patronRecurring(base: number): number {
   return Math.floor(base * PATRON_RECURRING_MULT);
 }
+
+/** The one sentence about the daily reward. Four surfaces described it
+ *  four ways, and The Daily Stu's read as a fifth, separate pot. */
+export const DAILY_REWARD_SENTENCE =
+  `One shared reward a day: the first daily game you finish — FPL'dle, Higher or Lower or The Daily Stu — ` +
+  `pays $${DAILY_GAME_REWARD} betting dollars, or $${patronRecurring(DAILY_GAME_REWARD)} while your patron flame is active. ` +
+  `Resets at midnight Eastern.`;

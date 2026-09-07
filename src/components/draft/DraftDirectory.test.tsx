@@ -25,7 +25,7 @@ describe("DraftDirectory", () => {
   it("links each draft card to its existing board", () => {
     render(<DraftDirectory drafts={[draft({ id: "summer-auction", name: "Summer Auction", status: "live" })]} />);
 
-    expect(screen.getByRole("heading", { name: "Draft Central", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Auction Draft", level: 1 })).toBeTruthy();
     expect(screen.getByRole("link", { name: /summer auction/i }).getAttribute("href")).toBe(
       "/draft/summer-auction"
     );

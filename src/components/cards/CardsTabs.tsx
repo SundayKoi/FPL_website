@@ -13,7 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { CardLeague } from "@/lib/cards/queries";
 import { activeCardsSection, cardsSections } from "@/lib/cards/sections";
-import { fmtPoints } from "@/lib/betting/format";
+import BalanceChip from "@/components/BalanceChip";
 
 const BASES: Record<CardLeague, string> = { premier: "/cards", academy: "/academy/cards" };
 
@@ -75,16 +75,7 @@ export default function CardsTabs({
             );
           })}
         </ul>
-        {balance !== null ? (
-          <Link
-            href="/economy"
-            title="Your betting dollars — what they buy and every way to earn more"
-            className="ml-auto shrink-0 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 font-mono text-xs font-semibold text-gold transition hover:bg-gold/20"
-            data-testid="cards-balance"
-          >
-            {fmtPoints(balance)}
-          </Link>
-        ) : null}
+        {balance !== null ? <BalanceChip balance={balance} className="ml-auto shrink-0 !px-3" testId="cards-balance" /> : null}
       </div>
       {active?.children ? (
         <div className="border-t border-line/60">

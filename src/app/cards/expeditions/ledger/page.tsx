@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import { tierLabel } from "@/lib/cards/tier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
@@ -120,7 +120,7 @@ export async function LedgerPageView({ league = "premier" }: { league?: CardLeag
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Play", league, season)} title="The ledger of the fallen and the found">
+      <CardsPageHeader eyebrow={cardsEyebrow("Play", league, season)} title="The ledger of the fallen and the found" tabHref={`${cardsBase(league)}/play`}>
         Every card the league has lost on an expedition, and every one that came back. A card that fell on the
         Legendary route, or was lost and never rescued, stays here for good. A card that is missing right now can
         still be brought home — by its owner&apos;s Rescue, by a ransom, or by another squad that happens across it

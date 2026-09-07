@@ -14,6 +14,8 @@ export default function CardsPageHeader({
   children,
   aside,
   glossary = false,
+  tabHref,
+  below,
 }: {
   eyebrow: string;
   title: string;
@@ -25,13 +27,32 @@ export default function CardsPageHeader({
    *  words start mattering (Collection, Market, Play) turn it on; the
    *  rarities page IS the glossary for its own words and does not. */
   glossary?: boolean;
+  /** Where the eyebrow's first segment — the tab this page sits under —
+   *  links. A sub-page's parent used to be plain text. */
+  tabHref?: string;
+  /** Anything that belongs under the paragraph but is not the paragraph:
+   *  a second line, a link to a sibling page. */
+  below?: ReactNode;
 }) {
+  const [tab, ...rest] = eyebrow.split(" · ");
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <span className="label-dash">{eyebrow}</span>
+        <span className="label-dash">
+          {tabHref ? (
+            <>
+              <Link href={tabHref} className="underline-offset-4 hover:text-white hover:underline">
+                {tab}
+              </Link>
+              {rest.length > 0 ? ` · ${rest.join(" · ")}` : ""}
+            </>
+          ) : (
+            eyebrow
+          )}
+        </span>
         <h1 className="type-display mt-2 text-4xl sm:text-5xl">{title}</h1>
         {children ? <p className="mt-3 max-w-2xl text-sm text-steel">{children}</p> : null}
+        {below}
         {glossary ? <GlossaryLink /> : null}
       </div>
       {aside}
@@ -47,6 +68,11 @@ export function GlossaryLink({ className = "mt-2" }: { className?: string }) {
       Shine, dust, relic, binder — the words, explained →
     </Link>
   );
+}
+
+/** "/cards" or "/academy/cards" — for a tab link beside the eyebrow. */
+export function cardsBase(league: "premier" | "academy"): string {
+  return league === "academy" ? "/academy/cards" : "/cards";
 }
 
 /** "Browse · Premier · Season S5" — the eyebrow's standard shape. */

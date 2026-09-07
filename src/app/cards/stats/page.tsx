@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import {
   FOIL_CHANCE,
   FOIL_TYPES,
@@ -78,29 +79,20 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            {league === "academy" ? "Academy" : "Premier"} · Season {season ?? "—"}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Stats</h1>
-          <hr className="accent-rule mt-4 w-40 sm:w-56" />
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Everything the league has opened, spent and is holding this season. The pull rates count at
-            the mint and never forget a copy; every other card count is what exists right now — dusting
-            destroys a copy, so a card someone melted down is gone from those figures as well as from
-            their collection.
-            {stats && stats.excludedCount > 0 ? (
-              <>
-                {" "}
-                Dev wallets are left out of every figure — {stats.excludedCount} account
-                {stats.excludedCount === 1 ? "" : "s"} that opened packs on test money, which would
-                drown the real numbers.
-              </>
-            ) : null}
-          </p>
-        </div>
-      </header>
+      <CardsPageHeader eyebrow={cardsEyebrow("Play", league, season)} title="Pack stats" tabHref={`${cardsBase(league)}/play`}>
+        Everything the league has opened, spent and is holding this season. The pull rates count at
+        the mint and never forget a copy; every other card count is what exists right now — dusting
+        destroys a copy, so a card someone melted down is gone from those figures as well as from
+        their collection.
+        {stats && stats.excludedCount > 0 ? (
+          <>
+            {" "}
+            Dev wallets are left out of every figure — {stats.excludedCount} account
+            {stats.excludedCount === 1 ? "" : "s"} that opened packs on test money, which would
+            drown the real numbers.
+          </>
+        ) : null}
+      </CardsPageHeader>
 
       {stats && stats.pulled.cards > 0 ? (
         // The true rates. Every figure here is a MINT, read from provenance,

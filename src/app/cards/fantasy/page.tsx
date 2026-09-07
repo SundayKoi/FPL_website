@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { parseInventoryId } from "@/lib/cards/params";
 import CardsGate from "@/components/cards/CardsGate";
+import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import FantasyLeaderboard, {
   type FantasySeasonRow,
   type FantasyWeeklyRow,
@@ -23,7 +24,6 @@ export const metadata: Metadata = {
   description: "Field a weekly lineup from the cards you own and play for betting dollars.",
 };
 
-const LEAGUE_LABELS: Record<CardLeague, string> = { premier: "Premier", academy: "Academy" };
 
 /** "Aug 24" — explicit locale + UTC, matching LineupBuilder's monthDay so
  *  the two surfaces never disagree about which Monday a week is. */
@@ -163,25 +163,23 @@ export async function FantasyPageView({
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="label-dash">
-            Premium · {LEAGUE_LABELS[league]} · Season {season}
-          </span>
-          <h1 className="type-display mt-2 text-4xl sm:text-5xl">Fantasy</h1>
-          <p className="mt-3 max-w-2xl text-sm text-steel">
-            Field one card you own in every role — Top, Jungle, Mid, Bot, Support — with their combined
-            OVR at or under {SALARY_CAP}. Each card scores its player&apos;s real power rating for that
-            week&apos;s games, and the five add up to your total. The top three managers take{" "}
-            {WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars. Lineups lock
-            Mondays at {lockLabelEastern(week)} — after that the week is played out and scored.
-          </p>
+      <CardsPageHeader
+        eyebrow={cardsEyebrow("Play", league, season)}
+        title="Fantasy"
+        tabHref={`${base}/play`}
+        below={
           <p className="mt-2 text-sm text-steel">
             Balance <b className="font-semibold text-white">{fmtPoints(user.balance)}</b> · {options.length} card
             {options.length === 1 ? "" : "s"} in your collection.
           </p>
-        </div>
-      </header>
+        }
+      >
+        Field one card you own in every role — Top, Jungle, Mid, Bot, Support — with their combined
+        OVR at or under {SALARY_CAP}. Each card scores its player&apos;s real power rating for that
+        week&apos;s games, and the five add up to your total. The top three managers take{" "}
+        {WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars. Lineups lock
+        Mondays at {lockLabelEastern(week)} — after that the week is played out and scored.
+      </CardsPageHeader>
 
       <LineupBuilder
         league={league}

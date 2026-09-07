@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
-import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import WantsBoard from "@/components/cards/WantsBoard";
 import type { CardLeague } from "@/lib/cards/queries";
 import { loadMarket } from "../load";
@@ -32,7 +32,7 @@ export async function BountiesPageView({ league = "premier" }: { league?: CardLe
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Bounties">
+      <CardsPageHeader eyebrow={cardsEyebrow("Market", league, market.season)} title="Bounties" tabHref={`${cardsBase(league)}/market`}>
         The market from the other side: post a bounty on a card you need, and whoever holds one can sell
         it to you at that price. Holding a card somebody wants? Fill their bounty from your shelf.
       </CardsPageHeader>
