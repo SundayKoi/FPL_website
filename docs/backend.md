@@ -151,7 +151,9 @@ past wounded (`card is one of one`), and `record_card_provenance` to stamp
 the player cards. Filed under tier `dribb`, like a moment's `moment`, so
 nothing prices or sorts it as an ordinary card; auto-dust treats it as a
 relic; on an expedition it carries 16 shine, the most a single card can.
-It can be traded. pgTAP `0105_dribb_card_test.sql`.
+It can be traded. A secret: the rarities and stats pages never mention
+it; the first anyone hears of it is the announcement when one lands.
+pgTAP `0105_dribb_card_test.sql`.
 
 **Finishes (Shiny, StatTrak, Secret).** Three stamps a player-card print
 can take on top of its parallel and its ink, rolled in

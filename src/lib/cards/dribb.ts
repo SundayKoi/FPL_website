@@ -14,6 +14,9 @@
 // fact: a partial unique index on the copy's number, a check that the
 // number is 1..5, dust_card refusing it, launch_expedition keeping it off
 // any route that can lose a card.
+//
+// A secret: no page lists it. Nothing here is imported by the rarities
+// guide or the stats page, and it must stay that way.
 
 import type { OverlayPreview } from "@/components/cards/PlayerCard3D";
 import { DRIBB_CHANCE, DRIBB_COPIES } from "@/lib/packs/config";

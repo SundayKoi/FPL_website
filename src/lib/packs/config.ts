@@ -186,19 +186,20 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
 /**
  * Chance an Eclipse falls on a Card-of-the-Week pull.
  *
- * Half a percent, and the number only means anything through the gate in
- * front of it. A Card of the Week is the top-rated card in each ROLE — five
+ * One in five hundred, and the number only means anything through the gate
+ * in front of it. A Card of the Week is the top-rated card in each ROLE — five
  * per week — and because the roller picks uniformly inside a rarity class,
  * one lands in roughly 2-4% of pack SLOTS depending on how top-heavy the
  * league is (a thin league is the HIGHER figure: fewer legendaries means
  * each one is likelier when that class hits). Multiplying through:
  *
- *     ~0.5% of Card-of-the-Week pulls
+ *     ~0.2% of Card-of-the-Week pulls
  *   × ~2-4% of slots being one
- *   = roughly 1 Eclipse per 1,000-2,000 packs
+ *   = roughly 1 Eclipse per 2,500-5,000 packs
  *
- * Which lands at about one a season at the league's current volume — rare
+ * Which lands at a handful a year at the league's current volume — rare
  * enough that most people never see one, common enough that they exist.
+ * (It was 0.5% until 20260907; the league found them too often.)
  *
  * It is deliberately NOT tuned so that each week reliably produces one. It
  * does not have to: an unclaimed Eclipse stays claimable forever through
@@ -210,7 +211,7 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * pool, the real odds drift with the league's shape: as more players reach
  * the top tiers, Eclipses quietly get rarer on their own.
  */
-export const ECLIPSE_CHANCE = 0.005;
+export const ECLIPSE_CHANCE = 1 / 500;
 
 /** The parallel a Card of the Week wears when the Eclipse gate opens. */
 export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
@@ -352,9 +353,9 @@ export const STATTRAK_CHANCE = 0.02;
  * Secret — a print numbered past the checklist. Numbered from the top of
  * the collection: in a season of 120 cards, the first Secret found is
  * #121/120, the next #122/120. One in five hundred per card, one per
- * thousand packs' worth of prints — a hair rarer than an Eclipse gate
- * (ECLIPSE_CHANCE, 0.5%) but on ANY player card rather than the Card of
- * the Week, so it is the rarest thing an ordinary pull can be. Announced
+ * thousand packs' worth of prints — the Eclipse gate's own rate
+ * (ECLIPSE_CHANCE) but on ANY player card rather than the Card of the
+ * Week, so it is the rarest thing an ordinary pull can be. Announced
  * to the channel when it lands, like an Eclipse. At most one per pack.
  */
 export const SECRET_CHANCE = 0.002;
@@ -372,6 +373,10 @@ export const SECRET_CHANCE = 0.002;
  * the copy's number (migration 20260929000001) is what makes "five" a
  * fact rather than a promise. Never dusts, never auto-dusts, never boards
  * a route that can lose it; it can be traded, which is the point.
+ *
+ * A SECRET. Nothing player-facing says it exists — not the rarities page,
+ * not the stats page. The first anyone hears of it is the announcement
+ * when one lands. The admin mockup page is staff-only.
  */
 export const DRIBB_CHANCE = 1 / 5000;
 export const DRIBB_COPIES = 5;

@@ -7,7 +7,7 @@ import {
   SECRET_CHANCE,
   SHINY_CHANCE,
   SIGNED_CHANCE,
-  STATTRAK_CHANCE, DRIBB_CHANCE, DRIBB_COPIES } from "@/lib/packs/config";
+  STATTRAK_CHANCE } from "@/lib/packs/config";
 import { oneIn } from "@/lib/cards/rarityGuide";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
@@ -137,11 +137,6 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
             <Figure value={stats.pulled.shiny.toLocaleString()} label="Shiny" note={gate(stats.pulled.shiny, stats.pulled.cards, SHINY_CHANCE)} />
             <Figure value={stats.pulled.stattrak.toLocaleString()} label="StatTrak™" note={gate(stats.pulled.stattrak, stats.pulled.cards, STATTRAK_CHANCE)} />
             <Figure value={stats.pulled.secret.toLocaleString()} label="Secret" note={gate(stats.pulled.secret, stats.pulled.cards, SECRET_CHANCE)} />
-            <Figure
-              value={`${stats.pulled.dribb} / ${DRIBB_COPIES}`}
-              label="The Dribb card"
-              note={`1 in ${Math.round(1 / DRIBB_CHANCE).toLocaleString()} packs · ${Math.max(0, DRIBB_COPIES - stats.pulled.dribb)} still out there`}
-            />
           </div>
         </section>
       ) : null}
