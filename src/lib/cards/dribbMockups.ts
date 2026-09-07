@@ -65,6 +65,53 @@ export const DRIBB_LOOKS: DribbLook[] = [
   },
 ];
 
+/**
+ * Aether, pushed further. Each keeps the thin-film shimmer and the
+ * colour-split echo, and adds one thing the base look does not do.
+ */
+export const AETHER_VARIANTS: DribbLook[] = [
+  {
+    key: "aether-prism",
+    title: "Aether · Prism",
+    blurb: "The shimmer, plus a rainbow ring that orbits the border and a bar of white light that leaks across the face every few seconds.",
+    motion: "The ring turns; the light leak crosses left to right and repeats.",
+    accent: "#e6b8ff",
+    front: ["card-ov-dribb-aether", "card-ov-dribb-aether-ring", "card-ov-dribb-aether-leak"],
+    artEcho: "card-ov-dribb-aberration",
+    chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
+  },
+  {
+    key: "aether-rift",
+    title: "Aether · Rift",
+    blurb: "A tear runs across the card and everything inside it is inverted — the art, the name, the light — as if a strip of another dimension shows through.",
+    motion: "The tear's edges glow and drift; the split art slides harder against the base.",
+    accent: "#d27dff",
+    front: ["card-ov-dribb-aether", "card-ov-dribb-aether-rift"],
+    artEcho: "card-ov-dribb-aberration-wide",
+    chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
+  },
+  {
+    key: "aether-nebula",
+    title: "Aether · Nebula",
+    blurb: "Violet and teal clouds drift under the shimmer with a field of faint stars — the oil slick becomes deep space.",
+    motion: "The clouds roll slowly in opposite directions; the stars hold still.",
+    accent: "#b28cff",
+    front: ["card-ov-dribb-aether-nebula", "card-ov-dribb-aether"],
+    artEcho: "card-ov-dribb-aberration",
+    chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
+  },
+  {
+    key: "aether-glass",
+    title: "Aether · Glass",
+    blurb: "The shimmer sealed under a pane of glass: a specular highlight follows the pointer, caustic lines sweep across, and the edge catches the light like a bevel.",
+    motion: "The highlight tracks your pointer; the caustics crawl on their own.",
+    accent: "#dff3ff",
+    front: ["card-ov-dribb-aether", "card-ov-dribb-aether-glass"],
+    artEcho: "card-ov-dribb-aberration",
+    chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
+  },
+];
+
 /** The odds, in words a reader keeps: one Dribb per how many packs. */
 export function dribbPacksPerPull(rate: number): number {
   return Math.round(1 / (rate * PACK_SIZE));
