@@ -45,6 +45,7 @@ function leagueGroup(view: LeagueView): SiteGroup {
       { label: "Players", href: leaguePath("players", view), blurb: "Every player in the pool, by role and rank", keywords: ["roster", "player list", "pool"] },
       { label: "Teams", href: leaguePath("teams", view), blurb: "Every franchise, its roster and its record", keywords: ["franchises", "rosters"] },
       { label: "Schedule", href: leaguePath("schedule", view), blurb: "Every fixture, past results and what is next", keywords: ["fixtures", "matches", "games", "results"] },
+      { label: "Standings", href: leaguePath("standings", view), blurb: "The table: every team's record, form and the race week by week", keywords: ["table", "ladder", "record", "rankings", "who is winning"] },
       { label: "Stats", href: leaguePath("stats", view), blurb: "Player and champion numbers from every game", keywords: ["kda", "leaderboard", "champions"] },
       { label: "My Team", href: leaguePath("my-team", view), blurb: "Your roster, your scouting, your week" },
       { label: "Scouting", href: `${leaguePath("my-team", view)}/scouting`, blurb: "Your next opponent's champions and habits", nested: true, keywords: ["scout", "opponent"] },
