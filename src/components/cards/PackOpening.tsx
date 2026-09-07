@@ -32,9 +32,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cardArtUrls, preloadArt } from "@/lib/cards/artUrls";
 import { fmtPoints } from "@/lib/betting/format";
 import type { PlayerCardData } from "@/lib/cards/build";
-import { canDust, patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
-import type { RarityClass } from "@/lib/packs/config";
-import { flipTone, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
+import { canDust, GOD_PACK_ODDS_DENOMINATOR, patronDustValue, rarityOf, rarityRank } from "@/lib/packs/config";
+import type { PackVariant, RarityClass } from "@/lib/packs/config";
+import { flipTone, godPackFinaleSting, packDropThud, setMuted, walkoutSting } from "@/lib/packs/sounds";
 import { PATRON_FLAMES, patronFlameOf } from "@/lib/patron/flames";
 import PatronFlame from "@/components/patron/PatronFlame";
 import PackRip, { prefersReducedMotion } from "./PackRip";
@@ -64,7 +64,16 @@ export interface AutoDusted {
 }
 
 export type OpenResult =
-  | { ok: true; cards: Pull[]; balance: number; autoDusted?: AutoDusted | null }
+  | {
+      ok: true;
+      cards: Pull[];
+      balance: number;
+      autoDusted?: AutoDusted | null;
+      autoDustProtected?: boolean;
+      variant?: PackVariant;
+      openingId?: string | null;
+      revealOrder?: number[];
+    }
   | { ok: false; error: string };
 
 type Phase = "drop" | "rip" | "line" | "summary";
@@ -108,6 +117,18 @@ const STORM_SPARKS = [
 function byRarityAscending(a: Pull, b: Pull): number {
   const gap = rarityRank(rarityOf(a.card.tier.key)) - rarityRank(rarityOf(b.card.tier.key));
   return gap !== 0 ? gap : a.card.overall - b.card.overall;
+}
+
+/** God Packs carry a server-owned order. Ordinary packs keep the familiar
+ *  worst-to-best contact sheet, but an event pack must reveal in its persisted
+ *  1–3 / Cracked Ice / finale sequence. */
+function orderPulls(pulls: Pull[], variant: PackVariant | undefined, revealOrder: number[] | undefined): Pull[] {
+  if (variant === "god" && revealOrder && revealOrder.length === pulls.length) {
+    const byId = new Map(pulls.map((pull) => [pull.inventoryId, pull]));
+    const ordered = revealOrder.map((id) => byId.get(id)).filter((pull): pull is Pull => Boolean(pull));
+    if (ordered.length === pulls.length) return ordered;
+  }
+  return [...pulls].sort(byRarityAscending);
 }
 
 /** This copy printed in something other than the player's base splash. */
@@ -180,6 +201,7 @@ function buzz(pattern: number[]): void {
 function CardBack({
   rarity,
   signed,
+  godPack = false,
   label,
   revealed,
   flame = null,
@@ -187,6 +209,7 @@ function CardBack({
 }: {
   rarity: RarityClass;
   signed: boolean;
+  godPack?: boolean;
   label: string;
   /** Already turned — the back is still in the DOM for the flip to rotate
    *  away, but it must stop being a button the moment it faces backwards. */
@@ -204,7 +227,7 @@ function CardBack({
       aria-hidden={revealed}
       tabIndex={revealed ? -1 : undefined}
       aria-label={label}
-      className={`pack-card-back ${RARITY_GLOW[rarity]}`}
+      className={`pack-card-back ${RARITY_GLOW[rarity]} ${godPack ? "god-pack-card-back" : ""}`}
       style={flameStyle ? { borderColor: flameStyle.dash } : undefined}
     >
       <span className="pack-back-glow" aria-hidden />
@@ -221,6 +244,7 @@ function CardBack({
           ))
         : null}
       <span className="pack-back-mark">
+        {godPack ? <span className="pack-back-god">GOD</span> : null}
         <span
           className="type-display pack-back-fpl"
           style={flameStyle ? { color: flameStyle.hot, textShadow: `0 0 16px ${flameStyle.core}` } : undefined}
@@ -246,8 +270,13 @@ export default function PackOpening({
   onSellPack,
   flame = null,
   patron = false,
+  variant: initialVariant = "standard",
+  openingId: initialOpeningId = null,
+  revealOrder: initialRevealOrder = [],
+  autoDustProtected: initialAutoDustProtected = false,
+  preview = false,
 }: {
-  /** The pack that's just been paid for, in any order — sorted here. */
+  /** The pack that's just been paid for. God Packs use the persisted order. */
   pulls: Pull[];
   balance: number;
   packCost: number;
@@ -273,23 +302,40 @@ export default function PackOpening({
   /** Active patron opening this pack — the sell-all quote carries their
    *  20% dust bonus, same helper the server credits by. */
   patron?: boolean;
+  /** Server-owned presentation metadata for standard openings. */
+  variant?: PackVariant;
+  openingId?: string | null;
+  revealOrder?: number[];
+  autoDustProtected?: boolean;
+  /** Admin fixture mode: no wallet controls or production actions. */
+  preview?: boolean;
 }) {
   // Read once, on mount: the overlay is on screen for a minute at a time, and
   // re-deciding mid-ritual whether to have a ritual is worse than either
   // answer. Same call PackRip makes, so the two can't disagree.
   const [reduced] = useState(prefersReducedMotion);
+  const initialPulls = orderPulls(firstPack, initialVariant, initialRevealOrder);
 
   // One state object for everything that turns over together when a new pack
   // arrives — the pulls, their NEW flags, and the running set of slugs the
   // session has seen (so a repeat player in pack three isn't marked NEW).
   const [pack, setPack] = useState(() => {
-    const pulls = [...firstPack].sort(byRarityAscending);
+    const pulls = initialPulls;
     const marked = markNew(pulls, new Set(ownedSlugs));
-    return { index: 0, pulls, isNew: marked.flags, seen: marked.seen };
+    return {
+      index: 0,
+      pulls,
+      isNew: marked.flags,
+      seen: marked.seen,
+      variant: initialVariant,
+      openingId: initialOpeningId,
+      revealOrder: initialRevealOrder,
+      autoDustProtected: initialAutoDustProtected,
+    };
   });
 
   const [phase, setPhase] = useState<Phase>("drop");
-  const [flipped, setFlipped] = useState<boolean[]>(() => firstPack.map(() => false));
+  const [flipped, setFlipped] = useState<boolean[]>(() => initialPulls.map(() => false));
   const [walkoutQueue, setWalkoutQueue] = useState<number[]>([]);
   const [autoFlip, setAutoFlip] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -372,6 +418,7 @@ export default function PackOpening({
 
   const count = pack.pulls.length;
   const activeWalkout = walkoutQueue.length > 0 ? walkoutQueue[0] : null;
+  const isGodPack = pack.variant === "god";
   // Sorted worst→best, so the chase card is the last one — and the room's
   // color is read off it, the same thing the sealed pack was already leaking.
   const bestRarity: RarityClass = count > 0 ? rarityOf(pack.pulls[count - 1].card.tier.key) : "common";
@@ -452,14 +499,15 @@ export default function PackOpening({
       if (!pull) return;
       const rarity = rarityOf(pull.card.tier.key);
       if (!mutedRef.current) flipTone(rarityRank(rarity));
-      if (walkoutLabels(pull).length === 0) return;
+      const godFinale = pack.variant === "god" && index === pack.pulls.length - 1;
+      if (walkoutLabels(pull).length === 0 && !godFinale) return;
       notePull(pull);
       // Queued rather than shown: "Flip all" can turn several qualifying
       // cards before the first takeover has been dismissed, and they're owed
       // one screen each, in flip order.
       if (!reducedRef.current) setWalkoutQueue((queue) => [...queue, index]);
     },
-    [pack.pulls, notePull],
+    [pack.pulls, pack.variant, notePull],
   );
 
   /** Turn everything face-up at once and go straight to the summary — the
@@ -492,8 +540,9 @@ export default function PackOpening({
     if (activeWalkout === null || mutedRef.current) return;
     const pull = pack.pulls[activeWalkout];
     if (!pull) return;
-    walkoutSting(rarityOf(pull.card.tier.key), pull.signed);
-  }, [activeWalkout, pack.pulls]);
+    if (isGodPack && activeWalkout === count - 1) godPackFinaleSting(pull.signed);
+    else walkoutSting(rarityOf(pull.card.tier.key), pull.signed);
+  }, [activeWalkout, count, isGodPack, pack.pulls]);
 
   // "Flip all" turns the rest one at a time rather than all at once, and
   // stalls while a walkout is up — the impatient path still gets the beats.
@@ -548,12 +597,22 @@ export default function PackOpening({
       setError(result.error);
       return;
     }
-    const pulls = [...result.cards].sort(byRarityAscending);
+    const variant = result.variant ?? "standard";
+    const pulls = orderPulls(result.cards, variant, result.revealOrder);
     const marked = markNew(pulls, pack.seen);
     const blank = pulls.map(() => false);
     flippedRef.current = blank;
     burstedRef.current = false;
-    setPack({ index: pack.index + 1, pulls, isNew: marked.flags, seen: marked.seen });
+    setPack({
+      index: pack.index + 1,
+      pulls,
+      isNew: marked.flags,
+      seen: marked.seen,
+      variant,
+      openingId: result.openingId ?? null,
+      revealOrder: result.revealOrder ?? pulls.map((pull) => pull.inventoryId),
+      autoDustProtected: result.autoDustProtected === true,
+    });
     setFlipped(blank);
     setCursor(0);
     setWalkoutQueue([]);
@@ -681,11 +740,15 @@ export default function PackOpening({
 
   return (
     <div
-      className={`pack-overlay ${RARITY_GLOW[bestRarity]}`}
+      className={`pack-overlay ${RARITY_GLOW[bestRarity]} ${isGodPack ? "god-pack-overlay" : ""}`}
       role="dialog"
       aria-modal="true"
-      aria-label="Opening a card pack"
+      aria-label={isGodPack ? "Opening a God Pack" : "Opening a card pack"}
+      data-opening-id={pack.openingId ?? undefined}
     >
+      <p className="sr-only" role="status" aria-live="polite">
+        {isGodPack ? "God Pack opened: five special cards, with the signed finale revealed last." : ""}
+      </p>
       <div className="pack-vignette" aria-hidden style={{ opacity: vignette }} />
       <div className="pack-spotlight" aria-hidden />
       {showRays ? <div className="pack-rays" aria-hidden /> : null}
@@ -723,6 +786,7 @@ export default function PackOpening({
               key={pack.index}
               bestRarity={bestRarity}
               hasSigned={hasSigned}
+              godPack={isGodPack}
               // The wrapper knows what it holds: a Faceless Pack prints the
               // drop's markings instead of the five-cards-one-rare promise.
               champions={pack.pulls.some((pull) => Boolean(pull.card.champWin))}
@@ -768,6 +832,7 @@ export default function PackOpening({
                           <CardBack
                             rarity={rarity}
                             signed={pull.signed}
+                            godPack={isGodPack}
                             revealed={face}
                             flame={flame}
                             label={`Reveal card ${index + 1} of ${count}`}
@@ -856,7 +921,7 @@ export default function PackOpening({
                             dust chip next to a card still being turned is a
                             destructive control competing with the moment the
                             pack exists for. */}
-                        {onSellPack && view === "summary" ? (
+                        {onSellPack && !preview && view === "summary" ? (
                           dustedIds.has(pull.inventoryId) ? (
                             <span className="w-full rounded-full border border-border-subtle px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">
                               Dusted
@@ -929,6 +994,12 @@ export default function PackOpening({
 
       {view === "summary" ? (
         <div className="pack-summary flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 sm:px-6">
+          {isGodPack ? (
+            <div className="god-pack-summary-badge" role="status">
+              <span className="label-dash">GOD PACK · 1 IN {GOD_PACK_ODDS_DENOMINATOR}</span>
+              <span className="text-sm font-semibold text-white">Five guaranteed special foils</span>
+            </div>
+          ) : null}
           <div className="flex flex-col">
             <span className="label-dash">Pack value</span>
             <span className="text-lg font-bold text-gold">{fmtPoints(dustTotal)}</span>
@@ -974,12 +1045,17 @@ export default function PackOpening({
                 Auto-dusted {auto.dusted} for +{fmtPoints(auto.value)}
               </span>
             ) : null}
+            {pack.autoDustProtected ? (
+              <span className="rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
+                God Pack pulls protected from auto-dust
+              </span>
+            ) : null}
             {sold ? (
               <span className="rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
                 Dusted {sold.dusted} for +{fmtPoints(sold.value)}
               </span>
             ) : null}
-            {onSellPack && remaining.length > 0 ? (
+            {onSellPack && !preview && remaining.length > 0 ? (
               <>
                 {picked.size > 0 ? (
                   <button
@@ -1009,14 +1085,16 @@ export default function PackOpening({
                 </button>
               </>
             ) : null}
-            <button
-              type="button"
-              onClick={handleOpenAnother}
-              disabled={pending || error !== null || selling}
-              className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {pending ? "Opening…" : `Open another — ${fmtPoints(packCost)}`}
-            </button>
+            {!preview ? (
+              <button
+                type="button"
+                onClick={handleOpenAnother}
+                disabled={pending || error !== null || selling}
+                className="btn-primary px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pending ? "Opening…" : `Open another — ${fmtPoints(packCost)}`}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onExit}
@@ -1030,7 +1108,7 @@ export default function PackOpening({
 
       {walkoutPull ? (
         <div
-          className={`pack-walkout ${RARITY_GLOW[rarityOf(walkoutPull.card.tier.key)]}`}
+          className={`pack-walkout ${RARITY_GLOW[rarityOf(walkoutPull.card.tier.key)]} ${isGodPack && activeWalkout === count - 1 ? "god-pack-finale" : ""}`}
           onClick={dismissWalkout}
           role="presentation"
         >
@@ -1046,11 +1124,14 @@ export default function PackOpening({
             </span>
           ))}
           <div className="relative flex flex-col items-center gap-1">
-            {walkoutLabels(walkoutPull).map((label) => (
+            {isGodPack && activeWalkout === count - 1 ? (
+              <span className="pack-walkout-label god-pack-finale-label">THE FINAL PULL</span>
+            ) : null}
+            {!isGodPack || activeWalkout !== count - 1 ? walkoutLabels(walkoutPull).map((label) => (
               <span key={label} className="pack-walkout-label">
                 {label}
               </span>
-            ))}
+            )) : null}
           </div>
           {/* Clicks inside the card belong to the card (it flips), not to the
               backdrop — the walkout is dismissed by its own button or by the

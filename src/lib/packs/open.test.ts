@@ -27,17 +27,18 @@ vi.mock("@/lib/cards/queries", () => ({
 }));
 vi.mock("./rng", () => ({
   rollPack: vi.fn(() => [
-    {
+    ...Array.from({ length: 5 }, () => ({
       card: { slug: "doug-na1", name: "Doug", role: "Mid", overall: 82, tier: { key: "gold", label: "Gold" } },
       foil: false,
       foilType: null,
       signed: false,
-    },
+    })),
   ]),
 }));
 vi.mock("./signatures", () => ({
   applyAutographs: vi.fn((pulls: unknown[]) => pulls.map((pull) => ({ ...(pull as object), autograph: null }))),
 }));
+vi.mock("./godGate", () => ({ rollGodPackGate: vi.fn(() => false) }));
 vi.mock("./skins", () => ({
   fetchChampionSkinNums: vi.fn(async () => [0]),
   printArtExists: vi.fn(async () => true),
@@ -127,7 +128,10 @@ type Respond = (call: QueryCall) => { data?: unknown; error?: unknown; count?: n
  *  `single`, or awaiting the builder) settles through `respond`. */
 function createService(respond: Respond) {
   const calls: QueryCall[] = [];
-  const rpc = vi.fn(async (): Promise<{ data: unknown; error: unknown }> => ({ data: null, error: null }));
+  const rpc = vi.fn(async (...args: [string?, Record<string, unknown>?]): Promise<{ data: unknown; error: unknown }> => {
+    void args;
+    return { data: null, error: null };
+  });
   const from = vi.fn((table: string): QueryBuilder => {
     const call: QueryCall = { table, verb: "select", filters: {} };
     calls.push(call);
@@ -170,7 +174,14 @@ function createService(respond: Respond) {
 
 /** The rest of the open flow's reads, answered the boring way so each test
  *  only has to say what it cares about. */
-function createShop(opts: { comps?: Record<string, number>; insertError?: unknown; secretsFound?: number; dribbFound?: number } = {}) {
+function createShop(opts: {
+  comps?: Record<string, number>;
+  insertError?: unknown;
+  refundError?: unknown;
+  replayFulfillment?: boolean;
+  secretsFound?: number;
+  dribbFound?: number;
+} = {}) {
   const table = createCompTable(opts.comps ?? {});
   const service = createService((call) => {
     if (call.table === "card_pack_comps") return table.respond(call);
@@ -182,6 +193,18 @@ function createShop(opts: { comps?: Record<string, number>; insertError?: unknow
     }
     if (call.table === "card_chases") return { data: null };
     if (call.table === "betting_profiles") return { data: { balance: 1000 } };
+    if (call.table === "card_inventory" && call.verb === "select" && opts.replayFulfillment) {
+      return {
+        data: [501, 502, 503, 504, 505].map((id) => ({
+          id,
+          card: { slug: `persisted-${id}`, name: `Persisted ${id}`, tier: { key: "gold", label: "Gold" } },
+          foil: true,
+          foil_type: "prisma",
+          signed: false,
+          edition_week: "2026-08-24",
+        })),
+      };
+    }
     if (call.table === "card_inventory" && call.verb === "insert") {
       if (opts.insertError) return { data: null, error: opts.insertError };
       // openPackFor inserts an array and reads back rows; the champions
@@ -192,6 +215,85 @@ function createShop(opts: { comps?: Record<string, number>; insertError?: unknow
     // Dribb count (its number) come through the same head-count select.
     if (call.table === "card_inventory" && call.verb === "select") return { data: [], count: opts.dribbFound ?? opts.secretsFound ?? 0 };
     return { data: null };
+  });
+  const openings = new Map<string, { opening_id: string; open_id: number | null; source: "paid" | "daily" | "comp"; comps_left: number | null }>();
+  let nextOpening = 1;
+  service.rpc.mockImplementation(async (name = "", args: Record<string, unknown> = {}) => {
+    if (name === "open_card_pack") return { data: args.p_cost === 250 ? 88 : 77, error: null };
+    if (name === "open_daily_pack") return { data: { open_id: 9, streak: 1, bonus: 0 }, error: null };
+    if (name === "begin_card_pack_opening") {
+      const requestId = String(args.p_request_id);
+      const prior = openings.get(requestId);
+      if (prior) {
+        return {
+          data: {
+            ...prior,
+            status: "fulfilled",
+            variant: "standard",
+            variant_resolved: true,
+            streak: null,
+            bonus: 0,
+            card_ids: [501, 502, 503, 504, 505],
+            reveal_order: [501, 502, 503, 504, 505],
+          },
+          error: null,
+        };
+      }
+      const source = String(args.p_source);
+      let actual: "paid" | "daily" | "comp" = "paid";
+      let openId: number | null = null;
+      let compsLeft: number | null = null;
+      if (source === "daily") {
+        actual = "daily";
+        const daily = await service.rpc("open_daily_pack", { p_user: args.p_user, p_season: args.p_season });
+        openId = (daily.data as { open_id: number }).open_id;
+      } else if ((table.rows.get("standard") ?? 0) > 0) {
+        actual = "comp";
+        table.rows.set("standard", (table.rows.get("standard") ?? 1) - 1);
+        compsLeft = table.rows.get("standard") ?? 0;
+      } else {
+        const paid = await service.rpc("open_card_pack", { p_user: args.p_user, p_season: args.p_season, p_cost: args.p_cost });
+        openId = paid.data as number;
+      }
+      const opening = { opening_id: `opening-${nextOpening++}`, open_id: openId, source: actual, comps_left: compsLeft };
+      openings.set(requestId, opening);
+      return {
+        data: {
+          ...opening,
+          status: "pending",
+          variant: "standard",
+          variant_resolved: false,
+          streak: actual === "daily" ? 1 : null,
+          bonus: 0,
+          card_ids: [],
+          reveal_order: [],
+        },
+        error: null,
+      };
+    }
+    if (name === "fulfill_card_pack_opening") {
+      const opening = [...openings.values()].find((row) => row.opening_id === args.p_opening);
+      if (opts.replayFulfillment) return { data: { card_ids: [501, 502, 503, 504, 505], minted: false }, error: null };
+      if (opts.insertError) return { data: null, error: opts.insertError };
+      const cards = (args.p_cards as Record<string, unknown>[]).map((card, index) => ({
+        ...card,
+        card: card.card_json,
+        discord_id: "42",
+        pack_open_id: opening?.open_id ?? null,
+        opening_id: opening?.opening_id ?? null,
+        id: 501 + index,
+      }));
+      service.from("card_inventory").insert(cards);
+      return { data: { card_ids: cards.map((card) => card.id), minted: true }, error: null };
+    }
+    if (name === "set_card_pack_variant") return { data: args.p_variant, error: null };
+    if (name === "refund_card_pack_opening") {
+      const opening = [...openings.values()].find((row) => row.opening_id === args.p_opening);
+      if (opening?.source === "comp") table.rows.set("standard", (table.rows.get("standard") ?? 0) + 1);
+      return { data: null, error: opts.refundError ?? null };
+    }
+    if (name === "refund_card_pack") return { data: null, error: null };
+    return { data: null, error: null };
   });
   createBettingServiceClient.mockReturnValue(service.client);
   return { ...service, table };
@@ -208,8 +310,11 @@ function stampedOpenIds(calls: QueryCall[]): unknown[] {
 /** The card json the inventory insert froze, one per print. */
 function insertedCards(calls: QueryCall[]): Record<string, unknown>[] {
   const insert = calls.find((call) => call.table === "card_inventory" && call.verb === "insert");
-  const rows = (Array.isArray(insert?.payload) ? insert!.payload : [insert?.payload]) as { card: Record<string, unknown> }[];
-  return rows.map((row) => row.card);
+  const rows = (Array.isArray(insert?.payload) ? insert!.payload : [insert?.payload]) as {
+    card?: Record<string, unknown>;
+    card_json?: Record<string, unknown>;
+  }[];
+  return rows.map((row) => row.card ?? row.card_json ?? {});
 }
 
 beforeEach(() => {
@@ -223,7 +328,6 @@ beforeEach(() => {
 describe("openPackFor finishes", () => {
   it("freezes nothing extra into an ordinary pull", async () => {
     const shop = createShop();
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     await openPackFor("42", "premier");
 
@@ -237,9 +341,11 @@ describe("openPackFor finishes", () => {
   });
 
   it("freezes a Shiny and a zeroed StatTrak into the copy", async () => {
-    rollPackFinishes.mockReturnValueOnce([{ shiny: true, stattrak: true, secret: false }]);
+    rollPackFinishes.mockReturnValueOnce([
+      { shiny: true, stattrak: true, secret: false },
+      ...Array.from({ length: 4 }, () => ({ shiny: false, stattrak: false, secret: false })),
+    ]);
     const shop = createShop();
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     await openPackFor("42", "premier");
 
@@ -251,9 +357,11 @@ describe("openPackFor finishes", () => {
   });
 
   it("numbers a Secret past the checklist from the season's count, and tells the channel", async () => {
-    rollPackFinishes.mockReturnValueOnce([{ shiny: false, stattrak: false, secret: true }]);
+    rollPackFinishes.mockReturnValueOnce([
+      { shiny: false, stattrak: false, secret: true },
+      ...Array.from({ length: 4 }, () => ({ shiny: false, stattrak: false, secret: false })),
+    ]);
     const shop = createShop({ secretsFound: 2 });
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     const result = await openPackFor("42", "premier");
 
@@ -269,7 +377,6 @@ describe("openPackFor finishes", () => {
   it("mints the Dribb card into the last slot, numbered after the ones found, and tells the channel", async () => {
     rollDribb.mockReturnValueOnce(true);
     const shop = createShop({ dribbFound: 2 });
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     const result = await openPackFor("42", "premier");
 
@@ -289,7 +396,6 @@ describe("openPackFor finishes", () => {
   it("closes the gate once five are found", async () => {
     rollDribb.mockReturnValueOnce(true);
     const shop = createShop({ dribbFound: 5 });
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     const result = await openPackFor("42", "premier");
 
@@ -364,6 +470,21 @@ describe("refundPackComp", () => {
 });
 
 describe("openPackFor comps", () => {
+  it("recovers the committed cards when a concurrent retry already fulfilled the opening", async () => {
+    const shop = createShop({ replayFulfillment: true });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result).toMatchObject({
+      ok: true,
+      openingId: "opening-1",
+      variant: "standard",
+      revealOrder: [501, 502, 503, 504, 505],
+    });
+    expect(result.ok && result.cards.map((pull) => pull.inventoryId)).toEqual([501, 502, 503, 504, 505]);
+    expect(shop.rpc).not.toHaveBeenCalledWith("refund_card_pack_opening", expect.anything());
+  });
+
   it("spends a standard comp instead of charging, and says how many are left", async () => {
     const shop = createShop({ comps: { standard: 1 } });
 
@@ -375,25 +496,23 @@ describe("openPackFor comps", () => {
     expect(shop.rpc).not.toHaveBeenCalledWith("open_card_pack", expect.anything());
     // ...so the cards belong to no paid open, exactly like a comped
     // Faceless Pack.
-    expect(stampedOpenIds(shop.calls)).toEqual([null]);
+    expect(stampedOpenIds(shop.calls)).toEqual([null, null, null, null, null]);
     expect(shop.table.rows.get("standard")).toBe(0);
   });
 
   it("charges as usual when no comp is held", async () => {
     const shop = createShop({ comps: { standard: 0 } });
-    shop.rpc.mockResolvedValue({ data: 77, error: null });
 
     const result = await openPackFor("42", "premier");
 
     expect(result.ok).toBe(true);
     expect(result).not.toHaveProperty("compsLeft");
     expect(shop.rpc).toHaveBeenCalledWith("open_card_pack", { p_user: "42", p_season: "s4", p_cost: 200 });
-    expect(stampedOpenIds(shop.calls)).toEqual([77]);
+    expect(stampedOpenIds(shop.calls)).toEqual([77, 77, 77, 77, 77]);
   });
 
   it("never spends a comp on the free daily rip", async () => {
     const shop = createShop({ comps: { standard: 1 } });
-    shop.rpc.mockResolvedValue({ data: { open_id: 9, streak: 1, bonus: 0 }, error: null });
 
     const result = await openPackFor("42", "premier", { daily: true });
 
@@ -415,7 +534,7 @@ describe("openPackFor comps", () => {
   });
 
   it("says so plainly when the comp cannot be handed back", async () => {
-    const shop = createShop({ comps: { standard: 1 }, insertError: { message: "insert exploded" } });
+    const shop = createShop({ comps: { standard: 1 }, insertError: { message: "insert exploded" }, refundError: { message: "restore exploded" } });
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     // The grant row vanishes after the spend — there is nothing left to add
     // the comp back to, and inventing a row would mint a free pack out of an
@@ -456,7 +575,6 @@ describe("openChampionsPack comps", () => {
 
   it("charges when the tribute is used up", async () => {
     const shop = createShop({ comps: { champions: 0 } });
-    shop.rpc.mockResolvedValue({ data: 88, error: null });
 
     const result = await openChampionsPack("42");
 

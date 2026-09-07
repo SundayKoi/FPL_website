@@ -409,3 +409,65 @@ export function packDropThud(): void {
     /* see ripTick */
   }
 }
+
+/** The God Pack fracture: a heavier sub hit under a bright, rising seam. */
+export function godPackFracture(): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+    const boom = c.createOscillator();
+    boom.type = "sine";
+    boom.frequency.setValueAtTime(42, at);
+    boom.frequency.exponentialRampToValueAtTime(118, at + 0.7);
+    const boomGain = envelope(c, at, MASTER_GAIN * 2.1, 0.02, 0.9);
+    boom.connect(boomGain);
+    boomGain.connect(c.destination);
+    boom.start(at);
+    boom.stop(at + 1.05);
+    [196, 293.66, 440, 659.25].forEach((freq, index) => {
+      note(c, freq, at + index * 0.12, 0.35, MASTER_GAIN * 0.75, "sawtooth");
+    });
+    shimmer(c, at + 0.35, 1.2, MASTER_GAIN * 0.45);
+  } catch {
+    /* audio is always best-effort */
+  }
+}
+
+/** The unmistakable announcement beat midway through the God Pack rip. */
+export function godPackAnnouncement(): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+    [110, 164.81, 220, 329.63, 493.88].forEach((freq, index) => {
+      note(c, freq, at + index * 0.11, 0.52, MASTER_GAIN * 0.8, index < 2 ? "sine" : "triangle");
+    });
+    shimmer(c, at + 0.45, 1.4, MASTER_GAIN * 0.55);
+  } catch {
+    /* audio is always best-effort */
+  }
+}
+
+/** The final God Pack reveal gets its own seal-break, especially when ink is
+ *  present. It is separate from ordinary Legendary walkouts by design. */
+export function godPackFinaleSting(signed: boolean): void {
+  if (getMuted()) return;
+  const c = audio();
+  if (!c) return;
+  try {
+    const at = c.currentTime;
+    [261.63, 392, 523.25, 783.99, 1046.5].forEach((freq, index) => {
+      note(c, freq, at + index * 0.1, index === 4 ? 1.05 : 0.32, MASTER_GAIN * (index === 4 ? 1.2 : 0.75));
+    });
+    shimmer(c, at + 0.4, 1.5, MASTER_GAIN * 0.65);
+    if (signed) {
+      note(c, 2637.02, at + 0.55, 0.7, MASTER_GAIN * 0.48, "sine");
+      note(c, 3520, at + 0.72, 0.62, MASTER_GAIN * 0.35, "sine");
+    }
+  } catch {
+    /* audio is always best-effort */
+  }
+}

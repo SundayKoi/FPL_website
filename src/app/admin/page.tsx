@@ -8,6 +8,7 @@ import AdminHomepageMode from "@/components/admin/AdminHomepageMode";
 import AdminStaff, { type StaffProfile } from "@/components/admin/AdminStaff";
 import AdminFeaturedMatchupEditor, { type FeaturedFixtureChoice } from "@/components/admin/AdminFeaturedMatchupEditor";
 import AdminBangerTitles from "@/components/admin/AdminBangerTitles";
+import AdminGodPackPreview from "@/components/admin/AdminGodPackPreview";
 import type { HomepageMode } from "@/lib/home/seasonState";
 import { fetchHomepageFeaturedSettings } from "@/lib/home/homepageSettings";
 import { fetchBangerBoardSettings } from "@/lib/bangers/settings";
@@ -233,6 +234,8 @@ export default async function AdminPage() {
           </Link>
         ))}
       </section>}
+
+      {canUseFullAdmin ? <AdminGodPackPreview /> : null}
 
       <section aria-labelledby="homepage-control-title" className="flex flex-col gap-3">
         <h2 id="homepage-control-title" className="type-display text-2xl">Homepage</h2>

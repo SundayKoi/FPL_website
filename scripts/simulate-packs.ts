@@ -30,13 +30,18 @@ import {
   ECLIPSE_FOIL_TYPE,
   FOIL_CHANCE,
   FOIL_TYPES,
+  GOD_PACK_CHANCE,
+  GOD_PACK_ODDS_DENOMINATOR,
   LIVE_FOIL_CHANCE,
+  PATRON_DUST_MULT,
   PACK_SIZE,
   RARITY_ORDER,
   rarityOf,
   SIGNED_CHANCE,
 } from "../src/lib/packs/config";
+import { dustValueOf } from "../src/lib/packs/config";
 import { rollEclipseCandidates } from "../src/lib/packs/eclipse";
+import { rollGodPack } from "../src/lib/packs/god";
 import { rollPack } from "../src/lib/packs/rng";
 import { applyAutographs } from "../src/lib/packs/signatures";
 
@@ -248,9 +253,22 @@ async function main() {
   let crownedPulls = 0;
   let eclipseHits = 0;
   let packsWithCrown = 0;
+  let godPacks = 0;
+  let godSigned = 0;
+  let godDust = 0;
   const seen = new Map<string, number>();
   for (let i = 0; i < packs; i += 1) {
-    const pulls = applyAutographs(rollPack(cards, rand), signatures, rand);
+    const isGod = rand() < GOD_PACK_CHANCE;
+    const pulls = isGod
+      ? rollGodPack(cards, signatures, rand)
+      : applyAutographs(rollPack(cards, rand), signatures, rand);
+    if (isGod) {
+      godPacks += 1;
+      for (const pull of pulls) {
+        if (pull.signed) godSigned += 1;
+        godDust += dustValueOf({ tier: pull.card.tier.key, foil: true, foilType: pull.foilType, signed: pull.signed });
+      }
+    }
     slots += pulls.length;
     let crownHere = false;
     for (const pull of pulls) {
@@ -273,6 +291,9 @@ async function main() {
   console.log(`  signed          ${pct(signed, slots).padStart(9)}   config ${(SIGNED_CHANCE * 100).toFixed(2)}% of pulls with ink on file`);
   console.log(`  Card of the Week${pct(crownedPulls, slots).padStart(9)} of pulls · in ${pct(packsWithCrown, packs)} of packs`);
   console.log(`  Eclipse gate    ${pct(eclipseHits, slots).padStart(9)} of pulls · ${oneIn(eclipseHits, packs)} packs   (config ${(ECLIPSE_CHANCE * 100).toFixed(2)}% of Card-of-the-Week pulls)`);
+  console.log(`  God Packs       ${String(godPacks).padStart(9)} · simulated ${pct(godPacks, packs)} (config 1 in ${GOD_PACK_ODDS_DENOMINATOR}; expected ${Math.round(packs * GOD_PACK_CHANCE).toLocaleString()})`);
+  console.log(`    God signatures ${String(godSigned).padStart(8)} of ${godPacks * PACK_SIZE} God pulls · signature coverage ${pct(signatures.size, cards.length)}`);
+  console.log(`    God dust value ${fmtDollars(godDust)} base · ${fmtDollars(Math.round(godDust * PATRON_DUST_MULT))} with Patron +20% (God pulls are auto-dust protected)`);
   const top = [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   console.log(`  most-pulled: ${top.map(([slug, n]) => `${slug} ${pct(n, slots)}`).join(" · ")}`);
 
@@ -349,6 +370,10 @@ async function main() {
     `\nReading it: a rate a few tenths of a percent off with fewer than ~10,000 copies is noise. The Eclipse line is the one that matters — ` +
       `it should sit near ${(ECLIPSE_CHANCE * 100).toFixed(1)}% of crowned copies, and a thin top class makes the same crowned card show up often, which is what a streak looks like.\n`,
   );
+}
+
+function fmtDollars(value: number): string {
+  return `${value.toLocaleString()} betting dollars`;
 }
 
 main().catch((error) => {

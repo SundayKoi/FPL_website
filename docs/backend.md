@@ -320,7 +320,8 @@ Postgres database and public schema:
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs`, `expedition_supplies`, `expedition_policies`, `expedition_graveyard` | One row per squad sent out: the three `card_inventory` copies, the tier (seven runs, plus `lost` — the HOLD on a lost card, which reuses the deploy lock), the squad's shine, its forks and the choices made at them, insurance, a target card, the fee, when it resolves, and the whole outcome once it is claimed. Supplies hold map fragments; policies are a patron's weekly free insurance, claimed by primary-key insert; the graveyard keeps dead cards. Owners read their own rows; every write goes through `launch_expedition` / `decide_expedition_fork` / `resolve_expedition` / `ransom_lost_card` / `expire_lost_cards`. `card_inventory.mutation` is a generated column off the card json; `card_inventory_expedition_guard` keeps a deployed or lost copy from leaving the collection and `card_inventory_curse_guard` keeps a fresh Cursed card off the market. |
 | Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
-| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
+| Card pack openings | `card_pack_openings` | Server-owned identity and outcome for every standard paid, daily, or comped opening. The request UUID makes retries idempotent; the row stores `standard`/`god`, frozen card JSON, inventory ids, reveal order, source, and fulfillment/refund state. Service-role RPCs begin, fulfill, and compensate it. |
+| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. New pack mints also carry `card_pack_openings.opening_id`; the opening id is immutable on the inventory row. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
 | Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
@@ -1094,8 +1095,9 @@ that selector list.
 
 ### Pack odds, measured
 
-Every roll in a pack — class, card within class, foil, parallel, autograph,
-moment, team plate, Eclipse — draws from node's CSPRNG (`randomBytes(6)` over
+Every ordinary roll in a pack — class, card within class, foil, parallel,
+autograph, moment, team plate, Eclipse — draws from node's CSPRNG
+(`randomBytes(6)` over
 2^48) through the pure functions in `src/lib/packs/rng.ts`,
 `signatures.ts` and `eclipse.ts` (`rollEclipseCandidates`). Besides the
 scripted-`rand` tests that pin the order of the roll, `src/lib/packs/odds.test.ts`
@@ -1109,6 +1111,21 @@ and prints the expected rates beside what `card_inventory` actually holds,
 by edition. The Eclipse rate is per crowned PULL: how often a crowned card
 turns up depends on how many cards share its rarity class, so a thin top
 class makes the same crowned card — and therefore Eclipses — cluster.
+Before that ordinary roller runs, each paid, daily, and standard-comp opening
+gets one server-side `randomInt(750)` draw. Exactly draw zero is a God Pack;
+the client never chooses the branch and specialty packs are excluded. A God
+Pack skips moments, team plates, Eclipse, and ordinary autograph logic, then
+prints three 80/20 Epic/Legendary special foils, a Legendary Cracked Ice slot,
+and a final Refractor/Ice slot that is signed when that edition has eligible
+ink. Cards prefer distinct eligible players; an edition with fewer than five
+distinct players repeats its real pool rather than inventing ratings. Its
+`card_pack_openings` row and five inventory/provenance rows preserve the
+server-selected variant and reveal order, and the client protects all five
+from auto-dust.
+
+`npm run simulate:packs` also reports the simulated God Pack frequency, the
+expected one-in-750 volume, signature coverage, and base/Patron dust value of
+the God pulls (manual dust value only; the automatic rule leaves them intact).
 `scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
 file (the only players a signed copy can be of), signed copies per player
 against all their copies, every signed copy and every Eclipse in pull order

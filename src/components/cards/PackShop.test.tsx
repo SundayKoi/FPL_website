@@ -316,7 +316,7 @@ describe("PackShop", () => {
     expect(screen.getByRole("option", { name: /Week 1/ }).getAttribute("value")).toBe("2026-08-24");
 
     await openPack();
-    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-09-07");
+    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-09-07", expect.any(String));
 
     // An older week re-mints that edition rather than the current cards.
     openPackAction.mockClear();
@@ -324,7 +324,7 @@ describe("PackShop", () => {
       fireEvent.change(picker, { target: { value: "2026-08-24" } });
     });
     await openPack();
-    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-08-24");
+    expect(openPackAction).toHaveBeenCalledWith("premier", "2026-08-24", expect.any(String));
   });
 
   it("hides the picker and asks for no week before the first archive exists", async () => {
@@ -333,7 +333,7 @@ describe("PackShop", () => {
 
     expect(screen.queryByLabelText(/edition/i)).toBeNull();
     await openPack();
-    expect(openPackAction).toHaveBeenCalledWith("premier", undefined);
+    expect(openPackAction).toHaveBeenCalledWith("premier", undefined, expect.any(String));
   });
 });
 

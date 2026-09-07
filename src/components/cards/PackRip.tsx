@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { RarityClass } from "@/lib/packs/config";
-import { ripOpen, ripTick } from "@/lib/packs/sounds";
+import { godPackAnnouncement, godPackFracture, ripOpen, ripTick } from "@/lib/packs/sounds";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
  *  against the pack's own width — a swipe most of the way across it, so
@@ -40,6 +40,9 @@ const CLICKS_TO_OPEN = 3;
 /** Burst → cards. Long enough for the flash to bloom and the wrapper to clear
  *  the frame; the sting keeps playing over the first card landing. */
 const BURST_MS = 900;
+/** God Pack staging gives the fracture, announcement, and unseal their own
+ *  beats before the card line arrives. */
+const GOD_BURST_MS = 4200;
 
 /** A pointer that wandered further than this between down and up was a drag,
  *  not a click — otherwise every half-hearted tear also counts toward the
@@ -110,6 +113,7 @@ export default function PackRip({
   bestRarity,
   hasSigned,
   champions = false,
+  godPack = false,
   muted,
   onOpened,
   onProgress,
@@ -121,6 +125,8 @@ export default function PackRip({
   /** A Faceless Pack — the wrapper prints the drop's own markings, not the
    *  player-pack promise (this is one relic, not five cards and a rare). */
   champions?: boolean;
+  /** The obsidian/gold God Pack ceremony, distinct from ordinary rip timing. */
+  godPack?: boolean;
   muted: boolean;
   /** The wrapper is gone; start the card reveal. */
   onOpened: () => void;
@@ -169,9 +175,13 @@ export default function PackRip({
   // The burst plays out, then the cards take the stage.
   useEffect(() => {
     if (!opening) return;
-    const timer = setTimeout(() => onOpenedRef.current(), BURST_MS);
-    return () => clearTimeout(timer);
-  }, [opening]);
+    const announcement = godPack ? setTimeout(() => godPackAnnouncement(), 1050) : null;
+    const timer = setTimeout(() => onOpenedRef.current(), godPack ? GOD_BURST_MS : BURST_MS);
+    return () => {
+      clearTimeout(timer);
+      if (announcement) clearTimeout(announcement);
+    };
+  }, [opening, godPack]);
 
   const burst = useCallback(() => {
     if (openingRef.current) return;
@@ -179,8 +189,11 @@ export default function PackRip({
     progressRef.current = 1;
     setProgress(1);
     setOpening(true);
-    if (!mutedRef.current) ripOpen(bestRarity, hasSigned);
-  }, [bestRarity, hasSigned]);
+    if (!mutedRef.current) {
+      if (godPack) godPackFracture();
+      else ripOpen(bestRarity, hasSigned);
+    }
+  }, [bestRarity, hasSigned, godPack]);
 
   /** Move the tear to `next`, crackling if it widened, and let go of the top
    *  strip once the foil has given up. */
@@ -271,7 +284,7 @@ export default function PackRip({
       };
 
   return (
-    <div className={`pack-stage ${rarityClass}`} data-testid="pack-stage">
+    <div className={`pack-stage ${rarityClass} ${godPack ? "god-pack-stage" : ""}`} data-testid="pack-stage">
       <div className="pack-aura-wrap" style={auraStyle} aria-hidden>
         <div className="pack-aura" />
       </div>
@@ -291,7 +304,14 @@ export default function PackRip({
 
       {opening ? (
         <>
-          <div className="pack-burst" aria-hidden />
+          <div className={`pack-burst ${godPack ? "god-pack-burst" : ""}`} aria-hidden />
+          {godPack ? (
+            <div className="god-pack-cinematic" aria-hidden>
+              <span className="god-pack-cinematic-kicker">THE SEAM BREAKS</span>
+              <span className="god-pack-cinematic-title">GOD PACK</span>
+              <span className="god-pack-cinematic-odds">1 IN 750</span>
+            </div>
+          ) : null}
           {BURST_PARTICLES.map((particle) => (
             <span
               key={`${particle.dx}:${particle.dy}`}
@@ -309,7 +329,7 @@ export default function PackRip({
         role="button"
         tabIndex={0}
         aria-label="Sealed pack — drag across the crimped top to rip it open"
-        className={`pack-wrapper ${opening ? "pack-wrapper-out" : "pack-idle"}`}
+        className={`pack-wrapper ${opening ? "pack-wrapper-out" : "pack-idle"} ${godPack ? "god-pack-wrapper" : ""}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
@@ -325,10 +345,10 @@ export default function PackRip({
             <div className="pack-sheen" />
             <div className="pack-mark">
               <span className="type-display pack-mark-fpl">{champions ? "🂡" : "FPL"}</span>
-              <span className="pack-mark-sub">{champions ? "The Faceless Drop" : "Player Cards"}</span>
+              <span className="pack-mark-sub">{godPack ? "A rare break in the odds" : champions ? "The Faceless Drop" : "Player Cards"}</span>
               <span className="pack-mark-rule" />
               <span className="pack-mark-count">
-                {champions ? "1 card · The Hand of five" : "5 cards · 1 guaranteed rare"}
+                {godPack ? "5 cards · all special foils" : champions ? "1 card · The Hand of five" : "5 cards · 1 guaranteed rare"}
               </span>
             </div>
           </div>

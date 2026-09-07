@@ -25,7 +25,16 @@ function pull(name: string, overall: number, extra: Partial<{ foil: boolean; foi
 }
 
 const ok = (cards: ReturnType<typeof pull>[], extra: Partial<Extract<OpenPackResult, { ok: true }>> = {}): OpenPackResult =>
-  ({ ok: true, cards, balance: 500, editionWeek: "2026-08-24", ...extra });
+  ({
+    ok: true,
+    cards,
+    balance: 500,
+    editionWeek: "2026-08-24",
+    openingId: null,
+    variant: "standard",
+    revealOrder: cards.map((card) => card.inventoryId),
+    ...extra,
+  } as OpenPackResult);
 
 describe("ripFollowup", () => {
   it("turns a failed rip into a plain error message", () => {
