@@ -163,16 +163,28 @@ export function ransomFor(copy: CardCopy): number {
  *  line is drawn at `lost`, not at `dead`. */
 export function isProtected(copy: CardCopy): boolean {
   return (
-    copy.foilType === "eclipse" || Boolean(copy.card?.moment) || Boolean(copy.card?.champWin) || Boolean(copy.card?.team)
+    copy.foilType === "eclipse" ||
+    Boolean(copy.card?.moment) ||
+    Boolean(copy.card?.champWin) ||
+    Boolean(copy.card?.team) ||
+    Boolean(copy.card?.dribb)
   );
 }
 
-/** What a protected copy is called: an Eclipse is the one-of-one, and a
- *  moment, a plate or a champions relic is a relic. Both are kept off
- *  the routes that can lose a card; only one of them is unique. */
-export function protectedNoun(copy: CardCopy): "one of one" | "a relic" {
-  return copy.foilType === "eclipse" ? "one of one" : "a relic";
+/** What a protected copy is called: an Eclipse is the one-of-one, the
+ *  Dribb card is one of five, and a moment, a plate or a champions relic
+ *  is a relic. All are kept off the routes that can lose a card. */
+export function protectedNoun(copy: CardCopy): "one of one" | "one of five" | "a relic" {
+  if (copy.foilType === "eclipse") return "one of one";
+  if (copy.card?.dribb) return "one of five";
+  return "a relic";
 }
+
+/** What the Dribb card is worth to a squad: the most any single card can
+ *  carry — a signed Cracked Ice challenger's 16 — because a 99 in every
+ *  column with five in the world should never read as less than the best
+ *  print of a real player. */
+const DRIBB_SHINE = 16;
 
 /** When a copy is benched, or null. `now` is passed in (the file has no
  *  clock): a card wounded until 4pm is free at 4pm on every caller's
@@ -246,6 +258,7 @@ const RELIC_SHINE = 6;
  * signed Cracked Ice challenger tops out at 16 and a matte bronze is 1.
  */
 export function shineOf(copy: CardCopy): number {
+  if (copy.card?.dribb) return DRIBB_SHINE;
   // Relics and moments price flat, exactly as they dust flat — see
   // dustValueOf in packs/config.ts for the same branch.
   if (copy.card?.champWin || copy.card?.moment || copy.card?.team) return RELIC_SHINE;

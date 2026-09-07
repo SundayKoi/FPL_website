@@ -52,6 +52,9 @@ const { rollPackFinishes } = vi.hoisted(() => ({
   rollPackFinishes: vi.fn((prints: unknown[]) => prints.map(() => ({ shiny: false, stattrak: false, secret: false }))),
 }));
 vi.mock("./rarities", async (importOriginal) => ({ ...(await importOriginal<typeof import("./rarities")>()), rollPackFinishes }));
+// The Dribb gate, same discipline: the roll is swapped, the card is real.
+const { rollDribb } = vi.hoisted(() => ({ rollDribb: vi.fn(() => false) }));
+vi.mock("@/lib/cards/dribb", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/cards/dribb")>()), rollDribb }));
 
 const { openChampionsPack, openPackFor, refundPackComp, spendPackComp } = await import("./open");
 
@@ -167,7 +170,7 @@ function createService(respond: Respond) {
 
 /** The rest of the open flow's reads, answered the boring way so each test
  *  only has to say what it cares about. */
-function createShop(opts: { comps?: Record<string, number>; insertError?: unknown; secretsFound?: number } = {}) {
+function createShop(opts: { comps?: Record<string, number>; insertError?: unknown; secretsFound?: number; dribbFound?: number } = {}) {
   const table = createCompTable(opts.comps ?? {});
   const service = createService((call) => {
     if (call.table === "card_pack_comps") return table.respond(call);
@@ -185,8 +188,9 @@ function createShop(opts: { comps?: Record<string, number>; insertError?: unknow
       // flow inserts one and `.single()`s it.
       return { data: Array.isArray(call.payload) ? [{ id: 501 }] : { id: 501 } };
     }
-    // The season's Secret count, for a Secret's over-number.
-    if (call.table === "card_inventory" && call.verb === "select") return { data: [], count: opts.secretsFound ?? 0 };
+    // The season's Secret count (a Secret's over-number) and the world's
+    // Dribb count (its number) come through the same head-count select.
+    if (call.table === "card_inventory" && call.verb === "select") return { data: [], count: opts.dribbFound ?? opts.secretsFound ?? 0 };
     return { data: null };
   });
   createBettingServiceClient.mockReturnValue(service.client);
@@ -212,6 +216,8 @@ beforeEach(() => {
   createBettingServiceClient.mockReset();
   postCardsWebhook.mockClear();
   rollPackFinishes.mockClear();
+  rollDribb.mockReset();
+  rollDribb.mockReturnValue(false);
 });
 
 describe("openPackFor finishes", () => {
@@ -258,6 +264,39 @@ describe("openPackFor finishes", () => {
     expect(card.secret).toEqual({ number: 3, of: 0 });
     expect(postCardsWebhook).toHaveBeenCalledTimes(1);
     expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("SECRET") });
+  });
+
+  it("mints the Dribb card into the last slot, numbered after the ones found, and tells the channel", async () => {
+    rollDribb.mockReturnValueOnce(true);
+    const shop = createShop({ dribbFound: 2 });
+    shop.rpc.mockResolvedValue({ data: 77, error: null });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const insert = shop.calls.find((call) => call.table === "card_inventory" && call.verb === "insert")!;
+    const rows = insert.payload as { slug: string; tier: string; player_name: string; overall: number; card: Record<string, unknown> }[];
+    const last = rows[rows.length - 1];
+    expect(last.slug).toBe("dribb");
+    expect(last.tier).toBe("dribb");
+    expect(last.player_name).toBe("Dribb");
+    expect(last.overall).toBe(99);
+    expect(last.card.dribb).toEqual({ number: 3, of: 5 });
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("DRIBB") });
+  });
+
+  it("closes the gate once five are found", async () => {
+    rollDribb.mockReturnValueOnce(true);
+    const shop = createShop({ dribbFound: 5 });
+    shop.rpc.mockResolvedValue({ data: 77, error: null });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    const [card] = insertedCards(shop.calls);
+    expect(card.dribb).toBeUndefined();
+    expect(postCardsWebhook).not.toHaveBeenCalled();
   });
 });
 

@@ -186,19 +186,20 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
 /**
  * Chance an Eclipse falls on a Card-of-the-Week pull.
  *
- * Half a percent, and the number only means anything through the gate in
- * front of it. A Card of the Week is the top-rated card in each ROLE — five
+ * One in two hundred and fifty, and the number only means anything through
+ * the gate in front of it. A Card of the Week is the top-rated card in each ROLE — five
  * per week — and because the roller picks uniformly inside a rarity class,
  * one lands in roughly 2-4% of pack SLOTS depending on how top-heavy the
  * league is (a thin league is the HIGHER figure: fewer legendaries means
  * each one is likelier when that class hits). Multiplying through:
  *
- *     ~0.5% of Card-of-the-Week pulls
+ *     ~0.4% of Card-of-the-Week pulls
  *   × ~2-4% of slots being one
- *   = roughly 1 Eclipse per 1,000-2,000 packs
+ *   = roughly 1 Eclipse per 1,250-2,500 packs
  *
  * Which lands at about one a season at the league's current volume — rare
  * enough that most people never see one, common enough that they exist.
+ * (It was 0.5% until 20260907; the league found them a little too often.)
  *
  * It is deliberately NOT tuned so that each week reliably produces one. It
  * does not have to: an unclaimed Eclipse stays claimable forever through
@@ -210,7 +211,7 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * pool, the real odds drift with the league's shape: as more players reach
  * the top tiers, Eclipses quietly get rarer on their own.
  */
-export const ECLIPSE_CHANCE = 0.005;
+export const ECLIPSE_CHANCE = 1 / 250;
 
 /** The parallel a Card of the Week wears when the Eclipse gate opens. */
 export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
@@ -352,12 +353,36 @@ export const STATTRAK_CHANCE = 0.02;
  * Secret — a print numbered past the checklist. Numbered from the top of
  * the collection: in a season of 120 cards, the first Secret found is
  * #121/120, the next #122/120. One in five hundred per card, one per
- * thousand packs' worth of prints — a hair rarer than an Eclipse gate
- * (ECLIPSE_CHANCE, 0.5%) but on ANY player card rather than the Card of
+ * thousand packs' worth of prints — half the Eclipse gate's rate
+ * (ECLIPSE_CHANCE, 0.4%) but on ANY player card rather than the Card of
  * the Week, so it is the rarest thing an ordinary pull can be. Announced
  * to the channel when it lands, like an Eclipse. At most one per pack.
  */
 export const SECRET_CHANCE = 0.002;
+
+/**
+ * The Dribb card — five, ever.
+ *
+ * Not a player: Dribb, a 99 in every column, on Bard, in the Aether Rift
+ * treatment nothing else wears (src/lib/cards/dribb.ts). Rolled ONCE PER
+ * PACK, on every standard pack in every week's edition, and when it lands
+ * it takes the pack's last slot. One in five thousand packs — at the
+ * league's volume one turns up every few months, and the five will take
+ * years to find. Once the fifth is minted the gate closes for good: the
+ * roller reads the count before it mints, and a partial unique index on
+ * the copy's number (migration 20260929000001) is what makes "five" a
+ * fact rather than a promise. Never dusts, never auto-dusts, never boards
+ * a route that can lose it; it can be traded, which is the point.
+ *
+ * A SECRET. Nothing player-facing says it exists — not the rarities page,
+ * not the stats page. The first anyone hears of it is the announcement
+ * when one lands. The admin mockup page is staff-only.
+ */
+export const DRIBB_CHANCE = 1 / 5000;
+export const DRIBB_COPIES = 5;
+/** The tier column a Dribb copy files under, like a moment's "moment":
+ *  it must never price or sort as an ordinary card of any tier. */
+export const DRIBB_TIER = "dribb";
 
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
@@ -388,8 +413,12 @@ export function rarityOf(tier: CardTierKey): RarityClass {
  *  of the copy rather than of its situation (fielded, on expedition): a
  *  one-of-one is not a resource. dust_card raises for it and the actions
  *  refuse before calling; this is the same rule for the labels. */
-export function canDust(row: { foilType?: string | null }): boolean {
-  return row.foilType !== ECLIPSE_FOIL_TYPE;
+export function canDust(row: { foilType?: string | null; tier?: string; dribb?: boolean }): boolean {
+  if (row.foilType === ECLIPSE_FOIL_TYPE) return false;
+  // The Dribb card: five in the world. The flat column covers a stored
+  // copy, the flag a caller holding the card json.
+  if (row.dribb || row.tier === DRIBB_TIER) return false;
+  return true;
 }
 
 export function dustValueOf(row: {
@@ -418,6 +447,8 @@ export function dustValueOf(row: {
    *  json by callers that hold it; a stored copy's flags live there too. */
   shiny?: boolean;
   secret?: boolean;
+  /** The Dribb card, read off the card json. */
+  dribb?: boolean;
 }): number {
   // Nothing at all for a copy that cannot be dusted — before any pricing,
   // because the autograph bonus is a flat add and would otherwise put a

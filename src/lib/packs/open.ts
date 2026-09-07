@@ -24,6 +24,7 @@ import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
 import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
 import { rollPackFinishes, secretSerialLabel, stampFinishes } from "./rarities";
+import { DRIBB_COPIES, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "@/lib/cards/dribb";
 import { applyAutographs } from "./signatures";
 import { fetchChampionSkinNums, printArtExists, rollPrint, splashArtExists } from "./skins";
 import { editionLabel, mondayOf } from "./week";
@@ -445,6 +446,24 @@ export async function openPackFor(
     prints[index] = { ...prints[index], card: stampFinishes(prints[index].card, roll, { secretsFound, now: mintedAt }) };
   }
 
+  // ── The Dribb card: five, ever ─────────────────────────────────────
+  // One roll per pack, last, over everything above. When it lands the
+  // pack's last slot becomes the Dribb — whatever that slot was — numbered
+  // after however many the world has found. The count is a courtesy read:
+  // the partial unique index on the number (20260929000001) is what
+  // refuses a sixth, or two fifths in the same instant, and a refused
+  // insert refunds the pack like any other.
+  if (rollDribb(rand)) {
+    const { count } = await service
+      .from("card_inventory")
+      .select("id", { count: "exact", head: true })
+      .not("card->dribb", "is", null);
+    const found = count ?? 0;
+    if (found < DRIBB_COPIES) {
+      prints[prints.length - 1] = { card: dribbCard(found + 1, season), foil: false, foilType: null, signed: false, autograph: null };
+    }
+  }
+
   const { data: inserted, error: insertError } = await service
     .from("card_inventory")
     .insert(
@@ -459,7 +478,7 @@ export async function openPackFor(
         // "moment" rather than the placeholder tier the wrapper carries:
         // this column is what dust pricing and the ledger read, and a
         // moment filed as gold would dust as an ordinary gold card.
-        tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.tier.key,
+        tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.dribb ? DRIBB_TIER : print.card.tier.key,
         foil: print.foil,
         foil_type: print.foilType,
         signed: print.signed,
@@ -506,6 +525,11 @@ export async function openPackFor(
   const secretPrint = prints.find((print) => print.card.secret);
   if (secretPrint) {
     await announceSecretClaim(service, discordId, secretPrint, stampedWeek, league);
+  }
+  // The Dribb card: the rarest thing the site will ever print. Same door.
+  const dribbPrint = prints.find((print) => print.card.dribb);
+  if (dribbPrint?.card.dribb) {
+    await announceDribbClaim(service, discordId, dribbPrint.card.dribb, league);
   }
 
   // The Weekly Chase. Checked AFTER the insert on purpose: the claim pays a
@@ -639,6 +663,37 @@ async function announceEclipseClaim(
       (vaultUrl ? `\n[The Vault](${vaultUrl}) — every one found, and every one still out there.` : ""),
     color: GOLD,
     ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
+  });
+}
+
+/** The Dribb card landing. Points at the rarities page, which says what
+ *  it is and how many are left; no card image, because the render route
+ *  draws real players and Dribb is not one. */
+async function announceDribbClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  dribb: { number: number; of: number },
+  league: CardLeague,
+): Promise<void> {
+  const { data } = await service
+    .from("betting_profiles")
+    .select("username, patron_until")
+    .eq("discord_id", discordId)
+    .maybeSingle();
+  const row = data as { username: string; patron_until: string | null } | null;
+  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
+  const left = dribb.of - dribb.number;
+  await postCardsWebhook({
+    title: "✦ THE DRIBB CARD HAS BEEN FOUND",
+    description:
+      `**${who}** pulled **Dribb #${String(dribb.number).padStart(3, "0")}/${dribb.of}** — ${dribbLabel(dribb)}.\n` +
+      `99 overall, a 99 in every column, on Bard. It cannot be dusted.\n\n` +
+      (left > 0 ? `${left} of ${dribb.of} still out there, at one in five thousand packs.` : `That was the last one. There will never be another.`) +
+      (raritiesUrl ? `\n[What it is](${raritiesUrl})` : ""),
+    color: 0xd27dff,
   });
 }
 
