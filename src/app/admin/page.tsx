@@ -160,6 +160,13 @@ export default async function AdminPage() {
       href: "/admin/overlays",
     },
     {
+      label: "The Dribb card",
+      stat: "Proposal preview",
+      statTone: "text-gold",
+      description: "Four looks for a five-copy chase print — Dribb, a 99 in every column, on Bard — with the odds on the table. Mints nothing.",
+      href: "/admin/dribb",
+    },
+    {
       label: "Announcements",
       stat: "Prepared posts",
       statTone: "text-gold",
