@@ -321,6 +321,13 @@ async function scoreFantasyWeek(
     const weekRows = (((data ?? []) as unknown) as WeeklyRawStatRow[]).filter(
       (row) => row.game_date && mondayOf(new Date(row.game_date)) === week,
     );
+    // Nothing played yet — leave every lineup unscored rather than scoring
+    // a week of zeros and paying a podium of ties. A run before Monday's
+    // games (or before the ingest) must be a no-op, not a settlement.
+    if (weekRows.length === 0) {
+      console.log(`[${label}] Fantasy week ${week}: no games ingested yet — leaving ${unscored.length} lineup(s) unscored.`);
+      return;
+    }
     const scores = weeklyScoresBySlug(weekRows);
 
     // A slot's slug is frozen at submit time; the score map is keyed by the

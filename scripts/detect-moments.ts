@@ -6,8 +6,8 @@
  * for the three brakes on volume and why the cap is the one that matters.
  *
  * Run: npx tsx scripts/detect-moments.ts [YYYY-MM-DD]
- * The week defaults to the LAST COMPLETED one, since this is meant to run
- * after the week's games are in. Pass a Monday to re-examine that week.
+ * The week defaults to THIS one — the Monday just played — since this runs
+ * Tuesday morning behind the ingest. Pass a Monday to re-examine a week.
  *
  * Idempotent: re-running a week re-selects the same winners and the insert
  * no-ops on card_moments' unique index, so it is safe to run twice or to
@@ -68,12 +68,13 @@ function requireEnv(name: string): string {
   return value;
 }
 
-/** The Monday before this one — the last week whose games are all played. */
-function lastCompletedMonday(now: Date): string {
-  const thisMonday = mondayOf(now);
-  const previous = new Date(`${thisMonday}T12:00:00.000Z`);
-  previous.setUTCDate(previous.getUTCDate() - 7);
-  return previous.toISOString().slice(0, 10);
+/** The Monday of the week we are in — the match night just played. The
+ *  league plays Monday only and this runs Tuesday morning behind the
+ *  ingest, so the week's games are all in by the time it looks. (It used
+ *  to look a week back, which minted a match night's moments seven days
+ *  late for the sake of midweek reschedules that never happen.) */
+function thisMonday(now: Date): string {
+  return mondayOf(now);
 }
 
 async function mintForSeason(
@@ -174,7 +175,7 @@ async function main(): Promise<void> {
   if (requested && !/^\d{4}-\d{2}-\d{2}$/.test(requested)) {
     throw new Error(`Week must be YYYY-MM-DD, got "${requested}"`);
   }
-  const week = requested || lastCompletedMonday(new Date());
+  const week = requested || thisMonday(new Date());
   const dryRun = (process.env.MOMENTS_DRY_RUN ?? "").toLowerCase() === "true";
 
   const supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {

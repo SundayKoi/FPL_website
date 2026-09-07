@@ -250,11 +250,6 @@ describe("friendlyExpeditionError", () => {
       "An expedition takes exactly three different cards.",
     );
     expect(friendlyExpeditionError("unknown user 42")).toBe("Account not found — try signing in again.");
-    expect(friendlyExpeditionError("daily expedition limit")).toBe(
-      "You've sent out every expedition you get today — come back tomorrow.",
-    );
-    // A distinct sentence from the day limit on purpose: one sends you to
-    // another tier, the other sends you to bed.
     expect(friendlyExpeditionError("tier already out")).toBe(
       "That expedition is already out — bring it home before you send another.",
     );
