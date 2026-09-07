@@ -24,10 +24,11 @@ import type { InventoryRow } from "@/lib/packs/queries";
  */
 export type CardCopy = InventoryRow;
 
-/** The six runs, easiest first. The first three are the ladder anyone
- *  climbs; Rescue and Exorcism exist to undo what the ladder can do to a
- *  card; the Legendary route is the only place a card can die. */
-export type ExpeditionTierKey = "scout" | "raid" | "legend" | "rescue" | "exorcism" | "legendary";
+/** The seven runs, easiest first. Scout, Raid and Legend are the ladder
+ *  anyone climbs; the Gilded Road is the patrons' own run; Rescue and
+ *  Exorcism exist to undo what the ladder can do to a card; the Legendary
+ *  route is the only place a card can die. */
+export type ExpeditionTierKey = "scout" | "gilded" | "raid" | "legend" | "rescue" | "exorcism" | "legendary";
 
 /** The worst a route can do to a card. Presentation reads it for the
  *  consent line on the launch card; `squadMeets` reads it to keep one-of-
@@ -64,6 +65,12 @@ export interface ExpeditionTierDef {
   /** Map fragments consumed at launch. */
   fragments: number;
   target: RouteTarget;
+  /** Patrons only. The board locks the card for everyone else, the server
+   *  action refuses the launch, and launch_expedition raises 'patron
+   *  road' — three layers, because a UI flag has never stopped anybody.
+   *  What patronage buys here is a ROUTE, never better odds on one: the
+   *  Gilded Road's numbers sit between a scout and a raid. */
+  patron: boolean;
   /** What the run is for, in one line. */
   what: string;
 }
@@ -77,38 +84,43 @@ export interface ExpeditionTierDef {
 export const EXPEDITION_TIERS: Record<ExpeditionTierKey, ExpeditionTierDef> = {
   scout: {
     key: "scout", label: "Scouting Run", durationHours: 8, minShine: 0, minFoils: 0, minSigned: 0,
-    forks: 1, risk: "none", fee: 0, fragments: 0, target: "none",
+    forks: 1, risk: "none", fee: 0, fragments: 0, target: "none", patron: false,
     what: "A short walk for pocket money. One fork — push for a bigger bag or camp and keep what you have. Nothing here can hurt a card.",
+  },
+  gilded: {
+    key: "gilded", label: "The Gilded Road", durationHours: 12, minShine: 6, minFoils: 0, minSigned: 0,
+    forks: 2, risk: "wounded", fee: 0, fragments: 0, target: "none", patron: true,
+    what: "The patrons' road: half a day, two forks, and a squad any collection can field. The toll bridge can harden a card; the lantern market can send one home wounded.",
   },
   raid: {
     key: "raid", label: "Deep Raid", durationHours: 24, minShine: 12, minFoils: 1, minSigned: 0,
-    forks: 2, risk: "wounded", fee: 0, fragments: 0, target: "none",
+    forks: 2, risk: "wounded", fee: 0, fragments: 0, target: "none", patron: false,
     what: "A day out with two forks. The reactor can irradiate a card; the brutal fork can harden one or send it home wounded.",
   },
   legend: {
     key: "legend", label: "Legend Hunt", durationHours: 48, minShine: 20, minFoils: 2, minSigned: 1,
-    forks: 3, risk: "lost", fee: 0, fragments: 0, target: "none",
+    forks: 3, risk: "lost", fee: 0, fragments: 0, target: "none", patron: false,
     what: "Two days and three forks. Camping at the wrong checkpoint haunts a card. Push too far and one can be lost — a week to rescue or ransom it.",
   },
   rescue: {
     key: "rescue", label: "Rescue", durationHours: 12, minShine: 8, minFoils: 0, minSigned: 0,
-    forks: 1, risk: "lost", fee: 0, fragments: 0, target: "lost",
+    forks: 1, risk: "lost", fee: 0, fragments: 0, target: "lost", patron: false,
     what: "Send a squad after a lost card. Shine decides the odds. Fail and the rescuers come home wounded — and one of them can be lost too.",
   },
   exorcism: {
     key: "exorcism", label: "Exorcism", durationHours: 8, minShine: 0, minFoils: 0, minSigned: 0,
-    forks: 0, risk: "none", fee: 400, fragments: 0, target: "afflicted",
+    forks: 0, risk: "none", fee: 400, fragments: 0, target: "afflicted", patron: false,
     what: "A fee, no loot, no forks. Removes Haunted or Cursed from one card in the squad, for good.",
   },
   legendary: {
     key: "legendary", label: "Legendary route", durationHours: 72, minShine: 24, minFoils: 2, minSigned: 1,
-    forks: 4, risk: "dead", fee: 0, fragments: 3, target: "none",
+    forks: 4, risk: "dead", fee: 0, fragments: 3, target: "none", patron: false,
     what: "Three map fragments open it. Every fork is dangerous, a card can die for good, and whoever comes home comes home Voidtouched.",
   },
 };
 
 /** The ladder in the order the board prints it. */
-export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "raid", "legend", "rescue", "exorcism", "legendary"];
+export const TIER_ORDER: ExpeditionTierKey[] = ["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary"];
 
 /** Risk, worst last — what "a route past wounded" means. */
 export const RISK_RANK: Record<RouteRisk, number> = { none: 0, wounded: 1, lost: 2, dead: 3 };
@@ -399,7 +411,10 @@ interface TierRewards {
  * can get for a click, no cards and no wait.
  *
  *   scout   8h: 0.50x40 + 0.45x100 + 0.05x250          = $77.50
- *               one launch a day                       → $77.50/day
+ *               three a day                            → $232.50/day
+ *   gilded 12h: 0.40x80 + 0.45x180 + 0.15x400          = $173.00
+ *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $182.00/run
+ *               two a day, patrons only                → $364.00/day
  *   raid   24h: 0.35x120 + 0.50x260 + 0.15x600         = $262.00
  *               + comp 0.15x0.30 = 4.5% x $200 = $9.00 → $271.00/day
  *   legend 48h: 0.25x400 + 0.50x850 + 0.25x2000        = $1,025.00
@@ -426,6 +441,18 @@ const REWARDS: Record<ExpeditionTierKey, TierRewards> = {
     // free packs off an ungated run is the loop that prints money.
     comp: { poor: 0, solid: 0, jackpot: 0 },
     mark: { kind: "trail", chance: { poor: 0, solid: 0, jackpot: 0.08 } },
+  },
+  // The patrons' road. A run pays about two scouts for a half-day and a
+  // squad any shelf can field — a perk that is a ROUTE, not a rate: the
+  // grades, the comp and the mark are all held under the Deep Raid's, so
+  // a patron with a raid-worthy squad still runs the raid. Two a day is
+  // $364, well under the streak, and it lands in the same "recurring
+  // wallet rewards" bucket the patron fairness note already names.
+  gilded: {
+    weights: { poor: 0.4, solid: 0.45, jackpot: 0.15 },
+    dollars: { poor: 80, solid: 180, jackpot: 400 },
+    comp: { poor: 0, solid: 0, jackpot: 0.3 },
+    mark: { kind: "sigil", chance: { poor: 0, solid: 0.05, jackpot: 0.2 } },
   },
   raid: {
     weights: { poor: 0.35, solid: 0.5, jackpot: 0.15 },
