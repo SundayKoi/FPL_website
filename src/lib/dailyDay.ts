@@ -1,15 +1,9 @@
 // What "today" means to a daily game.
 //
-// The product had two calendars. The Daily Rip, expeditions and their
-// briefs all roll over at Eastern midnight (open_daily_pack and
-// launch_expedition both compute `(now() at time zone 'America/New_York')`),
-// while FPL'dle, Higher or Lower and Guess the Card rolled over at UTC
-// midnight — which is 8pm Eastern, in the middle of the evening people
-// actually play in. A member who opened the site at 9pm got yesterday's
-// rip and tomorrow's puzzle, and no explanation of either was possible.
-//
-// One calendar, defined once. Every daily game asks this function and
-// nothing computes a day of its own.
+// Daily games, the Daily Rip, expeditions, and their briefs use one calendar:
+// Eastern midnight (`America/New_York`). Higher or Lower therefore refreshes
+// the date players see rather than the UTC date, which would roll over at
+// 8pm Eastern in the middle of the evening.
 
 import { easternDateOf } from "@/lib/packs/week";
 

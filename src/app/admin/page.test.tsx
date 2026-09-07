@@ -34,6 +34,7 @@ vi.mock("@/components/admin/AdminStaff", () => ({ default: ({ profiles }: { prof
 // Renders a browser Supabase client at mount — mocked like every other
 // admin child so the page test needs no NEXT_PUBLIC_SUPABASE_* env.
 vi.mock("@/components/admin/AdminBangerTitles", () => ({ default: () => <div /> }));
+vi.mock("@/components/admin/AdminGodPackPreview", () => ({ default: () => <div data-testid="admin-god-pack-preview" /> }));
 
 const fixture = (id: string, teamA: string, teamB: string): FixtureRow => ({
   id,
@@ -113,6 +114,16 @@ describe("AdminPage", () => {
     expect(screen.getByTestId("academy-featured-editor").textContent).toContain("Academy spotlight · academy-fixture");
     expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("premier");
     expect(fetchHomepageFeaturedSettings).toHaveBeenCalledWith("academy");
+  });
+
+  it("shows the God Pack fixture to full admins only", async () => {
+    render(await AdminPage());
+    expect(screen.getByTestId("admin-god-pack-preview")).not.toBeNull();
+
+    cleanup();
+    fetchStaffTier.mockResolvedValue({ isAdmin: false, isOwner: false, isBroadcaster: true });
+    render(await AdminPage());
+    expect(screen.queryByTestId("admin-god-pack-preview")).toBeNull();
   });
 
   it("links staff to the dedicated player claims fixture", async () => {

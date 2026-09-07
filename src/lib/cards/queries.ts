@@ -555,7 +555,7 @@ export async function fetchCardEditionWeeks(
   season: string,
   /** Must not exceed the API's max_rows or every page comes back short and
    *  paging stops after the first. Exposed for tests. */
-  paging: { pageSize?: number; maxPages?: number } = {},
+  paging: { pageSize?: number; maxPages?: number; throwOnError?: boolean } = {},
 ): Promise<string[]> {
   const pageSize = paging.pageSize ?? 1000;
   const maxPages = paging.maxPages ?? 100;
@@ -582,10 +582,14 @@ export async function fetchCardEditionWeeks(
       // the ordering unique and the pages disjoint.
       .order("slug", { ascending: true })
       .range(from, from + pageSize - 1);
-    // Garnish, not load-bearing: an environment without the card_editions
-    // migration still sells current-week packs. A later page failing leaves
-    // the weeks already collected, which beats losing the list entirely.
-    if (error) break;
+    // Garnish, not load-bearing for the normal pack-shop callers: an
+    // environment without the card_editions migration still sells current-
+    // week packs. Strict callers such as the Higher or Lower refresh can opt
+    // into surfacing the read failure instead of treating it as an empty list.
+    if (error) {
+      if (paging.throwOnError) throw error;
+      break;
+    }
     const batch = (data as { edition_week: string }[]) ?? [];
     for (const row of batch) weeks.add(row.edition_week);
     if (batch.length < pageSize) break;

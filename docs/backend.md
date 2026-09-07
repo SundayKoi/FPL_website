@@ -314,13 +314,14 @@ Postgres database and public schema:
 | Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, and role positions are database-backed. |
 | Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
-| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per UTC date and league, record each signed-in wallet's guesses, and claim the shared daily-game reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile and UTC date (300 for an active patron), regardless of which daily game completes first; FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
-| Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per UTC date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared daily-game reward on a correct answer. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
-| Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per UTC date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
+| FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per Eastern calendar date and league, record each signed-in wallet's guesses, and claim the shared daily-game reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile and Eastern date (300 for an active patron), regardless of which daily game completes first; FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
+| Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per Eastern calendar date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared daily-game reward on a correct answer. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
+| Higher or Lower | `higher_lower_daily_candidates`, `higher_lower_daily_runs`, `higher_lower_weekly_settlements`, `higher_lower_weekly_payouts`, `daily_game_rewards` | Premium daily game for Premium members, admins, and owners. Trusted server actions use the shared Premium gate and service-role RPCs to freeze one full `card_editions` pool per Eastern calendar date and league, run a stable 45-round server-timed sequence with optimistic run versions, claim the shared daily-game reward when a run ends, preserve every unlimited attempt for best-score ranking, reveal challenger cards only after settlement, and split the fixed 2,000 weekly pool among tied top combined-league runs. Hidden candidate state has no `anon`/`authenticated` read grant. |
 | Weekly Draw | `weekly_draws` | One row per season and week records the `card_inventory` copy drawn that week, its owner, the frozen card json, and the pot. Anyone may read it for the draw history page; only the service-role `run_weekly_draw` writes it. |
 | Card expeditions | `expedition_runs`, `expedition_supplies`, `expedition_policies`, `expedition_graveyard` | One row per squad sent out: the three `card_inventory` copies, the tier (seven runs, plus `lost` — the HOLD on a lost card, which reuses the deploy lock), the squad's shine, its forks and the choices made at them, insurance, a target card, the fee, when it resolves, and the whole outcome once it is claimed. Supplies hold map fragments; policies are a patron's weekly free insurance, claimed by primary-key insert; the graveyard keeps dead cards. Owners read their own rows; every write goes through `launch_expedition` / `decide_expedition_fork` / `resolve_expedition` / `ransom_lost_card` / `expire_lost_cards`. `card_inventory.mutation` is a generated column off the card json; `card_inventory_expedition_guard` keeps a deployed or lost copy from leaving the collection and `card_inventory_curse_guard` keeps a fresh Cursed card off the market. |
 | Card print runs | `card_print_runs`, `card_inventory.print_number` | One counter row per print — `(season, edition_week, slug)` — recording how many copies that print has ever stamped. A `BEFORE INSERT` trigger on `card_inventory` bumps the counter in one `insert … on conflict do update … returning` and writes the resulting serial onto the new row, so no caller picks its own number. `minted` is monotonic: dusting retires a number rather than freeing it. Counts are world-readable (permissive select policy plus an `anon`/`authenticated` grant); every write comes from the trigger. |
-| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
+| Card pack openings | `card_pack_openings` | Server-owned identity and outcome for every standard paid, daily, or comped opening. The request UUID makes retries idempotent; the row stores `standard`/`god`, frozen card JSON, inventory ids, reveal order, source, and fulfillment/refund state. Service-role RPCs begin, fulfill, and compensate it. |
+| Card provenance | `card_provenance` | One row per thing that happened to a copy: `minted`, `transferred`, `dusted`. Written by `AFTER` triggers on `card_inventory`, deliberately with no foreign key so a chain outlives the copy it describes. New pack mints also carry `card_pack_openings.opening_id`; the opening id is immutable on the inventory row. Deny-all RLS with a service-role grant, like `card_inventory` itself. See "Print runs and provenance" for the `fpl.provenance_ref` contract. |
 | Card market | `card_listings`, `card_wants` | The for-sale and wanted boards behind `/cards/market`. A listing names one `card_inventory` copy, an ask, and a fourteen-day expiry; a want names a slug and a bounty. Both are deny-all, service-role only. `buy_card_listing` and `fill_card_want` hand off to `execute_card_sale`, which locks the copy and both wallets, writes the ledger pair and moves ownership in one transaction. A partial unique index allows one OPEN listing per copy. |
 | Homepage and announcements | `homepage_briefs`, `homepage_featured_settings`, `announcements`, `draft_chat` | Curated or generated homepage copy, featured matchups, operational announcements, and draft chat. |
 | Broadcaster workspace | `homepage_featured_settings`, `fixtures`, `roster_memberships`, `match_drafts`, `raw_stats`, `stats_*` views | Read-only server composition of each league's featured fixture, rosters, match drafts, and in-house stats for owner/broadcaster commentary preparation. |
@@ -348,17 +349,20 @@ Important RPC families include:
   otherwise `base + step * (streak - 1)`. Callers cannot request a patron
   amount; each payout records the calculated amount in its ledger and claim,
   progress, vote, or payout row. Existing payouts are never backfilled.
-- FPL'dle: `ensure_fpldle_daily_puzzle` creates one stable puzzle per UTC date
+- FPL'dle: `ensure_fpldle_daily_puzzle` creates one stable puzzle per Eastern date
   and league; `record_fpldle_guess` enforces the five-guess progress limit and
   claims the shared daily-game reward. A correct replay returns the stored
   `reward_amount` without writing another ledger row.
-- Higher or Lower: `ensure_higher_lower_daily_candidates_weeks` freezes the latest
-  card-edition pool once per UTC date and league; the shared Premium gate
-  authorizes access, and the trusted `start_higher_lower_run` path preserves
-  completed attempts for unlimited replay; `submit_higher_lower_choice` claims
-  the shared daily-game reward when a run ends, while that function and
-  `advance_higher_lower_round` own the server-timed state machine and
-  expected-version race handling;
+- Higher or Lower: `ensure_higher_lower_daily_candidates_weeks` adds the
+  newest two archived card weeks to a pool for the current Eastern calendar
+  date and league. The weekly card drop invokes the same helper immediately
+  after a successful edition archive; because the RPC preserves prior weeks,
+  a date created before the drop may temporarily contain three weeks. The
+  shared Premium gate authorizes access, and the trusted
+  `start_higher_lower_run` path preserves completed attempts for unlimited
+  replay; `submit_higher_lower_choice` claims the shared daily-game reward
+  when a run ends, while that function and `advance_higher_lower_round` own
+  the server-timed state machine and expected-version race handling;
   `settle_higher_lower_week` pays tied top combined-league runs exactly once.
   The `higher-lower-settlement` GitHub workflow triggers at both UTC hours
   that can represent 8 PM America/New_York, and the script skips the wrong
@@ -690,7 +694,18 @@ when any validation fails. Operators can inspect `cron.job` and
 `cron.job_run_details`, correct the catalog or schedule data, and—using an
 authorized service-role context—retry with the original Tuesday 1:00 AM
 Eastern anchor by calling `generate_weekly_betting_markets(anchor)`. The
-generator never resolves, cancels, or recreates weekly events.
+generator never resolves, cancels, or recreates weekly events. Each successful run also calls
+`ensure_weekly_betting_pickems(target_monday)` to create one pick'em per league
+from that exact fixture slate. Titles come from the published stage (`week_4`
+becomes `Week 4`), not a calendar-week calculation. Existing pick'ems must match
+the event, title, kickoff lock, and exact market IDs; mismatches abort the whole
+transaction. Retries preserve cards and carryover, and single-series slates
+are skipped because pick'ems require at least two legs. New slates require
+open markets before kickoff and atomically claim the existing jackpot bank,
+in event-ID order, just like manual creation. The result includes pick'em
+created/existing/skipped counts. Service-role operators can repair missing
+pick'ems alone with `ensure_weekly_betting_pickems('YYYY-MM-DD')` after verifying
+the Monday and fixture stage; it refuses incomplete market coverage.
 
 Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
@@ -1091,8 +1106,9 @@ that selector list.
 
 ### Pack odds, measured
 
-Every roll in a pack — class, card within class, foil, parallel, autograph,
-moment, team plate, Eclipse — draws from node's CSPRNG (`randomBytes(6)` over
+Every ordinary roll in a pack — class, card within class, foil, parallel,
+autograph, moment, team plate, Eclipse — draws from node's CSPRNG
+(`randomBytes(6)` over
 2^48) through the pure functions in `src/lib/packs/rng.ts`,
 `signatures.ts` and `eclipse.ts` (`rollEclipseCandidates`). Besides the
 scripted-`rand` tests that pin the order of the roll, `src/lib/packs/odds.test.ts`
@@ -1106,6 +1122,21 @@ and prints the expected rates beside what `card_inventory` actually holds,
 by edition. The Eclipse rate is per crowned PULL: how often a crowned card
 turns up depends on how many cards share its rarity class, so a thin top
 class makes the same crowned card — and therefore Eclipses — cluster.
+Before that ordinary roller runs, each paid, daily, and standard-comp opening
+gets one server-side `randomInt(750)` draw. Exactly draw zero is a God Pack;
+the client never chooses the branch and specialty packs are excluded. A God
+Pack skips moments, team plates, Eclipse, and ordinary autograph logic, then
+prints three 80/20 Epic/Legendary special foils, a Legendary Cracked Ice slot,
+and a final Refractor/Ice slot that is signed when that edition has eligible
+ink. Cards prefer distinct eligible players; an edition with fewer than five
+distinct players repeats its real pool rather than inventing ratings. Its
+`card_pack_openings` row and five inventory/provenance rows preserve the
+server-selected variant and reveal order, and the client protects all five
+from auto-dust.
+
+`npm run simulate:packs` also reports the simulated God Pack frequency, the
+expected one-in-750 volume, signature coverage, and base/Patron dust value of
+the God pulls (manual dust value only; the automatic rule leaves them intact).
 `scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
 file (the only players a signed copy can be of), signed copies per player
 against all their copies, every signed copy and every Eclipse in pull order

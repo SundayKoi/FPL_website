@@ -23,11 +23,16 @@ export async function openPackAction(
    *  live ratings. Every archived week stays purchasable forever — no
    *  edition is ever closed off. */
   requestedWeek?: string,
+  requestId?: string,
 ): Promise<OpenPackResult> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return withAutoDust(user.discordId, league, await openPackFor(user.discordId, league, { requestedWeek, fallbackBalance: user.balance - PACK_COST }));
+  return withAutoDust(
+    user.discordId,
+    league,
+    await openPackFor(user.discordId, league, { requestedWeek, requestId, fallbackBalance: user.balance - PACK_COST }),
+  );
 }
 
 /**
@@ -38,6 +43,9 @@ export async function openPackAction(
  */
 async function withAutoDust(discordId: string, league: CardLeague, result: OpenPackResult): Promise<OpenPackResult> {
   if (!result.ok) return result;
+  // God Packs are a five-card event. Every pull must remain available for
+  // the reveal and collection record; the summary calls this out explicitly.
+  if (result.variant === "god") return { ...result, autoDustProtected: true };
   try {
     const service = createBettingServiceClient();
     const season = await fetchCardSeason(service, league);
@@ -77,11 +85,15 @@ async function withAutoDust(discordId: string, league: CardLeague, result: OpenP
  * week picker like a bought pack does: every archived edition stays
  * rippable, defaulting to the newest.
  */
-export async function openDailyRipAction(league: CardLeague, requestedWeek?: string): Promise<OpenPackResult> {
+export async function openDailyRipAction(league: CardLeague, requestedWeek?: string, requestId?: string): Promise<OpenPackResult> {
   const user = await getBettingUser();
   if (!user) return { ok: false, error: "Sign in with Discord to use the betting site." };
   if (!user.allowed) return { ok: false, error: "FPL Better members only." };
-  return withAutoDust(user.discordId, league, await openPackFor(user.discordId, league, { daily: true, requestedWeek, fallbackBalance: user.balance }));
+  return withAutoDust(
+    user.discordId,
+    league,
+    await openPackFor(user.discordId, league, { daily: true, requestedWeek, requestId, fallbackBalance: user.balance }),
+  );
 }
 
 /**

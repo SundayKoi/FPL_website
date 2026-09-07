@@ -54,6 +54,9 @@ function createClient(run: Run | null, candidateRows = [
   { player_slug: challengerCard.slug, player_name: challengerCard.name, overall: challengerCard.overall, edition_week: "2026-08-17", card: challengerCard },
 ], runRows = run ? [run] : [], leaderboardGate?: Promise<void>) {
   const rpc = vi.fn(async (name: string) => {
+    if (name === "ensure_higher_lower_daily_candidates_weeks") {
+      return { data: candidateRows.length, error: null };
+    }
     if (name === "start_higher_lower_run") {
       return { data: run ? [run] : null, error: null };
     }
@@ -354,6 +357,12 @@ describe("Higher or Lower server module", () => {
       p_league: "premier",
       p_profile_id: "profile-1",
       p_discord_id: "discord-1",
+    });
+    expect(client.rpc).toHaveBeenCalledWith("ensure_higher_lower_daily_candidates_weeks", {
+      p_puzzle_date: today,
+      p_league: "premier",
+      p_season: "S99",
+      p_edition_weeks: ["2026-08-24", "2026-08-17"],
     });
   });
 

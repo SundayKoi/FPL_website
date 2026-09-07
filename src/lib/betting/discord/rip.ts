@@ -95,10 +95,10 @@ export function ripFollowup(result: OpenPackResult, username: string): { embeds:
       : "";
 
   const header: DiscordEmbed = {
-    title: `${username}'s Daily Rip`,
-    ...(bonusNote ? { description: bonusNote } : {}),
+    title: result.variant === "god" ? `${username}'s GOD PACK` : `${username}'s Daily Rip`,
+    description: [result.variant === "god" ? "⚡ **GOD PACK · 1 IN 750**" : "", bonusNote].filter(Boolean).join("\n") || undefined,
     color: best && (best.foil || best.signed || best.card.moment) ? GREEN : BRAND,
-    footer: { text: `Free daily pack${streakNote}` },
+    footer: { text: `${result.variant === "god" ? "Five special foils · " : ""}Free daily pack${streakNote}` },
   };
   return { embeds: [header, ...result.cards.map((pull) => pullEmbed(pull, site, result.editionWeek))] };
 }

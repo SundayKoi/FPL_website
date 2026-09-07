@@ -284,6 +284,13 @@ describe("fetchCardEditionWeeks", () => {
     expect(await fetchCardEditionWeeks(client, "S5")).toEqual([]);
   });
 
+  it("can surface edition read failures for strict callers", async () => {
+    const { client } = editionsSupabase([[]], { message: "relation does not exist" });
+
+    await expect(fetchCardEditionWeeks(client, "S5", { throwOnError: true }))
+      .rejects.toMatchObject({ message: "relation does not exist" });
+  });
+
   it("keeps the weeks it already collected when a later page fails", async () => {
     const pages = [[{ edition_week: "2026-08-24" }, { edition_week: "2026-08-24" }]];
     let call = 0;

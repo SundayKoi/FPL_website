@@ -29,6 +29,11 @@ import { flameUnlocked, PATRON_FLAMES, PATRON_FLAME_KEYS, patronFlameOf, SOVEREI
 import { getMuted, getMutedServer, setMuted, subscribeMuted } from "@/lib/packs/sounds";
 import PackOpening, { type AutoDusted, type OpenResult, type Pull } from "./PackOpening";
 
+function openingRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `pack-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 /** "Week 3 · Sep 8" — the week number counts up from the season's first
  *  archived edition, which is how players talk about them. */
 function editionLabel(week: string, number: number): string {
@@ -91,6 +96,10 @@ export default function PackShop({
   // the server, so the stage shows them gone rather than offering to dust
   // them twice.
   const [autoDusted, setAutoDusted] = useState<AutoDusted | null>(null);
+  const [autoDustProtected, setAutoDustProtected] = useState(false);
+  const [packVariant, setPackVariant] = useState<"standard" | "god">("standard");
+  const [openingId, setOpeningId] = useState<string | null>(null);
+  const [revealOrder, setRevealOrder] = useState<number[]>([]);
   const [ripsLeft, setRipsLeft] = useState(dailyRipsLeft);
   const [ripStreak, setRipStreak] = useState<number | null>(null);
   // Optimistic: the swatch recolours instantly and the server action
@@ -137,7 +146,7 @@ export default function PackShop({
   function handleOpen() {
     setError(null);
     startTransition(async () => {
-      const result = await openPackAction(league, week || undefined);
+      const result = await openPackAction(league, week || undefined, openingRequestId());
       if (!result.ok) {
         setError(result.error);
         return;
@@ -146,6 +155,10 @@ export default function PackShop({
       setPackKind("standard");
       setPulls(result.cards);
       setAutoDusted(result.autoDusted ?? null);
+      setAutoDustProtected(result.autoDustProtected === true);
+      setPackVariant(result.variant);
+      setOpeningId(result.openingId);
+      setRevealOrder(result.revealOrder);
       banked(result.balance);
     });
   }
@@ -162,6 +175,10 @@ export default function PackShop({
       setPackKind("champions");
       setPulls(result.cards);
       setAutoDusted(result.autoDusted ?? null);
+      setAutoDustProtected(result.autoDustProtected === true);
+      setPackVariant(result.variant);
+      setOpeningId(result.openingId);
+      setRevealOrder(result.revealOrder);
       banked(result.balance);
     });
   }
@@ -171,7 +188,7 @@ export default function PackShop({
     startTransition(async () => {
       // The rip honours the same week picker as a bought pack — a vintage
       // rip mints that week's prints exactly.
-      const result = await openDailyRipAction(league, week || undefined);
+      const result = await openDailyRipAction(league, week || undefined, openingRequestId());
       if (!result.ok) {
         setError(result.error);
         // The server refused, so trust its count over ours — a rip claimed
@@ -184,6 +201,10 @@ export default function PackShop({
       setPackKind("standard");
       setPulls(result.cards);
       setAutoDusted(result.autoDusted ?? null);
+      setAutoDustProtected(result.autoDustProtected === true);
+      setPackVariant(result.variant);
+      setOpeningId(result.openingId);
+      setRevealOrder(result.revealOrder);
       banked(result.balance);
     });
   }
@@ -197,7 +218,9 @@ export default function PackShop({
   // another Faceless Pack, not quietly fall back to a normal one.
   const openAnother = useCallback(async (): Promise<OpenResult> => {
     const result =
-      packKind === "champions" ? await openChampionsPackAction() : await openPackAction(league, week || undefined);
+      packKind === "champions"
+        ? await openChampionsPackAction()
+        : await openPackAction(league, week || undefined, openingRequestId());
     if (result.ok && result.compsLeft !== undefined) {
       // Each shelf banks its own count. A normal pack reports compsLeft too
       // (the Weekly Draw pays out standard comps), and banking that on the
@@ -206,12 +229,23 @@ export default function PackShop({
       else setFreePacksLeft(result.compsLeft);
     }
     if (result.ok) banked(result.balance);
+    if (result.ok) {
+      setAutoDusted(result.autoDusted ?? null);
+      setAutoDustProtected(result.autoDustProtected === true);
+      setPackVariant(result.variant);
+      setOpeningId(result.openingId);
+      setRevealOrder(result.revealOrder);
+    }
     return result;
   }, [league, week, banked, packKind]);
 
   const handleExit = useCallback(() => {
     setPulls(null);
     setAutoDusted(null);
+    setAutoDustProtected(false);
+    setPackVariant("standard");
+    setOpeningId(null);
+    setRevealOrder([]);
     router.refresh();
   }, [router]);
 
@@ -377,6 +411,10 @@ export default function PackShop({
           ownedSlugs={ownedSlugs}
           muted={muted}
           autoDusted={autoDusted}
+          autoDustProtected={autoDustProtected}
+          variant={packVariant}
+          openingId={openingId}
+          revealOrder={revealOrder}
           onOpenAnother={openAnother}
           onExit={handleExit}
           onSellPack={sellPack}

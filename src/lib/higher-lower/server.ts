@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getBettingUser } from "@/lib/betting/wallet";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
-import { fetchCardEditionWeeks, fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
+import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import type { PlayerCardData } from "@/lib/cards/build";
 import { premiumAccess } from "@/lib/premium/access";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -14,6 +14,7 @@ import {
   utcWeekStart,
 } from "./rules";
 import { dailyGameDate, dailyGameResetAt } from "@/lib/dailyDay";
+import { HigherLowerSnapshotError, refreshHigherLowerSnapshot } from "./snapshot";
 import type {
   HigherLowerChoice,
   HigherLowerCompletionReason,
@@ -199,16 +200,22 @@ async function ensureSnapshot(
 ): Promise<void> {
   const season = await fetchCardSeason(server, league as CardLeague);
   if (!season) throw new HigherLowerError("NO_SEASON", "This league has no active card season.");
-  const editionWeeks = (await fetchCardEditionWeeks(server, season)).slice(0, 2);
-  if (editionWeeks.length === 0) throw new HigherLowerError("NO_EDITION", "No frozen card edition is available yet.");
-
-  const { error } = await service.rpc("ensure_higher_lower_daily_candidates_weeks", {
-    p_puzzle_date: puzzleDate,
-    p_league: league,
-    p_season: season,
-    p_edition_weeks: editionWeeks,
-  });
-  if (error) throwRpcError(error);
+  try {
+    // The helper performs both the archive read and the service-role-only
+    // snapshot RPC. This server-only path has already passed the Premium gate,
+    // so use the trusted client for the whole operation.
+    await refreshHigherLowerSnapshot(service, league, season, puzzleDate);
+  } catch (error) {
+    if (!(error instanceof HigherLowerSnapshotError)) throw error;
+    if (error.code === "NO_EDITION") {
+      throw new HigherLowerError("NO_EDITION", "No frozen card edition is available yet.");
+    }
+    // Preserve the existing RPC-specific user-facing error codes (for
+    // example NO_CANDIDATES) while allowing the shared helper to classify
+    // other failures for trusted script callers.
+    if (error.cause) throwRpcError(error.cause);
+    throw error;
+  }
 }
 
 async function loadRun(

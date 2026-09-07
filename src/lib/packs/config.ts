@@ -28,6 +28,12 @@ export const PACK_COST = 200;
 /** Cards per pack. */
 export const PACK_SIZE = 5;
 
+/** A standard pack becomes a God Pack on exactly one integer draw out of 750. */
+export const GOD_PACK_ODDS_DENOMINATOR = 750;
+export const GOD_PACK_CHANCE = 1 / GOD_PACK_ODDS_DENOMINATOR;
+
+export type PackVariant = "standard" | "god";
+
 /**
  * The Weekly Draw pot, in betting dollars — paid with one standard pack
  * comp on top. Sized against PACK_COST deliberately: winning feels real

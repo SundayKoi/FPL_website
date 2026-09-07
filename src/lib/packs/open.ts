@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -18,10 +18,12 @@ import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard }
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
 import { cardImageUrl } from "@/lib/cards/shareImage";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
-import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE } from "./config";
+import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE, type PackVariant } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
 import { GOLD, postCardsWebhook } from "./announce";
 import { rollPack } from "./rng";
+import { rollGodPack } from "./god";
+import { rollGodPackGate } from "./godGate";
 import { applyEclipse, rollEclipseCandidates, type EclipsePrint } from "./eclipse";
 import { rollPackFinishes, secretSerialLabel, stampFinishes } from "./rarities";
 import { DRIBB_COPIES, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "@/lib/cards/dribb";
@@ -59,7 +61,63 @@ function friendlyOpenPackError(message: string): string {
   if (/cost must be positive/i.test(message)) return "That pack isn't for sale right now.";
   if (/already ripped/i.test(message)) return "You've already ripped today — come back tomorrow.";
   if (/unknown user/i.test(message)) return "Account not found — try signing in again.";
+  if (/no standard pack comp/i.test(message)) return "That free pack is no longer available.";
   return "Something went wrong opening that pack.";
+}
+
+type OpeningRow = {
+  opening_id: string;
+  open_id: number | null;
+  source: "paid" | "daily" | "comp";
+  status: "pending" | "fulfilled" | "refunded";
+  variant: PackVariant;
+  variant_resolved: boolean;
+  streak: number | null;
+  bonus: number | null;
+  comps_left: number | null;
+  card_ids: number[] | null;
+  reveal_order: number[] | null;
+};
+
+/** Recover an already-fulfilled standard opening without charging or rolling. */
+async function recoverOpening(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  opening: OpeningRow,
+  editionWeek: string | null,
+  fallbackBalance: number | undefined,
+): Promise<OpenPackResult> {
+  const { data, error } = await service
+    .from("card_inventory")
+    .select("id, card, foil, foil_type, signed, edition_week")
+    .eq("opening_id", opening.opening_id);
+  const rows = (data as { id: number; card: PlayerCardData; foil: boolean; foil_type: string | null; signed: boolean | null; edition_week: string }[] | null) ?? [];
+  if (error || rows.length === 0) {
+    return { ok: false, error: "That pack is still being recovered — please try again." };
+  }
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const order = (opening.reveal_order ?? opening.card_ids ?? rows.map((row) => row.id)).map(Number);
+  const ordered = order.map((id) => byId.get(id)).filter((row): row is (typeof rows)[number] => Boolean(row));
+  const { data: profile } = await service.from("betting_profiles").select("balance").eq("discord_id", discordId).maybeSingle();
+  const cards = (ordered.length === rows.length ? ordered : rows).map((row) => ({
+    card: row.card,
+    foil: row.foil,
+    foilType: row.foil_type,
+    signed: row.signed === true,
+    inventoryId: row.id,
+  }));
+  return {
+    ok: true,
+    cards,
+    balance: (profile as { balance: number } | null)?.balance ?? fallbackBalance ?? 0,
+    editionWeek: rows[0]?.edition_week ?? editionWeek,
+    openingId: opening.opening_id,
+    variant: opening.variant,
+    revealOrder: cards.map((card) => card.inventoryId),
+    ...(opening.streak !== null ? { streak: opening.streak } : {}),
+    ...(opening.bonus !== null ? { streakBonus: opening.bonus } : {}),
+    ...(opening.source === "comp" ? { compsLeft: opening.comps_left ?? 0 } : {}),
+  };
 }
 
 /** Spend one comp by compare-and-swap (PostgREST can't decrement in
@@ -160,9 +218,17 @@ export type OpenPackResult =
       /** Set when the collector's auto-dust rule took some of these pulls
        *  as the pack opened: which copies, and what they paid. */
       autoDusted?: { ids: number[]; dusted: number; value: number };
+      /** God Pack pulls are protected from collection auto-dust. */
+      autoDustProtected?: boolean;
       /** Set when this open spent a comp (a free pack): how many the
        *  holder has left afterwards. */
       compsLeft?: number;
+      /** Durable server-owned opening identity. Null only for specialty packs. */
+      openingId: string | null;
+      /** Standard opening variant; specialty packs use the ordinary presentation. */
+      variant: PackVariant;
+      /** Inventory ids in intended reveal order. */
+      revealOrder: number[];
     }
   | { ok: false; error: string };
 
@@ -175,7 +241,7 @@ export type OpenPackResult =
 export async function openPackFor(
   discordId: string,
   league: CardLeague,
-  opts: { requestedWeek?: string; daily?: boolean; fallbackBalance?: number } = {},
+  opts: { requestedWeek?: string; daily?: boolean; fallbackBalance?: number; requestId?: string } = {},
 ): Promise<OpenPackResult> {
   const { requestedWeek, daily = false } = opts;
   const service = createBettingServiceClient();
@@ -219,45 +285,50 @@ export async function openPackFor(
     : await fetchCurrentWeekCards(service, season);
   if (cards.length === 0) return { ok: false, error: "No cards to open yet — check back once games are played." };
 
-  // Daily rips claim through their own RPC: open_card_pack rejects a zero
-  // cost by design, and the day limit / streak live server-side where a
-  // retried request can't double-claim them.
-  //
-  // A comped pack skips the charge RPC entirely rather than charging zero
-  // (open_card_pack refuses a zero cost), so `openId` stays null and the
-  // cards below are stamped against no paid open — the same shape a comped
-  // Faceless Pack has.
-  let openId: number | null = null;
-  let streak: number | undefined;
-  let streakBonus: number | undefined;
-  // Free shop packs — the Weekly Draw pays one out with the pot. Spent
-  // before the charge so a holder is never debited, and never on a daily
-  // rip: that one is already free, and spending a comp on it would burn
-  // the prize for nothing.
-  let compRemaining: number | null = null;
-  if (daily) {
-    const { data, error: openError } = await service.rpc("open_daily_pack", {
-      p_user: discordId,
-      p_season: season,
-    });
-    if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
-    const row = (Array.isArray(data) ? data[0] : data) as { open_id: number; streak: number; bonus: number };
-    openId = row.open_id;
-    streak = row.streak;
-    streakBonus = row.bonus;
-  } else {
-    compRemaining = await spendPackComp(service, discordId, "standard");
-    if (compRemaining === null) {
-      const { data, error: openError } = await service.rpc("open_card_pack", {
-        p_user: discordId,
-        p_season: season,
-        p_cost: PACK_COST,
-      });
-      if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
-      openId = data as number;
-    }
+  // One transaction owns the daily claim/comp/charge and the durable opening
+  // row. The request key makes a network retry return the same opening.
+  const requestId = opts.requestId ?? randomUUID();
+  const { data: beginData, error: beginError } = await service.rpc("begin_card_pack_opening", {
+    p_request_id: requestId,
+    p_user: discordId,
+    p_season: season,
+    p_source: daily ? "daily" : "standard",
+    p_cost: PACK_COST,
+  });
+  if (beginError) return { ok: false, error: friendlyOpenPackError(beginError.message) };
+  const opening = (Array.isArray(beginData) ? beginData[0] : beginData) as OpeningRow | null;
+  if (!opening?.opening_id) return { ok: false, error: "Something went wrong starting that pack." };
+  if (opening.status === "refunded") return { ok: false, error: "That pack was refunded — please try again." };
+  if (opening.status === "fulfilled") {
+    return recoverOpening(service, discordId, opening, editionWeek, opts.fallbackBalance);
   }
-  const usedComp = compRemaining !== null;
+
+  const source = opening.source;
+  const usedComp = source === "comp";
+  const compRemaining = opening.comps_left;
+  const streak = opening.streak ?? undefined;
+  const streakBonus = opening.bonus ?? undefined;
+  // This is the only God Pack gate for this opening. It is after the charge /
+  // claim, so a rejected payment or daily claim consumes no God Pack draw.
+  // Persist the result before rolling so a retry of a pending opening cannot
+  // receive a second outcome after a process interruption.
+  let variant: PackVariant;
+  if (opening.variant_resolved) {
+    variant = opening.variant;
+  } else {
+    const candidate: PackVariant = rollGodPackGate() ? "god" : "standard";
+    const { data: resolved, error: resolveError } = await service.rpc("set_card_pack_variant", {
+      p_opening: opening.opening_id,
+      p_variant: candidate,
+    });
+    const returned = Array.isArray(resolved) ? resolved[0] : resolved;
+    if (resolveError || (returned !== "standard" && returned !== "god")) {
+      const { error: refundError } = await service.rpc("refund_card_pack_opening", { p_opening: opening.opening_id });
+      if (refundError) console.error("packs: variant resolution failed", { openingId: opening.opening_id, resolveError, refundError });
+      return { ok: false, error: "That pack didn't open — please try again." };
+    }
+    variant = returned;
+  }
 
   // CSPRNG, not Math.random: V8's PRNG state is recoverable from observed
   // outputs, and pack contents gate real (betting-dollar) value. Six bytes
@@ -274,11 +345,13 @@ export async function openPackFor(
   const liveNow = Boolean(liveSettings?.live_until && new Date(liveSettings.live_until).getTime() > Date.now());
   const liveLabel = liveNow ? liveSettings?.live_label?.trim() || "Live drop" : null;
 
-  const pulls = applyAutographs(
-    rollPack(cards, rand, liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE),
-    signatures,
-    rand,
-  );
+  const pulls = variant === "god"
+    ? rollGodPack(cards, signatures, rand)
+    : applyAutographs(
+        rollPack(cards, rand, liveNow ? LIVE_FOIL_CHANCE : FOIL_CHANCE),
+        signatures,
+        rand,
+      );
 
   // A moment can only come out of the week it happened in — that is what
   // ties the print to the performance, and it is why an edition pack is
@@ -289,7 +362,7 @@ export async function openPackFor(
   // them competing for that single slot rather than each rolling its own.
   // The roll happens after the autograph pass so the earlier stages'
   // consumption of `rand` is untouched.
-  if (editionWeek) {
+  if (variant !== "god" && editionWeek) {
     const weekMoments = await fetchWeekMoments(service, season, editionWeek);
     if (weekMoments.length > 0 && rand() < MOMENT_PULL_CHANCE) {
       const moment = weekMoments[Math.floor(rand() * weekMoments.length)];
@@ -322,7 +395,7 @@ export async function openPackFor(
   // Rolled once per pack like the moment above, and only when the moment
   // roll didn't already claim the slot — two relics in one pack would make
   // the rarer one feel cheap.
-  if (editionWeek && !pulls[pulls.length - 1].card.moment && rand() < TEAM_PULL_CHANCE) {
+  if (variant !== "god" && editionWeek && !pulls[pulls.length - 1].card.moment && rand() < TEAM_PULL_CHANCE) {
     const identity = await fetchTeamIdentity(service, season);
     const teams = buildTeamCards(cards, identity.colors, editionWeek);
     if (teams.length > 0) {
@@ -389,7 +462,7 @@ export async function openPackFor(
       skinNums.get(champion) ?? [0],
       rand,
       printArtExists,
-      pull.signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
+      variant === "god" ? 1 : pull.signed ? SIGNED_ALT_SKIN_CHANCE : ALT_SKIN_CHANCE,
     );
     prints.push({ ...pull, card: { ...card, artSkin } });
   }
@@ -406,7 +479,9 @@ export async function openPackFor(
   // Read AFTER the pack is rolled, and only when something eligible
   // actually came out — the overwhelming majority of packs contain no
   // Card of the Week at all and pay nothing for this.
-  const eclipseCandidates = rollEclipseCandidates(prints, rand).map((index) => ({ print: prints[index], index }));
+  const eclipseCandidates = variant === "god"
+    ? []
+    : rollEclipseCandidates(prints, rand).map((index) => ({ print: prints[index], index }));
   if (eclipseCandidates.length > 0) {
     const { data: alreadyMinted } = await service
       .from("card_inventory")
@@ -453,7 +528,7 @@ export async function openPackFor(
   // the partial unique index on the number (20260929000001) is what
   // refuses a sixth, or two fifths in the same instant, and a refused
   // insert refunds the pack like any other.
-  if (rollDribb(rand)) {
+  if (variant !== "god" && rollDribb(rand)) {
     const { count } = await service
       .from("card_inventory")
       .select("id", { count: "exact", head: true })
@@ -464,53 +539,68 @@ export async function openPackFor(
     }
   }
 
-  const { data: inserted, error: insertError } = await service
-    .from("card_inventory")
-    .insert(
-      prints.map((print) => ({
-        discord_id: discordId,
-        season,
-        slug: print.card.slug,
-        player_name: print.card.name,
-        role: print.card.role,
-        edition_week: stampedWeek,
-        overall: print.card.overall,
-        // "moment" rather than the placeholder tier the wrapper carries:
-        // this column is what dust pricing and the ledger read, and a
-        // moment filed as gold would dust as an ordinary gold card.
-        tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.dribb ? DRIBB_TIER : print.card.tier.key,
-        foil: print.foil,
-        foil_type: print.foilType,
-        signed: print.signed,
-        // the whole card, frozen: ratings restat nightly, collections don't
-        // — and the autograph and rolled art ride along with it
-        card: print.card,
-        pack_open_id: openId,
-      })),
-    )
-    .select("id");
+  const { data: inserted, error: insertError } = await service.rpc("fulfill_card_pack_opening", {
+    p_opening: opening.opening_id,
+    p_variant: variant,
+    p_cards: prints.map((print) => ({
+      slug: print.card.slug,
+      player_name: print.card.name,
+      role: print.card.role,
+      edition_week: stampedWeek,
+      overall: print.card.overall,
+      // "moment" rather than the placeholder tier the wrapper carries:
+      // this column is what dust pricing and the ledger read, and a
+      // moment filed as gold would dust as an ordinary gold card.
+      tier: print.card.moment ? MOMENT_TIER : print.card.team ? TEAM_TIER : print.card.dribb ? DRIBB_TIER : print.card.tier.key,
+      foil: print.foil,
+      foil_type: print.foilType,
+      signed: print.signed,
+      // the whole card, frozen: ratings restat nightly, collections don't
+      // — and the autograph and rolled art ride along with it
+      // The trusted fulfillment RPC stamps ownership, opening provenance,
+      // and the paid open id (when one exists) atomically with the frozen
+      // card payload.
+      card_json: print.card,
+    })),
+  });
 
   if (insertError || !inserted) {
-    if (usedComp) {
-      // No money moved, so there is nothing for refund_card_pack to reverse
-      // — the comp is what has to go back, the same CAS way it was spent.
-      if (!(await refundPackComp(service, discordId, "standard"))) {
-        console.error("packs: comp restore failed (standard)", { discordId, insertError });
-        return { ok: false, error: "That pack didn't open and the free pack couldn't be returned — staff have been notified." };
-      }
-      return { ok: false, error: "That pack didn't open — your free pack wasn't spent." };
-    }
-    const { error: refundError } = await service.rpc("refund_card_pack", { p_open: openId });
+    const { error: refundError } = await service.rpc("refund_card_pack_opening", { p_opening: opening.opening_id });
     if (refundError) {
-      // Money is out and the cards never landed — say nothing about a refund
-      // we can't stand behind, and leave a trail for whoever reconciles it.
-      console.error("packs: refund_card_pack failed", { openId, refundError, insertError });
+      console.error("packs: refund_card_pack_opening failed", { openingId: opening.opening_id, refundError, insertError });
+      if (usedComp) return { ok: false, error: "That pack didn't open and the free pack couldn't be returned — staff have been notified." };
+      if (source === "daily") return { ok: false, error: "That pack didn't open and the daily rip couldn't be returned — staff have been notified." };
       return { ok: false, error: "That pack didn't open and we couldn't reverse the charge — staff have been notified." };
     }
+    if (usedComp) return { ok: false, error: "That pack didn't open — your free pack wasn't spent." };
+    if (source === "daily") return { ok: false, error: "That pack didn't open — your daily rip wasn't spent." };
     return { ok: false, error: "That pack didn't open — you haven't been charged." };
   }
 
-  const ids = (inserted as { id: number }[]).map((row) => row.id);
+  // The RPC tells a concurrent/replayed caller whether it won the mint. A
+  // losing retry must read the committed cards back; its local roll may have
+  // consumed different randomness even though the opening identity is the
+  // same. Older test doubles returned the id array directly, so retain that
+  // shape as a compatibility fallback while the migration rolls out.
+  const fulfillment = !Array.isArray(inserted) && typeof inserted === "object"
+    ? inserted as { card_ids?: unknown; minted?: unknown }
+    : { card_ids: inserted, minted: true };
+  const ids = Array.isArray(fulfillment.card_ids) ? fulfillment.card_ids.map(Number) : [];
+  if (ids.length !== prints.length || (fulfillment.minted !== true && fulfillment.minted !== false)) {
+    const { error: refundError } = await service.rpc("refund_card_pack_opening", { p_opening: opening.opening_id });
+    if (refundError) console.error("packs: malformed fulfillment response", { openingId: opening.opening_id, refundError });
+    return { ok: false, error: "That pack didn't open — please try again." };
+  }
+
+  if (fulfillment.minted === false) {
+    return recoverOpening(
+      service,
+      discordId,
+      { ...opening, status: "fulfilled", variant, variant_resolved: true, card_ids: ids, reveal_order: ids },
+      editionWeek,
+      opts.fallbackBalance,
+    );
+  }
 
   // An Eclipse landing is league news, and it can never happen twice for
   // the same print — announce it. AFTER the insert, same reasoning as the
@@ -610,6 +700,9 @@ export async function openPackFor(
     // Free packs left after this open, when one paid for it — the shop
     // keeps its counter honest with it.
     ...(usedComp ? { compsLeft: compRemaining ?? 0 } : {}),
+    openingId: opening.opening_id,
+    variant,
+    revealOrder: ids,
   };
 }
 
@@ -944,5 +1037,8 @@ export async function openChampionsPack(
     // Free packs left after this open, when the holder has any — the shop
     // keeps its tribute banner honest with it.
     ...(usedComp ? { compsLeft: compRemaining ?? 0 } : {}),
+    openingId: null,
+    variant: "standard",
+    revealOrder: [(inserted as { id: number }).id],
   };
 }
