@@ -24,7 +24,7 @@ function loadIndex(): Promise<SearchItem[]> {
 }
 
 /** What the empty palette offers: the places most people are going. */
-const SUGGESTED = ["Players", "Teams", "Schedule", "Stats", "Cards", "Packs", "Betting", "FPL'dle"];
+const SUGGESTED = ["Players", "Teams", "Schedule", "Standings", "Stats", "Cards", "Packs", "Betting", "FPL'dle"];
 
 const KIND_LABEL: Record<SearchItem["kind"], string> = { page: "Page", player: "Player", team: "Team" };
 
