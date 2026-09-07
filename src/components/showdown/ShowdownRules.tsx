@@ -19,8 +19,8 @@ import {
 import { HAND_RANKS, ROLES, TIER_ORDER } from "@/lib/showdown/hands";
 import { fmtPoints } from "@/lib/betting/format";
 
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <details className="group border-b border-border-subtle/50 py-3 last:border-0">
+const Section = ({ title, children, open = false }: { title: string; children: React.ReactNode; open?: boolean }) => (
+  <details open={open} className="group border-b border-border-subtle/50 py-3 last:border-0">
     <summary className="cursor-pointer list-none text-sm font-bold uppercase tracking-[0.14em] text-white transition group-open:text-coral">
       <span className="mr-2 inline-block text-coral transition group-open:rotate-90">▸</span>
       {title}
@@ -43,7 +43,7 @@ export default function ShowdownRules() {
         </p>
       </div>
 
-      <Section title="How a hand runs">
+      <Section title="How a hand runs" open>
         <p>
           It is Texas Hold&apos;em. <b className="text-white">{HOLE_CARDS} hole cards</b> are dealt to you face
           down from your own stack. <b className="text-white">Five community cards</b> come out for everyone,

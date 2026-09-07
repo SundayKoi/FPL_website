@@ -133,9 +133,9 @@ export async function VaultPageView({ league = "premier" }: { league?: CardLeagu
         through its own week&apos;s packs, so the board only ever grows.
       </CardsPageHeader>
 
-      <p className="text-sm text-steel">
-        <span className="font-display text-2xl font-bold tabular-nums text-gold">{totals.found}</span> found ·{" "}
-        <span className="font-display text-2xl font-bold tabular-nums text-white">{totals.unclaimed}</span> still out
+      <p className="text-xs text-steel">
+        <span className="font-semibold tabular-nums text-gold">{totals.found}</span> found ·{" "}
+        <span className="font-semibold tabular-nums text-white">{totals.unclaimed}</span> still out
         there
         {totals.total > 0 ? ` · ${totals.total} one-of-one${totals.total === 1 ? "" : "s"} this season` : ""}
       </p>

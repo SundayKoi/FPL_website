@@ -1,5 +1,6 @@
 import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
+import RulesPanel from "@/components/site/RulesPanel";
 import { fmtPoints } from "@/lib/betting/format";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { DRAW_EMPTY_HEADLINE, DRAW_TAGLINE, fetchDrawHistory } from "@/lib/cards/draw-queries";
@@ -69,6 +70,15 @@ export async function DrawPageView({ league = "premier" }: { league?: CardLeague
         Tuesday one copy comes up, its holder takes {fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and
         the winning card is stamped with a laurel it wears forever.
       </CardsPageHeader>
+
+      <RulesPanel
+        items={[
+          "Entry is automatic: every copy in your collection is a ticket, and you are in the draw the moment you own one.",
+          "Every ticket has the same odds — a Bronze common exactly as likely as a Challenger foil.",
+          `Every Tuesday one copy comes up. Its holder takes ${fmtPoints(WEEKLY_DRAW_POT)} and a free pack, and the winning card is stamped with a laurel it wears forever.`,
+          "The frozen winning cards below are the snapshots from draw night; the living copies may have been dusted or traded since.",
+        ]}
+      />
 
       {history.length === 0 ? (
         <p className="text-sm text-steel">{DRAW_EMPTY_HEADLINE}</p>

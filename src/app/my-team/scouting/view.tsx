@@ -1,4 +1,5 @@
 import MyTeamGate from "@/components/my-team/MyTeamGate";
+import BackLink from "@/components/site/BackLink";
 import OpponentScout from "@/components/captain/OpponentScout";
 import { fetchMyRoster } from "@/lib/captain/queries";
 import { leaguePath } from "@/lib/league/links";
@@ -133,6 +134,7 @@ export async function MyTeamScoutingPageView({
   return (
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-[1800px] px-4 py-12 sm:px-6 sm:py-16">
+        <BackLink href={leaguePath("my-team", league)} label="My Team" className="mb-5" />
         <header className="border-b border-border-subtle pb-8">
           <div>
             <span className="label-dash">My Team · {dashboard.season}</span>

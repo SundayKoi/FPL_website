@@ -39,6 +39,13 @@ export function cardsSections(base: string): CardsSection[] {
       label: "My Collection",
       href: `${base}/collection`,
       blurb: "Every copy you own, your binder, your team sets",
+      // Three sections on one page, so the sub-tabs are anchors: the tab
+      // bar still says where you are and where you can go from here.
+      children: [
+        { label: "Shelf", href: `${base}/collection`, blurb: "Every copy you own, one shelf per player" },
+        { label: "Roster sets", href: `${base}/collection#team-sets`, blurb: "Collect a whole roster from one week" },
+        { label: "Binder", href: `${base}/collection#binder`, blurb: "The copies you pin to show off" },
+      ],
     },
     {
       key: "packs",
