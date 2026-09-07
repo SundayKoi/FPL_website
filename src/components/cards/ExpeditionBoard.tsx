@@ -809,8 +809,130 @@ export default function ExpeditionBoard({
         </section>
       ) : null}
 
-      {/* ── The rules ─────────────────────────────────────────────────── */}
-      <ExpeditionRules />
+      {/* ── The squad picker ──────────────────────────────────────────── */}
+      <section aria-label="Your squad" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h2 className="type-display text-2xl sm:text-3xl">Pick your squad</h2>
+          <span data-testid="squad-shine" className="text-sm text-steel">
+            <b className="font-semibold text-white">
+              {picked.size}/{SQUAD_SIZE}
+            </b>{" "}
+            picked · <b className="font-semibold text-mint">{shine}</b>{" "}
+            <Link href="/glossary#shine" className="underline decoration-dotted underline-offset-4 hover:text-white" title="What shine is">
+              shine
+            </Link>
+          </span>
+          {picked.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+        {copies.length === 0 ? (
+          <EmptyShelf base={base} goal="send a squad out" />
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {sorted.map((copy) => {
+              const lost = holds.some((hold) => hold.cardId === copy.id);
+              const deployed = deployedIds.has(copy.id) && !lost;
+              const benchedUntil = woundedUntil(copy, now);
+              const selected = picked.has(copy.id);
+              const worth = shineOf(copy);
+              const mutation = copy.card?.mutation ? mutationByKey(copy.card.mutation.key) : undefined;
+              const sealed = Boolean(copy.card?.slab);
+              const status = lost
+                ? "lost"
+                : deployed
+                  ? "on expedition"
+                  : sealed
+                    ? "slabbed — sealed, never fielded again"
+                    : benchedUntil
+                      ? `wounded until ${easternClock(benchedUntil)} ET`
+                      : null;
+              return (
+                <li key={copy.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(copy.id)}
+                    disabled={deployed || lost || sealed || benchedUntil !== null || (!selected && full)}
+                    aria-pressed={selected}
+                    aria-label={`${copy.playerName} — ${worth} shine`}
+                    title={status ? `${status[0].toUpperCase()}${status.slice(1)}.` : undefined}
+                    className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
+                      selected
+                        ? "border-coral bg-coral/15"
+                        : "border-line bg-panel hover:border-coral/60 disabled:opacity-40 disabled:hover:border-line"
+                    }`}
+                    style={mutation ? { boxShadow: `inset 0 0 0 1px ${mutation.accent}66` } : undefined}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-xs font-semibold text-white">{copy.playerName}</span>
+                      <span className="text-[10px] uppercase tracking-wide text-steel">
+                        {tierLabel(copy.tier)}
+                        {copy.role ? ` · ${copy.role}` : ""}
+                        {mutation ? ` · ${mutation.label}` : ""}
+                        {wearOf(copy.card) > 0 && !sealed ? ` · ${gradeOf(copy.card).label}` : ""}
+                        {status ? ` · ${status}` : ""}
+                      </span>
+                    </span>
+                    {(() => {
+                      const key = cardTeamKey(copy);
+                      return key !== null && playingKeys.has(key) ? (
+                        <span
+                          data-testid={`plays-${copy.id}`}
+                          title={`${copy.card?.teamName} plays tonight — +${Math.round(SURGE_BONUS * 100)}% on the run`}
+                          className="rounded-full border border-mint/60 bg-mint/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mint"
+                        >
+                          tonight
+                        </span>
+                      ) : null;
+                    })()}
+                    {isProtected(copy) ? (
+                      // The Eclipse is the one-of-one; a moment, a plate or a
+                      // champions relic is protected the same way but is
+                      // not unique, and a "1/1" on a plate read as a claim.
+                      copy.foilType === "eclipse" ? (
+                        <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
+                          1/1
+                        </span>
+                      ) : copy.card?.dribb ? (
+                        <span aria-hidden title="The Dribb card — one of five, never boards a route that can lose it" className="text-xs font-black text-purple-200">
+                          {copy.card.dribb.number}/{copy.card.dribb.of}
+                        </span>
+                      ) : (
+                        <span
+                          aria-hidden
+                          title="A relic — never boards a route that can lose it"
+                          className="rounded-full border border-purple-300/50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-purple-200"
+                        >
+                          relic
+                        </span>
+                      )
+                    ) : null}
+                    {copy.signed ? (
+                      <span aria-hidden className="text-xs font-black text-gold">
+                        ✍
+                      </span>
+                    ) : null}
+                    {copy.foil ? (
+                      <span aria-hidden className="text-xs font-black text-gold">
+                        ✦
+                      </span>
+                    ) : null}
+                    <span className="rounded-full border border-mint/50 bg-mint/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-mint">
+                      +{worth}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* ── The seven runs ────────────────────────────────────────────── */}
       <section ref={launchRef} aria-label="Expedition routes" className="flex flex-col gap-3">
@@ -1014,130 +1136,17 @@ export default function ExpeditionBoard({
         ) : null}
       </section>
 
-      {/* ── The squad picker ──────────────────────────────────────────── */}
-      <section aria-label="Your squad" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <h2 className="type-display text-2xl sm:text-3xl">Pick your squad</h2>
-          <span data-testid="squad-shine" className="text-sm text-steel">
-            <b className="font-semibold text-white">
-              {picked.size}/{SQUAD_SIZE}
-            </b>{" "}
-            picked · <b className="font-semibold text-mint">{shine}</b>{" "}
-            <Link href="/glossary#shine" className="underline decoration-dotted underline-offset-4 hover:text-white" title="What shine is">
-              shine
-            </Link>
-          </span>
-          {picked.size > 0 ? (
-            <button
-              type="button"
-              onClick={() => setPicked(new Set())}
-              className="text-xs text-steel underline-offset-4 hover:text-coral hover:underline"
-            >
-              Clear
-            </button>
-          ) : null}
+      {/* ── The rules — below the board, folded: a zero-card visitor used to
+          read a 320-line rulebook before learning they owned nothing. ─── */}
+      <details className="group card-brand p-0" data-testid="expedition-rules-fold">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-bold uppercase tracking-[0.14em] text-white transition group-open:text-coral">
+          <span className="mr-2 inline-block text-coral transition group-open:rotate-90">▸</span>
+          The rules of the road — every fork, hazard and payout
+        </summary>
+        <div className="border-t border-line/60 p-2">
+          <ExpeditionRules />
         </div>
-        {copies.length === 0 ? (
-          <EmptyShelf base={base} goal="send a squad out" />
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {sorted.map((copy) => {
-              const lost = holds.some((hold) => hold.cardId === copy.id);
-              const deployed = deployedIds.has(copy.id) && !lost;
-              const benchedUntil = woundedUntil(copy, now);
-              const selected = picked.has(copy.id);
-              const worth = shineOf(copy);
-              const mutation = copy.card?.mutation ? mutationByKey(copy.card.mutation.key) : undefined;
-              const sealed = Boolean(copy.card?.slab);
-              const status = lost
-                ? "lost"
-                : deployed
-                  ? "on expedition"
-                  : sealed
-                    ? "slabbed — sealed, never fielded again"
-                    : benchedUntil
-                      ? `wounded until ${easternClock(benchedUntil)} ET`
-                      : null;
-              return (
-                <li key={copy.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(copy.id)}
-                    disabled={deployed || lost || sealed || benchedUntil !== null || (!selected && full)}
-                    aria-pressed={selected}
-                    aria-label={`${copy.playerName} — ${worth} shine`}
-                    title={status ? `${status[0].toUpperCase()}${status.slice(1)}.` : undefined}
-                    className={`relative flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition disabled:cursor-not-allowed ${
-                      selected
-                        ? "border-coral bg-coral/15"
-                        : "border-line bg-panel hover:border-coral/60 disabled:opacity-40 disabled:hover:border-line"
-                    }`}
-                    style={mutation ? { boxShadow: `inset 0 0 0 1px ${mutation.accent}66` } : undefined}
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate text-xs font-semibold text-white">{copy.playerName}</span>
-                      <span className="text-[10px] uppercase tracking-wide text-steel">
-                        {tierLabel(copy.tier)}
-                        {copy.role ? ` · ${copy.role}` : ""}
-                        {mutation ? ` · ${mutation.label}` : ""}
-                        {wearOf(copy.card) > 0 && !sealed ? ` · ${gradeOf(copy.card).label}` : ""}
-                        {status ? ` · ${status}` : ""}
-                      </span>
-                    </span>
-                    {(() => {
-                      const key = cardTeamKey(copy);
-                      return key !== null && playingKeys.has(key) ? (
-                        <span
-                          data-testid={`plays-${copy.id}`}
-                          title={`${copy.card?.teamName} plays tonight — +${Math.round(SURGE_BONUS * 100)}% on the run`}
-                          className="rounded-full border border-mint/60 bg-mint/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-mint"
-                        >
-                          tonight
-                        </span>
-                      ) : null;
-                    })()}
-                    {isProtected(copy) ? (
-                      // The Eclipse is the one-of-one; a moment, a plate or a
-                      // champions relic is protected the same way but is
-                      // not unique, and a "1/1" on a plate read as a claim.
-                      copy.foilType === "eclipse" ? (
-                        <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
-                          1/1
-                        </span>
-                      ) : copy.card?.dribb ? (
-                        <span aria-hidden title="The Dribb card — one of five, never boards a route that can lose it" className="text-xs font-black text-purple-200">
-                          {copy.card.dribb.number}/{copy.card.dribb.of}
-                        </span>
-                      ) : (
-                        <span
-                          aria-hidden
-                          title="A relic — never boards a route that can lose it"
-                          className="rounded-full border border-purple-300/50 px-1.5 text-[10px] font-bold uppercase tracking-wide text-purple-200"
-                        >
-                          relic
-                        </span>
-                      )
-                    ) : null}
-                    {copy.signed ? (
-                      <span aria-hidden className="text-xs font-black text-gold">
-                        ✍
-                      </span>
-                    ) : null}
-                    {copy.foil ? (
-                      <span aria-hidden className="text-xs font-black text-gold">
-                        ✦
-                      </span>
-                    ) : null}
-                    <span className="rounded-full border border-mint/50 bg-mint/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-mint">
-                      +{worth}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      </details>
 
       {/* ── The log ───────────────────────────────────────────────────── */}
       {finished.length > 0 ? (

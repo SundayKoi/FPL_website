@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import RulebookContent from "@/components/info/RulebookContent";
+import BackLink from "@/components/site/BackLink";
 import { getInfoPageData, getRulebookResource, rulebookSections } from "@/lib/info/resources";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ export default async function RulebookPage() {
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <section className="space-y-8" aria-labelledby="rulebook-heading">
+          <BackLink href="/info" label="About the league" />
           <div className="flex flex-col gap-4 border-b border-border-subtle pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <span className="label-dash">OFFICIAL DOCUMENT</span>

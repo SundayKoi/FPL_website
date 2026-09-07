@@ -61,17 +61,10 @@ export async function RaritiesPageView({ league = "premier" }: { league?: CardLe
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-10 px-4 py-10 text-white sm:px-6">
       <CardsPageHeader eyebrow={cardsEyebrow("Packs", league, season)} title="Rarities" tabHref={`${cardsBase(league)}/packs`}>
-        Everything a card can come out of a pack as, and how often — and what it can become in your hands.
-        Every number on this page is read from the same setting the shop rolls with, so what it says is what
-        you get. New this release: three finishes — Shiny, StatTrak and Secret — rolled on top of everything
-        that was already here, and wear grades with slabbing for every copy you own.
+        Everything a card can come out of a pack as, how often, and what it can become in your hands. Every
+        number is read from the setting the shop rolls with. Each entry is shown on the same made-up card —
+        Dribb, 99 in every column — wearing only that rarity; flip one to see its back.
       </CardsPageHeader>
-
-      <p className="-mt-4 text-xs text-muted">
-        Every entry below is shown on the same made-up card — Dribb, a 99 in every column, on Bard — wearing
-        only that rarity. Flip a card to see its back: the StatTrak counter and the wear record live there,
-        and the Secret&apos;s over-number takes the serial line under the rating.
-      </p>
 
       <nav aria-label="Sections" className="flex flex-wrap gap-2">
         {guide.map((section) => (

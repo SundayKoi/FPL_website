@@ -596,6 +596,13 @@ doors — the third follows who is looking, resolved read-only by
 five-step checklist with live ticks, until all five are done. Search marks
 gated pages with a "Premium" pill (`gated` on `SiteDestination`).
 
+The header is four menus — League, Cards, Play, About — plus My Team at
+the top level and, for staff, Admin beside the avatar; it goes horizontal
+at `md`, not `sm`. Every money-moving surface (Fantasy, the Weekly Draw,
+Listings, Bounties, Trades, auto-dust) opens with a `RulesPanel` ("How
+this works", first section open); deep pages (a card, a public binder,
+scouting, the Rulebook, League Links) wear a `BackLink` to their parent.
+
 ## Card expeditions
 
 Send three owned cards out on a route and answer the forks as the squad

@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import RulesPanel from "@/components/site/RulesPanel";
 import ListCardForm from "@/components/cards/ListCardForm";
 import MarketBoard from "@/components/cards/MarketBoard";
 import MyListings from "@/components/cards/MyListings";
 import type { CardLeague } from "@/lib/cards/queries";
-import { LISTING_DAYS } from "@/lib/market/config";
+import { LISTING_DAYS, MAX_OPEN_LISTINGS } from "@/lib/market/config";
 import { parseInventoryId } from "@/lib/cards/params";
 import { loadMarket } from "./load";
 
@@ -49,6 +50,15 @@ export async function MarketPageView({
         listing stands for {LISTING_DAYS} days. Looking for a card nobody has listed? Post a bounty on the
         next tab.
       </CardsPageHeader>
+
+      <RulesPanel
+        items={[
+          "List a copy at a fixed price; the first collector to take it pays you that price. No haggling, no waiting for an answer.",
+          `A listing stands for ${LISTING_DAYS} days and you can have ${MAX_OPEN_LISTINGS} open at once. Cancel one any time before it sells.`,
+          "A copy that is out on an expedition, pinned to a fantasy lineup that is still being scored, or already listed cannot be listed.",
+          "Looking for a card nobody has listed? Post a bounty on the next tab and whoever holds one can sell it to you.",
+        ]}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="type-display text-2xl sm:text-3xl">For sale</h2>

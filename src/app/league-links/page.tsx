@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import InfoResourceCard from "@/components/info/InfoResourceCard";
+import BackLink from "@/components/site/BackLink";
 import AdminInfoResources from "@/components/info/AdminInfoResources";
 import { getInfoPageData } from "@/lib/info/resources";
 
@@ -14,6 +15,7 @@ export default async function LeagueLinksPage() {
   return (
     <main className="page-backdrop flex-1">
       <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+        <BackLink href="/info" label="About the league" className="mb-5" />
         <header className="max-w-3xl">
           <span className="label-dash">THE LEAGUE</span>
           <h1 className="type-display mt-3 text-5xl sm:text-6xl">League Links</h1>

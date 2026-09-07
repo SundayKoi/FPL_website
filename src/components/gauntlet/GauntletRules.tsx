@@ -34,8 +34,8 @@ const BEATS: { clock: string; beat: string; check: string; swing: string }[] = [
   { clock: "31:00", beat: "Nexus", check: "Momentum + your impact edge + your gold lead — snowballed if you won 3+ lanes", swing: "the game" },
 ];
 
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <details className="group border-b border-border-subtle/50 py-3 last:border-0">
+const Section = ({ title, children, open = false }: { title: string; children: React.ReactNode; open?: boolean }) => (
+  <details open={open} className="group border-b border-border-subtle/50 py-3 last:border-0">
     <summary className="cursor-pointer list-none text-sm font-bold uppercase tracking-[0.14em] text-white transition group-open:text-coral">
       <span className="mr-2 inline-block text-coral transition group-open:rotate-90">▸</span>
       {title}
@@ -55,7 +55,7 @@ export default function GauntletRules() {
         </p>
       </div>
 
-      <Section title="The shape of a run">
+      <Section title="The shape of a run" open>
         <p>
           Entry is <b className="text-white">{GAUNTLET_ENTRY_FEE} betting dollars</b>, and it&apos;s gone the
           moment you enter — it feeds the week&apos;s pot and nothing refunds it. Draft one card per role and

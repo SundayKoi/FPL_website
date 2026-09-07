@@ -130,10 +130,10 @@ export async function LedgerPageView({ league = "premier" }: { league?: CardLeag
         </Link>
       </CardsPageHeader>
 
-      <p data-testid="ledger-tally" className="text-sm text-steel">
-        <span className="font-display text-2xl font-bold tabular-nums text-red-300">{fallen.length}</span> fallen ·{" "}
-        <span className="font-display text-2xl font-bold tabular-nums text-gold">{missing.length}</span> missing ·{" "}
-        <span className="font-display text-2xl font-bold tabular-nums text-mint">{found.length}</span> found
+      <p data-testid="ledger-tally" className="text-xs text-steel">
+        <span className="font-semibold tabular-nums text-red-300">{fallen.length}</span> fallen ·{" "}
+        <span className="font-semibold tabular-nums text-gold">{missing.length}</span> missing ·{" "}
+        <span className="font-semibold tabular-nums text-mint">{found.length}</span> found
       </p>
 
       {entries.length === 0 ? (

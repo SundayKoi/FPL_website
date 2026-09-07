@@ -10,6 +10,7 @@ import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import TiltHint from "@/components/cards/TiltHint";
 import ShareCardActions from "@/components/cards/ShareCardActions";
 import SkinPicker from "@/components/cards/SkinPicker";
+import BackLink from "@/components/site/BackLink";
 import { fetchAllCardSeasons, fetchCardBySlug, fetchRatingHistory, type RatingHistoryPoint } from "@/lib/cards/queries";
 import { fetchChampionSkinNums } from "@/lib/packs/skins";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -285,6 +286,9 @@ export default async function CardSharePage({
 
   return (
     <main className="page-backdrop flex flex-1 flex-col items-center gap-6 px-4 py-12 text-white">
+      <div className="w-full max-w-4xl">
+        <BackLink href={`${collectionHref}/browse`} label="All cards" />
+      </div>
       <header className="text-center">
         <span className="label-dash">FPL player card · Season {card.season}</span>
         <h1 className="type-display mt-2 text-4xl">{card.name}</h1>

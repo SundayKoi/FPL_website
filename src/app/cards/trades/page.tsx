@@ -10,6 +10,7 @@ import { fetchDeployedCopyIds } from "@/lib/expeditions/queries";
 import { fetchInventory } from "@/lib/packs/queries";
 import { fetchCollectors, fetchTradesFor, isAltArt, type TradeCard, type TradeRow } from "@/lib/trades/queries";
 import CardsPageHeader, { cardsBase, cardsEyebrow } from "@/components/cards/CardsPageHeader";
+import RulesPanel from "@/components/site/RulesPanel";
 
 export const metadata: Metadata = {
   title: "Trade offers — FPL",
@@ -143,6 +144,15 @@ export async function TradesPageView({
         money, or both. Nothing moves until the other person accepts, and a card fielded in this
         week&apos;s fantasy lineup can&apos;t be traded until the week is scored.
       </CardsPageHeader>
+      <RulesPanel
+        items={[
+          "Pick a collector, choose what you give and what you want back — cards, betting dollars, or both on either side.",
+          "Nothing moves until they accept. They can decline, and you can withdraw an offer any time before then.",
+          "A copy out on an expedition, or in a fantasy lineup that is still being scored, cannot be offered by either side.",
+          "Offers waiting on you show as a badge on the Market tab and on the Trade offers sub-tab.",
+        ]}
+      />
+
       <TradeInbox
         incoming={trades.incoming.map(toInboxTrade)}
         outgoing={trades.outgoing.map(toInboxTrade)}

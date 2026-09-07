@@ -1,5 +1,7 @@
 "use client";
 
+import { DUST_VALUES, FOIL_DUST_MULT, PATRON_DUST_MULT } from "@/lib/packs/config";
+
 // Auto-dust, on the collection page: a standing rule for what to melt
 // without being asked, previewed live against the shelf before it is
 // saved, and runnable on the spot. The preview and the server use the
@@ -91,6 +93,11 @@ export default function AutoDustPanel({ initialRule, candidates }: { initialRule
 
       {open ? (
         <>
+          <p className="text-xs leading-5 text-steel">
+            Dusting turns a copy into betting dollars — common {fmtPoints(DUST_VALUES.common)}, rare {fmtPoints(DUST_VALUES.rare)}, epic{" "}
+            {fmtPoints(DUST_VALUES.epic)}, legendary {fmtPoints(DUST_VALUES.legendary)}; foils {FOIL_DUST_MULT}×, patrons{" "}
+            {Math.round((PATRON_DUST_MULT - 1) * 100)}% more. It always pays less than a pack costs: it is for spare copies, not income.
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="flex items-center gap-2 text-white">
               <input type="checkbox" checked={rule.enabled} onChange={(event) => set("enabled", event.target.checked)} />

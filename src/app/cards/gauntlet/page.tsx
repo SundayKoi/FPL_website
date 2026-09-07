@@ -104,6 +104,7 @@ export default async function GauntletPage() {
         title="The Gauntlet"
         tabHref="/cards/play"
         aside={
+          weekStats.attempts === 0 ? null : (
           <div className="text-right text-sm">
             <span className="label-dash">This week</span>
             <p className="mt-1 font-mono text-2xl font-bold">{weekStats.bestScore.toLocaleString()}</p>
@@ -112,6 +113,7 @@ export default async function GauntletPage() {
               {ascensionUnlocked > 0 ? ` · ascension ${ascensionUnlocked} unlocked` : ""}
             </p>
           </div>
+          )
         }
       >
             Draft five from your shelf — one per role, premier or academy — and climb an eight-round bracket scaled to your

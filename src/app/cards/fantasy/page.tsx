@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import RulesPanel from "@/components/site/RulesPanel";
 import { parseInventoryId } from "@/lib/cards/params";
 import CardsGate from "@/components/cards/CardsGate";
 import CardsPageHeader, { cardsEyebrow } from "@/components/cards/CardsPageHeader";
@@ -180,6 +181,15 @@ export async function FantasyPageView({
         {WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars. Lineups lock
         Mondays at {lockLabelEastern(week)} — after that the week is played out and scored.
       </CardsPageHeader>
+
+      <RulesPanel
+        items={[
+          `Field one card you own in each of the five roles — ${FANTASY_ROLES.join(", ")} — with their overalls adding up to ${SALARY_CAP} or less.`,
+          "Each card scores its player's real power rating for that week's games; the five add up to your total.",
+          `Lineups lock Mondays at ${lockLabelEastern(week)}. After that the week is played and scored, and a fielded card cannot be traded or listed until it is.`,
+          `Free to enter. The top three managers each week take ${WEEKLY_PAYOUTS.map((amount) => fmtPoints(amount)).join(" / ")} betting dollars.`,
+        ]}
+      />
 
       <LineupBuilder
         league={league}

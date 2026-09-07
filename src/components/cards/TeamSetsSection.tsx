@@ -86,7 +86,7 @@ export default function TeamSetsSection({
   }
 
   return (
-    <section id="team-sets" aria-labelledby="team-sets-heading" className="flex flex-col gap-4">
+    <section id="team-sets" aria-labelledby="team-sets-heading" className="scroll-mt-24 flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="team-sets-heading" className="type-display text-2xl sm:text-3xl">
           Roster sets
