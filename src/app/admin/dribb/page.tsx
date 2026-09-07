@@ -43,8 +43,8 @@ export default async function DribbPreviewPage() {
         <h1 className="type-display text-4xl sm:text-5xl">The Dribb card</h1>
         <p className="max-w-3xl text-sm text-steel">
           A chase print that is not a player: Dribb, 99 overall, a 99 in every column, on Bard, and only{" "}
-          {DRIBB_COPIES} will ever exist. {DRIBB_LOOKS.length} looks below, each on the same card, through the
-          component the shop renders. Hover a card — the tilt-driven ones answer the pointer; click one for its back.
+          {DRIBB_COPIES} will ever exist. {DRIBB_LOOKS.length} looks below, each on the same card and never on a foil — a unique print has no
+          parallel to wear — through the component the shop renders. Hover a card — the tilt-driven ones answer the pointer; click one for its back.
         </p>
         <p className="max-w-3xl text-sm text-gold">
           Preview only. Nothing on this page mints, prices or writes anything, and no minted copy can wear these
@@ -87,15 +87,11 @@ export default async function DribbPreviewPage() {
 
       {DRIBB_LOOKS.map((look) => (
         <section key={look.key} data-testid={`dribb-${look.key}`} aria-label={look.title} className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="flex flex-wrap gap-6">
-            <div className="flex flex-col items-center gap-2">
-              <PlayerCard3D card={card} interactive overlay={look} />
-              <span className="text-xs text-steel">on the Challenger frame</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <PlayerCard3D card={card} interactive forceFoil foilType="ice" overlay={look} />
-              <span className="text-xs text-steel">over a Cracked Ice foil</span>
-            </div>
+          {/* One card, no foil: a unique print has no parallel to wear, so
+              the look IS the finish. */}
+          <div className="flex flex-col items-center gap-2">
+            <PlayerCard3D card={card} interactive overlay={look} />
+            <span className="text-xs text-steel">{look.title} · the only finish it comes in</span>
           </div>
           <div className="card-brand flex max-w-md flex-col gap-2 p-4">
             <h3 className="type-display text-xl" style={{ color: look.accent }}>

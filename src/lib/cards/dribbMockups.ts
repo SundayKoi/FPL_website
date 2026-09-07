@@ -19,8 +19,6 @@ export const DRIBB_RATES = [1 / 5000, 1 / 10000] as const;
 export interface DribbLook extends Pick<OverlayMockup, "key" | "title" | "blurb" | "accent" | "front" | "chip" | "artEcho" | "back"> {
   /** What the light is doing, for the caption. */
   motion: string;
-  /** Best judged on the foil frame too. */
-  foil?: boolean;
 }
 
 export const DRIBB_LOOKS: DribbLook[] = [
@@ -54,7 +52,6 @@ export const DRIBB_LOOKS: DribbLook[] = [
     front: ["card-ov-dribb-aether"],
     artEcho: "card-ov-dribb-aberration",
     chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
-    foil: true,
   },
   {
     key: "corona",
