@@ -255,6 +255,26 @@ describe("ExpeditionBoard — tier cards", () => {
     expect(within(screen.getByTestId("tier-scout")).getByText("Anyone can run it")).toBeTruthy();
   });
 
+  it("locks the Gilded Road for everyone but a patron", () => {
+    renderBoard();
+
+    const gilded = screen.getByTestId("tier-gilded");
+    expect(within(gilded).getByTestId("tier-gilded-patron")).toBeTruthy();
+    expect(within(gilded).getByText("patrons only · 6 shine")).toBeTruthy();
+    expect(within(gilded).getByTestId("tier-gilded-locked")).toBeTruthy();
+    const button = screen.getByRole("button", { name: "Launch The Gilded Road" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toBe("Patrons only");
+  });
+
+  it("opens the Gilded Road to a patron", () => {
+    renderBoard({ patron: true });
+
+    const gilded = screen.getByTestId("tier-gilded");
+    expect(within(gilded).queryByTestId("tier-gilded-locked")).toBeNull();
+    expect((screen.getByRole("button", { name: "Launch The Gilded Road" }) as HTMLButtonElement).textContent).toBe("Send them out");
+  });
+
   it("disables a tier the selection can't field, listing every unmet reason", () => {
     renderBoard();
     pickTwelveShineSquad();

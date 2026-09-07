@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CardCopy } from "./config";
-import { EXPEDITION_TIERS, isProtected, squadMeets, woundedUntil, ransomFor, TIER_ORDER } from "./config";
+import { EXPEDITION_TIERS, isProtected, payoutRange, squadMeets, woundedUntil, ransomFor, TIER_ORDER } from "./config";
 import {
   choiceAllowed,
   choiceSheet,
@@ -40,8 +40,8 @@ const always = (value: number) => () => value;
 const now = new Date("2026-09-04T12:00:00Z");
 
 describe("the ladder", () => {
-  it("has six runs, in the order the board prints them", () => {
-    expect(TIER_ORDER).toEqual(["scout", "raid", "legend", "rescue", "exorcism", "legendary"]);
+  it("has seven runs, in the order the board prints them", () => {
+    expect(TIER_ORDER).toEqual(["scout", "gilded", "raid", "legend", "rescue", "exorcism", "legendary"]);
     for (const tier of TIER_ORDER) expect(FORKS[tier]).toHaveLength(EXPEDITION_TIERS[tier].forks);
   });
   it("only lets a card die on the Legendary route, and only after two pushes", () => {
@@ -52,6 +52,19 @@ describe("the ladder", () => {
     }
     expect(FORKS.legendary.some((fork) => fork.pushRisk.dead > 0)).toBe(true);
     expect(DEAD_NEEDS_PUSHES).toBe(2);
+  });
+  it("keeps the Gilded Road a patron route, priced under the raid", () => {
+    expect(EXPEDITION_TIERS.gilded.patron).toBe(true);
+    for (const tier of TIER_ORDER) if (tier !== "gilded") expect(EXPEDITION_TIERS[tier].patron).toBe(false);
+    // A route, not a rate: nothing on the patrons' road beats the raid.
+    expect(EXPEDITION_TIERS.gilded.risk).toBe("wounded");
+    expect(payoutRange("gilded").max).toBeLessThan(payoutRange("raid").max);
+    expect(payoutRange("gilded").min).toBeLessThan(payoutRange("raid").min);
+    for (const fork of FORKS.gilded) {
+      expect(fork.pushRisk.lost).toBe(0);
+      expect(fork.pushRisk.dead).toBe(0);
+      expect(fork.campRisk).toEqual({ wounded: 0, haunted: 0 });
+    }
   });
   it("keeps the scouting run harmless", () => {
     expect(EXPEDITION_TIERS.scout.risk).toBe("none");

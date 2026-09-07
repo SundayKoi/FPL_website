@@ -63,6 +63,14 @@ const TRAIL: Record<ExpeditionTierKey, string[]> = {
     "Light rain. {name} is keeping the map dry under a jacket.",
     "They passed a marker from a run that came this way last week.",
   ],
+  gilded: [
+    "The road is paved, which nobody expected. {name} is walking in the middle of it.",
+    "A waystation with the lamps lit and the door open. {name} left a coin on the counter anyway.",
+    "{name} traded stories with a carter going the other way and came back with a better one.",
+    "Dusk on the gilded road. {name} says the {role} should carry the lantern and nobody argues.",
+    "The squad ate well tonight. {name} is suspicious of it.",
+    "Rain, and a roof for once. {name} slept through the whole watch.",
+  ],
   raid: [
     "{name} says the humming from the valley is louder than the map suggested.",
     "The squad is arguing about the reactor. {name} wants to go in; nobody else does.",

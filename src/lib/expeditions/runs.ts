@@ -137,6 +137,7 @@ export function friendlyExpeditionError(message: string): string {
   if (/not enough fragments|fragments not wanted/i.test(message)) return "The Legendary route takes three map fragments.";
   if (/policy already used/i.test(message)) return "This week's free policy is already spent.";
   if (/policy is a patron perk|policy without insurance/i.test(message)) return "The free policy is a patron perk.";
+  if (/patron road/i.test(message)) return "The Gilded Road is a patron perk — it opens with the flame.";
   if (/insufficient balance/i.test(message)) return "You can't cover the fee.";
   if (/bad ransom/i.test(message)) return "That ransom didn't add up — refresh and try again.";
   if (/already claimed/i.test(message)) return "That expedition has already been claimed.";
@@ -236,13 +237,20 @@ export async function launchExpeditionFor(
   const insured = options.insured === true && def.risk !== "none";
   let freePolicy = false;
   let policyWeek: string | null = null;
-  if (insured) {
+  // One read of the flame serves both the free policy and the patrons'
+  // road. The RPC re-checks the road ('patron road'); this is the friendly
+  // word before the round trip, the same as every other gate above.
+  let patron = false;
+  if (insured || def.patron) {
     const { data: profile } = await service
       .from("betting_profiles")
       .select("patron_until")
       .eq("discord_id", discordId)
       .maybeSingle();
-    const patron = patronActive((profile as { patron_until?: string | null } | null)?.patron_until);
+    patron = patronActive((profile as { patron_until?: string | null } | null)?.patron_until);
+  }
+  if (def.patron && !patron) return { ok: false, error: friendlyExpeditionError("patron road") };
+  if (insured) {
     if (patron) {
       const week = mondayOf(new Date());
       if (!(await fetchPolicyUsed(service, discordId, week))) {

@@ -348,6 +348,30 @@ describe("launchExpeditionFor", () => {
     expect(board.rpc).not.toHaveBeenCalled();
   });
 
+  it("keeps the Gilded Road to patrons, before the RPC sees it", async () => {
+    const board = createBoard({ copies: scoutSquad });
+
+    const result = await launchExpeditionFor("42", "gilded", [1, 2, 3]);
+
+    expect(result).toEqual({ ok: false, error: "The Gilded Road is a patron perk — it opens with the flame." });
+    expect(board.rpc).not.toHaveBeenCalled();
+  });
+
+  it("launches the Gilded Road for a patron", async () => {
+    const service = createService((call) => {
+      if (call.table === "card_inventory") return { data: scoutSquad };
+      if (call.table === "betting_profiles") return { data: { patron_until: "2099-01-01T00:00:00.000Z" } };
+      return { data: null };
+    });
+    createBettingServiceClient.mockReturnValue(service.client);
+    service.rpc.mockResolvedValue({ data: [{ run_id: 9, resolves_at: "2026-08-28T14:00:00.000Z" }], error: null });
+
+    const result = await launchExpeditionFor("42", "gilded", [1, 2, 3]);
+
+    expect(result).toEqual({ ok: true, runId: 9, resolvesAt: "2026-08-28T14:00:00.000Z", fee: 0, freePolicy: false, convoyCode: null });
+    expect(service.rpc).toHaveBeenCalledWith("launch_expedition", expect.objectContaining({ p_tier: "gilded", p_hours: 12, p_forks: 2, p_fee: 0 }));
+  });
+
   it("launches with the tier's hours, the squad's shine, and the copies' season", async () => {
     const board = createBoard({ copies: scoutSquad });
     board.rpc.mockResolvedValue({ data: [{ run_id: 7, resolves_at: "2026-08-29T02:00:00.000Z" }], error: null });

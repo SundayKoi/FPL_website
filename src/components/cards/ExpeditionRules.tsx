@@ -42,6 +42,7 @@ export const RISK_CLASS: Record<RouteRisk, string> = {
 /** "12 shine · 1 foil" — the gates a tier actually applies. */
 export function requirementLine(def: ExpeditionTierDef): string {
   const parts: string[] = [];
+  if (def.patron) parts.push("patrons only");
   if (def.minShine > 0) parts.push(`${def.minShine} shine`);
   if (def.minFoils > 0) parts.push(`${def.minFoils} foil${def.minFoils === 1 ? "" : "s"}`);
   if (def.minSigned > 0) parts.push(`${def.minSigned} signed`);
