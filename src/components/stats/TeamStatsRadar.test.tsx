@@ -26,6 +26,13 @@ describe("TeamStatsRadar", () => {
   it("renders five accessible percentage metrics and keeps SVG supplementary", () => {
     const { container } = render(<TeamStatsRadar row={row({ first_tower_rate: 40 })} />);
     expect(container.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect([...container.querySelectorAll("svg text")].map((label) => label.textContent)).toEqual([
+      "Win rate",
+      "Dragon control",
+      "Baron control",
+      "First blood",
+      "First tower",
+    ]);
     expect(screen.getByRole("term", { name: "Win rate" })).toBeTruthy();
     expect(screen.getByRole("term", { name: "Dragon control" })).toBeTruthy();
     expect(screen.getByRole("term", { name: "Baron control" })).toBeTruthy();

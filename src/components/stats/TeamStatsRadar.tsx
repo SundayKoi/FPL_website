@@ -1,24 +1,66 @@
 import { teamRadarMetrics } from "@/lib/stats/teamProfile";
 import type { TeamAggRow } from "@/lib/stats/types";
 
-function point(value: number, index: number, center: number, radius: number): string {
+function point(value: number, index: number, centerX: number, centerY: number, radius: number): string {
   const angle = -Math.PI / 2 + (index * Math.PI * 2) / 5;
   const distance = (value / 100) * radius;
-  return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
+  return `${centerX + Math.cos(angle) * distance},${centerY + Math.sin(angle) * distance}`;
+}
+
+function coordinate(value: number, index: number, centerX: number, centerY: number, radius: number) {
+  const angle = -Math.PI / 2 + (index * Math.PI * 2) / 5;
+  return {
+    x: centerX + Math.cos(angle) * radius,
+    y: centerY + Math.sin(angle) * radius,
+  };
+}
+
+function labelPosition(index: number) {
+  const positions = [
+    { x: 80, y: 8, anchor: "middle" },
+    { x: 124, y: 45, anchor: "start" },
+    { x: 124, y: 99, anchor: "start" },
+    { x: 36, y: 99, anchor: "end" },
+    { x: 36, y: 45, anchor: "end" },
+  ] as const;
+
+  return positions[index];
 }
 
 export default function TeamStatsRadar({ row }: { row: TeamAggRow }) {
   const metrics = teamRadarMetrics(row);
-  const center = 50;
-  const radius = 38;
-  const outline = metrics.map((_, index) => point(100, index, center, radius)).join(" ");
-  const values = metrics.map((metric, index) => point(metric.value, index, center, radius)).join(" ");
+  const center = 80;
+  const centerY = 60;
+  const radius = 34;
+  const outline = metrics.map((_, index) => {
+    const { x, y } = coordinate(100, index, center, centerY, radius);
+    return `${x},${y}`;
+  }).join(" ");
+  const values = metrics.map((metric, index) => point(metric.value, index, center, centerY, radius)).join(" ");
 
   return (
     <div className="grid gap-4 sm:grid-cols-[minmax(150px,0.8fr)_1fr] sm:items-center">
-      <svg viewBox="0 0 100 100" className="mx-auto h-44 w-44" aria-hidden="true" focusable="false">
+      <svg viewBox="0 0 160 120" className="mx-auto h-52 w-full max-w-[20rem] text-muted" aria-hidden="true" focusable="false">
         <polygon points={outline} fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="1" />
         <polygon points={values} fill="rgb(53 230 255 / 0.18)" stroke="rgb(53 230 255)" strokeWidth="1.5" />
+        {metrics.map((metric, index) => {
+          const { x, y } = coordinate(metric.value, index, center, centerY, radius);
+          const label = labelPosition(index);
+
+          return (
+            <g key={metric.key}>
+              <circle cx={x} cy={y} r="1.8" fill="rgb(53 230 255)" />
+              <text
+                x={label.x}
+                y={label.y}
+                textAnchor={label.anchor}
+                className="fill-current font-mono text-[4.5px] font-semibold uppercase tracking-[0.08em]"
+              >
+                {metric.label}
+              </text>
+            </g>
+          );
+        })}
       </svg>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
         {metrics.map((metric) => (
