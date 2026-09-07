@@ -130,9 +130,11 @@ describe("EXPEDITION_TIERS", () => {
     expect(expectedDailyDollars("legendary")).toBeLessThan(MAXED_DAILY_STREAK);
     expect(expectedDailyDollars("exorcism")).toBe(0);
     // The scouting run is the one anybody can field with any three cards,
-    // so it keeps the stricter original rule as well: an ungated loop must
-    // never pay for a pack a day.
-    expect(expectedDailyDollars("scout")).toBeLessThan(PACK_COST);
+    // so it keeps a stricter rule as well: one scouting RUN must never pay
+    // for a pack. (The rule used to be "a scouting DAY", when a day was one
+    // launch; with the daily limit gone a day of scouting is three runs,
+    // and the per-day number is held by the streak ceiling above instead.)
+    expect(perRunDollars("scout")).toBeLessThan(PACK_COST);
     // And the ladder has to climb, or the gates ask for foils and signatures
     // in exchange for nothing.
     expect(expectedDailyDollars("scout")).toBeLessThan(expectedDailyDollars("raid"));
