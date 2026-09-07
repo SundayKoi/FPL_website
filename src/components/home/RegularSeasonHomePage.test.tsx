@@ -9,6 +9,7 @@ const {
   fetchHomepageTwitch,
   fetchHomepageFeaturedSettings,
   fetchTeamIdentities,
+  homeViewer,
 } = vi.hoisted(() => ({
   fetchHomepageAwards: vi.fn(),
   fetchHomepageSchedule: vi.fn(),
@@ -16,9 +17,11 @@ const {
   fetchHomepageTwitch: vi.fn(),
   fetchHomepageFeaturedSettings: vi.fn(),
   fetchTeamIdentities: vi.fn(),
+  homeViewer: vi.fn(),
 }));
 
 function resetMocks() {
+  homeViewer.mockResolvedValue("signed-out");
   fetchHomepageTwitch.mockResolvedValue({
     status: { state: "offline", title: null, viewerCount: null, startedAt: null },
     clips: [],
@@ -101,6 +104,11 @@ vi.mock("@/lib/home/awards", () => ({
   PREMIER_SEASON: "S5",
 }));
 
+// Who is looking is a server read (session + Discord); the page must
+// never be the reason a wallet exists, so it is resolved read-only and
+// mocked here.
+vi.mock("@/lib/home/viewer", () => ({ homeViewer }));
+
 
 
 expect.extend({
@@ -135,6 +143,25 @@ describe("RegularSeasonHomePage", () => {
       "sm:py-10",
     );
     expect(screen.getByRole("region", { name: /homepage dashboard/i })).toHaveClass("space-y-6");
+  });
+
+  it("opens on a real heading and a third door that follows who is looking", async () => {
+    render(await RegularSeasonHomePage());
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/draft league/i);
+    expect(screen.getByTestId("home-orientation").getAttribute("data-viewer")).toBe("signed-out");
+    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /sign in/i }).getAttribute("href")).toBe("/login");
+    // The compact map at the top points at the full grid at the bottom.
+    expect(screen.getByRole("link", { name: /everything on the site/i }).getAttribute("href")).toBe("#site-directory-title");
+
+    cleanup();
+    homeViewer.mockResolvedValue("member");
+    render(await RegularSeasonHomePage());
+    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /what it is and how to get it/i }).getAttribute("href")).toBe("/membership");
+
+    cleanup();
+    homeViewer.mockResolvedValue("premium");
+    render(await RegularSeasonHomePage());
+    expect(within(screen.getByTestId("home-third-door")).getByRole("link", { name: /premium hq/i }).getAttribute("href")).toBe("/premium");
   });
 
   it("keeps the homepage focused on league broadcasts", async () => {

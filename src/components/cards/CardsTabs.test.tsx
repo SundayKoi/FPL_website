@@ -56,7 +56,7 @@ describe("CardsTabs", () => {
   it("shows the wallet at the end of the bar when signed in, and nothing when not", () => {
     render(<CardsTabs league="premier" balance={1250} />);
     expect(screen.getByTestId("cards-balance").textContent).toContain("1,250");
-    expect(screen.getByTestId("cards-balance").getAttribute("href")).toBe("/betting");
+    expect(screen.getByTestId("cards-balance").getAttribute("href")).toBe("/economy");
     cleanup();
     render(<CardsTabs league="premier" balance={null} />);
     expect(screen.queryByTestId("cards-balance")).toBeNull();

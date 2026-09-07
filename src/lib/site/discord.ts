@@ -17,3 +17,12 @@ export const DISCORD_INVITE_EXTERNAL = DISCORD_INVITE_URL.startsWith("http");
  *  it was "FPL Premium" on one wall and "FPL Better" on the next, and both
  *  meant the same Discord role. */
 export const PREMIUM_NAME = "FPL Premium";
+
+/** What FPL Premium costs — a one-off for the Discord role, not a
+ *  subscription. Printed on the gate, the membership page and the
+ *  orientation block, from here. */
+export const PREMIUM_PRICE = 10;
+export const PREMIUM_PRICE_LABEL = `$${PREMIUM_PRICE}`;
+
+/** What patronage costs — a monthly amount patrons pick themselves. */
+export const PATRON_PRICE_LABEL = "$3–$5 a month";

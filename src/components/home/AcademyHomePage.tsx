@@ -1,4 +1,5 @@
 import HomeDashboard from "./HomeDashboard";
+import { homeViewer } from "@/lib/home/viewer";
 import { fetchHomepageTwitch, twitchChannelLoginFromUrl } from "@/lib/home/twitch";
 import { fetchHomepageStandings } from "@/lib/home/standings";
 import { fetchHomepageSchedule, selectHomepageFeaturedFixture } from "@/lib/home/schedule";
@@ -26,7 +27,7 @@ export default async function AcademyHomePage() {
   const teamNameSet = academyTeamNames(draftData.teams);
   const teamNames = draftData.teams.map((team) => team.name);
 
-  const [awards, standingsData, schedule, identities, topCards, featuredSettings] = await Promise.all([
+  const [awards, standingsData, schedule, identities, topCards, featuredSettings, viewer] = await Promise.all([
     fetchHomepageAwards(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageStandings(seasons.academy, teamNames, "academy_draft_id"),
     fetchHomepageSchedule((fixtures) => filterAcademyFixtures(fixtures, teamNameSet)),
@@ -34,6 +35,7 @@ export default async function AcademyHomePage() {
     // The Academy hub's own build — same season code, same week.
     (async () => fetchCurrentWeekCards(await createServerSupabase(), seasons.academy))(),
     fetchHomepageFeaturedSettings("academy"),
+    homeViewer(),
   ]);
   const twitch = await fetchHomepageTwitch(twitchChannelLoginFromUrl(featuredSettings.twitchUrl));
   const featuredFixture = selectHomepageFeaturedFixture(schedule.fixtures, featuredSettings.fixtureId);
@@ -53,6 +55,7 @@ export default async function AcademyHomePage() {
       cardsBasePath="/academy/cards"
       scheduleBasePath="/academy/schedule"
       scheduleTeamBasePath={null}
+      viewer={viewer}
     />
   );
 }

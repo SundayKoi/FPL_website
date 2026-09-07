@@ -1,11 +1,10 @@
 import "server-only";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { bettingAccess } from "./access";
+import { SIGNUP_BONUS_AMOUNT } from "./daily";
 import { createBettingServiceClient } from "./service-client";
 import type { BettingUser } from "./types";
 import { patronActive } from "@/lib/patron/flames";
-
-const SIGNUP_BONUS_AMOUNT = 1000;
 
 /**
  * Best-effort display name from Supabase's Discord OAuth metadata: `full_name`

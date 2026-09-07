@@ -8,6 +8,7 @@ import LeagueBrandChooser from "./LeagueBrandChooser";
 import SiteSearch from "./SiteSearch";
 import { leagueNavigationLinks } from "@/lib/league/navigation";
 import { leaguePath, resolveLeagueFromPath } from "@/lib/league/links";
+import { cardsSections } from "@/lib/cards/sections";
 import type { LeagueView } from "@/lib/league/context";
 
 type DropdownLink = {
@@ -17,7 +18,7 @@ type DropdownLink = {
   rel?: "noopener noreferrer";
 };
 
-type DropdownKey = "league" | "premium" | "info";
+type DropdownKey = "cards" | "league" | "premium" | "info";
 
 const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: readonly DropdownLink[] }[] = [
   {
@@ -25,6 +26,8 @@ const SHARED_DROPDOWNS: readonly { key: DropdownKey; label: string; links: reado
     label: "Info",
     links: [
       { href: "/info", label: "Info" },
+      { href: "/membership", label: "Premium & Patron" },
+      { href: "/economy", label: "Betting dollars" },
       { href: "/signup", label: "Sign Up" },
       { href: "/league-links", label: "League Links" },
       { href: "/rulebook", label: "Rulebook" },
@@ -49,6 +52,20 @@ function premiumDropdownLinks(premiumHref: string, view: LeagueView, showTesting
     // Still in admin testing: a member who clicked it was bounced straight
     // back to Premium HQ with no explanation.
     ...(showTesting ? [{ href: `${prefix}/guess-the-card`, label: "Guess the Card" }] : []),
+  ];
+}
+
+// Cards hid sixteen pages behind one header word, and that word walled
+// non-members: a signed-out visitor could not reach the public Browse,
+// Moments or Vault from the menu at all. Browse first, because it is the
+// one door open to everyone; the hub and the five tabs after it.
+function cardsDropdownLinks(base: string): DropdownLink[] {
+  const sections = cardsSections(base);
+  const browse = sections.find((section) => section.key === "browse");
+  const rest = sections.filter((section) => section.key !== "browse");
+  return [
+    ...(browse ? [{ href: browse.href, label: browse.label }] : []),
+    ...rest.map((section) => ({ href: section.href, label: section.key === "home" ? "Cards home" : section.label })),
   ];
 }
 
@@ -131,6 +148,7 @@ export default function SiteNavigation({
   const cardsHref = league === "academy" ? "/academy/cards" : "/cards";
   const directLinks = leagueNavigationLinks(league).filter((link) => link.label === "Stats" || link.label === "My Team");
   const dropdowns = [
+    { key: "cards" as const, label: "Cards", links: cardsDropdownLinks(cardsHref) },
     { key: "premium" as const, label: "Premium", links: premiumDropdownLinks(premiumHref, league, showAdmin) },
     { key: "league" as const, label: "League", links: leagueDropdownLinks(league, showBroadcaster) },
     ...SHARED_DROPDOWNS,
@@ -213,18 +231,15 @@ export default function SiteNavigation({
               </Link>
             );
           })}
-          <Link
-            href={cardsHref}
-            aria-current={isCardsActive(pathname) ? "page" : undefined}
-            onClick={closeMenus}
-            className={topLinkClass(isCardsActive(pathname))}
-          >
-            Cards
-          </Link>
           {dropdowns.map((dropdown) => {
             const dropdownOpen = openDropdown === dropdown.key;
             const dropdownMenuId = `${menuId}-${dropdown.key}`;
-            const active = dropdown.key === "premium" ? isPremiumActive(pathname) : dropdown.links.some((link) => isActive(pathname, link.href));
+            const active =
+              dropdown.key === "premium"
+                ? isPremiumActive(pathname)
+                : dropdown.key === "cards"
+                  ? isCardsActive(pathname)
+                  : dropdown.links.some((link) => isActive(pathname, link.href));
 
             return (
               <div key={dropdown.key} className="relative flex flex-col sm:items-center">

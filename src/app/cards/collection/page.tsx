@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GlossaryLink } from "@/components/cards/CardsPageHeader";
 import { Suspense } from "react";
 import CardsGate, { PREMIUM_GATE_BODY, PREMIUM_GATE_TITLE } from "@/components/cards/CardsGate";
 import CollectionSections, { CollectionSectionsFallback } from "./CollectionSections";
@@ -85,6 +86,7 @@ export async function CollectionPageView({
           prints to see each copy, dust a spare, or pin one to your binder. Roster sets and the binder
           are further down.
         </p>
+        <GlossaryLink />
       </header>
 
       <Suspense fallback={<CollectionSectionsFallback />}>

@@ -578,12 +578,23 @@ Every gated page (Betting, the cards pages, the daily games, the Match
 Drafter, the skin-line preview) renders one shared wall,
 `src/components/access/AccessWall.tsx`. A signed-out visitor gets "Sign in
 with Discord" back to the page they wanted; a signed-in visitor without the
-premium role gets "Join the Discord", "What FPL Premium is" (`/premium`),
+premium role gets "Join the Discord", "What FPL Premium is" (`/membership`,
+the page that puts the $10 role and the monthly patronage side by side),
 and on a cards page the public Browse door. The invite comes from
 `NEXT_PUBLIC_DISCORD_INVITE_URL`; until it is set the button falls back to
 `/league-links`. Guess the Card is still in admin testing and is listed
 only for staff (the header, Premium HQ and the site directory all hide it
 from members); every other refusal renders a wall rather than redirecting.
+
+Orientation lives in three public pages and two blocks: `/membership`
+(Premium vs Patron), `/economy` (every way betting dollars come in and go
+out — `src/lib/economy/ledger.ts`, every figure imported from the config
+that enforces it) and `/glossary` (`src/lib/site/glossary.ts`); the home
+page opens on `HomeOrientation` (a real heading, this week's game, three
+doors — the third follows who is looking, resolved read-only by
+`src/lib/home/viewer.ts`); and Premium HQ shows `PremiumStartHere`, a
+five-step checklist with live ticks, until all five are done. Search marks
+gated pages with a "Premium" pill (`gated` on `SiteDestination`).
 
 ## Card expeditions
 

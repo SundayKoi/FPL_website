@@ -34,7 +34,7 @@ describe("FpldlePage", () => {
     expect(redirect).not.toHaveBeenCalled();
     expect(screen.getByTestId("access-wall").getAttribute("data-reason")).toBe("no-role");
     expect(screen.getByRole("link", { name: /discord/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/premium");
+    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/membership");
   });
 
   it("keeps unavailable-state handling for non-authorization failures", async () => {

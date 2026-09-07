@@ -40,6 +40,7 @@ vi.mock("@/lib/home/awards", () => ({ fetchHomepageAwards: vi.fn(async () => ({}
 vi.mock("@/lib/home/homepageSettings", () => ({ fetchHomepageFeaturedSettings }));
 vi.mock("@/lib/teams/identity", () => ({ fetchTeamIdentities: vi.fn(async () => ({})) }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabase: vi.fn(async () => ({})) }));
+vi.mock("@/lib/home/viewer", () => ({ homeViewer: vi.fn(async () => "signed-out") }));
 vi.mock("@/lib/academy/draft", () => ({
   fetchAcademyDraftData: vi.fn(async () => ({ teams: [{ name: "Alpha" }, { name: "Beta" }] })),
 }));

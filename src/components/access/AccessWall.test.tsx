@@ -16,7 +16,7 @@ describe("AccessWall", () => {
     render(<AccessWall section="Packs" reason="no-role" redirect="/cards/packs" browse="/cards/browse" />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("FPL Premium members only");
     expect(screen.getByRole("link", { name: /discord/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/premium");
+    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/membership");
     expect(screen.getByRole("link", { name: /just browse the cards/i }).getAttribute("href")).toBe("/cards/browse");
   });
 
@@ -24,7 +24,7 @@ describe("AccessWall", () => {
     render(<AccessWall section="My collection" reason="lapsed" redirect="/cards/collection" />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("lapsed");
     expect(screen.getByText(/everything you own is still here/i)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /get fpl premium back/i }).getAttribute("href")).toBe("/premium");
+    expect(screen.getByRole("link", { name: /get fpl premium back/i }).getAttribute("href")).toBe("/membership");
   });
 
   it("prints a note under the buttons when given one", () => {

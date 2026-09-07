@@ -104,6 +104,37 @@ describe("PremiumHub betting preview", () => {
     expect(within(screen.getByRole("region", { name: "Daily games" })).getByRole("link", { name: /Guess the Card/ }).getAttribute("href")).toBe("/academy/guess-the-card");
   });
 
+  it("walks a new member through the five first things, and goes away once they are done", () => {
+    const start = { discordLinked: true, claim: "pending" as const, cardHref: "/card/preview-card", signed: false, packOpened: false, autoDust: false };
+    render(<PremiumHub snapshot={{ ...snapshot, start }} />);
+
+    const list = screen.getByTestId("premium-start-here");
+    expect(within(list).getByText("1 of 5 done")).toBeTruthy();
+    expect(within(list).getByTestId("start-step-discord").getAttribute("data-done")).toBe("true");
+    // A claim in the queue is not a link to go and claim again.
+    expect(within(list).getByText(/waiting on a captain/i)).toBeTruthy();
+    expect(within(list).getByText(/after your claim is confirmed/i)).toBeTruthy();
+    expect(within(list).getByRole("link", { name: /rip one/i }).getAttribute("href")).toBe("/cards/packs");
+    expect(within(list).getByRole("link", { name: /set the rule/i }).getAttribute("href")).toBe("/cards/collection#auto-dust");
+
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, start: { ...start, claim: "approved" as const } }} />);
+    expect(screen.getByRole("link", { name: /open your card/i }).getAttribute("href")).toBe("/card/preview-card");
+
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, league: "academy" as const, start: { ...start, discordLinked: false } }} />);
+    expect(screen.getByRole("link", { name: /^sign in/i }).getAttribute("href")).toBe("/login?redirect=/premium");
+    expect(screen.queryByRole("link", { name: /rip one/i })).toBeNull();
+
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, start: { discordLinked: true, claim: "approved" as const, cardHref: "/card/x", signed: true, packOpened: true, autoDust: true } }} />);
+    expect(screen.queryByTestId("premium-start-here")).toBeNull();
+
+    cleanup();
+    render(<PremiumHub snapshot={{ ...snapshot, start: null }} />);
+    expect(screen.queryByTestId("premium-start-here")).toBeNull();
+  });
+
   it("keeps card-specific deep links out of the hub", () => {
     render(<PremiumHub snapshot={snapshot} />);
 
@@ -131,7 +162,7 @@ describe("PremiumHub betting preview", () => {
     fireEvent.click(trigger);
 
     const dialog = screen.getByRole("dialog", { name: /become a patron/i });
-    expect(dialog.textContent).toContain("$3–$5 per month");
+    expect(dialog.textContent).toContain("$3–$5 a month");
     expect(dialog.textContent).toContain("The Patron Flame");
     expect(dialog.textContent).toContain("The weekly re-roll");
     expect(within(dialog).getByRole("link", { name: /paypal/i }).getAttribute("href")).toBe(

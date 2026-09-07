@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
 import PatronSupportModal from "@/components/premium/PatronSupportModal";
+import PremiumStartHere from "@/components/premium/PremiumStartHere";
 import { fmtPoints } from "@/lib/betting/format";
 import { americanOdds, displayedShareA } from "@/lib/betting/parimutuel";
 import type { MarketCardData } from "@/lib/betting/types";
@@ -257,6 +258,8 @@ export default function PremiumHub({ snapshot, staff = false }: { snapshot: Prem
         </div>
         <LeagueToggle league={snapshot.league} />
       </header>
+
+      {snapshot.start ? <PremiumStartHere start={snapshot.start} base={base} /> : null}
 
       <section aria-labelledby="premium-featured-heading">
         <SectionHeading

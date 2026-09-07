@@ -77,8 +77,8 @@ export default function CardsTabs({
         </ul>
         {balance !== null ? (
           <Link
-            href="/betting"
-            title="Your betting dollars — what packs, listings, bounties and tables are paid with"
+            href="/economy"
+            title="Your betting dollars — what they buy and every way to earn more"
             className="ml-auto shrink-0 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 font-mono text-xs font-semibold text-gold transition hover:bg-gold/20"
             data-testid="cards-balance"
           >

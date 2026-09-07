@@ -35,7 +35,7 @@ describe("HigherLowerPage", () => {
     expect(screen.getByRole("heading", { name: /premium members only/i })).toBeTruthy();
     expect(screen.getByText(/one of the daily games that come with fpl premium/i)).toBeTruthy();
     expect(screen.getByRole("link", { name: /discord/i })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/premium");
+    expect(screen.getByRole("link", { name: /what fpl premium is/i }).getAttribute("href")).toBe("/membership");
   });
 
   it("keeps card-edition unavailability inside the game page", async () => {

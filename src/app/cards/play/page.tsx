@@ -93,7 +93,7 @@ export async function PlayPageView({ league = "premier" }: { league?: CardLeague
 
   return (
     <main className="bg-hash mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-8 px-4 py-10 text-white sm:px-6">
-      <CardsPageHeader eyebrow={`Play · ${LEAGUE_LABELS[league]}`} title="Play">
+      <CardsPageHeader eyebrow={`Play · ${LEAGUE_LABELS[league]}`} title="Play" glossary>
         Everything here is played with cards from your collection, and most of it pays out in betting
         dollars. Nothing you own gets used up except where a page says so.
       </CardsPageHeader>
