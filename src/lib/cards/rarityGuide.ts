@@ -39,6 +39,8 @@ import {
   SIGNED_CHANCE,
   SIGNED_DUST_BASE,
   STATTRAK_CHANCE,
+  DRIBB_CHANCE,
+  DRIBB_COPIES,
   type CardTierKey,
   type RarityClass,
 } from "@/lib/packs/config";
@@ -174,6 +176,15 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
       odds: `${oneIn(SECRET_CHANCE)} cards`,
       perPack: perPackPct(SECRET_CHANCE),
       value: `Dust ${times(SECRET_DUST_MULT)}, over the parallel. +3 shine on an expedition. Auto-dust will never touch one.`,
+      fresh: true,
+    },
+    {
+      key: "dribb",
+      name: "The Dribb card",
+      look: "Not a player. Dribb, a 99 in every column, on Bard, in a look nothing else wears: a shimmer over the whole face, a second colour-split copy of the art sliding against the first, and a tear across the card where everything behind it is inverted. Numbered #001/5 through #005/5.",
+      how: `Rolled once per pack — any pack, any week — and it takes the pack's last slot. Only ${DRIBB_COPIES} will ever exist: once the fifth is found the gate closes for good. Announced the moment one lands.`,
+      odds: `${oneIn(DRIBB_CHANCE)} packs`,
+      value: "Cannot be dusted, and auto-dust never sees it. One of five on an expedition: never a route that can lose it, and the most shine a single card can carry. It can be traded.",
       fresh: true,
     },
   ];

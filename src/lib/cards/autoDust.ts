@@ -109,7 +109,7 @@ export function keepGroupOf(copy: { slug: string; editionWeek?: string | null },
 }
 
 export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
-  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; secret?: unknown; shiny?: unknown; stattrak?: unknown; slab?: unknown };
+  const card = row.card as { moment?: unknown; champWin?: unknown; team?: unknown; dribb?: unknown; secret?: unknown; shiny?: unknown; stattrak?: unknown; slab?: unknown };
   return {
     id: row.id,
     slug: row.slug,
@@ -118,7 +118,9 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
     foil: row.foil,
     foilType: row.foilType,
     signed: row.signed,
-    relic: Boolean(card.moment || card.champWin || card.team),
+    // The Dribb card files with the relics: five in the world is not a
+    // thing a rule melts.
+    relic: Boolean(card.moment || card.champWin || card.team || card.dribb),
     mutation: row.mutation ?? null,
     secret: Boolean(card.secret),
     shiny: Boolean(card.shiny),

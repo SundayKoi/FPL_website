@@ -78,6 +78,9 @@ describe("squadMeets — consent and the bench", () => {
   it("keeps one-of-ones off any route that can lose them", () => {
     const eclipse = copy({ id: 9, foil: true, foilType: "eclipse", signed: true, tier: "challenger" });
     expect(isProtected(eclipse)).toBe(true);
+    const dribb = copy({ id: 77, card: { dribb: { number: 1, of: 5 } } });
+    expect(isProtected(dribb)).toBe(true);
+    expect(squadMeets("legend", [dribb, copy({ id: 2 }), copy({ id: 3 })]).reasons.join(" ")).toContain("one of five");
     const legend = squadMeets("legend", [eclipse, copy({ id: 2, foil: true, signed: true, tier: "challenger" }), copy({ id: 3, foil: true, tier: "challenger" })]);
     expect(legend.ok).toBe(false);
     expect(legend.reasons.join(" ")).toMatch(/Card 9 is one of one/);

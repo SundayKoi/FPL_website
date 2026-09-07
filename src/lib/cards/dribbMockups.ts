@@ -1,4 +1,8 @@
-// PROPOSAL. The Dribb card — a five-copy chase print that is not a player:
+// SHIPPED as Aether · Rift (src/lib/cards/dribb.ts, DRIBB_LOOK): the
+// minted copy wears those layers off its own `dribb` stamp. Everything
+// else here is still a mockup, kept so the alternatives can be compared.
+//
+// The Dribb card — a five-copy chase print that is not a player:
 // Dribb, a 99 in every column, on Bard, drawn in a treatment nothing else
 // on the board wears. Four looks, as mockups on /admin/dribb and nowhere
 // else, through PlayerCard3D's `overlay` prop (the same road every overlay

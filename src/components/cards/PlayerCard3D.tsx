@@ -39,6 +39,7 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
+import { DRIBB_LOOK, dribbLabel } from "@/lib/cards/dribb";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
@@ -164,7 +165,7 @@ function PlayerCardFace({
   className = "",
   preview: previewProp = null,
   mutation: mutationProp = null,
-  overlay = null,
+  overlay: overlayProp = null,
 }: {
   card: PlayerCardData;
   /** A proposed overlay (src/lib/cards/overlayMockups.ts) drawn over the
@@ -268,6 +269,10 @@ function PlayerCardFace({
   // passes the prop, and a minted mutation is the card's own fact.
   const worn = card.mutation ? mutationByKey(card.mutation.key) : undefined;
   const mutation = worn ? mutationOverlay(worn) : mutationProp;
+  // The Dribb card wears its look off its own stamp — the one overlay a
+  // minted copy can reach. The prop, which only the admin mockup pages
+  // pass, still wins so they can show any look on the specimen.
+  const overlay = overlayProp ?? (card.dribb ? DRIBB_LOOK : null);
   // The bench, decided on the client only: the server snapshot says "not
   // mounted", so the HTML never has to know whether 4pm has passed for the
   // reader, and the hydrated browser reads the clock once it is in charge.
@@ -284,6 +289,9 @@ function PlayerCardFace({
   const stamps: CardStamp[] = [
     ...(card.live ? [{ key: "live", testId: "live-stamp", glyph: "●", accent: "#f87171", title: `Opened live — ${card.live.label}`, label: "Live", detail: card.live.label }] : []),
     ...(card.chase ? [{ key: "chase", testId: "chase-stamp", glyph: "★", accent: "#f5b62e", title: `First to the chase: ${card.chase.title}`, label: "Chase", detail: card.chase.title }] : []),
+    ...(card.dribb
+      ? [{ key: "dribb", testId: "dribb-stamp", glyph: "✦", accent: "#d27dff", title: `The Dribb card — ${dribbLabel(card.dribb)}. Five will ever exist.`, label: "Dribb", detail: dribbLabel(card.dribb) }]
+      : []),
     ...(card.autograph ? [{ key: "signed", testId: "signed-stamp", glyph: "✍", accent: "#f5b62e", title: "Signed — the player's own ink", label: "Signed", detail: null }] : []),
     ...(card.shiny ? [{ key: "shiny", testId: "shiny-stamp", glyph: "✦", accent: "#ff9be7", title: "Shiny — the art in the wrong colours. One print in sixty-four.", label: "Shiny", detail: null }] : []),
     ...(card.secret
@@ -506,7 +514,7 @@ function PlayerCardFace({
   // is paused at rest (globals.css: [data-motion="rest"]) and runs while the
   // pointer is on the card, so a forty-card shelf idles for free. Eclipse is
   // the one exception: the one-of-one is always live.
-  const motion = isEclipse || hovering ? "live" : "rest";
+  const motion = isEclipse || Boolean(card.dribb) || hovering ? "live" : "rest";
 
   return (
     <div data-motion={motion} className={`relative [perspective:1100px] ${className}`} style={{ width: "20rem" }}>
@@ -531,7 +539,7 @@ function PlayerCardFace({
         ref={frameRef}
         role={interactive ? "button" : undefined}
         tabIndex={interactive ? 0 : undefined}
-        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
+        aria-label={`${card.name} player card — ${card.overall} overall, ${card.tier.label}${forceFoil ? `, ${preview ? preview.label : FOIL_TYPE_LABELS[parallel]} foil` : ""}${card.dribb ? `, the Dribb card ${dribbLabel(card.dribb)}` : ""}${card.shiny ? ", shiny" : ""}${card.secret ? `, secret ${secretSerialLabel(card.secret)}` : ""}${card.stattrak ? `, StatTrak ${stattrakLabel(card.stattrak.points)}` : ""}${slabbed ? `, slabbed ${grade.label}` : wear > 0 ? `, ${grade.label}` : ""}.${interactive ? " Activate to flip." : ""}`}
         onPointerMove={onPointerMove}
         onPointerEnter={onPointerEnter}
         onPointerLeave={reset}

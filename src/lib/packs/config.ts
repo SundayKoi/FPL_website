@@ -359,6 +359,26 @@ export const STATTRAK_CHANCE = 0.02;
  */
 export const SECRET_CHANCE = 0.002;
 
+/**
+ * The Dribb card — five, ever.
+ *
+ * Not a player: Dribb, a 99 in every column, on Bard, in the Aether Rift
+ * treatment nothing else wears (src/lib/cards/dribb.ts). Rolled ONCE PER
+ * PACK, on every standard pack in every week's edition, and when it lands
+ * it takes the pack's last slot. One in five thousand packs — at the
+ * league's volume one turns up every few months, and the five will take
+ * years to find. Once the fifth is minted the gate closes for good: the
+ * roller reads the count before it mints, and a partial unique index on
+ * the copy's number (migration 20260929000001) is what makes "five" a
+ * fact rather than a promise. Never dusts, never auto-dusts, never boards
+ * a route that can lose it; it can be traded, which is the point.
+ */
+export const DRIBB_CHANCE = 1 / 5000;
+export const DRIBB_COPIES = 5;
+/** The tier column a Dribb copy files under, like a moment's "moment":
+ *  it must never price or sort as an ordinary card of any tier. */
+export const DRIBB_TIER = "dribb";
+
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
  *  under what a signature adds; only a Secret Cracked Ice challenger beats
@@ -388,8 +408,12 @@ export function rarityOf(tier: CardTierKey): RarityClass {
  *  of the copy rather than of its situation (fielded, on expedition): a
  *  one-of-one is not a resource. dust_card raises for it and the actions
  *  refuse before calling; this is the same rule for the labels. */
-export function canDust(row: { foilType?: string | null }): boolean {
-  return row.foilType !== ECLIPSE_FOIL_TYPE;
+export function canDust(row: { foilType?: string | null; tier?: string; dribb?: boolean }): boolean {
+  if (row.foilType === ECLIPSE_FOIL_TYPE) return false;
+  // The Dribb card: five in the world. The flat column covers a stored
+  // copy, the flag a caller holding the card json.
+  if (row.dribb || row.tier === DRIBB_TIER) return false;
+  return true;
 }
 
 export function dustValueOf(row: {
@@ -418,6 +442,8 @@ export function dustValueOf(row: {
    *  json by callers that hold it; a stored copy's flags live there too. */
   shiny?: boolean;
   secret?: boolean;
+  /** The Dribb card, read off the card json. */
+  dribb?: boolean;
 }): number {
   // Nothing at all for a copy that cannot be dusted — before any pricing,
   // because the autograph bonus is a flat add and would otherwise put a

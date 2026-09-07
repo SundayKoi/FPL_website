@@ -3230,11 +3230,12 @@ body {
   }
 }
 
-/* ── The Dribb card — /admin/dribb only. ───────────────────────────────
-   Four proposed looks for the five-copy chase print
-   (src/lib/cards/dribbMockups.ts), drawn through PlayerCard3D's `overlay`
-   prop like every overlay proposal. None of these can reach a minted copy
-   until the card ships with a stamp of its own. */
+/* ── The Dribb card. ────────────────────────────────────────────────────
+   The five-copy chase print. Aether · Rift (card-ov-dribb-aether,
+   card-ov-dribb-aether-rift, card-ov-dribb-aberration-wide) is the SHIPPED
+   look — a minted copy wears it off `card.dribb` (src/lib/cards/dribb.ts,
+   DRIBB_LOOK). The other looks here are mockups on /admin/dribb, drawn
+   through PlayerCard3D's `overlay` prop, and no minted copy reaches them. */
 
 /* Celestial — a drifting star field under a Caretaker-blue wash. */
 @keyframes ovDribbStars {

@@ -172,6 +172,8 @@ export function sampleFor(key: string): RaritySample | null {
       return plain({ ...base, mutation: { key: "irradiated", date: SAMPLE_AT, run: 0 } });
     case "echo":
       return plain({ ...base, echo: { run: 0, moment: 0, date: SAMPLE_AT } });
+    case "dribb":
+      return plain({ ...base, serial: 1, collectionSize: 5, dribb: { number: 1, of: 5 } });
     case "wear":
       return plain({ ...base, wear: 14 });
     case "slab":

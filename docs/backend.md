@@ -135,6 +135,24 @@ busy week is one row above the buy button instead of four banners. Page
 titles match tab labels (Packs, Market, Trade offers, Stats, Compare, Weekly
 Draw, Team cards); routes did not move.
 
+**The Dribb card.** A chase print that is not a player: Dribb, a 99 in
+every column, on Bard, in the Aether Rift treatment
+(`src/lib/cards/dribb.ts`, `DRIBB_LOOK`; the look is drawn off the copy's
+`card.dribb` stamp). `openPackFor` rolls it once per standard pack at
+`DRIBB_CHANCE` (1 in 5,000), after the finishes, and when it lands the
+pack's last slot becomes the Dribb, numbered after however many the world
+has found (a head-count of `card->dribb`). Five ever (`DRIBB_COPIES`):
+migration `20260929000001` adds a check that the number is 1..5 and a
+partial unique index on it — a sixth, or two fifths in the same instant,
+fails the insert and the pack refunds — and redefines `dust_card` to refuse
+it (`dribb cannot be dusted`), `launch_expedition` to keep it off any route
+past wounded (`card is one of one`), and `record_card_provenance` to stamp
+`dribb` on the minted print so the stats page counts the five apart from
+the player cards. Filed under tier `dribb`, like a moment's `moment`, so
+nothing prices or sorts it as an ordinary card; auto-dust treats it as a
+relic; on an expedition it carries 16 shine, the most a single card can.
+It can be traded. pgTAP `0105_dribb_card_test.sql`.
+
 **Finishes (Shiny, StatTrak, Secret).** Three stamps a player-card print
 can take on top of its parallel and its ink, rolled in
 `src/lib/packs/rarities.ts` from the gates in `src/lib/packs/config.ts`
