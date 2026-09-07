@@ -1099,6 +1099,10 @@ export default function ExpeditionBoard({
                         <span aria-hidden title="One of one — never boards a route that can lose it" className="text-xs font-black text-purple-200">
                           1/1
                         </span>
+                      ) : copy.card?.dribb ? (
+                        <span aria-hidden title="The Dribb card — one of five, never boards a route that can lose it" className="text-xs font-black text-purple-200">
+                          {copy.card.dribb.number}/{copy.card.dribb.of}
+                        </span>
                       ) : (
                         <span
                           aria-hidden

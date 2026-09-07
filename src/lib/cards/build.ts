@@ -243,6 +243,11 @@ export interface PlayerCardData {
    *  scored Fantasy week). Bumped by SQL (wear_cards, migration 20260922);
    *  read as a grade by src/lib/cards/wear.ts. Never priced. */
   wear?: number | null;
+  /** The Dribb card (src/lib/cards/dribb.ts): `number` is which of the
+   *  five this copy is, in the order found. Set only by the pack roller;
+   *  the renderer draws the Aether Rift treatment off it, dust refuses it,
+   *  and expeditions treat it as one of five. */
+  dribb?: { number: number; of: number } | null;
   /** The owner sealed the copy: `wear` is the count frozen at that moment,
    *  `at` when. A slabbed copy can never be fielded again — refused in SQL
    *  for expeditions and server-side for the Gauntlet and Fantasy — and

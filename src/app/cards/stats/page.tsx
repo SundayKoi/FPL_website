@@ -7,8 +7,7 @@ import {
   SECRET_CHANCE,
   SHINY_CHANCE,
   SIGNED_CHANCE,
-  STATTRAK_CHANCE,
-} from "@/lib/packs/config";
+  STATTRAK_CHANCE } from "@/lib/packs/config";
 import { oneIn } from "@/lib/cards/rarityGuide";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
