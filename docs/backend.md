@@ -534,8 +534,8 @@ Important RPC families include:
 - Card expeditions: `launch_expedition` (v3, twelve arguments; the old
   six-argument signature is a wrapper) validates the squad, confirms the
   caller owns all three copies, enforces the tier slot (one unclaimed run
-  per tier — `tier already out`; holds never occupy one) and the per-day
-  launch limit under the same wallet lock, refuses a copy that is already
+  per tier — `tier already out`; holds never occupy one; there is no
+  per-day launch limit since 20260926000001), refuses a copy that is already
   deployed or lost, wounded (`card is wounded`), or one of one on a route
   past wounded (`card is one of one`), checks a Rescue's hold and an
   Exorcism's afflicted target, spends fragments and the weekly free policy

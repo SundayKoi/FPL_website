@@ -382,21 +382,11 @@ interface TierRewards {
 }
 
 /**
- * How many runs one person may LAUNCH in an Eastern day — the real ceiling
- * on this feature, and the thing the first pass of these tables missed.
- *
- * Restated from launch_expedition (20260901000001_card_expeditions.sql),
- * which counts today's rows under a wallet lock and raises `daily
- * expedition limit` past it. Patrons get two; see PATRON_DAILY_LAUNCHES.
- *
- * This is why the original arithmetic here was wrong. It priced a scouting
- * run as "three a day" because three eight-hour runs fit in a day — but
- * the RPC never let anyone launch the second one. Every tier was tuned
- * against income nobody could actually earn, and the top of the ladder
- * paid $257 for a two-day wait while /daily paid $250 for a click.
+ * There is no daily launch limit (20260926000001 removed it). The ceiling
+ * on a collector's expeditions is one run OUT per tier at a time, so the
+ * most anyone can run in a day is set by each tier's duration: three
+ * scouts, one raid, half a legend hunt — all at once if they like.
  */
-export const DAILY_LAUNCHES = 1;
-export const PATRON_DAILY_LAUNCHES = 2;
 
 /**
  * The payout tables — the whole economy of the feature.
@@ -627,17 +617,15 @@ export function rollOutcome(
  * arithmetic rather than prose, so a balance pass that pushes a number too
  * far turns a test red instead of quietly minting an income.
  *
- * Runs per day is bounded by DAILY_LAUNCHES, not only by duration. That
- * bound is the correction: the first version of this divided the day by
- * the run length alone and priced a scouting run at three a day, which the
- * RPC has never permitted. A tier longer than a day still contributes its
- * fraction (a 48h run is half a run a day), because one squad genuinely
- * does land every other day.
+ * Runs per day is bounded by duration alone: with no daily launch limit
+ * (20260926000001) a tier can be relaunched the moment its run is claimed,
+ * so a scouting run is three a day and a 48h run is half a run a day.
+ * Tiers run in parallel — one out per tier — so a collector's whole-day
+ * ceiling is the SUM of these across tiers, not the max.
  *
  * Base rates only: no shine bonus, no brief bonus, and it assumes the
  * player relaunches the moment a run lands (the honest worst case for the
- * economy). A patron may launch PATRON_DAILY_LAUNCHES a day and so earns
- * up to double this — a perk priced deliberately, not an oversight.
+ * economy).
  */
 export function expectedDailyDollars(tier: ExpeditionTierKey): number {
   const { weights, dollars, comp } = REWARDS[tier];
@@ -646,6 +634,6 @@ export function expectedDailyDollars(tier: ExpeditionTierKey): number {
     (sum, grade) => sum + (weights[grade] / total) * (dollars[grade] + comp[grade] * PACK_COST),
     0,
   );
-  const runsPerDay = Math.min(24 / EXPEDITION_TIERS[tier].durationHours, DAILY_LAUNCHES);
+  const runsPerDay = 24 / EXPEDITION_TIERS[tier].durationHours;
   return perRun * runsPerDay;
 }

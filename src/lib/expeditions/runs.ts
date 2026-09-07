@@ -116,9 +116,6 @@ export function friendlyExpeditionError(message: string): string {
   if (/tier already out/i.test(message)) {
     return "That expedition is already out — bring it home before you send another.";
   }
-  if (/daily expedition limit/i.test(message)) {
-    return "You've sent out every expedition you get today — come back tomorrow.";
-  }
   if (/card not owned/i.test(message)) return "Those cards aren't yours.";
   if (/no such convoy/i.test(message)) return "No convoy has that code — check it with whoever gave it to you.";
   if (/convoy is full/i.test(message)) return "That convoy already has its two squads.";
@@ -214,9 +211,7 @@ export async function launchExpeditionFor(
   // Expeditions are league-agnostic — the run is stamped with the season
   // its cards came from rather than with whichever league's page launched
   // it. A squad straddling two of them has no one season to be stamped
-  // with, and the run log (fetchRuns) is a per-season read. The daily
-  // limit is NOT: launch_expedition counts a day's runs without a season
-  // filter, so the cap is one collector's cap across both leagues.
+  // with, and the run log (fetchRuns) is a per-season read.
   const seasons = new Set(copies.map((copy) => copy.season));
   if (seasons.size !== 1) return { ok: false, error: "Squad cards must come from one league." };
   const season = [...seasons][0];
