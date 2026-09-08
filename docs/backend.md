@@ -139,7 +139,7 @@ Draw, Team cards); routes did not move.
 every column, on Bard, in the Aether Rift treatment
 (`src/lib/cards/dribb.ts`, `DRIBB_LOOK`; the look is drawn off the copy's
 `card.dribb` stamp). `openPackFor` rolls it once per standard pack at
-`DRIBB_CHANCE` (1 in 5,000), after the finishes, and when it lands the
+`DRIBB_CHANCE` (1 in 10,000), after the finishes, and when it lands the
 pack's last slot becomes the Dribb, numbered after however many the world
 has found (a head-count of `card->dribb`). Five ever (`DRIBB_COPIES`):
 migration `20260929000001` adds a check that the number is 1..5 and a
@@ -339,8 +339,10 @@ Important RPC families include:
 - Stats/reporting: report and side-resolution functions plus the
   `stats_player_agg`, `stats_team_agg`, `stats_champion_agg`, `stats_records`,
   and `stats_game_log` views.
-- Betting: `place_bet`, `cashout_bet`, lifecycle/lock functions, and the
-  admin create/resolve/cancel/grant functions.
+- Betting: `place_bet`, `cashout_bet`, lifecycle/lock functions, the admin
+  create/resolve/cancel/grant functions, and the service-role-only
+  `settle_betting_market_from_stats` RPC. Early `cashout_bet` is separate from
+  post-series settlement.
 - Recurring rewards: `calculate_recurring_reward` is the shared database
   calculator used by `claim_daily_streak`, `claim_weekly_streak`,
   `vote_daily_banger`, `claim_daily_game_reward`, and `pay_match_win`. The wallet
@@ -676,7 +678,7 @@ change and update their local state.
 
 | Workflow | Entry point | Writes/side effects |
 | --- | --- | --- |
-| Nightly match stats | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` | Reads pending reports, fetches Riot matches, writes `raw_stats` with the service key, resolves sides, and marks report games ingested/failed. A report with no games settles as `forfeit` when one is declared and fails loud when one is not. |
+| Weekly match stats and betting settlement | `.github/workflows/ingest-stats.yml` → `scripts/riot_stats_ingest.py --from-reports` → `scripts/settle-betting-from-stats.py` | Tuesday at 07:23 UTC and manual runs. Ingests queued reports, then scans all linked Premier/Academy fixture markets—including older fixtures—and uses raw-stats evidence to settle markets and ready pick'ems. The settlement pass runs after partial ingest results too; each fixture is independently validated and the workflow remains non-zero for ingest failures, settlement failures, or evidence conflicts. |
 | Weekly Premier brief | `.github/workflows/weekly-brief-premier.yml` → `scripts/generate-homepage-brief.ts --league premier` | Computes facts from Supabase, asks Anthropic for constrained prose, cleans it, and writes `homepage_briefs`. |
 | Weekly Academy brief | `.github/workflows/weekly-brief-academy.yml` → same script with `--league academy` | Same flow, narrowed to the Academy season and teams. |
 | Weekly cards | `.github/workflows/weekly-card-drop.yml` → `scripts/weekly-card-drop.ts` | Reads current ratings, writes `card_snapshots`/`card_rating_history`, and posts movement/showcase content to Discord. |
@@ -710,6 +712,38 @@ the Monday and fixture stage; it refuses incomplete market coverage.
 Trusted jobs use service-role credentials because they operate across users or
 write tables with no normal-user write policy. Keep their secrets in GitHub
 Actions/Vercel/Supabase configuration, not in source or client bundles.
+
+### Stats-based betting settlement
+
+The settlement migration adds `betting_markets.settlement_run_id` and frozen
+`settlement_evidence`, plus the service-role-only
+`settle_betting_market_from_stats(p_market, p_fixture, p_winning_team,
+p_evidence, p_run_id)` RPC. The script derives a candidate in Python for
+structured logging, but the RPC repeats the checks in the same transaction,
+locks the market, and then invokes `_resolve_market`; Python never calculates a
+payout or updates a wallet.
+
+The verifier requires a Premier/Academy event whose schedule season matches the
+fixture, exactly one non-prop betting-team mapping for each fixture participant,
+all linked reports to agree on season and participants, every linked match to
+have raw rows for both sides with non-null consistent `win` flags, and exactly
+one winning side per match. It counts distinct `match_id` values once and
+requires a best-of threshold. Report status and captain/fixture scores are
+not result evidence. A forfeit may settle only when the non-forfeiting side
+already has enough verified played wins; otherwise it stays pending.
+
+The same Tuesday run calls the existing `resolvable_pickems` and
+`resolve_pickem` RPCs after market settlement. That preserves the existing
+cancelled-leg refund and jackpot-rollover rules, and an unresolved leg keeps a
+pick'em pending. The lifecycle cron may race this call safely because both
+market and pick'em resolution are idempotent and lock their rows.
+
+Use `--dry-run`, `--season`, or `--fixture-id` for recovery planning. A normal
+retry reuses the database idempotency guard and changes no balances. If current
+stats no longer match frozen evidence, the RPC records a
+`market_stats_conflict` audit row for review and never reverses a completed
+payout. Operational errors and validation conflicts are logged as structured
+JSON and produce a non-zero workflow result.
 
 ### Copy images
 
@@ -953,7 +987,7 @@ multiplier and rolls one harm on one living card (wounded, lost, dead in
 that order, dead only on the Legendary route and only once the run has
 pushed twice); a warned fork's harm comes with a Cursed stamp; the Legend
 Hunt's second checkpoint haunts a camper; every Legendary fork bites even
-a camper and every survivor of it comes home Voidtouched (a second at 25%);
+a camper and every survivor of it comes home Voidtouched (a second at 12.5%);
 a one-roster Legend Hunt ignored twice loses all three; a Cursed card sent
 out again on a route that can lose it may not come back; insurance steps
 every fate down one rung, last. The whole result goes to
@@ -1135,7 +1169,7 @@ server-selected variant and reveal order, and the client protects all five
 from auto-dust.
 
 `npm run simulate:packs` also reports the simulated God Pack frequency, the
-expected one-in-750 volume, signature coverage, and base/Patron dust value of
+expected one-in-1,000 volume, signature coverage, and base/Patron dust value of
 the God pulls (manual dust value only; the automatic rule leaves them intact).
 `scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
 file (the only players a signed copy can be of), signed copies per player
@@ -1146,9 +1180,9 @@ edition, and a duplicate check that must return no rows.
 ### Eclipse, the one-of-one
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in
-each role, five per edition week. `ECLIPSE_CHANCE` (0.5%) is the roll on such
+each role, five per edition week. `ECLIPSE_CHANCE` (0.2%) is the roll on such
 a pull; multiplied by the ~2-4% of slots that are one, that is roughly one
-Eclipse per 1,000-2,000 packs.
+Eclipse per 2,500-5,000 packs.
 
 Two rules live in the database, not the application, because "there is only
 one of these" must survive a race, a retry and whatever gets written next
