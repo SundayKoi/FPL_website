@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { RosterTeamView } from "@/lib/draft/types";
+import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
 import { DIVISIONS, type Division } from "@/lib/schedule/types";
 import TeamRosterCard from "./TeamRosterCard";
 
@@ -12,6 +13,7 @@ export default function TeamsDirectory({
   league = "premier",
   adminControls,
   rosterContent,
+  playerClaims = {},
 }: {
   draftName: string | null;
   isPreview: boolean;
@@ -19,6 +21,7 @@ export default function TeamsDirectory({
   league?: LeagueView;
   adminControls?: ReactNode;
   rosterContent?: ReactNode;
+  playerClaims?: Record<string, RosterClaimTarget>;
 }) {
   const isAcademy = league === "academy";
   const leagueLabel = isAcademy ? "Academy" : "Premier";
@@ -58,7 +61,7 @@ export default function TeamsDirectory({
                 <h2 className="label-dash mb-4 text-xl text-white">{section.label}</h2>
                 <div className="grid gap-5 sm:grid-cols-3">
                   {sectionTeams.map((team) => (
-                    <TeamRosterCard key={team.id} team={team} league={league} />
+                    <TeamRosterCard key={team.id} team={team} league={league} playerClaims={playerClaims} />
                   ))}
                 </div>
               </div>

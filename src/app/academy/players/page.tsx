@@ -5,6 +5,11 @@ import { fetchAcademyDraftData } from "@/lib/academy/draft";
 import { fetchAcademyPlayers, mergeAcademyPlayers } from "@/lib/academy/playerSheet";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { fetchLeagueSeasons } from "@/lib/league/season";
+import {
+  buildRosterClaimTargets,
+  fetchRosterClaimTargets,
+  type RosterClaimTarget,
+} from "@/lib/teams/rosterClaims";
 import type {
   PlayerIdentityLinkRow,
   VerifiedProfileOption,
@@ -22,6 +27,7 @@ export default async function AcademyPlayersPage() {
     sheetPlayers,
     { data: canonicalPlayers },
     leagueSeasons,
+    { data: activeLeagueTeams },
   ] = await Promise.all([
     supabase.auth.getUser(),
     fetchAcademyDraftData(supabase),
@@ -31,6 +37,7 @@ export default async function AcademyPlayersPage() {
       .select("id, season_key, display_name, role, rank, opgg_url")
       .eq("season_key", "academy-1"),
     fetchLeagueSeasons(supabase),
+    supabase.from("league_teams").select("id, name").eq("active", true),
   ]);
 
   let isAdmin = false;
@@ -77,6 +84,54 @@ export default async function AcademyPlayersPage() {
     opgg_url: player.opgg_url,
   }));
 
+  const activeTeamByName = new Map(
+    (((activeLeagueTeams as { id: string; name: string }[] | null) ?? [])).map((team) => [
+      team.name.trim().toLowerCase(),
+      team.id,
+    ]),
+  );
+  const claimEntries = [
+    ...new Map(
+      draftData.players.flatMap((player) => {
+        if (!player.canonical_player_id || !player.team_id) return [];
+        const draftTeam = draftData.teams.find((team) => team.id === player.team_id);
+        const leagueTeamId = draftTeam
+          ? activeTeamByName.get(draftTeam.name.trim().toLowerCase())
+          : undefined;
+        if (!leagueTeamId) return [];
+        return [[
+          player.canonical_player_id,
+          {
+            playerPoolId: player.canonical_player_id,
+            leagueTeamId,
+            returnPath: "/academy/players",
+          },
+        ] as const];
+      }),
+    ).values(),
+  ];
+  let playerClaims: Record<string, RosterClaimTarget> = {};
+  if (claimEntries.length && leagueSeasons.academy) {
+    try {
+      playerClaims = await fetchRosterClaimTargets(
+        supabase,
+        claimEntries,
+        "academy",
+        leagueSeasons.academy,
+        userData.user?.id ?? null,
+      );
+    } catch {
+      playerClaims = buildRosterClaimTargets(
+        claimEntries,
+        {},
+        "academy",
+        leagueSeasons.academy,
+        userData.user?.id != null,
+        true,
+      );
+    }
+  }
+
   return (
     <AcademyPlayersDirectory
       players={players}
@@ -86,6 +141,7 @@ export default async function AcademyPlayersPage() {
       identitySeason={isAdmin ? leagueSeasons.academy : undefined}
       identityLinks={isAdmin ? identityLinks : undefined}
       identityProfiles={isAdmin ? identityProfiles : undefined}
+      playerClaims={playerClaims}
     />
   );
 }

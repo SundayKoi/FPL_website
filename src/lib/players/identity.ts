@@ -2,6 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type LeagueKey = "premier" | "academy";
 export type PlayerIdentityStatus = "unlinked" | "pending" | "approved" | "approved_unrostered";
+export type PlayerRosterClaimState =
+  | "unclaimed"
+  | "pending"
+  | "claimed"
+  | "mine-pending"
+  | "mine-approved";
 
 export type ResolvedPlayerIdentity = {
   profileId: string | null;

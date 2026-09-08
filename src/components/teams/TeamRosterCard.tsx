@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ROLE_LABELS_SHORT, type RosterSlotView, type RosterTeamView } from "@/lib/draft/types";
 import { linkedAccountLabel, linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import { teamSlug } from "@/lib/teams/teamPage";
+import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
+import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
 
 
 export type TeamRosterCardProps = {
@@ -16,6 +18,7 @@ export type TeamRosterCardProps = {
   onDragOver?: (player: RosterSlotView) => void;
   onDrop?: (player: RosterSlotView) => void;
   onKeyboardSwap?: (player: RosterSlotView) => void;
+  playerClaims?: Record<string, RosterClaimTarget>;
 };
 
 export default function TeamRosterCard({
@@ -27,6 +30,7 @@ export default function TeamRosterCard({
   onDragOver,
   onDrop,
   onKeyboardSwap,
+  playerClaims = {},
 }: TeamRosterCardProps) {
   const headingId = `team-heading-${team.id}`;
   const bannerStyle = { backgroundColor: team.bannerColor };
@@ -179,6 +183,9 @@ export default function TeamRosterCard({
                 >
                   Swap with…
                 </button>
+              ) : null}
+              {!editable && player.playerPoolId && playerClaims[player.playerPoolId] ? (
+                <PlayerRosterClaim {...playerClaims[player.playerPoolId]} />
               ) : null}
             </li>
           );
