@@ -20,3 +20,21 @@ export function formatDate(iso: string): string {
 export function formatValue(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
+
+/**
+ * A lane diff, the way a player says it out loud: "+14", "-3", "0".
+ *
+ * The em-dash case is the one that matters. A null diff means the mark was
+ * never measured — the game ended before it, or nobody was logged in the
+ * opposite seat — and that is not the same statement as an even lane.
+ * Rendering it as 0 would put a player who never reached twenty minutes
+ * next to one who fought to a dead heat there.
+ *
+ * `digits` is 1 for CS (fractional creeps are meaningful at this scale) and
+ * 0 for gold and XP, which also get thousands separators.
+ */
+export function formatLaneDiff(value: number | null | undefined, digits: 0 | 1): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  const shown = digits === 1 ? value.toFixed(1) : Math.round(value).toLocaleString();
+  return value > 0 ? `+${shown}` : shown;
+}

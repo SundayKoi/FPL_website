@@ -199,6 +199,57 @@ describe("combineSeasonRows", () => {
     const combined = combineSeasonRows([s1, s2]);
     expect(combined.season).toBe("All");
   });
+
+  describe("lane diffs", () => {
+    it("weights each mark by the games that actually reached it, not by season games", () => {
+      // S2 is the bigger season by games, but only two of its games got to
+      // twenty minutes. Weighting the @20 diff by `games` would let those
+      // two games speak for twenty, and drag the combined @20 diff from
+      // +9.2 down toward S2's +2.
+      const s1 = playerRow({
+        season: "S1", games: 10,
+        avg_cs_diff_20: 10, lane_games_20: 10,
+        avg_cs_diff_10: 4, lane_games_10: 10,
+      });
+      const s2 = playerRow({
+        season: "S2", games: 20,
+        avg_cs_diff_20: 2, lane_games_20: 2,
+        avg_cs_diff_10: 1, lane_games_10: 20,
+      });
+      const combined = combineSeasonRows([s1, s2]);
+      // (10*10 + 2*2) / 12 = 8.67 — not (10*10 + 2*20)/30 = 4.67.
+      expect(combined.avg_cs_diff_20).toBeCloseTo(8.67, 2);
+      expect(combined.lane_games_20).toBe(12);
+      // @10 has its own, different sample: (4*10 + 1*20)/30 = 2.
+      expect(combined.avg_cs_diff_10).toBeCloseTo(2, 2);
+      expect(combined.lane_games_10).toBe(30);
+    });
+
+    it("drops a season with no diff at a mark rather than counting it as an even lane", () => {
+      const measured = playerRow({ season: "S1", games: 5, avg_gold_diff_15: 300, lane_games_15: 5 });
+      const blind = playerRow({ season: "S2", games: 15, avg_gold_diff_15: null, lane_games_15: 0 });
+      const combined = combineSeasonRows([measured, blind]);
+      // The only games that had an opponent to measure against said +300.
+      expect(combined.avg_gold_diff_15).toBeCloseTo(300, 2);
+      expect(combined.lane_games_15).toBe(5);
+    });
+
+    it("stays null when no season has a diff at the mark", () => {
+      const a = playerRow({ season: "S1", games: 5, avg_xp_diff_20: null, lane_games_20: 0 });
+      const b = playerRow({ season: "S2", games: 5, avg_xp_diff_20: null, lane_games_20: 0 });
+      expect(combineSeasonRows([a, b]).avg_xp_diff_20).toBeNull();
+    });
+
+    it("leaves the diffs alone on rows that never carried them", () => {
+      // aggregateWeeklyPlayerRows builds PlayerAggRow without lane diffs;
+      // merging two of those must not invent a zero.
+      const a = playerRow({ season: "S1", games: 5 });
+      const b = playerRow({ season: "S2", games: 5 });
+      const combined = combineSeasonRows([a, b]);
+      expect(combined.avg_cs_diff_15).toBeNull();
+      expect(combined.lane_games_15).toBeNull();
+    });
+  });
 });
 
 describe("mergeRows", () => {

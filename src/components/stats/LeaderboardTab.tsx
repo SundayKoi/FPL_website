@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { combineSeasonRows, mergeRows } from "@/lib/stats/formulas";
 import { fetchPlayerAgg, fetchPlayerKeysForTeams } from "@/lib/stats/queries";
+import { formatLaneDiff } from "@/lib/stats/format";
 import { filterStatsRowsByPlayerKeys, playerKey } from "@/lib/stats/scope";
 import type { PlayerAggRow } from "@/lib/stats/types";
 import type { PhaseFilter } from "./SeasonSelect";
@@ -33,9 +34,15 @@ type ColumnKey =
   | "avg_dmg_share_pct"
   | "avg_dmg_taken_per_min"
   | "avg_vision_per_min"
-  | "avg_cs_at_10"
-  | "avg_gold_at_10"
-  | "avg_xp_at_10"
+  | "avg_cs_diff_10"
+  | "avg_gold_diff_10"
+  | "avg_xp_diff_10"
+  | "avg_cs_diff_15"
+  | "avg_gold_diff_15"
+  | "avg_xp_diff_15"
+  | "avg_cs_diff_20"
+  | "avg_gold_diff_20"
+  | "avg_xp_diff_20"
   | "avg_solo_kills"
   | "total_solo_kills"
   | "total_plates"
@@ -47,6 +54,46 @@ type ColumnKey =
   | "avg_game_duration";
 
 type Column = SortableColumn<PlayerAggRow, ColumnKey>;
+
+/**
+ * Laning, as a difference against the lane opponent at each mark.
+ *
+ * These read off stats_player_agg's diff columns (migration
+ * 20261008000001), which resolve the opponent as the other row in the same
+ * game, in the same role, on the other side. They replaced the old CS@10 /
+ * Gold@10 / XP@10 averages here because a raw at-10 number is not
+ * comparable across roles or game lengths, which is exactly what a
+ * leaderboard column is for.
+ *
+ * A null diff is a mark nobody reached, or a game with no opposite number
+ * logged — not an even lane. It displays as "—" and sorts to the far end,
+ * so a descending sort ranks measured lanes and leaves the unmeasured at
+ * the bottom rather than mixing them in at zero.
+ */
+const LANE_COLUMNS: Column[] = ([10, 15, 20] as const).flatMap((mark) => {
+  const column = (
+    key: ColumnKey,
+    label: string,
+    pick: (r: PlayerAggRow) => number | null | undefined,
+    digits: 0 | 1,
+  ): Column => ({
+    key,
+    label,
+    numeric: true,
+    // An unmeasured lane sorts to the far end rather than sitting among the
+    // even ones at zero, so a descending sort ranks the lanes that exist.
+    sortValue: (r) => {
+      const value = pick(r);
+      return typeof value === "number" && Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+    },
+    display: (r) => formatLaneDiff(pick(r), digits),
+  });
+  return [
+    column(`avg_cs_diff_${mark}` as ColumnKey, `CSD@${mark}`, (r) => r[`avg_cs_diff_${mark}`], 1),
+    column(`avg_gold_diff_${mark}` as ColumnKey, `GD@${mark}`, (r) => r[`avg_gold_diff_${mark}`], 0),
+    column(`avg_xp_diff_${mark}` as ColumnKey, `XPD@${mark}`, (r) => r[`avg_xp_diff_${mark}`], 0),
+  ];
+});
 
 // Column order per the brief: Player, Role, Games, WR%, KDA, K/D/A avg,
 // KP%, CS/m, Gold/m, DMG/m, DMG%, VS/m. No team column (per-season
@@ -167,27 +214,7 @@ const COLUMNS: Column[] = [
     sortValue: (r) => r.avg_dmg_taken_per_min,
     display: (r) => Math.round(r.avg_dmg_taken_per_min).toLocaleString(),
   },
-  {
-    key: "avg_cs_at_10",
-    label: "CS@10",
-    numeric: true,
-    sortValue: (r) => r.avg_cs_at_10,
-    display: (r) => r.avg_cs_at_10.toFixed(1),
-  },
-  {
-    key: "avg_gold_at_10",
-    label: "Gold@10",
-    numeric: true,
-    sortValue: (r) => r.avg_gold_at_10,
-    display: (r) => Math.round(r.avg_gold_at_10).toLocaleString(),
-  },
-  {
-    key: "avg_xp_at_10",
-    label: "XP@10",
-    numeric: true,
-    sortValue: (r) => r.avg_xp_at_10,
-    display: (r) => Math.round(r.avg_xp_at_10).toLocaleString(),
-  },
+  ...LANE_COLUMNS,
   {
     key: "avg_solo_kills",
     label: "Solo/g",
@@ -281,7 +308,15 @@ const COLUMN_GROUPS: { title: string; keys: ColumnKey[] }[] = [
   { title: "Core", keys: ["games", "winrate_pct", "kda", "kda_avg", "avg_game_duration"] },
   { title: "Combat", keys: ["avg_kills", "avg_deaths", "avg_assists", "avg_kp_pct", "avg_solo_kills", "total_solo_kills", "first_blood_involvements"] },
   { title: "Damage", keys: ["avg_dmg_per_min", "avg_dmg_share_pct", "avg_dmg_taken_per_min"] },
-  { title: "Economy", keys: ["avg_cs_per_min", "avg_gold_per_min", "avg_cs_at_10", "avg_gold_at_10", "avg_xp_at_10", "total_plates"] },
+  { title: "Economy", keys: ["avg_cs_per_min", "avg_gold_per_min", "total_plates"] },
+  {
+    title: "Laning (diff vs opponent)",
+    keys: [
+      "avg_cs_diff_10", "avg_gold_diff_10", "avg_xp_diff_10",
+      "avg_cs_diff_15", "avg_gold_diff_15", "avg_xp_diff_15",
+      "avg_cs_diff_20", "avg_gold_diff_20", "avg_xp_diff_20",
+    ],
+  },
   { title: "Vision", keys: ["avg_vision_per_min"] },
   { title: "Multikills", keys: ["total_doubles", "total_triples", "total_quadras", "total_pentas"] },
 ];
