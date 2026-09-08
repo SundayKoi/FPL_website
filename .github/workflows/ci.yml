@@ -22,10 +22,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
+      - name: Check migration history and ordering
+        env:
+          MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/check-migrations.mjs "$MIGRATION_BASE" HEAD
       - run: npm ci
       # tsconfig includes .next/types, where Next generates the route types
       # (LayoutProps, PageProps). A fresh checkout has none, so generate them
