@@ -28,8 +28,10 @@ export const PACK_COST = 200;
 /** Cards per pack. */
 export const PACK_SIZE = 5;
 
-/** A standard pack becomes a God Pack on exactly one integer draw out of 750. */
-export const GOD_PACK_ODDS_DENOMINATOR = 750;
+/** A standard pack becomes a God Pack on exactly one integer draw out of
+ *  1,500 (it was 750 until 2026-09-08 — the whole board got stingier when
+ *  earning dollars stopped being hard). */
+export const GOD_PACK_ODDS_DENOMINATOR = 1500;
 export const GOD_PACK_CHANCE = 1 / GOD_PACK_ODDS_DENOMINATOR;
 
 export type PackVariant = "standard" | "god";
@@ -61,62 +63,77 @@ export const RARITY_BY_TIER: Record<CardTierKey, RarityClass> = {
  * Per-slot class odds, as relative weights (they happen to sum to 100, but
  * the roller normalizes, so they don't have to).
  *
- * Tuned for "rewarding but rare" (2026-08-23 balance pass, down from
- * 62/24/10/4): a pack averages ~1.25 rare-or-better pulls, a Diamond
- * appears in roughly every 5th pack, and a legendary in ~1 in 20 slots'
- * packs (~5% per pack before the bad-beat guarantee's small tail) — an
- * event, not an expectation. Steeper than this and most packs feel like
- * blanks; flatter and the top of the collection stops meaning anything.
+ * Tuned for "rewarding but rare" (2026-09-08 balance pass, down from
+ * 75/20/4/1, which was itself down from 62/24/10/4): a pack averages ~0.9
+ * rare-or-better pulls, a Diamond appears in roughly every 8th pack (11.9%
+ * of packs), and a legendary in ~1 in 200 slots (~2.5% per pack, one pack
+ * in forty, before the bad-beat guarantee's small tail) — an event, not an
+ * expectation. Steeper than this and most packs feel like blanks; flatter
+ * and the top of the collection stops meaning anything.
+ *
+ * The pass that got here: dollars now arrive from half a dozen routes and
+ * the dust table is forgiving, so the scarce thing has to be the pull.
+ * Weights are fractional on purpose — the roller draws rand() × total and
+ * never assumes integers.
  */
 export const RARITY_WEIGHTS: Record<RarityClass, number> = {
-  common: 75,
-  rare: 20,
-  epic: 4,
-  legendary: 1,
+  common: 82,
+  rare: 15,
+  epic: 2.5,
+  legendary: 0.5,
 };
 
 /** Chance any given pulled card comes out foil — a cosmetic variant, rolled
- *  independently of rarity so a foil bronze is a real (if modest) pull. */
-export const FOIL_CHANCE = 0.06;
+ *  independently of rarity so a foil bronze is a real (if modest) pull. At
+ *  4% a card, about one pack in five carries one (18.5% of packs). (It was
+ *  6% until 2026-09-08.) */
+export const FOIL_CHANCE = 0.04;
 
 /** The foil chance while a Live Drops window is open — being in the room
- *  while the games run is worth half again the shine. Applies to the whole
- *  pack; parallels still roll at their normal weights inside it. */
-export const LIVE_FOIL_CHANCE = 0.09;
+ *  while the games run is worth half again the shine, and this must stay
+ *  exactly 1.5 × FOIL_CHANCE. Applies to the whole pack; parallels still
+ *  roll at their normal weights inside it. (9% until 2026-09-08, against
+ *  the old 6% base.) */
+export const LIVE_FOIL_CHANCE = 0.06;
 
 /** Chance a pulled copy prints in an ALTERNATE skin of the player's
  *  signature champion instead of the base splash. Base is the expected
  *  look, so an alternate print reads as a pull in its own right (about
  *  foil-tier); which alternate is uniform across the champion's validated
  *  catalog, so specific skins on big-catalog champions are genuinely hard
- *  to hit. */
-export const ALT_SKIN_CHANCE = 0.3;
+ *  to hit. One pull in five, and still five times the foil gate — the two
+ *  moved together on 2026-09-08 (it was 30% against a 6% foil). */
+export const ALT_SKIN_CHANCE = 0.2;
 
 /**
  * The alternate-art chance on a SIGNED copy. Deliberately below
  * ALT_SKIN_CHANCE: a signed card is already the pull of the month and
  * always prints foil, so "signed + foil + alt art" is the one print that
- * should be genuinely hard to hit — roughly one in seven signed copies
- * rather than one in three. Raise it to ALT_SKIN_CHANCE to make signed
- * copies roll art exactly like every other pull.
+ * should be genuinely hard to hit — one in ten signed copies rather than
+ * one in five. Raise it to ALT_SKIN_CHANCE to make signed copies roll art
+ * exactly like every other pull. (15% until 2026-09-08.)
  */
-export const SIGNED_ALT_SKIN_CHANCE = 0.15;
+export const SIGNED_ALT_SKIN_CHANCE = 0.1;
 
 /**
  * Chance a pulled card comes out autographed — the pen mark of the player
  * themselves, inked onto that copy forever. Only rolls for players who have
  * actually drawn a signature (card_art_prefs.signature), so the real odds
- * are this times however much of the league has signed. Deliberately an
- * order of magnitude below FOIL_CHANCE: a foil is a nice pull, a signed
- * card is the story you tell about the pack you opened.
+ * are this times however much of the league has signed. Half a percent a
+ * card — 2.5% of packs with the whole league inked — and the best part of
+ * an order of magnitude below FOIL_CHANCE: a foil is a nice pull, a signed
+ * card is the story you tell about the pack you opened. (It was 1% until
+ * 2026-09-08.)
  */
-export const SIGNED_CHANCE = 0.01;
+export const SIGNED_CHANCE = 0.005;
 
 /**
  * Every pack contains at least one card of this class or better. Without it
- * ~24% of packs (0.75^5) would be five commons, which reads as a broken
- * pack rather than a bad roll. Enforced by rng.ts replacing the last slot
- * with a weighted rare-or-better re-roll.
+ * ~37% of packs (0.82^5) would be five commons — it was ~24% before the
+ * 2026-09-08 weights, which is exactly why the guarantee matters more now
+ * than it did — and that reads as a broken pack rather than a bad roll.
+ * Enforced by rng.ts replacing the last slot with a weighted
+ * rare-or-better re-roll.
  */
 export const GUARANTEED_CLASS: RarityClass = "rare";
 
@@ -125,14 +142,15 @@ export const GUARANTEED_CLASS: RarityClass = "rare";
  *
  * Dusting is a floor for duplicates, never an arbitrage loop, and the
  * numbers are set so the arithmetic says so. At the RARITY_WEIGHTS above a
- * single slot dusts for 0.75×10 + 0.20×25 + 0.04×60 + 0.01×150 ≈ $16.4, so
- * a PACK_SIZE of five expects roughly $82 against a PACK_COST of 200 — about
- * 41 cents back on the dollar (a little more once the guaranteed
- * rare-or-better slot and the foil multiplier and autograph bonus are
- * counted, still
- * nowhere near even). Grinding packs to dust therefore burns money; the only
- * thing dusting is good for is turning a fourth copy of the same bronze into
- * something.
+ * single slot dusts for 0.82×10 + 0.15×25 + 0.025×60 + 0.005×150 ≈ $14.2,
+ * so a PACK_SIZE of five expects roughly $71 against a PACK_COST of 200 —
+ * about 36 cents back on the dollar (a little more once the guaranteed
+ * rare-or-better slot, the foil multiplier and the autograph bonus are
+ * counted: ~$8.7, ~$4.8 and ~$30 respectively, so ~$115 all in — 57% of
+ * the ticket, still nowhere near even). The 2026-09-08 weights took the
+ * base from $82 to $71 without touching a single value in this table.
+ * Grinding packs to dust therefore burns money; the only thing dusting is good for is turning a
+ * fourth copy of the same bronze into something.
  *
  * Push these much higher and packs become a money printer for anyone
  * willing to click; push them to zero and dupes are just litter.
@@ -192,20 +210,26 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
 /**
  * Chance an Eclipse falls on a Card-of-the-Week pull.
  *
- * One in two hundred and fifty, and the number only means anything through
- * the gate in front of it. A Card of the Week is the top-rated card in each ROLE — five
- * per week — and because the roller picks uniformly inside a rarity class,
- * one lands in roughly 2-4% of pack SLOTS depending on how top-heavy the
- * league is (a thin league is the HIGHER figure: fewer legendaries means
- * each one is likelier when that class hits). Multiplying through:
+ * One in five hundred, and the number only means anything through the gate
+ * in front of it. A Card of the Week is the top-rated card in each ROLE —
+ * five per week — and because the roller picks uniformly inside a rarity
+ * class, one lands in roughly 1.2-2.4% of pack SLOTS depending on how
+ * top-heavy the league is (a thin league is the HIGHER figure: fewer
+ * legendaries means each one is likelier when that class hits). That slot
+ * share is itself down by a factor of ~0.6 since 2026-09-08, because epic
+ * and legendary between them fell from 5% of the weights to 3% — so an
+ * Eclipse got rarer twice over, once at its own gate and once at the gate
+ * in front of it. Multiplying through:
  *
- *     ~0.4% of Card-of-the-Week pulls
- *   × ~2-4% of slots being one
- *   = roughly 1 Eclipse per 1,250-2,500 packs
+ *     ~0.2% of Card-of-the-Week pulls
+ *   × ~1.2-2.4% of slots being one
+ *   × 5 slots
+ *   = roughly 1 Eclipse per 4,000-8,000 packs
  *
- * Which lands at about one a season at the league's current volume — rare
- * enough that most people never see one, common enough that they exist.
- * (It was 0.5% until 20260907; the league found them a little too often.)
+ * At the league's volume (call it 1,500 packs a season) that is one every
+ * three to five seasons — rare enough that most people never see one,
+ * common enough that they exist. (It was 0.5% until 20260907 and 0.4%
+ * until 2026-09-08; the league found them a little too often, twice.)
  *
  * It is deliberately NOT tuned so that each week reliably produces one. It
  * does not have to: an unclaimed Eclipse stays claimable forever through
@@ -217,7 +241,7 @@ export type MintableFoilType = (typeof FOIL_TYPES)[number];
  * pool, the real odds drift with the league's shape: as more players reach
  * the top tiers, Eclipses quietly get rarer on their own.
  */
-export const ECLIPSE_CHANCE = 1 / 250;
+export const ECLIPSE_CHANCE = 1 / 500;
 
 /** The parallel a Card of the Week wears when the Eclipse gate opens. */
 export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
@@ -228,21 +252,24 @@ export const ECLIPSE_FOIL_TYPE: FoilType = "eclipse";
 export const DEFAULT_FOIL_TYPE: MintableFoilType = "prisma";
 
 /** Relative weights within a foil pull. Multiply by FOIL_CHANCE for the
- *  real per-card odds: Prisma 3.6%, Aurora 1.5%, Refractor 0.72%, Cracked
- *  Ice 0.18% — roughly one Cracked Ice per 111 packs, which puts it just
- *  past a signature (SIGNED_CHANCE, 1%) as the hardest cosmetic to hit. */
+ *  real per-card odds: Prisma 2.8%, Aurora 0.8%, Refractor 0.32%, Cracked
+ *  Ice 0.08% — roughly one Cracked Ice per 250 packs, which keeps it well
+ *  past a signature (SIGNED_CHANCE, 0.5%) as the hardest cosmetic to hit.
+ *  Steepened on 2026-09-08 from 60/25/12/3, so the top of the ladder got
+ *  rarer both from the smaller foil gate and from its own weight. */
 export const FOIL_TYPE_WEIGHTS: Record<MintableFoilType, number> = {
-  prisma: 60,
-  aurora: 25,
-  refractor: 12,
-  ice: 3,
+  prisma: 70,
+  aurora: 20,
+  refractor: 8,
+  ice: 2,
 };
 
 /**
  * Dust multiplier per parallel, replacing the flat FOIL_DUST_MULT.
  *
  * Steeper than the first cut (2 / 2.5 / 3 / 5), which paid Cracked Ice —
- * twenty times rarer than a Prisma — only two and a half times as much.
+ * thirty-five times rarer than a Prisma on the current weights — only two
+ * and a half times as much.
  * Still deliberately SUB-proportional to the drop odds: rarity-true
  * pricing would put Ice past a moment, and the ceiling is the invariant
  * that matters. The top of the ladder takes a legendary from 150 to 975,
@@ -312,10 +339,14 @@ export function rollFoilType(rand: () => number): MintableFoilType {
  * ordinary player.
  *
  * Sized against the money-printer guardrail, not vibes. A pack costs
- * PACK_COST and returns ~$82 in expected dust; signed copies add roughly
- * 0.05 × (this) per pack when the whole league has drawn a signature, so
- * 1200 lands total expected return near 72% of pack cost at worst. Past
- * ~1500 packs start paying for themselves and dusting becomes an income.
+ * PACK_COST and returns ~$71 in expected class dust (~$85 once the
+ * guarantee and the parallels are counted); signed copies add roughly
+ * 0.025 × (this) per pack when the whole league has drawn a signature, so
+ * 1200 lands total expected return near 57% of pack cost at worst — it was
+ * 72% before the 2026-09-08 weights halved the signature gate. The bonus
+ * itself did not move: at the new gate it would take about $4,600 here
+ * before packs paid for themselves, so this number has room it did not
+ * have when the break-even sat at ~1500.
  */
 export const SIGNED_DUST_BASE = 1200;
 
@@ -331,40 +362,45 @@ export const SIGNED_DUST_BASE = 1200;
 
 /**
  * Shiny — the same card in the wrong colours: the art hue-shifted, a
- * sparkle burst over it. One in sixty-four, the number every collector
- * already knows from the game that invented the idea. That is 7.6% of
- * packs, a little rarer than a foil (FOIL_CHANCE × PACK_SIZE ≈ 30% of
- * packs): a shiny is a thing you tell the channel about, not a thing you
- * expect from a night of ripping.
+ * sparkle burst over it. One in a hundred and twenty-eight: twice the
+ * number every collector already knows from the game that invented the
+ * idea, which is the shape a stingier league takes (it was 1 in 64 until
+ * 2026-09-08). That is 3.8% of packs against a foil's 18.5%, so a shiny
+ * is a thing you tell the channel about, not a thing you expect from a
+ * night of ripping.
  */
-export const SHINY_CHANCE = 1 / 64;
+export const SHINY_CHANCE = 1 / 128;
 
 /** What a Shiny does to dust: half again. Less than the Aurora rung (×3):
  *  it is a colour, not a parallel, and the money-printer guardrail (see
- *  SIGNED_DUST_BASE) has no room for another doubling on a 1-in-64 gate. */
+ *  SIGNED_DUST_BASE) has no room for another doubling on a 1-in-128
+ *  gate. */
 export const SHINY_DUST_MULT = 1.5;
 
 /**
  * StatTrak — a counter on the copy that tracks the pictured player's
  * Fantasy Pts for every game played while it is in YOUR hands, fielded
- * or not, and resets when it changes hands. One in fifty, roughly
- * one pack in ten: common enough that most collectors will hold one, rare
- * enough that a high count is a story about a card somebody kept fielding.
+ * or not, and resets when it changes hands. One in a hundred, roughly one
+ * pack in twenty (4.9%, and it was one in fifty until 2026-09-08): common
+ * enough that most collectors will hold one eventually, rare enough that a
+ * high count is a story about a card somebody kept fielding.
  * Worth nothing extra to dust: the counter is the value, and a counter
  * you have not run up yet is worth exactly what the card under it is.
  */
-export const STATTRAK_CHANCE = 0.02;
+export const STATTRAK_CHANCE = 0.01;
 
 /**
  * Secret — a print numbered past the checklist. Numbered from the top of
  * the collection: in a season of 120 cards, the first Secret found is
- * #121/120, the next #122/120. One in five hundred per card, one per
- * thousand packs' worth of prints — half the Eclipse gate's rate
- * (ECLIPSE_CHANCE, 0.4%) but on ANY player card rather than the Card of
+ * #121/120, the next #122/120. One in a thousand per card, so about one
+ * pack in two hundred carries one — half the Eclipse gate's rate
+ * (ECLIPSE_CHANCE, 0.2%) but on ANY player card rather than the Card of
  * the Week, so it is the rarest thing an ordinary pull can be. Announced
  * to the channel when it lands, like an Eclipse. At most one per pack.
+ * (It was 1 in 500 until 2026-09-08; the halved gate keeps it exactly half
+ * the Eclipse rate, which is the relation that matters here.)
  */
-export const SECRET_CHANCE = 0.002;
+export const SECRET_CHANCE = 0.001;
 
 /**
  * The Dribb card — five, ever.
@@ -372,19 +408,21 @@ export const SECRET_CHANCE = 0.002;
  * Not a player: Dribb, a 99 in every column, on Bard, in the Aether Rift
  * treatment nothing else wears (src/lib/cards/dribb.ts). Rolled ONCE PER
  * PACK, on every standard pack in every week's edition, and when it lands
- * it takes the pack's last slot. One in five thousand packs — at the
- * league's volume one turns up every few months, and the five will take
- * years to find. Once the fifth is minted the gate closes for good: the
- * roller reads the count before it mints, and a partial unique index on
- * the copy's number (migration 20260929000001) is what makes "five" a
- * fact rather than a promise. Never dusts, never auto-dusts, never boards
- * a route that can lose it; it can be traded, which is the point.
+ * it takes the pack's last slot. One in ten thousand packs (it was one in
+ * five thousand until 2026-09-08) — at the league's volume, call it 1,500
+ * packs a season, one turns up somewhere around every seventh season, and
+ * the five will take a lifetime of the league to find. Once the fifth is
+ * minted the gate closes for good: the roller reads the count before it
+ * mints, and a partial unique index on the copy's number (migration
+ * 20260929000001) is what makes "five" a fact rather than a promise.
+ * Never dusts, never auto-dusts, never boards a route that can lose it;
+ * it can be traded, which is the point.
  *
  * A SECRET. Nothing player-facing says it exists — not the rarities page,
  * not the stats page. The first anyone hears of it is the announcement
  * when one lands. The admin mockup page is staff-only.
  */
-export const DRIBB_CHANCE = 1 / 5000;
+export const DRIBB_CHANCE = 1 / 10000;
 export const DRIBB_COPIES = 5;
 /** The tier column a Dribb copy files under, like a moment's "moment":
  *  it must never price or sort as an ordinary card of any tier. */
@@ -393,8 +431,8 @@ export const DRIBB_TIER = "dribb";
 /** What a Secret does to dust: doubles it, over the parallel. On any
  *  ordinary tier the whole stack (Cracked Ice, Shiny, Secret) still prices
  *  under what a signature adds; only a Secret Cracked Ice challenger beats
- *  the autograph, and that is a 1-in-500 on a 1-in-555 on a 1-in-100 —
- *  a card the league may never see. The guardrail (SIGNED_DUST_BASE)
+ *  the autograph, and that is a 1-in-1,000 on a 1-in-1,250 on a 1-in-200 —
+ *  a card the league will never see. The guardrail (SIGNED_DUST_BASE)
  *  holds: at these gates the finishes add under a dollar to a pack's
  *  expected dust. */
 export const SECRET_DUST_MULT = 2;
@@ -490,7 +528,7 @@ export function dustValueOf(row: {
  *
  * The one patron perk that touches money, sized against the same
  * money-printer guardrail as everything in this file: at ×1.2 a pack's
- * expected dust return moves from ~41% to ~49% of its cost — a smaller
+ * expected class dust moves from ~36% to ~43% of its cost — a smaller
  * loss, never an income. Applied at DUST time off patron status, so a
  * lapsed patronage stops paying immediately and nothing is stamped on
  * the copies themselves.

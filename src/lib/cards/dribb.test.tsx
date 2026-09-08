@@ -9,12 +9,12 @@ import { canDust, dustValueOf, PACK_SIZE } from "@/lib/packs/config";
 afterEach(cleanup);
 
 describe("the Dribb card", () => {
-  it("is one in five thousand packs, five ever, filed under its own tier", () => {
-    expect(DRIBB_CHANCE).toBe(1 / 5000);
+  it("is one in ten thousand packs, five ever, filed under its own tier", () => {
+    expect(DRIBB_CHANCE).toBe(1 / 10000);
     expect(DRIBB_COPIES).toBe(5);
     expect(DRIBB_TIER).toBe("dribb");
-    // Once per PACK, not per card: five thousand packs, not a thousand.
-    expect(Math.round(1 / DRIBB_CHANCE)).toBe(5000 * PACK_SIZE / PACK_SIZE);
+    // Once per PACK, not per card: ten thousand packs, not two thousand.
+    expect(Math.round(1 / DRIBB_CHANCE)).toBe(10000 * PACK_SIZE / PACK_SIZE);
   });
 
   it("rolls off one rand, and only lands under the gate", () => {

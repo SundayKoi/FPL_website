@@ -95,6 +95,14 @@ function tiersOf(rarity: RarityClass): string {
     .join(", ");
 }
 
+/** "82%" or "2.5%" — a class weight as the page prints it. Whole numbers
+ *  read better, but rounding a 0.5% class up to 1% would print odds the
+ *  shop does not pay, so anything under 10% keeps its decimal. */
+function pctOfCards(chance: number): string {
+  const pct = chance * 100;
+  return `${pct >= 10 ? Math.round(pct) : Number(pct.toFixed(1))}%`;
+}
+
 function times(mult: number): string {
   return `×${Number.isInteger(mult) ? mult : mult.toFixed(1).replace(/\.0$/, "")}`;
 }
@@ -115,7 +123,7 @@ export function rarityGuide(season: string | null, league: "premier" | "academy"
         rarity === GUARANTEED_CLASS
           ? "Rolled per card by weight — and every pack's last slot is re-rolled to at least this class, so no pack is five commons."
           : "Rolled per card by weight.",
-      odds: `${Math.round(chance * 100)}% of cards`,
+      odds: `${pctOfCards(chance)} of cards`,
       value: `Dusts for $${DUST_VALUES[rarity]}.`,
     };
   });

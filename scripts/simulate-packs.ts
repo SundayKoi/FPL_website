@@ -84,7 +84,7 @@ interface Observed {
   eclipse: number;
   longestFoilRun: number;
   /** Copies pulled inside a Live Drops window, and how many of them foiled —
-   *  the split that explains an observed foil rate above the base 6%. */
+   *  the split that explains an observed foil rate above the base 4%. */
   live: { copies: number; foil: number };
   byWeek: Map<string, { copies: number; crowned: number; eclipse: number; foil: number }>;
   /** Per calendar day (UTC) the copies were pulled: volume and foil rate,
@@ -334,7 +334,7 @@ async function main() {
   console.log(`  Card of the Week${pct(obs.crowned, obs.copies).padStart(9)} of copies`);
   console.log(`  Eclipse         ${String(obs.eclipse).padStart(9)} minted · ${pct(obs.eclipse, obs.crowned)} of crowned copies (config ${(ECLIPSE_CHANCE * 100).toFixed(2)}%) · ${oneIn(obs.eclipse, Math.round(obs.copies / PACK_SIZE))} packs`);
   console.log(`  longest run of foils in a row, by pull order: ${obs.longestFoilRun}`);
-  console.log(`\n  signed copies by player (signed / all copies of that player — expect ~1% where ink is on file, 0% elsewhere):`);
+  console.log(`\n  signed copies by player (signed / all copies of that player — expect ~${(SIGNED_CHANCE * 100).toFixed(1)}% where ink is on file, 0% elsewhere):`);
   const inkedSlugs = [...obs.bySlug.entries()].filter(([, per]) => per.signed > 0).sort((a, b) => b[1].signed - a[1].signed);
   for (const [slug, per] of inkedSlugs) {
     console.log(`    ${slug.padEnd(24)} ${String(per.signed).padStart(4)} / ${String(per.copies).padStart(5)}  ${pct(per.signed, per.copies).padStart(8)}${per.eclipses ? `  · ${per.eclipses} Eclipse${per.eclipses === 1 ? "" : "s"}` : ""}`);

@@ -47,9 +47,10 @@ function scripted(values: number[]): () => number {
   };
 }
 
-/** Class thresholds over weights {75, 20, 4, 1} (cumulative 0.75 / 0.95 /
- *  0.99 / 1): these rand values land in common / rare / epic / legendary. */
-const CLASS = { common: 0.5, rare: 0.8, epic: 0.96, legendary: 0.995 };
+/** Class thresholds over weights {82, 15, 2.5, 0.5} (cumulative 0.82 /
+ *  0.97 / 0.995 / 1): these rand values land in common / rare / epic /
+ *  legendary. */
+const CLASS = { common: 0.5, rare: 0.9, epic: 0.98, legendary: 0.999 };
 const NO_FOIL = 0.5;
 const FIRST = 0;
 
@@ -151,9 +152,9 @@ describe("rollPack", () => {
   });
 
   it("rolls the guarantee across rare-and-better classes by weight, not from the top", () => {
-    // Eligible classes here are rare (20) and legendary (1): renormalized,
-    // rare owns [0, 20/21) of the ticket. A middling roll upgrades to a
-    // platinum; only the tail of the ticket hands out the Master — the old
+    // Eligible classes here are rare (15) and legendary (0.5):
+    // renormalized, rare owns [0, 15/15.5) of the ticket. A middling roll
+    // upgrades to a platinum; only the tail hands out the Master — the old
     // best-class behavior made the league's rarest card the GUARANTEED pull
     // of every bad-beat pack, which inverted rarity.
     const pool = [card("bronzey", "bronze"), card("platty", "platinum"), card("mastery", "master")];
@@ -223,7 +224,7 @@ describe("rollPack", () => {
   });
 
   it("spends only two rand values on a card that is not foil", () => {
-    // The parallel roll is conditional so the 94% of pulls that are matte
+    // The parallel roll is conditional so the 96% of pulls that are matte
     // leave the sequence exactly where it has always been. A scripted queue
     // this tight fails loudly if that stops being true.
     expect(() =>
@@ -263,22 +264,22 @@ describe("rollPack", () => {
 
 describe("the Live Drops foil override", () => {
   it("moves only the threshold — the rand sequence stays put", () => {
-    // 0.07 misses the normal 6% but lands inside a boosted 9%. Same
+    // 0.05 misses the normal 4% but lands inside a boosted 6%. Same
     // scripted values both times; only the verdict differs.
     // Hand-built: the slot() helper keys its optional 4th value off the
     // NORMAL threshold, and this foil only exists under the boosted one.
     const values = [
-      ...[CLASS.rare, FIRST, 0.07, 0],
+      ...[CLASS.rare, FIRST, 0.05, 0],
       ...[CLASS.rare, FIRST, 0.5],
       ...[CLASS.rare, FIRST, 0.5],
       ...[CLASS.rare, FIRST, 0.5],
       ...[CLASS.rare, FIRST, 0.5],
     ];
-    const boosted = rollPack(fullPool, scripted(values), 0.09);
+    const boosted = rollPack(fullPool, scripted(values), 0.06);
     expect(boosted[0].foil).toBe(true);
 
     const normalValues = [
-      ...[CLASS.rare, FIRST, 0.07],
+      ...[CLASS.rare, FIRST, 0.05],
       ...[CLASS.rare, FIRST, 0.5],
       ...[CLASS.rare, FIRST, 0.5],
       ...[CLASS.rare, FIRST, 0.5],

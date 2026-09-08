@@ -4,7 +4,7 @@ export type DraftSide = "blue" | "red";
 export type DraftActionKind = "pick" | "ban";
 export type MatchDraftStatus = "drafting" | "complete";
 export type MatchDraftLayout = "stage" | "board";
-export type MatchDraftImageSize = "xs" | "sm" | "md" | "lg";
+export type MatchDraftImageSize = "md" | "lg";
 
 export interface MatchDraftTeam extends TeamIdentity {
   players: string[];
@@ -28,6 +28,9 @@ export interface MatchDraftAction {
   /** True when the step was skipped rather than drafted. */
   skipped?: boolean;
   playerName?: string | null;
+  /** Timing audit data written by the authoritative draft RPCs. */
+  overtimeSeconds?: number;
+  pendingOvertimeBeforeSeconds?: number;
 }
 
 /** Post-draft role confirmation: each side's five champions in role order
@@ -54,6 +57,10 @@ export interface MatchDraftRow {
   layout: MatchDraftLayout;
   current_step_index: number;
   turn_started_at: string | null;
+  turn_deadline_at: string | null;
+  turn_allowance_seconds: number | null;
+  blue_pending_overtime_seconds: number;
+  red_pending_overtime_seconds: number;
   blue_team_name: string | null;
   red_team_name: string | null;
   blue_ready: boolean;
@@ -74,6 +81,10 @@ export interface MatchDraftState {
   layout: MatchDraftLayout;
   currentStepIndex: number;
   turnStartedAt: string | null;
+  turnDeadlineAt: string | null;
+  turnAllowanceSeconds: number | null;
+  bluePendingOvertimeSeconds: number;
+  redPendingOvertimeSeconds: number;
   blueTeam: MatchDraftTeam;
   redTeam: MatchDraftTeam;
   scheduledTeams: [MatchDraftTeam, MatchDraftTeam];

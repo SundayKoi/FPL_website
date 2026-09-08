@@ -134,7 +134,7 @@ describe("opponent scouting derivation", () => {
     expanded.drafts = [{
       ...expanded.drafts[0],
       actions: [{
-        stepIndex: 11, side: "blue", kind: "pick", slot: 3,
+        stepIndex: 10, side: "blue", kind: "pick", slot: 3,
         champion: "Nautilus", playerName: "Alpha Support",
       }],
     }];
@@ -229,7 +229,7 @@ describe("opponent scouting derivation", () => {
     expect(data.pairings.find((row) => row.champion === "Ahri + Vi")).toEqual({ champion: "Ahri + Vi", count: 3 });
   });
 
-  it("attributes unlabelled confirmed-role picks to the matching current-roster player", () => {
+  it("does not treat current roster roles as proof of historical participation", () => {
     const attributed = structuredClone(source);
     attributed.teamName = "Night Vale";
     attributed.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
@@ -245,7 +245,113 @@ describe("opponent scouting derivation", () => {
     }];
 
     expect(deriveScoutData(attributed, "all").playerPools[0]).toMatchObject({
-      playerName: "Northstar", champions: [{ champion: "Ahri", count: 1 }], totalPicks: 1,
+      playerName: "Northstar", champions: [], totalPicks: 0, riotConfirmedPicks: 0, draftOnlyPicks: 0,
+    });
+  });
+
+  it("credits a covered game only to the uniquely resolved Riot participant", () => {
+    const reproduced = structuredClone(source);
+    reproduced.opponentName = "Academy Team";
+    reproduced.teamName = "Academy Team";
+    reproduced.roster = [
+      { id: "top", displayName: "Academy Top", role: "top" },
+      { id: "mid", displayName: "Academy Mid", role: "mid" },
+    ];
+    reproduced.fixtures = [{ ...fixture("f1"), team_a: "Academy Team", team_b: "Opponent" }];
+    reproduced.drafts = [{
+      ...reproduced.drafts[0],
+      fixture_id: "f1",
+      blue_team_name: "Academy Team",
+      red_team_name: "Opponent",
+      actions: actions("Ahri").map((action) => ({ ...action, playerName: null })),
+      positions: { blue: [null, null, "Ahri", null, null] },
+    }];
+    reproduced.ingestedScouting = {
+      games: [{
+        playerId: "top", playerName: "Academy Top", role: "top", champion: "Ahri",
+        fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue",
+      }],
+      coverage: [{
+        playerId: "top", summonerName: "Academy Top", tag: "NA1", champion: "Ahri",
+        fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue",
+      }],
+    };
+
+    const pools = deriveScoutData(reproduced, "season").playerPools;
+    expect(pools.find((row) => row.playerName === "Academy Top")).toMatchObject({
+      champions: [{ champion: "Ahri", count: 1 }], riotConfirmedPicks: 1, draftOnlyPicks: 0,
+    });
+    expect(pools.find((row) => row.playerName === "Academy Mid")).toMatchObject({
+      champions: [], totalPicks: 0, riotConfirmedPicks: 0, draftOnlyPicks: 0,
+    });
+  });
+
+  it("lets Riot ownership override a conflicting explicit draft name", () => {
+    const conflicting = structuredClone(source);
+    conflicting.opponentName = "Academy Team";
+    conflicting.teamName = "Academy Team";
+    conflicting.roster = [
+      { id: "top", displayName: "Academy Top", role: "top" },
+      { id: "mid", displayName: "Academy Mid", role: "mid" },
+    ];
+    conflicting.fixtures = [{ ...fixture("f1"), team_a: "Academy Team", team_b: "Opponent" }];
+    conflicting.drafts = [{
+      ...conflicting.drafts[0], fixture_id: "f1", blue_team_name: "Academy Team", red_team_name: "Opponent",
+      actions: actions("Ahri").map((action) => action.stepIndex === 6 ? { ...action, playerName: "Academy Mid" } : action),
+    }];
+    conflicting.ingestedScouting = {
+      games: [{ playerId: "top", playerName: "Academy Top", role: "top", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" }],
+      coverage: [{ playerId: "top", summonerName: "Academy Top", tag: "NA1", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" }],
+    };
+
+    const pools = deriveScoutData(conflicting, "season").playerPools;
+    expect(pools.find((row) => row.playerName === "Academy Top")?.champions).toEqual([{ champion: "Ahri", count: 1 }]);
+    expect(pools.find((row) => row.playerName === "Academy Mid")?.totalPicks).toBe(0);
+  });
+
+  it("deduplicates identical Riot rows and drops conflicting participant champions", () => {
+    const duplicated = structuredClone(source);
+    duplicated.opponentName = "Academy Team";
+    duplicated.roster = [
+      { id: "top", displayName: "Academy Top", role: "top" },
+      { id: "mid", displayName: "Academy Mid", role: "mid" },
+    ];
+    duplicated.fixtures = [{ ...fixture("f1"), team_a: "Academy Team", team_b: "Opponent" }];
+    duplicated.drafts = [{ ...duplicated.drafts[0], fixture_id: "f1", blue_team_name: "Academy Team", red_team_name: "Opponent", actions: actions("Ahri").map((action) => ({ ...action, playerName: null })) }];
+    duplicated.ingestedScouting = {
+      games: [
+        { playerId: "top", playerName: "Academy Top", role: "top", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "top", playerName: "Academy Top", role: "top", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "mid", playerName: "Academy Mid", role: "mid", champion: "Orianna", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "mid", playerName: "Academy Mid", role: "mid", champion: "Syndra", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+      ],
+      coverage: [
+        { playerId: "top", summonerName: "Academy Top", tag: "NA1", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "top", summonerName: "Academy Top", tag: "NA1", champion: "Ahri", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "mid", summonerName: "Academy Mid", tag: "NA1", champion: "Orianna", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+        { playerId: "mid", summonerName: "Academy Mid", tag: "NA1", champion: "Syndra", fixtureId: "f1", season: "S5", matchId: "m1", gameDate: "2026-08-01", gameNumber: 1, teamSide: "blue" },
+      ],
+    };
+
+    const pools = deriveScoutData(duplicated, "season").playerPools;
+    expect(pools.find((row) => row.playerName === "Academy Top")).toMatchObject({ champions: [{ champion: "Ahri", count: 1 }], totalPicks: 1 });
+    expect(pools.find((row) => row.playerName === "Academy Mid")).toMatchObject({ champions: [], totalPicks: 0 });
+  });
+
+  it("rejects an opposing-side namesake before draft attribution", () => {
+    const namesake = structuredClone(source);
+    namesake.roster = [{ id: "same", displayName: "Same Name", role: "mid" }];
+    namesake.drafts = [{
+      ...namesake.drafts[0],
+      actions: actions("Ahri").map((action) => action.stepIndex === 6
+        ? { ...action, playerName: "Same Name" }
+        : action.stepIndex === 7
+          ? { ...action, champion: "Ahri", playerName: "Same Name" }
+          : action),
+    }];
+
+    expect(deriveScoutData(namesake, "season").playerPools[0]).toMatchObject({
+      champions: [{ champion: "Ahri", count: 1 }], totalPicks: 1, draftOnlyPicks: 1,
     });
   });
 
@@ -332,7 +438,7 @@ describe("opponent scouting derivation", () => {
       ...partial.drafts[0],
       actions: [
         { stepIndex: 6, side: "blue", kind: "pick", slot: 1, playerName: "Hollowpoint", champion: "Gnar" },
-        { stepIndex: 8, side: "blue", kind: "pick", slot: 2, playerName: "Northstar", champion: "Ahri" },
+        { stepIndex: 9, side: "blue", kind: "pick", slot: 2, playerName: "Northstar", champion: "Ahri" },
       ],
     }];
     partial.ingestedGames = [{
@@ -347,7 +453,11 @@ describe("opponent scouting derivation", () => {
     }];
 
     const pools = deriveScoutData(partial, "all").playerPools;
-    expect(pools.find((row) => row.playerName === "Northstar")).toMatchObject({ champions: [{ champion: "Orianna", count: 1 }] });
+    expect(pools.find((row) => row.playerName === "Northstar")).toMatchObject({
+      champions: [{ champion: "Ahri", count: 1 }, { champion: "Orianna", count: 1 }],
+      riotConfirmedPicks: 1,
+      draftOnlyPicks: 1,
+    });
     expect(pools.find((row) => row.playerName === "Hollowpoint")).toMatchObject({ champions: [{ champion: "Gnar", count: 1 }] });
   });
 });

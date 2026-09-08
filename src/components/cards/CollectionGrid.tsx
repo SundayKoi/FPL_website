@@ -39,13 +39,16 @@ import { printRunKey } from "@/lib/packs/printRuns";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { editionLabel } from "@/lib/packs/week";
 import {
+  ALT_SKIN_CHANCE,
   canDust,
   DEFAULT_FOIL_TYPE,
   ECLIPSE_FOIL_TYPE,
+  FOIL_CHANCE,
   FOIL_TYPE_LABELS,
   foilTypeOf,
   MAX_DUST_BATCH,
   patronDustValue,
+  SIGNED_CHANCE,
 } from "@/lib/packs/config";
 import { fmtPoints } from "@/lib/betting/format";
 import { dustManyAction } from "@/lib/trades/actions";
@@ -104,11 +107,13 @@ const FILTERS: { key: VariantFilter; label: string }[] = [
 ];
 
 /** Each empty state names the odds, because "you have none" and "these are
- *  hard to get" are the same sentence in a pack economy. */
+ *  hard to get" are the same sentence in a pack economy. Read off the
+ *  gates that actually roll, so a balance pass can never leave a stale
+ *  number on the shelf. */
 const EMPTY_COPY: Record<Exclude<VariantFilter, "all">, string> = {
-  foil: "No foils yet — they're a 6% pull.",
-  signed: "No signed cards yet — 1-in-100 pulls of players who signed.",
-  alt: "No alternate prints yet — 30% of pulls come in an alternate skin.",
+  foil: `No foils yet — they're a ${Math.round(FOIL_CHANCE * 100)}% pull.`,
+  signed: `No signed cards yet — 1-in-${Math.round(1 / SIGNED_CHANCE)} pulls of players who signed.`,
+  alt: `No alternate prints yet — ${Math.round(ALT_SKIN_CHANCE * 100)}% of pulls come in an alternate skin.`,
 };
 
 /** The skin this copy printed in; 0 is the champion's base splash. Read off

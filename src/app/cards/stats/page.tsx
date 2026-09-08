@@ -96,7 +96,7 @@ export async function CardStatsPageView({ league = "premier" }: { league?: CardL
 
       {stats && stats.pulled.cards > 0 ? (
         // The true rates. Every figure here is a MINT, read from provenance,
-        // which the melt cannot reach — so "1 in 100 signed" stays 1 in 100
+        // which the melt cannot reach — so "1 in 200 signed" stays 1 in 200
         // however many commons were dusted around it. Beside each, the gate
         // the shop rolls at, so the league can see the dice against the
         // book. Player cards only: moments, plates and relics are not pack

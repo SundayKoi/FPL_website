@@ -1,8 +1,9 @@
 import { stageMeta } from "@/lib/schedule/format";
 import type { FixtureRow } from "@/lib/schedule/types";
 import type { DraftActionKind, DraftStep, MatchDraftAction, MatchDraftLink, DraftSide } from "./types";
+import { DRAFT_TURN_SECONDS } from "./timing";
 
-export const DRAFT_TURN_SECONDS = 30;
+export { DRAFT_TURN_SECONDS } from "./timing";
 
 const step = (
   index: number,

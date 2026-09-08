@@ -118,7 +118,7 @@ export function DraftPickSlot({
           {side}
         </span>
       </div>
-      <p title={championLabel} className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
+      <p title={championLabel} className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} mt-4 text-base`}>
         {championLabel}
       </p>
       {pick.playerName ? <p title={pick.playerName} className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
@@ -387,9 +387,11 @@ export function DraftMatchupBoard({
           style={{ "--draft-side-width": "clamp(20rem, 23vw, 28rem)" } as CSSProperties}
         >
           <div className="order-1 min-w-0">{blue}</div>
-          <div className="order-3 col-span-1 min-w-0 min-[640px]:col-span-2 xl:order-2 xl:col-span-1">
-            <div className="mb-3 min-w-0">{renderCompactRail ? renderCompactRail() : rail}</div>
-            {children}
+          <div className="order-3 col-span-1 min-w-0 min-[640px]:col-span-2 xl:relative xl:order-2 xl:col-span-1 xl:min-h-0 xl:overflow-hidden">
+            <div className="mb-3 min-w-0 xl:absolute xl:inset-0 xl:mb-0 xl:flex xl:min-h-0 xl:flex-col">
+              <div className="mb-3 min-w-0 shrink-0">{renderCompactRail ? renderCompactRail() : rail}</div>
+              <div className="min-h-0 flex-1">{children}</div>
+            </div>
           </div>
           <div className="order-2 min-w-0 min-[640px]:order-2 min-[640px]:col-span-1 xl:order-3">{red}</div>
         </div>

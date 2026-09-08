@@ -395,11 +395,12 @@ export const MOMENT_DUST = 1000;
  * Chance that a pack contains a moment, when one exists for the week being
  * opened.
  *
- * Deliberately checked per PACK, not per card: at 2% roughly one pack in
- * fifty carries one, and a week with two moments minted has them competing
- * for that single slot rather than each rolling separately.
+ * Deliberately checked per PACK, not per card: at 1% roughly one pack in
+ * a hundred carries one, and a week with two moments minted has them
+ * competing for that single slot rather than each rolling separately.
+ * (It was 2% — one pack in fifty — until 2026-09-08.)
  */
-export const MOMENT_PULL_CHANCE = 0.02;
+export const MOMENT_PULL_CHANCE = 0.01;
 
 /** The card-shaped wrapper a pulled moment is stored and rendered as.
  *

@@ -121,7 +121,7 @@ describe("My Team scouting page", () => {
   it("uses the server-resolved ordinary player's opponent and league-scoped history", async () => {
     loadMyTeamDashboard.mockResolvedValue(ready());
     fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
-    fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
     fetchInhousePlayerStats.mockResolvedValue([]);
 
     render(await MyTeamScoutingPageView({
@@ -141,7 +141,7 @@ describe("My Team scouting page", () => {
   it("keeps an admin's validated team on the canonical scouting switcher", async () => {
     loadMyTeamDashboard.mockResolvedValue(ready({ isAdmin: true }));
     fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
-    fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
     fetchInhousePlayerStats.mockResolvedValue([]);
 
     const { container } = render(await MyTeamScoutingPageView({
@@ -158,7 +158,7 @@ describe("My Team scouting page", () => {
     loadMyTeamDashboard.mockResolvedValue(ready());
     fetchMyRoster.mockResolvedValue({ draftPlayers: [], riotAccounts: [] });
     fetchScoutingHistory.mockResolvedValue({ fixtures: [], drafts: [] });
-    fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
     fetchInhousePlayerStats.mockResolvedValue([]);
 
     const { container } = render(await MyTeamScoutingPageView({

@@ -19,6 +19,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { championCenteredUrl, championSplashUrl } from "@/lib/match-draft/champions";
 import SignaturePad from "./SignaturePad";
+import { SIGNED_CHANCE } from "@/lib/packs/config";
 
 const MOTTO_MAX = 60;
 
@@ -128,7 +129,7 @@ export default function SkinPicker({
           <div className="flex w-full flex-col items-center gap-2">
             <span className="label-dash">Signature</span>
             <p className="text-center text-xs text-muted">
-              Sign your card — roughly 1 in 100 of your pulls comes out autographed.
+              Sign your card — roughly 1 in {Math.round(1 / SIGNED_CHANCE)} of your pulls comes out autographed.
             </p>
             <SignaturePad season={season} summonerName={summonerName} tag={tag} currentSignature={currentSignature} patronInks={patronInks} />
           </div>

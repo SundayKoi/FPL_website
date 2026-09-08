@@ -311,8 +311,8 @@ Postgres database and public schema:
 | Betting | `betting_profiles`, `betting_teams`, `betting_events`, `betting_markets`, `betting_bets`, `betting_ledger`, pick'em/store/season tables | Service-role RPCs handle wallet, bet, lock, resolve, cancel, and audit transitions after app-layer Discord/staff checks. Schedule-linked events identify the reusable Premier/Academy season catalog entries; generated markets retain `fixture_id` for idempotent retries. |
 | Banger Board | `banger_posts`, `banger_votes`, `daily_banger_checks`, `daily_banger_votes` | Public tweet reads and aggregate ratings use definer RPCs; server actions derive the signed-in Discord wallet and call service-role vote/reward RPCs. Daily rewards are atomically ledgered and limited by `(UTC date, voter)`; `daily_banger_votes.reward_amount` records the amount actually paid. |
 | Banger Board settings | `banger_board_settings` | Public title reads; authenticated admin/owner-only updates enforced by RLS using `is_admin()` / `is_owner()`. |
-| Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, and role positions are database-backed. |
-| Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. |
+| Fixture match drafts | `match_drafts`, `match_draft_settings` | Captains draft champions for scheduled fixtures; actions, ready checks, side choice, change requests, winners, role positions, and server-authoritative signed deadlines are database-backed. Pick overtime is stored as side-local debt and consumed only by that side's next pick; bans retain their existing timeout/skip behavior. |
+| Public match-draft lobbies | `open_draft_lobbies`, `open_drafts` | Token-scoped champion drafts for external/public links, with a premium-gated creation path. Lobby rows persist the same signed deadline and side-local pick overtime, while only bans can be skipped after the grace period. |
 | Player cards | `card_art_prefs`, `card_snapshots`, `card_rating_history` | User/admin art and motto preferences plus service-written weekly rating baselines/history. |
 | FPL'dle | `fpldle_daily_candidates`, `fpldle_daily_puzzles`, `fpldle_daily_progress`, `daily_game_rewards` | Public candidate labels come from the latest frozen `card_editions` week; service-role RPCs lazily snapshot and select one stable answer per Eastern calendar date and league, record each signed-in wallet's guesses, and claim the shared daily-game reward when solved within five guesses. `daily_game_rewards` pays one 200 betting-dollar base reward per profile and Eastern date (300 for an active patron), regardless of which daily game completes first; FPL'dle `reward_amount` records the shared amount. Answer and progress rows have no `anon`/`authenticated` read grant. |
 | Guess the Card | `box_score_daily_candidates`, `box_score_daily_puzzles`, `box_score_daily_progress`, `daily_game_rewards` | Admin-testing daily puzzle at `/guess-the-card` and `/academy/guess-the-card`. Trusted server actions fetch complete current-season `raw_stats` rows, use a transaction advisory lock to freeze one eligible game per Eastern calendar date and league, return only the progressive reveal DTO, record at most five distinct guesses through service-role RPCs, and claim the shared daily-game reward on a correct answer. Candidate, target, and progress tables have RLS with service-role-only grants; the final target JSON is an explicit allowlist of game-stat fields rather than the full raw row. |
@@ -372,7 +372,9 @@ Important RPC families include:
   settlement RPC's idempotency for the second trigger.
 - Match drafts: `apply_match_draft_action`, `set_match_draft_ready`,
   `choose_match_draft_blue`, change/undo/reset functions, and their
-  `open_draft_*` token equivalents.
+  `open_draft_*` token equivalents. The action RPCs lock the draft row, use
+  database time to calculate pick overtime, and write the next adjusted
+  deadline atomically; a retry sees the advanced step and cannot charge twice.
 - Player identity: `player_identity_state` is the neutral public roster-state
   read; `approve_card_claim` approves a card claim and, only when its canonical
   player and Riot roster mapping resolve to exactly one compatible team,
@@ -1157,7 +1159,7 @@ by edition. The Eclipse rate is per crowned PULL: how often a crowned card
 turns up depends on how many cards share its rarity class, so a thin top
 class makes the same crowned card — and therefore Eclipses — cluster.
 Before that ordinary roller runs, each paid, daily, and standard-comp opening
-gets one server-side `randomInt(750)` draw. Exactly draw zero is a God Pack;
+gets one server-side `randomInt(1500)` draw. Exactly draw zero is a God Pack;
 the client never chooses the branch and specialty packs are excluded. A God
 Pack skips moments, team plates, Eclipse, and ordinary autograph logic, then
 prints three 80/20 Epic/Legendary special foils, a Legendary Cracked Ice slot,
@@ -1169,7 +1171,7 @@ server-selected variant and reveal order, and the client protects all five
 from auto-dust.
 
 `npm run simulate:packs` also reports the simulated God Pack frequency, the
-expected one-in-1,000 volume, signature coverage, and base/Patron dust value of
+expected one-in-1,500 volume, signature coverage, and base/Patron dust value of
 the God pulls (manual dust value only; the automatic rule leaves them intact).
 `scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
 file (the only players a signed copy can be of), signed copies per player
@@ -1181,8 +1183,9 @@ edition, and a duplicate check that must return no rows.
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in
 each role, five per edition week. `ECLIPSE_CHANCE` (0.2%) is the roll on such
-a pull; multiplied by the ~2-4% of slots that are one, that is roughly one
-Eclipse per 2,500-5,000 packs.
+a pull; multiplied by the ~1.2-2.4% of slots that are one — the class weights
+came down on 2026-09-08 too, so the gate and the thing it gates both got
+rarer — that is roughly one Eclipse per 4,000-8,000 packs.
 
 Two rules live in the database, not the application, because "there is only
 one of these" must survive a race, a retry and whatever gets written next
@@ -1198,9 +1201,9 @@ year:
   failing, because a fifty-card sweep is where one would actually be lost.
 
 **It takes the player's ink automatically** when they have drawn one. Left to
-the ordinary 1% autograph roll the two gates compound to ~1 in 91,000 packs —
-one signed Eclipse every twelve years at current volume — while an *ordinary*
-copy of the same player can roll signed. Chance would make the rarest card in
+the ordinary 0.5% autograph roll the two gates compound to ~1 in a million
+packs — no signed Eclipse in the league's lifetime — while an *ordinary* copy
+of the same player can roll signed. Chance would make the rarest card in
 the game the plain version of a player whose commons are autographed. A player
 who never inked one still gets an Eclipse; it is simply the lesser of the two,
 which is what gives drawing a signature a job. The rules live in

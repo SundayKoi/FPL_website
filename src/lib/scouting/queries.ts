@@ -9,7 +9,7 @@ import {
   buildIngestedScoutingGames,
   buildInhousePlayerStats,
   type IngestedMatchReference,
-  type IngestedScoutingGame,
+  type IngestedScoutingData,
   type IngestedScoutingGameRow,
   type InhouseGameRow,
   type InhousePlayerStats,
@@ -111,6 +111,26 @@ function mapDraft(row: UnknownRow): ScoutDraftRow | null {
     positions,
     created_at: typeof row.created_at === "string" ? row.created_at : "",
   };
+}
+
+function sameMatchReference(
+  left: IngestedMatchReference,
+  right: IngestedMatchReference,
+): boolean {
+  return left.fixtureId === right.fixtureId && left.gameNumber === right.gameNumber;
+}
+
+function addMatchReference(
+  references: Map<string, IngestedMatchReference | null>,
+  matchId: string,
+  reference: IngestedMatchReference,
+): void {
+  if (!references.has(matchId)) {
+    references.set(matchId, reference);
+    return;
+  }
+  const current = references.get(matchId);
+  if (current === null || current === undefined || !sameMatchReference(current, reference)) references.set(matchId, null);
 }
 
 function isDrafterUrl(value: unknown): value is string {
@@ -381,7 +401,7 @@ export async function fetchIngestedScoutingGames(
   roster: Array<{ id: string; displayName: string; role: ScoutRosterPlayer["role"]; opggUrl?: string | null }>,
   fixtures: ScoutFixtureRow[] = [],
   league: FetchScoutingHistoryInput["league"] = "premier",
-): Promise<IngestedScoutingGame[]> {
+): Promise<IngestedScoutingData> {
   const allRows = await fetchAllScoutingRows<IngestedScoutingGameRow>((from, to) => supabase
       .from("raw_stats")
       .select(INGESTED_SCOUTING_COLUMNS)
@@ -418,15 +438,11 @@ export async function fetchIngestedScoutingGames(
         return id && fixtureId ? [[id, fixtureId] as const] : [];
       }),
   );
-  const fixtureIdsByMatchId = new Map<string, IngestedMatchReference>(
-    reportGames
-      .flatMap((row) => {
-        const fixtureId = row.report_id ? fixtureIdsByReportId.get(row.report_id) : null;
-        return row.match_id && fixtureId
-          ? [[row.match_id, { fixtureId, gameNumber: row.game_number }] as const]
-          : [];
-      }),
-  );
+  const fixtureIdsByMatchId = new Map<string, IngestedMatchReference | null>();
+  for (const row of reportGames) {
+    const fixtureId = row.report_id ? fixtureIdsByReportId.get(row.report_id) : null;
+    if (row.match_id && fixtureId) addMatchReference(fixtureIdsByMatchId, row.match_id, { fixtureId, gameNumber: row.game_number });
+  }
   const fixtureSeasonsById = new Map(fixtures.map((fixture) => [fixture.id, fixture.season]));
   const rows = allRows
     .filter((row) => seasonBelongsToLeague(row.season, league) || (

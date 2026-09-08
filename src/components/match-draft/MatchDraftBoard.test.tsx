@@ -31,7 +31,10 @@ import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { CHAMPIONS } from "@/lib/match-draft/champions";
 import type { MatchDraftState } from "@/lib/match-draft/types";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const state: MatchDraftState = {
   fixtureId: "fixture-1",
@@ -40,6 +43,10 @@ const state: MatchDraftState = {
   layout: "stage",
   currentStepIndex: 6,
   turnStartedAt: "2026-08-19T15:00:00Z",
+  turnDeadlineAt: "2026-08-19T15:00:30Z",
+  turnAllowanceSeconds: 30,
+  bluePendingOvertimeSeconds: 0,
+  redPendingOvertimeSeconds: 0,
   blueTeam: { name: "Blue Team", abbreviation: "BLU", imageUrl: null, players: ["Blue Top", "Blue Jungle", "Blue Mid", "Blue ADC", "Blue Support"] },
   redTeam: { name: "Red Team", abbreviation: "RED", imageUrl: null, players: ["Red Top", "Red Jungle", "Red Mid", "Red ADC", "Red Support"] },
   scheduledTeams: [
@@ -73,7 +80,7 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/live updates interrupted/i);
   });
 
-  it("renders the stage layout with team abbreviations, champion names, player names, and timer", () => {
+  it("renders the stage layout with team abbreviations, champion names, player names, and timer", async () => {
     const { container } = render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
     expect(screen.getAllByText("BLU").length).toBeGreaterThan(0);
@@ -84,9 +91,73 @@ describe("MatchDraftBoard", () => {
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/img/champion/centered/Ahri_0.jpg"]')).toBeTruthy();
     expect(container.querySelector('img[src="https://ddragon.leagueoflegends.com/cdn/16.16.1/img/champion/Ahri.png"]')).toBeTruthy();
     expect(screen.getAllByText("Blue Mid").length).toBeGreaterThan(0);
-    // The turn clock is live now — this fixture's turn started long ago, so it reads 0s.
-    expect(screen.getByText(/^\d+s$/)).toBeTruthy();
+    // The turn clock is live now — this fixture's turn started long ago, so it
+    // stays signed and visibly negative rather than clamping at zero.
+    await waitFor(() => expect(screen.getByText(/^-\d+s$/)).toBeTruthy());
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps a pick selectable after the signed clock crosses zero", async () => {
+    const onSave = vi.fn();
+    const priorBans = LCS_DRAFT_STEPS.slice(0, 6).map((step) => ({
+      stepIndex: step.index,
+      side: step.side,
+      kind: step.kind,
+      slot: step.slot,
+      champion: `Ban ${step.index}`,
+      playerName: null,
+    }));
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          actions: priorBans,
+          currentStepIndex: 6,
+          turnStartedAt: "2026-08-19T14:59:30Z",
+          turnDeadlineAt: "2026-08-19T15:00:00Z",
+        }}
+        onSave={onSave}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText(/^-\d+s$/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Amumu" }));
+    fireEvent.click(screen.getByRole("button", { name: /lock in Amumu/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect((onSave.mock.calls[0][0] as MatchDraftState).actions).toContainEqual(
+      expect.objectContaining({ stepIndex: 6, kind: "pick", champion: "Amumu" }),
+    );
+  });
+
+  it("uses the same signed clock in the compact board and broadcast overlay", async () => {
+    const { unmount } = render(<MatchDraftBoard initialState={{ ...state, layout: "board" }} onSave={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/^-\d+s$/)).toBeTruthy());
+    unmount();
+
+    render(<MatchDraftBoard initialState={state} overlay onSave={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText(/^-\d+s$/)).toBeTruthy());
+  });
+
+  it("schedules timeout handling from the persisted deadline for expired bans", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-19T15:00:04Z"));
+    rpcMock.mockClear();
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          actions: [],
+          currentStepIndex: 0,
+          turnStartedAt: "2026-08-19T14:59:30Z",
+          turnDeadlineAt: "2026-08-19T15:00:00Z",
+        }}
+        viewerTeamName="Blue Team"
+      />,
+    );
+
+    act(() => vi.advanceTimersByTime(1));
+    expect(rpcMock).toHaveBeenCalledWith("skip_match_draft_step", { p_fixture: "fixture-1", p_game: 1 });
   });
 
   it("uses medium champion images by default and resizes with minus and plus controls", () => {
@@ -96,10 +167,14 @@ describe("MatchDraftBoard", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
     expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
+    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: /increase image size/i }));
 
     expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("lg");
+    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: /decrease image size/i }));
 
@@ -242,6 +317,16 @@ describe("MatchDraftBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
     expect(screen.getByRole("button", { name: /^Aatrox/ })).toBeTruthy();
+  });
+
+  it("resets the champion list scroll when a filter changes", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+
+    const grid = screen.getByTestId("champion-pool-grid");
+    grid.scrollTop = 120;
+    fireEvent.click(screen.getByRole("button", { name: /^Support$/ }));
+
+    expect(grid.scrollTop).toBe(0);
   });
 
   it("locks picks behind the ready check until both sides are ready", () => {

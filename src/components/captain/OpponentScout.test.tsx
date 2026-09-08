@@ -134,6 +134,15 @@ describe("OpponentScout", () => {
     expect(screen.getByText("1 picks · 1 champions · 1 games")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();
   });
+  it("labels successful empty ingestion separately from draft-only evidence", () => {
+    renderScout({
+      ingestedScouting: { games: [], coverage: [] },
+      ingestedScoutingStatus: "available",
+    });
+
+    expect(screen.getByText("No Riot-confirmed picks matched this roster; draft-only evidence is shown.")).toBeTruthy();
+    expect(screen.getAllByText("0 Riot-confirmed · 0 draft-only")).toHaveLength(2);
+  });
   it("keeps valid draft history visible when the current roster is empty", () => {
     renderScout({ roster: [] });
     expect(screen.getByText("Past drafts")).toBeTruthy();
