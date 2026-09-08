@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import ConnectionBanner from "@/components/system/ConnectionBanner";
@@ -12,24 +13,16 @@ import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion }
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
 import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/match-draft/presentation";
 import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
-import type { DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftImageSize, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
+import { MATCH_DRAFT_IMAGE_SIZES, MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
+import type { DraftSide, MatchDraftAction, MatchDraftBestOf, MatchDraftGameTab, MatchDraftLayout, MatchDraftRow, MatchDraftSeriesFormat, MatchDraftState, OpenDraftLobbyHandle } from "@/lib/match-draft/types";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
   red: "border-coral/50 bg-coral/10 text-coral",
 };
 
-// `grid` sizes the champion pool; `slot` is the pick rows' height (the art
-// crop scales with it); `ban` is a FIXED tile size — bans stay compact
-// instead of stretching to fill the column.
-const imageSizes: { value: MatchDraftImageSize; label: string; grid: string; slot: string; ban: string; name: string }[] = [
-  { value: "xs", label: "XS", grid: "grid-cols-[repeat(6,minmax(0,1fr))] sm:grid-cols-[repeat(8,minmax(0,1fr))] lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(16,minmax(0,1fr))]", slot: "min-h-20", ban: "h-10 w-10", name: "text-[10px]" },
-  { value: "sm", label: "SM", grid: "grid-cols-[repeat(5,minmax(0,1fr))] sm:grid-cols-[repeat(7,minmax(0,1fr))] lg:grid-cols-[repeat(10,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))]", slot: "min-h-24", ban: "h-12 w-12", name: "text-[11px]" },
-  { value: "md", label: "MD", grid: "grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12", slot: "min-h-28", ban: "h-14 w-14", name: "text-xs" },
-  { value: "lg", label: "LG", grid: "grid-cols-3 sm:grid-cols-5 lg:grid-cols-[repeat(7,minmax(0,1fr))] xl:grid-cols-10", slot: "min-h-32", ban: "h-16 w-16", name: "text-sm" },
-];
-
-const sizeByValue = Object.fromEntries(imageSizes.map((size) => [size.value, size])) as Record<MatchDraftImageSize, (typeof imageSizes)[number]>;
+const imageSizes = MATCH_DRAFT_IMAGE_SIZE_ORDER.map((value) => ({ value, ...MATCH_DRAFT_IMAGE_SIZES[value] }));
+const sizeByValue = MATCH_DRAFT_IMAGE_SIZES;
 
 /** Copies a shareable drafter URL (built from the page's own origin, so it
  *  works on any deploy) with per-button "Copied" feedback. */
@@ -1413,7 +1406,12 @@ export default function MatchDraftBoard({
           </div>
         ) : null}
       </div>
-      <div className={`mt-3 grid gap-2 ${sizeByValue[imageSize].grid}`} data-testid="champion-pool-grid" data-size={imageSize}>
+      <div
+        className="mt-3 grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--pool-min-width)),1fr))]"
+        data-testid="champion-pool-grid"
+        data-size={imageSize}
+        style={{ "--pool-min-width": sizeByValue[imageSize].poolMinWidth } as CSSProperties}
+      >
         {filteredChampions.map((champion) => {
           const unavailable = isChampionUnavailable(champion.name, state.actions, blockedChampions);
           // Taken by an EARLIER game (fearless) rather than merely used in this
@@ -1485,6 +1483,22 @@ export default function MatchDraftBoard({
     </div>
   );
 
+  const compactTimerCard = (
+    <div data-testid="match-draft-compact-timer" className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded border border-border-subtle bg-surface px-3 py-2">
+      <span className="label-dash">Game {state.gameNumber}</span>
+      <span className={`type-display text-2xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
+        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
+      </span>
+      <span className="text-right text-[10px] uppercase tracking-wide text-muted">
+        {state.status === "complete"
+          ? "Draft complete"
+          : clockRunning
+            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
+            : "Waiting for ready check"}
+      </span>
+    </div>
+  );
+
   const matchupView = draftMatchupViewFromState(state, { secondsLeft, clockRunning });
 
   const stage = (
@@ -1513,6 +1527,7 @@ export default function MatchDraftBoard({
         requestChangeFor={requestChangeFor}
         online={{ blue: captainOnline("blue"), red: captainOnline("red") }}
         renderRail={() => timerCard}
+        renderCompactRail={() => compactTimerCard}
       >
         {championPool}
       </DraftMatchupBoard>
@@ -1550,7 +1565,7 @@ export default function MatchDraftBoard({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white">
+    <main className="mx-auto flex w-full max-w-[2400px] flex-1 flex-col gap-4 page-backdrop px-4 py-6 text-white md:px-6 lg:px-8">
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <span className="label-dash">
@@ -1685,8 +1700,14 @@ export default function MatchDraftBoard({
           </span>
         ) : null}
         <p className="text-sm text-muted">
-          Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
-          {currentAction ? <span> · locked {currentAction.champion}</span> : null}
+          {state.status === "complete" ? (
+            "Draft complete"
+          ) : (
+            <>
+              Current turn: <span className="font-semibold uppercase text-white">{currentStep?.side} {currentStep?.kind} {currentStep?.slot}</span>
+              {currentAction ? <span> · locked {currentAction.champion}</span> : null}
+            </>
+          )}
         </p>
         {error ? <p role="alert" className="text-sm text-red-400">{error}</p> : null}
       </section>

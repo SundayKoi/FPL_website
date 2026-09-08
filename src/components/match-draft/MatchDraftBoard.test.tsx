@@ -141,6 +141,19 @@ describe("MatchDraftBoard", () => {
 
     expect(screen.getByRole("button", { name: /board layout/i }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("region", { name: "Champion pool" })).toBeTruthy();
+    expect(screen.getByTestId("match-draft-compact-timer")).toBeTruthy();
+  });
+
+  it("uses a compact completed status without presenting a stale current turn", () => {
+    render(
+      <MatchDraftBoard
+        initialState={{ ...state, status: "complete", currentStepIndex: 19 }}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Draft complete").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Current turn:/i)).toBeNull();
   });
 
   it("does not allow fearless-blocked champions to be selected", () => {
