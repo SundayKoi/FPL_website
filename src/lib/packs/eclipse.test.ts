@@ -36,32 +36,35 @@ describe("Eclipse is outside the foil ladder", () => {
 });
 
 describe("the drop rate is the one that was agreed", () => {
-  it("is one in two hundred and fifty Card-of-the-Week pulls", () => {
-    expect(ECLIPSE_CHANCE).toBe(1 / 250);
+  it("is one in five hundred Card-of-the-Week pulls", () => {
+    expect(ECLIPSE_CHANCE).toBe(1 / 500);
   });
 
-  it("works out at roughly one Eclipse per thousand-odd packs", () => {
+  it("works out at roughly one Eclipse per several thousand packs", () => {
     // The gate in front of the rate is what makes the number small. A Card
     // of the Week is the top card in each role, and the roller picks
-    // uniformly inside a rarity class, so it lands in a few percent of
-    // slots. Both ends of the plausible range are checked, because a league
-    // getting more top-heavy moves this on its own.
+    // uniformly inside a rarity class, so it lands in a percent or two of
+    // slots — half what it was before the 2026-09-08 weights took epic and
+    // legendary from 5% of the table to 3%. Both ends of the plausible
+    // range are checked, because a league getting more top-heavy moves
+    // this on its own.
     const perPack = (gate: number) => 1 - (1 - gate * ECLIPSE_CHANCE) ** 5;
-    const thin = 1 / perPack(0.044);
-    const typical = 1 / perPack(0.021);
-    expect(Math.round(thin)).toBeGreaterThan(700);
-    expect(Math.round(typical)).toBeLessThan(4000);
-    // And the headline claim: rare, but not once-a-decade rare.
-    expect(Math.round(thin)).toBeLessThan(2000);
-    expect(Math.round(typical)).toBeGreaterThan(1500);
+    const thin = 1 / perPack(0.024);
+    const typical = 1 / perPack(0.012);
+    expect(Math.round(thin)).toBeGreaterThan(3000);
+    expect(Math.round(typical)).toBeLessThan(12_000);
+    // And the headline claim: a chase measured in seasons, not in decades.
+    expect(Math.round(thin)).toBeLessThan(6000);
+    expect(Math.round(typical)).toBeGreaterThan(6000);
   });
 
   it("is rare enough that a season of packs usually yields at most one", () => {
     // 150 packs a week for ten weeks, at the more generous gate.
-    const perPack = 1 - (1 - 0.044 * ECLIPSE_CHANCE) ** 5;
+    const perPack = 1 - (1 - 0.024 * ECLIPSE_CHANCE) ** 5;
     expect(1500 * perPack).toBeLessThan(3);
-    // ...but not so rare that it probably never happens at all.
-    expect(1500 * perPack).toBeGreaterThan(0.5);
+    // ...but not so rare that it probably never happens at all: about a
+    // third of an Eclipse a season, so one every three seasons or so.
+    expect(1500 * perPack).toBeGreaterThan(0.25);
   });
 });
 
@@ -95,8 +98,8 @@ describe("only a Card of the Week can become one", () => {
 });
 
 describe("an Eclipse takes the player's ink automatically", () => {
-  // Left to the ordinary 1% roll, the two gates compound to ~1 in 91,000
-  // packs — one signed Eclipse every twelve years at this league's volume.
+  // Left to the ordinary 0.5% roll, the two gates compound to ~1 in a
+  // million packs — no signed Eclipse in the league's lifetime.
   // Meanwhile a COMMON copy of the same player can roll signed, so chance
   // would make the rarest card in the game the plain version of a player
   // whose commons are autographed.

@@ -169,7 +169,7 @@ describe("CollectionGrid", () => {
     render(<CollectionGrid inventory={inventory} />);
     fireEvent.click(screen.getByRole("button", { name: "✍ Signed · 0" }));
 
-    expect(screen.getByText("No signed cards yet — 1-in-100 pulls of players who signed.")).toBeTruthy();
+    expect(screen.getByText("No signed cards yet — 1-in-200 pulls of players who signed.")).toBeTruthy();
     expect(cardsFor("Chaseworthy")).toHaveLength(0);
   });
 

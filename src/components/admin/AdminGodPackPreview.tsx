@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PlayerCardData } from "@/lib/cards/build";
 import PackOpening, { type OpenResult, type Pull } from "@/components/cards/PackOpening";
+import { GOD_PACK_ODDS_DENOMINATOR } from "@/lib/packs/config";
 
 const SIGNATURE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='48'%3E%3Cpath d='M8 32c32-28 38 14 62-15 14-18 25 16 48-5 9-8 20-3 54-6' fill='none' stroke='%23ffd76a' stroke-width='3'/%3E%3C/svg%3E";
 
@@ -75,7 +76,9 @@ export default function AdminGodPackPreview() {
           <span className="label-dash">Testing fixture</span>
           <h2 id="god-pack-preview-title" className="type-display mt-1 text-2xl">God Pack ceremony</h2>
         </div>
-        <span className="text-xs font-bold uppercase tracking-[0.16em] text-gold">Local mock · 1 in 750</span>
+        <span className="text-xs font-bold uppercase tracking-[0.16em] text-gold">
+          Local mock · 1 in {GOD_PACK_ODDS_DENOMINATOR.toLocaleString("en-US")}
+        </span>
       </div>
       <p className="max-w-3xl text-sm text-muted">
         Preview the obsidian/gold fracture, staged announcement, special foil backs, and signed finale. This fixture

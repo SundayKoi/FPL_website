@@ -819,7 +819,7 @@ async function announceDribbClaim(
     description:
       `**${who}** pulled **Dribb #${String(dribb.number).padStart(3, "0")}/${dribb.of}** — ${dribbLabel(dribb)}.\n` +
       `99 overall, a 99 in every column, on Bard. It cannot be dusted.\n\n` +
-      (left > 0 ? `${left} of ${dribb.of} still out there, at one in five thousand packs.` : `That was the last one. There will never be another.`) +
+      (left > 0 ? `${left} of ${dribb.of} still out there, at one in ten thousand packs.` : `That was the last one. There will never be another.`) +
       (raritiesUrl ? `\n[What it is](${raritiesUrl})` : ""),
     color: 0xd27dff,
   });

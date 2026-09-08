@@ -95,7 +95,7 @@ function rollClassAtLeast(pool: Pool, floor: RarityClass, rand: () => number): R
  *  the foil actually hits.
  *
  *  Conditional on purpose: a plain card still costs exactly two rands, so
- *  the 94% of pulls that are not foil leave the stream where it has always
+ *  the 96% of pulls that are not foil leave the stream where it has always
  *  been. Always rolling would shift every subsequent pull in a scripted
  *  sequence for no gain. */
 function pull(pool: Pool, rarity: RarityClass, rand: () => number, foilChance: number): PackPull {

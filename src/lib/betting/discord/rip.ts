@@ -14,7 +14,7 @@ import { after } from "next/server";
 import { createBettingServiceClient } from "../service-client";
 import { fmtPoints } from "../format";
 import { openPackFor, type OpenPackResult } from "@/lib/packs/open";
-import { FOIL_TYPE_LABELS, foilTypeOf } from "@/lib/packs/config";
+import { FOIL_TYPE_LABELS, foilTypeOf, GOD_PACK_ODDS_DENOMINATOR } from "@/lib/packs/config";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { commandHandlers } from "./registry";
 import type { DiscordInteraction } from "./registry";
@@ -96,7 +96,12 @@ export function ripFollowup(result: OpenPackResult, username: string): { embeds:
 
   const header: DiscordEmbed = {
     title: result.variant === "god" ? `${username}'s GOD PACK` : `${username}'s Daily Rip`,
-    description: [result.variant === "god" ? "⚡ **GOD PACK · 1 IN 750**" : "", bonusNote].filter(Boolean).join("\n") || undefined,
+    description: [
+      result.variant === "god" ? `⚡ **GOD PACK · 1 IN ${GOD_PACK_ODDS_DENOMINATOR.toLocaleString("en-US")}**` : "",
+      bonusNote,
+    ]
+      .filter(Boolean)
+      .join("\n") || undefined,
     color: best && (best.foil || best.signed || best.card.moment) ? GREEN : BRAND,
     footer: { text: `${result.variant === "god" ? "Five special foils · " : ""}Free daily pack${streakNote}` },
   };

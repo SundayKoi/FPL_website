@@ -1159,7 +1159,7 @@ by edition. The Eclipse rate is per crowned PULL: how often a crowned card
 turns up depends on how many cards share its rarity class, so a thin top
 class makes the same crowned card — and therefore Eclipses — cluster.
 Before that ordinary roller runs, each paid, daily, and standard-comp opening
-gets one server-side `randomInt(750)` draw. Exactly draw zero is a God Pack;
+gets one server-side `randomInt(1500)` draw. Exactly draw zero is a God Pack;
 the client never chooses the branch and specialty packs are excluded. A God
 Pack skips moments, team plates, Eclipse, and ordinary autograph logic, then
 prints three 80/20 Epic/Legendary special foils, a Legendary Cracked Ice slot,
@@ -1171,7 +1171,7 @@ server-selected variant and reveal order, and the client protects all five
 from auto-dust.
 
 `npm run simulate:packs` also reports the simulated God Pack frequency, the
-expected one-in-1,000 volume, signature coverage, and base/Patron dust value of
+expected one-in-1,500 volume, signature coverage, and base/Patron dust value of
 the God pulls (manual dust value only; the automatic rule leaves them intact).
 `scripts/sql/rare-pulls-audit.sql` asks the ledger directly: who has ink on
 file (the only players a signed copy can be of), signed copies per player
@@ -1183,8 +1183,9 @@ edition, and a duplicate check that must return no rows.
 
 An Eclipse can only fall on a **Card of the Week** — the top-rated card in
 each role, five per edition week. `ECLIPSE_CHANCE` (0.2%) is the roll on such
-a pull; multiplied by the ~2-4% of slots that are one, that is roughly one
-Eclipse per 2,500-5,000 packs.
+a pull; multiplied by the ~1.2-2.4% of slots that are one — the class weights
+came down on 2026-09-08 too, so the gate and the thing it gates both got
+rarer — that is roughly one Eclipse per 4,000-8,000 packs.
 
 Two rules live in the database, not the application, because "there is only
 one of these" must survive a race, a retry and whatever gets written next
@@ -1200,9 +1201,9 @@ year:
   failing, because a fifty-card sweep is where one would actually be lost.
 
 **It takes the player's ink automatically** when they have drawn one. Left to
-the ordinary 1% autograph roll the two gates compound to ~1 in 91,000 packs —
-one signed Eclipse every twelve years at current volume — while an *ordinary*
-copy of the same player can roll signed. Chance would make the rarest card in
+the ordinary 0.5% autograph roll the two gates compound to ~1 in a million
+packs — no signed Eclipse in the league's lifetime — while an *ordinary* copy
+of the same player can roll signed. Chance would make the rarest card in
 the game the plain version of a player whose commons are autographed. A player
 who never inked one still gets an Eclipse; it is simply the lesser of the two,
 which is what gives drawing a signature a job. The rules live in

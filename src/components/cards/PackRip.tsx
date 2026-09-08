@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import type { RarityClass } from "@/lib/packs/config";
+import { GOD_PACK_ODDS_DENOMINATOR, type RarityClass } from "@/lib/packs/config";
 import { godPackAnnouncement, godPackFracture, ripOpen, ripTick } from "@/lib/packs/sounds";
 
 /** Horizontal drag, in px, that takes the tear from sealed to open. Tuned
@@ -309,7 +309,7 @@ export default function PackRip({
             <div className="god-pack-cinematic" aria-hidden>
               <span className="god-pack-cinematic-kicker">THE SEAM BREAKS</span>
               <span className="god-pack-cinematic-title">GOD PACK</span>
-              <span className="god-pack-cinematic-odds">1 IN 750</span>
+              <span className="god-pack-cinematic-odds">1 IN {GOD_PACK_ODDS_DENOMINATOR.toLocaleString("en-US")}</span>
             </div>
           ) : null}
           {BURST_PARTICLES.map((particle) => (

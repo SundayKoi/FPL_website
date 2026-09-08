@@ -133,7 +133,7 @@ describe("rollPrint", () => {
   // Riot's catalog lists nums whose splash was never uploaded to either
   // directory — the validator is what keeps those prints out of pulled
   // copies. The first scripted value is the ALT_SKIN_CHANCE gate
-  // (< 0.3 = alternate).
+  // (< 0.2 = alternate).
   const validOnly = (valid: number[]) => async (_champion: string, num: number) => valid.includes(num);
 
   it("prints base when the chance gate misses — no validator call", async () => {
