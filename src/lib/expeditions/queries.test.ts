@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns } from "./queries";
+import { fetchConvoyViews, fetchDeployedCopyIds, fetchFixturesSince, fetchLedger, fetchRuns, fetchStrangersHolds } from "./queries";
 
 type QueryCall = { table: string; filters: Record<string, unknown> };
 type QueryResult = { data: unknown; error: unknown };
@@ -278,5 +278,57 @@ describe("fetchConvoyViews", () => {
     const service = createService(() => ({ data: null }));
     expect(await fetchConvoyViews(service.client, "42", [{ id: 1, convoy: null }])).toEqual({});
     expect(service.calls).toHaveLength(0);
+  });
+});
+
+describe("fetchStrangersHolds", () => {
+  /** Enough of PostgREST to answer the two reads the lookup makes. */
+  function client(holds: { id: number; squad: number[]; discord_id: string }[], rescueTargets: number[]) {
+    return {
+      from(table: string) {
+        void table;
+        const chain: Record<string, unknown> = {};
+        let isRescueRead = false;
+        chain.select = (columns: string) => {
+          isRescueRead = columns === "target";
+          return chain;
+        };
+        for (const method of ["eq", "is", "neq", "order", "limit", "in"]) chain[method] = () => chain;
+        chain.then = (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({
+            data: isRescueRead
+              ? rescueTargets.map((target) => ({ target }))
+              : holds.map((hold) => ({ ...hold, resolves_at: "2026-09-15T00:00:00.000Z", target: null, season: "S5" })),
+            error: null,
+          }).then(resolve);
+        return chain;
+      },
+    } as unknown as Parameters<typeof fetchStrangersHolds>[0];
+  }
+
+  it("leaves out a hold somebody is already on their way to", async () => {
+    // The shipped bug: a stranger's route carried home a card that its
+    // owner had a rescue in the field for. The owner watched it come back
+    // from somebody else's run, and their own rescue could then never
+    // resolve — it had nothing left to reach.
+    const holds = [
+      { id: 1, squad: [10], discord_id: "someone" },
+      { id: 2, squad: [11], discord_id: "someone" },
+    ];
+    const found = await fetchStrangersHolds(client(holds, [2]), "42");
+    expect(found.map((hold) => hold.holdId)).toEqual([1]);
+  });
+
+  it("offers every hold when nobody is rescuing", async () => {
+    const holds = [
+      { id: 1, squad: [10], discord_id: "someone" },
+      { id: 2, squad: [11], discord_id: "someone" },
+    ];
+    expect((await fetchStrangersHolds(client(holds, []), "42")).map((hold) => hold.holdId)).toEqual([1, 2]);
+  });
+
+  it("skips a hold with no card on it", async () => {
+    const found = await fetchStrangersHolds(client([{ id: 1, squad: [], discord_id: "someone" }], []), "42");
+    expect(found).toEqual([]);
   });
 });

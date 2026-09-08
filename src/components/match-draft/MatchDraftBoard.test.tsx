@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // Lobby-mode tests run without onSave, so the board builds a live client;
 // give it a chainable realtime channel and a spyable rpc.
 const { rpcMock, realtime } = vi.hoisted(() => ({
-  rpcMock: vi.fn(async () => ({ error: null })),
+  rpcMock: vi.fn(async (): Promise<{ error: { message: string } | null }> => ({ error: null })),
   realtime: { callback: null as null | ((status: string) => void) },
 }));
 vi.mock("@/lib/supabase/client", () => ({
@@ -158,6 +158,39 @@ describe("MatchDraftBoard", () => {
 
     act(() => vi.advanceTimersByTime(1));
     expect(rpcMock).toHaveBeenCalledWith("skip_match_draft_step", { p_fixture: "fixture-1", p_game: 1 });
+  });
+
+  it("retries a timeout rejection after clock skew makes the first request early", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-19T15:00:04Z"));
+    rpcMock.mockReset();
+    rpcMock
+      .mockResolvedValueOnce({ error: { message: "TOO_SOON: the server clock has not expired the turn" } })
+      .mockResolvedValue({ error: null });
+    render(
+      <MatchDraftBoard
+        initialState={{
+          ...state,
+          actions: [],
+          currentStepIndex: 0,
+          turnStartedAt: "2026-08-19T14:59:30Z",
+          turnDeadlineAt: "2026-08-19T15:00:00Z",
+        }}
+        viewerTeamName="Blue Team"
+      />,
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(750);
+      await Promise.resolve();
+    });
+    expect(rpcMock).toHaveBeenCalledTimes(2);
   });
 
   it("uses medium champion images by default and resizes with minus and plus controls", () => {

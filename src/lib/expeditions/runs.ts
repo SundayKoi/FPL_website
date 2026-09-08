@@ -85,6 +85,12 @@ export type ClaimResult =
       surge: string[];
       /** A moment's echo: the copy the route dropped, already on the shelf. */
       echo: { inventoryId: number; slug: string; playerName: string; moment: number } | null;
+      /** The rescue succeeded on the route and found nothing to bring back:
+       *  the hold had already closed — buried by the seven-day deadline,
+       *  ransomed, or carried home by a stranger. The squad still came
+       *  home, so the run resolves; the page must not celebrate a card
+       *  that is not on the shelf. */
+      rescueMissed: boolean;
     }
   | { ok: false; error: string };
 
@@ -594,6 +600,21 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   }
   const row = (Array.isArray(claimData) ? claimData[0] : claimData) as { balance: number; fragments: number; echo_id?: number | null } | null;
 
+  // Did the rescue find anything? resolve_expedition stamps rescueMissed
+  // when the hold closed underneath it, which it can only discover at
+  // write time — the route rolled a success minutes or hours earlier.
+  // Read back rather than widening the RPC's return type, which would
+  // mean dropping a function the site calls on every claim.
+  let rescueMissed = false;
+  if (tier === "rescue" && route.rescued === true) {
+    const { data: claimed } = await service
+      .from("expedition_runs")
+      .select("outcome")
+      .eq("id", runId)
+      .maybeSingle();
+    rescueMissed = ((claimed as { outcome: { rescueMissed?: boolean } | null } | null)?.outcome?.rescueMissed) === true;
+  }
+
   // The news, best effort and AFTER the write: the dollars and the stamps
   // are already committed, and a Discord outage must never fail a claim
   // that paid.
@@ -636,6 +657,7 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
     baseDollars: base.dollars,
     merchant,
     stranded,
+    rescueMissed,
   };
 }
 

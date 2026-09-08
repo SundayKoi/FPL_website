@@ -68,6 +68,7 @@ function stateFor({
   return {
     fixtureId: fixture.id,
     gameNumber,
+    revision: row?.revision,
     status: row?.status ?? "drafting",
     layout,
     currentStepIndex: row?.current_step_index ?? 0,

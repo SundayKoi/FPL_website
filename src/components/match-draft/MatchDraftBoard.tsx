@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -12,6 +12,7 @@ import {
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
 import { overtimeSecondsForDeadline, signedSecondsRemaining, turnAllowanceSeconds, turnDeadlineAt } from "@/lib/match-draft/timing";
+import { draftTurnKey, emptyDraftState, formatFromSettings, stateFromDraftRow, timeoutRetryable } from "@/lib/match-draft/sync";
 import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/match-draft/presentation";
 import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
 import { MATCH_DRAFT_IMAGE_SIZES, MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
@@ -151,25 +152,63 @@ function useTurnCountdown(
   turnStartedAt: string | null,
   turnDeadlineAt: string | null,
   running: boolean,
+  clockOffsetMs = 0,
 ): number | null {
-  // Keep the server render and the first client render deterministic. The
-  // effect reveals the live value immediately after hydration, then ticks it
-  // from the persisted deadline once per second.
+  // Keep the server render and the first client render deterministic. Once
+  // mounted, advance from performance.now() so wall-clock jumps and long
+  // background suspensions cannot make the visible timer run backwards.
   const [now, setNow] = useState<number | null>(null);
+  const clockRef = useRef<{ wall: number; mono: number } | null>(null);
   useEffect(() => {
+    clockRef.current = { wall: Date.now() + clockOffsetMs, mono: typeof performance === "undefined" ? 0 : performance.now() };
     if (!running) return;
-    const firstTick = setTimeout(() => setNow(Date.now()), 0);
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearTimeout(firstTick);
-      clearInterval(timer);
+    const readNow = () => {
+      if (!clockRef.current) return;
+      const mono = typeof performance === "undefined" ? 0 : performance.now();
+      setNow(clockRef.current.wall + (mono - clockRef.current.mono));
     };
-  }, [running]);
+    readNow();
+    const timer = setInterval(readNow, 1000);
+    return () => clearInterval(timer);
+  }, [clockOffsetMs, running]);
   if (!running || now === null || (!turnDeadlineAt && !turnStartedAt)) return null;
   // Rows created before the overtime migration have a start but no deadline.
   // They get the old 30-second display until the row is touched/backfilled.
   const deadline = turnDeadlineAt ?? new Date(new Date(turnStartedAt!).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString();
   return signedSecondsRemaining(deadline, now);
+}
+
+function TurnTimer({
+  state,
+  currentStep,
+  clockRunning,
+  clockOffsetMs,
+  compact = false,
+}: {
+  state: MatchDraftState;
+  currentStep: (typeof LCS_DRAFT_STEPS)[number] | undefined;
+  clockRunning: boolean;
+  clockOffsetMs: number;
+  compact?: boolean;
+}) {
+  const secondsLeft = useTurnCountdown(state.turnStartedAt, state.turnDeadlineAt, clockRunning, clockOffsetMs);
+  return (
+    <div data-testid={compact ? "match-draft-compact-timer" : undefined} className={compact
+      ? "flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded border border-border-subtle bg-surface px-3 py-2"
+      : "flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center"}>
+      <span className="label-dash">Game {state.gameNumber}</span>
+      <span className={`type-display ${compact ? "text-2xl" : "mt-1 text-4xl"} ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
+        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
+      </span>
+      <span className={compact ? "text-right text-[10px] uppercase tracking-wide text-muted" : "mt-1 text-xs uppercase text-muted"}>
+        {state.status === "complete"
+          ? compact ? "Draft complete" : "draft complete"
+          : clockRunning
+            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
+            : compact ? "Waiting for ready check" : "waiting for ready check"}
+      </span>
+    </div>
+  );
 }
 
 export default function MatchDraftBoard({
@@ -235,6 +274,11 @@ export default function MatchDraftBoard({
     Object.fromEntries((initialStates?.length ? initialStates : [initialState]).map((game) => [game.gameNumber, game])),
   );
   const [gameNumber, setGameNumber] = useState(initialState.gameNumber);
+  const [liveSeriesFormat, setLiveSeriesFormat] = useState(seriesFormat);
+  const seriesFormatRef = useRef(liveSeriesFormat);
+  useEffect(() => {
+    seriesFormatRef.current = liveSeriesFormat;
+  }, [liveSeriesFormat]);
   // Overlay auto-follow: one OBS link covers the whole series — with no
   // explicit ?game= pin, the broadcast view tracks the latest game that has
   // any activity (actions or a ready check under way).
@@ -248,15 +292,31 @@ export default function MatchDraftBoard({
           gameNumber,
         )
       : null;
-  const state = statesByGame[followedGame ?? gameNumber] ?? initialState;
+  const selectedGameNumber = followedGame ?? gameNumber;
+  const state = statesByGame[selectedGameNumber] ?? emptyDraftState({ ...initialState, gameNumber: selectedGameNumber });
   const setState = (next: MatchDraftState) =>
     setStatesByGame((current) => ({ ...current, [next.gameNumber]: next }));
+  const seriesGames = useMemo(() => {
+    const existing = new Map(games.map((game) => [game.gameNumber, game]));
+    const formatChanged =
+      liveSeriesFormat.bestOf !== seriesFormat.bestOf ||
+      liveSeriesFormat.fearless !== seriesFormat.fearless;
+    if (games.length > 0 && !formatChanged) return games;
+    return Array.from({ length: liveSeriesFormat.bestOf }, (_, index) => {
+      const number = index + 1;
+      return existing.get(number) ?? {
+        gameNumber: number,
+        href: lobby ? `/drafter/${lobby.token}?game=${number}` : `/match-draft/${initialState.fixtureId}?game=${number}`,
+        status: null,
+      };
+    });
+  }, [games, initialState.fixtureId, liveSeriesFormat.bestOf, liveSeriesFormat.fearless, lobby, seriesFormat.bestOf, seriesFormat.fearless]);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<ChampionRole | null>(null);
   // Two-step drafting: clicking a champion only SELECTS it (broadcast to the
   // room as a ghost); the Lock In button confirms. pendingPick is the
   // viewer's own selection, remoteIntents are the other clients', per game.
-  const [pendingPick, setPendingPick] = useState<{ stepIndex: number; champion: string } | null>(null);
+  const [pendingPick, setPendingPick] = useState<{ gameNumber: number; revision?: number; stepIndex: number; champion: string } | null>(null);
   // Post-draft role confirmation: each side's working top→support
   // arrangement stays local until that captain clicks Ready.
   const [roleOrders, setRoleOrders] = useState<RoleOrders>({});
@@ -265,9 +325,13 @@ export default function MatchDraftBoard({
   const roleListsRef = useRef<Record<DraftSide, HTMLDivElement | null>>({ blue: null, red: null });
   const championPoolScrollRef = useRef<HTMLDivElement | null>(null);
   const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
-  const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
+  const [remoteIntents, setRemoteIntents] = useState<Record<number, { gameNumber: number; revision?: number; stepIndex: number; champion: string | null }>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const reconnectCatchupRef = useRef(false);
+  const [clockOffsetMs, setClockOffsetMs] = useState(0);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const catchupInFlightRef = useRef<Promise<void> | null>(null);
+  const deletedRevisionsRef = useRef<Record<number, number>>({});
+  const latestSettingsRevisionRef = useRef<number | undefined>(undefined);
   const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
     onSave ? "connected" : "connecting",
   );
@@ -287,17 +351,19 @@ export default function MatchDraftBoard({
   const currentStep = LCS_DRAFT_STEPS[state.currentStepIndex] ?? LCS_DRAFT_STEPS[LCS_DRAFT_STEPS.length - 1];
   const currentAction = currentStep ? actionForStep(state.actions, currentStep) : null;
   const resolveChampion = useMemo(() => championLookup(champions), [champions]);
-  const filteredChampions = champions.filter(
-    (champion) =>
-      champion.name.toLowerCase().includes(query.trim().toLowerCase()) &&
-      (!roleFilter || champion.roles.includes(roleFilter)),
+  const filteredChampions = useMemo(
+    () => champions.filter(
+      (champion) =>
+        champion.name.toLowerCase().includes(query.trim().toLowerCase()) &&
+        (!roleFilter || champion.roles.includes(roleFilter)),
+    ),
+    [champions, query, roleFilter],
   );
   useEffect(() => {
     if (championPoolScrollRef.current) championPoolScrollRef.current.scrollTop = 0;
   }, [query, roleFilter]);
   const imageSize = imageSizes[imageSizeIndex].value;
   const blockedChampions = useMemo(() => {
-    if (!seriesFormat.fearless) return state.blockedChampions.length ? state.blockedChampions : [];
     const priorPicks = Object.values(statesByGame)
       .filter((game) => game.gameNumber < gameNumber)
       .flatMap((game) =>
@@ -306,14 +372,14 @@ export default function MatchDraftBoard({
           .map((action) => action.champion)
           .filter((champion): champion is string => Boolean(champion)),
       );
-    return [...new Set([...state.blockedChampions, ...priorPicks])];
-  }, [seriesFormat.fearless, state.blockedChampions, statesByGame, gameNumber]);
+    return liveSeriesFormat.fearless ? [...new Set([...(onSave ? state.blockedChampions : []), ...priorPicks])] : [];
+  }, [liveSeriesFormat.fearless, onSave, state.blockedChampions, statesByGame, gameNumber]);
   // Which game took each blocked champion, for the pool's G1/G2 badge. Same
   // server-plus-live merge as blockedChampions above, so a champion picked in
   // game 1 while game 2 is open badges the moment it lands. Display only.
   const blockedGames = useMemo(() => {
-    if (!seriesFormat.fearless) return {};
-    const merged: Record<string, number> = { ...(state.blockedGames ?? {}) };
+    if (!liveSeriesFormat.fearless) return {};
+    const merged: Record<string, number> = onSave ? { ...(state.blockedGames ?? {}) } : {};
     for (const game of Object.values(statesByGame)) {
       if (game.gameNumber >= gameNumber) continue;
       for (const action of game.actions) {
@@ -323,7 +389,7 @@ export default function MatchDraftBoard({
       }
     }
     return merged;
-  }, [seriesFormat.fearless, state.blockedGames, statesByGame, gameNumber]);
+  }, [liveSeriesFormat.fearless, onSave, state.blockedGames, statesByGame, gameNumber]);
   const sameTeam = (a: string | null | undefined, b: string | null | undefined) =>
     Boolean(a && b && a.trim().toLowerCase() === b.trim().toLowerCase());
   const viewerSide: DraftSide | null = sameTeam(viewerTeamName, state.blueTeam.name)
@@ -339,8 +405,6 @@ export default function MatchDraftBoard({
   const bothReady = state.blueReady && state.redReady;
   const drafting = state.status !== "complete";
   const clockRunning = drafting && (draftStarted || bothReady);
-  const secondsLeft = useTurnCountdown(state.turnStartedAt, state.turnDeadlineAt, clockRunning);
-
   const pendingOvertime = {
     blue: Math.max(0, state.bluePendingOvertimeSeconds),
     red: Math.max(0, state.redPendingOvertimeSeconds),
@@ -358,10 +422,73 @@ export default function MatchDraftBoard({
     };
   };
 
-  // Live sync: both captains (and spectators) see picks, readiness, side
-  // swaps, and resets as they happen — for EVERY game in the series, so
-  // switching tabs always shows current data. Team identity changes and row
-  // deletes need server-resolved data (rosters), so those reload.
+  const refreshSnapshot = useCallback(async () => {
+    if (!supabase || catchupInFlightRef.current) return catchupInFlightRef.current;
+    const startedAt = Date.now();
+    const table = lobby ? "open_drafts" : "match_drafts";
+    const scopeColumn = lobby ? "lobby_id" : "fixture_id";
+    const scopeValue = lobby?.lobbyId ?? initialState.fixtureId;
+    const request = (async () => {
+      try {
+        const rowsPromise = supabase.from(table).select("*").eq(scopeColumn, scopeValue).order("game_number");
+        const settingsPromise = lobby
+          ? Promise.resolve({ data: null, error: null })
+          : supabase.from("match_draft_settings").select("fixture_id, best_of, fearless, revision").eq("fixture_id", initialState.fixtureId).maybeSingle();
+        const serverTimePromise = supabase.rpc("match_draft_server_time");
+        const [{ data: rows, error: rowsError }, { data: settings, error: settingsError }, { data: serverTime }] = await Promise.all([
+          rowsPromise,
+          settingsPromise,
+          serverTimePromise,
+        ]);
+        if (rowsError) throw rowsError;
+        if (settingsError) throw settingsError;
+        const serverMs = typeof serverTime === "string" ? Date.parse(serverTime) : NaN;
+        if (Number.isFinite(serverMs)) setClockOffsetMs(serverMs - (startedAt + (Date.now() - startedAt) / 2));
+
+        const settingsRow = settings as { best_of?: number; fearless?: boolean; revision?: number } | null;
+        if (settingsRow && (latestSettingsRevisionRef.current === undefined || (settingsRow.revision ?? 0) >= latestSettingsRevisionRef.current)) {
+          latestSettingsRevisionRef.current = settingsRow.revision;
+          setLiveSeriesFormat((current) => formatFromSettings(current, settingsRow));
+        }
+
+        const snapshotRows = (rows ?? []) as MatchDraftRow[];
+        setStatesByGame((current) => {
+          const next = { ...current };
+          const expectedBestOf = settingsRow?.best_of === 1 || settingsRow?.best_of === 5 || settingsRow?.best_of === 3
+            ? settingsRow.best_of
+            : seriesFormatRef.current.bestOf;
+          const rowByGame = new Map(snapshotRows.map((row) => [row.game_number, row]));
+          const base = current[1] ?? initialState;
+          for (let number = 1; number <= expectedBestOf; number += 1) {
+            const existing = current[number] ?? emptyDraftState({ ...base, gameNumber: number });
+            const snapshotRow = rowByGame.get(number);
+            const deletedRevision = deletedRevisionsRef.current[number];
+            const isNewerThanDelete = snapshotRow?.revision === undefined || deletedRevision === undefined || snapshotRow.revision > deletedRevision;
+            const reconciled = snapshotRow && isNewerThanDelete
+              ? stateFromDraftRow(existing, snapshotRow)
+              : deletedRevision !== undefined
+                ? emptyDraftState(existing)
+                : existing;
+            if (reconciled) next[number] = reconciled;
+          }
+          return next;
+        });
+        setSyncError(null);
+      } catch (err) {
+        setConnectionStatus("reconnecting");
+        setSyncError(saveErrorMessage(err, "Live state is temporarily stale."));
+      } finally {
+        catchupInFlightRef.current = null;
+      }
+    })();
+    catchupInFlightRef.current = request;
+    return request;
+  }, [initialState, lobby, supabase]);
+
+  // Live sync: subscribe first, then reconcile a snapshot. Realtime rows and
+  // snapshots share the revision merge rule, so neither ordering can regress
+  // the board. Deletes are scoped by their old row identity and treated as a
+  // reset; routine recovery never navigates away from the draft.
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
@@ -369,14 +496,16 @@ export default function MatchDraftBoard({
       .on("presence", { event: "sync" }, () => {
         const present = new Set<string>();
         for (const entries of Object.values(channel.presenceState<{ team?: string }>())) {
-          for (const entry of entries) {
-            if (entry.team) present.add(entry.team);
-          }
+          for (const entry of entries) if (entry.team) present.add(entry.team);
         }
-        setOnlineTeams(present);
+        setOnlineTeams((current) => {
+          if (current.size === present.size && [...current].every((team) => present.has(team))) return current;
+          return present;
+        });
       })
       .on("broadcast", { event: "draft-intent" }, ({ payload }) => {
-        const intent = payload as { gameNumber: number; stepIndex: number; champion: string | null };
+        const intent = payload as { gameNumber: number; revision?: number; stepIndex: number; champion: string | null };
+        if (!Number.isInteger(intent.gameNumber) || !Number.isInteger(intent.stepIndex) || (intent.champion !== null && typeof intent.champion !== "string")) return;
         setRemoteIntents((current) => ({ ...current, [intent.gameNumber]: intent }));
       })
       .on(
@@ -386,61 +515,81 @@ export default function MatchDraftBoard({
           : { event: "*", schema: "public", table: "match_drafts", filter: `fixture_id=eq.${initialState.fixtureId}` },
         (payload) => {
           if (payload.eventType === "DELETE") {
-            window.location.reload();
+            const deleted = payload.old as { game_number?: number; revision?: number };
+            if (deleted.game_number !== undefined) {
+              if (deleted.revision !== undefined) deletedRevisionsRef.current[deleted.game_number] = deleted.revision;
+              setStatesByGame((current) => current[deleted.game_number!] ? { ...current, [deleted.game_number!]: emptyDraftState(current[deleted.game_number!]) } : current);
+            }
+            void refreshSnapshot();
             return;
           }
           const row = payload.new as MatchDraftRow;
-          setStatesByGame((current) => {
-            const game = current[row.game_number];
-            if (!game) return current;
-            if (
-              (row.blue_team_name && row.blue_team_name !== game.blueTeam.name) ||
-              (row.red_team_name && row.red_team_name !== game.redTeam.name)
-            ) {
-              window.location.reload();
-              return current;
-            }
-            const actions = (row.actions ?? []).filter((action) => Boolean(action && (action.champion || action.skipped)));
-            return {
-              ...current,
-              [row.game_number]: {
-                ...game,
-                status: row.status,
-                currentStepIndex: row.current_step_index,
-                turnStartedAt: row.turn_started_at,
-                turnDeadlineAt: row.turn_deadline_at,
-                turnAllowanceSeconds: row.turn_allowance_seconds,
-                bluePendingOvertimeSeconds: row.blue_pending_overtime_seconds ?? 0,
-                redPendingOvertimeSeconds: row.red_pending_overtime_seconds ?? 0,
-                blueReady: row.blue_ready ?? false,
-                redReady: row.red_ready ?? false,
-                changeRequest: row.change_request ?? null,
-                positions: row.positions ?? null,
-                winnerTeam: row.winner_team ?? null,
-                actions,
-                canChooseSides: game.gameNumber > 1 && actions.length === 0,
-              },
-            };
+          if (!Number.isInteger(row.game_number)) return;
+          const deletedRevision = deletedRevisionsRef.current[row.game_number];
+          if (deletedRevision !== undefined && (row.revision === undefined || row.revision <= deletedRevision)) return;
+          if (deletedRevision !== undefined) delete deletedRevisionsRef.current[row.game_number];
+          setRemoteIntents((current) => {
+            if (!current[row.game_number]) return current;
+            const next = { ...current };
+            delete next[row.game_number];
+            return next;
           });
+          setStatesByGame((current) => {
+            const base = current[1] ?? initialState;
+            const game = current[row.game_number] ?? emptyDraftState({ ...base, gameNumber: row.game_number });
+            const reconciled = stateFromDraftRow(game, row);
+            return reconciled ? { ...current, [row.game_number]: reconciled } : current;
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "match_draft_settings", filter: `fixture_id=eq.${initialState.fixtureId}` },
+        (payload) => {
+          if (payload.eventType === "DELETE") return;
+          const row = payload.new as { best_of?: number; fearless?: boolean; revision?: number };
+          const revision = row.revision;
+          if (revision !== undefined && latestSettingsRevisionRef.current !== undefined && revision < latestSettingsRevisionRef.current) return;
+          latestSettingsRevisionRef.current = revision;
+          setLiveSeriesFormat((current) => formatFromSettings(current, row));
         },
       )
       .subscribe((status) => {
         const next = connectionStatusForChannel(status);
         if (!next) return;
         setConnectionStatus(next);
-        if (next !== "connected") {
-          reconnectCatchupRef.current = true;
-          return;
+        if (next === "connected") {
+          void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
+          void refreshSnapshot();
         }
-        void channel.track({ team: viewerTeamName?.trim().toLowerCase() ?? "spectator" });
-        if (reconnectCatchupRef.current) window.location.reload();
       });
     channelRef.current = channel;
     return () => {
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [supabase, initialState.fixtureId, viewerTeamName, lobby]);
+  }, [initialState, lobby, refreshSnapshot, supabase, viewerTeamName]);
+
+  useEffect(() => {
+    const resync = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void refreshSnapshot();
+    };
+    window.addEventListener("focus", resync);
+    window.addEventListener("online", resync);
+    document.addEventListener("visibilitychange", resync);
+    return () => {
+      window.removeEventListener("focus", resync);
+      window.removeEventListener("online", resync);
+      document.removeEventListener("visibilitychange", resync);
+    };
+  }, [refreshSnapshot]);
+
+  const commitMutation = (next: MatchDraftState) => {
+    // Preview mode has no realtime authority. Live mode waits for the row
+    // event/snapshot instead of installing a pre-request object after await.
+    if (onSave || state.revision === undefined) setState(next);
+    else void refreshSnapshot();
+  };
 
   const setLayout = (layout: MatchDraftLayout) => setState({ ...state, layout });
   const captainOnline = (side: DraftSide): boolean | undefined =>
@@ -479,21 +628,27 @@ export default function MatchDraftBoard({
 
   // A selection left over from an earlier step just stops applying — no
   // effect-driven state clearing needed.
-  const activePendingPick = pendingPick && pendingPick.stepIndex === state.currentStepIndex ? pendingPick : null;
+  const activePendingPick = pendingPick &&
+    pendingPick.gameNumber === state.gameNumber &&
+    pendingPick.revision === state.revision &&
+    pendingPick.stepIndex === state.currentStepIndex ? pendingPick : null;
 
   /** Fixture drafts call the match_draft_* RPCs keyed by fixture; public
    *  lobbies call their token-checked open_draft_* twins (same names with
    *  "match_draft" swapped for "open_draft", p_token instead of p_fixture). */
-  const draftRpc = (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) =>
-    lobby
-      ? client.rpc(name.replace("match_draft", "open_draft"), { p_token: lobby.token, ...params })
-      : client.rpc(name, { p_fixture: state.fixtureId, ...params });
+  const draftRpc = useCallback(
+    (client: NonNullable<typeof supabase>, name: string, params: Record<string, unknown>) =>
+      lobby
+        ? client.rpc(name.replace("match_draft", "open_draft"), { p_token: lobby.token, ...params })
+        : client.rpc(name, { p_fixture: state.fixtureId, ...params }),
+    [lobby, state.fixtureId],
+  );
 
   const sendIntent = (champion: string | null) => {
     void channelRef.current?.send({
       type: "broadcast",
       event: "draft-intent",
-      payload: { gameNumber: state.gameNumber, stepIndex: state.currentStepIndex, champion },
+      payload: { gameNumber: state.gameNumber, revision: state.revision, stepIndex: state.currentStepIndex, champion },
     });
   };
 
@@ -501,32 +656,34 @@ export default function MatchDraftBoard({
    *  whole room); Lock In confirms it. */
   const chooseChampion = (champion: string) => {
     if (!currentStep || state.status === "complete" || !mayActFor(currentStep.side)) return;
-    setPendingPick({ stepIndex: currentStep.index, champion });
+    setPendingPick({ gameNumber: state.gameNumber, revision: state.revision, stepIndex: currentStep.index, champion });
     sendIntent(champion);
   };
 
   const lockIn = async () => {
     if (!activePendingPick || activePendingPick.stepIndex !== currentStep?.index) return;
-    await selectChampion(activePendingPick.champion);
-    setPendingPick(null);
-    sendIntent(null);
+    const saved = await selectChampion(activePendingPick.champion);
+    if (saved) {
+      setPendingPick(null);
+      sendIntent(null);
+    }
   };
 
   const intentFor = (stepIndex: number): string | null => {
     if (state.status === "complete" || stepIndex !== state.currentStepIndex) return null;
     if (activePendingPick?.stepIndex === stepIndex) return activePendingPick.champion;
     const remote = remoteIntents[state.gameNumber];
-    return remote && remote.stepIndex === stepIndex ? remote.champion : null;
+    return remote && remote.revision === state.revision && remote.stepIndex === stepIndex ? remote.champion : null;
   };
 
-  const selectChampion = async (champion: string) => {
+  const selectChampion = async (champion: string): Promise<boolean> => {
     // A completed draft is locked — the final pick must not be replaceable.
-    if (state.status === "complete") return;
+    if (state.status === "complete") return false;
     const started = state.actions.length > 0;
     const ready = state.blueReady && state.redReady;
-    if (!started && !ready) return;
-    if (!currentStep || state.sideChoiceRequired || isChampionUnavailable(champion, state.actions, blockedChampions)) return;
-    if (!mayActFor(currentStep.side)) return;
+    if (!started && !ready) return false;
+    if (!currentStep || state.sideChoiceRequired || isChampionUnavailable(champion, state.actions, blockedChampions)) return false;
+    if (!mayActFor(currentStep.side)) return false;
     const nextActions = state.actions.filter((action) => {
       if (typeof action.stepIndex === "number") return action.stepIndex !== currentStep.index;
       return !(action.side === currentStep.side && action.kind === currentStep.kind && action.slot === currentStep.slot);
@@ -585,9 +742,11 @@ export default function MatchDraftBoard({
         });
         if (rpcError) throw rpcError;
       }
-      setState(next);
+      commitMutation(next);
+      return true;
     } catch (err) {
       setError(saveErrorMessage(err, "Draft could not be saved."));
+      return false;
     } finally {
       setSaving(false);
     }
@@ -642,7 +801,7 @@ export default function MatchDraftBoard({
       }
       setPendingPick(null);
       sendIntent(null);
-      setState(next);
+      commitMutation(next);
       setConfirmingPassAt(null);
     } catch (err) {
       setError(saveErrorMessage(err, "Could not pass the ban."));
@@ -667,7 +826,7 @@ export default function MatchDraftBoard({
         });
         if (rpcError) throw rpcError;
       }
-      setState(next);
+      commitMutation(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Sides could not be saved."));
     } finally {
@@ -707,7 +866,7 @@ export default function MatchDraftBoard({
         });
         if (rpcError) throw rpcError;
       }
-      setState(next);
+      commitMutation(next);
     } catch (err) {
       setError(saveErrorMessage(err, "Ready check could not be saved."));
     } finally {
@@ -726,7 +885,7 @@ export default function MatchDraftBoard({
         p_step: stepIndex,
       });
       if (rpcError) throw rpcError;
-      setState({ ...state, changeRequest: { stepIndex, side: action.side, champion: action.champion } });
+      void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Change request could not be sent."));
     }
@@ -742,30 +901,7 @@ export default function MatchDraftBoard({
         p_approve: approve,
       });
       if (rpcError) throw rpcError;
-      if (approve) {
-        const changedStep = state.changeRequest.stepIndex;
-        const changedAction = state.actions.find((entry) => entry.stepIndex === changedStep);
-        const remaining = state.actions.filter((entry) => entry.stepIndex !== changedStep);
-        const nextStep = nextEmptyStepIndex(remaining);
-        const restoredPending = { ...pendingOvertime };
-        if (changedAction?.kind === "pick" && changedAction.side) {
-          restoredPending[changedAction.side] = Math.max(0, changedAction.pendingOvertimeBeforeSeconds ?? 0);
-        }
-        setState({
-          ...state,
-          actions: remaining,
-          currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
-          status: "drafting",
-          ...timingForNextStep(nextStep, new Date().toISOString(), restoredPending),
-          bluePendingOvertimeSeconds: restoredPending.blue,
-          redPendingOvertimeSeconds: restoredPending.red,
-          changeRequest: null,
-          positions: null,
-          winnerTeam: null,
-        });
-      } else {
-        setState({ ...state, changeRequest: null });
-      }
+      void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "The response could not be saved."));
     } finally {
@@ -787,7 +923,7 @@ export default function MatchDraftBoard({
         p_team: next,
       });
       if (rpcError) throw rpcError;
-      setState({ ...state, winnerTeam: next });
+      commitMutation({ ...state, winnerTeam: next });
     } catch (err) {
       setError(saveErrorMessage(err, "The result could not be saved."));
     } finally {
@@ -800,7 +936,7 @@ export default function MatchDraftBoard({
     Object.values(statesByGame).filter((game) => sameTeam(game.winnerTeam, team.name)).length;
   const winsA = seriesWins(state.scheduledTeams[0]);
   const winsB = seriesWins(state.scheduledTeams[1]);
-  const winsNeeded = Math.floor(seriesFormat.bestOf / 2) + 1;
+  const winsNeeded = Math.floor(liveSeriesFormat.bestOf / 2) + 1;
   const seriesWinner =
     winsA >= winsNeeded ? state.scheduledTeams[0] : winsB >= winsNeeded ? state.scheduledTeams[1] : null;
 
@@ -857,11 +993,9 @@ export default function MatchDraftBoard({
       });
       if (rpcError) throw rpcError;
       const positions = { ...(state.positions ?? {}), [side]: order };
-      setState({
-        ...state,
-        positions,
-      });
       if (positions.blue && positions.red) setRoleModalOpen(false);
+      if (state.revision === undefined) setState({ ...state, positions });
+      else void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Roles could not be saved."));
     } finally {
@@ -880,29 +1014,7 @@ export default function MatchDraftBoard({
         p_game: state.gameNumber,
       });
       if (rpcError) throw rpcError;
-      // Realtime brings the corrected row; recompute optimistically too.
-      const last = Math.max(...state.actions.map((entry) => entry.stepIndex ?? -1));
-      if (last >= 0) {
-        const remaining = state.actions.filter((entry) => entry.stepIndex !== last);
-        const nextStep = nextEmptyStepIndex(remaining);
-        const restoredPending = { ...pendingOvertime };
-        const lastAction = state.actions.find((entry) => entry.stepIndex === last);
-        if (lastAction?.kind === "pick" && lastAction.side) {
-          restoredPending[lastAction.side] = Math.max(0, lastAction.pendingOvertimeBeforeSeconds ?? 0);
-        }
-        const nextTiming = timingForNextStep(nextStep, new Date().toISOString(), restoredPending);
-        setState({
-          ...state,
-          actions: remaining,
-          currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
-          status: "drafting",
-          ...nextTiming,
-          bluePendingOvertimeSeconds: restoredPending.blue,
-          redPendingOvertimeSeconds: restoredPending.red,
-          changeRequest: null,
-          positions: null,
-        });
-      }
+      void refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Undo failed."));
     } finally {
@@ -910,31 +1022,73 @@ export default function MatchDraftBoard({
     }
   };
 
-  // Expired ban: after the existing 3s grace, any involved client
-  // (captain/admin) asks the server to skip the step. Schedule from the
-  // persisted deadline rather than secondsLeft: signed time changes every
-  // second, and using it as a dependency would keep cancelling this timer.
-  // The server re-checks the deadline, and the ref stops repeat attempts.
-  const skipAttempted = useRef<string | null>(null);
+  // Expired bans are scheduled independently of the display tick. A clock
+  // skew can make the first request early, so TOO_SOON and transient network
+  // failures retry while this exact revision/step/deadline remains current.
+  const skipJobsRef = useRef(new Map<string, { cancelled: boolean; timer?: ReturnType<typeof setTimeout> }>());
   useEffect(() => {
-    if (!supabase || onSave) return;
-    if (!clockRunning || currentStep?.kind !== "ban") return;
-    if (!(canReset || viewerSide)) return;
-    const key = `${state.gameNumber}:${state.currentStepIndex}`;
-    if (skipAttempted.current === key) return;
-    const deadline = state.turnDeadlineAt ?? (state.turnStartedAt
-      ? new Date(new Date(state.turnStartedAt).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString()
-      : null);
-    if (!deadline) return;
-    const delay = Math.max(0, Date.parse(deadline) - Date.now() + 3_250);
-    const timer = setTimeout(() => {
-      skipAttempted.current = key;
-      void draftRpc(supabase, "skip_match_draft_step", { p_game: state.gameNumber });
-    }, delay);
-    return () => clearTimeout(timer);
-    // draftRpc is stable in everything this effect already tracks.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, onSave, clockRunning, canReset, viewerSide, lobby, state.turnDeadlineAt, state.turnStartedAt, state.gameNumber, state.currentStepIndex, currentStep?.kind]);
+    const jobs = skipJobsRef.current;
+    const wanted = new Set<string>();
+    if (supabase && !onSave) {
+      for (const candidate of Object.values(statesByGame)) {
+        const candidateStep = LCS_DRAFT_STEPS[candidate.currentStepIndex];
+        const eligible = candidate.status !== "complete" &&
+          (candidate.actions.length > 0 || (candidate.blueReady && candidate.redReady)) &&
+          candidate.blueReady && candidate.redReady &&
+          candidateStep?.kind === "ban" &&
+          (canReset || sameTeam(viewerTeamName, candidate.blueTeam.name) || sameTeam(viewerTeamName, candidate.redTeam.name));
+        if (!eligible) continue;
+        const deadline = candidate.turnDeadlineAt ?? (candidate.turnStartedAt
+          ? new Date(Date.parse(candidate.turnStartedAt) + DRAFT_TURN_SECONDS * 1000).toISOString()
+          : null);
+        if (!deadline) continue;
+        const key = draftTurnKey({ ...candidate, turnDeadlineAt: deadline });
+        wanted.add(key);
+        if (jobs.has(key)) continue;
+        const job: { cancelled: boolean; timer?: ReturnType<typeof setTimeout> } = { cancelled: false };
+        jobs.set(key, job);
+        const attempt = async (delay: number): Promise<void> => {
+          job.timer = setTimeout(async () => {
+            if (job.cancelled) return;
+            try {
+              const result = await draftRpc(supabase, "skip_match_draft_step", { p_game: candidate.gameNumber });
+              if (!result.error) {
+                jobs.delete(key);
+                void refreshSnapshot();
+                return;
+              }
+              if (!timeoutRetryable(result.error)) {
+                jobs.delete(key);
+                setError(saveErrorMessage(result.error, "The expired ban could not be advanced."));
+                return;
+              }
+            } catch (err) {
+              if (!timeoutRetryable(err)) {
+                jobs.delete(key);
+                setError(saveErrorMessage(err, "The expired ban could not be advanced."));
+                return;
+              }
+            }
+            if (!job.cancelled) void attempt(Math.min(5000, Math.max(750, delay * 1.5)));
+          }, delay);
+        };
+        void attempt(Math.max(0, Date.parse(deadline) - (Date.now() + clockOffsetMs) + 3250));
+      }
+    }
+    for (const [key, job] of jobs) {
+      if (!wanted.has(key)) {
+        job.cancelled = true;
+        if (job.timer) clearTimeout(job.timer);
+        jobs.delete(key);
+      }
+    }
+  }, [canReset, clockOffsetMs, draftRpc, lobby, onSave, refreshSnapshot, statesByGame, supabase, viewerTeamName]);
+  useEffect(() => () => {
+    for (const job of skipJobsRef.current.values()) {
+      job.cancelled = true;
+      if (job.timer) clearTimeout(job.timer);
+    }
+  }, []);
 
   // Ping + flash the tab when a NEW turn becomes the viewer's.
   const lastTurnKey = useRef<string | null>(null);
@@ -965,7 +1119,7 @@ export default function MatchDraftBoard({
 
   const saveSeriesFormat = async (change: Partial<MatchDraftSeriesFormat>) => {
     if (!supabase) return;
-    const next = { ...seriesFormat, ...change };
+    const next = { ...liveSeriesFormat, ...change };
     setSaving(true);
     setError(null);
     try {
@@ -974,8 +1128,9 @@ export default function MatchDraftBoard({
         { onConflict: "fixture_id" },
       );
       if (saveError) throw saveError;
-      // Tab count and fearless blocks are server-derived — rebuild the page.
-      window.location.reload();
+      // The settings change is delivered to every viewer on the same channel;
+      // the next snapshot creates/removes game tabs and recomputes fearless.
+      await refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Format could not be saved."));
       setSaving(false);
@@ -996,13 +1151,15 @@ export default function MatchDraftBoard({
         });
         if (rpcError) throw rpcError;
       } else {
-        let query = supabase.from("match_drafts").delete().eq("fixture_id", state.fixtureId);
-        if (scope === "game") query = query.eq("game_number", state.gameNumber);
-        const { error: deleteError } = await query;
-        if (deleteError) throw deleteError;
+        const { error: resetError } = await supabase.rpc("reset_match_draft", {
+          p_fixture: state.fixtureId,
+          p_game: scope === "game" ? state.gameNumber : null,
+        });
+        if (resetError) throw resetError;
       }
-      // Rebuild everything (fearless blocks included) from the server.
-      window.location.reload();
+      // Realtime delivers the scoped delete; the snapshot also catches a
+      // delete committed during the subscription gap.
+      await refreshSnapshot();
     } catch (err) {
       setError(saveErrorMessage(err, "Draft could not be reset."));
       setSaving(false);
@@ -1015,13 +1172,14 @@ export default function MatchDraftBoard({
     setRoleModalOpen(false);
     setRoleOrders({});
     setRoleDrag(null);
+    setPendingPick(null);
     // Keep the URL shareable/refreshable without a navigation.
     window.history.replaceState(null, "", game.href);
   };
 
-  const gameTabs = games.length > 1 ? (
+  const gameTabs = seriesGames.length > 1 ? (
     <nav aria-label="Series games" className="flex flex-wrap items-center gap-1.5">
-      {games.map((game) => {
+      {seriesGames.map((game) => {
         const active = game.gameNumber === state.gameNumber;
         // Live status from the client store (falls back to the server prop).
         const liveGame = statesByGame[game.gameNumber];
@@ -1101,7 +1259,7 @@ export default function MatchDraftBoard({
         All picks and bans are locked in.
         {currentTourneyCode
           ? " Create the custom lobby with this game's tourney code:"
-          : games.length > 1
+          : seriesGames.length > 1
             ? " Use the game tabs to move to the next game."
             : ""}
       </span>
@@ -1146,7 +1304,7 @@ export default function MatchDraftBoard({
           ? // Just the score, no series call — scrim blocks play every game
             // regardless, and all games stay open either way.
             `Series score: ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}.${
-              winsA + winsB < seriesFormat.bestOf ? " Remaining games stay open." : ""
+              winsA + winsB < liveSeriesFormat.bestOf ? " Remaining games stay open." : ""
             }`
           : viewerSide || canReset
             ? "Either captain can record it — recorded results prefill your match report."
@@ -1569,39 +1727,10 @@ export default function MatchDraftBoard({
   );
 
   // The turn clock card — center column on stage, top strip on board.
-  const timerCard = (
-    <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
-      <span className="label-dash">Game {state.gameNumber}</span>
-      <span className={`type-display mt-1 text-4xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-      </span>
-      <span className="mt-1 text-xs uppercase text-muted">
-        {state.status === "complete"
-          ? "draft complete"
-          : clockRunning
-            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-            : "waiting for ready check"}
-      </span>
-    </div>
-  );
+  const timerCard = <TurnTimer state={state} currentStep={currentStep} clockRunning={clockRunning} clockOffsetMs={clockOffsetMs} />;
+  const compactTimerCard = <TurnTimer state={state} currentStep={currentStep} clockRunning={clockRunning} clockOffsetMs={clockOffsetMs} compact />;
 
-  const compactTimerCard = (
-    <div data-testid="match-draft-compact-timer" className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded border border-border-subtle bg-surface px-3 py-2">
-      <span className="label-dash">Game {state.gameNumber}</span>
-      <span className={`type-display text-2xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-        {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-      </span>
-      <span className="text-right text-[10px] uppercase tracking-wide text-muted">
-        {state.status === "complete"
-          ? "Draft complete"
-          : clockRunning
-            ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-            : "Waiting for ready check"}
-      </span>
-    </div>
-  );
-
-  const matchupView = draftMatchupViewFromState(state, { secondsLeft, clockRunning });
+  const matchupView = draftMatchupViewFromState(state, { clockRunning });
 
   const stage = (
     <section className="flex flex-col gap-4" aria-label="Stage draft layout">
@@ -1640,6 +1769,12 @@ export default function MatchDraftBoard({
     // OBS browser source: teams, picks, bans, and the clock — nothing else.
     return (
       <main className={`flex w-full flex-col gap-4 p-4 text-white ${overlayTransparent ? "bg-transparent" : "bg-canvas"}`}>
+        {connectionStatus !== "connected" || syncError ? (
+          <div className="max-w-md text-xs" data-testid="match-draft-overlay-connection">
+            <ConnectionBanner status={connectionStatus} onRetry={() => void refreshSnapshot()} />
+            {syncError ? <p role="alert" className="mt-1 rounded bg-canvas/80 px-2 py-1 text-red-300">{syncError}</p> : null}
+          </div>
+        ) : null}
         <DraftMatchupBoard
           view={matchupView}
           imageSize="lg"
@@ -1648,17 +1783,7 @@ export default function MatchDraftBoard({
           slotClassName={(pick) => pick.side === "red" ? "w-[350px] justify-self-end" : "w-[350px]"}
           renderRail={() => (
             <div className="flex min-w-32 flex-col items-center justify-center rounded border border-border-subtle bg-surface px-4 py-4 text-center">
-              <span className="label-dash">Game {state.gameNumber}</span>
-              <span className={`type-display mt-1 text-5xl ${secondsLeft !== null && secondsLeft <= 5 ? "animate-pulse text-red-400" : "text-white"}`}>
-                {state.status === "complete" ? "Done" : secondsLeft !== null ? `${secondsLeft}s` : "—"}
-              </span>
-              <span className="mt-1 text-xs uppercase text-muted">
-                {state.status === "complete"
-                  ? "draft complete"
-                  : clockRunning
-                    ? `${currentStep?.side} ${currentStep?.kind} ${currentStep?.slot}`
-                    : "waiting for ready check"}
-              </span>
+              <TurnTimer state={state} currentStep={currentStep} clockRunning={clockRunning} clockOffsetMs={clockOffsetMs} />
             </div>
           )}
         />
@@ -1671,7 +1796,7 @@ export default function MatchDraftBoard({
       <header className="card-brand flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div>
           <span className="label-dash">
-            Bo{seriesFormat.bestOf}{seriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}
+            Bo{liveSeriesFormat.bestOf}{liveSeriesFormat.fearless ? " fearless" : ""} · Game {state.gameNumber}
             {lobby && winsA + winsB > 0
               ? ` · ${state.scheduledTeams[0].abbreviation} ${winsA}–${winsB} ${state.scheduledTeams[1].abbreviation}`
               : ""}
@@ -1721,7 +1846,8 @@ export default function MatchDraftBoard({
         </div>
       </header>
 
-      <ConnectionBanner status={connectionStatus} onRetry={() => window.location.reload()} />
+      <ConnectionBanner status={connectionStatus} onRetry={() => void refreshSnapshot()} />
+      {syncError ? <p role="alert" className="text-sm text-amber-300">{syncError}</p> : null}
 
       {completeBanner}
       {winnerPicker}
@@ -1739,10 +1865,10 @@ export default function MatchDraftBoard({
                 key={option}
                 type="button"
                 disabled={saving}
-                aria-pressed={seriesFormat.bestOf === option}
-                onClick={() => (seriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
+                aria-pressed={liveSeriesFormat.bestOf === option}
+                onClick={() => (liveSeriesFormat.bestOf === option ? undefined : void saveSeriesFormat({ bestOf: option }))}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                  seriesFormat.bestOf === option ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                  liveSeriesFormat.bestOf === option ? "bg-coral text-canvas" : "border border-border-subtle bg-surface text-muted hover:text-white"
                 }`}
               >
                 Bo{option}
@@ -1751,13 +1877,13 @@ export default function MatchDraftBoard({
             <button
               type="button"
               disabled={saving}
-              aria-pressed={seriesFormat.fearless}
-              onClick={() => void saveSeriesFormat({ fearless: !seriesFormat.fearless })}
+              aria-pressed={liveSeriesFormat.fearless}
+              onClick={() => void saveSeriesFormat({ fearless: !liveSeriesFormat.fearless })}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-40 ${
-                seriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border-subtle bg-surface text-muted hover:text-white"
+                liveSeriesFormat.fearless ? "bg-mint/15 text-mint border border-mint/50" : "border border-border-subtle bg-surface text-muted hover:text-white"
               }`}
             >
-              Fearless {seriesFormat.fearless ? "on" : "off"}
+              Fearless {liveSeriesFormat.fearless ? "on" : "off"}
             </button>
           </div>
         ) : null}
