@@ -47,8 +47,12 @@ export interface PackWeek extends WeekRow {
   god_packs: number;
   rippers: number;
   /** Betting dollars spent on packs. Off the money anchor, so a comped or
-   *  daily pack contributes nothing rather than a notional price. */
-  spend: number;
+   *  daily pack contributes nothing rather than a notional price.
+   *
+   *  Optional because a deploy and a migration are never atomic: a page
+   *  shipped ahead of the function that adds this column would otherwise
+   *  render "$NaN" across the whole table. Read it through weekSpend(). */
+  spend?: number;
 }
 
 export interface PullWeek extends WeekRow {
@@ -175,6 +179,10 @@ export function rateRow(
 }
 
 const sum = <T>(rows: T[], pick: (row: T) => number) => rows.reduce((total, row) => total + pick(row), 0);
+
+/** A week's pack spend, zero when the database predates the column. The
+ *  page renders against whichever version of the function is live. */
+export const weekSpend = (week: PackWeek): number => (Number.isFinite(week.spend) ? (week.spend as number) : 0);
 
 /**
  * Every per-slot and per-pack gate the opener rolls, measured against what

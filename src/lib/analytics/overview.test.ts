@@ -6,6 +6,7 @@ import {
   parallelMix,
   pullRates,
   rateRow,
+  weekSpend,
   type PackWeek,
   type PullWeek,
 } from "./overview";
@@ -172,6 +173,16 @@ describe("dribbStatus", () => {
     // A sixth cannot exist, and if the count ever said so the page still
     // must not render "-1 still in the packs".
     expect(dribbStatus(9)).toEqual({ found: DRIBB_COPIES, left: 0, complete: true });
+  });
+});
+
+describe("weekSpend", () => {
+  it("reads zero rather than NaN when the database predates the column", () => {
+    // A deploy and a migration are never atomic. The page has to render
+    // against the older function for however long that gap lasts.
+    const older = { ...packWeek(), spend: undefined } as PackWeek;
+    expect(weekSpend(older)).toBe(0);
+    expect(weekSpend(packWeek({ spend: 400 }))).toBe(400);
   });
 });
 

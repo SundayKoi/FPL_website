@@ -13,6 +13,7 @@ import {
   EXPECTED_CARDS_PER_PACK,
   parallelMix,
   pullRates,
+  weekSpend,
   type RateRow,
   type RateVerdict,
 } from "@/lib/analytics/overview";
@@ -156,7 +157,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const totalOpens = packs.reduce((total, week) => total + week.opens, 0);
   const totalCopies = pulls.reduce((total, week) => total + week.copies, 0);
-  const totalSpend = packs.reduce((total, week) => total + week.spend, 0);
+  const totalSpend = packs.reduce((total, week) => total + weekSpend(week), 0);
   const latest = data.people.active.at(-1);
   const paidIn = data.economy.by_week.reduce((total, week) => total + week.paid_in, 0);
   const paidOut = data.economy.by_week.reduce((total, week) => total + week.paid_out, 0);
@@ -318,7 +319,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               <td className="py-1.5 pr-3">{num(week.comp)}</td>
               <td className="py-1.5 pr-3 text-gold">{num(week.god_packs)}</td>
               <td className="py-1.5 pr-3 text-muted">{num(week.rippers)}</td>
-              <td className="py-1.5">{money(week.spend)}</td>
+              <td className="py-1.5">{money(weekSpend(week))}</td>
             </tr>
           ))}
         </Table>
