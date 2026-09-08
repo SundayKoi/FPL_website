@@ -8,7 +8,7 @@
 -- totals within the window, which no clock can move.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 -- ── The door ─────────────────────────────────────────────────────────
 select ok(not has_function_privilege('anon', 'public.analytics_overview(int)', 'execute'),
@@ -128,7 +128,8 @@ create temporary table pack_after as
 select
   (select coalesce(sum((w ->> 'opens')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)     as opens,
   (select coalesce(sum((w ->> 'spend')::bigint), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)  as spend,
-  (select coalesce(sum((w ->> 'comp')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)      as comp
+  (select coalesce(sum((w ->> 'comp')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)      as comp,
+  (select coalesce(sum((w ->> 'variant_known')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w) as rolled
 from (select public.analytics_overview(2) as j) r;
 
 select is((select a.opens - b.opens from pack_after a, pack_before b)::int, 2,
@@ -137,6 +138,23 @@ select is((select a.spend - b.spend from pack_after a, pack_before b)::bigint, 2
   'spend comes off the money anchor once, not twice');
 select is((select a.comp - b.comp from pack_after a, pack_before b)::int, 1,
   'the comped open is counted, though no money row exists for it');
+
+-- A God Pack is decided when the opening identity is created, so a pack
+-- with no opening was never a roll. Both fixtures above have one; a bare
+-- money row does not, and must not land in that denominator.
+insert into public.card_pack_opens (discord_id, season, cost, opened_at)
+  values ('t_analytics_a', 'T', 200, now() - interval '1 day');
+
+create temporary table pack_bare as
+select
+  (select coalesce(sum((w ->> 'opens')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)          as opens,
+  (select coalesce(sum((w ->> 'variant_known')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)  as rolled
+from (select public.analytics_overview(2) as j) r;
+
+select is((select a.opens - b.opens from pack_bare a, pack_after b)::int, 1,
+  'a bare money row is still a pack');
+select is((select a.rolled - b.rolled from pack_bare a, pack_after b)::int, 0,
+  'but it was never rolled for a God Pack, so it stays out of that denominator');
 
 -- The chase roll call names who holds each Dribb, in number order.
 insert into public.card_inventory (discord_id, season, tier, foil, signed, card, acquired_at)

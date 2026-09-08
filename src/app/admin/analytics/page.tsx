@@ -13,6 +13,7 @@ import {
   EXPECTED_CARDS_PER_PACK,
   parallelMix,
   pullRates,
+  weekRolledForGod,
   weekSpend,
   type RateRow,
   type RateVerdict,
@@ -307,9 +308,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
       <Section
         title="Packs"
-        blurb="Every pack, from both records that hold them: the money row that reaches back to the league's first rip, and the newer opening identity that knows the variant and is the only trace of a comped pack. Counted once each. A refunded open is not an open."
+        blurb="Every pack, from both records that hold them: the money row that reaches back to the league's first rip, and the newer opening identity that knows the variant and is the only trace of a comped pack. Counted once each. A refunded open is not an open. \u201cRolled for one\u201d is how many packs that week could have been a God Pack \u2014 the feature only exists from the day its table shipped, so earlier packs were never a roll rather than a miss."
       >
-        <Table head={["Week", "Opens", "Paid", "Daily rip", "Comped", "God Packs", "Rippers", "Spent"]} min={720}>
+        <Table head={["Week", "Opens", "Paid", "Daily rip", "Comped", "God Packs", "Rolled for one", "Rippers", "Spent"]} min={800}>
           {packs.map((week) => (
             <tr key={week.week} className="border-t border-white/10">
               <td className="py-1.5 pr-3 text-chalk">{week.week}</td>
@@ -318,6 +319,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               <td className="py-1.5 pr-3">{num(week.daily)}</td>
               <td className="py-1.5 pr-3">{num(week.comp)}</td>
               <td className="py-1.5 pr-3 text-gold">{num(week.god_packs)}</td>
+              <td className="py-1.5 pr-3 text-muted">{num(weekRolledForGod(week))}</td>
               <td className="py-1.5 pr-3 text-muted">{num(week.rippers)}</td>
               <td className="py-1.5">{money(weekSpend(week))}</td>
             </tr>

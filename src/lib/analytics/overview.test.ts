@@ -6,6 +6,7 @@ import {
   parallelMix,
   pullRates,
   rateRow,
+  weekRolledForGod,
   weekSpend,
   type PackWeek,
   type PullWeek,
@@ -88,8 +89,8 @@ describe("pullRates", () => {
     expect(foil.per).toBe("card");
     expect(foil.sample).toBe(1000);
     expect(foil.observed).toBeCloseTo(0.04, 5);
-    // The God Pack is one roll per pack, so 200 is its sample — dividing it
-    // by cards would report the gate as five times rarer than it is.
+    // The God Pack is one roll per pack, so packs are its sample — dividing
+    // it by cards would report the gate as five times rarer than it is.
     const god = rates.find((row) => row.key === "god")!;
     expect(god.per).toBe("pack");
     expect(god.sample).toBe(200);
@@ -173,6 +174,29 @@ describe("dribbStatus", () => {
     // A sixth cannot exist, and if the count ever said so the page still
     // must not render "-1 still in the packs".
     expect(dribbStatus(9)).toEqual({ found: DRIBB_COPIES, left: 0, complete: true });
+  });
+});
+
+describe("weekRolledForGod", () => {
+  it("counts only the packs that could have been a God Pack", () => {
+    // The shipped shape of this: 9,000 packs opened before the opening
+    // identity table existed, then 3,000 after it. Those 9,000 were never
+    // a roll, and counting them as misses reports the gate as several
+    // times colder than it is.
+    const before = packWeek({ opens: 9000, variant_known: 0 });
+    const after = packWeek({ week: "2026-09-07", opens: 3000, variant_known: 3000, god_packs: 2 });
+    const god = pullRates([pullWeek({ copies: 60_000 })], [before, after]).find((row) => row.key === "god")!;
+    expect(god.sample).toBe(3000);
+    expect(god.observed).toBeCloseTo(2 / 3000, 8);
+    // Against all 12,000 it would have read 1 in 6,000 against a 1-in-1,500
+    // gate — a cold gate that was never actually rolled.
+    expect(god.observed).toBeGreaterThan(2 / 12_000);
+  });
+
+  it("falls back to every open when the database predates the column", () => {
+    const older = { ...packWeek({ opens: 500 }), variant_known: undefined } as PackWeek;
+    expect(weekRolledForGod(older)).toBe(500);
+    expect(weekRolledForGod(packWeek({ opens: 500, variant_known: 120 }))).toBe(120);
   });
 });
 

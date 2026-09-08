@@ -53,6 +53,9 @@ export interface PackWeek extends WeekRow {
    *  shipped ahead of the function that adds this column would otherwise
    *  render "$NaN" across the whole table. Read it through weekSpend(). */
   spend?: number;
+  /** Packs whose opening identity exists, and which could therefore have
+   *  been a God Pack. Optional for the same deploy-gap reason as spend. */
+  variant_known?: number;
 }
 
 export interface PullWeek extends WeekRow {
@@ -185,6 +188,19 @@ const sum = <T>(rows: T[], pick: (row: T) => number) => rows.reduce((total, row)
 export const weekSpend = (week: PackWeek): number => (Number.isFinite(week.spend) ? (week.spend as number) : 0);
 
 /**
+ * The God Pack's denominator: packs that could actually have been one.
+ *
+ * A God Pack is decided when the opening identity is created, so a pack
+ * opened before that table existed was never a roll — it is not a miss.
+ * Counting those as misses reported the gate several times colder than it
+ * is, on a page whose entire job is saying when a gate is off. Falls back
+ * to every open only when the database predates the column, where the two
+ * are the same thing anyway.
+ */
+export const weekRolledForGod = (week: PackWeek): number =>
+  Number.isFinite(week.variant_known) ? (week.variant_known as number) : week.opens;
+
+/**
  * Every per-slot and per-pack gate the opener rolls, measured against what
  * the config says it should be.
  *
@@ -204,7 +220,7 @@ export function pullRates(pulls: PullWeek[], packs: PackWeek[]): RateRow[] {
     rateRow("secret", "Secret", sum(pulls, (w) => w.secret), copies, SECRET_CHANCE),
     rateRow("moment", "Moment", sum(pulls, (w) => w.moment), copies, MOMENT_PULL_CHANCE),
     rateRow("team", "Team plate", sum(pulls, (w) => w.team), copies, TEAM_PULL_CHANCE),
-    rateRow("god", "God Pack", sum(packs, (w) => w.god_packs), opens, GOD_PACK_CHANCE, "pack"),
+    rateRow("god", "God Pack", sum(packs, (w) => w.god_packs), sum(packs, weekRolledForGod), GOD_PACK_CHANCE, "pack"),
     rateRow("dribb", "Dribb", sum(pulls, (w) => w.dribb), opens, DRIBB_CHANCE, "pack"),
   ];
 }

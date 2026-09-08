@@ -69,7 +69,10 @@ begin
       o.discord_id,
       case when o.cost = 0 then 'daily' else 'paid' end as source,
       coalesce(g.variant, 'standard')                   as variant,
-      o.cost                                            as cost
+      o.cost                                            as cost,
+      -- Whether this pack has an opening identity, and therefore whether
+      -- it could ever have been a God Pack. See variant_known below.
+      (g.opening_id is not null)                        as variant_known
     from card_pack_opens o
     left join card_pack_openings g
       on g.pack_open_id = o.id and g.status = 'fulfilled'
@@ -77,7 +80,7 @@ begin
     union all
     select
       date_trunc('week', (g.created_at at time zone 'America/New_York'))::date,
-      g.discord_id, g.source, g.variant, 0
+      g.discord_id, g.source, g.variant, 0, true
     from card_pack_openings g
     where g.created_at >= v_since and g.status = 'fulfilled' and g.pack_open_id is null
   ),
@@ -90,7 +93,14 @@ begin
       count(*) filter (where o.source = 'comp')             as comp,
       count(*) filter (where o.variant = 'god')             as god_packs,
       count(distinct o.discord_id)                          as rippers,
-      coalesce(sum(o.cost), 0)::bigint                      as spend
+      coalesce(sum(o.cost), 0)::bigint                      as spend,
+      -- THE GOD PACK'S DENOMINATOR. A God Pack is decided when an opening
+      -- identity is created, so a pack opened before that table existed
+      -- (20261003000001) could not have been one — it is not a miss, it
+      -- was never a roll. Dividing the God Packs found by every pack ever
+      -- opened would report the gate as several times colder than it is,
+      -- on a page whose whole job is telling staff when a gate is off.
+      count(*) filter (where o.variant_known)               as variant_known
     from weeks w left join opens o on o.week = w.week
     group by w.week order by w.week
   ),
