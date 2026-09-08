@@ -206,7 +206,12 @@ async function main() {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2000,
+      // Five prose sections. 2000 was not enough for a busy week: the reply
+      // was cut off mid-JSON, and because the extraction below needs a
+      // closing brace, a token cutoff surfaced as "did not return JSON" —
+      // a truncation wearing the costume of a model error. See the
+      // stop_reason check below, which now says which one it actually was.
+      max_tokens: 8000,
       system,
       messages: [{ role: "user", content: JSON.stringify(facts) }],
     }),
@@ -218,8 +223,19 @@ async function main() {
     throw new Error(`Anthropic API ${response.status}: ${await response.text()}`);
   }
 
-  const payload = (await response.json()) as { content: { type: string; text?: string }[] };
+  const payload = (await response.json()) as {
+    content: { type: string; text?: string }[];
+    stop_reason?: string;
+  };
   const text = payload.content.find((c) => c.type === "text")?.text ?? "";
+  // Ran out of room rather than went wrong. Worth its own message: the two
+  // read identically downstream (no closing brace either way) and the fix
+  // is completely different — raise max_tokens, not re-prompt.
+  if (payload.stop_reason === "max_tokens") {
+    throw new Error(
+      `Model hit max_tokens before finishing the brief; raise it. Got ${text.length} characters.`,
+    );
+  }
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error(`Model did not return JSON: ${text.slice(0, 400)}`);
 
