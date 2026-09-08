@@ -67,7 +67,8 @@ export const CHAMPION_TIER = "champion";
  * not a salvage floor (the first cut of 750 against a 250 pack paid $500
  * per click). Legendary's base (150) is the ceiling that feels right —
  * the relic's worth is the shelf, not the shredder. Expected return per
- * pack, signed jackpot included, stays near 84% of cost at worst.
+ * pack, signed jackpot included, stays near 74% of cost at worst (it was
+ * 84% until CHAMPION_SIGNED_CHANCE came down on 2026-09-08).
  */
 export const CHAMPION_DUST = 150;
 
@@ -75,16 +76,20 @@ export const CHAMPION_DUST = 150;
  *  the five-card pack on purpose: this is a relic run, not a bundle. */
 export const CHAMPIONS_PACK_COST = 250;
 
-/** Foil odds inside the drop. Boosted over the everyday 6%: a one-card
- *  pack at base odds would foil a handful of times league-wide in a
- *  one-week window, and the story deserves better. Parallels roll the
- *  normal ladder. */
-export const CHAMPION_FOIL_CHANCE = 0.12;
+/** Foil odds inside the drop. Still double the everyday gate (FOIL_CHANCE,
+ *  4%): a one-card pack at base odds would foil a handful of times
+ *  league-wide in a one-week window, and the story deserves better. Both
+ *  numbers came down together on 2026-09-08 (12% against a 6% base
+ *  before). Parallels roll the normal ladder. */
+export const CHAMPION_FOIL_CHANCE = 0.08;
 
 /** Autograph odds — rolled ONLY for champions whose real drawn ink is on
  *  file. Two of the five can't currently sign, and a printed script
- *  signature for someone who never held the pen isn't an autograph. */
-export const CHAMPION_SIGNED_CHANCE = 0.05;
+ *  signature for someone who never held the pen isn't an autograph. Held
+ *  well above the everyday ink gate (SIGNED_CHANCE, 0.5%) because a
+ *  Faceless Pack is one card and there is no second slot to get lucky on.
+ *  (5% until 2026-09-08.) */
+export const CHAMPION_SIGNED_CHANCE = 0.03;
 
 /** Uniform draw from the Hand — every rank equally likely, every pack. */
 export function rollChampionCard(rand: () => number): ChampionCardDef {

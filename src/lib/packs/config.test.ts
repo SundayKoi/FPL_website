@@ -86,7 +86,7 @@ describe("dustValueOf", () => {
     );
     const perPack = perSlot * PACK_SIZE;
 
-    expect(Math.round(perPack)).toBe(82);
+    expect(Math.round(perPack)).toBe(71);
     expect(perPack / PACK_COST).toBeLessThan(0.5);
   });
 });
@@ -102,7 +102,7 @@ describe("patronDustValue", () => {
     // The bonus rides the TOTAL, autograph included.
     expect(patronDustValue({ tier: "bronze", foil: false, signed: true }, true)).toBe(Math.round(1210 * 1.2));
     // Still a burn: a pack's expected dust return stays under its cost.
-    expect(Math.round(82 * 1.2)).toBeLessThan(200);
+    expect(Math.round(71 * 1.2)).toBeLessThan(200);
   });
 });
 
@@ -146,8 +146,8 @@ describe("foil parallels", () => {
   });
 
   it("pays the ladder in line with how thin it gets", () => {
-    // The first cut paid Cracked Ice (1-in-33 of foils) only 2.5x a
-    // Prisma (1-in-1.7). These are the corrected floors; lowering any of
+    // The first cut paid Cracked Ice (1-in-50 of foils) only 2.5x a
+    // Prisma (1-in-1.4). These are the corrected floors; lowering any of
     // them is a collector-facing price cut and should be deliberate.
     expect(FOIL_TYPE_DUST_MULT.aurora).toBeGreaterThanOrEqual(3);
     expect(FOIL_TYPE_DUST_MULT.refractor).toBeGreaterThanOrEqual(4.5);
@@ -244,6 +244,6 @@ describe("Eclipse, the one-of-one", () => {
   it("keeps the mintable ladder exactly as it was", () => {
     // Nothing about the odds may move because a new look was added.
     expect([...FOIL_TYPES]).toEqual(["prisma", "aurora", "refractor", "ice"]);
-    expect(FOIL_TYPE_WEIGHTS).toEqual({ prisma: 60, aurora: 25, refractor: 12, ice: 3 });
+    expect(FOIL_TYPE_WEIGHTS).toEqual({ prisma: 70, aurora: 20, refractor: 8, ice: 2 });
   });
 });

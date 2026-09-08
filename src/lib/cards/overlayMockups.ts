@@ -178,7 +178,7 @@ export const OVERLAY_MOCKUPS: OverlayMockup[] = [
     key: "shiny",
     title: "Shiny",
     blurb: "The same card in the wrong colours: a hue-shifted art variant with a sparkle burst.",
-    earn: "One in sixty-four prints, any tier.",
+    earn: "One in a hundred and twenty-eight prints, any tier.",
     group: "tcg",
     accent: "#ff9be7",
     front: ["card-ov-shiny-sparkle"],

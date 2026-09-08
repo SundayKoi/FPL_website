@@ -76,8 +76,10 @@ export const TEAM_TIER = "team";
 export const TEAM_DUST = 400;
 
 /** Chance a pack carries a roster plate instead of its last card. Rolled
- *  once per PACK like the moment roll — about one pack in twenty-five. */
-export const TEAM_PULL_CHANCE = 0.04;
+ *  once per PACK like the moment roll — one pack in fifty, and still twice
+ *  a moment's gate. (It was 4%, one pack in twenty-five, until
+ *  2026-09-08.) */
+export const TEAM_PULL_CHANCE = 0.02;
 
 /** Stable key for a team-week print, so copies of the same roster print
  *  from the same week share a serial line. */

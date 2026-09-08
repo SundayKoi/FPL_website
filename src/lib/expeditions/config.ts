@@ -232,7 +232,7 @@ const FOIL_SHINE: Record<FoilType, number> = {
 };
 
 /** What an autograph adds. Equal to the top parallel: real ink is the
- *  rarest print there is (SIGNED_CHANCE, 1%), and pinning it to Cracked
+ *  rarest print there is (SIGNED_CHANCE, 0.5%), and pinning it to Cracked
  *  Ice means a signed bronze and a foil challenger both read as "a card
  *  worth sending". */
 const SIGNED_SHINE = 4;
