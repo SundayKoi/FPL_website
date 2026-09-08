@@ -51,6 +51,8 @@ export interface MatchDraftChangeRequest {
 
 export interface MatchDraftRow {
   id: string;
+  /** Database-assigned ordering token for realtime/snapshot reconciliation. */
+  revision?: number;
   fixture_id: string;
   game_number: number;
   status: MatchDraftStatus;
@@ -77,6 +79,8 @@ export interface MatchDraftRow {
 export interface MatchDraftState {
   fixtureId: string;
   gameNumber: number;
+  /** Last authoritative database revision applied to this game. */
+  revision?: number;
   status: MatchDraftStatus;
   layout: MatchDraftLayout;
   currentStepIndex: number;
@@ -123,6 +127,7 @@ export interface MatchDraftSeriesFormat {
 
 export interface MatchDraftSettingsRow {
   fixture_id: string;
+  revision?: number;
   best_of: number;
   fearless: boolean;
 }
