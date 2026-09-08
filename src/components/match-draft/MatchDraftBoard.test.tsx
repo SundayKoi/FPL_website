@@ -193,10 +193,7 @@ describe("MatchDraftBoard", () => {
     expect(rpcMock).toHaveBeenCalledTimes(2);
   });
 
-  it("uses medium champion images by default and resizes with minus and plus controls", () => {
-    // XS fits the most champions on screen but renders portraits too small
-    // to recognise at a glance, which is what the pool is for during a
-    // timed turn.
+  it("uses medium champion images by default and only exposes MD and LG", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
     expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
