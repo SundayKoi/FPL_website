@@ -42,8 +42,8 @@ export default async function DrafterLandingPage() {
         <h1 className="type-display mt-2 text-4xl text-white">Match Drafter</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
           Run a full LCS-style pick/ban phase for any custom game. Create a lobby, send each captain
-          their secret link, and share the spectator link with everyone else — ready checks, a 30
-          second pick clock with skips, change requests, fearless mode, and live sync included.
+          their secret link, and share the spectator link with everyone else — ready checks, a signed
+          30 second clock, pick overtime, ban skips, change requests, fearless mode, and live sync included.
           Whoever you send the links to needs no account at all.
         </p>
       </header>
@@ -53,7 +53,7 @@ export default async function DrafterLandingPage() {
         <ol className="mt-2 list-decimal space-y-1 pl-5">
           <li>Name the two teams and pick the series format (Bo1/Bo3/Bo5, fearless on or off).</li>
           <li>Send each captain their link — opening it lets them draft for that team only.</li>
-          <li>Both captains ready up, then the draft runs on a 30 second clock; an expired turn is skipped.</li>
+          <li>Both captains ready up, then each turn gets 30 seconds; picks stay selectable in overtime, while expired bans are skipped.</li>
           <li>Misclicked? Ask for a change with ↺ — the other captain approves and the step reopens.</li>
           <li>Spectators (and OBS with <code>?overlay=1</code>) follow along live on the third link.</li>
         </ol>

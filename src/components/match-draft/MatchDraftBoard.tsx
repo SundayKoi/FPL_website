@@ -11,6 +11,7 @@ import {
 } from "@/lib/realtime/connection";
 import { CHAMPIONS, championLookup, type ChampionRole, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import { actionForStep, DRAFT_TURN_SECONDS, isChampionUnavailable, LCS_DRAFT_STEPS, nextEmptyStepIndex, normalizeChampionName } from "@/lib/match-draft/rules";
+import { overtimeSecondsForDeadline, signedSecondsRemaining, turnAllowanceSeconds, turnDeadlineAt } from "@/lib/match-draft/timing";
 import { draftMatchupViewFromState, type DraftMatchupPickView } from "@/lib/match-draft/presentation";
 import { DraftMatchupBoard, DraftPickSlot } from "@/components/match-draft/DraftMatchupBoard";
 import { MATCH_DRAFT_IMAGE_SIZES, MATCH_DRAFT_IMAGE_SIZE_ORDER } from "@/components/match-draft/matchDraftSizes";
@@ -143,19 +144,32 @@ const ROLE_FILTERS: { value: ChampionRole; label: string }[] = [
   { value: "support", label: "Support" },
 ];
 
-/** Seconds left on the current turn, ticking once a second. Returns null
- *  until the clock should be shown (no turn start yet). Display only — the
- *  drafter does not auto-skip when it reaches zero. */
-function useTurnCountdown(turnStartedAt: string | null, running: boolean): number | null {
-  const [now, setNow] = useState(() => Date.now());
+/** Signed seconds on the persisted current deadline, ticking once a second.
+ *  Returns null until the clock should be shown. The server still decides
+ *  whether a lock is valid; this hook is display-only. */
+function useTurnCountdown(
+  turnStartedAt: string | null,
+  turnDeadlineAt: string | null,
+  running: boolean,
+): number | null {
+  // Keep the server render and the first client render deterministic. The
+  // effect reveals the live value immediately after hydration, then ticks it
+  // from the persisted deadline once per second.
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     if (!running) return;
+    const firstTick = setTimeout(() => setNow(Date.now()), 0);
     const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(firstTick);
+      clearInterval(timer);
+    };
   }, [running]);
-  if (!running || !turnStartedAt) return null;
-  const elapsed = Math.floor((now - new Date(turnStartedAt).getTime()) / 1000);
-  return Math.max(0, DRAFT_TURN_SECONDS - Math.max(0, elapsed));
+  if (!running || now === null || (!turnDeadlineAt && !turnStartedAt)) return null;
+  // Rows created before the overtime migration have a start but no deadline.
+  // They get the old 30-second display until the row is touched/backfilled.
+  const deadline = turnDeadlineAt ?? new Date(new Date(turnStartedAt!).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString();
+  return signedSecondsRemaining(deadline, now);
 }
 
 export default function MatchDraftBoard({
@@ -325,7 +339,24 @@ export default function MatchDraftBoard({
   const bothReady = state.blueReady && state.redReady;
   const drafting = state.status !== "complete";
   const clockRunning = drafting && (draftStarted || bothReady);
-  const secondsLeft = useTurnCountdown(state.turnStartedAt, clockRunning);
+  const secondsLeft = useTurnCountdown(state.turnStartedAt, state.turnDeadlineAt, clockRunning);
+
+  const pendingOvertime = {
+    blue: Math.max(0, state.bluePendingOvertimeSeconds),
+    red: Math.max(0, state.redPendingOvertimeSeconds),
+  } as const;
+  const timingForNextStep = (nextStepIndex: number | null, startedAt: string, pending: { blue: number; red: number }) => {
+    if (nextStepIndex === null) {
+      return { turnStartedAt: null, turnDeadlineAt: null, turnAllowanceSeconds: null };
+    }
+    const step = LCS_DRAFT_STEPS[nextStepIndex];
+    const allowance = turnAllowanceSeconds(step.kind, step.side, pending);
+    return {
+      turnStartedAt: startedAt,
+      turnDeadlineAt: turnDeadlineAt(startedAt, step.kind, step.side, pending),
+      turnAllowanceSeconds: allowance,
+    };
+  };
 
   // Live sync: both captains (and spectators) see picks, readiness, side
   // swaps, and resets as they happen — for EVERY game in the series, so
@@ -377,6 +408,10 @@ export default function MatchDraftBoard({
                 status: row.status,
                 currentStepIndex: row.current_step_index,
                 turnStartedAt: row.turn_started_at,
+                turnDeadlineAt: row.turn_deadline_at,
+                turnAllowanceSeconds: row.turn_allowance_seconds,
+                bluePendingOvertimeSeconds: row.blue_pending_overtime_seconds ?? 0,
+                redPendingOvertimeSeconds: row.red_pending_overtime_seconds ?? 0,
                 blueReady: row.blue_ready ?? false,
                 redReady: row.red_ready ?? false,
                 changeRequest: row.change_request ?? null,
@@ -428,7 +463,11 @@ export default function MatchDraftBoard({
       status: next.status,
       layout: next.layout,
       current_step_index: next.currentStepIndex,
-      turn_started_at: new Date().toISOString(),
+      turn_started_at: next.turnStartedAt,
+      turn_deadline_at: next.turnDeadlineAt,
+      turn_allowance_seconds: next.turnAllowanceSeconds,
+      blue_pending_overtime_seconds: next.bluePendingOvertimeSeconds,
+      red_pending_overtime_seconds: next.redPendingOvertimeSeconds,
       blue_team_name: next.blueTeam.name,
       red_team_name: next.redTeam.name,
       blue_ready: next.blueReady,
@@ -506,12 +545,31 @@ export default function MatchDraftBoard({
     // Advancement mirrors the database: jump to the next EMPTY step so a
     // reopened change-request step gets drafted before play resumes.
     const nextStepIndex = nextEmptyStepIndex(appended);
+    const committedAt = new Date().toISOString();
+    const committedAtMs = Date.parse(committedAt);
+    const pendingBefore = pendingOvertime[currentStep.side];
+    const activeDeadline = state.turnDeadlineAt ?? (state.turnStartedAt ? new Date(new Date(state.turnStartedAt).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString() : null);
+    const overtime = currentStep.kind === "pick" ? overtimeSecondsForDeadline(activeDeadline, committedAtMs) : 0;
+    // Only a pick consumes/replaces that side's pending debt.  A ban can
+    // advance the draft between two picks without changing the allowance the
+    // next pick will receive.
+    const nextPending = currentStep.kind === "pick"
+      ? { ...pendingOvertime, [currentStep.side]: overtime }
+      : pendingOvertime;
+    const nextTiming = timingForNextStep(nextStepIndex, committedAt, nextPending);
     const next: MatchDraftState = {
       ...state,
       currentStepIndex: nextStepIndex ?? LCS_DRAFT_STEPS.length - 1,
       status: nextStepIndex === null ? "complete" : "drafting",
-      turnStartedAt: new Date().toISOString(),
+      ...nextTiming,
+      bluePendingOvertimeSeconds: nextPending.blue,
+      redPendingOvertimeSeconds: nextPending.red,
       actions: appended,
+    };
+    next.actions[next.actions.length - 1] = {
+      ...next.actions[next.actions.length - 1],
+      overtimeSeconds: overtime,
+      pendingOvertimeBeforeSeconds: pendingBefore,
     };
     setSaving(true);
     setError(null);
@@ -562,11 +620,13 @@ export default function MatchDraftBoard({
       },
     ];
     const nextStepIndex = nextEmptyStepIndex(appended);
+    const committedAt = new Date().toISOString();
+    const nextTiming = timingForNextStep(nextStepIndex, committedAt, pendingOvertime);
     const next: MatchDraftState = {
       ...state,
       currentStepIndex: nextStepIndex ?? LCS_DRAFT_STEPS.length - 1,
       status: nextStepIndex === null ? "complete" : "drafting",
-      turnStartedAt: new Date().toISOString(),
+      ...nextTiming,
       actions: appended,
     };
     setSaving(true);
@@ -624,7 +684,16 @@ export default function MatchDraftBoard({
       redReady: side === "red" ? nextReady : state.redReady,
     };
     // Both just went ready: the first turn's clock starts now.
-    if (next.blueReady && next.redReady) next.turnStartedAt = new Date().toISOString();
+    if (next.blueReady && next.redReady) {
+      const startedAt = new Date().toISOString();
+      Object.assign(next, timingForNextStep(0, startedAt, { blue: 0, red: 0 }));
+      next.bluePendingOvertimeSeconds = 0;
+      next.redPendingOvertimeSeconds = 0;
+    } else {
+      next.turnStartedAt = null;
+      next.turnDeadlineAt = null;
+      next.turnAllowanceSeconds = null;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -674,16 +743,25 @@ export default function MatchDraftBoard({
       });
       if (rpcError) throw rpcError;
       if (approve) {
-        const remaining = state.actions.filter((entry) => entry.stepIndex !== state.changeRequest?.stepIndex);
+        const changedStep = state.changeRequest.stepIndex;
+        const changedAction = state.actions.find((entry) => entry.stepIndex === changedStep);
+        const remaining = state.actions.filter((entry) => entry.stepIndex !== changedStep);
         const nextStep = nextEmptyStepIndex(remaining);
+        const restoredPending = { ...pendingOvertime };
+        if (changedAction?.kind === "pick" && changedAction.side) {
+          restoredPending[changedAction.side] = Math.max(0, changedAction.pendingOvertimeBeforeSeconds ?? 0);
+        }
         setState({
           ...state,
           actions: remaining,
           currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
           status: "drafting",
-          turnStartedAt: new Date().toISOString(),
+          ...timingForNextStep(nextStep, new Date().toISOString(), restoredPending),
+          bluePendingOvertimeSeconds: restoredPending.blue,
+          redPendingOvertimeSeconds: restoredPending.red,
           changeRequest: null,
           positions: null,
+          winnerTeam: null,
         });
       } else {
         setState({ ...state, changeRequest: null });
@@ -807,12 +885,20 @@ export default function MatchDraftBoard({
       if (last >= 0) {
         const remaining = state.actions.filter((entry) => entry.stepIndex !== last);
         const nextStep = nextEmptyStepIndex(remaining);
+        const restoredPending = { ...pendingOvertime };
+        const lastAction = state.actions.find((entry) => entry.stepIndex === last);
+        if (lastAction?.kind === "pick" && lastAction.side) {
+          restoredPending[lastAction.side] = Math.max(0, lastAction.pendingOvertimeBeforeSeconds ?? 0);
+        }
+        const nextTiming = timingForNextStep(nextStep, new Date().toISOString(), restoredPending);
         setState({
           ...state,
           actions: remaining,
           currentStepIndex: nextStep ?? LCS_DRAFT_STEPS.length - 1,
           status: "drafting",
-          turnStartedAt: new Date().toISOString(),
+          ...nextTiming,
+          bluePendingOvertimeSeconds: restoredPending.blue,
+          redPendingOvertimeSeconds: restoredPending.red,
           changeRequest: null,
           positions: null,
         });
@@ -824,24 +910,31 @@ export default function MatchDraftBoard({
     }
   };
 
-  // Expired clock: after a 3s grace, any involved client (captain/admin)
-  // asks the server to skip the step. The server re-checks the elapsed time,
-  // so an early call is safely rejected; the ref stops repeat attempts.
+  // Expired ban: after the existing 3s grace, any involved client
+  // (captain/admin) asks the server to skip the step. Schedule from the
+  // persisted deadline rather than secondsLeft: signed time changes every
+  // second, and using it as a dependency would keep cancelling this timer.
+  // The server re-checks the deadline, and the ref stops repeat attempts.
   const skipAttempted = useRef<string | null>(null);
   useEffect(() => {
     if (!supabase || onSave) return;
-    if (!clockRunning || secondsLeft === null || secondsLeft > 0) return;
+    if (!clockRunning || currentStep?.kind !== "ban") return;
     if (!(canReset || viewerSide)) return;
     const key = `${state.gameNumber}:${state.currentStepIndex}`;
     if (skipAttempted.current === key) return;
+    const deadline = state.turnDeadlineAt ?? (state.turnStartedAt
+      ? new Date(new Date(state.turnStartedAt).getTime() + DRAFT_TURN_SECONDS * 1000).toISOString()
+      : null);
+    if (!deadline) return;
+    const delay = Math.max(0, Date.parse(deadline) - Date.now() + 3_250);
     const timer = setTimeout(() => {
       skipAttempted.current = key;
       void draftRpc(supabase, "skip_match_draft_step", { p_game: state.gameNumber });
-    }, 3000);
+    }, delay);
     return () => clearTimeout(timer);
     // draftRpc is stable in everything this effect already tracks.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase, onSave, clockRunning, secondsLeft, canReset, viewerSide, lobby, state.fixtureId, state.gameNumber, state.currentStepIndex]);
+  }, [supabase, onSave, clockRunning, canReset, viewerSide, lobby, state.turnDeadlineAt, state.turnStartedAt, state.gameNumber, state.currentStepIndex, currentStep?.kind]);
 
   // Ping + flash the tab when a NEW turn becomes the viewer's.
   const lastTurnKey = useRef<string | null>(null);
