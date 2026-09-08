@@ -47,7 +47,7 @@ select is((select rules from public.expedition_runs where id = tests.echo_run())
 -- === the ceiling ============================================================
 select throws_ok($$
   select * from public.resolve_expedition('echo-0093', tests.echo_run(), jsonb_build_object(
-    'grade', 'jackpot', 'dollars', 13576, 'comp', false, 'fates', '[]'::jsonb)) $$,
+    'grade', 'jackpot', 'dollars', 16276, 'comp', false, 'fates', '[]'::jsonb)) $$,
   'P0001', 'payout out of range', 'the ceiling stops one dollar above the surged maximum');
 select throws_ok($$
   select * from public.resolve_expedition('echo-0093', tests.echo_run(), jsonb_build_object(

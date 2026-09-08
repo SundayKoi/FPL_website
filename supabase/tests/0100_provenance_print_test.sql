@@ -16,11 +16,13 @@ select has_column('public', 'card_provenance', 'season', 'a provenance row knows
 select has_column('public', 'card_provenance', 'print', 'and the mint knows what was printed');
 
 create temporary table shiny_copy on commit drop as
+with minted as (
   insert into public.card_inventory
     (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, foil_type, signed, card)
   values ('mint-0100', 'S_TEST_PRINT', 'print-1', 'Print Player', 'Mid', date '2026-08-24', 80, 'platinum',
           true, 'ice', true, '{"slug":"print-1","artSkin":7,"shiny":true,"stattrak":{"points":0,"since":"x"}}'::jsonb)
-  returning id;
+  returning id
+) select id from minted;
 
 select is(
   (select season from public.card_provenance where inventory_id = (select id from shiny_copy) and event = 'minted'),
@@ -28,15 +30,17 @@ select is(
 select is(
   (select print from public.card_provenance where inventory_id = (select id from shiny_copy) and event = 'minted'),
   '{"alt": true, "foil": true, "tier": "platinum", "champ": false, "shiny": true, "team": false, "moment": false,
-    "secret": false, "signed": true, "stattrak": true, "foil_type": "ice", "edition_week": "2026-08-24"}'::jsonb,
+    "dribb": false, "secret": false, "signed": true, "stattrak": true, "foil_type": "ice", "edition_week": "2026-08-24"}'::jsonb,
   'and every flat fact of the print');
 
 create temporary table plain_copy on commit drop as
+with minted as (
   insert into public.card_inventory
     (discord_id, season, slug, player_name, role, edition_week, overall, tier, foil, card)
   values ('mint-0100', 'S_TEST_PRINT', 'print-2', 'Plain Player', 'Mid', date '2026-08-24', 60, 'gold', false,
           '{"slug":"print-2","moment":{"id":1}}'::jsonb)
-  returning id;
+  returning id
+) select id from minted;
 
 select is(
   (select print -> 'moment' from public.card_provenance where inventory_id = (select id from plain_copy) and event = 'minted'),
