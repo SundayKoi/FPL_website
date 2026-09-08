@@ -33,6 +33,10 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
   events: RouteEvent[];
   /** A Rescue's verdict. */
   rescued: boolean | null;
+  /** Stamped by resolve_expedition when a successful rescue found nothing
+   *  left to bring back — the hold had already closed. Absent on every run
+   *  resolved before 20261007000001, which is why it is optional. */
+  rescueMissed?: boolean;
   /** The Exorcism's cleansed card. */
   cleansed: number | null;
   /** The teams whose match day surged the payout. Empty on runs from
@@ -347,8 +351,27 @@ export async function fetchStrangersHolds(supabase: SupabaseClient, discordId: s
     .order("resolves_at", { ascending: true })
     .limit(20);
   if (error) return [];
+  // A card somebody is ALREADY on their way to is not stranded. Carrying
+  // it home would close the hold under their rescue — they would watch
+  // their own card come back from a stranger's route and their run would
+  // have nothing left to reach. The owner's rescue wins; there are always
+  // other holds, and if there are not, the encounter simply pays nothing.
+  const ids = ((data as { id: number }[]) ?? []).map((row) => row.id);
+  const beingRescued = new Set<number>();
+  if (ids.length > 0) {
+    const { data: rescues } = await supabase
+      .from("expedition_runs")
+      .select("target")
+      .eq("tier", "rescue")
+      .is("claimed_at", null)
+      .in("target", ids);
+    for (const row of (rescues as { target: number | null }[] | null) ?? []) {
+      if (row.target !== null) beingRescued.add(Number(row.target));
+    }
+  }
   return ((data as { id: number; squad: number[] | null; resolves_at: string; target: number | null; season: string }[]) ?? [])
     .filter((row) => (row.squad ?? []).length > 0)
+    .filter((row) => !beingRescued.has(Number(row.id)))
     .map((row) => ({
       holdId: Number(row.id),
       cardId: Number(row.squad![0]),
