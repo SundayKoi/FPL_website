@@ -182,6 +182,13 @@ export default async function AdminPage() {
       href: "/admin/announce",
     },
     {
+      label: "Analytics",
+      stat: "Every mode, every week",
+      statTone: "text-gold",
+      description: "Who is playing what, packs opened, observed pull rates against the config, the chases, and where the money goes.",
+      href: "/admin/analytics",
+    },
+    {
       label: "Gauntlet balance",
       stat: "Picks & win rates",
       statTone: "text-gold",

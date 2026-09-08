@@ -16,6 +16,7 @@ import { CHAMPIONS_PACK_COST } from "@/lib/cards/champions";
 import { PACK_COST } from "./config";
 import { openChampionsPack, openPackFor, type OpenPackResult } from "./open";
 import { autoDustPulls } from "@/lib/cards/autoDustServer";
+import { describePull } from "@/lib/cards/autoDust";
 
 export async function openPackAction(
   league: CardLeague,
@@ -54,19 +55,10 @@ async function withAutoDust(discordId: string, league: CardLeague, result: OpenP
       service,
       discordId,
       season,
-      result.cards.map((pull) => ({
-        inventoryId: pull.inventoryId,
-        slug: pull.card.slug,
-        tier: pull.card.tier.key,
-        overall: pull.card.overall,
-        foil: pull.foil,
-        foilType: pull.foilType,
-        signed: pull.signed,
-        relic: Boolean(pull.card.moment || pull.card.champWin || pull.card.team),
-        // A pull is FROM the pack's week (a live pack has none, and groups
-        // as one edition).
-        editionWeek: result.editionWeek ?? "",
-      })),
+      // A pull is FROM the pack's week (a live pack has none, and groups
+      // as one edition). describePull is shared with the shelf-side read
+      // so the two descriptions cannot drift apart again.
+      result.cards.map((pull) => describePull(pull, result.editionWeek ?? "")),
     );
     if (!taken) return result;
     return { ...result, balance: taken.balance ?? result.balance, autoDusted: { ids: taken.ids, dusted: taken.dusted, value: taken.value } };
