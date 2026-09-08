@@ -105,9 +105,11 @@ export async function MyTeamScoutingPageView({
         : await fetchMyRoster(supabase, scoutTeam.id, dashboard.season, league);
       if (!rosterData) throw new Error("scouting roster unavailable");
       const roster = scoutingRoster(rosterData);
-      let ingestedGames: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
+      let ingestedScouting: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
+      let ingestedScoutingStatus: "available" | "unavailable" = "unavailable";
       try {
-        ingestedGames = await fetchIngestedScoutingGames(supabase, roster, history.fixtures, league);
+        ingestedScouting = await fetchIngestedScoutingGames(supabase, roster, history.fixtures, league);
+        ingestedScoutingStatus = "available";
       } catch (error) {
         console.error("Unable to load ingested scouting games; using draft attribution", error);
       }
@@ -118,7 +120,8 @@ export async function MyTeamScoutingPageView({
         currentSeason: dashboard.season,
         nextFixture: nextFixtureForTeam(history.fixtures, scoutTeam.name),
         roster,
-        ...(ingestedGames ? { ingestedGames } : {}),
+        ...(ingestedScouting ? { ingestedScouting } : {}),
+        ingestedScoutingStatus,
         inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
       };
     } catch (error) {

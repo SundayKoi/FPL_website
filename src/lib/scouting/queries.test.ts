@@ -362,6 +362,15 @@ describe("fetchInhousePlayerStats", () => {
 });
 
 describe("fetchIngestedScoutingGames", () => {
+  it("returns a successful empty read as an explicit empty DTO", async () => {
+    const from = vi.fn(() => builder([]));
+
+    await expect(fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid" }],
+    )).resolves.toEqual({ games: [], coverage: [] });
+  });
+
   it("reads paged raw_stats rows and maps them to the current roster", async () => {
     let pageIndex = 0;
     const rawStatsQuery = {
@@ -399,7 +408,7 @@ describe("fetchIngestedScoutingGames", () => {
     expect(rawStatsQuery.order).toHaveBeenCalledWith("id");
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
-    expect(result).toEqual([{
+    expect(result.games).toEqual([{
       playerId: "n",
       playerName: "Northstar",
       role: "mid",
@@ -434,7 +443,38 @@ describe("fetchIngestedScoutingGames", () => {
       [{ ...fixture("fixture-1", "Night Vale", "Other"), stage: "week_1" as const, best_of: 3 as const }],
     );
 
-    expect(result[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 1, teamSide: "blue", win: true });
+    expect(result.games[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 1, teamSide: "blue", win: true });
+    expect(result.coverage[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 1, playerId: "n" });
+  });
+
+  it("leaves a match with conflicting report bridges unresolved", async () => {
+    const rawStatsQuery = builder([{
+      id: 1, match_id: "ambiguous-match", game_date: "2026-08-01T00:00:00Z", season: "S5",
+      summoner_name: "Unmatched Sub", tag: "NA1", champion: "Ahri",
+    }]);
+    const reportGamesQuery = builder([
+      { id: "game-1", match_id: "ambiguous-match", report_id: "report-a", game_number: 1 },
+      { id: "game-2", match_id: "ambiguous-match", report_id: "report-b", game_number: 2 },
+    ]);
+    const reportsQuery = builder([
+      { id: "report-a", fixture_id: "fixture-a" },
+      { id: "report-b", fixture_id: "fixture-b" },
+    ]);
+    const from = vi.fn((table: string) => ({
+      raw_stats: rawStatsQuery,
+      match_report_games: reportGamesQuery,
+      match_reports: reportsQuery,
+    }[table] ?? builder([])));
+
+    const result = await fetchIngestedScoutingGames(
+      { from } as unknown as SupabaseClient,
+      [{ id: "n", displayName: "Northstar", role: "mid" }],
+      [fixture("fixture-a", "Night Vale", "Other"), fixture("fixture-b", "Night Vale", "Other")],
+    );
+
+    expect(result.games).toEqual([]);
+    expect(result.coverage).toEqual([expect.objectContaining({ matchId: "ambiguous-match", fixtureId: null, playerId: null })]);
+    expect(result.coverage[0].gameNumber).toBeUndefined();
   });
 
   it("keeps Academy ingested scouting rows out of Premier history when identities are reused", async () => {
@@ -451,7 +491,7 @@ describe("fetchIngestedScoutingGames", () => {
       "academy",
     );
 
-    expect(result.map((row) => row.champion)).toEqual(["Orianna"]);
+    expect(result.games.map((row) => row.champion)).toEqual(["Orianna"]);
   });
 
   it("recovers a legacy Academy Week 1 ingested game through its report", async () => {
@@ -483,11 +523,17 @@ describe("fetchIngestedScoutingGames", () => {
       "academy",
     );
 
-    expect(result).toEqual([expect.objectContaining({
+    expect(result.games).toEqual([expect.objectContaining({
       playerId: "n",
       champion: "Orianna",
       fixtureId: "academy-week-1",
       season: "A1",
+      gameNumber: 1,
+    })]);
+    expect(result.coverage).toEqual([expect.objectContaining({
+      summonerName: "Northstar",
+      champion: "Orianna",
+      fixtureId: "academy-week-1",
       gameNumber: 1,
     })]);
   });

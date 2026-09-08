@@ -4,6 +4,7 @@ import { championDisplayName } from "@/lib/match-draft/champions";
 import type { DraftSide, MatchDraftAction } from "@/lib/match-draft/types";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 import type { ChampionCount, DraftSlot, FullDraftSide, PastDraft, ScoutDraftRow, ScoutScope, ScoutSource, ScopedScoutData } from "./types";
+import type { IngestedScoutingCoverage, IngestedScoutingData } from "./inhouse";
 
 export function scoutKey(value: string | null | undefined): string { return value?.trim().toLocaleLowerCase() ?? ""; }
 export function resolveScoutedSide(game: ScoutDraftRow, opponentName: string): DraftSide | null {
@@ -13,9 +14,52 @@ export function resolveScoutedSide(game: ScoutDraftRow, opponentName: string): D
   return null;
 }
 
+function sourceIngestedData(source: ScoutSource): IngestedScoutingData | null {
+  if (source.ingestedScouting) {
+    if (source.ingestedScouting.coverage.length > 0 || source.ingestedScouting.games.length === 0) return source.ingestedScouting;
+    return {
+      ...source.ingestedScouting,
+      coverage: source.ingestedScouting.games.map((game) => ({
+        playerId: game.playerId,
+        summonerName: game.playerName,
+        tag: null,
+        champion: game.champion,
+        fixtureId: game.fixtureId,
+        season: game.season,
+        matchId: game.matchId,
+        gameDate: game.gameDate,
+        ...(game.gameNumber === undefined ? {} : { gameNumber: game.gameNumber }),
+        ...(game.teamSide ? { teamSide: game.teamSide } : {}),
+        ...(game.win === undefined ? {} : { win: game.win }),
+      })),
+    };
+  }
+  if (!source.ingestedGames) return null;
+  return {
+    games: source.ingestedGames,
+    coverage: source.ingestedCoverage ?? source.ingestedGames.map((game) => ({
+      playerId: game.playerId,
+      summonerName: game.playerName,
+      tag: null,
+      champion: game.champion,
+      fixtureId: game.fixtureId,
+      season: game.season,
+      matchId: game.matchId,
+      gameDate: game.gameDate,
+      ...(game.gameNumber === undefined ? {} : { gameNumber: game.gameNumber }),
+      ...(game.teamSide ? { teamSide: game.teamSide } : {}),
+      ...(game.win === undefined ? {} : { win: game.win }),
+    })),
+  };
+}
+
+function sourceIngestedGames(source: ScoutSource): NonNullable<ScoutSource["ingestedGames"]> {
+  return sourceIngestedData(source)?.games ?? [];
+}
+
 function resolveRosterEvidenceSide(game: ScoutDraftRow, source: ScoutSource): DraftSide | null {
   const counts = new Map<DraftSide, Set<string>>();
-  for (const row of source.ingestedGames ?? []) {
+  for (const row of sourceIngestedGames(source)) {
     if (row.fixtureId !== game.fixture_id || row.gameNumber !== game.game_number || !row.teamSide) continue;
     const players = counts.get(row.teamSide) ?? new Set<string>();
     players.add(row.playerId);
@@ -29,7 +73,7 @@ function resolveRosterEvidenceSide(game: ScoutDraftRow, source: ScoutSource): Dr
 
 function resolveRosterEvidenceWinnerSide(game: ScoutDraftRow, source: ScoutSource): DraftSide | null {
   const votes = new Map<DraftSide, number>();
-  for (const row of source.ingestedGames ?? []) {
+  for (const row of sourceIngestedGames(source)) {
     if (row.fixtureId !== game.fixture_id || row.gameNumber !== game.game_number || !row.teamSide || row.win === undefined) continue;
     const winnerSide = row.win ? row.teamSide : row.teamSide === "blue" ? "red" : "blue";
     votes.set(winnerSide, (votes.get(winnerSide) ?? 0) + 1);
@@ -96,6 +140,270 @@ function sideDraft(draft: ScoutDraftRow, side: DraftSide): FullDraftSide {
     banPhaseOne: steps.filter((step) => step.kind === "ban" && step.slot <= 3).map((step) => slot(actionForStep(draft.actions, step))),
     banPhaseTwo: steps.filter((step) => step.kind === "ban" && step.slot > 3).map((step) => slot(actionForStep(draft.actions, step))), };
 }
+
+type PoolEvidence = "riot" | "draft";
+interface PoolPick {
+  playerId: string;
+  champion: string;
+  matchId: string;
+  evidence: PoolEvidence;
+  fixtureId: string | null;
+  gameNumber?: number;
+}
+
+interface ResolvedIngestedPicks {
+  picks: PoolPick[];
+  coveredGameKeys: Set<string>;
+  unresolvedGameKeys: Set<string>;
+}
+
+const draftGameKey = (fixtureId: string, gameNumber: number): string => `${fixtureId}:${gameNumber}`;
+const championKey = (value: string): string => normalizeChampionName(championDisplayName(cleanChampion(value) ?? value));
+const participantKey = (row: IngestedScoutingCoverage): string => {
+  const name = scoutKey(row.summonerName).replace(/\s+/g, " ");
+  const tag = scoutKey(row.tag);
+  return name ? `${name}#${tag}` : "";
+};
+
+function uniqueCoverageRows(rows: IngestedScoutingCoverage[]): IngestedScoutingCoverage[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = [
+      row.matchId,
+      row.fixtureId ?? "",
+      row.gameNumber ?? "",
+      participantKey(row),
+      row.champion ?? "",
+      row.teamSide ?? "",
+      row.playerId ?? "",
+    ].join("\u001f");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+interface ResolvedCoverageMatch {
+  picks: Array<PoolPick & { teamSide?: DraftSide; participantKey: string }>;
+  unresolvedParticipantKeys: Set<string>;
+  invalidPlayerIds: Set<string>;
+}
+
+function resolveCoverageMatch(
+  rows: IngestedScoutingCoverage[],
+  rosterById: ReadonlyMap<string, ScoutSource["roster"][number]>,
+): ResolvedCoverageMatch {
+  const byParticipant = new Map<string, IngestedScoutingCoverage[]>();
+  for (const row of uniqueCoverageRows(rows)) {
+    const key = participantKey(row);
+    if (!key) continue;
+    byParticipant.set(key, [...(byParticipant.get(key) ?? []), row]);
+  }
+
+  const unresolvedParticipantKeys = new Set<string>();
+  const candidates: Array<PoolPick & { teamSide?: DraftSide; participantKey: string }> = [];
+  for (const [key, participantRows] of byParticipant) {
+    const championRows = participantRows.filter((row) => row.champion);
+    const champions = new Set(championRows.map((row) => championKey(row.champion!)));
+    const ownerIds = new Set(participantRows.map((row) => row.playerId).filter((id): id is string => Boolean(id)));
+    const sideValues = new Set(participantRows.map((row) => row.teamSide ?? "unknown"));
+    const owner = ownerIds.size === 1 ? [...ownerIds][0] : null;
+    const side = sideValues.size === 1 && !sideValues.has("unknown") ? [...sideValues][0] as DraftSide : undefined;
+    if (
+      participantRows.some((row) => row.playerId === null || row.champion === null) ||
+      champions.size !== 1 ||
+      ownerIds.size !== 1 ||
+      sideValues.size !== 1 ||
+      !owner ||
+      !rosterById.has(owner)
+    ) {
+      unresolvedParticipantKeys.add(key);
+      continue;
+    }
+    candidates.push({
+      playerId: owner,
+      champion: championRows[0].champion!,
+      matchId: participantRows[0].matchId,
+      evidence: "riot",
+      fixtureId: participantRows[0].fixtureId,
+      ...(participantRows[0].gameNumber === undefined ? {} : { gameNumber: participantRows[0].gameNumber }),
+      ...(side ? { teamSide: side } : {}),
+      participantKey: key,
+    });
+  }
+
+  const candidatesByPlayer = new Map<string, typeof candidates>();
+  for (const candidate of candidates) {
+    candidatesByPlayer.set(candidate.playerId, [...(candidatesByPlayer.get(candidate.playerId) ?? []), candidate]);
+  }
+  const invalidPlayerIds = new Set<string>();
+  for (const [playerId, playerCandidates] of candidatesByPlayer) {
+    if (new Set(playerCandidates.map((candidate) => candidate.participantKey)).size > 1) {
+      invalidPlayerIds.add(playerId);
+      for (const candidate of playerCandidates) unresolvedParticipantKeys.add(candidate.participantKey);
+    }
+  }
+
+  return {
+    picks: candidates.filter((candidate) => !invalidPlayerIds.has(candidate.playerId)),
+    unresolvedParticipantKeys,
+    invalidPlayerIds,
+  };
+}
+
+function scopedIngestedRows(
+  source: ScoutSource,
+  scope: ScoutScope,
+  rows: NonNullable<ScoutSource["ingestedGames"]>,
+): NonNullable<ScoutSource["ingestedGames"]> {
+  const sourceFixtureIds = new Set(source.fixtures.map((fixture) => fixture.id));
+  let scoped = rows.filter((row) =>
+    (scope === "all" || row.season === source.currentSeason) && (!row.fixtureId || sourceFixtureIds.has(row.fixtureId)),
+  );
+  if (scope !== "recent") return scoped;
+
+  const latestByFixture = new Map<string, (typeof scoped)[number]>();
+  for (const row of scoped) {
+    if (!row.fixtureId) continue;
+    const latest = latestByFixture.get(row.fixtureId);
+    if (!latest || (row.gameDate ?? "") > (latest.gameDate ?? "")) latestByFixture.set(row.fixtureId, row);
+  }
+  if (latestByFixture.size > 0) {
+    const recentFixtureIds = new Set(
+      [...latestByFixture.values()]
+        .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+        .slice(0, 5)
+        .map((row) => row.fixtureId!),
+    );
+    const recentUnmappedMatchIds = new Set(
+      [...new Map(scoped.filter((row) => row.fixtureId === null).map((row) => [row.matchId, row])).values()]
+        .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+        .slice(0, 5)
+        .map((row) => row.matchId),
+    );
+    scoped = scoped.filter((row) => row.fixtureId ? recentFixtureIds.has(row.fixtureId) : recentUnmappedMatchIds.has(row.matchId));
+  } else {
+    const recentMatchIds = new Set(
+      [...new Map(scoped.map((row) => [row.matchId, row])).values()]
+        .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
+        .slice(0, 5)
+        .map((row) => row.matchId),
+    );
+    scoped = scoped.filter((row) => recentMatchIds.has(row.matchId));
+  }
+  return scoped;
+}
+
+function resolveIngestedPicks(
+  source: ScoutSource,
+  games: TeamGame[],
+  scope: ScoutScope,
+  data: IngestedScoutingData,
+): ResolvedIngestedPicks {
+  const rosterById = new Map(source.roster.map((player) => [player.id, player]));
+  const eligibleByKey = new Map(games.map((game) => [draftGameKey(game.fixture.id, game.draft.game_number), game]));
+  const coverageByMatch = new Map<string, IngestedScoutingCoverage[]>();
+  const coverageByGameKey = new Map<string, IngestedScoutingCoverage[]>();
+  for (const row of uniqueCoverageRows(data.coverage)) {
+    coverageByMatch.set(row.matchId, [...(coverageByMatch.get(row.matchId) ?? []), row]);
+    if (row.fixtureId && row.gameNumber !== undefined) {
+      const key = draftGameKey(row.fixtureId, row.gameNumber);
+      coverageByGameKey.set(key, [...(coverageByGameKey.get(key) ?? []), row]);
+    }
+  }
+
+  const coveredGameKeys = new Set<string>();
+  const unresolvedGameKeys = new Set<string>();
+  for (const game of games) {
+    const key = draftGameKey(game.fixture.id, game.draft.game_number);
+    const coverage = coverageByGameKey.get(key) ?? [];
+    if (coverage.length === 0) continue;
+    coveredGameKeys.add(key);
+    const targetRows = coverage.filter((row) => row.teamSide === game.side);
+    const sideUnknown = coverage.some((row) => !row.teamSide);
+    const targetParticipantKeys = new Set(targetRows.map(participantKey).filter(Boolean));
+    const resolved = new Map<string, ResolvedCoverageMatch>();
+    for (const row of coverage) {
+      if (!resolved.has(row.matchId)) resolved.set(row.matchId, resolveCoverageMatch(coverageByMatch.get(row.matchId) ?? [], rosterById));
+    }
+    const unresolved = sideUnknown || targetRows.length === 0 || targetRows.some((row) =>
+      !participantKey(row) ||
+      row.playerId === null ||
+      !rosterById.has(row.playerId) ||
+      (targetParticipantKeys.has(participantKey(row)) && [...resolved.values()].some((match) => match.unresolvedParticipantKeys.has(participantKey(row)))),
+    );
+    if (unresolved) unresolvedGameKeys.add(key);
+  }
+
+  const scopedRows = scopedIngestedRows(source, scope, data.games);
+  const scopedMatchIds = new Set(scopedRows.map((row) => row.matchId));
+  const accepted = new Map<string, PoolPick>();
+  const conflicts = new Set<string>();
+  for (const [matchId, coverage] of coverageByMatch) {
+    if (!scopedMatchIds.has(matchId)) continue;
+    const resolved = resolveCoverageMatch(coverage, rosterById);
+    for (const candidate of resolved.picks) {
+      const bridgedGame = candidate.fixtureId && candidate.gameNumber !== undefined
+        ? eligibleByKey.get(draftGameKey(candidate.fixtureId, candidate.gameNumber))
+        : undefined;
+      if (bridgedGame && candidate.teamSide && candidate.teamSide !== bridgedGame.side) continue;
+      const identity = bridgedGame
+        ? `bridge:${draftGameKey(bridgedGame.fixture.id, bridgedGame.draft.game_number)}:${candidate.playerId}`
+        : `match:${candidate.matchId}:${candidate.playerId}`;
+      const current = accepted.get(identity);
+      if (conflicts.has(identity)) continue;
+      if (current && championKey(current.champion) !== championKey(candidate.champion)) {
+        accepted.delete(identity);
+        conflicts.add(identity);
+        continue;
+      }
+      accepted.set(identity, {
+        playerId: candidate.playerId,
+        champion: candidate.champion,
+        matchId: candidate.matchId,
+        evidence: "riot",
+        fixtureId: candidate.fixtureId,
+        ...(candidate.gameNumber === undefined ? {} : { gameNumber: candidate.gameNumber }),
+      });
+    }
+  }
+
+  return { picks: [...accepted.values()], coveredGameKeys, unresolvedGameKeys };
+}
+
+function resolveDraftOnlyPicks(source: ScoutSource, games: TeamGame[], coveredGameKeys: ReadonlySet<string>): PoolPick[] {
+  const byName = new Map<string, ScoutSource["roster"][number] | null>();
+  for (const player of source.roster) {
+    const key = scoutKey(player.displayName);
+    const current = byName.get(key);
+    byName.set(key, current === undefined || current?.id === player.id ? player : null);
+  }
+
+  const picks: PoolPick[] = [];
+  for (const game of games) {
+    const gameKey = draftGameKey(game.fixture.id, game.draft.game_number);
+    if (coveredGameKeys.has(gameKey)) continue;
+    const byPlayer = new Map<string, PoolPick>();
+    const conflictingPlayers = new Set<string>();
+    for (const step of LCS_DRAFT_STEPS.filter((candidate) => candidate.side === game.side && candidate.kind === "pick")) {
+      const action = actionForStep(game.draft.actions, step);
+      if (!action?.champion || action.skipped || action.side !== game.side || !action.playerName) continue;
+      const player = byName.get(scoutKey(action.playerName)) ?? null;
+      if (!player) continue;
+      const current = byPlayer.get(player.id);
+      const pick = { playerId: player.id, champion: action.champion, matchId: gameKey, evidence: "draft" as const, fixtureId: game.fixture.id, gameNumber: game.draft.game_number };
+      if (current && championKey(current.champion) !== championKey(pick.champion)) {
+        byPlayer.delete(player.id);
+        conflictingPlayers.add(player.id);
+      } else if (!conflictingPlayers.has(player.id)) {
+        byPlayer.set(player.id, pick);
+      }
+    }
+    picks.push(...byPlayer.values());
+  }
+  return picks;
+}
+
 export interface DeriveScoutDataOptions {
   playerLimit?: number | null;
 }
@@ -155,93 +463,31 @@ export function deriveScoutData(
       repeatedChampions += after.filter((champion) => prior.has(normalizeChampionName(championDisplayName(champion)))).length;
     }
   }
-  const rosterRoleCounts = new Map<string, number>();
-  for (const player of source.roster) rosterRoleCounts.set(player.role, (rosterRoleCounts.get(player.role) ?? 0) + 1);
-  const attributedToPlayer = (draft: ScoutDraftRow, action: MatchDraftAction, player: ScoutSource["roster"][number]) => {
-    if (action.kind !== "pick" || !action.champion) return false;
-    if (scoutKey(action.playerName) === scoutKey(player.displayName)) return true;
-    const side = resolveScoutedSide(draft, source.opponentName) ?? resolveRosterEvidenceSide(draft, source);
-    if (source.teamName && side !== action.side) return false;
-    const roleIndex = ROLE_ORDER.indexOf(player.role);
-    const confirmed = action.playerName == null && roleIndex >= 0 && rosterRoleCounts.get(player.role) === 1 && action.side
-      ? draft.positions?.[action.side]?.[roleIndex]
-      : null;
-    return Boolean(confirmed && normalizeChampionName(championDisplayName(confirmed)) === normalizeChampionName(championDisplayName(action.champion)));
-  };
   const sortedRoster = source.roster.slice().sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) || a.displayName.localeCompare(b.displayName));
   const poolRoster = options.playerLimit === null
     ? sortedRoster
     : sortedRoster.slice(0, options.playerLimit ?? 5);
-
-  const ingestedPoolRows = source.ingestedGames
-      ? (() => {
-        const sourceFixtureIds = new Set(source.fixtures.map((fixture) => fixture.id));
-        let rows = source.ingestedGames.filter((row) =>
-          (scope === "all" || row.season === source.currentSeason) && (!row.fixtureId || sourceFixtureIds.has(row.fixtureId)),
-        );
-        if (scope === "recent") {
-          const latestByFixture = new Map<string, (typeof rows)[number]>();
-          for (const row of rows) {
-            if (!row.fixtureId) continue;
-            const latest = latestByFixture.get(row.fixtureId);
-            if (!latest || (row.gameDate ?? "") > (latest.gameDate ?? "")) latestByFixture.set(row.fixtureId, row);
-          }
-          if (latestByFixture.size > 0) {
-            const recentFixtureIds = new Set(
-              [...latestByFixture.values()]
-                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
-                .slice(0, 5)
-                .map((row) => row.fixtureId!),
-            );
-            const recentUnmappedMatchIds = new Set(
-              [...new Map(rows.filter((row) => row.fixtureId === null).map((row) => [row.matchId, row])).values()]
-                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
-                .slice(0, 5)
-                .map((row) => row.matchId),
-            );
-            rows = rows.filter((row) => row.fixtureId
-              ? recentFixtureIds.has(row.fixtureId)
-              : recentUnmappedMatchIds.has(row.matchId));
-          } else {
-            const recentMatchIds = new Set(
-              [...new Map(rows.map((row) => [row.matchId, row])).values()]
-                .sort((a, b) => (b.gameDate ?? "").localeCompare(a.gameDate ?? ""))
-                .slice(0, 5)
-                .map((row) => row.matchId),
-            );
-            rows = rows.filter((row) => recentMatchIds.has(row.matchId));
-          }
-        }
-        return rows;
-      })()
-    : null;
+  const ingestion = sourceIngestedData(source);
+  const resolvedIngested = ingestion
+    ? resolveIngestedPicks(source, games, scope, ingestion)
+    : { picks: [], coveredGameKeys: new Set<string>(), unresolvedGameKeys: new Set<string>() };
+  const poolPicks = resolvedIngested.picks.concat(resolveDraftOnlyPicks(source, games, resolvedIngested.coveredGameKeys));
   const playerPools = poolRoster.map((player) => {
-    const playerRows = ingestedPoolRows?.filter((row) => row.playerId === player.id) ?? [];
-    if (playerRows.length > 0) {
-      const counts: ChampionCounts = new Map();
-      for (const row of playerRows) addChampion(counts, row.champion);
-      const champions = rankNames(counts);
-      return {
-        playerName: player.displayName.trim(),
-        role: player.role,
-        champions: champions.slice(0, 5),
-        distinctChampions: champions.length,
-        totalPicks: champions.reduce((sum, row) => sum + row.count, 0),
-        gamesSampled: new Set(playerRows.map((row) => row.matchId)).size,
-      };
-    }
-
-    let attributed = source.drafts.filter((draft) => draft.actions.some((action) => attributedToPlayer(draft, action, player)));
-    if (scope === "season") attributed = attributed.filter((draft) => source.fixtures.find((fixture) => fixture.id === draft.fixture_id)?.season === source.currentSeason);
-    if (scope === "recent") {
-      const fixtureDates = new Map(source.fixtures.map((fixture) => [fixture.id, fixture.scheduled_at ?? ""]));
-      const ids = [...new Set(attributed.map((draft) => draft.fixture_id))].sort((a, b) => (fixtureDates.get(b) ?? "").localeCompare(fixtureDates.get(a) ?? "")).slice(0, 5);
-      attributed = attributed.filter((draft) => ids.includes(draft.fixture_id));
-    }
+    const picks = poolPicks.filter((pick) => pick.playerId === player.id);
     const counts: ChampionCounts = new Map();
-    for (const draft of attributed) for (const action of draft.actions) if (attributedToPlayer(draft, action, player)) addChampion(counts, action.champion!);
+    for (const pick of picks) addChampion(counts, pick.champion);
     const champions = rankNames(counts);
-    return { playerName: player.displayName.trim(), role: player.role, champions: champions.slice(0, 5), distinctChampions: champions.length, totalPicks: champions.reduce((sum, row) => sum + row.count, 0), gamesSampled: attributed.length };
+    return {
+      playerId: player.id,
+      playerName: player.displayName.trim(),
+      role: player.role,
+      champions: champions.slice(0, 5),
+      distinctChampions: champions.length,
+      totalPicks: champions.reduce((sum, row) => sum + row.count, 0),
+      gamesSampled: new Set(picks.map((pick) => pick.matchId)).size,
+      riotConfirmedPicks: picks.filter((pick) => pick.evidence === "riot").length,
+      draftOnlyPicks: picks.filter((pick) => pick.evidence === "draft").length,
+    };
   });
   const flexCounts = new Map<string, Set<string>>();
   for (const game of games) {
@@ -266,5 +512,22 @@ export function deriveScoutData(
       metadata: { railNote: `Scouted team: ${game.side === "blue" ? "Blue side" : "Red side"}` },
     }),
   }));
-  return { gamesSampled: games.length, blueGames: games.filter((game) => game.side === "blue").length, distinctChampions: picked.size, firstPicks: rank(first, games.length), bannedAgainst: rank(against, games.length), banPhaseOne: rank(p1, games.length), banPhaseTwo: rank(p2, games.length), openings: rankNames(openingCounts), pairings: rankNames(pairingCounts).filter((row) => row.count >= 3), sideFacts, adaptation: { lossesFollowed, changedFirstPick, repeatedChampions }, flexes, playerPools, pastDrafts };
+  return {
+    gamesSampled: games.length,
+    blueGames: games.filter((game) => game.side === "blue").length,
+    distinctChampions: picked.size,
+    firstPicks: rank(first, games.length),
+    bannedAgainst: rank(against, games.length),
+    banPhaseOne: rank(p1, games.length),
+    banPhaseTwo: rank(p2, games.length),
+    openings: rankNames(openingCounts),
+    pairings: rankNames(pairingCounts).filter((row) => row.count >= 3),
+    sideFacts,
+    adaptation: { lossesFollowed, changedFirstPick, repeatedChampions },
+    flexes,
+    playerPools,
+    pastDrafts,
+    ingestionAvailable: source.ingestedScoutingStatus !== "unavailable" && Boolean(ingestion),
+    unresolvedIngestedGames: resolvedIngested.unresolvedGameKeys.size,
+  };
 }

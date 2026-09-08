@@ -44,6 +44,28 @@ export interface IngestedScoutingGame {
   win?: boolean;
 }
 
+/** Raw match coverage is kept even when the participant cannot be resolved
+ * to the current roster. It is the evidence that prevents draft fallback from
+ * inventing ownership for a covered game. */
+export interface IngestedScoutingCoverage {
+  playerId: string | null;
+  summonerName: string | null;
+  tag: string | null;
+  champion: string | null;
+  fixtureId: string | null;
+  season: string | null;
+  matchId: string;
+  gameDate: string | null;
+  gameNumber?: number;
+  teamSide?: DraftSide;
+  win?: boolean;
+}
+
+export interface IngestedScoutingData {
+  games: IngestedScoutingGame[];
+  coverage: IngestedScoutingCoverage[];
+}
+
 export interface InhouseChampionStat {
   champion: string;
   games: number;
@@ -152,34 +174,72 @@ function draftSide(value: string | null | undefined): DraftSide | null {
   return normalized === "blue" || normalized === "red" ? normalized : null;
 }
 
-/** Preserve the raw ingested game rows needed for scope-aware regular scouting. */
+function rawMatchId(row: IngestedScoutingGameRow): string {
+  return row.match_id ?? `${row.season ?? "unknown"}:${row.game_date ?? row.id ?? "unknown"}:${row.summoner_name ?? "unknown"}`;
+}
+
+function coverageKey(row: IngestedScoutingCoverage): string {
+  return [
+    row.matchId,
+    row.fixtureId ?? "",
+    row.gameNumber ?? "",
+    row.summonerName ?? "",
+    row.tag ?? "",
+    row.champion ?? "",
+    row.teamSide ?? "",
+    row.playerId ?? "",
+  ].join("\u001f");
+}
+
+/** Preserve raw coverage and the roster-matched rows needed for regular scouting. */
 export function buildIngestedScoutingGames(
   roster: RosterPlayer[],
   rows: IngestedScoutingGameRow[],
-  fixtureIdsByMatchId: ReadonlyMap<string, string | IngestedMatchReference> = new Map(),
-): IngestedScoutingGame[] {
+  fixtureIdsByMatchId: ReadonlyMap<string, string | IngestedMatchReference | null> = new Map(),
+): IngestedScoutingData {
   const rosterByName = rosterPlayerMap(roster);
-  return rows.flatMap((row) => {
+  const coverage = new Map<string, IngestedScoutingCoverage>();
+  const games: IngestedScoutingGame[] = [];
+
+  for (const row of rows) {
     const player = playerForSummoner(rosterByName, row.summoner_name, row.tag);
-    if (!player || !row.champion) return [];
     const reference = row.match_id ? fixtureIdsByMatchId.get(row.match_id) : undefined;
     const fixtureId = typeof reference === "string" ? reference : reference?.fixtureId ?? null;
-    const gameNumber = typeof reference === "string" ? undefined : reference?.gameNumber ?? undefined;
+    const gameNumber = typeof reference === "string" || reference === null ? undefined : reference?.gameNumber ?? undefined;
     const teamSide = draftSide(row.team_side);
-    return [{
+    const matchId = rawMatchId(row);
+    const covered: IngestedScoutingCoverage = {
+      playerId: player?.id ?? null,
+      summonerName: row.summoner_name,
+      tag: row.tag,
+      champion: row.champion,
+      fixtureId,
+      season: row.season,
+      matchId,
+      gameDate: row.game_date,
+      ...(gameNumber === undefined ? {} : { gameNumber }),
+      ...(teamSide ? { teamSide } : {}),
+      ...(typeof row.win === "boolean" ? { win: row.win } : {}),
+    };
+    coverage.set(coverageKey(covered), covered);
+
+    if (!player || !row.champion) continue;
+    games.push({
       playerId: player.id,
       playerName: player.displayName.trim(),
       role: player.role,
       champion: row.champion,
       fixtureId,
       season: row.season,
-      matchId: row.match_id ?? `${row.season ?? "unknown"}:${row.game_date ?? row.id ?? "unknown"}:${row.summoner_name ?? "unknown"}`,
+      matchId,
       gameDate: row.game_date,
       ...(gameNumber === undefined ? {} : { gameNumber }),
       ...(teamSide ? { teamSide } : {}),
       ...(typeof row.win === "boolean" ? { win: row.win } : {}),
-    }];
-  });
+    });
+  }
+
+  return { games, coverage: [...coverage.values()] };
 }
 
 /** Match all available in-house rows to the current roster and group picks by champion. */

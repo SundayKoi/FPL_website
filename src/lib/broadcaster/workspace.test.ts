@@ -196,16 +196,19 @@ describe("loadBroadcasterScouting", () => {
       { playerId: "alpha-player", playerName: "Alpha Mid", role: "mid", games: 2, champions: [] },
       { playerId: "beta-player", playerName: "Beta Top", role: "top", games: 1, champions: [] },
     ]);
-    fetchIngestedScoutingGames.mockResolvedValue([]);
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
     fetchBroadcasterPlayerDetails.mockResolvedValue([]);
   }
 
   it("loads one shared history and in-house result while preserving each featured roster", async () => {
     arrangeScouting();
-    fetchIngestedScoutingGames.mockResolvedValue([
-      { playerId: "alpha-player", playerName: "Alpha Mid", role: "mid", champion: "Ahri", fixtureId: "fixture-1", season: "S5", matchId: "match-a", gameDate: null },
-      { playerId: "beta-player", playerName: "Beta Top", role: "top", champion: "Garen", fixtureId: "fixture-1", season: "S5", matchId: "match-b", gameDate: null },
-    ]);
+    fetchIngestedScoutingGames.mockResolvedValue({
+      games: [
+        { playerId: "alpha-player", playerName: "Alpha Mid", role: "mid", champion: "Ahri", fixtureId: "fixture-1", season: "S5", matchId: "match-a", gameDate: null },
+        { playerId: "beta-player", playerName: "Beta Top", role: "top", champion: "Garen", fixtureId: "fixture-1", season: "S5", matchId: "match-b", gameDate: null },
+      ],
+      coverage: [],
+    });
 
     const data = await loadBroadcasterScouting(supabase, context());
 
@@ -233,8 +236,8 @@ describe("loadBroadcasterScouting", () => {
     expect(data?.teamB.opponentName).toBe("Beta");
     expect(data?.teamA.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["alpha-player"]);
     expect(data?.teamB.inhousePlayerStats?.map((row: { playerId: string }) => row.playerId)).toEqual(["beta-player"]);
-    expect(data?.teamA.ingestedGames?.map((row) => row.playerId)).toEqual(["alpha-player"]);
-    expect(data?.teamB.ingestedGames?.map((row) => row.playerId)).toEqual(["beta-player"]);
+    expect(data?.teamA.ingestedScouting?.games.map((row) => row.playerId)).toEqual(["alpha-player"]);
+    expect(data?.teamB.ingestedScouting?.games.map((row) => row.playerId)).toEqual(["beta-player"]);
   });
 
   it("passes the Academy league boundary to shared scouting enrichment", async () => {

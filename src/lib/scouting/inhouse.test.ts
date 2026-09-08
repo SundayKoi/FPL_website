@@ -68,7 +68,8 @@ describe("buildInhousePlayerStats", () => {
       [{ summoner_name: "Mirror", tag: "TWO", champion: "Jinx", season: "S5", match_id: "m1", game_date: null }],
     );
 
-    expect(result).toEqual([expect.objectContaining({ playerId: "p2", champion: "Jinx" })]);
+    expect(result.games).toEqual([expect.objectContaining({ playerId: "p2", champion: "Jinx" })]);
+    expect(result.coverage).toEqual([expect.objectContaining({ playerId: "p2", summonerName: "Mirror", tag: "TWO" })]);
   });
 
   it("does not fall back to a bare name when a supplied Riot tag is unknown", () => {
@@ -77,7 +78,8 @@ describe("buildInhousePlayerStats", () => {
       [{ summoner_name: "Solo", tag: "TWO", champion: "Ahri", season: "S5", match_id: "m1", game_date: null }],
     );
 
-    expect(result).toEqual([]);
+    expect(result.games).toEqual([]);
+    expect(result.coverage).toEqual([expect.objectContaining({ playerId: null, summonerName: "Solo", tag: "TWO" })]);
   });
 
   it("matches a uniquely named roster player when no Riot account metadata is available", () => {
@@ -86,7 +88,7 @@ describe("buildInhousePlayerStats", () => {
       [{ summoner_name: "Ciivil", tag: "NA1", champion: "Kennen", season: "S5", match_id: "m1", game_date: null }],
     );
 
-    expect(result).toEqual([expect.objectContaining({ playerId: "p1", champion: "Kennen" })]);
+    expect(result.games).toEqual([expect.objectContaining({ playerId: "p1", champion: "Kennen" })]);
   });
 
   it("accepts harmless Riot game-name spacing differences when the known tag matches", () => {
@@ -101,7 +103,7 @@ describe("buildInhousePlayerStats", () => {
       ],
     );
 
-    expect(result.map((game) => game.playerId)).toEqual(["joey", "mitsu"]);
+    expect(result.games.map((game) => game.playerId)).toEqual(["joey", "mitsu"]);
   });
 
   it("does not combine a display name with a tag belonging to another linked account", () => {
@@ -110,7 +112,8 @@ describe("buildInhousePlayerStats", () => {
       [{ summoner_name: "MetaShift", tag: "PAWG", champion: "Vi", season: "S5", match_id: "m1", game_date: null }],
     );
 
-    expect(result).toEqual([]);
+    expect(result.games).toEqual([]);
+    expect(result.coverage).toEqual([expect.objectContaining({ playerId: null, summonerName: "MetaShift", tag: "PAWG" })]);
   });
 
   it("keeps both weeks while preserving a substitute's lower game count", () => {
@@ -127,9 +130,9 @@ describe("buildInhousePlayerStats", () => {
       ],
     );
 
-    expect(result.filter((game) => game.playerId === "starter")).toHaveLength(3);
-    expect(result.filter((game) => game.playerId === "sub")).toHaveLength(1);
-    expect(new Set(result.map((game) => game.gameDate))).toEqual(new Set(["2026-08-17", "2026-08-24"]));
+    expect(result.games.filter((game) => game.playerId === "starter")).toHaveLength(3);
+    expect(result.games.filter((game) => game.playerId === "sub")).toHaveLength(1);
+    expect(new Set(result.games.map((game) => game.gameDate))).toEqual(new Set(["2026-08-17", "2026-08-24"]));
   });
 
   it("preserves exact game and side evidence for roster-match attribution", () => {
@@ -139,6 +142,7 @@ describe("buildInhousePlayerStats", () => {
       new Map([["match-1", { fixtureId: "fixture-1", gameNumber: 2 }]]),
     );
 
-    expect(result[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 2, teamSide: "blue" });
+    expect(result.games[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 2, teamSide: "blue" });
+    expect(result.coverage[0]).toMatchObject({ fixtureId: "fixture-1", gameNumber: 2, playerId: "p1" });
   });
 });
