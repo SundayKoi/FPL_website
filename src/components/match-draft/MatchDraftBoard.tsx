@@ -249,6 +249,7 @@ export default function MatchDraftBoard({
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [roleDrag, setRoleDrag] = useState<{ side: DraftSide; index: number } | null>(null);
   const roleListsRef = useRef<Record<DraftSide, HTMLDivElement | null>>({ blue: null, red: null });
+  const championPoolScrollRef = useRef<HTMLDivElement | null>(null);
   const [onlineTeams, setOnlineTeams] = useState<Set<string>>(new Set());
   const [remoteIntents, setRemoteIntents] = useState<Record<number, { stepIndex: number; champion: string | null }>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -256,10 +257,8 @@ export default function MatchDraftBoard({
   const [connectionStatus, setConnectionStatus] = useState<LiveConnectionStatus>(
     onSave ? "connected" : "connecting",
   );
-  // Index 2 = "MD". The pool opened at XS, which fits the most champions on
-  // screen but renders portraits too small to recognise at a glance during
-  // a timed turn — the thing the pool exists for.
-  const [imageSizeIndex, setImageSizeIndex] = useState(2);
+  // MD is the compact default; LG is the only larger option.
+  const [imageSizeIndex, setImageSizeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   // Two clicks to pass: forfeiting a ban is a real cost, and the button
   // sits where a captain's cursor already is during their turn.
@@ -279,6 +278,9 @@ export default function MatchDraftBoard({
       champion.name.toLowerCase().includes(query.trim().toLowerCase()) &&
       (!roleFilter || champion.roles.includes(roleFilter)),
   );
+  useEffect(() => {
+    if (championPoolScrollRef.current) championPoolScrollRef.current.scrollTop = 0;
+  }, [query, roleFilter]);
   const imageSize = imageSizes[imageSizeIndex].value;
   const blockedChampions = useMemo(() => {
     if (!seriesFormat.fearless) return state.blockedChampions.length ? state.blockedChampions : [];
@@ -1340,7 +1342,7 @@ export default function MatchDraftBoard({
   );
 
   const championPool = (
-    <section className="min-w-0 rounded border border-border-subtle bg-canvas/60 p-3" aria-label="Champion pool">
+    <section className={`flex h-full min-h-0 max-h-[60vh] min-w-0 flex-col rounded border border-border-subtle bg-canvas/60 p-3 ${state.layout === "board" ? "xl:max-h-none" : "xl:max-h-[60vh]"}`} aria-label="Champion pool">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex min-w-40 flex-1 flex-col gap-1 text-xs text-muted sm:max-w-xs">
           Search champions
@@ -1407,13 +1409,18 @@ export default function MatchDraftBoard({
         ) : null}
       </div>
       <div
-        className="mt-3 grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--pool-min-width)),1fr))]"
+        ref={championPoolScrollRef}
+        className="mt-3 min-h-0 flex-1 grid content-start gap-1 overflow-y-auto overscroll-contain pr-1 touch-pan-y [grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--pool-min-width)),1fr))]"
         data-testid="champion-pool-grid"
         data-size={imageSize}
-        style={{ "--pool-min-width": sizeByValue[imageSize].poolMinWidth } as CSSProperties}
+        style={{
+          "--pool-min-width": sizeByValue[imageSize].poolMinWidth,
+          gridAutoRows: `minmax(${sizeByValue[imageSize].poolMinWidth}, auto)`,
+        } as CSSProperties}
       >
         {filteredChampions.map((champion) => {
           const unavailable = isChampionUnavailable(champion.name, state.actions, blockedChampions);
+          const selected = activePendingPick?.champion === champion.name;
           // Taken by an EARLIER game (fearless) rather than merely used in this
           // one — the two states share `unavailable` but must never look alike.
           const takenInGame = blockedGames[normalizeChampionName(champion.name)];
@@ -1423,11 +1430,13 @@ export default function MatchDraftBoard({
               key={champion.id}
               type="button"
               disabled={unavailable || saving || state.sideChoiceRequired || state.status === "complete" || (!draftStarted && !bothReady) || !currentStep || !mayActFor(currentStep.side)}
-              aria-pressed={activePendingPick?.champion === champion.name}
+              aria-pressed={selected}
               onClick={() => chooseChampion(champion.name)}
               aria-label={`${champion.name}${unavailable ? " unavailable" : ""}${fearlessBlocked ? ` — picked in game ${takenInGame}` : ""}`}
               className={`group relative aspect-square overflow-hidden border text-left font-semibold text-white disabled:cursor-not-allowed ${
-                fearlessBlocked
+                selected
+                  ? "border-gold bg-gold/20 ring-2 ring-inset ring-gold/70"
+                  : fearlessBlocked
                   ? "border-red-500/40 bg-surface disabled:opacity-60"
                   : "border-border-strong bg-surface hover:border-action-text disabled:opacity-35"
               } ${sizeByValue[imageSize].name}`}
@@ -1458,7 +1467,7 @@ export default function MatchDraftBoard({
                   </span>
                 </>
               ) : null}
-              <span className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1 text-xs">{champion.name}</span>
+              <span className="absolute inset-x-0 bottom-0 truncate bg-black/75 px-1.5 py-1 text-[11px] leading-tight">{champion.name}</span>
             </button>
           );
         })}

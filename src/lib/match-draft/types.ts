@@ -4,7 +4,7 @@ export type DraftSide = "blue" | "red";
 export type DraftActionKind = "pick" | "ban";
 export type MatchDraftStatus = "drafting" | "complete";
 export type MatchDraftLayout = "stage" | "board";
-export type MatchDraftImageSize = "xs" | "sm" | "md" | "lg";
+export type MatchDraftImageSize = "md" | "lg";
 
 export interface MatchDraftTeam extends TeamIdentity {
   players: string[];

@@ -89,17 +89,18 @@ describe("MatchDraftBoard", () => {
     expect(screen.getByRole("button", { name: /stage layout/i }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("uses medium champion images by default and resizes with minus and plus controls", () => {
-    // XS fits the most champions on screen but renders portraits too small
-    // to recognise at a glance, which is what the pool is for during a
-    // timed turn.
+  it("uses medium champion images by default and only exposes MD and LG", () => {
     render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
 
     expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("md");
+    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: /increase image size/i }));
 
     expect(screen.getByTestId("champion-pool-grid").getAttribute("data-size")).toBe("lg");
+    expect(screen.getByRole("button", { name: /increase image size/i }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: /decrease image size/i }).hasAttribute("disabled")).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: /decrease image size/i }));
 
@@ -242,6 +243,16 @@ describe("MatchDraftBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^All$/ }));
     expect(screen.getByRole("button", { name: /^Aatrox/ })).toBeTruthy();
+  });
+
+  it("resets the champion list scroll when a filter changes", () => {
+    render(<MatchDraftBoard initialState={state} onSave={vi.fn()} />);
+
+    const grid = screen.getByTestId("champion-pool-grid");
+    grid.scrollTop = 120;
+    fireEvent.click(screen.getByRole("button", { name: /^Support$/ }));
+
+    expect(grid.scrollTop).toBe(0);
   });
 
   it("locks picks behind the ready check until both sides are ready", () => {
