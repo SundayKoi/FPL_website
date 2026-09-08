@@ -33,6 +33,10 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
   events: RouteEvent[];
   /** A Rescue's verdict. */
   rescued: boolean | null;
+  /** Stamped by resolve_expedition when a successful rescue found nothing
+   *  left to bring back — the hold had already closed. Absent on every run
+   *  resolved before 20261006000001, which is why it is optional. */
+  rescueMissed?: boolean;
   /** The Exorcism's cleansed card. */
   cleansed: number | null;
   /** The teams whose match day surged the payout. Empty on runs from

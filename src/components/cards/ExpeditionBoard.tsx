@@ -454,6 +454,11 @@ interface Ceremony {
   bearerId: number | null;
   balance: number;
   fragments: number;
+  /** The rescue went right and the card was already gone — buried by the
+   *  deadline, ransomed, or carried home by somebody else while this squad
+   *  was out. The run still resolves; the ceremony must say so rather than
+   *  announcing a rescue that returned nothing. */
+  rescueMissed: boolean;
 }
 
 export default function ExpeditionBoard({
@@ -638,6 +643,7 @@ export default function ExpeditionBoard({
         bearerId: result.bearerId,
         balance: result.balance,
         fragments: result.fragments,
+        rescueMissed: result.rescueMissed,
       });
       setClaimed((current) => new Set(current).add(run.id));
       router.refresh();
@@ -1190,7 +1196,8 @@ export default function ExpeditionBoard({
                           {fate.mutation ? mutationByKey(fate.mutation)?.label.toLowerCase() : FATE_LABEL[fate.fate].toLowerCase()}
                         </span>
                       ))}
-                    {run.outcome.rescued === true ? <span className="text-mint">rescued</span> : null}
+                    {run.outcome.rescued === true && run.outcome.rescueMissed !== true ? <span className="text-mint">rescued</span> : null}
+                    {run.outcome.rescued === true && run.outcome.rescueMissed === true ? <span className="text-coral">too late</span> : null}
                     {run.outcome.rescued === false ? <span className="text-coral">rescue failed</span> : null}
                   </>
                 ) : (
@@ -1253,7 +1260,7 @@ function ClaimCeremony({
   copies: Map<number, CardCopy>;
   onClose: () => void;
 }) {
-  const { outcome, route, bearerId, balance, baseDollars, fragments, merchant, stranded, surge, echo } = ceremony;
+  const { outcome, route, bearerId, balance, baseDollars, fragments, merchant, stranded, surge, echo, rescueMissed } = ceremony;
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -1288,9 +1295,26 @@ function ClaimCeremony({
         className="card-brand my-auto flex w-full max-w-3xl flex-col items-center gap-4 p-6 text-center"
       >
         <span className="label-dash">
-          {route.rescued === true ? "Rescued" : route.rescued === false ? "The rescue failed" : route.cleansed !== null ? "Exorcised" : outcome.grade === "jackpot" ? "Jackpot" : "The squad is home"}
+          {route.rescued === true
+            ? rescueMissed
+              ? "Too late"
+              : "Rescued"
+            : route.rescued === false
+              ? "The rescue failed"
+              : route.cleansed !== null
+                ? "Exorcised"
+                : outcome.grade === "jackpot"
+                  ? "Jackpot"
+                  : "The squad is home"}
         </span>
         <h2 className="type-display text-3xl sm:text-4xl">{headline}</h2>
+        {rescueMissed ? (
+          <p className="max-w-prose text-sm text-coral">
+            The squad reached the spot and found nothing. The card had already gone — the seven days ran out, it was
+            ransomed, or another collector&apos;s route carried it home first. Your squad is back and the run is
+            closed.
+          </p>
+        ) : null}
 
         {outcome.dollars > 0 ? (
           <>
