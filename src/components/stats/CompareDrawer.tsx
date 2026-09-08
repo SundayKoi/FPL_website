@@ -1,11 +1,20 @@
 "use client";
 
+import { formatLaneDiff } from "@/lib/stats/format";
 import type { PlayerAggRow } from "@/lib/stats/types";
 
 type StatRow = {
   label: string;
   pick: (row: PlayerAggRow) => number | string;
 };
+
+/** Laning as a difference against the lane opponent — the other player in
+ *  the same game, same role, other side (migration 20261008000001). */
+const LANE_ROWS: StatRow[] = ([10, 15, 20] as const).flatMap((mark) => [
+  { label: `CS diff @ ${mark}`, pick: (r: PlayerAggRow) => formatLaneDiff(r[`avg_cs_diff_${mark}`], 1) },
+  { label: `Gold diff @ ${mark}`, pick: (r: PlayerAggRow) => formatLaneDiff(r[`avg_gold_diff_${mark}`], 0) },
+  { label: `XP diff @ ${mark}`, pick: (r: PlayerAggRow) => formatLaneDiff(r[`avg_xp_diff_${mark}`], 0) },
+]);
 
 // Every PlayerAggRow display stat the Leaderboard doesn't already reduce to
 // a single column, plus the columns it does — the drawer is the full
@@ -32,9 +41,7 @@ const STAT_ROWS: StatRow[] = [
   { label: "Triple Kills", pick: (r) => r.total_triples },
   { label: "Quadra Kills", pick: (r) => r.total_quadras },
   { label: "Penta Kills", pick: (r) => r.total_pentas },
-  { label: "CS @ 10", pick: (r) => r.avg_cs_at_10.toFixed(1) },
-  { label: "Gold @ 10", pick: (r) => r.avg_gold_at_10.toFixed(0) },
-  { label: "XP @ 10", pick: (r) => r.avg_xp_at_10.toFixed(0) },
+  ...LANE_ROWS,
   { label: "DMG Taken/Min", pick: (r) => r.avg_dmg_taken_per_min.toFixed(0) },
   { label: "First Blood Involvements", pick: (r) => r.first_blood_involvements },
   { label: "Avg Game Duration", pick: (r) => `${r.avg_game_duration.toFixed(1)}m` },

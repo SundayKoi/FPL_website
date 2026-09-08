@@ -39,6 +39,36 @@ export interface PlayerAggRow {
   avg_kda_challenges: number;
   first_blood_involvements: number;
   avg_game_duration: number;
+  /**
+   * Laning measured against the lane opponent — the other player in the
+   * same game, in the same role, on the other side — at 10, 15 and 20
+   * minutes (migration 20261008000001).
+   *
+   * `null` means there was nothing to diff against: no opposite number in
+   * the table, or no game that reached the mark. It does NOT mean an even
+   * lane, so read it as "no data" and render it as such.
+   *
+   * Optional because `aggregateWeeklyPlayerRows` (src/lib/stats/weekly.ts)
+   * also produces PlayerAggRow, from raw rows, for the power ranking and
+   * card ratings — neither of which reads a lane diff. The view always
+   * supplies these; that path leaves them undefined.
+   */
+  avg_cs_diff_10?: number | null;
+  avg_gold_diff_10?: number | null;
+  avg_xp_diff_10?: number | null;
+  avg_cs_diff_15?: number | null;
+  avg_gold_diff_15?: number | null;
+  avg_xp_diff_15?: number | null;
+  avg_cs_diff_20?: number | null;
+  avg_gold_diff_20?: number | null;
+  avg_xp_diff_20?: number | null;
+  /** How many games each mark's diff was averaged over. The cross-season
+   *  merge weights by these rather than by `games`, because a season where
+   *  half the games ended before 20 minutes should not carry its @20 diff
+   *  with full weight. */
+  lane_games_10?: number | null;
+  lane_games_15?: number | null;
+  lane_games_20?: number | null;
 }
 
 /** One row of `stats_team_agg`: per FPL team + season + phase. */

@@ -103,6 +103,69 @@ export function powerRanking(rows: PlayerAggRow[]): RankedPlayer[] {
 }
 
 /**
+ * Merge the lane diffs across a player's seasons.
+ *
+ * These cannot ride on `weightedMean`, for two reasons. A season may have
+ * no diff at a mark at all (nobody logged opposite them, or no game got
+ * that far), and treating that missing value as a zero would report a lane
+ * as dead even when it was never measured. And the sample behind each mark
+ * is its own: a split where only two games reached twenty minutes must not
+ * lend its @20 diff the weight of a whole season. So each mark is weighted
+ * by its own `lane_games_*`, and a mark with no games anywhere stays null.
+ */
+function mergeLaneDiffs(rows: PlayerAggRow[]): Pick<
+  PlayerAggRow,
+  | "avg_cs_diff_10" | "avg_gold_diff_10" | "avg_xp_diff_10"
+  | "avg_cs_diff_15" | "avg_gold_diff_15" | "avg_xp_diff_15"
+  | "avg_cs_diff_20" | "avg_gold_diff_20" | "avg_xp_diff_20"
+  | "lane_games_10" | "lane_games_15" | "lane_games_20"
+> {
+  type Pick_ = (r: PlayerAggRow) => number | null | undefined;
+  const games10: Pick_ = (r) => r.lane_games_10;
+  const games15: Pick_ = (r) => r.lane_games_15;
+  const games20: Pick_ = (r) => r.lane_games_20;
+
+  const weighted = (value: Pick_, weight: Pick_): number | null => {
+    let total = 0;
+    let n = 0;
+    for (const row of rows) {
+      const diff = value(row);
+      const games = weight(row);
+      if (diff == null || games == null || games <= 0) continue;
+      total += diff * games;
+      n += games;
+    }
+    return n > 0 ? round2(total / n) : null;
+  };
+  const counted = (weight: Pick_): number | null => {
+    let total = 0;
+    let seen = false;
+    for (const row of rows) {
+      const games = weight(row);
+      if (games == null) continue;
+      seen = true;
+      total += games;
+    }
+    return seen ? total : null;
+  };
+
+  return {
+    avg_cs_diff_10: weighted((r) => r.avg_cs_diff_10, games10),
+    avg_gold_diff_10: weighted((r) => r.avg_gold_diff_10, games10),
+    avg_xp_diff_10: weighted((r) => r.avg_xp_diff_10, games10),
+    avg_cs_diff_15: weighted((r) => r.avg_cs_diff_15, games15),
+    avg_gold_diff_15: weighted((r) => r.avg_gold_diff_15, games15),
+    avg_xp_diff_15: weighted((r) => r.avg_xp_diff_15, games15),
+    avg_cs_diff_20: weighted((r) => r.avg_cs_diff_20, games20),
+    avg_gold_diff_20: weighted((r) => r.avg_gold_diff_20, games20),
+    avg_xp_diff_20: weighted((r) => r.avg_xp_diff_20, games20),
+    lane_games_10: counted(games10),
+    lane_games_15: counted(games15),
+    lane_games_20: counted(games20),
+  };
+}
+
+/**
  * Games-weighted merge of a player's per-season stats_player_agg rows
  * into a single "All seasons" row. Ports the design documented in
  * `supabase/migrations/20260810100002_stats_views.sql`'s header comment
@@ -192,6 +255,7 @@ export function combineSeasonRows(rows: PlayerAggRow[], seasonLabel = "All"): Pl
     avg_kda_challenges: weightedMean((r) => r.avg_kda_challenges),
     first_blood_involvements: sumOf((r) => r.first_blood_involvements),
     avg_game_duration: weightedMean((r) => r.avg_game_duration),
+    ...mergeLaneDiffs(rows),
   };
 }
 

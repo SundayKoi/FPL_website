@@ -159,6 +159,13 @@ export function aggregateWeeklyPlayerRows(rows: WeeklyRawStatRow[]): PlayerAggRo
       total_triples: sum(group, (row) => row.triple_kills),
       total_quadras: sum(group, (row) => row.quadra_kills),
       total_pentas: sum(group, (row) => row.penta_kills),
+      // No lane diffs here. PlayerAggRow carries them optionally, and this
+      // path deliberately leaves them undefined: its consumers are the
+      // power ranking, the fantasy score and card ratings, none of which
+      // read a lane diff, and resolving the opponent would mean the caller
+      // had to fetch every participant of every game rather than the
+      // league's own rows. The stats page reads stats_player_agg, which
+      // computes them in the database (migration 20261008000001).
       avg_cs_at_10: avg(group, (row) => row.cs_at_10),
       avg_gold_at_10: avg(group, (row) => row.gold_at_10),
       avg_xp_at_10: avg(group, (row) => row.xp_at_10),

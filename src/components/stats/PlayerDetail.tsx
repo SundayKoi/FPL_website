@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { combineSeasonRows, mergeRows, scoutingProfile } from "@/lib/stats/formulas";
-import { formatDate, formatValue } from "@/lib/stats/format";
+import { formatDate, formatLaneDiff, formatValue } from "@/lib/stats/format";
 import { fetchPlayerAgg, fetchRecords } from "@/lib/stats/queries";
 import { playerKey } from "@/lib/stats/scope";
 import { createClient } from "@/lib/supabase/client";
@@ -22,14 +22,41 @@ interface RecentGame {
   win: boolean;
 }
 
-/** A laning-block stat: this player's value vs the same-role cohort average, plus the delta. */
-interface LaningStat {
-  label: string;
-  mine: number;
-  cohort: number;
-  delta: number;
-  fmt: "int" | "dec1";
+/**
+ * The laning block is a diff, not an average.
+ *
+ * "CS @ 10 = 82" means nothing without knowing the role and the length of
+ * the game. "+14 CS at 15" is the number players already think in, and it
+ * normalises itself: the opponent sat in the same game, in the same role,
+ * under the same patch. The columns come from stats_player_agg (migration
+ * 20261008000001), which resolves the lane opponent as the other row with
+ * the same match_id, the same role and the other team_side.
+ */
+const LANE_MARKS = [
+  { mark: 10, cs: "avg_cs_diff_10", gold: "avg_gold_diff_10", xp: "avg_xp_diff_10", games: "lane_games_10" },
+  { mark: 15, cs: "avg_cs_diff_15", gold: "avg_gold_diff_15", xp: "avg_xp_diff_15", games: "lane_games_15" },
+  { mark: 20, cs: "avg_cs_diff_20", gold: "avg_gold_diff_20", xp: "avg_xp_diff_20", games: "lane_games_20" },
+] as const;
+
+type LaneDiffKey = (typeof LANE_MARKS)[number]["cs" | "gold" | "xp"];
+
+/** One cell: this player's diff at one mark, and the same-role field's. */
+interface LaningCell {
+  mark: number;
+  mine: number | null;
+  cohort: number | null;
 }
+
+/** One row of the laning table — CS, gold or XP, across the three marks. */
+interface LaningRow {
+  label: string;
+  /** Fraction digits: creeps are worth a decimal, gold and XP are not. */
+  digits: 0 | 1;
+  cells: LaningCell[];
+}
+
+const laneNumber = (value: number | null | undefined): number | null =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
 
 function formatStat(value: number, fmt: ScoutingStatLine["fmt"]): string {
   switch (fmt) {
@@ -44,7 +71,8 @@ function formatStat(value: number, fmt: ScoutingStatLine["fmt"]): string {
   }
 }
 
-function laningDeltaClass(delta: number): string {
+function laningDeltaClass(delta: number | null): string {
+  if (delta === null) return "text-muted";
   if (delta > 0) return "text-mint";
   if (delta < 0) return "text-red-400";
   return "text-muted";
@@ -143,35 +171,51 @@ export default function PlayerDetail({
       (group) => combineSeasonRows(group),
     ).filter((r) => r.role_mode === myRow.role_mode);
     if (rows.length === 0) return null;
-    const mean = (pick: (r: PlayerAggRow) => number) => rows.reduce((s, r) => s + pick(r), 0) / rows.length;
-    return {
-      avg_cs_at_10: mean((r) => r.avg_cs_at_10),
-      avg_gold_at_10: mean((r) => r.avg_gold_at_10),
-      avg_xp_at_10: mean((r) => r.avg_xp_at_10),
-      size: rows.length,
+    // A player with no diff at a mark (their games ended early, or nobody
+    // was logged opposite them) is left OUT of that mark's field average
+    // rather than counted as an even lane, which is the same rule the view
+    // itself applies inside a single player's games.
+    const mean = (pick: (r: PlayerAggRow) => number | null | undefined): number | null => {
+      const values = rows.map((r) => laneNumber(pick(r))).filter((v): v is number => v !== null);
+      return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
     };
+    const diffs = {} as Record<LaneDiffKey, number | null>;
+    for (const mark of LANE_MARKS) {
+      diffs[mark.cs] = mean((r) => r[mark.cs]);
+      diffs[mark.gold] = mean((r) => r[mark.gold]);
+      diffs[mark.xp] = mean((r) => r[mark.xp]);
+    }
+    return { diffs, size: rows.length };
   }, [aggRows, myRow, summonerName, tag]);
 
-  const laning: LaningStat[] | null = useMemo(() => {
+  // Values stay unrounded here and are rounded exactly once at render time
+  // (per `fmt`) — rounding twice can shift a displayed integer by 1 at a .5
+  // boundary (198.4966… → 198.5 → 199, where a single round gives 198).
+  const laning: LaningRow[] | null = useMemo(() => {
     if (!myRow || !cohort) return null;
-    // delta is kept unrounded here and rounded exactly once at render time
-    // (per `fmt`) — rounding it here too (e.g. to 1 decimal) and then
-    // rounding again for an "int" display double-rounds and can shift the
-    // displayed value by 1 at a .5 boundary (e.g. 198.4966... -> 198.5 ->
-    // 199, when a single round gives the correct 198).
-    const stat = (label: string, mine: number, cohortVal: number, fmt: LaningStat["fmt"]): LaningStat => ({
+    const row = (label: string, digits: LaningRow["digits"], key: "cs" | "gold" | "xp"): LaningRow => ({
       label,
-      mine,
-      cohort: cohortVal,
-      delta: mine - cohortVal,
-      fmt,
+      digits,
+      cells: LANE_MARKS.map((mark) => ({
+        mark: mark.mark,
+        mine: laneNumber(myRow[mark[key]]),
+        cohort: cohort.diffs[mark[key]],
+      })),
     });
-    return [
-      stat("CS @ 10", myRow.avg_cs_at_10, cohort.avg_cs_at_10, "dec1"),
-      stat("Gold @ 10", myRow.avg_gold_at_10, cohort.avg_gold_at_10, "int"),
-      stat("XP @ 10", myRow.avg_xp_at_10, cohort.avg_xp_at_10, "int"),
-    ];
+    const rows = [row("CS", 1, "cs"), row("Gold", 0, "gold"), row("XP", 0, "xp")];
+    // Nothing to show at all — a season nobody has timeline data for, or a
+    // player whose opposite numbers are all missing. Drawing three rows of
+    // em-dashes would only look broken.
+    if (rows.every((r) => r.cells.every((cell) => cell.mine === null))) return null;
+    return rows;
   }, [myRow, cohort]);
+
+  /** How many games each mark's diff was actually taken over — the honest
+   *  sample size behind the numbers above. */
+  const laneGames = useMemo(
+    () => (myRow ? LANE_MARKS.map((mark) => ({ mark: mark.mark, games: laneNumber(myRow[mark.games]) ?? 0 })) : []),
+    [myRow],
+  );
 
   const profile = useMemo(() => (myRow ? scoutingProfile(myRow) : null), [myRow]);
 
@@ -283,29 +327,52 @@ export default function PlayerDetail({
             </div>
           </div>
 
-          {/* Laning block */}
+          {/* Laning block — every number here is a difference against the
+              player in the same game, same role, other side. */}
           {laning && (
             <div className="card-neon p-4 sm:p-6">
-              <span className="mono-label">
-                Laning Phase vs {myRow.role_mode} Average ({cohort!.size} players)
-              </span>
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {laning.map((stat) => (
-                  <div key={stat.label} className="rounded border border-border-subtle/60 bg-canvas p-3 text-center">
-                    <p className="text-xs text-muted">{stat.label}</p>
-                    <p className="mt-1 text-xl font-bold text-white">
-                      {stat.fmt === "int" ? Math.round(stat.mine).toLocaleString() : stat.mine.toFixed(1)}
-                    </p>
-                    <p className={`mt-0.5 text-sm font-semibold ${laningDeltaClass(stat.delta)}`}>
-                      {stat.delta > 0 ? "+" : ""}
-                      {stat.fmt === "int" ? Math.round(stat.delta).toLocaleString() : stat.delta.toFixed(1)}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-muted">
-                      vs {stat.fmt === "int" ? Math.round(stat.cohort).toLocaleString() : stat.cohort.toFixed(1)} avg
-                    </p>
-                  </div>
-                ))}
+              <span className="mono-label">Laning Phase vs Lane Opponent</span>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[20rem] border-collapse">
+                  <thead>
+                    <tr className="text-xs text-muted">
+                      <th scope="col" className="py-1 text-left font-normal">
+                        Difference
+                      </th>
+                      {LANE_MARKS.map((mark) => (
+                        <th key={mark.mark} scope="col" className="py-1 text-right font-normal">
+                          @ {mark.mark} min
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {laning.map((row) => (
+                      <tr key={row.label} className="border-t border-border-subtle/60">
+                        <th scope="row" className="py-2 pr-3 text-left text-sm font-normal text-muted">
+                          {row.label}
+                        </th>
+                        {row.cells.map((cell) => (
+                          <td key={cell.mark} className="py-2 pl-3 text-right align-top">
+                            <span className={`text-lg font-bold tabular-nums ${laningDeltaClass(cell.mine)}`}>
+                              {formatLaneDiff(cell.mine, row.digits)}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] text-muted tabular-nums">
+                              {myRow.role_mode} avg {formatLaneDiff(cell.cohort, row.digits)}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                Ahead of the opposite {myRow.role_mode.toLowerCase()} at each mark, averaged over the games that
+                reached it: {laneGames.map((entry) => `${entry.games} @ ${entry.mark}`).join(" · ")}. A game that ended
+                early counts toward the earlier marks only. The second line is the same figure across the{" "}
+                {cohort!.size} other {myRow.role_mode.toLowerCase()} player{cohort!.size === 1 ? "" : "s"} in scope.
+              </p>
             </div>
           )}
 
