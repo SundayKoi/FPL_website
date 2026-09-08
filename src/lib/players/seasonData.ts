@@ -5,6 +5,7 @@ export interface PlayerEntry {
   rank: string;
   min: number;
   opggUrl: string;
+  playerPoolId?: string;
 }
 
 export interface RoleSection {

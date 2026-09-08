@@ -52,6 +52,7 @@ export function toRosterTeams(
         return player
           ? {
               id: player.id,
+              playerPoolId: player.canonical_player_id ?? null,
               role: player.role,
               displayName: player.display_name,
               opggUrl: resolvePlayerOpggUrl(player, canonicalPlayers),

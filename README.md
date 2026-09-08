@@ -217,6 +217,17 @@ match-draft Playwright coverage when the local stack is available.
 
 ### CI and what Vercel builds
 
+CI also checks migration history against the PR base commit (using the tested
+merge result) or the previous branch tip for pushes. It rejects new duplicate SQL
+migration versions, malformed filenames, edits/deletions/renames of existing
+migrations, and additions whose versions do not sort after the base's highest
+version. Duplicates already present in the base are reported as warnings;
+this guard does not rewrite existing migration history. Run it locally with
+`node scripts/check-migrations.mjs <base-commit> [head-commit]`.
+This check uses Git history, not the production database: it cannot detect
+remote-only migrations or prove that production RPCs exist. Database migration
+and verification must still precede deployment of dependent application code.
+
 `.github/workflows/ci.yml` runs the type-check, ESLint and the Vitest suite
 on every pull request and every push to `main`. Make it a required check on
 `main`; once it is, `typescript.ignoreBuildErrors: true` in `next.config.ts`

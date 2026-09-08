@@ -23,3 +23,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   enforce permissions and state transitions.
 - Preserve unrelated working-tree changes. Before claiming completion, run
   the narrow relevant tests plus the broader checks documented in the README.
+
+## Migration ordering and releases
+
+- New migration versions must be unique and sort after every migration on
+  the target branch and recorded in the deployment database. Recheck before
+  merging: today's timestamp can sort behind existing future-dated files.
+- Never edit, rename, or delete migrations already on the target branch or
+  applied to a shared database. Add a new forward migration for corrections.
+- CI checks committed migration history with
+  `node scripts/check-migrations.mjs <base-commit> [head-commit]`.
+- Before releasing database-dependent code, compare local and remote history,
+  review the migration dry run, apply backward-compatible migrations, and
+  verify required RPC signatures and permissions before deploying dependent
+  code. Failed migrations or unresolved history mismatches must block release.
+- Never mark a migration applied without verifying its SQL changes exist.
+  History repair does not execute SQL. Treat `--include-all` as a reviewed
+  recovery option; older migrations can overwrite newer definitions.

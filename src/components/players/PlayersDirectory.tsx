@@ -16,6 +16,8 @@ import type {
   PlayerIdentityLinkRow,
   VerifiedProfileOption,
 } from "@/components/players/PlayerIdentityAdmin";
+import PlayerRosterClaim from "@/components/teams/PlayerRosterClaim";
+import type { RosterClaimTarget } from "@/lib/teams/rosterClaims";
 
 type DirectorySection = "player-list" | "free-agency";
 type SortOption = "name" | "rank" | "value";
@@ -39,6 +41,7 @@ type Props = {
   identitySeason?: string;
   identityLinks?: PlayerIdentityLinkRow[];
   identityProfiles?: VerifiedProfileOption[];
+  playerClaims?: Record<string, RosterClaimTarget>;
 };
 
 export function mergeScopedPlayerPoolRows(
@@ -78,6 +81,7 @@ export default function PlayersDirectory({
   identitySeason,
   identityLinks = [],
   identityProfiles = [],
+  playerClaims = {},
 }: Props) {
   const [selectedSeason, setSelectedSeason] = useState<SeasonKey>("season-5");
   const [selectedSection, setSelectedSection] = useState<DirectorySection>("player-list");
@@ -96,6 +100,14 @@ export default function PlayersDirectory({
   const hasPlayers = sections.some((section) => section.players.length > 0);
   const isFreeAgency = showFreeAgency && selectedSection === "free-agency";
   const hasValueColumn = isFreeAgency || showMinSort;
+  const hasClaimColumn = !isFreeAgency && Object.keys(playerClaims).length > 0;
+  const rowColumns = hasValueColumn
+    ? hasClaimColumn
+      ? "grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+      : "grid-cols-[minmax(0,1fr)_auto_auto]"
+    : hasClaimColumn
+      ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+      : "grid-cols-[minmax(0,1fr)_auto]";
   const adminPlayers = poolPlayers
     .filter((player) => player.season_key === activePoolSeasonKey)
     .sort((left, right) => left.display_name.localeCompare(right.display_name));
@@ -261,10 +273,11 @@ export default function PlayersDirectory({
                   className={`overflow-hidden rounded border ${ROLE_TONES[section.key]}`}
                 >
                   <h2 className="px-4 py-3 text-lg font-bold uppercase tracking-wide">{section.label}</h2>
-                  <div className={`grid ${hasValueColumn ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} gap-3 bg-canvas px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted`}>
+                  <div className={`grid ${rowColumns} gap-3 bg-canvas px-4 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted`}>
                     <span>Player Name</span>
                     <span>Rank</span>
                     {hasValueColumn ? <span>{isFreeAgency ? "Avg Bid" : "Min"}</span> : null}
+                    {hasClaimColumn ? <span>Claim</span> : null}
                   </div>
                   <ul>
                     {section.players.map((player) => {
@@ -283,7 +296,7 @@ export default function PlayersDirectory({
                         <li
                           key={player.name}
                           data-available={isAvailable ? "true" : "false"}
-                          className={`grid ${hasValueColumn ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} gap-3 border-t border-current/15 px-4 py-3 text-sm transition-opacity ${
+                          className={`grid ${rowColumns} gap-3 border-t border-current/15 px-4 py-3 text-sm transition-opacity ${
                             isAvailable ? "opacity-100" : "opacity-50"
                           }`}
                         >
@@ -347,6 +360,11 @@ export default function PlayersDirectory({
                               />
                             ) : isFreeAgency ? (avgBidFor(player.name) ?? "—") : player.min}
                           </span> : null}
+                          {hasClaimColumn ? (
+                            player.playerPoolId && playerClaims[player.playerPoolId] ? (
+                              <PlayerRosterClaim {...playerClaims[player.playerPoolId]} />
+                            ) : <span aria-hidden="true" />
+                          ) : null}
                         </li>
                       );
                     })}
