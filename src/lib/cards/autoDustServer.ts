@@ -91,6 +91,7 @@ interface DustRow {
   signed: boolean | null;
   mutation: string | null;
   shiny?: boolean | null;
+  stattrak?: unknown;
   secret?: unknown;
   slab?: unknown;
 }
@@ -101,13 +102,22 @@ interface DustRow {
  * database is skipped and counted, never fatal, so the rest of the run
  * goes through.
  */
-export async function dustCopies(service: Service, discordId: string, ids: number[]): Promise<DustRunResult> {
+export async function dustCopies(
+  service: Service,
+  discordId: string,
+  ids: number[],
+  /** The rule the selection ran under. Re-checked here against the row as
+   *  the database has it, not as the caller described it — the on-rip path
+   *  once described a pull without its finishes and melted a Shiny that
+   *  the rule was set to keep. Absent, only the never-dust guards apply. */
+  guard?: Pick<AutoDustRule, "skipFinishes">,
+): Promise<DustRunResult> {
   const wanted = [...new Set(ids)].slice(0, AUTO_DUST_RUN_CAP);
   if (wanted.length === 0) return { dusted: 0, value: 0, skipped: 0, balance: null, ids: [] };
 
   const { data, error } = await service
     .from("card_inventory")
-    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, secret:card->secret, slab:card->slab")
+    .select("id, discord_id, season, tier, foil, foil_type, signed, mutation, shiny:card->shiny, stattrak:card->stattrak, secret:card->secret, slab:card->slab")
     .in("id", wanted);
   if (error) throw new Error(error.message);
   const owned = ((data as DustRow[]) ?? []).filter((row) => row.discord_id === discordId);
@@ -131,6 +141,13 @@ export async function dustCopies(service: Service, discordId: string, ids: numbe
     // ordinary pull, and a copy its owner sealed on purpose, are not
     // things a rule nobody re-read should melt.
     if (lockedBySeason.get(row.season)?.has(row.id) || row.foil_type === ECLIPSE_FOIL_TYPE || row.mutation || row.secret || row.slab) {
+      skipped += 1;
+      continue;
+    }
+    // The finishes, under the same read: a Shiny or a StatTrak count is
+    // kept whenever the rule says to keep them, whatever the selection
+    // was told about the copy.
+    if (guard?.skipFinishes && (row.shiny || row.stattrak)) {
       skipped += 1;
       continue;
     }
@@ -162,7 +179,7 @@ export async function runAutoDustOnCollection(service: Service, discordId: strin
     candidates.push(...rows.map(candidateFromInventory));
   }
   const selected = selectAutoDust(candidates, rule);
-  const result = await dustCopies(service, discordId, selected);
+  const result = await dustCopies(service, discordId, selected, rule);
   return { ...result, remaining: Math.max(0, selected.length - result.ids.length - result.skipped) };
 }
 
@@ -186,6 +203,12 @@ export async function autoDustPulls(
     signed: boolean;
     relic: boolean;
     editionWeek: string;
+    /** The finishes the pull came out with. A pack mints these last, so a
+     *  caller that forgets them describes a plain card and the rule's
+     *  keep-my-finishes setting has nothing to act on. */
+    shiny?: boolean;
+    stattrak?: boolean;
+    secret?: boolean;
   }[],
 ): Promise<DustRunResult | null> {
   const rule = await fetchAutoDustRule(service, discordId);
@@ -217,9 +240,12 @@ export async function autoDustPulls(
     signed: pull.signed,
     relic: pull.relic,
     editionWeek: pull.editionWeek,
+    shiny: pull.shiny,
+    stattrak: pull.stattrak,
+    secret: pull.secret,
   }));
   const selected = selectAutoDust(candidates, rule, held);
   if (selected.length === 0) return null;
-  const result = await dustCopies(service, discordId, selected);
+  const result = await dustCopies(service, discordId, selected, rule);
   return result.dusted > 0 ? result : null;
 }

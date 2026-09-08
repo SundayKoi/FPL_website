@@ -39,7 +39,7 @@ import ChampionsCard from "./ChampionsCard";
 import DrawLaurel from "./DrawLaurel";
 import ExpeditionMark from "./ExpeditionMark";
 import { mutationByKey, mutationOverlay, type MutationOverlay } from "@/lib/cards/mutations";
-import { DRIBB_LOOK, dribbLabel } from "@/lib/cards/dribb";
+import { dribbLabel, dribbLook } from "@/lib/cards/dribb";
 import type { OverlayMockup } from "@/lib/cards/overlayMockups";
 import { secretSerialLabel, stattrakLabel } from "@/lib/packs/rarities";
 import { gradeOf, isSlabbed, wearOf } from "@/lib/cards/wear";
@@ -272,7 +272,7 @@ function PlayerCardFace({
   // The Dribb card wears its look off its own stamp — the one overlay a
   // minted copy can reach. The prop, which only the admin mockup pages
   // pass, still wins so they can show any look on the specimen.
-  const overlay = overlayProp ?? (card.dribb ? DRIBB_LOOK : null);
+  const overlay = overlayProp ?? (card.dribb ? dribbLook(card.dribb) : null);
   // The bench, decided on the client only: the server snapshot says "not
   // mounted", so the HTML never has to know whether 4pm has passed for the
   // reader, and the hydrated browser reads the clock once it is in charge.

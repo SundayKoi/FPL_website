@@ -30,13 +30,24 @@ export const DRIBB_SLUG = "dribb";
 
 /** The look — the CSS utilities that draw it (globals.css, "The Dribb
  *  card"). The same layers the mockup page previewed; a minted copy turns
- *  them on through `card.dribb`, not through the admin-only prop. */
+ *  them on through `card.dribb`, not through the admin-only prop.
+ *
+ *  The chip here is the SPECIMEN's: the mockup page and any preview that
+ *  has no copy in hand. A minted copy reads its own number through
+ *  dribbLook() — every copy printing "1 OF 5" would make the second one
+ *  a lie on the one card whose whole point is which of the five it is. */
 export const DRIBB_LOOK: OverlayPreview = {
   front: ["card-ov-dribb-aether", "card-ov-dribb-aether-rift"],
   artEcho: "card-ov-dribb-aberration-wide",
   chip: `DRIBB · 1 OF ${DRIBB_COPIES}`,
   accent: "#d27dff",
 };
+
+/** The look a given copy wears — the specimen's layers, stamped with that
+ *  copy's own number. */
+export function dribbLook(dribb: { number: number; of: number }): OverlayPreview {
+  return { ...DRIBB_LOOK, chip: `DRIBB · ${dribb.number} OF ${dribb.of}` };
+}
 
 /** "1 of 5" — how a copy's number reads. */
 export function dribbLabel(dribb: { number: number; of: number }): string {

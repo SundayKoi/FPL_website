@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import PlayerCard3D from "@/components/cards/PlayerCard3D";
-import { DRIBB_CHANCE, DRIBB_COPIES, DRIBB_LOOK, DRIBB_SLUG, DRIBB_TIER, dribbCard, dribbLabel, rollDribb } from "./dribb";
+import { DRIBB_CHANCE, DRIBB_COPIES, DRIBB_LOOK, DRIBB_SLUG, DRIBB_TIER, dribbCard, dribbLabel, dribbLook, rollDribb } from "./dribb";
 import { canDust, dustValueOf, PACK_SIZE } from "@/lib/packs/config";
 
 afterEach(cleanup);
@@ -56,6 +56,22 @@ describe("the Dribb card", () => {
     expect(screen.getByTestId("dribb-stamp")).toBeTruthy();
     expect(screen.getByText(`DRIBB · 1 OF ${DRIBB_COPIES}`)).toBeTruthy();
     expect(screen.getByRole("button").getAttribute("aria-label")).toContain("the Dribb card 1 of 5");
+  });
+
+  it("stamps each copy with ITS number, not the specimen's", () => {
+    // The shipped bug: every minted copy wore the specimen's chip, so the
+    // fourth Dribb in the world introduced itself as "1 OF 5" — a lie on
+    // the one card whose entire point is which of the five it is. The coin
+    // and the aria label were right all along; only the chip was frozen.
+    render(<PlayerCard3D card={dribbCard(4, "S5")} />);
+    expect(screen.getByText(`DRIBB · 4 OF ${DRIBB_COPIES}`)).toBeTruthy();
+    expect(screen.queryByText(`DRIBB · 1 OF ${DRIBB_COPIES}`)).toBeNull();
+    expect(screen.getByRole("button").getAttribute("aria-label")).toContain("the Dribb card 4 of 5");
+    expect(dribbLook({ number: 4, of: DRIBB_COPIES })).toMatchObject({
+      chip: `DRIBB · 4 OF ${DRIBB_COPIES}`,
+      front: DRIBB_LOOK.front,
+      artEcho: DRIBB_LOOK.artEcho,
+    });
   });
 
   it("leaves an ordinary card alone", () => {

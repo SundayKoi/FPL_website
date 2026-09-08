@@ -131,6 +131,72 @@ export function candidateFromInventory(row: InventoryRow): AutoDustCandidate {
   };
 }
 
+/** A pull as the opener hands it over: the print, plus the card it minted. */
+export interface PulledCopy {
+  inventoryId: number;
+  foil: boolean;
+  foilType: string | null;
+  signed: boolean;
+  card: {
+    slug: string;
+    overall: number;
+    tier: { key: string };
+    moment?: unknown;
+    champWin?: unknown;
+    team?: unknown;
+    dribb?: unknown;
+    shiny?: unknown;
+    stattrak?: unknown;
+    secret?: unknown;
+  };
+}
+
+/** What the rule is told about a pull that just landed. */
+export interface PullDescription {
+  inventoryId: number;
+  slug: string;
+  tier: string;
+  overall: number;
+  foil: boolean;
+  foilType: string | null;
+  signed: boolean;
+  relic: boolean;
+  shiny: boolean;
+  stattrak: boolean;
+  secret: boolean;
+  editionWeek: string;
+}
+
+/**
+ * A freshly minted pull, described for the rule — the rip-side twin of
+ * candidateFromInventory, which reads the same facts back off the shelf.
+ *
+ * It lives here, next to that one, because the two must agree: this is
+ * where a Shiny got melted by a rule set to keep it. The finishes are
+ * stamped last when a pack opens, and a description written by hand at the
+ * call site quietly stopped at `signed` — so every pull arrived looking
+ * like a plain card and `skipFinishes` had nothing to act on.
+ */
+export function describePull(pull: PulledCopy, editionWeek: string): PullDescription {
+  const card = pull.card;
+  return {
+    inventoryId: pull.inventoryId,
+    slug: card.slug,
+    tier: card.tier.key,
+    overall: card.overall,
+    foil: pull.foil,
+    foilType: pull.foilType,
+    signed: pull.signed,
+    // The Dribb files with the relics as it does everywhere else: five in
+    // the world is not a duplicate, and dust_card refuses one anyway.
+    relic: Boolean(card.moment || card.champWin || card.team || card.dribb),
+    shiny: Boolean(card.shiny),
+    stattrak: Boolean(card.stattrak),
+    secret: Boolean(card.secret),
+    editionWeek,
+  };
+}
+
 const tierRank = (tier: string) => TIER_ORDER.indexOf(tier as CardTierKey);
 
 /** Whether the rule would touch this copy at all, before the keep count. */
