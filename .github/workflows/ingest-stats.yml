@@ -51,3 +51,14 @@ jobs:
           RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Settle stats-verified betting markets and pick'ems
+        # The ingester can finish some reports and fail others. Let the
+        # settlement pass inspect every independent fixture already present in
+        # raw_stats; its own evidence checks, not the ingester exit code, are
+        # the authority for each payout. A failed ingest still leaves the
+        # workflow red, and settlement failures/conflicts also fail it.
+        if: ${{ always() && !cancelled() }}
+        run: python scripts/settle-betting-from-stats.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -509,9 +509,10 @@ also the right approach for backfilling seasons ingested before
 Captains file finished series on `/captain` (or `/matches`), which queues
 rows in `match_reports`/`match_report_games`. A GitHub Actions workflow —
 [`.github/workflows/ingest-stats.yml`](.github/workflows/ingest-stats.yml)
-— runs `python scripts/riot_stats_ingest.py --from-reports` nightly at
-02:00 EST / 03:00 EDT (`cron: "0 7 * * *"`, GitHub cron is UTC-only and
-doesn't adjust for DST) and is also runnable on demand. This is now the
+— runs `python scripts/riot_stats_ingest.py --from-reports` every Tuesday at
+07:23 UTC (`cron: "23 7 * * 2"`; GitHub cron is UTC-only) and is also runnable
+on demand. The same run immediately invokes
+`python scripts/settle-betting-from-stats.py`. This is now the
 normal path for game-night stats; the manual `--dates`/explicit-match-id
 invocations above stay available for one-off backfills.
 
@@ -556,6 +557,34 @@ retry it from `/captain` — `failed` reports are **not** re-attempted
 automatically (only `pending`/`needs_sides` are re-fetched), and the
 workflow run exits non-zero (so GitHub emails the repo owner) whenever
 any report ends `failed`.
+
+### Automatic betting settlement
+
+`scripts/settle-betting-from-stats.py` scans every linked, unsettled Premier
+and Academy team-winner market, including older fixtures. It follows
+`betting_markets.fixture_id → match_reports → match_report_games.match_id →
+raw_stats`, counts each unique match once, and pays only after raw stats prove
+the `floor(best_of / 2) + 1` threshold. Captain-entered scores, fixture
+scores, odds, and report status are never winning evidence. Props and manual
+unlinked markets remain manual.
+
+Preview a recovery or inspect an unresolved fixture without writing anything:
+
+```sh
+python scripts/settle-betting-from-stats.py --dry-run
+python scripts/settle-betting-from-stats.py --season S5 --dry-run
+python scripts/settle-betting-from-stats.py --fixture-id <fixture-uuid> --dry-run
+```
+
+The real run uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, writes all
+wallet/ledger changes through the transactional settlement RPC, and then calls
+the existing `resolve_pickem` only for cards whose every leg is resolved or
+cancelled. It is safe to retry: resolved and cancelled markets are preserved,
+the settlement evidence is frozen, and a repeat does not add ledger rows or
+change balances. Later conflicting stats are recorded for review and never
+reverse an already-paid market. Incomplete games, ambiguous mappings,
+conflicting reports, and forfeits without enough verified played wins are
+reported as pending/conflicts and do not pay.
 
 > **Riot API key regeneration warning.** The predecessor script
 > (`updated_stats.py`, since deleted) had a live Riot API key hardcoded in
@@ -673,7 +702,7 @@ any run carrying one of its cards brings home 20% more (the match-day
 surge, scored against the launch day like the brief; the board says who is
 on tonight). A squad drawn from one roster that reaches the Legendary
 route's second fork hears its real next opponent named as what is singing
-under the floor. A moment card carried on a run has a 15% chance to echo:
+under the floor. A moment card carried on a run has a 7.5% chance to echo:
 the route drops a copy of a card from the game the moment happened in,
 minted off that week's edition. And `/cards/expeditions/ledger` is the
 public ledger of the fallen and the found — every card lost, missing,
