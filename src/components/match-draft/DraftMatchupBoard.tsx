@@ -1,18 +1,13 @@
-import type { KeyboardEventHandler, PointerEventHandler, ReactNode } from "react";
+import type { CSSProperties, KeyboardEventHandler, PointerEventHandler, ReactNode } from "react";
+import { Fragment } from "react";
 import { CHAMPIONS, championLookup, type MatchDraftChampion } from "@/lib/match-draft/champions";
 import type { DraftSide, MatchDraftImageSize } from "@/lib/match-draft/types";
 import type { DraftMatchupPickView, DraftMatchupSideView, DraftMatchupView } from "@/lib/match-draft/presentation";
+import { MATCH_DRAFT_IMAGE_SIZES } from "./matchDraftSizes";
 
 const sideClass: Record<DraftSide, string> = {
   blue: "border-cyan/50 bg-cyan/10 text-cyan",
   red: "border-coral/50 bg-coral/10 text-coral",
-};
-
-const imageSizes: Record<MatchDraftImageSize, { slot: string; ban: string; name: string }> = {
-  xs: { slot: "min-h-20", ban: "h-10 w-10", name: "text-[10px]" },
-  sm: { slot: "min-h-24", ban: "h-12 w-12", name: "text-[11px]" },
-  md: { slot: "min-h-28", ban: "h-14 w-14", name: "text-xs" },
-  lg: { slot: "min-h-32", ban: "h-16 w-16", name: "text-sm" },
 };
 
 export interface DraftPickSlotProps {
@@ -62,7 +57,7 @@ export function DraftPickSlot({
   const ghost = pick.state === "missing" && intent ? resolve(intent) : null;
   const art = champion ?? ghost;
   const portraitUrl = art?.splashUrl.replace("/champion/splash/", "/champion/centered/") ?? null;
-  const size = imageSizes[imageSize];
+  const size = MATCH_DRAFT_IMAGE_SIZES[imageSize];
   const pickLabel = label ?? `${side === "blue" ? "B" : "R"}${pick.slot}`;
   const championLabel = champion?.name ?? pick.champion ?? (pick.state === "skipped" ? "Skipped" : ghost ? `${ghost.name}?` : emptyLabel);
 
@@ -77,7 +72,8 @@ export function DraftPickSlot({
       onPointerCancel={onPointerCancel}
       onKeyDown={onKeyDown}
       data-testid={`${side}-pick-slot`}
-      className={`relative overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
+      title={championLabel}
+      className={`relative min-w-0 w-full overflow-hidden border px-2 py-2 ${size.slot} ${slotClassName} ${
         active ? "border-gold bg-gold/10" : pick.state === "recorded" ? "border-border-subtle bg-canvas/70" : "border-dashed border-border-subtle bg-surface/70"
       } ${interactive ? "cursor-grab touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus" : ""}`}
     >
@@ -122,10 +118,10 @@ export function DraftPickSlot({
           {side}
         </span>
       </div>
-      <p className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
+      <p title={championLabel} className={`relative truncate font-display font-semibold not-italic [text-shadow:0_1px_2px_rgb(0_0_0/0.85)] ${pick.state === "skipped" ? "text-red-400/80" : ghost ? "text-muted" : "text-white"} ${imageSize === "xs" || imageSize === "sm" ? "mt-3 text-sm" : "mt-4 text-base"}`}>
         {championLabel}
       </p>
-      {pick.playerName ? <p className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
+      {pick.playerName ? <p title={pick.playerName} className="relative mt-1 truncate text-xs text-muted [text-shadow:0_1px_2px_rgb(0_0_0/0.85)]">{pick.playerName}</p> : null}
     </div>
   );
 }
@@ -168,14 +164,12 @@ export function DraftTeamHeader({
 function BanTile({
   side,
   ban,
-  imageSize,
   resolve,
   active,
   onRequestChange,
 }: {
   side: DraftSide;
   ban: DraftMatchupSideView["bans"][number];
-  imageSize: MatchDraftImageSize;
   resolve: (name: string) => MatchDraftChampion | null;
   active: boolean;
   onRequestChange?: (() => void) | null;
@@ -185,7 +179,8 @@ function BanTile({
     <div
       data-testid={`ban-${side}-${ban.slot}`}
       title={ban.state === "skipped" ? "Skipped" : ban.champion ?? `Ban ${ban.slot}`}
-      className={`relative ${imageSizes[imageSize].ban} shrink-0 overflow-hidden rounded border ${
+      aria-label={`${side} ban ${ban.slot}: ${ban.state === "skipped" ? "Skipped" : ban.champion ?? `Ban ${ban.slot}`}`}
+      className={`relative aspect-square min-w-0 w-full overflow-hidden rounded border ${
         active ? "border-gold bg-gold/10" : ban.state === "recorded" ? "border-border-subtle bg-canvas/70" : "border-dashed border-border-subtle bg-surface/70"
       }`}
     >
@@ -231,25 +226,54 @@ export function DraftBanStrip({
   resolve?: (name: string) => MatchDraftChampion | null;
   requestChangeFor?: (stepIndex: number) => (() => void) | null;
 }) {
+  const phaseBoundary = side === "blue" ? 3 : 2;
+  const gridColumns = Array.from({ length: 5 }, (_, index) =>
+    index === 4
+      ? "minmax(0, 1fr)"
+      : `minmax(0, 1fr) ${index + 1 === phaseBoundary ? "var(--ban-phase-gap)" : "var(--ban-gap)"}`,
+  ).join(" ");
+  const stripMaxWidth = `calc(${MATCH_DRAFT_IMAGE_SIZES[imageSize].banSize} * 5 + var(--ban-gap) * 3 + var(--ban-phase-gap))`;
+
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 ${side === "red" ? "justify-end" : ""}`}>
-      <p className="w-full text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Bans</p>
-      {view.bans.map((ban, index) => {
-        const previous = view.bans[index - 1];
-        const phaseBreak = Boolean(previous && previous.slot + ban.slot === 7);
-        return (
-        <div key={`${side}-ban-${ban.slot}`} className={phaseBreak ? "ml-2" : ""}>
-          <BanTile
-            side={side}
-            ban={ban}
-            active={ban.stepIndex === currentStepIndex}
-            resolve={resolve}
-            imageSize={imageSize}
-            onRequestChange={ban.stepIndex !== null ? requestChangeFor?.(ban.stepIndex) ?? null : null}
-          />
-        </div>
-        );
-      })}
+    <div className={`min-w-0 ${side === "red" ? "text-right" : ""}`}>
+      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">Bans</p>
+      <div
+        data-testid={`ban-strip-${side}`}
+        data-phase-boundary={phaseBoundary}
+        className={`grid w-full min-w-0 ${side === "red" ? "ml-auto" : ""}`}
+        style={{
+          gridTemplateColumns: gridColumns,
+          maxWidth: stripMaxWidth,
+          "--ban-gap": "0.375rem",
+          "--ban-phase-gap": "0.75rem",
+        } as CSSProperties}
+      >
+        {view.bans.map((ban, index) => {
+          const tileColumn = index * 2 + 1;
+          const phaseBreakAfter = index + 1 === phaseBoundary;
+          return (
+            <Fragment key={`${side}-ban-group-${ban.slot}`}>
+              <div key={`${side}-ban-${ban.slot}`} style={{ gridColumn: tileColumn }} className="min-w-0">
+                <BanTile
+                  side={side}
+                  ban={ban}
+                  active={ban.stepIndex === currentStepIndex}
+                  resolve={resolve}
+                  onRequestChange={ban.stepIndex !== null ? requestChangeFor?.(ban.stepIndex) ?? null : null}
+                />
+              </div>
+              {index < view.bans.length - 1 ? (
+                <span
+                  aria-hidden
+                  data-phase-break={phaseBreakAfter ? "true" : undefined}
+                  data-testid={phaseBreakAfter ? `${side}-ban-phase-gap` : undefined}
+                  style={{ gridColumn: tileColumn + 1 }}
+                />
+              ) : null}
+            </Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -328,6 +352,7 @@ export function DraftMatchupBoard({
   requestChangeFor,
   online,
   renderRail,
+  renderCompactRail,
   slotClassName,
   emptyLabel,
   pickProps,
@@ -342,6 +367,7 @@ export function DraftMatchupBoard({
   requestChangeFor?: (stepIndex: number) => (() => void) | null;
   online?: Partial<Record<DraftSide, boolean | undefined>>;
   renderRail?: () => ReactNode;
+  renderCompactRail?: () => ReactNode;
   slotClassName?: string | ((pick: DraftMatchupPickView) => string);
   emptyLabel?: string;
   pickProps?: (pick: DraftMatchupPickView) => Pick< DraftPickSlotProps, "interactive" | "role" | "ariaLabel" | "onPointerDown" | "onPointerMove" | "onPointerUp" | "onPointerCancel" | "onKeyDown">;
@@ -356,11 +382,16 @@ export function DraftMatchupBoard({
   if (layout === "columns") {
     return (
       <div className={`flex flex-col gap-4 ${className}`}>
-        <div className="flex justify-center">{rail}</div>
-        <div className="grid grid-cols-2 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_18rem]">
+        <div
+          className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 xl:[grid-template-columns:var(--draft-side-width)_minmax(0,1fr)_var(--draft-side-width)]"
+          style={{ "--draft-side-width": "clamp(20rem, 23vw, 28rem)" } as CSSProperties}
+        >
           <div className="order-1 min-w-0">{blue}</div>
-          <div className="order-3 col-span-2 min-w-0 xl:order-2 xl:col-span-1">{children}</div>
-          <div className="order-2 min-w-0 xl:order-3">{red}</div>
+          <div className="order-3 col-span-1 min-w-0 min-[640px]:col-span-2 xl:order-2 xl:col-span-1">
+            <div className="mb-3 min-w-0">{renderCompactRail ? renderCompactRail() : rail}</div>
+            {children}
+          </div>
+          <div className="order-2 min-w-0 min-[640px]:order-2 min-[640px]:col-span-1 xl:order-3">{red}</div>
         </div>
       </div>
     );
