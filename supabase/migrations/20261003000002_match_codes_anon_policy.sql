@@ -1,0 +1,42 @@
+-- The match-codes policy asks a question anon is not allowed to ask.
+--
+-- match_codes_select (20260827000009) reads:
+--
+--   is_admin() or is_captain_of(a, season) or is_approved_team_member(a, season) ...
+--
+-- The first two keep Postgres's default PUBLIC execute grant. The third
+-- revoked it and granted only authenticated and service_role. So a
+-- signed-out visitor evaluating that policy does not simply get no rows —
+-- the read raises 42501, "permission denied for function
+-- is_approved_team_member". A policy helper has to be executable by every
+-- role the policy can be evaluated under, or the policy is a trapdoor
+-- rather than a filter.
+--
+-- Two pages read match_codes with the anon client, and both are wrong
+-- today in different ways:
+--
+--   /match-draft/[fixtureId] documents spectators and the OBS overlay
+--   getting an empty list. They do get an empty list, because the error is
+--   ignored — but every spectator load and every overlay poll writes a
+--   Postgres error, which is what floods the log during a live draft.
+--
+--   /my-team throws on any read error, so the page fails outright rather
+--   than hiding codes the viewer may not see.
+--
+-- The grant leaks nothing. The body matches on auth.uid(), which is null
+-- for anon, so it returns false for every row — the same answer the policy
+-- wanted all along, arrived at without raising. This brings the function
+-- in line with the two beside it in the same policy.
+
+-- The catalog says this is the exact shape and the exact gap:
+--
+--   is_admin()                        ... anon=X   <- may execute
+--   is_captain_of(uuid,text)          ... anon=X   <- may execute
+--   is_approved_team_member(uuid,text) ...          <- may NOT
+--
+-- so one grant closes it. (An earlier attempt wrapped this in a DO block
+-- that looked the helpers up in pg_proc and found nothing, in a session
+-- where a plain select found all three. Whatever that was, it is not
+-- needed: the signature is known, and a single grant has no lookup to
+-- get wrong.)
+grant execute on function public.is_approved_team_member(uuid, text) to anon;

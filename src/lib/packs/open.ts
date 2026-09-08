@@ -65,6 +65,31 @@ function friendlyOpenPackError(message: string): string {
   return "Something went wrong opening that pack.";
 }
 
+/** The charge failed: friendly copy for the player, the raw Postgres error
+ *  for us.
+ *
+ *  Every rule the charge RPCs enforce has its own sentence above, so a
+ *  message falling through to the generic one is never a rule — it is the
+ *  database underneath (a function that does not exist, a lost grant, a
+ *  lock timeout, a read-only instance), and the single thing that names
+ *  which was being discarded. The God Pack outage was exactly this: the
+ *  migration had been skipped for being numbered in the past, every open
+ *  died on a missing function, and the logs held nothing at all. */
+function chargeFailed(
+  where: string,
+  error: { message: string; code?: string; details?: string; hint?: string },
+  context: Record<string, unknown>,
+): { ok: false; error: string } {
+  console.error(`packs: ${where} failed`, {
+    ...context,
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
+  return { ok: false, error: friendlyOpenPackError(error.message) };
+}
+
 type OpeningRow = {
   opening_id: string;
   open_id: number | null;
@@ -295,9 +320,16 @@ export async function openPackFor(
     p_source: daily ? "daily" : "standard",
     p_cost: PACK_COST,
   });
-  if (beginError) return { ok: false, error: friendlyOpenPackError(beginError.message) };
+  if (beginError) {
+    return chargeFailed("begin_card_pack_opening", beginError, { discordId, season, league, requestId, daily });
+  }
   const opening = (Array.isArray(beginData) ? beginData[0] : beginData) as OpeningRow | null;
-  if (!opening?.opening_id) return { ok: false, error: "Something went wrong starting that pack." };
+  if (!opening?.opening_id) {
+    // The call succeeded and handed back nothing usable, which no rule can
+    // produce — worth the same trail as an outright error.
+    console.error("packs: begin_card_pack_opening returned no opening", { discordId, season, league, requestId, beginData });
+    return { ok: false, error: "Something went wrong starting that pack." };
+  }
   if (opening.status === "refunded") return { ok: false, error: "That pack was refunded — please try again." };
   if (opening.status === "fulfilled") {
     return recoverOpening(service, discordId, opening, editionWeek, opts.fallbackBalance);
@@ -572,6 +604,9 @@ export async function openPackFor(
       if (source === "daily") return { ok: false, error: "That pack didn't open and the daily rip couldn't be returned — staff have been notified." };
       return { ok: false, error: "That pack didn't open and we couldn't reverse the charge — staff have been notified." };
     }
+    // The refund worked, so the player is whole — but the write still
+    // failed, and without this the only record of why is gone.
+    console.error("packs: fulfill_card_pack_opening failed", { discordId, season, openingId: opening.opening_id, source, insertError });
     if (usedComp) return { ok: false, error: "That pack didn't open — your free pack wasn't spent." };
     if (source === "daily") return { ok: false, error: "That pack didn't open — your daily rip wasn't spent." };
     return { ok: false, error: "That pack didn't open — you haven't been charged." };
@@ -914,7 +949,7 @@ export async function openChampionsPack(
       p_season: season,
       p_cost: CHAMPIONS_PACK_COST,
     });
-    if (openError) return { ok: false, error: friendlyOpenPackError(openError.message) };
+    if (openError) return chargeFailed("open_card_pack (champions)", openError, { discordId, season, cost: CHAMPIONS_PACK_COST });
     openId = openData as number;
   }
 
