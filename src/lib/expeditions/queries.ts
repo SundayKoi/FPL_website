@@ -35,7 +35,7 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
   rescued: boolean | null;
   /** Stamped by resolve_expedition when a successful rescue found nothing
    *  left to bring back — the hold had already closed. Absent on every run
-   *  resolved before 20261006000001, which is why it is optional. */
+   *  resolved before 20261007000001, which is why it is optional. */
   rescueMissed?: boolean;
   /** The Exorcism's cleansed card. */
   cleansed: number | null;

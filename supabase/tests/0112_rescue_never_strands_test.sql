@@ -1,4 +1,4 @@
--- The rescue that could never come home (20261006000001).
+-- The rescue that could never come home (20261007000001).
 --
 -- A Rescue targets a 'lost' hold, and three ordinary things close that
 -- hold while the rescue is still in the field: the seven-day deadline
