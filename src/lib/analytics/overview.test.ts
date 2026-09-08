@@ -20,6 +20,7 @@ const packWeek = (over: Partial<PackWeek> = {}): PackWeek => ({
   comp: 0,
   god_packs: 0,
   rippers: 0,
+  spend: 0,
   ...over,
 });
 

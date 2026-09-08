@@ -8,7 +8,7 @@
 -- totals within the window, which no clock can move.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(18);
 
 -- ── The door ─────────────────────────────────────────────────────────
 select ok(not has_function_privilege('anon', 'public.analytics_overview(int)', 'execute'),
@@ -96,6 +96,47 @@ select is(
   (select jsonb_array_length(public.analytics_overview(0) -> 'packs' -> 'by_week')),
   1,
   'and floored at one week, so a zero cannot ask for an empty series');
+
+-- ── The two pack anchors ─────────────────────────────────────────────
+-- The trap this guards: card_pack_opens is the money/daily row and holds
+-- all of history; card_pack_openings is the newer identity and knows the
+-- variant and the comped opens. Counting both naively double-counts every
+-- modern pack; counting either alone loses half the truth.
+create temporary table pack_before as
+select
+  (select coalesce(sum((w ->> 'opens')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)     as opens,
+  (select coalesce(sum((w ->> 'spend')::bigint), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)  as spend,
+  (select coalesce(sum((w ->> 'comp')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)      as comp
+from (select public.analytics_overview(2) as j) r;
+
+-- One paid pack recorded in BOTH tables, the way every pack has been since
+-- the God Packs rewrite. It is one pack.
+with paid as (
+  insert into public.card_pack_opens (discord_id, season, cost, opened_at)
+    values ('t_analytics_a', 'T', 200, now() - interval '1 day')
+  returning id
+)
+insert into public.card_pack_openings (discord_id, season, source, variant, status, created_at, pack_open_id)
+  select 't_analytics_a', 'T', 'paid', 'god', 'fulfilled', now() - interval '1 day', id from paid;
+
+-- And one comped pack, which has no money row and exists only in the
+-- newer table — the half the old anchor cannot see.
+insert into public.card_pack_openings (discord_id, season, source, variant, status, created_at, pack_open_id)
+  values ('t_analytics_b', 'T', 'comp', 'standard', 'fulfilled', now() - interval '1 day', null);
+
+create temporary table pack_after as
+select
+  (select coalesce(sum((w ->> 'opens')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)     as opens,
+  (select coalesce(sum((w ->> 'spend')::bigint), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)  as spend,
+  (select coalesce(sum((w ->> 'comp')::int), 0) from jsonb_array_elements(j -> 'packs' -> 'by_week') w)      as comp
+from (select public.analytics_overview(2) as j) r;
+
+select is((select a.opens - b.opens from pack_after a, pack_before b)::int, 2,
+  'a pack in both tables is ONE pack, and the comped pack is the other');
+select is((select a.spend - b.spend from pack_after a, pack_before b)::bigint, 200::bigint,
+  'spend comes off the money anchor once, not twice');
+select is((select a.comp - b.comp from pack_after a, pack_before b)::int, 1,
+  'the comped open is counted, though no money row exists for it');
 
 -- The chase roll call names who holds each Dribb, in number order.
 insert into public.card_inventory (discord_id, season, tier, foil, signed, card, acquired_at)

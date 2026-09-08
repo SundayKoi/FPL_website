@@ -46,6 +46,9 @@ export interface PackWeek extends WeekRow {
   comp: number;
   god_packs: number;
   rippers: number;
+  /** Betting dollars spent on packs. Off the money anchor, so a comped or
+   *  daily pack contributes nothing rather than a notional price. */
+  spend: number;
 }
 
 export interface PullWeek extends WeekRow {

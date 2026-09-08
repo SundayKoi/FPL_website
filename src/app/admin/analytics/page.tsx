@@ -156,6 +156,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
 
   const totalOpens = packs.reduce((total, week) => total + week.opens, 0);
   const totalCopies = pulls.reduce((total, week) => total + week.copies, 0);
+  const totalSpend = packs.reduce((total, week) => total + week.spend, 0);
   const latest = data.people.active.at(-1);
   const paidIn = data.economy.by_week.reduce((total, week) => total + week.paid_in, 0);
   const paidOut = data.economy.by_week.reduce((total, week) => total + week.paid_out, 0);
@@ -196,7 +197,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           value={num(latest?.active ?? 0)}
           note={`${num(latest?.packs ?? 0)} ripped · ${num(latest?.gauntlet ?? 0)} ran the Gauntlet`}
         />
-        <Stat label="Packs opened" value={num(totalOpens)} note={`${num(totalCopies)} cards minted`} />
+        <Stat label="Packs opened" value={num(totalOpens)} note={`${num(totalCopies)} cards minted · ${money(totalSpend)} spent`} />
         <Stat
           label="In circulation"
           value={money(data.economy.in_circulation)}
@@ -303,8 +304,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         </Table>
       </Section>
 
-      <Section title="Packs" blurb="Fulfilled opens only — a refunded open is not an open.">
-        <Table head={["Week", "Opens", "Paid", "Daily rip", "Comped", "God Packs", "Rippers"]} min={640}>
+      <Section
+        title="Packs"
+        blurb="Every pack, from both records that hold them: the money row that reaches back to the league's first rip, and the newer opening identity that knows the variant and is the only trace of a comped pack. Counted once each. A refunded open is not an open."
+      >
+        <Table head={["Week", "Opens", "Paid", "Daily rip", "Comped", "God Packs", "Rippers", "Spent"]} min={720}>
           {packs.map((week) => (
             <tr key={week.week} className="border-t border-white/10">
               <td className="py-1.5 pr-3 text-chalk">{week.week}</td>
@@ -313,7 +317,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
               <td className="py-1.5 pr-3">{num(week.daily)}</td>
               <td className="py-1.5 pr-3">{num(week.comp)}</td>
               <td className="py-1.5 pr-3 text-gold">{num(week.god_packs)}</td>
-              <td className="py-1.5 text-muted">{num(week.rippers)}</td>
+              <td className="py-1.5 pr-3 text-muted">{num(week.rippers)}</td>
+              <td className="py-1.5">{money(week.spend)}</td>
             </tr>
           ))}
         </Table>

@@ -47,12 +47,39 @@ begin
   ),
 
   -- ── Packs ────────────────────────────────────────────────────────────
+  -- TWO ANCHORS, COUNTED ONCE. `card_pack_opens` is the money and daily
+  -- ledger row: it reaches back to the first pack this league ever ripped,
+  -- and it carries the cost, so it is what "packs opened" and "dollars
+  -- spent" mean. `card_pack_openings` is the newer per-opening identity
+  -- (God Packs, 20261003000001) — it knows the variant and it is the ONLY
+  -- record of a comped open, but it starts the day that shipped.
+  --
+  -- Reading either alone is wrong in a way that looks fine: the new table
+  -- alone reports an empty league before October, and the old one alone
+  -- loses every comped pack and every God Pack. An opening carrying a
+  -- pack_open_id IS the card_pack_opens row it points at, so the join
+  -- takes the variant from it and the union only adds the openings that
+  -- have no money row of their own.
+  --
+  -- A refunded open deletes its card_pack_opens row (refund_card_pack_opening),
+  -- so refunds fall out of both arms on their own.
   opens as (
     select
-      date_trunc('week', (created_at at time zone 'America/New_York'))::date as week,
-      discord_id, source, variant, status
-    from card_pack_openings
-    where created_at >= v_since and status = 'fulfilled'
+      date_trunc('week', (o.opened_at at time zone 'America/New_York'))::date as week,
+      o.discord_id,
+      case when o.cost = 0 then 'daily' else 'paid' end as source,
+      coalesce(g.variant, 'standard')                   as variant,
+      o.cost                                            as cost
+    from card_pack_opens o
+    left join card_pack_openings g
+      on g.pack_open_id = o.id and g.status = 'fulfilled'
+    where o.opened_at >= v_since
+    union all
+    select
+      date_trunc('week', (g.created_at at time zone 'America/New_York'))::date,
+      g.discord_id, g.source, g.variant, 0
+    from card_pack_openings g
+    where g.created_at >= v_since and g.status = 'fulfilled' and g.pack_open_id is null
   ),
   pack_week as (
     select
@@ -62,7 +89,8 @@ begin
       count(*) filter (where o.source = 'daily')            as daily,
       count(*) filter (where o.source = 'comp')             as comp,
       count(*) filter (where o.variant = 'god')             as god_packs,
-      count(distinct o.discord_id)                          as rippers
+      count(distinct o.discord_id)                          as rippers,
+      coalesce(sum(o.cost), 0)::bigint                      as spend
     from weeks w left join opens o on o.week = w.week
     group by w.week order by w.week
   ),
@@ -149,8 +177,14 @@ begin
   -- stamps a user and a time. A union, not a join: somebody who only
   -- played a daily game is as active as somebody who only ripped.
   activity as (
-    select date_trunc('week', (created_at at time zone 'America/New_York'))::date as week, discord_id, 'packs' as mode
-      from card_pack_openings where created_at >= v_since and discord_id is not null
+    -- Off the money anchor, for the same reason as pack_week above: the
+    -- opening identity table only knows this month.
+    select date_trunc('week', (opened_at at time zone 'America/New_York'))::date as week, discord_id, 'packs' as mode
+      from card_pack_opens where opened_at >= v_since and discord_id is not null
+    union all
+    select date_trunc('week', (created_at at time zone 'America/New_York'))::date, discord_id, 'packs'
+      from card_pack_openings
+      where created_at >= v_since and status = 'fulfilled' and pack_open_id is null and discord_id is not null
     union all
     select date_trunc('week', (started_at at time zone 'America/New_York'))::date, discord_id, 'expeditions'
       from expedition_runs where started_at >= v_since and discord_id is not null
@@ -346,4 +380,6 @@ grant execute on function public.analytics_overview(int) to service_role;
 -- Two indexes the dashboard leans on. Both are ordinary btrees on a
 -- timestamp already being filtered; neither changes any write path.
 create index if not exists card_pack_openings_created_idx on public.card_pack_openings (created_at);
+create index if not exists card_pack_openings_pack_open_idx on public.card_pack_openings (pack_open_id) where pack_open_id is not null;
+create index if not exists card_pack_opens_opened_idx on public.card_pack_opens (opened_at);
 create index if not exists card_inventory_acquired_idx on public.card_inventory (acquired_at);
