@@ -78,8 +78,8 @@
 
 .boardCards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(6px, 1.2vw, 14px);
   overflow: visible;
   border: 0;
   background: transparent;
@@ -320,7 +320,7 @@
   align-items: stretch;
   gap: 20px;
   min-width: 0;
-  padding: 19px 20px;
+  padding: clamp(8px, 1.5vw, 19px) clamp(7px, 1.5vw, 20px);
   border: 1px solid var(--scout-line);
   border-radius: 12px;
   background: var(--scout-panel);
@@ -376,6 +376,37 @@
 
 .reportIdentity {
   padding: 24px 22px 20px;
+}
+
+.reportIdentityTop {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 28px;
+}
+
+.reportIdentityCopy {
+  min-width: 0;
+}
+
+.profileCard {
+  min-width: 0;
+  padding: 0 0 0 28px;
+  border-left: 1px solid var(--scout-line);
+}
+
+.profileEyebrow {
+  color: #ffb51b;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 2.3px;
+  text-transform: uppercase;
+}
+
+.profileEmpty {
+  margin-top: 16px;
+  color: var(--scout-muted);
+  font-size: 13px;
 }
 
 .eyebrow {
@@ -566,8 +597,19 @@
 }
 
 @media (max-width: 620px) {
+  .reportIdentityTop {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
   .reportIdentity {
     padding: 20px 16px 17px;
+  }
+
+  .profileCard {
+    padding: 20px 0 0;
+    border-top: 1px solid var(--scout-line);
+    border-left: 0;
   }
 
   .summaryGrid {
@@ -636,7 +678,43 @@
   }
 
   .boardCards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .boardCards .playerRow {
+    gap: 12px;
+    padding: 12px 8px;
+  }
+
+  .boardCards .playerIdentity {
+    gap: 6px;
+  }
+
+  .boardCards .roleBadge {
+    width: 32px;
+    height: 32px;
+    font-size: 9px;
+  }
+
+  .boardCards .playerName {
+    font-size: 13px;
+  }
+
+  .boardCards .playerTotals {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .boardCards .total strong {
+    font-size: 14px;
+  }
+
+  .boardCards .total span,
+  .boardCards .evidence {
+    font-size: 9px;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -670,7 +748,53 @@
   }
 
   .boardCards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .boardCards .playerRow {
+    gap: 9px;
+    padding: 8px 5px;
+  }
+
+  .boardCards .playerIdentity {
+    gap: 4px;
+  }
+
+  .boardCards .roleBadge {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 7px;
+  }
+
+  .boardCards .playerName {
+    font-size: 11px;
+  }
+
+  .boardCards .playerRole,
+  .boardCards .total span,
+  .boardCards .evidence {
+    font-size: 8px;
+  }
+
+  .boardCards .total strong {
+    font-size: 12px;
+  }
+
+  .boardCards .championName {
+    font-size: 10px;
+  }
+
+  .boardCards .portrait,
+  .boardCards .portraitPlaceholder {
+    width: 24px;
+    height: 24px;
+  }
+
+  .boardCards .playerTotals {
     grid-template-columns: 1fr;
+    gap: 3px;
   }
 
   .boardCards .champions {

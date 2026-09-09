@@ -133,10 +133,11 @@ interface TeamGame { draft: ScoutDraftRow; fixture: ScoutSource["fixtures"][numb
 const hasRecordedAction = (draft: ScoutDraftRow) => draft.actions.some((action) => Boolean(action.skipped || action.champion));
 function allTeamGames(source: ScoutSource): TeamGame[] {
   const fixtures = new Map(source.fixtures.map((fixture) => [fixture.id, fixture]));
+  const unplayedGameKeys = new Set(source.unplayedGameKeys ?? []);
   return source.drafts.map((draft) => {
     const fixture = fixtures.get(draft.fixture_id);
     const side = resolveScoutedSide(draft, source.opponentName) ?? resolveRosterEvidenceSide(draft, source);
-    return fixture && side && hasRecordedAction(draft)
+    return fixture && side && hasRecordedAction(draft) && !unplayedGameKeys.has(draftGameKey(draft.fixture_id, draft.game_number))
       ? { draft, fixture, side, winnerTeam: resolveWinnerTeam(draft, fixture, source) }
       : null;
   }).filter((game): game is TeamGame => Boolean(game)).sort((a, b) => {
@@ -194,6 +195,8 @@ interface ResolvedIngestedPicks {
 }
 
 const draftGameKey = (fixtureId: string, gameNumber: number): string => `${fixtureId}:${gameNumber}`;
+const unplayedGameKey = (fixtureId: string | null, gameNumber: number | undefined): string | null =>
+  fixtureId && gameNumber !== undefined ? draftGameKey(fixtureId, gameNumber) : null;
 const pickGameKey = (pick: Pick<PoolPick, "fixtureId" | "gameNumber" | "matchId">): string =>
   pick.fixtureId && pick.gameNumber !== undefined
     ? draftGameKey(pick.fixtureId, pick.gameNumber)
@@ -303,8 +306,11 @@ function scopedIngestedRows(
   rows: NonNullable<ScoutSource["ingestedGames"]>,
 ): NonNullable<ScoutSource["ingestedGames"]> {
   const sourceFixtureIds = new Set(source.fixtures.map((fixture) => fixture.id));
+  const unplayedGameKeys = new Set(source.unplayedGameKeys ?? []);
   let scoped = rows.filter((row) =>
-    (scope === "all" || row.season === source.currentSeason) && (!row.fixtureId || sourceFixtureIds.has(row.fixtureId)),
+    (scope === "all" || row.season === source.currentSeason) &&
+    (!row.fixtureId || sourceFixtureIds.has(row.fixtureId)) &&
+    !unplayedGameKeys.has(unplayedGameKey(row.fixtureId, row.gameNumber) ?? ""),
   );
   if (scope !== "recent") return scoped;
 
@@ -346,11 +352,16 @@ function resolveIngestedPicks(
   scope: ScoutScope,
   data: IngestedScoutingData,
 ): ResolvedIngestedPicks {
+  const unplayedGameKeys = new Set(source.unplayedGameKeys ?? []);
+  const playableData: IngestedScoutingData = {
+    games: data.games.filter((game) => !unplayedGameKeys.has(unplayedGameKey(game.fixtureId, game.gameNumber) ?? "")),
+    coverage: data.coverage.filter((row) => !unplayedGameKeys.has(unplayedGameKey(row.fixtureId, row.gameNumber) ?? "")),
+  };
   const rosterById = new Map(source.roster.map((player) => [player.id, player]));
   const eligibleByKey = new Map(games.map((game) => [draftGameKey(game.fixture.id, game.draft.game_number), game]));
   const coverageByMatch = new Map<string, IngestedScoutingCoverage[]>();
   const coverageByGameKey = new Map<string, IngestedScoutingCoverage[]>();
-  for (const row of uniqueCoverageRows(data.coverage)) {
+  for (const row of uniqueCoverageRows(playableData.coverage)) {
     coverageByMatch.set(row.matchId, [...(coverageByMatch.get(row.matchId) ?? []), row]);
     if (row.fixtureId && row.gameNumber !== undefined) {
       const key = draftGameKey(row.fixtureId, row.gameNumber);
@@ -381,7 +392,7 @@ function resolveIngestedPicks(
     if (unresolved) unresolvedGameKeys.add(key);
   }
 
-  const scopedRows = scopedIngestedRows(source, scope, data.games);
+  const scopedRows = scopedIngestedRows(source, scope, playableData.games);
   const scopedMatchIds = new Set(scopedRows.map((row) => row.matchId));
   const accepted = new Map<string, PoolPick>();
   const acceptedPerformance = new Map<string, ScoutingGamePerformance[]>();

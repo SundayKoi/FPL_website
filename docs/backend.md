@@ -662,6 +662,13 @@ stored value from 0 through 100. Missing metrics render as unavailable rather
 than zero, and each champion retains metric sample counts. Draft-only picks
 remain count evidence without performance samples.
 
+Scouting also excludes draft-only games that a forfeit confirms were never
+played. `fetchScoutingHistory` treats a report with `status = 'forfeit'` as
+having no played games, while a report with `forfeit_team_id` keeps only
+`match_report_games` rows with a real `match_id`. The resulting fixture/game
+keys are removed from draft evidence and from ingested stat coverage, so an
+unplayed forfeited draft cannot contribute picks, champions, or stat values.
+
 The checked-in `inhouse_stats` contract currently exposes only
 `summoner_name`, `champion`, K/D/A, and `win`. In-house cards therefore expose
 the existing games/win rate and KDA aggregation, while DMG/min and KP remain

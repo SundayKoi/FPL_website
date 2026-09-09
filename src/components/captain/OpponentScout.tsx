@@ -8,6 +8,7 @@ import type { ScoutScope, ScoutSource } from "@/lib/scouting/types";
 import ScoutPatterns from "./scouting/ScoutPatterns";
 import ScoutPastDrafts from "./scouting/ScoutPastDrafts";
 import ScoutPlayerPools from "./scouting/ScoutPlayerPools";
+import ScoutTeamProfile from "./scouting/ScoutTeamProfile";
 import styles from "./scouting/ScoutPlayerPools.module.css";
 
 function percentage(part: number, total: number): string {
@@ -84,17 +85,23 @@ export default function OpponentScout({
   const showPoolsWithoutHistory = !hasDrafts && (perspective === "team" || hasPlayerPoolStats);
   const inhouseStatus = source.inhousePlayerStatsStatus ?? "available";
   const poolResetKey = [subjectName, source.currentSeason, source.roster.map((player) => player.id).join(",")].join(":");
+  const showTeamProfile = source.teamStatsStatus !== undefined || source.teamStats !== undefined;
 
   return <section aria-labelledby="scouting-heading" className="mt-8 space-y-4">
     <h2 id="scouting-heading" className="sr-only">Scouting</h2>
     <header className={styles.reportHeader}>
       <div className={styles.reportIdentity}>
-        <span className={styles.eyebrow}>My Team · Scouting</span>
-        <h3 className={styles.reportName}>{subjectName}</h3>
-        <p className={styles.reportSupporting}>{subjectLabel} report · draft evidence and roster performance for {source.currentSeason}</p>
-        <div className={styles.reportControls}>
-          {mode === "regular" ? <label className={styles.scopeControl}>Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className={styles.scopeSelect}><option value="season">Current season</option><option value="recent">Recent 5 series</option><option value="all">All history</option></select></label> : <span className="label-dash">In-house scope · all available games</span>}
-          <span className="label-dash"><span>{subjectLabel}</span>: {source.teamName ?? source.opponentName}</span>
+        <div className={styles.reportIdentityTop}>
+          <div className={styles.reportIdentityCopy}>
+            <span className={styles.eyebrow}>My Team · Scouting</span>
+            <h3 className={styles.reportName}>{subjectName}</h3>
+            <p className={styles.reportSupporting}>{subjectLabel} report · draft evidence and roster performance for {source.currentSeason}</p>
+            <div className={styles.reportControls}>
+              {mode === "regular" ? <label className={styles.scopeControl}>Draft history<select aria-label="Draft history" value={scope} onChange={(event) => setScope(event.target.value as ScoutScope)} className={styles.scopeSelect}><option value="season">Current season</option><option value="recent">Recent 5 series</option><option value="all">All history</option></select></label> : <span className="label-dash">In-house scope · all available games</span>}
+              <span className="label-dash">{subjectLabel}</span>
+            </div>
+          </div>
+          {showTeamProfile ? <ScoutTeamProfile teamName={subjectName} label="Opponent profile" stats={source.teamStats ?? null} status={source.teamStatsStatus} /> : null}
         </div>
       </div>
       <div className={styles.summaryGrid}>

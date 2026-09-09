@@ -3,7 +3,7 @@ import BackLink from "@/components/site/BackLink";
 import OpponentScout from "@/components/captain/OpponentScout";
 import { fetchMyRoster } from "@/lib/captain/queries";
 import { leaguePath } from "@/lib/league/links";
-import { loadMyTeamDashboard } from "@/lib/my-team/queries";
+import { fetchTeamStats, loadMyTeamDashboard } from "@/lib/my-team/queries";
 import type { LeagueKey } from "@/lib/players/identity";
 import { fetchIngestedScoutingGames, fetchInhousePlayerStats, fetchScoutingHistory } from "@/lib/scouting/queries";
 import type { ScoutFixtureRow, ScoutRosterPlayer } from "@/lib/scouting/types";
@@ -100,9 +100,18 @@ export async function MyTeamScoutingPageView({
         league,
         leagueTeamNames: dashboard.teams.map((team) => team.name),
       });
-      const rosterData = dashboard.opponent?.team?.id === scoutTeam.id
-        ? dashboard.opponent.roster
-        : await fetchMyRoster(supabase, scoutTeam.id, dashboard.season, league);
+      const rosterPromise = dashboard.opponent?.team?.id === scoutTeam.id
+        ? Promise.resolve(dashboard.opponent.roster)
+        : fetchMyRoster(supabase, scoutTeam.id, dashboard.season, league);
+      const teamStatsPromise = dashboard.opponent?.team?.id === scoutTeam.id
+        ? Promise.resolve({ stats: dashboard.opponent.stats, status: dashboard.opponent.statsUnavailable ? "unavailable" as const : "available" as const })
+        : fetchTeamStats(supabase, scoutTeam.name, dashboard.season)
+            .then((stats) => ({ stats, status: "available" as const }))
+            .catch((error) => {
+              console.error("Unable to load scouting team stats", error);
+              return { stats: null, status: "unavailable" as const };
+            });
+      const [rosterData, teamStatsResult] = await Promise.all([rosterPromise, teamStatsPromise]);
       if (!rosterData) throw new Error("scouting roster unavailable");
       const roster = scoutingRoster(rosterData);
       let ingestedScouting: Awaited<ReturnType<typeof fetchIngestedScoutingGames>> | undefined;
@@ -128,6 +137,8 @@ export async function MyTeamScoutingPageView({
         currentSeason: dashboard.season,
         nextFixture: nextFixtureForTeam(history.fixtures, scoutTeam.name),
         roster,
+        teamStats: teamStatsResult.stats,
+        teamStatsStatus: teamStatsResult.status,
         ...(ingestedScouting ? { ingestedScouting } : {}),
         ingestedScoutingStatus,
         inhousePlayerStats,

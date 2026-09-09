@@ -4,6 +4,7 @@ import { LCS_DRAFT_STEPS } from "@/lib/match-draft/rules";
 import { championIconUrl } from "@/lib/match-draft/champions";
 import type { MatchDraftAction } from "@/lib/match-draft/types";
 import type { ScoutSource } from "@/lib/scouting/types";
+import type { TeamAggRow } from "@/lib/stats/types";
 import OpponentScout from "./OpponentScout";
 
 afterEach(cleanup);
@@ -54,6 +55,21 @@ describe("OpponentScout", () => {
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("3");
     expect(screen.queryByText(/recommend|must ban|priority|threat score/i)).toBeNull();
+  });
+  it("shows the live team profile beside the scouting identity", () => {
+    const stats: TeamAggRow = {
+      team_name: "Night Vale", season: "S5", season_phase: "Regular", games: 8, wins: 5, losses: 3,
+      winrate_pct: 62.5, avg_duration_min: 31.5, dragon_rate: 50, baron_rate: 25,
+      first_blood_rate: 75, first_tower_rate: 50, avg_team_kills: 12.5,
+    };
+
+    renderScout({ teamStats: stats, teamStatsStatus: "available" });
+
+    expect(screen.getByRole("complementary", { name: "Opponent profile: Night Vale" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Scout Night Vale" })).toBeNull();
+    expect(screen.queryByText("5W · 3L")).toBeNull();
+    expect(screen.getByRole("term", { name: "Dragon control" })).toBeTruthy();
+    expect(screen.getByText("12.5 kills/game; 31.5 min average.")).toBeTruthy();
   });
   it("uses neutral team wording when requested", () => {
     render(<OpponentScout source={source} perspective="team" />);

@@ -5,6 +5,7 @@ import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
 const {
   serverClient,
   loadMyTeamDashboard,
+  fetchTeamStats,
   fetchScoutingHistory,
   fetchMyRoster,
   fetchIngestedScoutingGames,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
   serverClient: { from: vi.fn() },
   loadMyTeamDashboard: vi.fn(),
+  fetchTeamStats: vi.fn(async () => null),
   fetchScoutingHistory: vi.fn(),
   fetchMyRoster: vi.fn(),
   fetchIngestedScoutingGames: vi.fn(),
@@ -25,7 +27,7 @@ const {
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => serverClient),
 }));
-vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard }));
+vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard, fetchTeamStats }));
 vi.mock("@/lib/captain/queries", () => ({ fetchMyRoster }));
 vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
 vi.mock("@/components/captain/OpponentScout", () => ({

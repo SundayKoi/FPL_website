@@ -490,6 +490,32 @@ describe("opponent scouting derivation", () => {
     expect(pool.champions[0].performance).toMatchObject({ statGames: 1, kda: 5, damagePerMinute: 600, killParticipationPct: 40 });
   });
 
+  it("omits unplayed forfeit drafts and their stat rows", () => {
+    const forfeited = structuredClone(source) as ScoutSource;
+    forfeited.teamName = "Night Vale";
+    forfeited.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    forfeited.fixtures = [fixture("played", "S5", "2026-08-20T00:00:00Z"), fixture("ff", "S5", "2026-08-21T00:00:00Z")];
+    forfeited.drafts = [
+      { ...source.drafts[0], fixture_id: "played", blue_team_name: "Night Vale", red_team_name: "Other", actions: [{ stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: null }] },
+      { ...source.drafts[0], fixture_id: "ff", blue_team_name: "Night Vale", red_team_name: "Other", actions: [{ stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Zed", playerName: null }] },
+    ];
+    const performance = { kills: 2, deaths: 1, assists: 3, damageToChampions: 12000, durationMinutes: 20, killParticipationPct: 40 };
+    forfeited.unplayedGameKeys = ["ff:1"];
+    forfeited.ingestedScouting = {
+      games: [
+        { playerId: "n", playerName: "Northstar", role: "mid", champion: "Ahri", fixtureId: "played", season: "S5", matchId: "played-match", gameDate: "2026-08-20", gameNumber: 1, teamSide: "blue", performance },
+        { playerId: "n", playerName: "Northstar", role: "mid", champion: "Zed", fixtureId: "ff", season: "S5", matchId: "ff-match", gameDate: "2026-08-21", gameNumber: 1, teamSide: "blue", performance },
+      ],
+      coverage: [],
+    };
+
+    const data = deriveScoutData(forfeited, "all");
+    const pool = data.playerPools[0];
+    expect(data.pastDrafts.map((draft) => draft.fixture.id)).toEqual(["played"]);
+    expect(pool).toMatchObject({ totalPicks: 1, gamesSampled: 1, champions: [{ champion: "Ahri", count: 1 }] });
+    expect(pool.champions[0].performance).toMatchObject({ statGames: 1, kda: 5 });
+  });
+
   it("supplements duplicate performance rows and makes conflicting metrics unavailable independent of row order", () => {
     const base = structuredClone(source) as ScoutSource;
     base.teamName = "Night Vale";
