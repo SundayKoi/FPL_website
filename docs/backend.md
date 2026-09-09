@@ -861,7 +861,7 @@ season's foils in one League skin line, a new line every season, with four
 tiers inside it (Standard, Chroma, Prestige, Ultimate) sitting on the rungs —
 and therefore the weights and dust multipliers — of Prisma, Aurora, Refractor
 and Cracked Ice. Eclipse is not a tier of anything, keeps its name and look,
-and does not rotate. `src/lib/cards/skinLines.ts` holds the six candidate
+and does not rotate. `src/lib/cards/skinLines.ts` holds the seven candidate
 lines (label, look, accent, blend, utility), the tier ladder (`LINE_TIERS`,
 `lineTierLabel`) and a worked Season 5 set. The treatments are
 `card-foil-line-<key>` utilities in globals.css; each line owns one shape
