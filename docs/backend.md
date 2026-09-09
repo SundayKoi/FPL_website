@@ -1100,6 +1100,32 @@ inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
 (and `journalFor`, handed the run's `choices`, writes the Jungle's line
 naming the next place at the start of the leg).
 
+Company on the road (`src/lib/expeditions/company.ts`, pure; the reads
+in `companyReads.ts`, service-client only; from `COMPANY_RULES` = 4,
+20261011000001): the trail's **rival squad** is another collector's real
+run on the same route — `rivalFor` picks the one launched closest before
+the encounter's hour within `RIVAL_WINDOW_MS`, never the same collector
+and never the convoy partner — and `rivalVerdict` gives the spot to the
+squad with more shine, the seeded coin breaking a tie. `companyFor` also
+finds every other run whose rival encounter picked this one
+(`crossings`), so both journals name the other side. No run on the road
+means `alone`: the resolver pays `CACHE_LOOT` where the rival would have
+been. A **ghost** is a `route` grave of the season walking the Legend and
+Legendary legs (`ghostFor`, seeded by run and leg over graves dug before
+the hour): the resolver rolls the next fork's camp haunting at
+`GHOST_HAUNT` × the fork's own and never under `GHOST_HAUNT_FLOOR`, a push
+is harmless, and a squad carrying the dead card's team (`stood`) gets
+`CACHE_LOOT` instead. Everything is stable once the hour has passed —
+the candidates are runs that launched and graves dug before it — so the
+page (`fetchCompanies` for the runs in the field, handed to `journalFor`
+as `company`), the sweep's ping and the claim (`fetchCompany`, then
+`encountersFor(run, company)`) agree without a table. The claim writes
+the rivals raced into the outcome as `rivals [{who, name, runId, won}]`;
+`fetchRivalries` reads them back from both sides (`outcome @> {rivals:
+[{who}]}`) and `tallyRivalries` scores the season for the board's
+Rivalries strip. A run stamped below `COMPANY_RULES` keeps its coin and
+meets no ghost, because its journal is half written.
+
 The trail — the journal under each run, the encounters on it, the squad's
 line at a fork and the route map — is derived, never stored
 (`src/lib/expeditions/journal.ts`). On a road (`ROAD_RULES`) the pools are

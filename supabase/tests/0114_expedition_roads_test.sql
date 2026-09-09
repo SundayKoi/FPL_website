@@ -39,17 +39,19 @@ $$;
 
 -- === 1-2. the rulebook ======================================================
 
-select is(
-  (select column_default from information_schema.columns
+-- The default has moved on since (4, 20261011000001); the road's law is
+-- that it is never below the road rulebook.
+select cmp_ok(
+  (select column_default::int from information_schema.columns
     where table_schema = 'public' and table_name = 'expedition_runs' and column_name = 'rules'),
-  '3',
-  'a launch from here on is stamped with the road rulebook');
+  '>=', 3,
+  'a launch from here on is stamped with at least the road rulebook');
 
 create temporary table rd_launch on commit drop as
   select * from public.launch_expedition('road-0114', 'S_TEST_RD', 'raid',
     array[tests.rd_card('rd-1'), tests.rd_card('rd-2'), tests.rd_card('rd-3')], 14, 24, 2, false, 0, 0, null, null, null);
 
-select is((select rules from public.expedition_runs where id = tests.rd_run()), 3::smallint,
+select cmp_ok((select rules from public.expedition_runs where id = tests.rd_run()), '>=', 3::smallint,
   'a fresh run walks a drawn road');
 
 -- === 3-10. the fork takes every call ========================================

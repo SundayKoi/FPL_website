@@ -4,6 +4,7 @@ import type { PlayerCardData } from "@/lib/cards/build";
 import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
+import type { Rivalry } from "@/lib/expeditions/company";
 import ExpeditionBoard from "./ExpeditionBoard";
 import { forksFor } from "@/lib/expeditions/routes";
 
@@ -163,11 +164,13 @@ function renderBoard(
     playingToday?: string[];
     rivals?: Record<number, string>;
     convoys?: Record<number, ConvoyView>;
+    rivalries?: Rivalry[];
   } = {},
 ) {
   return render(
     <ExpeditionBoard
       convoys={over.convoys}
+      rivalries={over.rivalries}
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -959,6 +962,31 @@ describe("ExpeditionBoard — missing cards", () => {
 
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — rivalries", () => {
+  it("keeps the season's score against each collector raced", () => {
+    renderBoard({
+      rivalries: [
+        { who: "doug", name: "Doug", beaten: 2, beatenBy: 1, last: "2026-09-03T00:00:00Z" },
+        { who: "ann", name: "Ann", beaten: 0, beatenBy: 1, last: "2026-09-02T00:00:00Z" },
+        { who: "bo", name: "Bo", beaten: 1, beatenBy: 1, last: "2026-09-01T00:00:00Z" },
+      ],
+    });
+    const strip = screen.getByTestId("rivalries");
+    expect(within(strip).getByTestId("rivalry-doug").textContent).toContain("Doug2–1yours ahead");
+    expect(within(strip).getByTestId("rivalry-ann").textContent).toContain("Ann0–1theirs ahead");
+    expect(within(strip).getByTestId("rivalry-bo").textContent).toContain("Bo1–1level");
+  });
+
+  it("says nothing about rivalries until there is one, and explains company in the rules", () => {
+    renderBoard();
+    expect(screen.queryByTestId("rivalries")).toBeNull();
+    const rule = screen.getByTestId("rule-company");
+    expect(rule.textContent).toContain("more shine");
+    expect(rule.textContent).toContain("The dead walk");
+    expect(rule.textContent).toContain("2×");
   });
 });
 
