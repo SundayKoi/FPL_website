@@ -96,12 +96,17 @@ export async function loadBroadcasterScouting(
   const teamARoster = rosterPlayers(teamARosterData);
   const teamBRoster = rosterPlayers(teamBRosterData);
   const allRoster = [...teamARoster, ...teamBRoster];
-  const [ingestedScouting, inhousePlayerStats, playerDetails] = await Promise.all([
+  const [ingestedScouting, inhouseResult, playerDetails] = await Promise.all([
     fetchIngestedScoutingGames(supabase, allRoster, history.fixtures, context.league).catch((error) => {
       console.error("Unable to load ingested scouting games; using draft attribution", error);
       return null;
     }),
-    fetchInhousePlayerStats(supabase, allRoster),
+    fetchInhousePlayerStats(supabase, allRoster)
+      .then((stats) => ({ stats, status: "available" as const }))
+      .catch((error) => {
+        console.error("Unable to load broadcaster in-house stats; continuing without them", error);
+        return { stats: [], status: "unavailable" as const };
+      }),
     allRoster.length > 0
       ? fetchBroadcasterPlayerDetails(supabase, context.season, allRoster).catch((error) => {
           console.error("Unable to load broadcaster player cards and averages; continuing without them", error);
@@ -135,11 +140,12 @@ export async function loadBroadcasterScouting(
     } : {}),
     ingestedScoutingStatus: ingestedScouting ? "available" as const : "unavailable" as const,
     inhousePlayerStats: scopedStats,
+    inhousePlayerStatsStatus: inhouseResult.status,
   });
 
   return {
-    teamA: source(teamAName, teamARoster, scopedInhousePlayers(teamARoster, inhousePlayerStats)),
-    teamB: source(teamBName, teamBRoster, scopedInhousePlayers(teamBRoster, inhousePlayerStats)),
+    teamA: source(teamAName, teamARoster, scopedInhousePlayers(teamARoster, inhouseResult.stats)),
+    teamB: source(teamBName, teamBRoster, scopedInhousePlayers(teamBRoster, inhouseResult.stats)),
     playerDetails,
   };
 }

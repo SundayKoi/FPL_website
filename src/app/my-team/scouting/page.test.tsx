@@ -5,6 +5,7 @@ import type { MyTeamReadyDashboard } from "@/lib/my-team/types";
 const {
   serverClient,
   loadMyTeamDashboard,
+  fetchTeamStats,
   fetchScoutingHistory,
   fetchMyRoster,
   fetchIngestedScoutingGames,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
   serverClient: { from: vi.fn() },
   loadMyTeamDashboard: vi.fn(),
+  fetchTeamStats: vi.fn(async () => null),
   fetchScoutingHistory: vi.fn(),
   fetchMyRoster: vi.fn(),
   fetchIngestedScoutingGames: vi.fn(),
@@ -25,7 +27,7 @@ const {
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabase: vi.fn(async () => serverClient),
 }));
-vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard }));
+vi.mock("@/lib/my-team/queries", () => ({ loadMyTeamDashboard, fetchTeamStats }));
 vi.mock("@/lib/captain/queries", () => ({ fetchMyRoster }));
 vi.mock("@/lib/scouting/queries", () => ({ fetchScoutingHistory, fetchIngestedScoutingGames, fetchInhousePlayerStats }));
 vi.mock("@/components/captain/OpponentScout", () => ({
@@ -193,6 +195,20 @@ describe("My Team scouting page", () => {
     render(await MyTeamScoutingPageView({ league: "premier", searchParams: Promise.resolve({}) }));
 
     expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
+  });
+
+  it("keeps regular scouting available when in-house stats fail", async () => {
+    loadMyTeamDashboard.mockResolvedValue(ready());
+    fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
+    fetchInhousePlayerStats.mockRejectedValue(new Error("in-house table unavailable"));
+
+    render(await MyTeamScoutingPageView({ league: "premier", searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Scouting dashboard: Enemy Team")).toBeTruthy();
+    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({
+      source: expect.objectContaining({ inhousePlayerStats: [], inhousePlayerStatsStatus: "unavailable" }),
+    }));
   });
 
   it("does not turn a core dashboard failure into an empty opponent state", async () => {

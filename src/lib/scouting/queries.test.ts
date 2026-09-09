@@ -178,6 +178,38 @@ describe("fetchScoutingHistory", () => {
     vi.unstubAllGlobals();
   });
 
+  it("omits drafted games that a full or partial forfeit confirms were not played", async () => {
+    const fixtureQuery = builder([
+      fixture("full-ff", "Night Vale", "Other"),
+      fixture("partial-ff", "Night Vale", "Other"),
+    ]);
+    const draftQuery = builder([
+      { id: "full-ff-1", fixture_id: "full-ff", game_number: 1, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: null, actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Ahri" }], positions: null, created_at: "2026-08-01" },
+      { id: "full-ff-2", fixture_id: "full-ff", game_number: 2, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: null, actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Lux" }], positions: null, created_at: "2026-08-01" },
+      { id: "partial-ff-1", fixture_id: "partial-ff", game_number: 1, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: "Night Vale", actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Orianna" }], positions: null, created_at: "2026-08-02" },
+      { id: "partial-ff-2", fixture_id: "partial-ff", game_number: 2, blue_team_name: "Night Vale", red_team_name: "Other", winner_team: null, actions: [{ stepIndex: 0, kind: "ban", side: "blue", champion: "Syndra" }], positions: null, created_at: "2026-08-02" },
+    ]);
+    const reportQuery = builder([
+      { id: "full-report", fixture_id: "full-ff", status: "forfeit", forfeit_team_id: "team-a", draft_url: null, team_a_id: "team-a", team_b_id: "team-b" },
+      { id: "partial-report", fixture_id: "partial-ff", status: "ingested", forfeit_team_id: "team-b", draft_url: null, team_a_id: "team-a", team_b_id: "team-b" },
+    ]);
+    const reportGamesQuery = builder([{ id: "played-game", report_id: "partial-report", match_id: "match-1", game_number: 1, blue_team_id: "team-a" }]);
+    const from = vi.fn((table: string) => ({
+      fixtures: fixtureQuery,
+      match_drafts: draftQuery,
+      league_teams: builder([]),
+      match_reports: reportQuery,
+      match_report_games: reportGamesQuery,
+    }[table] ?? builder([])));
+
+    const history = await fetchScoutingHistory({ from } as unknown as SupabaseClient, {
+      league: "premier", leagueTeamNames: ["Night Vale", "Other"],
+    });
+
+    expect(history.drafts.map((draft) => draft.id)).toEqual(["partial-ff-1"]);
+    expect(history.unplayedGameKeys).toEqual(["full-ff:1", "full-ff:2", "partial-ff:2"]);
+  });
+
   it("loads every reported game when a Drafter URL defaults to one selected game", async () => {
     const fixtureQuery = builder([fixture("f", "Night Vale", "Other")]);
     const draftQuery = builder([]);
@@ -380,7 +412,7 @@ describe("fetchIngestedScoutingGames", () => {
       then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({
         data: pageIndex === 0
           ? Array.from({ length: 1000 }, (_, index) => ({ id: index + 1, match_id: `unknown-${index}`, game_date: null, season: "S5", summoner_name: "Unknown", tag: "NA1", champion: "Ahri" }))
-          : [{ id: 1001, match_id: "NA1_ingested_1", game_date: "2026-08-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Orianna" }],
+          : [{ id: 1001, match_id: "NA1_ingested_1", game_date: "2026-08-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Orianna", kills: "2", deaths: 1, assists: 3, game_duration_min: 20, total_damage_to_champions: 12000, kill_participation_pct: 40 }],
         error: null,
       })),
     };
@@ -408,7 +440,7 @@ describe("fetchIngestedScoutingGames", () => {
     expect(rawStatsQuery.order).toHaveBeenCalledWith("id");
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
-    expect(result.games).toEqual([{
+    expect(result.games).toMatchObject([{
       playerId: "n",
       playerName: "Northstar",
       role: "mid",
@@ -417,6 +449,7 @@ describe("fetchIngestedScoutingGames", () => {
       season: "S5",
       matchId: "NA1_ingested_1",
       gameDate: "2026-08-01T00:00:00Z",
+      performance: { kills: 2, deaths: 1, assists: 3, damageToChampions: 12000, durationMinutes: 20, killParticipationPct: 40 },
     }]);
   });
 

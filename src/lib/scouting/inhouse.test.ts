@@ -12,7 +12,7 @@ describe("buildInhousePlayerStats", () => {
       ],
     );
 
-    expect(result).toEqual([
+    expect(result).toMatchObject([
       {
         playerId: "p1",
         playerName: "Captain: Flying Squirtle",

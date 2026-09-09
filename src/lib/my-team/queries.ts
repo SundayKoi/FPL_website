@@ -108,7 +108,7 @@ function teamFixtures(fixtures: FixtureRow[], teamName: string): FixtureRow[] {
   );
 }
 
-async function fetchOpponentStats(
+export async function fetchTeamStats(
   supabase: SupabaseClient,
   opponentName: string,
   season: string,
@@ -250,7 +250,7 @@ export async function loadMyTeamDashboard(
               .then((roster) => ({ roster, scoutingUnavailable: false }))
               .catch(() => ({ roster: null, scoutingUnavailable: true }))
           : Promise.resolve({ roster: null, scoutingUnavailable: false });
-        const statsPromise = fetchOpponentStats(supabase, opponentName, identity.season)
+        const statsPromise = fetchTeamStats(supabase, opponentName, identity.season)
           .then((stats) => ({ stats, statsUnavailable: false }))
           .catch(() => ({ stats: null, statsUnavailable: true }));
         const [rosterResult, statsResult] = await Promise.all([rosterPromise, statsPromise]);

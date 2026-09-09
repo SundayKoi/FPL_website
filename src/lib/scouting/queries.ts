@@ -20,10 +20,10 @@ export const FIXTURE_COLUMNS =
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
 export const INGESTED_SCOUTING_COLUMNS =
-  "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win";
+  "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win, kills, deaths, assists, game_duration_min, total_damage_to_champions, kill_participation_pct";
 const TEAM_COLUMNS = "id, name, abbreviation";
-const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
-const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";
+const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id, status, forfeit_team_id";
+const REPORT_GAME_COLUMNS = "id, report_id, game_number, match_id, blue_team_id";
 const SCOUTING_PAGE_SIZE = 1000;
 const SCOUTING_MAX_PAGES = 100;
 
@@ -389,7 +389,44 @@ export async function fetchScoutingHistory(
     const current = drafts.find((draft) => draft.fixture_id === reportedDraft.fixture_id && draft.game_number === reportedDraft.game_number);
     if (!current || current.actions.length === 0) drafts.push(reportedDraft);
   }
-  return { fixtures, drafts };
+
+  const reportsById = new Map(reports.flatMap((report) => {
+    const id = asNullableString(report.id);
+    return id ? [[id, report] as const] : [];
+  }));
+  const fullForfeitFixtureIds = new Set(
+    reports
+      .filter((report) => asNullableString(report.status) === "forfeit")
+      .map((report) => asNullableString(report.fixture_id))
+      .filter((fixtureId): fixtureId is string => Boolean(fixtureId)),
+  );
+  const partialForfeitFixtureIds = new Set(
+    reports
+      .filter((report) => Boolean(asNullableString(report.forfeit_team_id)))
+      .map((report) => asNullableString(report.fixture_id))
+      .filter((fixtureId): fixtureId is string => Boolean(fixtureId)),
+  );
+  const playedGameKeys = new Set(
+    asRows(reportGameRows).flatMap((game) => {
+      const reportId = asNullableString(game.report_id);
+      const fixtureId = reportId ? asNullableString(reportsById.get(reportId)?.fixture_id) : null;
+      const gameNumber = asNumber(game.game_number);
+      const matchId = asNullableString(game.match_id);
+      return fixtureId && gameNumber !== null && matchId ? [`${fixtureId}:${gameNumber}`] : [];
+    }),
+  );
+  const unplayedGameKeys = new Set<string>();
+  for (const draft of drafts) {
+    const key = `${draft.fixture_id}:${draft.game_number}`;
+    if (fullForfeitFixtureIds.has(draft.fixture_id) || (partialForfeitFixtureIds.has(draft.fixture_id) && !playedGameKeys.has(key))) {
+      unplayedGameKeys.add(key);
+    }
+  }
+  return {
+    fixtures,
+    drafts: drafts.filter((draft) => !unplayedGameKeys.has(`${draft.fixture_id}:${draft.game_number}`)),
+    ...(unplayedGameKeys.size > 0 ? { unplayedGameKeys: [...unplayedGameKeys] } : {}),
+  };
 }
 
 /** Load Riot-ingested game rows used to identify champions when a draft did
