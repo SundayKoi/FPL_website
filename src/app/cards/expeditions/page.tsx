@@ -23,6 +23,7 @@ import {
 } from "@/lib/expeditions/queries";
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
+import { fetchAccolades, fetchStandings } from "@/lib/expeditions/queries";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
 import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
@@ -185,7 +186,7 @@ export async function ExpeditionsPageView({
   // the rivals it races, decided by shine, and the graveyard's ghosts.
   // Read here with the service role — the runs and graves it needs are
   // other people's — and handed to the journal through the run.
-  const [fixtures, convoys, companies, rivalries] = await Promise.all([
+  const [fixtures, convoys, companies, rivalries, standings, accolades] = await Promise.all([
     fetchFixturesSince(service, new Date(oldest - DAY_MS).toISOString()),
     fetchConvoyViews(service, discordId, active),
     season
@@ -207,6 +208,8 @@ export async function ExpeditionsPageView({
         )
       : Promise.resolve<Record<number, RoadCompany>>({}),
     season ? fetchRivalries(service, discordId, season) : Promise.resolve<Rivalry[]>([]),
+    season ? fetchStandings(service, season) : Promise.resolve([]),
+    season ? fetchAccolades(service, season) : Promise.resolve([]),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
   // The weather (weather.ts): this week's for the banner, and each run's
@@ -251,6 +254,9 @@ export async function ExpeditionsPageView({
         runs={runsWithCompany}
         rivalries={rivalries}
         weather={weather.key}
+        standings={standings}
+        accolades={accolades}
+        viewerId={discordId}
         deployedIds={deployedIds}
         initialPick={parseInventoryId(send)}
         base={base}

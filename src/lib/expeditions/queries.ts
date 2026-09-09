@@ -629,3 +629,68 @@ export async function fetchConvoyViews(
   }
   return views;
 }
+
+// === season standings ========================================================
+
+import { type Accolade, type AccoladeKind, type StandingRow } from "./standings";
+
+interface StandingDbRow {
+  discord_id: string;
+  username: string | null;
+  avatar_url: string | null;
+  runs: number | null;
+  miles: number | null;
+  loot: number | null;
+  survivals: number | null;
+  rivals_beaten: number | null;
+}
+
+/** The season's standings (the expedition_standings view, public), every
+ *  collector with a claimed run, in the view's own order — rankStandings
+ *  orders them for the board. */
+export async function fetchStandings(supabase: SupabaseClient, season: string, limit = 200): Promise<StandingRow[]> {
+  const { data, error } = await supabase
+    .from("expedition_standings")
+    .select("discord_id, username, avatar_url, runs, miles, loot, survivals, rivals_beaten")
+    .eq("season", season)
+    .order("miles", { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return ((data as StandingDbRow[]) ?? []).map((row) => ({
+    discordId: row.discord_id,
+    username: row.username ?? "Unknown",
+    avatarUrl: row.avatar_url ?? null,
+    runs: Number(row.runs ?? 0),
+    miles: Number(row.miles ?? 0),
+    loot: Number(row.loot ?? 0),
+    survivals: Number(row.survivals ?? 0),
+    rivalsBeaten: Number(row.rivals_beaten ?? 0),
+  }));
+}
+
+interface AccoladeDbRow {
+  kind: string;
+  discord_id: string;
+  value: number | null;
+  awarded_at: string;
+}
+
+/** The season's marks, once the season has closed. Empty before. */
+export async function fetchAccolades(supabase: SupabaseClient, season: string): Promise<Accolade[]> {
+  const { data, error } = await supabase.from("expedition_accolades").select("kind, discord_id, value, awarded_at").eq("season", season);
+  if (error) return [];
+  const rows = ((data as AccoladeDbRow[]) ?? []).filter((row) => ["pathfinder", "plunderer", "survivor"].includes(row.kind));
+  const people = [...new Set(rows.map((row) => row.discord_id))];
+  const names = new Map<string, string>();
+  if (people.length > 0) {
+    const { data: profiles } = await supabase.from("betting_profiles").select("discord_id, username").in("discord_id", people);
+    for (const row of ((profiles as { discord_id: string; username: string | null }[] | null) ?? [])) names.set(row.discord_id, row.username ?? "Unknown");
+  }
+  return rows.map((row) => ({
+    kind: row.kind as AccoladeKind,
+    discordId: row.discord_id,
+    username: names.get(row.discord_id) ?? "Unknown",
+    value: Number(row.value ?? 0),
+    awardedAt: row.awarded_at,
+  }));
+}
