@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
 import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
+import type { RivalRecord, RoadCompany } from "./company";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -45,6 +46,10 @@ export type ExpeditionRunOutcome = Omit<ExpeditionOutcome, "briefHit"> & {
   /** A moment's echo: which edition card the route dropped a copy of, and
    *  which moment copy it echoed from. */
   echo: { slug: string; week: string; moment: number } | null;
+  /** The real rivals the squad raced (company.ts), and who took the spot.
+   *  Empty on runs from before COMPANY_RULES; optional so older fixtures
+   *  and rows read as "none". */
+  rivals?: RivalRecord[];
 };
 
 /** A run's tier, or 'lost': the HOLD on a lost card, which the board draws
@@ -74,6 +79,9 @@ export interface ExpeditionRun {
   rules: number;
   /** The convoy this run rides in, if any. */
   convoy: number | null;
+  /** Who else was on the road (company.ts), read by the page for a run in
+   *  the field so the journal can name them. Not a column. */
+  company?: RoadCompany | null;
 }
 
 /** The rulebook version from which a run has the trail: encounters,
@@ -123,6 +131,7 @@ interface RunDbRow {
     cleansed?: number | null;
     surge?: string[] | null;
     echo?: { slug?: string; week?: string; moment?: number } | null;
+    rivals?: RivalRecord[] | null;
   } | null;
   claimed_at: string | null;
   forks: number | null;
@@ -167,6 +176,9 @@ export function mapRun(row: RunDbRow): ExpeditionRun {
             row.outcome.echo && typeof row.outcome.echo.slug === "string" && typeof row.outcome.echo.week === "string"
               ? { slug: row.outcome.echo.slug, week: row.outcome.echo.week, moment: Number(row.outcome.echo.moment ?? 0) }
               : null,
+          rivals: Array.isArray(row.outcome.rivals)
+            ? row.outcome.rivals.filter((rival) => rival && typeof rival.who === "string").map((rival) => ({ who: rival.who, name: String(rival.name ?? "Another collector"), runId: Number(rival.runId ?? 0), won: rival.won === true }))
+            : [],
         }
       : null,
     claimedAt: row.claimed_at,

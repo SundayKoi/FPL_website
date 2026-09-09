@@ -27,6 +27,7 @@ import { convoySheet, normaliseConvoyCode } from "./convoy";
 import { isCampChoice } from "./routes";
 import { echoPool, surgeTeams, teamsPlayingOn } from "./matchday";
 import { STORM_HOURS, STRANDED_BOUNTY, encountersFor, latestJournalLine } from "./journal";
+import { fetchCompany } from "./companyReads";
 import {
   forksFor,
   choiceAllowed,
@@ -357,16 +358,16 @@ async function announceConvoyJoin(
   }
 }
 
-async function readRun(discordId: string, runId: number): Promise<{ run: ExpeditionRun | null; error: boolean }> {
+async function readRun(discordId: string, runId: number): Promise<{ run: ExpeditionRun | null; season: string; error: boolean }> {
   const service = createBettingServiceClient();
   const { data, error } = await service
     .from("expedition_runs")
-    .select(RUN_COLUMNS)
+    .select(`${RUN_COLUMNS}, season`)
     .eq("id", runId)
     .eq("discord_id", discordId)
     .maybeSingle();
-  if (error) return { run: null, error: true };
-  return { run: data ? mapRun(data as Parameters<typeof mapRun>[0]) : null, error: false };
+  if (error) return { run: null, season: "", error: true };
+  return { run: data ? mapRun(data as Parameters<typeof mapRun>[0]) : null, season: String((data as { season?: string } | null)?.season ?? ""), error: false };
 }
 
 /**
@@ -457,7 +458,7 @@ export async function decideForkFor(
 export async function claimExpeditionFor(discordId: string, runId: number): Promise<ClaimResult> {
   if (!Number.isInteger(runId)) return { ok: false, error: friendlyExpeditionError("unknown run") };
 
-  const { run, error } = await readRun(discordId, runId);
+  const { run, season, error } = await readRun(discordId, runId);
   if (error) return { ok: false, error: "Couldn't read that expedition — try again." };
   if (!run || run.tier === "lost") return { ok: false, error: friendlyExpeditionError("unknown run") };
   if (run.claimedAt) return { ok: false, error: friendlyExpeditionError("already claimed") };
@@ -518,7 +519,21 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
   // a squad that launched before the trail existed (hasTrail): it pays
   // and comes home exactly as it set out.
   const trail = hasTrail(run);
-  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy });
+  // Who else was on the road (company.ts): the real rivals the squad
+  // raced and the ghosts it met, read the same way the page read them.
+  const company = await fetchCompany(service, season, {
+    id: run.id,
+    discordId,
+    tier,
+    shine: run.shine,
+    startedAt: run.startedAt,
+    resolvesAt: run.resolvesAt,
+    forks: run.forks,
+    rules: run.rules,
+    convoy: run.convoy,
+    squadTeams: copies.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
+  });
+  const encounters = encountersFor({ id: run.id, tier, startedAt: run.startedAt, resolvesAt: run.resolvesAt, forks: run.forks, rules: run.rules, convoy: run.convoy }, company);
   // The route: what the forks made of it and what the squad looks like.
   // The road is the run's own (or the convoy's), so the places it walked
   // are the places the page showed.
@@ -597,6 +612,9 @@ export async function claimExpeditionFor(discordId: string, runId: number): Prom
       cleansed: route.cleansed,
       merchant,
       surge,
+      // The rivals raced, for the season's rivalries — who, and who took
+      // the spot. Stored whole with the outcome.
+      rivals: (company?.rivals ?? []).map((rival) => ({ who: rival.who, name: rival.name, runId: rival.runId, won: rival.won })),
       ...(stranded ? { stranded: stranded.holdId, bounty: stranded.bounty } : {}),
       ...(echo ? { echo: { slug: echo.slug, week: echo.week, moment: echo.moment } } : {}),
     },
@@ -755,7 +773,7 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
 
   const { data, error } = await service
     .from("expedition_runs")
-    .select("id, discord_id, tier, squad, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy")
+    .select("id, discord_id, season, tier, squad, shine, forks, choices, started_at, resolves_at, pinged, encounters, rules, convoy")
     .is("claimed_at", null)
     .gt("forks", 0)
     .limit(200);
@@ -767,8 +785,10 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
   for (const row of (data as {
     id: number;
     discord_id: string;
+    season: string;
     tier: string;
     squad: number[] | null;
+    shine: number;
     forks: number;
     choices: RecordedChoice[] | null;
     started_at: string;
@@ -804,7 +824,20 @@ export async function sweepExpeditions(now = new Date()): Promise<{ pinged: numb
     // The ping quotes the trail: the latest journal line, so the fork
     // arrives as the next line of a story rather than a bare deadline.
     const squad = await fetchInventoryByIds(service, row.discord_id, row.squad ?? []);
-    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [] }, squad, now);
+    // The ping names the same company the page does.
+    const company = await fetchCompany(service, row.season, {
+      id: row.id,
+      discordId: row.discord_id,
+      tier,
+      shine: Number(row.shine ?? 0),
+      startedAt: row.started_at,
+      resolvesAt,
+      forks: row.forks,
+      rules: Number(row.rules ?? 1),
+      convoy: row.convoy,
+      squadTeams: squad.map((copy) => copy.card?.teamName ?? null).filter((team): team is string => Boolean(team)),
+    });
+    const line = latestJournalLine({ id: row.id, tier, startedAt: row.started_at, resolvesAt, forks: row.forks, rules: Number(row.rules ?? 1), convoy: row.convoy, choices: row.choices ?? [], company }, squad, now);
     try {
       await postCardsWebhook(
         {

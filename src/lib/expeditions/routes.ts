@@ -31,6 +31,13 @@
 //   7. A run remembers itself: a toll paid at one fork buys free passage
 //      at the next, and a scout at one fork means the squad knows where
 //      not to camp at the next.
+//   8. The road has company (COMPANY_RULES, company.ts): a rival squad is
+//      another collector's run and the spot goes to the squad with more
+//      shine; a road with nobody on it holds a cache where the rival
+//      would have been; and a card that died on the Legendary route
+//      walks the Legend and Legendary roads as a ghost — camp at the next
+//      fork and the haunting is doubled, push and it is harmless, carry
+//      its old team's colours and it stands aside and leaves a cache.
 
 import type { MutationKey } from "@/lib/cards/mutations";
 import { mulberry32 } from "@/lib/gauntlet/sim";
@@ -59,6 +66,14 @@ export const FORK_CHOICES: ForkChoice[] = ["camp", "push", "favour", "light", "r
  *  in FORKS and knows five words at a checkpoint. Lives here, not in
  *  queries.ts, because the resolver is pure and queries.ts is not. */
 export const ROAD_RULES = 3;
+
+/** The rulebook version from which the road has company (company.ts):
+ *  rivals are real collectors' runs decided by shine, and the graveyard's
+ *  dead walk the Legend and Legendary roads. A run stamped below this
+ *  keeps its coin-tossed rival and meets no ghost — its journal is half
+ *  written, and a beat that changed under it would rewrite lines the
+ *  page already showed. */
+export const COMPANY_RULES = 4;
 
 /** What a run needs to hand the road-drawing functions: its seed, its
  *  rulebook, and the convoy it rides in (a convoy's two runs must draw the
@@ -1109,6 +1124,14 @@ export interface RouteEncounter {
   key: string;
   won?: boolean;
   found?: boolean;
+  /** A rival encounter with nobody on the road (COMPANY_RULES): the cairn
+   *  holds a cache instead. */
+  alone?: boolean;
+  /** The rival's username, when the rival is a real collector's run. */
+  rivalName?: string;
+  /** The ghost met on this leg: the dead card's name and whether it stood
+   *  aside for its old team's colours. */
+  ghost?: { name: string; owner?: string; team?: string | null; stood: boolean } | null;
 }
 
 /** What the trail's beats do to the multiplier, for the ones that touch
@@ -1120,6 +1143,11 @@ export const RIVAL_LOSS_LOOT = 0.1;
 /** A shrine on leg i halves the push risk at fork i — the one the squad
  *  reaches next. */
 export const SHRINE_RISK = 0.5;
+/** A ghost on leg i walks the camp at fork i: the haunting is rolled at
+ *  GHOST_HAUNT times the fork's own, and never under GHOST_HAUNT_FLOOR —
+ *  a fork whose camp was safe is not safe with a ghost at its edge. */
+export const GHOST_HAUNT = 2;
+export const GHOST_HAUNT_FLOOR = 0.2;
 
 export interface RouteResult {
   /** What the base payout is multiplied by, capped at LOOT_MULT_CAP. */
@@ -1314,13 +1342,25 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
   // when the journal was written. A shrine is remembered for the fork it
   // guards; the rest move the multiplier or the bag.
   const shrines = new Set<number>();
+  const ghosts = new Set<number>();
   for (const encounter of input.encounters ?? []) {
     if (encounter.key === "cache") {
       lootMultiplier += CACHE_LOOT;
       events.push({ fork: null, tone: "good", text: "An old expedition's cache on the trail: what they left was worth carrying." });
+    } else if (encounter.key === "rival" && encounter.alone) {
+      // Nobody else on the road: the cairn where the rival would have
+      // been holds a cache.
+      lootMultiplier += CACHE_LOOT;
+      events.push({ fork: null, tone: "good", text: "The road was the squad's alone, and the cache under the cairn was theirs for the taking." });
     } else if (encounter.key === "rival") {
       lootMultiplier += encounter.won ? RIVAL_WIN_LOOT : -RIVAL_LOSS_LOOT;
-      events.push({ fork: null, tone: encounter.won ? "good" : "bad", text: encounter.won ? "A rival squad on the same trail, and yours got there first." : "A rival squad on the same trail got there first, and left less." });
+      const rival = encounter.rivalName ? `${encounter.rivalName}'s squad` : "A rival squad";
+      events.push({ fork: null, tone: encounter.won ? "good" : "bad", text: encounter.won ? `${rival} on the same trail, and yours got there first.` : `${rival} on the same trail got there first, and left less.` });
+    } else if (encounter.key === "ghost" && encounter.ghost?.stood) {
+      lootMultiplier += CACHE_LOOT;
+      events.push({ fork: null, tone: "good", text: `${encounter.ghost.name}'s ghost knew the squad's colours and stood aside; under the cairn where it stood, a cache.` });
+    } else if (encounter.key === "ghost" && encounter.ghost) {
+      ghosts.add(encounter.leg);
     } else if (encounter.key === "hunter" && encounter.found) {
       fragments += 1;
       events.push({ fork: null, tone: "good", text: "A relic hunter on the road traded a piece of a map that shows a place the map does not." });
@@ -1376,11 +1416,15 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
           events.push({ fork: index, tone: "bad", text: `${fork.title}: the squad held back and ${nameOf(victim.id)} was hurt anyway.` });
         }
       }
-      if (decide(fork.campRisk.haunted * campScale, rand)) {
+      // A ghost walked the last leg: it is at the camp's edge tonight.
+      const haunted = ghosts.has(index) ? Math.max(fork.campRisk.haunted * GHOST_HAUNT, GHOST_HAUNT_FLOOR) : fork.campRisk.haunted;
+      if (decide(haunted * campScale, rand)) {
         const victim = pick(unmutated(), rand);
         if (victim && mutate(victim.id, "haunted")) {
-          events.push({ fork: index, tone: "bad", text: `${fork.title}: ${nameOf(victim.id)} sat up all night listening, and brought something back.` });
+          events.push({ fork: index, tone: "bad", text: ghosts.has(index) ? `${fork.title}: the ghost sat at the fire all night, and ${nameOf(victim.id)} listened to it.` : `${fork.title}: ${nameOf(victim.id)} sat up all night listening, and brought something back.` });
         }
+      } else if (ghosts.has(index)) {
+        events.push({ fork: index, tone: "neutral", text: `${fork.title}: the ghost walked the camp's edge all night and took nothing.` });
       }
       let tolled = false;
       if (fork.toll && passage) {
@@ -1398,7 +1442,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
           events.push({ fork: index, tone: "good", text: `${fork.title}: ${nameOf(bearer.id)} waited it out and came away ${fork.campReward.mutation}.` });
         }
       }
-      if (fork.campRisk.wounded === 0 && fork.campRisk.haunted === 0 && !tolled) {
+      if (fork.campRisk.wounded === 0 && fork.campRisk.haunted === 0 && !tolled && !ghosts.has(index)) {
         events.push({ fork: index, tone: "neutral", text: `${fork.title}: ${answer === null ? "no word came, so the squad" : "the squad"} took the safe way.` });
       }
       return;

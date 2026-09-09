@@ -235,3 +235,72 @@ describe("the Jungle back from ahead", () => {
     expect(plain.some((entry) => /scouting ahead|sketch of the next stop/.test(entry.text))).toBe(false);
   });
 });
+
+import { COMPANY_RULES } from "./routes";
+import type { RoadCompany } from "./company";
+
+describe("company in the journal", () => {
+  const legendary = { id: 1, tier: "legendary" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-07T00:00:00Z", forks: 4, rules: COMPANY_RULES };
+  const done = new Date("2026-09-08T00:00:00Z");
+  const runs = Array.from({ length: 600 }, (_, index) => ({ ...legendary, id: index + 1 }));
+  const withRival = runs.find((run) => encountersFor(run).some((entry) => entry.key === "rival"))!;
+  const rivalLeg = encountersFor(withRival).find((entry) => entry.key === "rival")!.leg;
+  const withGhost = runs.find((run) => encountersFor(run).some((entry) => entry.key === "ghost"))!;
+  const ghostLeg = encountersFor(withGhost).find((entry) => entry.key === "ghost")!.leg;
+  const lineOn = (run: typeof legendary, company: RoadCompany | null, leg: number, key: string) =>
+    journalFor({ ...run, company }, squad, done).find((entry) => entry.encounter === key && entry.leg === leg)?.text ?? "";
+  const company = (over: Partial<RoadCompany>): RoadCompany => ({ rivals: [], crossings: [], ghosts: [], ...over });
+
+  it("names the rival and takes shine's verdict over the coin", () => {
+    const beaten = company({ rivals: [{ leg: rivalLeg, runId: 9, who: "doug", name: "Doug", shine: 20, theirShine: 12, won: true }] });
+    expect(lineOn(withRival, beaten, rivalLeg, "rival")).toMatch(/Doug/);
+    expect(lineOn(withRival, beaten, rivalLeg, "rival")).toMatch(/more/);
+    const beat = company({ rivals: [{ leg: rivalLeg, runId: 9, who: "doug", name: "Doug", shine: 12, theirShine: 20, won: false }] });
+    expect(lineOn(withRival, beat, rivalLeg, "rival")).toMatch(/Doug/);
+    expect(lineOn(withRival, beat, rivalLeg, "rival")).toMatch(/less/);
+    // The encounter the claim reads carries the same verdict and the name.
+    const read = encountersFor(withRival, beat).find((entry) => entry.leg === rivalLeg)!;
+    expect(read).toMatchObject({ key: "rival", won: false, rivalName: "Doug" });
+  });
+
+  it("says the road was the squad's alone, and pays the cairn's cache", () => {
+    expect(lineOn(withRival, company({}), rivalLeg, "rival")).toMatch(/alone|Nobody else out this way/);
+    expect(encountersFor(withRival, company({})).find((entry) => entry.leg === rivalLeg)).toMatchObject({ key: "rival", alone: true });
+    // Read without its company, the coin's line still stands.
+    expect(lineOn(withRival, null, rivalLeg, "rival")).toMatch(/rival squad|Another squad/);
+  });
+
+  it("writes the other side of a meet at the hour it happened", () => {
+    const at = new Date(Date.parse(legendary.startedAt) + 30 * 60 * 60 * 1000).toISOString();
+    const crossed = company({ crossings: [{ at, runId: 77, who: "ann", name: "Ann", won: false }] });
+    const entry = journalFor({ ...withRival, company: crossed }, squad, done).find((line) => line.text.includes("Ann"))!;
+    expect(entry).toBeTruthy();
+    expect(entry.at.toISOString()).toBe(at);
+    expect(entry.kind).toBe("encounter");
+    expect(entry.text).toMatch(/first|ahead/);
+    // Not yet: a crossing in the future is not written.
+    expect(journalFor({ ...withRival, company: crossed }, squad, new Date(Date.parse(at) - 1000)).some((line) => line.text.includes("Ann"))).toBe(false);
+  });
+
+  it("names the ghost and whose it was, and lets it stand aside for its colours", () => {
+    const walking = company({ ghosts: [{ leg: ghostLeg, graveId: 3, cardName: "Faker", who: "doug", name: "Doug", team: "T1", stood: false }] });
+    const line = lineOn(withGhost, walking, ghostLeg, "ghost");
+    expect(line).toMatch(/Faker/);
+    expect(line).toMatch(/Doug/);
+    expect(line).toMatch(/2 times as likely/);
+    const t1 = [copy(1, { role: "Top", card: { teamName: "T1" } }), copy(2, { role: "Support" }), copy(3, { role: "Jungle" })];
+    const stood = company({ ghosts: [{ leg: ghostLeg, graveId: 3, cardName: "Faker", who: "doug", name: "Doug", team: "T1", stood: true }] });
+    const aside = journalFor({ ...withGhost, company: stood }, t1, done).find((entry) => entry.encounter === "ghost" && entry.leg === ghostLeg)!.text;
+    expect(aside).toMatch(/stood aside|stepped back/);
+    expect(aside).toMatch(/Card 1/);
+    expect(encountersFor(withGhost, stood).find((entry) => entry.leg === ghostLeg)).toMatchObject({ key: "ghost", ghost: { name: "Faker", stood: true } });
+  });
+
+  it("a ghost draw with nobody in the graveyard is a cache, and a run read without company keeps a nameless ghost", () => {
+    expect(encountersFor(withGhost, company({})).find((entry) => entry.leg === ghostLeg)?.key).toBe("cache");
+    expect(lineOn(withGhost, company({}), ghostLeg, "cache")).toMatch(/cache/);
+    expect(lineOn(withGhost, null, ghostLeg, "ghost")).toMatch(/torchlight|Footsteps/);
+    // Below the company rulebook: no ghost, whatever the graveyard holds.
+    expect(encountersFor({ ...withGhost, rules: COMPANY_RULES - 1 }).find((entry) => entry.leg === ghostLeg)?.key).not.toBe("ghost");
+  });
+});

@@ -1,0 +1,32 @@
+-- Expedition company: the road has other people on it.
+--
+-- All of this release lives in the app (src/lib/expeditions/company.ts):
+-- the trail's rival squad is now another collector's real run on the same
+-- route — the one launched closest before the encounter's hour, within a
+-- day — and the spot goes to the squad with more shine, the seeded coin
+-- breaking a tie; both journals name the other side. A road with nobody
+-- on it holds a cache where the rival would have been. And a card that
+-- died on the Legendary route walks the Legend and Legendary roads as a
+-- ghost: camp at the next fork and the haunting is doubled, push and it
+-- is harmless, carry its old team's colours and it stands aside.
+--
+-- Nothing is stored for any of it. The candidates are runs that launched
+-- before the hour and graves dug before it, read with the service role
+-- (both tables are owner-scoped under RLS), and the same seed gives the
+-- page, the ping and the claim the same company. The claim writes the
+-- rivals it met into the run's outcome (`rivals: [{who, name, runId,
+-- won}]`) — inside p_outcome, which resolve_expedition already stores
+-- whole — so the season's rivalries can be read back without a table.
+--
+-- The database learns one thing: THE RULEBOOK VERSION moves to 4. A run
+-- already in the field keeps its coin-tossed rival and meets no ghost,
+-- because its journal is half written and a beat that changed under it
+-- would rewrite lines the page already showed (COMPANY_RULES in
+-- routes.ts). Every launch from here on has company.
+--
+-- Nothing about the money moves: a cache where a rival would have been
+-- and a ghost's cache are the road's CACHE_LOOT inside the loot
+-- multiplier, which LOOT_MULT_CAP caps, so resolve_expedition's payout
+-- ceiling is untouched.
+
+alter table public.expedition_runs alter column rules set default 4;

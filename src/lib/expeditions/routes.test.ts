@@ -729,3 +729,60 @@ describe("the run's memory", () => {
     expect(SCOUTED_CAMP_RISK).toBe(0.5);
   });
 });
+
+import { COMPANY_RULES, GHOST_HAUNT, GHOST_HAUNT_FLOOR } from "./routes";
+
+describe("company on the road", () => {
+  const base = { copies: squad(), insured: false, grade: "solid" as const, target: null, now };
+  const fixedRoad = (tier: ExpeditionTierKey) => {
+    for (let id = 1; id < 20000; id += 1) {
+      const r = { runId: id, rules: ROAD_RULES, convoy: null };
+      if (forksFor(tier, r).every((fork, slot) => fork.key === FORKS[tier][slot].key)) return r;
+    }
+    throw new Error(`no run draws the fixed road on ${tier}`);
+  };
+
+  it("a named rival pays or costs what the coin did, and the event says who", () => {
+    const won = resolveRoute({ ...base, tier: "raid", forks: 2, road: fixedRoad("raid"), choices: ["camp", "camp"], encounters: [{ leg: 0, key: "rival", won: true, rivalName: "Doug" }] }, always(0.99));
+    expect(won.lootMultiplier).toBe(1 + RIVAL_WIN_LOOT);
+    expect(won.events.some((e) => /Doug's squad on the same trail, and yours got there first/.test(e.text))).toBe(true);
+    const lost = resolveRoute({ ...base, tier: "raid", forks: 2, road: fixedRoad("raid"), choices: ["camp", "camp"], encounters: [{ leg: 0, key: "rival", won: false, rivalName: "Doug" }] }, always(0.99));
+    expect(lost.lootMultiplier).toBe(1 - RIVAL_LOSS_LOOT);
+    expect(lost.events.some((e) => /Doug's squad on the same trail got there first/.test(e.text))).toBe(true);
+  });
+
+  it("an empty road holds a cache where the rival would have stood", () => {
+    const alone = resolveRoute({ ...base, tier: "raid", forks: 2, road: fixedRoad("raid"), choices: ["camp", "camp"], encounters: [{ leg: 0, key: "rival", won: false, alone: true }] }, always(0.99));
+    expect(alone.lootMultiplier).toBe(1 + CACHE_LOOT);
+    expect(alone.events.some((e) => /road was the squad's alone/.test(e.text))).toBe(true);
+  });
+
+  it("a ghost makes the next camp a bad one: doubled, and never under the floor", () => {
+    // The Legend Hunt's first checkpoint has no haunting of its own; with
+    // a ghost on leg 0 the camp there is rolled at the floor.
+    const road = fixedRoad("legend");
+    const quiet = resolveRoute({ ...base, tier: "legend", forks: 3, road, choices: ["camp", "push", "push"], encounters: [] }, script([0.1, 0.99, 0.99, 0.99, 0.99, 0.99, 0.99]));
+    expect(Object.values(mutations(quiet))).toEqual([null, null, null]);
+    const walked = resolveRoute({ ...base, tier: "legend", forks: 3, road, choices: ["camp", "push", "push"], encounters: [{ leg: 0, key: "ghost", ghost: { name: "Faker", stood: false } }] }, script([0.1, 0, 0.99, 0.99, 0.99, 0.99, 0.99]));
+    expect(Object.values(mutations(walked))).toContain("haunted");
+    expect(walked.events.some((e) => /the ghost sat at the fire all night/.test(e.text))).toBe(true);
+    // 0.25 is over the floor: the ghost walked the edge and took nothing.
+    const held = resolveRoute({ ...base, tier: "legend", forks: 3, road, choices: ["camp", "push", "push"], encounters: [{ leg: 0, key: "ghost", ghost: { name: "Faker", stood: false } }] }, script([0.25, 0.99, 0.99, 0.99, 0.99, 0.99]));
+    expect(Object.values(mutations(held))).toEqual([null, null, null]);
+    expect(held.events.some((e) => /walked the camp's edge all night and took nothing/.test(e.text))).toBe(true);
+    // A push at the fork after it: the ghost cannot follow.
+    const pushed = resolveRoute({ ...base, tier: "legend", forks: 3, road, choices: ["push", "camp", "camp"], encounters: [{ leg: 0, key: "ghost", ghost: { name: "Faker", stood: false } }] }, always(0.99));
+    expect(pushed.events.some((e) => /ghost/.test(e.text))).toBe(false);
+    expect(GHOST_HAUNT).toBe(2);
+    expect(GHOST_HAUNT_FLOOR).toBe(0.2);
+    expect(COMPANY_RULES).toBe(4);
+  });
+
+  it("a ghost that knows the squad's colours stands aside and leaves a cache", () => {
+    const road = fixedRoad("legend");
+    const stood = resolveRoute({ ...base, tier: "legend", forks: 3, road, choices: ["camp", "camp", "camp"], encounters: [{ leg: 0, key: "ghost", ghost: { name: "Faker", stood: true } }] }, always(0.99));
+    expect(stood.lootMultiplier).toBe(1 + CACHE_LOOT);
+    expect(stood.events.some((e) => /Faker's ghost knew the squad's colours and stood aside/.test(e.text))).toBe(true);
+    expect(Object.values(mutations(stood))).toEqual([null, null, null]);
+  });
+});

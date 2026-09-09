@@ -31,9 +31,10 @@
 import { mulberry32 } from "@/lib/gauntlet/sim";
 import { TRAIL_RULES } from "./queries";
 import { EXPEDITION_TIERS, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
-import { CACHE_LOOT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
+import { CACHE_LOOT, COMPANY_RULES, GHOST_HAUNT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
+import type { RoadCompany } from "./company";
 
-export type EncounterKey = "merchant" | "stranded" | "storm" | "cache" | "rival" | "shrine" | "hunter";
+export type EncounterKey = "merchant" | "stranded" | "storm" | "cache" | "rival" | "shrine" | "hunter" | "ghost";
 
 /** How often a leg carries an encounter at all — and on a road, where
  *  there is more to meet. */
@@ -77,6 +78,10 @@ type RunRef = {
   /** The answers so far. A scout at one fork writes a line at the start
    *  of the next leg — the Jungle back from ahead, naming the place. */
   choices?: { index: number; choice: string }[];
+  /** Who else was on the road (company.ts): the rivals met, the runs that
+   *  met this one, the ghosts. Read by the server; a run handed over
+   *  without it meets nobody by name. */
+  company?: RoadCompany | null;
 };
 
 const onRoad = (run: Pick<RunRef, "rules">): boolean => (run.rules ?? 1) >= ROAD_RULES;
@@ -153,6 +158,7 @@ const LEGACY_ENCOUNTER_LINES: Record<EncounterKey, string> = {
   rival: "Another squad on the same trail, going the same way.",
   shrine: "A wayside shrine. {name} left something on it.",
   hunter: "A relic hunter on the road, trading.",
+  ghost: "Something is walking beside the squad, just past the torchlight.",
 };
 
 const LEGACY_ROLE_BANTER: Record<string, string> = {
@@ -388,7 +394,58 @@ const ENCOUNTER_LINES: Record<EncounterKey, string[]> = {
     "A relic hunter on the road, all talk and an empty pack. {name} traded stories and nothing else.",
     "A relic hunter who had sold their last fragment yesterday, to somebody {name} would like a word with.",
   ],
+  // A ghost with no name: a run read without its company. The named
+  // lines are GHOST_LINES.
+  ghost: [
+    "Something is walking beside the squad, just past the torchlight. It has a face {name} half remembers.",
+    "Footsteps keeping pace with the squad all afternoon, and nobody making them. {name} stopped looking.",
+  ],
 };
+
+/** The road's company, by name (COMPANY_RULES). `{rival}` is the other
+ *  collector, `{ghost}` the dead card, `{owner}` whose it was, `{mate}`
+ *  the squad member in its colours; `{name}` is still one of the squad. */
+const RIVAL_NAMED_LINES = {
+  won: [
+    `{rival}'s squad on the same trail, going the same way. Yours got there first: ${Math.round(RIVAL_WIN_LOOT * 100)}% more in the bag, and {name} waved.`,
+    `{rival} sent a squad down this road too. {name} saw their fire from the ridge; by morning yours was ahead and stayed there. ${Math.round(RIVAL_WIN_LOOT * 100)}% more loot.`,
+    `{rival}'s squad, on your road, wanting your spot. More shine on your side of it: {name} out-walked them, and the bag is ${Math.round(RIVAL_WIN_LOOT * 100)}% heavier.`,
+  ],
+  lost: [
+    `{rival}'s squad was already at the spot when {name} got there. ${Math.round(RIVAL_LOSS_LOOT * 100)}% less in the bag, and {name} is not talking about it.`,
+    `{rival} beat the squad to it. {name} counted their shine from a distance and said nothing. ${Math.round(RIVAL_LOSS_LOOT * 100)}% less loot.`,
+    `{rival}'s squad passed yours in the night and left the spot picked over. ${Math.round(RIVAL_LOSS_LOOT * 100)}% less, and {name} has opinions about their route.`,
+  ],
+};
+
+const ALONE_LINES = [
+  `The trail was the squad's alone tonight — no other fires on the road. An old cairn where a rival might have stood, and a cache under it: ${Math.round(CACHE_LOOT * 100)}% more in the bag.`,
+  `Nobody else out this way. {name} found a cache somebody meant to come back for, and nobody was racing for it: ${Math.round(CACHE_LOOT * 100)}% more loot.`,
+];
+
+/** The other side of a meet: another run's rival encounter that picked
+ *  this squad. `won` is this squad's. */
+const CROSSING_LINES = {
+  won: [
+    "{rival}'s squad came up the same road behind yours and found the spot picked over. {name} left them a note.",
+    "{rival}'s squad was on the road today, going the same way. They got to the spot after yours had been and gone.",
+  ],
+  lost: [
+    "{rival}'s squad passed yours in the night and got to the spot first. {name} heard them laughing.",
+    "{rival}'s squad was ahead of yours on the road today, and stayed ahead. {name} says their Bot cheats.",
+  ],
+};
+
+const GHOST_LINES = [
+  `Something is walking beside the squad, just past the torchlight, and it is wearing {ghost}'s face. {owner}'s, once. It fell on this road. {name} will not camp easily tonight — a haunting at the next fork is ${GHOST_HAUNT} times as likely.`,
+  `{ghost} is on the road again. {owner} never got it home, and it has been walking since. It keeps pace with the squad and says nothing. The next camp is a bad one: the haunting is ${GHOST_HAUNT} times as likely.`,
+  `Footsteps in step with the squad's all afternoon, and {name} finally looked: {ghost}, that fell here on {owner}'s run. It is heading for the same fork. Camp there and the haunting is ${GHOST_HAUNT} times as likely; push through and it cannot follow.`,
+];
+
+const GHOST_STOOD_LINES = [
+  `Something was walking beside the squad — {ghost}, {owner}'s, that fell on this road. It knew {mate}'s colours and stood aside. Under the cairn where it stood, a cache: ${Math.round(CACHE_LOOT * 100)}% more in the bag.`,
+  `{ghost}'s ghost stepped out of the torchlight, saw {mate} in the old colours, and stepped back. It left the squad the cache it had been keeping: ${Math.round(CACHE_LOOT * 100)}% more loot.`,
+];
 
 const ROLE_BANTER: Record<string, string[]> = {
   Top: [
@@ -520,12 +577,16 @@ const roleWord = (member: Pick<CardCopy, "role">): string => {
  * has none — nothing on the trail interrupts a rite — and a run from
  * before forks existed has no legs to carry them.
  */
-export function encountersFor(run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number; convoy?: number | null }): Encounter[] {
+export function encountersFor(
+  run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number; convoy?: number | null },
+  company?: RoadCompany | null,
+): Encounter[] {
   // A run that launched before the trail existed meets nothing on it: its
   // clock, its payout and its squad are exactly what it set out with.
   if (run.rules !== undefined && run.rules < TRAIL_RULES) return [];
   if (run.tier === "exorcism" || run.forks === 0) return [];
   const road = onRoad(run);
+  const withCompany = (run.rules ?? 1) >= COMPANY_RULES;
   const out: Encounter[] = [];
   legs(run).forEach((leg, index) => {
     const rand = seedOf(run.id, index, 1);
@@ -537,6 +598,9 @@ export function encountersFor(run: { id: number; tier: ExpeditionTierKey; starte
     const keys: EncounterKey[] = run.convoy ? ["merchant"] : ["merchant", "storm"];
     if (road) keys.push("cache", "rival", "shrine", "hunter");
     if (EXPEDITION_TIERS[run.tier].risk === "lost" || EXPEDITION_TIERS[run.tier].risk === "dead") keys.push("stranded");
+    // The dead walk the Legend and Legendary roads — from COMPANY_RULES,
+    // so a run already out keeps the beats its journal has shown.
+    if (withCompany && (run.tier === "legend" || run.tier === "legendary")) keys.push("ghost");
     const key = pick(keys, rand);
     const encounter: Encounter = { leg: index, key, at: at(leg, 0.5) };
     // The coin is tossed here, once, so the journal can say how it landed
@@ -545,6 +609,26 @@ export function encountersFor(run: { id: number; tier: ExpeditionTierKey; starte
     if (key === "hunter") encounter.found = rand() < HUNTER_FRAGMENT_CHANCE;
     out.push(encounter);
   });
+  // The company, read over the coins: a real rival's verdict is shine's,
+  // a road with nobody on it holds a cache, a ghost has a name — and a
+  // ghost draw with nobody in the graveyard yet is a cache too.
+  if (withCompany && company) {
+    for (const encounter of out) {
+      if (encounter.key === "rival") {
+        const rival = company.rivals.find((meet) => meet.leg === encounter.leg);
+        if (rival) {
+          encounter.won = rival.won;
+          encounter.rivalName = rival.name;
+        } else {
+          encounter.alone = true;
+        }
+      } else if (encounter.key === "ghost") {
+        const ghost = company.ghosts.find((meet) => meet.leg === encounter.leg);
+        if (ghost) encounter.ghost = { name: ghost.cardName, owner: ghost.name, team: ghost.team, stood: ghost.stood };
+        else encounter.key = "cache";
+      }
+    }
+  }
   return out;
 }
 
@@ -595,7 +679,7 @@ function legacyJournal(run: RunRef, squad: Squad): JournalEntry[] {
  */
 function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
   const entries: JournalEntry[] = [];
-  const encounters = encountersFor(run);
+  const encounters = encountersFor(run, run.company);
   const road = roadOf(run);
   const forks = forksFor(run.tier, road);
   const trail = shuffled(TRAIL[run.tier], seedOf(run.id, 0, 4));
@@ -633,12 +717,22 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
     if (encounter) {
       const lines = ENCOUNTER_LINES[encounter.key];
       // The rival's and the hunter's lines come in pairs: the first two
-      // for a win or a find, the last two otherwise.
+      // for a win or a find, the last two otherwise. A named rival, an
+      // empty road and a named ghost have pools of their own.
       const options =
-        encounter.key === "rival" ? (encounter.won ? lines.slice(0, 2) : lines.slice(2))
+        encounter.key === "rival" && encounter.alone ? ALONE_LINES
+        : encounter.key === "rival" && encounter.rivalName ? (encounter.won ? RIVAL_NAMED_LINES.won : RIVAL_NAMED_LINES.lost)
+        : encounter.key === "rival" ? (encounter.won ? lines.slice(0, 2) : lines.slice(2))
         : encounter.key === "hunter" ? (encounter.found ? lines.slice(0, 2) : lines.slice(2))
+        : encounter.key === "ghost" && encounter.ghost ? (encounter.ghost.stood ? GHOST_STOOD_LINES : GHOST_LINES)
         : lines;
-      entries.push({ at: encounter.at, leg: index, kind: "encounter", encounter: encounter.key, text: fill(pick(options, rand), squad, rand) });
+      const mate = encounter.ghost?.team ? squad.find((member) => member.card?.teamName === encounter.ghost!.team) ?? null : null;
+      const named = pick(options, rand)
+        .replaceAll("{rival}", encounter.rivalName ?? "Another collector")
+        .replaceAll("{ghost}", encounter.ghost?.name ?? "something")
+        .replaceAll("{owner}", encounter.ghost?.owner ?? "Somebody")
+        .replaceAll("{mate}", mate?.playerName ?? "the squad");
+      entries.push({ at: encounter.at, leg: index, kind: "encounter", encounter: encounter.key, text: fill(named, squad, rand) });
     }
     entries.push({ at: at(leg, 0.7), leg: index, kind: "trail", text: secondLine });
     const last = index === run.forks;
@@ -654,6 +748,16 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
           : fill("{name} can see the way home from here.", squad, rand),
     });
   });
+  // The other side of every meet: a run that picked this squad as its
+  // rival writes the crossing here too, at the hour it happened.
+  const runLegs = legs(run);
+  for (const crossing of run.company?.crossings ?? []) {
+    const when = new Date(crossing.at);
+    const legIndex = Math.max(0, runLegs.findIndex((leg) => when.getTime() >= leg.start.getTime() && when.getTime() < leg.end.getTime()));
+    const rand = seedOf(run.id, legIndex, 8 + crossing.runId % 97);
+    const line = pick(crossing.won ? CROSSING_LINES.won : CROSSING_LINES.lost, rand).replaceAll("{rival}", crossing.name);
+    entries.push({ at: when, leg: legIndex, kind: "encounter", encounter: "rival", text: fill(line, squad, rand) });
+  }
   return entries;
 }
 

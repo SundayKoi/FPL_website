@@ -103,7 +103,7 @@ describe("fetchRuns", () => {
         outcome: {
           grade: "jackpot", dollars: 520, comp: true, mark: "legend", bearer: 22,
           lootMultiplier: 1, pushes: 0, fragments: 0, fates: [], events: [], rescued: null, cleansed: null,
-          surge: [], echo: null,
+          surge: [], echo: null, rivals: [],
         },
         claimedAt: "2026-08-27T19:00:00.000Z",
         forks: 0,
