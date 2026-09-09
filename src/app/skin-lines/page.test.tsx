@@ -146,7 +146,7 @@ describe("the skin-line mockup page", () => {
   it("names the live season's line, recommends a cadence, and leaves Eclipse alone", async () => {
     staff();
     render(await SkinLinesPreviewPage());
-    expect(screen.getByText(/Season S5 is Battlecast/)).toBeTruthy();
+    expect(screen.getByText(/Premier S5 and Academy A1 are both Battlecast/)).toBeTruthy();
     expect(screen.getByText(/Nothing on this page mints/)).toBeTruthy();
     expect(screen.getByText(/Per season, not per week/)).toBeTruthy();
     expect(screen.getByText(/Eclipse is untouched/)).toBeTruthy();

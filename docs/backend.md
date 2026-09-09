@@ -834,8 +834,11 @@ the job; the registration is the other half.
 
 ### Skin-line parallels
 
-**Season 5's foils are drawn as Battlecast.** `SEASON_LINES` in
-`src/lib/cards/skinLines.ts` maps a season to a line; a copy minted in a
+**Both leagues' live seasons — Premier S5 and Academy A1 — draw their foils
+as Battlecast.** `src/lib/cards/skinLines.ts` states that era once, as
+`CURRENT_LINE` plus the season code each league is on in
+`CURRENT_LINE_SEASONS`, and derives both `SEASON_LINES` keys from it.
+`SEASON_LINES` maps a season to a line: a copy minted in a
 listed season draws and names its parallel as that line's tier (prisma →
 Standard, aurora → Chroma, refractor → Prestige, ice → Ultimate) via
 `lineTreatmentFor` (PlayerCard3D, drawn exactly as a mockup `preview`
@@ -843,9 +846,11 @@ is) and `parallelLabelFor` (the shelf caption, the flat PNG's badge and
 accent in `render/treatment.ts`, the Discord rip and flex lines, the
 stats page). The STORAGE never changed: `foil_type` still holds the
 ladder, the roller still walks it, dust still reads its multipliers, and
-Eclipse is not a tier of anything. To rotate, add the next season's key;
-the seasons before keep their look, because the mapping is by the copy's
-own season.
+Eclipse is not a tier of anything. To rotate, put both leagues' new season
+codes in `CURRENT_LINE_SEASONS` and set `CURRENT_LINE` to the new line, then
+move the outgoing codes into `SEASON_LINES` with the line they had; the
+seasons before keep their look, because the mapping is by the copy's own
+season.
 
 `/skin-lines` is the design table the idea came from, open to staff and to
 active patrons (`fetchPatronActive`, a `betting_profiles.patron_until` read;
