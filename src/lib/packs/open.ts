@@ -16,7 +16,7 @@ import {
 import { MOMENT_PULL_CHANCE, MOMENT_TIER, momentToCard } from "@/lib/cards/moments";
 import { buildTeamCards, TEAM_PULL_CHANCE, TEAM_TIER, teamCardSlug, teamToCard } from "@/lib/cards/teamCards";
 import { cardSlug, type PlayerCardData } from "@/lib/cards/build";
-import { cardImageUrl } from "@/lib/cards/shareImage";
+import { cardImageUrl, copyImageUrl } from "@/lib/cards/shareImage";
 import { parallelLabelFor } from "@/lib/cards/skinLines";
 import { ALT_SKIN_CHANCE, DEFAULT_FOIL_TYPE, ECLIPSE_FOIL_TYPE, FOIL_CHANCE, FOIL_TYPE_LABELS, foilTypeOf, LIVE_FOIL_CHANCE, PACK_COST, rollFoilType, SIGNED_ALT_SKIN_CHANCE, type PackVariant } from "./config";
 import { matchesChase, type ChaseCriteria } from "./chase";
@@ -143,6 +143,38 @@ async function recoverOpening(
     ...(opening.bonus !== null ? { streakBonus: opening.bonus } : {}),
     ...(opening.source === "comp" ? { compsLeft: opening.comps_left ?? 0 } : {}),
   };
+}
+
+/** Announcement garnish is deliberately outside the pack transaction. A
+ * profile read can be unavailable while the card mint is healthy, and the
+ * webhook helper is best-effort by contract; neither failure may turn a
+ * successful opening into an error. */
+async function announcementCollectorName(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+): Promise<string> {
+  try {
+    const { data } = await service
+      .from("betting_profiles")
+      .select("username, patron_until")
+      .eq("discord_id", discordId)
+      .maybeSingle();
+    const row = data as { username?: string; patron_until?: string | null } | null;
+    const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
+    return `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  } catch {
+    return "Someone";
+  }
+}
+
+/** Keep every pack announcement soft even if a caller replaces the shared
+ * delivery helper with one that rejects instead of swallowing its failure. */
+async function postPackAnnouncement(embed: Parameters<typeof postCardsWebhook>[0]): Promise<void> {
+  try {
+    await postCardsWebhook(embed);
+  } catch {
+    // Garnish, by contract.
+  }
 }
 
 /** Spend one comp by compare-and-swap (PostgREST can't decrement in
@@ -651,6 +683,13 @@ export async function openPackFor(
   if (secretPrint) {
     await announceSecretClaim(service, discordId, secretPrint, stampedWeek, league);
   }
+  // Signed Secrets and Eclipses already carry their autograph in the
+  // announcement above. Every other signed print gets its own line so a pack
+  // with multiple signatures tells the whole story without duplicate news.
+  for (const print of prints) {
+    if (print.signed !== true || print.card.secret || print.foilType === ECLIPSE_FOIL_TYPE) continue;
+    await announceSignatureClaim(service, discordId, print, stampedWeek, league);
+  }
   // The Dribb card: the rarest thing the site will ever print. Same door.
   const dribbPrint = prints.find((print) => print.card.dribb);
   if (dribbPrint?.card.dribb) {
@@ -762,14 +801,7 @@ async function announceEclipseClaim(
   editionWeek: string,
   league: CardLeague,
 ): Promise<void> {
-  const { data } = await service
-    .from("betting_profiles")
-    .select("username, patron_until")
-    .eq("discord_id", discordId)
-    .maybeSingle();
-  const row = data as { username: string; patron_until: string | null } | null;
-  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
-  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const who = await announcementCollectorName(service, discordId);
   const { card } = print;
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   // Where the news goes next. An Eclipse falling is the one moment people
@@ -779,7 +811,7 @@ async function announceEclipseClaim(
   // academy pull belongs on the academy board, and sending a reader to the
   // premier one would show them a card nobody in that message owns.
   const vaultUrl = site ? `${site}${league === "academy" ? "/academy/cards/vault" : "/cards/vault"}` : "";
-  await postCardsWebhook({
+  await postPackAnnouncement({
     title: "🌑 AN ECLIPSE HAS BEEN FOUND",
     description:
       `**${who}** pulled the one and only **${card.name}** — ${editionLabel(editionWeek)} edition.
@@ -803,18 +835,11 @@ async function announceDribbClaim(
   dribb: { number: number; of: number },
   league: CardLeague,
 ): Promise<void> {
-  const { data } = await service
-    .from("betting_profiles")
-    .select("username, patron_until")
-    .eq("discord_id", discordId)
-    .maybeSingle();
-  const row = data as { username: string; patron_until: string | null } | null;
-  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
-  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const who = await announcementCollectorName(service, discordId);
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
   const left = dribb.of - dribb.number;
-  await postCardsWebhook({
+  await postPackAnnouncement({
     title: "✦ THE DRIBB CARD HAS BEEN FOUND",
     description:
       `**${who}** pulled **Dribb #${String(dribb.number).padStart(3, "0")}/${dribb.of}** — ${dribbLabel(dribb)}.\n` +
@@ -835,14 +860,7 @@ async function announceSecretClaim(
   editionWeek: string,
   league: CardLeague,
 ): Promise<void> {
-  const { data } = await service
-    .from("betting_profiles")
-    .select("username, patron_until")
-    .eq("discord_id", discordId)
-    .maybeSingle();
-  const row = data as { username: string; patron_until: string | null } | null;
-  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
-  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const who = await announcementCollectorName(service, discordId);
   const { card } = print;
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
@@ -852,12 +870,45 @@ async function announceSecretClaim(
     ...(card.shiny ? ["★ Shiny"] : []),
     ...(print.signed ? ["✍️ Signed"] : []),
   ].join(" · ");
-  await postCardsWebhook({
+  await postPackAnnouncement({
     title: "🔒 A SECRET HAS BEEN FOUND",
     description:
       `**${who}** pulled **${card.name} ${card.secret ? secretSerialLabel(card.secret) : ""}** — ${editionLabel(editionWeek)} edition.\n` +
       `${card.overall} OVR · ${traits}\n\n` +
       `A print numbered past the checklist. It was never on the list.` +
+      (raritiesUrl ? `\n[Every rarity a card can pull](${raritiesUrl})` : ""),
+    color: GOLD,
+    ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
+  });
+}
+
+/** A signed player-card landing. This is separate from Secret/Eclipse news:
+ * those announcements already include their autograph, while ordinary
+ * signed pulls need one announcement per copy, including duplicate players.
+ */
+async function announceSignatureClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean },
+  editionWeek: string,
+  league: CardLeague,
+): Promise<void> {
+  const who = await announcementCollectorName(service, discordId);
+  const { card } = print;
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
+  const traits = [
+    `${card.tier.label} ${card.role}`,
+    ...(print.foil ? [`✨ ${parallelLabelFor(card.season, foilTypeOf(print.foilType), FOIL_TYPE_LABELS[foilTypeOf(print.foilType)])}`] : []),
+    ...(card.shiny ? ["★ Shiny"] : []),
+    "✍️ Signed",
+  ].join(" · ");
+  await postPackAnnouncement({
+    title: "✍️ A SIGNATURE HAS BEEN PULLED",
+    description:
+      `**${who}** pulled a signed **${card.name}** — ${editionLabel(editionWeek)} edition.\n` +
+      `${card.overall} OVR · ${traits}\n\n` +
+      `A real autograph, frozen into this copy forever.` +
       (raritiesUrl ? `\n[Every rarity a card can pull](${raritiesUrl})` : ""),
     color: GOLD,
     ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
@@ -872,16 +923,9 @@ async function announceChaseClaim(
   bounty: number,
   editionWeek: string | null,
 ): Promise<void> {
-  const { data } = await service
-    .from("betting_profiles")
-    .select("username, patron_until")
-    .eq("discord_id", discordId)
-    .maybeSingle();
-  const row = data as { username: string; patron_until: string | null } | null;
   // Patrons carry the flame into the announcement too — the perk is being
   // seen, and this embed is the most-seen line the cards channel has.
-  const burning = Boolean(row?.patron_until && new Date(row.patron_until).getTime() > Date.now());
-  const who = `${burning ? "🔥 " : ""}${row?.username ?? "Someone"}`;
+  const who = await announcementCollectorName(service, discordId);
   const { card } = print;
   // Spell out what the winning pull actually WAS. The share image can't
   // show foil or ink, so without this line a subtle Prisma claim reads as
@@ -894,11 +938,44 @@ async function announceChaseClaim(
   // The card itself rides the embed, via the share renderer the site
   // already serves. SITE_URL missing just drops the picture, not the news.
   const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  await postCardsWebhook({
+  await postPackAnnouncement({
     title: "🏆 The chase has fallen",
     description: `**${who}** pulled it: ${title}\n${card.name} — ${card.overall} OVR · ${traits}${bounty > 0 ? `\nBounty: **+${bounty}**` : ""}`,
     color: GOLD,
     ...(site ? { image: { url: cardImageUrl(site, card.slug, editionWeek) } } : {}),
+  });
+}
+
+/** A signed Faceless relic landing. Relics are live mints, not weekly
+ * editions, and their rating fields are placeholders, so this wording names
+ * the Hand and its foil without inventing an OVR or an edition. */
+async function announceChampionSignatureClaim(
+  service: ReturnType<typeof createBettingServiceClient>,
+  discordId: string,
+  print: { card: PlayerCardData; foil: boolean; foilType: string | null; signed: boolean },
+  inventoryId: number,
+  league: CardLeague,
+): Promise<void> {
+  const who = await announcementCollectorName(service, discordId);
+  const { card } = print;
+  const hand = card.champWin;
+  const site = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const raritiesUrl = site ? `${site}${league === "academy" ? "/academy/cards/rarities" : "/cards/rarities"}` : "";
+  const traits = [
+    `${card.tier.label} relic`,
+    ...(hand ? [`${hand.team} · The Hand ${hand.setIndex} of ${hand.setSize}`] : []),
+    ...(print.foil ? [`✨ ${parallelLabelFor(card.season, foilTypeOf(print.foilType), FOIL_TYPE_LABELS[foilTypeOf(print.foilType)])}`] : []),
+    "✍️ Signed",
+  ].join(" · ");
+  await postPackAnnouncement({
+    title: "✍️ A SIGNATURE HAS BEEN PULLED",
+    description:
+      `**${who}** pulled a signed Faceless relic: **${card.name}**${hand ? ` — ${hand.champion}` : ""}.\n` +
+      `${traits}\n\n` +
+      `Real ink from the champion's title-winning hand.` +
+      (raritiesUrl ? `\n[Every rarity a card can pull](${raritiesUrl})` : ""),
+    color: GOLD,
+    ...(site ? { image: { url: copyImageUrl(site, { id: inventoryId }) } } : {}),
   });
 }
 
@@ -1044,6 +1121,12 @@ export async function openChampionsPack(
       return { ok: false, error: "That pack didn't open and we couldn't reverse the charge — staff have been notified." };
     }
     return { ok: false, error: "That pack didn't open — you haven't been charged." };
+  }
+
+  // The relic is already in inventory, so its signed pull is safe to
+  // announce. Failed inserts and recovered openings never reach this line.
+  if (signed === true) {
+    await announceChampionSignatureClaim(service, discordId, { card, foil, foilType, signed }, (inserted as { id: number }).id, "premier");
   }
 
   const { data: profile } = await service

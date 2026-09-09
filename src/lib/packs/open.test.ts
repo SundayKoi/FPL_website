@@ -7,6 +7,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // wallet.test.ts.
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("node:crypto", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("node:crypto")>()),
+  // Deterministic zeroes make the specialty-pack signed branch testable
+  // without changing production odds or the ordinary pack roller.
+  randomBytes: vi.fn(() => Buffer.alloc(6)),
+}));
 
 const { createBettingServiceClient } = vi.hoisted(() => ({ createBettingServiceClient: vi.fn() }));
 vi.mock("@/lib/betting/service-client", () => ({ createBettingServiceClient }));
@@ -35,8 +41,22 @@ vi.mock("./rng", () => ({
     })),
   ]),
 }));
+const { signedSlugs, signedPullIndexes } = vi.hoisted(() => ({
+  signedSlugs: new Set<string>(),
+  signedPullIndexes: new Set<number>(),
+}));
 vi.mock("./signatures", () => ({
-  applyAutographs: vi.fn((pulls: unknown[]) => pulls.map((pull) => ({ ...(pull as object), autograph: null }))),
+  applyAutographs: vi.fn((pulls: unknown[]) => pulls.map((pull, index) => {
+    const row = pull as { card: { slug: string }; foil: boolean; foilType: string | null };
+    const signed = signedSlugs.has(row.card.slug) && (signedPullIndexes.size === 0 || signedPullIndexes.has(index));
+    return {
+      ...(pull as object),
+      foil: row.foil || signed,
+      foilType: row.foilType ?? (signed ? "prisma" : null),
+      signed,
+      autograph: signed ? "data:image/png;base64,signature" : null,
+    };
+  })),
 }));
 vi.mock("./godGate", () => ({ rollGodPackGate: vi.fn(() => false) }));
 vi.mock("./skins", () => ({
@@ -47,6 +67,11 @@ vi.mock("./skins", () => ({
 }));
 const { postCardsWebhook } = vi.hoisted(() => ({ postCardsWebhook: vi.fn() }));
 vi.mock("./announce", () => ({ postCardsWebhook, GOLD: 0 }));
+const { rollEclipseCandidates } = vi.hoisted(() => ({ rollEclipseCandidates: vi.fn((): number[] => []) }));
+vi.mock("./eclipse", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./eclipse")>()),
+  rollEclipseCandidates,
+}));
 // The finishes roll off the same CSPRNG as everything else, so a test that
 // wants one has to say so: the roller is swapped, the stamper is real.
 const { rollPackFinishes } = vi.hoisted(() => ({
@@ -77,6 +102,7 @@ interface QueryBuilder {
   eq: (column: string, value: unknown) => QueryBuilder;
   is: (column: string, value: unknown) => QueryBuilder;
   not: (...args: unknown[]) => QueryBuilder;
+  in: (...args: unknown[]) => QueryBuilder;
   order: (...args: unknown[]) => QueryBuilder;
   limit: (...args: unknown[]) => QueryBuilder;
   maybeSingle: () => Promise<QueryResult>;
@@ -160,6 +186,7 @@ function createService(respond: Respond) {
         return builder;
       },
       not: () => builder,
+      in: () => builder,
       order: () => builder,
       limit: () => builder,
       maybeSingle: async () => settle(),
@@ -181,18 +208,29 @@ function createShop(opts: {
   replayFulfillment?: boolean;
   secretsFound?: number;
   dribbFound?: number;
+  signatures?: { summoner_name: string; tag: string; signature: string }[];
+  championSignature?: { summoner_name: string; tag: string; signature: string; season?: string };
+  profile?: { username?: string; patron_until?: string | null; balance?: number };
+  profileError?: unknown;
 } = {}) {
   const table = createCompTable(opts.comps ?? {});
   const service = createService((call) => {
     if (call.table === "card_pack_comps") return table.respond(call);
-    if (call.table === "card_art_prefs") return { data: [] };
+    if (call.table === "card_art_prefs") {
+      return call.filters.summoner_name
+        ? { data: opts.championSignature ? [opts.championSignature] : [] }
+        : { data: opts.signatures ?? [] };
+    }
     if (call.table === "league_settings") {
       // champions_until in the future keeps the Faceless Drop open for the
       // champions tests; openPackFor only reads the live-drop columns.
       return { data: { live_until: null, live_label: null, champions_until: "2099-01-01T00:00:00.000Z" } };
     }
     if (call.table === "card_chases") return { data: null };
-    if (call.table === "betting_profiles") return { data: { balance: 1000 } };
+    if (call.table === "betting_profiles") return {
+      data: { balance: 1000, ...opts.profile },
+      error: opts.profileError ?? null,
+    };
     if (call.table === "card_inventory" && call.verb === "select" && opts.replayFulfillment) {
       return {
         data: [501, 502, 503, 504, 505].map((id) => ({
@@ -320,6 +358,11 @@ function insertedCards(calls: QueryCall[]): Record<string, unknown>[] {
 beforeEach(() => {
   createBettingServiceClient.mockReset();
   postCardsWebhook.mockClear();
+  postCardsWebhook.mockResolvedValue(undefined);
+  signedSlugs.clear();
+  signedPullIndexes.clear();
+  rollEclipseCandidates.mockReset();
+  rollEclipseCandidates.mockReturnValue([]);
   rollPackFinishes.mockClear();
   rollDribb.mockReset();
   rollDribb.mockReturnValue(false);
@@ -403,6 +446,125 @@ describe("openPackFor finishes", () => {
     const [card] = insertedCards(shop.calls);
     expect(card.dribb).toBeUndefined();
     expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+});
+
+describe("signature announcements", () => {
+  const playerSignature = { summoner_name: "Doug", tag: "na1", signature: "data:image/png;base64,signature" };
+
+  it("announces every signed player-card copy after the successful mint", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    signedPullIndexes.add(2);
+    const shop = createShop({ signatures: [playerSignature], profile: { username: "Patron", patron_until: "2099-01-01T00:00:00.000Z" } });
+
+    const result = await openPackFor("42", "premier");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.cards.filter((pull) => pull.signed)).toHaveLength(2);
+    expect(postCardsWebhook).toHaveBeenCalledTimes(2);
+    for (const [embed] of postCardsWebhook.mock.calls) {
+      expect(embed).toMatchObject({ title: "✍️ A SIGNATURE HAS BEEN PULLED" });
+      expect(embed.description).toContain("🔥 Patron");
+      expect(embed.description).toContain("Doug");
+      expect(embed.description).toContain("WK Aug 24 edition");
+      expect(embed.description).toContain("Gold Mid");
+      expect(embed.description).toContain("Prisma");
+      expect(embed.description).toContain("Signed");
+    }
+    expect(insertedCards(shop.calls).filter((card) => card.autograph)).toHaveLength(2);
+  });
+
+  it("keeps a signed Secret on its single existing announcement", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    rollPackFinishes.mockReturnValueOnce([
+      { shiny: false, stattrak: false, secret: true },
+      ...Array.from({ length: 4 }, () => ({ shiny: false, stattrak: false, secret: false })),
+    ]);
+    createShop({ signatures: [playerSignature] });
+
+    await openPackFor("42", "premier");
+
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("SECRET") });
+  });
+
+  it("keeps a signed Eclipse on its single existing announcement", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    rollEclipseCandidates.mockReturnValueOnce([0]);
+    createShop({ signatures: [playerSignature] });
+
+    await openPackFor("42", "premier");
+
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0]).toMatchObject({ title: expect.stringContaining("ECLIPSE") });
+  });
+
+  it("does not announce a signed pull when fulfillment fails or is recovered", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    createShop({ signatures: [playerSignature], insertError: { message: "insert exploded" } });
+
+    expect((await openPackFor("42", "premier")).ok).toBe(false);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("does not announce a recovered/replayed opening", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    createShop({ signatures: [playerSignature], replayFulfillment: true });
+
+    expect((await openPackFor("42", "premier")).ok).toBe(true);
+    expect(postCardsWebhook).not.toHaveBeenCalled();
+  });
+
+  it("falls back safely when the collector profile is unavailable", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    createShop({ signatures: [playerSignature], profileError: { message: "profile unavailable" } });
+
+    expect((await openPackFor("42", "academy")).ok).toBe(true);
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    expect(postCardsWebhook.mock.calls[0][0].description).toContain("Someone");
+    expect(postCardsWebhook.mock.calls[0][0].description).toContain("Doug");
+  });
+
+  it("leaves the opening successful when Discord delivery rejects", async () => {
+    signedSlugs.add("doug-na1");
+    signedPullIndexes.add(0);
+    createShop({ signatures: [playerSignature] });
+    postCardsWebhook.mockRejectedValue(new Error("discord is down"));
+
+    expect((await openPackFor("42", "premier")).ok).toBe(true);
+  });
+});
+
+describe("Champions signature announcements", () => {
+  it("announces a signed relic without OVR or edition claims", async () => {
+    const shop = createShop({
+      championSignature: { summoner_name: "KingOfSpades", tag: "205", signature: "data:image/png;base64,signature", season: "S4" },
+      profile: { username: "Patron", patron_until: "2099-01-01T00:00:00.000Z" },
+    });
+
+    const result = await openChampionsPack("42");
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.cards[0].signed).toBe(true);
+    expect(postCardsWebhook).toHaveBeenCalledTimes(1);
+    const embed = postCardsWebhook.mock.calls[0][0] as { title: string; description: string };
+    expect(embed.title).toBe("✍️ A SIGNATURE HAS BEEN PULLED");
+    expect(embed.description).toContain("🔥 Patron");
+    expect(embed.description).toContain("king of spades");
+    expect(embed.description).toContain("Cho'Gath");
+    expect(embed.description).toContain("The Hand 1 of 5");
+    expect(embed.description).toContain("Champion relic");
+    expect(embed.description).toContain("Prisma");
+    expect(embed.description).toContain("Signed");
+    expect(embed.description).not.toContain("OVR");
+    expect(embed.description).not.toContain("edition");
+    expect(stampedOpenIds(shop.calls)).toEqual([88]);
   });
 });
 
