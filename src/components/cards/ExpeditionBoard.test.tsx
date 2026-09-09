@@ -5,6 +5,7 @@ import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import ExpeditionBoard from "./ExpeditionBoard";
+import { forksFor } from "@/lib/expeditions/routes";
 
 /** A route that changed nothing: every card home, no forks pushed. */
 const QUIET_ROUTE = (ids: number[]) => ({
@@ -840,6 +841,66 @@ describe("ExpeditionBoard — forks", () => {
 
     expect(screen.queryByTestId("fork-40-0")).toBeNull();
     expect(screen.queryByRole("region", { name: "Forks waiting on you" })).toBeNull();
+  });
+});
+
+describe("ExpeditionBoard — the road", () => {
+  // Nine hours into a 24h raid with two forks, stamped with the road
+  // rulebook: the first fork is open, and it is whichever place run 41's
+  // seed drew — the page must show THAT place, not the fixed reactor.
+  const onRoad = () =>
+    makeRun({
+      id: 41,
+      tier: "raid",
+      squad: [5, 1, 2],
+      forks: 2,
+      rules: 3,
+      startedAt: new Date(Date.now() - 9 * HOUR).toISOString(),
+      resolvesAt: new Date(Date.now() + 15 * HOUR).toISOString(),
+    });
+
+  it("shows the place this run drew, and the role calls its squad can make", () => {
+    renderBoard({ runs: [onRoad()], deployedIds: new Set([5, 1, 2]) });
+
+    const fork = screen.getByTestId("fork-41-0");
+    const place = forksFor("raid", { runId: 41, rules: 3, forks: 2 })[0];
+    expect(within(fork).getByText(place.title)).toBeTruthy();
+    expect(within(fork).getByRole("button", { name: `${place.pushLabel} — push` })).toBeTruthy();
+    // Eve is the Bot, Alba the Mid, Bex the Top: three calls are buttons.
+    expect(within(fork).getByRole("button", { name: "Kite it — kite" })).toBeTruthy();
+    expect(within(fork).getByRole("button", { name: "Roam for it — roam" })).toBeTruthy();
+    expect(within(fork).getByRole("button", { name: "Hold the checkpoint — hold" })).toBeTruthy();
+    // No Jungle, no Support: those two are a line, not grey buttons.
+    expect(within(fork).queryByRole("button", { name: /Scout it first/ })).toBeNull();
+    expect(within(fork).getByTestId("role-calls-missing").textContent).toMatch(/a Jungle could scout it first/);
+    expect(within(fork).getByTestId("role-calls-missing").textContent).toMatch(/a Support could ward the approach/);
+    // The prints' options are still listed and locked, as they always were.
+    expect((within(fork).getByRole("button", { name: "Call in a favour — favour" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("sends a role call through the action like any other answer", async () => {
+    renderBoard({ runs: [onRoad()], deployedIds: new Set([5, 1, 2]) });
+
+    await click(screen.getByRole("button", { name: "Hold the checkpoint — hold" }));
+
+    expect(decideForkAction).toHaveBeenCalledWith(41, 0, "hold");
+  });
+
+  it("titles the map's dots with the run's own road", () => {
+    renderBoard({ runs: [onRoad()], deployedIds: new Set([5, 1, 2]) });
+
+    const run = screen.getByTestId("run-41");
+    const place = forksFor("raid", { runId: 41, rules: 3, forks: 2 })[1];
+    expect(within(run).getByTestId("route-map").textContent).toContain(place.title);
+  });
+
+  it("explains the road and the role calls in the rules of the road", () => {
+    renderBoard();
+    const rules = screen.getByTestId("expedition-rules");
+    expect(rules.textContent).toContain("The road is drawn when you launch.");
+    for (const call of ["hold", "scout", "roam", "kite", "ward"]) expect(within(rules).getByTestId(`rule-call-${call}`)).toBeTruthy();
+    expect(rules.textContent).toContain("A rival squad");
+    expect(rules.textContent).toContain("A shrine");
   });
 });
 
