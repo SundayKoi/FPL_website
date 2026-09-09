@@ -196,6 +196,13 @@ export default async function AdminPage() {
       href: "/admin/gauntlet",
     },
     {
+      label: "Expedition seasons",
+      stat: "Standings & marks",
+      statTone: "text-gold",
+      description: "The season's roads scored, and the close that awards Pathfinder, Plunderer and Survivor.",
+      href: "/admin/expeditions",
+    },
+    {
       label: "Betting",
       stat: "Markets, pick'ems & catalog",
       statTone: "text-gold",

@@ -75,6 +75,7 @@ import {
 import { hasRoad, hasTrail, roadOf, type ConvoyView, type ExpeditionRun, type Grave, type LostHold } from "@/lib/expeditions/queries";
 import type { Rivalry } from "@/lib/expeditions/company";
 import { WEATHERS, type WeatherKey } from "@/lib/expeditions/weather";
+import { ACCOLADES, accoladesOf, rankStandings, type Accolade, type StandingRow } from "@/lib/expeditions/standings";
 import { convoyVerdict, normaliseConvoyCode } from "@/lib/expeditions/convoy";
 import { MILES_BY_TIER, milesOf, trailLine, trailTitleOf } from "@/lib/expeditions/trail";
 import { banterFor, journalFor } from "@/lib/expeditions/journal";
@@ -503,7 +504,17 @@ export default function ExpeditionBoard({
   convoys = {},
   rivalries = [],
   weather = null,
+  standings = [],
+  accolades = [],
+  viewerId = null,
 }: {
+  /** The season's standings (standings.ts), every collector with a
+   *  claimed run; the board ranks and trims them. */
+  standings?: StandingRow[];
+  /** The season's marks, once it has closed. */
+  accolades?: Accolade[];
+  /** The viewer, to pick their row out. */
+  viewerId?: string | null;
   /** The convoys the runs in the field ride in, by run id. */
   convoys?: Record<number, ConvoyView>;
   /** This week's weather (weather.ts), resolved on the server from the
@@ -1251,6 +1262,80 @@ export default function ExpeditionBoard({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {/* ── Season standings ──────────────────────────────────────────── */}
+      {standings.length > 0 ? (
+        <section aria-label="Season standings" data-testid="standings" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="type-display text-2xl sm:text-3xl">Season standings</h2>
+            <span className="text-xs text-steel">
+              Miles walked, loot brought home, Legendary routes brought home whole, rivals beaten. At season close the top of each is
+              marked — Pathfinder, Plunderer, Survivor. Marks only.
+            </span>
+          </div>
+          {accolades.length > 0 ? (
+            <ul data-testid="accolades" className="flex flex-wrap gap-2 text-xs">
+              {accolades.map((accolade) => (
+                <li key={accolade.kind} data-testid={`accolade-${accolade.kind}`} className="rounded-md border border-gold/40 bg-gold/5 px-3 py-1.5">
+                  <span className="font-semibold" style={{ color: ACCOLADES[accolade.kind].accent }}>
+                    {ACCOLADES[accolade.kind].glyph} {ACCOLADES[accolade.kind].label}
+                  </span>{" "}
+                  <span className="text-white">{accolade.username}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {(() => {
+            const ranked = rankStandings(standings);
+            const top = ranked.slice(0, 8);
+            const mine = viewerId ? ranked.findIndex((row) => row.discordId === viewerId) : -1;
+            const shown = mine >= top.length ? [...top, ranked[mine]] : top;
+            return (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-xs tabular-nums">
+                  <thead className="text-left text-[10px] uppercase tracking-[0.14em] text-steel">
+                    <tr>
+                      <th className="py-1 pr-2">#</th>
+                      <th className="py-1 pr-2">Collector</th>
+                      <th className="py-1 pr-2">Miles</th>
+                      <th className="py-1 pr-2">Loot</th>
+                      <th className="py-1 pr-2">Homecomings</th>
+                      <th className="py-1 pr-2">Rivals beaten</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((row) => {
+                      const rank = ranked.indexOf(row) + 1;
+                      const held = accoladesOf(accolades, row.discordId);
+                      return (
+                        <tr
+                          key={row.discordId}
+                          data-testid={`standing-${row.discordId}`}
+                          className={`border-t border-line/60 ${row.discordId === viewerId ? "bg-gold/10 text-white" : "text-steel"}`}
+                        >
+                          <td className="py-1 pr-2">{rank}</td>
+                          <td className="py-1 pr-2 font-semibold text-white">
+                            {row.username}
+                            {held.map((def) => (
+                              <span key={def.key} title={`${def.label} — ${def.does}`} className="ml-1" style={{ color: def.accent }}>
+                                {def.glyph}
+                              </span>
+                            ))}
+                          </td>
+                          <td className="py-1 pr-2">{row.miles}</td>
+                          <td className="py-1 pr-2">{fmtPoints(row.loot)}</td>
+                          <td className="py-1 pr-2">{row.survivals}</td>
+                          <td className="py-1 pr-2">{row.rivalsBeaten}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </section>
       ) : null}
 

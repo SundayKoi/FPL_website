@@ -1100,6 +1100,26 @@ inside `resolveRoute`: a toll paid at fork *n* waives fork *n+1*'s, and a
 (and `journalFor`, handed the run's `choices`, writes the Jungle's line
 naming the next place at the start of the leg).
 
+Season standings (`src/lib/expeditions/standings.ts`, pure; the
+`expedition_standings` view and `expedition_accolades` table,
+20261013000001): the view scores every claimed run per (season,
+collector) — miles (`expedition_trail_miles` per run, walked whether or
+not everyone came home), loot (the outcome's dollars), Legendary
+homecomings (a `legendary` claim with no `lost`/`dead` fate) and rivals
+beaten (`outcome.rivals` with `won`) — and is granted to everyone like
+`betting_leaderboard`, because a view reads with its owner's rights and
+a leaderboard is public by nature. `rankStandings` orders it for the
+board and the ledger (miles, loot, homecomings, rivals, name); `leaderOf`
+previews each mark exactly as `close_expedition_season` awards it (top
+of the standing above zero, ties to the lower discord id).
+`close_expedition_season(p_season)` is service-role only, idempotent
+(`unique (season, kind)`, `on conflict do nothing`) and awards
+Pathfinder / Plunderer / Survivor into `expedition_accolades`, which is
+readable by everyone; `closeExpeditionSeasonAction` (admin-actions.ts)
+checks `fetchStaffTier` before calling it, posts the marks to the cards
+channel, and `/admin/expeditions` is the button. Marks only — no ledger
+row is written at season close.
+
 The weather (`src/lib/expeditions/weather.ts`, pure; from `WEATHER_RULES`
 = 5, 20261012000001): one league-wide condition a week, `weatherForWeek`
 drawn from the Eastern Monday's date (Clear a third of the time, Fog,
