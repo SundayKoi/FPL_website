@@ -786,3 +786,63 @@ describe("company on the road", () => {
     expect(Object.values(mutations(stood))).toEqual([null, null, null]);
   });
 });
+
+import { tollCost, underWeather } from "./routes";
+import { DROUGHT_GAMBLE, WATCH_TOLL } from "./weather";
+
+describe("the weather on the road", () => {
+  const base = { copies: squad(), insured: false, grade: "solid" as const, target: null, now };
+  const fixedRoad = (tier: ExpeditionTierKey) => {
+    for (let id = 1; id < 20000; id += 1) {
+      const r = { runId: id, rules: ROAD_RULES, convoy: null };
+      if (forksFor(tier, r).every((fork, slot) => fork.key === FORKS[tier][slot].key)) return r;
+    }
+    throw new Error(`no run draws the fixed road on ${tier}`);
+  };
+  const foils = [copy({ id: 1, foil: true }), copy({ id: 2 }), copy({ id: 3 })];
+
+  it("under Fog every fork is dark, so a foil can light any of them", () => {
+    const road = fixedRoad("raid");
+    const bright = forksFor("raid", road).find((fork) => !fork.dark)!;
+    expect(underWeather(bright, "fog").dark).toBe(true);
+    expect(underWeather(bright, "clear")).toBe(bright);
+    const slot = forksFor("raid", road).findIndex((fork) => !fork.dark);
+    expect(forkOptions("raid", slot, foils, [], road).find((o) => o.choice === "light")!.locked).toBe("This fork is not dark.");
+    expect(forkOptions("raid", slot, foils, [], road, "fog").find((o) => o.choice === "light")!.locked).toBeNull();
+    expect(choiceAllowed("raid", slot, "light", foils, [], road, "fog")).toBe(true);
+    expect(choiceAllowed("raid", slot, "light", foils, [], road)).toBe(false);
+    // And the resolver reads the light where the page allowed it.
+    const choices = Array.from({ length: 2 }, (_, index) => (index === slot ? "light" : "camp")) as ("light" | "camp")[];
+    const lit = resolveRoute({ ...base, copies: foils, tier: "raid", forks: 2, road, choices, weather: "fog" }, always(0.99));
+    expect(lit.pushes).toBe(1);
+    const unlit = resolveRoute({ ...base, copies: foils, tier: "raid", forks: 2, road, choices }, always(0.99));
+    expect(unlit.pushes).toBe(0);
+  });
+
+  it("under a Drought the scouting coin flip pays half", () => {
+    const road = fixedRoad("scout");
+    const flip = forksFor("scout", road)[0];
+    expect(flip.gamble).not.toBeNull();
+    expect(underWeather(flip, "drought").lootBonus).toBe(flip.lootBonus * DROUGHT_GAMBLE);
+    const dry = resolveRoute({ ...base, tier: "scout", forks: 1, road, choices: ["push"], weather: "drought" }, always(0.99));
+    const wet = resolveRoute({ ...base, tier: "scout", forks: 1, road, choices: ["push"] }, always(0.99));
+    expect(dry.lootMultiplier).toBe(1 + Math.round(flip.lootBonus * DROUGHT_GAMBLE * 100) / 100);
+    expect(wet.lootMultiplier).toBe(1 + flip.lootBonus);
+  });
+
+  it("under a Harvest the toll is waived, and under the Watch it costs double", () => {
+    const road = fixedRoad("gilded");
+    const gate = forksFor("gilded", road)[0];
+    expect(gate.toll).toBeGreaterThan(0);
+    expect(underWeather(gate, "harvest").toll).toBeUndefined();
+    expect(tollCost("watch")).toBe(TOLL_LOOT * WATCH_TOLL);
+    expect(tollCost("harvest")).toBe(TOLL_LOOT);
+    const paid = resolveRoute({ ...base, tier: "gilded", forks: 2, road, choices: ["camp", "push"] }, script([0.1, 0.99, 0.99, 0.99, 0.99]));
+    const free = resolveRoute({ ...base, tier: "gilded", forks: 2, road, choices: ["camp", "push"], weather: "harvest" }, script([0.1, 0.99, 0.99, 0.99, 0.99]));
+    const watched = resolveRoute({ ...base, tier: "gilded", forks: 2, road, choices: ["camp", "push"], weather: "watch" }, script([0.1, 0.99, 0.99, 0.99, 0.99]));
+    expect(paid.lootMultiplier).toBe(Math.round((free.lootMultiplier - TOLL_LOOT) * 100) / 100);
+    expect(watched.lootMultiplier).toBe(Math.round((free.lootMultiplier - TOLL_LOOT * WATCH_TOLL) * 100) / 100);
+    expect(forkOptions("gilded", 0, squad(), [], road, "watch").find((o) => o.choice === "camp")!.tease).toContain(`${Math.round(TOLL_LOOT * WATCH_TOLL * 100)}%`);
+    expect(forkOptions("gilded", 0, squad(), [], road, "harvest").find((o) => o.choice === "camp")!.tease).not.toContain("costs");
+  });
+});

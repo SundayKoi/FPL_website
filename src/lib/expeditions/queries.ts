@@ -13,6 +13,7 @@ import { easternDateOf } from "@/lib/packs/week";
 import type { ExpeditionMark, ExpeditionOutcome, ExpeditionTierKey, OutcomeGrade } from "./config";
 import { ROAD_RULES, type CardFate, type RecordedChoice, type RoadRef, type RouteEvent } from "./routes";
 import type { RivalRecord, RoadCompany } from "./company";
+import type { WeatherKey } from "./weather";
 
 /**
  * The outcome as the ROW stores it, which is not quite what rollOutcome
@@ -82,6 +83,9 @@ export interface ExpeditionRun {
   /** Who else was on the road (company.ts), read by the page for a run in
    *  the field so the journal can name them. Not a column. */
   company?: RoadCompany | null;
+  /** The weather the run launched under (weather.ts), derived by the page
+   *  from its launch week. Not a column. */
+  weather?: WeatherKey | null;
 }
 
 /** The rulebook version from which a run has the trail: encounters,
@@ -408,19 +412,27 @@ export async function fetchStrangersHolds(supabase: SupabaseClient, discordId: s
  *  enough calendar for the match-day surge (the launch day's games) and the
  *  rival fork (a team's next opponent). Season-blind: the fixture table
  *  keeps both leagues, and a team name matches or it does not. */
+export interface FixtureRow {
+  team_a: string | null;
+  team_b: string | null;
+  scheduled_at: string | null;
+  /** The stage, for the weather's playoff weeks (weather.ts). */
+  stage?: string | null;
+}
+
 export async function fetchFixturesSince(
   supabase: SupabaseClient,
   since: string,
   limit = 80,
-): Promise<{ team_a: string | null; team_b: string | null; scheduled_at: string | null }[]> {
+): Promise<FixtureRow[]> {
   const { data, error } = await supabase
     .from("fixtures")
-    .select("team_a, team_b, scheduled_at")
+    .select("team_a, team_b, scheduled_at, stage")
     .gte("scheduled_at", since)
     .order("scheduled_at", { ascending: true })
     .limit(limit);
   if (error) return [];
-  return ((data as { team_a: string | null; team_b: string | null; scheduled_at: string | null }[]) ?? []);
+  return ((data as FixtureRow[]) ?? []);
 }
 
 /** One line of the league's ledger: a card that fell, went missing, or was

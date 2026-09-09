@@ -44,6 +44,8 @@ import {
 import { lastCompletedWeek } from "../src/lib/fantasy/week";
 import { PACK_COST } from "../src/lib/packs/config";
 import { mondayOf } from "../src/lib/packs/week";
+import { fetchFixturesSince } from "../src/lib/expeditions/queries";
+import { watchWeeksOf, weatherLine, weatherNow } from "../src/lib/expeditions/weather";
 import { stattrakCredits, type TrackedCopy } from "../src/lib/cards/stattrak";
 import { WEEKLY_STAT_COLUMNS, type WeeklyRawStatRow } from "../src/lib/stats/weekly";
 import { formatMatchWinPayouts, type MatchWinPayoutLine } from "../src/lib/betting/match-wins";
@@ -116,6 +118,13 @@ export async function processSeason(
   // the whole season.
   const editionWeek = mondayOf(new Date());
 
+  // The road's weather this week (src/lib/expeditions/weather.ts): drawn
+  // from the Monday, the Watch in a playoff week. Posted with the drop so
+  // the week's squads are picked against it. Best effort: a fixtures read
+  // that fails leaves the Watch unknown, never the post unsent.
+  const sky = weatherNow(new Date(), watchWeeksOf(await fetchFixturesSince(supabase, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())));
+  const skyLine = `**On the road this week**: ${weatherLine(sky)}`;
+
   // Before anything is written or posted: is the data this drop reports on
   // actually here? See assertIngestIsFresh.
   await assertIngestIsFresh(supabase, label, season, editionWeek);
@@ -177,6 +186,8 @@ export async function processSeason(
         }),
         "",
         [...tierCounts.entries()].map(([tier, count]) => `${tier}: ${count}`).join(" · "),
+        "",
+        skyLine,
       ];
       await postEmbed(webhookUrl, `🃏 ${label} card collection — Season ${season}`, lines.join("\n"), footer);
       console.log(`[${label}] Posted the collection showcase (${cards.length} cards).`);
@@ -193,6 +204,7 @@ export async function processSeason(
     if (newcomers.length > 0) {
       lines.push("", `**New cards**: ${newcomers.map((card) => `${card.name} (${card.overall})`).join(", ")}`);
     }
+    lines.push("", skyLine);
     await postEmbed(webhookUrl, `📈 ${label} weekly card drop — Season ${season}`, lines.join("\n"), footer);
     console.log(`[${label}] Posted: ${tierUps.length} tier ups, ${movers.length} movers, ${newcomers.length} new cards.`);
   }

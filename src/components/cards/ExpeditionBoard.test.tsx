@@ -5,6 +5,7 @@ import type { InventoryRow } from "@/lib/packs/queries";
 import { briefFor, shineOf } from "@/lib/expeditions/config";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import type { Rivalry } from "@/lib/expeditions/company";
+import type { WeatherKey } from "@/lib/expeditions/weather";
 import ExpeditionBoard from "./ExpeditionBoard";
 import { forksFor } from "@/lib/expeditions/routes";
 
@@ -165,12 +166,14 @@ function renderBoard(
     rivals?: Record<number, string>;
     convoys?: Record<number, ConvoyView>;
     rivalries?: Rivalry[];
+    weather?: WeatherKey | null;
   } = {},
 ) {
   return render(
     <ExpeditionBoard
       convoys={over.convoys}
       rivalries={over.rivalries}
+      weather={over.weather ?? null}
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -962,6 +965,26 @@ describe("ExpeditionBoard — missing cards", () => {
 
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — the weather", () => {
+  it("posts this week's sky with the brief, marks a run by the weather it launched under, and explains the five", () => {
+    renderBoard({ weather: "fog", runs: [makeRun({ id: 7, weather: "drought" }), makeRun({ id: 8, tier: "scout", weather: "clear" })] });
+    const banner = screen.getByTestId("expedition-weather");
+    expect(banner.textContent).toContain("Fog");
+    expect(banner.textContent).toContain("Every fork is dark");
+    expect(banner.textContent).toContain("A run keeps the weather it launched under");
+    expect(screen.getByTestId("weather-7").textContent).toContain("under drought");
+    expect(screen.queryByTestId("weather-8")).toBeNull();
+    const rule = screen.getByTestId("rule-weather");
+    for (const key of ["clear", "fog", "drought", "harvest", "watch"]) expect(within(rule).getByTestId(`rule-weather-${key}`)).toBeTruthy();
+    expect(within(rule).getByTestId("rule-weather-watch").textContent).toContain("playoff week");
+  });
+
+  it("says nothing about the sky on a board without one", () => {
+    renderBoard();
+    expect(screen.queryByTestId("expedition-weather")).toBeNull();
   });
 });
 
