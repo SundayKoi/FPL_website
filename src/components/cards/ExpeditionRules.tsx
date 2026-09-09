@@ -43,6 +43,7 @@ import {
 } from "@/lib/expeditions/routes";
 import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
 import { MILES_BY_TIER, TRAIL_TITLES, WAYFARER_SHINE } from "@/lib/expeditions/trail";
+import { WEATHERS } from "@/lib/expeditions/weather";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -255,6 +256,27 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             </li>
           </ul>
         </div>
+      </div>
+
+      {/* ── The weather ──────────────────────────────────────────── */}
+      <div data-testid="rule-weather" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">The weather — one condition a week, league-wide</h3>
+        <p>
+          Every Eastern Monday the road gets its weather, posted with the brief here and in the Monday drop. It changes which
+          squad is right to send this week without touching a single odds table, and{" "}
+          <strong className="text-white">a run keeps the weather it launched under</strong>.
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {Object.values(WEATHERS).map((sky) => (
+            <li key={sky.key} data-testid={`rule-weather-${sky.key}`} className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+              <span className="text-sm font-semibold text-white">
+                <span aria-hidden>{sky.glyph} </span>
+                {sky.label}
+              </span>
+              <span className="text-xs">{sky.does.join(" ")}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* ── Company on the road ──────────────────────────────────── */}

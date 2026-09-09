@@ -24,6 +24,7 @@ import {
 import { nextOpponent, rosterTeam, teamsPlayingOn } from "@/lib/expeditions/matchday";
 import { fetchCompanies, fetchRivalries } from "@/lib/expeditions/companyReads";
 import type { Rivalry, RoadCompany } from "@/lib/expeditions/company";
+import { watchWeeksOf, weatherNow, weatherOfRun } from "@/lib/expeditions/weather";
 import { fetchInventory, fetchInventoryByIds, type InventoryRow } from "@/lib/packs/queries";
 import { easternDateOf, mondayOf } from "@/lib/packs/week";
 import { patronActive } from "@/lib/patron/flames";
@@ -208,7 +209,15 @@ export async function ExpeditionsPageView({
     season ? fetchRivalries(service, discordId, season) : Promise.resolve<Rivalry[]>([]),
   ]);
   const playingToday = [...teamsPlayingOn(fixtures, today).values()];
-  const runsWithCompany = runs.map((run) => (companies[run.id] ? { ...run, company: companies[run.id] } : run));
+  // The weather (weather.ts): this week's for the banner, and each run's
+  // own — the week it launched under — for its journal and its forks.
+  const watchWeeks = watchWeeksOf(fixtures);
+  const weather = weatherNow(now, watchWeeks);
+  const runsWithCompany = runs.map((run) => ({
+    ...run,
+    ...(companies[run.id] ? { company: companies[run.id] } : {}),
+    weather: run.tier === "lost" ? null : (weatherOfRun(run, watchWeeks)?.key ?? null),
+  }));
   const rivals: Record<number, string> = {};
   for (const run of active) {
     if (run.tier !== "legendary") continue;
@@ -241,6 +250,7 @@ export async function ExpeditionsPageView({
         copies={copies}
         runs={runsWithCompany}
         rivalries={rivalries}
+        weather={weather.key}
         deployedIds={deployedIds}
         initialPick={parseInventoryId(send)}
         base={base}

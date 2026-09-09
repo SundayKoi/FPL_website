@@ -304,3 +304,45 @@ describe("company in the journal", () => {
     expect(encountersFor({ ...withGhost, rules: COMPANY_RULES - 1 }).find((entry) => entry.leg === ghostLeg)?.key).not.toBe("ghost");
   });
 });
+
+import { WEATHERS, WEATHER_RULES } from "./weather";
+import { HARVEST_MERCHANT, MERCHANT_DOLLARS as MERCHANT } from "./config";
+
+describe("the weather in the journal", () => {
+  const raidNow = { id: 5, tier: "raid" as const, startedAt: "2026-09-04T00:00:00Z", resolvesAt: "2026-09-05T00:00:00Z", forks: 2, rules: WEATHER_RULES };
+  const done = new Date("2026-09-06T00:00:00Z");
+
+  it("opens the run with the week's sky, and says nothing for a run from before the rule", () => {
+    const fog = journalFor({ ...raidNow, weather: "fog" }, squad, done);
+    expect(fog[0]).toMatchObject({ leg: 0, kind: "trail", text: WEATHERS.fog.sky });
+    expect(fog[0].at.toISOString()).toBe("2026-09-04T00:24:00.000Z");
+    const old = journalFor({ ...raidNow, rules: WEATHER_RULES - 1, weather: "fog" }, squad, done);
+    expect(old.some((entry) => entry.text === WEATHERS.fog.sky)).toBe(false);
+    const none = journalFor(raidNow, squad, done);
+    expect(none.some((entry) => Object.values(WEATHERS).some((sky) => sky.sky === entry.text))).toBe(false);
+    // The sky is not written before the squad has seen it.
+    expect(journalFor({ ...raidNow, weather: "fog" }, squad, new Date("2026-09-04T00:10:00Z"))).toEqual([]);
+  });
+
+  it("a Drought turns up more caches, and the Watch more rivals", () => {
+    const runs = Array.from({ length: 400 }, (_, index) => ({ ...raidNow, id: index + 1 }));
+    const count = (weather: "clear" | "drought" | "watch", key: string) =>
+      runs.flatMap((run) => encountersFor(run, null, weather)).filter((entry) => entry.key === key).length;
+    expect(count("drought", "cache")).toBeGreaterThan(count("clear", "cache"));
+    expect(count("watch", "rival")).toBeGreaterThan(count("clear", "rival"));
+    // Below the rule the weather weighs nothing.
+    const old = runs.map((run) => ({ ...run, rules: WEATHER_RULES - 1 }));
+    expect(old.flatMap((run) => encountersFor(run, null, "drought"))).toEqual(old.flatMap((run) => encountersFor(run)));
+  });
+
+  it("a Harvest merchant pays double, and the line says so", () => {
+    const runs = Array.from({ length: 400 }, (_, index) => ({ ...raidNow, id: index + 1 }));
+    const market = runs.find((run) => encountersFor(run, null, "harvest").some((entry) => entry.key === "merchant"))!;
+    const line = journalFor({ ...market, weather: "harvest" }, squad, done).find((entry) => entry.encounter === "merchant")!.text;
+    expect(line).toContain(String(MERCHANT * HARVEST_MERCHANT));
+    expect(line).toContain("Harvest prices");
+    const plain = journalFor({ ...market, weather: "clear" }, squad, done).find((entry) => entry.encounter === "merchant")!.text;
+    expect(plain).toContain(String(MERCHANT));
+    expect(plain).not.toContain("Harvest");
+  });
+});

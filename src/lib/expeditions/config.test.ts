@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CardCopy } from "./config";
@@ -11,6 +11,7 @@ import {
   expectedDailyDollars,
   LOOT_MULT_CAP,
   MARK_RANK,
+  HARVEST_MERCHANT,
   MERCHANT_DOLLARS,
   maxExpeditionPayout,
   payoutRange,
@@ -239,11 +240,17 @@ describe("the payout ceiling the claim RPC guards", () => {
   /** The live guard, read out of the migration that last defined it. */
   function guardCeiling(): number {
     // resolve_expedition is the live claim; the old claim_expedition guard
-    // (20260906000001) stays behind for the runs that pre-date forks.
-    const sql = readFileSync(
-      join(process.cwd(), "supabase/migrations/20260928000001_expedition_gilded_price_weekly_insurance.sql"),
-      "utf8",
-    );
+    // (20260906000001) stays behind for the runs that pre-date forks. The
+    // live definition is the NEWEST migration that declares it — each
+    // re-declaration carries the whole body, so the last one wins.
+    const dir = join(process.cwd(), "supabase/migrations");
+    const latest = readdirSync(dir)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+      .reverse()
+      .find((name) => readFileSync(join(dir, name), "utf8").includes("create or replace function public.resolve_expedition"));
+    expect(latest, "no migration declares resolve_expedition").toBeTruthy();
+    const sql = readFileSync(join(dir, latest!), "utf8");
     const match = sql.match(/v_dollars not between 0 and (\d+)/);
     expect(match, "the claim guard is not where the test expects it").not.toBeNull();
     return Number(match![1]);
@@ -272,7 +279,7 @@ describe("the payout ceiling the claim RPC guards", () => {
     // best base x shine cap x brief bonus — read off REWARDS, so this
     // stays true through a rebalance.
     const best = Math.max(...TIER_ORDER.map((tier) => payoutRange(tier).max));
-    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP * (1 + SURGE_BONUS)) + MERCHANT_DOLLARS);
+    expect(maxExpeditionPayout()).toBe(Math.round(best * (1 + SHINE_BONUS_CAP) * (1 + BRIEF_BONUS) * LOOT_MULT_CAP * (1 + SURGE_BONUS)) + MERCHANT_DOLLARS * HARVEST_MERCHANT);
   });
 
   it("still refuses a payout no roll could produce", () => {

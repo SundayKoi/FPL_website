@@ -31,6 +31,10 @@
 //   7. A run remembers itself: a toll paid at one fork buys free passage
 //      at the next, and a scout at one fork means the squad knows where
 //      not to camp at the next.
+//   9. The week has weather (WEATHER_RULES, weather.ts): under Fog every
+//      fork is dark, under a Drought the scouting gamble pays half, under
+//      a Harvest the tolls are waived, under the Watch they cost double.
+//      A run keeps the weather it launched under.
 //   8. The road has company (COMPANY_RULES, company.ts): a rival squad is
 //      another collector's run and the spot goes to the squad with more
 //      shine; a road with nobody on it holds a cache where the rival
@@ -42,6 +46,7 @@
 import type { MutationKey } from "@/lib/cards/mutations";
 import { mulberry32 } from "@/lib/gauntlet/sim";
 import { isVeteran, milesOf } from "./trail";
+import { DROUGHT_GAMBLE, WATCH_TOLL, type WeatherKey } from "./weather";
 import {
   EXPEDITION_TIERS,
   LOOT_MULT_CAP,
@@ -797,6 +802,21 @@ export const VETERAN_HOLD_LOOT = 0.15;
 export const SCOUTED_CAMP_RISK = 0.5;
 /** What a toll fork takes off the multiplier when the squad pays it. */
 export const TOLL_LOOT = 0.15;
+
+/** What a toll costs this week: double under the Watch (weather.ts). */
+export function tollCost(weather?: WeatherKey | null): number {
+  return weather === "watch" ? TOLL_LOOT * WATCH_TOLL : TOLL_LOOT;
+}
+
+/** A fork as the week's weather leaves it: dark under Fog, its gamble
+ *  paying DROUGHT_GAMBLE of its bonus under a Drought, its toll waived
+ *  under a Harvest. The Watch's toll is priced in tollCost. */
+export function underWeather(fork: ForkDef, weather?: WeatherKey | null): ForkDef {
+  if (!weather || weather === "clear" || weather === "watch") return fork;
+  if (weather === "fog") return fork.dark ? fork : { ...fork, dark: true };
+  if (weather === "drought") return fork.gamble ? { ...fork, lootBonus: fork.lootBonus * DROUGHT_GAMBLE } : fork;
+  return fork.toll ? { ...fork, toll: undefined } : fork;
+}
 /** Map fragments a single run can bring home, however it finds them.
  *  resolve_expedition refuses more. */
 export const FRAGMENT_CAP = 3;
@@ -914,9 +934,11 @@ export function forkOptions(
   copies: Pick<CardCopy, "signed" | "foil" | "card" | "role">[],
   earlier: (ForkChoice | null)[],
   road?: RoadRef | null,
+  weather?: WeatherKey | null,
 ): ForkOption[] {
-  const fork = forksFor(tier, road)[index];
-  if (!fork) return [];
+  const drawn = forksFor(tier, road)[index];
+  if (!drawn) return [];
+  const fork = underWeather(drawn, weather);
   const abilities = squadAbilities(copies);
   const favourSpent = earlier.includes("favour");
   const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -935,7 +957,7 @@ export function forkOptions(
     {
       choice: "camp",
       label: fork.campLabel,
-      tease: `${campTease}${fork.toll ? ` ${pct(fork.toll)} it costs ${pct(TOLL_LOOT)} of the loot.` : ""}${fork.campReward ? ` ${pct(fork.campReward.chance)} to come home ${fork.campReward.mutation}.` : ""}`,
+      tease: `${campTease}${fork.toll ? ` ${pct(fork.toll)} it costs ${pct(tollCost(weather))} of the loot.` : ""}${fork.campReward ? ` ${pct(fork.campReward.chance)} to come home ${fork.campReward.mutation}.` : ""}`,
       locked: null,
     },
     {
@@ -955,7 +977,7 @@ export function forkOptions(
     {
       choice: "light",
       label: "Light the way",
-      tease: `Push at half the risk. A foil lights a dark fork.`,
+      tease: weather === "fog" ? `Push at half the risk. A foil lights a dark fork — and in this fog, every fork is dark.` : `Push at half the risk. A foil lights a dark fork.`,
       locked: !fork.dark ? "This fork is not dark." : !abilities.light ? "Needs a foil in the squad." : null,
     },
     {
@@ -1008,8 +1030,9 @@ export function choiceAllowed(
   copies: Pick<CardCopy, "signed" | "foil" | "card" | "role">[],
   earlier: (ForkChoice | null)[],
   road?: RoadRef | null,
+  weather?: WeatherKey | null,
 ): boolean {
-  return forkOptions(tier, index, copies, earlier, road).some((option) => option.choice === choice && option.locked === null);
+  return forkOptions(tier, index, copies, earlier, road, weather).some((option) => option.choice === choice && option.locked === null);
 }
 
 // === timing ==================================================================
@@ -1187,6 +1210,8 @@ export interface RouteInput {
   /** The trail's beats that touch the resolution. Optional: a run from
    *  before the road met none of these. */
   encounters?: RouteEncounter[];
+  /** The weather the run launched under (weather.ts), or none. */
+  weather?: WeatherKey | null;
   /** The clock, for the wounded bench's end. */
   now: Date;
 }
@@ -1297,7 +1322,8 @@ const PUSH_VERB: Record<Exclude<ForkChoice, "camp" | "hold">, string> = {
  * left to right and a run from before the road rolls exactly what it did.
  */
 export function resolveRoute(input: RouteInput, rand: () => number): RouteResult {
-  const forks = forksFor(input.tier, { ...(input.road ?? { runId: 0, rules: 0 }), forks: input.forks ?? input.road?.forks ?? EXPEDITION_TIERS[input.tier].forks });
+  const forks = forksFor(input.tier, { ...(input.road ?? { runId: 0, rules: 0 }), forks: input.forks ?? input.road?.forks ?? EXPEDITION_TIERS[input.tier].forks })
+    .map((fork) => underWeather(fork, input.weather));
   const abilities = squadAbilities(input.copies);
   const roleCalls = Boolean(input.road && input.road.rules >= ROAD_RULES);
   const events: RouteEvent[] = [];
@@ -1431,7 +1457,7 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
         // The toll paid at the last fork bought this gate too.
         events.push({ fork: index, tone: "good", text: `${fork.title}: the toll they paid at the last gate was good for this one.` });
       } else if (fork.toll && decide(fork.toll, rand)) {
-        lootMultiplier -= TOLL_LOOT;
+        lootMultiplier -= tollCost(input.weather);
         tolled = true;
         tollPaid = true;
         events.push({ fork: index, tone: "bad", text: `${fork.title}: the safe way had a price, and the squad paid it.` });

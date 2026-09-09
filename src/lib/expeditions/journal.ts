@@ -30,7 +30,8 @@
 
 import { mulberry32 } from "@/lib/gauntlet/sim";
 import { TRAIL_RULES } from "./queries";
-import { EXPEDITION_TIERS, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
+import { EXPEDITION_TIERS, HARVEST_MERCHANT, MERCHANT_DOLLARS, type CardCopy, type ExpeditionTierKey } from "./config";
+import { DROUGHT_CACHES, WATCH_GHOSTS, WATCH_RIVALS, WEATHERS, WEATHER_RULES, type WeatherKey } from "./weather";
 import { CACHE_LOOT, COMPANY_RULES, GHOST_HAUNT, RIVAL_LOSS_LOOT, RIVAL_WIN_LOOT, ROAD_RULES, forkWindows, forksFor, type RoadRef, type RouteEncounter } from "./routes";
 import type { RoadCompany } from "./company";
 
@@ -82,6 +83,10 @@ type RunRef = {
    *  met this one, the ghosts. Read by the server; a run handed over
    *  without it meets nobody by name. */
   company?: RoadCompany | null;
+  /** The weather the run launched under (weather.ts), read by the server
+   *  from its launch week. A run handed over without it walks in no
+   *  weather. */
+  weather?: WeatherKey | null;
 };
 
 const onRoad = (run: Pick<RunRef, "rules">): boolean => (run.rules ?? 1) >= ROAD_RULES;
@@ -580,6 +585,7 @@ const roleWord = (member: Pick<CardCopy, "role">): string => {
 export function encountersFor(
   run: { id: number; tier: ExpeditionTierKey; startedAt: string; resolvesAt: string; forks: number; rules?: number; convoy?: number | null },
   company?: RoadCompany | null,
+  weather?: WeatherKey | null,
 ): Encounter[] {
   // A run that launched before the trail existed meets nothing on it: its
   // clock, its payout and its squad are exactly what it set out with.
@@ -587,6 +593,9 @@ export function encountersFor(
   if (run.tier === "exorcism" || run.forks === 0) return [];
   const road = onRoad(run);
   const withCompany = (run.rules ?? 1) >= COMPANY_RULES;
+  // The weather weights the draw (WEATHER_RULES): more caches in a
+  // Drought, rivals on every road and ghosts in daylight under the Watch.
+  const sky = (run.rules ?? 1) >= WEATHER_RULES ? weather ?? null : null;
   const out: Encounter[] = [];
   legs(run).forEach((leg, index) => {
     const rand = seedOf(run.id, index, 1);
@@ -601,6 +610,11 @@ export function encountersFor(
     // The dead walk the Legend and Legendary roads — from COMPANY_RULES,
     // so a run already out keeps the beats its journal has shown.
     if (withCompany && (run.tier === "legend" || run.tier === "legendary")) keys.push("ghost");
+    if (sky === "drought" && road) for (let extra = 1; extra < DROUGHT_CACHES; extra += 1) keys.push("cache");
+    if (sky === "watch" && road) {
+      for (let extra = 1; extra < WATCH_RIVALS; extra += 1) keys.push("rival");
+      if (keys.includes("ghost")) for (let extra = 1; extra < WATCH_GHOSTS; extra += 1) keys.push("ghost");
+    }
     const key = pick(keys, rand);
     const encounter: Encounter = { leg: index, key, at: at(leg, 0.5) };
     // The coin is tossed here, once, so the journal can say how it landed
@@ -679,7 +693,11 @@ function legacyJournal(run: RunRef, squad: Squad): JournalEntry[] {
  */
 function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
   const entries: JournalEntry[] = [];
-  const encounters = encountersFor(run, run.company);
+  const encounters = encountersFor(run, run.company, run.weather);
+  // The sky, first: the week's weather is the first thing the squad sees.
+  const sky = (run.rules ?? 1) >= WEATHER_RULES && run.weather ? WEATHERS[run.weather] : null;
+  const firstLeg = legs(run)[0];
+  if (sky && firstLeg) entries.push({ at: at(firstLeg, 0.05), leg: 0, kind: "trail", text: sky.sky });
   const road = roadOf(run);
   const forks = forksFor(run.tier, road);
   const trail = shuffled(TRAIL[run.tier], seedOf(run.id, 0, 4));
@@ -727,7 +745,9 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
         : encounter.key === "ghost" && encounter.ghost ? (encounter.ghost.stood ? GHOST_STOOD_LINES : GHOST_LINES)
         : lines;
       const mate = encounter.ghost?.team ? squad.find((member) => member.card?.teamName === encounter.ghost!.team) ?? null : null;
-      const named = pick(options, rand)
+      const named = (sky?.key === "harvest" && encounter.key === "merchant"
+        ? `${pick(options, rand).replace(String(MERCHANT_DOLLARS), String(MERCHANT_DOLLARS * HARVEST_MERCHANT))} Harvest prices.`
+        : pick(options, rand))
         .replaceAll("{rival}", encounter.rivalName ?? "Another collector")
         .replaceAll("{ghost}", encounter.ghost?.name ?? "something")
         .replaceAll("{owner}", encounter.ghost?.owner ?? "Somebody")
