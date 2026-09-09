@@ -380,7 +380,7 @@ describe("fetchIngestedScoutingGames", () => {
       then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({
         data: pageIndex === 0
           ? Array.from({ length: 1000 }, (_, index) => ({ id: index + 1, match_id: `unknown-${index}`, game_date: null, season: "S5", summoner_name: "Unknown", tag: "NA1", champion: "Ahri" }))
-          : [{ id: 1001, match_id: "NA1_ingested_1", game_date: "2026-08-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Orianna" }],
+          : [{ id: 1001, match_id: "NA1_ingested_1", game_date: "2026-08-01T00:00:00Z", season: "S5", summoner_name: "Northstar", tag: "NA1", champion: "Orianna", kills: "2", deaths: 1, assists: 3, game_duration_min: 20, total_damage_to_champions: 12000, kill_participation_pct: 40 }],
         error: null,
       })),
     };
@@ -408,7 +408,7 @@ describe("fetchIngestedScoutingGames", () => {
     expect(rawStatsQuery.order).toHaveBeenCalledWith("id");
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
     expect(rawStatsQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
-    expect(result.games).toEqual([{
+    expect(result.games).toMatchObject([{
       playerId: "n",
       playerName: "Northstar",
       role: "mid",
@@ -417,6 +417,7 @@ describe("fetchIngestedScoutingGames", () => {
       season: "S5",
       matchId: "NA1_ingested_1",
       gameDate: "2026-08-01T00:00:00Z",
+      performance: { kills: 2, deaths: 1, assists: 3, damageToChampions: 12000, durationMinutes: 20, killParticipationPct: 40 },
     }]);
   });
 

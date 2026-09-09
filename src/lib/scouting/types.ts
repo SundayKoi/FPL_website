@@ -3,6 +3,7 @@ import type { FixtureRow } from "@/lib/schedule/types";
 import type { DraftSide, MatchDraftAction, MatchDraftPositions } from "@/lib/match-draft/types";
 import type { DraftMatchupView } from "@/lib/match-draft/presentation";
 import type { IngestedScoutingData, IngestedScoutingGame, IngestedScoutingCoverage, InhousePlayerStats } from "./inhouse";
+import type { PlayerChampionStat } from "./performance";
 
 export type ScoutScope = "recent" | "season" | "all";
 export interface ScoutFixtureRow { id: string; season: string; stage: FixtureRow["stage"]; team_a: string | null; team_b: string | null; scheduled_at: string | null; best_of: FixtureRow["best_of"]; score_a: number | null; score_b: number | null; }
@@ -23,6 +24,8 @@ export interface ScoutSource extends ScoutHistory {
   ingestedScouting?: IngestedScoutingData;
   /** Explicitly distinguishes a failed read from a successful empty read. */
   ingestedScoutingStatus?: ScoutingIngestionStatus;
+  /** In-house stats are a separate, currently optional source. */
+  inhousePlayerStatsStatus?: ScoutingIngestionStatus;
   /** Legacy in-memory source shape retained for existing callers and fixtures. */
   ingestedGames?: IngestedScoutingGame[];
   ingestedCoverage?: IngestedScoutingCoverage[];
@@ -36,7 +39,7 @@ export interface PlayerPoolRow {
   playerId: string;
   playerName: string;
   role: LolRole;
-  champions: ChampionCount[];
+  champions: PlayerChampionStat[];
   distinctChampions: number;
   totalPicks: number;
   gamesSampled: number;

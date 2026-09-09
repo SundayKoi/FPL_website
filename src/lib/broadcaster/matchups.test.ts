@@ -98,9 +98,9 @@ describe("deriveBroadcasterMatchups", () => {
     const all = deriveBroadcasterMatchups(teamA, teamB, "all");
 
     expect(season.find((row) => row.role === "mid")?.teamBPlayers[0].champions)
-      .toEqual([{ champion: "Ahri", count: 2 }]);
+      .toMatchObject([{ champion: "Ahri", count: 2 }]);
     expect(all.find((row) => row.role === "mid")?.teamBPlayers[0].champions)
-      .toEqual([{ champion: "Ahri", count: 2 }, { champion: "Zed", count: 1 }]);
+      .toMatchObject([{ champion: "Ahri", count: 2 }, { champion: "Zed", count: 1 }]);
   });
 
   it("retains attributed pools for a sixth sorted roster player", () => {

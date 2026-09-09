@@ -195,6 +195,20 @@ describe("My Team scouting page", () => {
     expect(screen.getByText("Scouting data is temporarily unavailable.")).toBeTruthy();
   });
 
+  it("keeps regular scouting available when in-house stats fail", async () => {
+    loadMyTeamDashboard.mockResolvedValue(ready());
+    fetchScoutingHistory.mockResolvedValue({ fixtures: [fixture], drafts: [] });
+    fetchIngestedScoutingGames.mockResolvedValue({ games: [], coverage: [] });
+    fetchInhousePlayerStats.mockRejectedValue(new Error("in-house table unavailable"));
+
+    render(await MyTeamScoutingPageView({ league: "premier", searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText("Scouting dashboard: Enemy Team")).toBeTruthy();
+    expect(opponentScout).toHaveBeenCalledWith(expect.objectContaining({
+      source: expect.objectContaining({ inhousePlayerStats: [], inhousePlayerStatsStatus: "unavailable" }),
+    }));
+  });
+
   it("does not turn a core dashboard failure into an empty opponent state", async () => {
     loadMyTeamDashboard.mockRejectedValue(new Error("database unavailable"));
 

@@ -5,6 +5,13 @@ import type { DraftSide, MatchDraftAction } from "@/lib/match-draft/types";
 import { ROLE_LABELS, ROLE_ORDER } from "@/lib/draft/types";
 import type { ChampionCount, DraftSlot, FullDraftSide, PastDraft, ScoutDraftRow, ScoutScope, ScoutSource, ScopedScoutData } from "./types";
 import type { IngestedScoutingCoverage, IngestedScoutingData } from "./inhouse";
+import {
+  createScoutingPerformanceAccumulator,
+  mergeScoutingPerformances,
+  normalizeScoutingPerformance,
+  type PlayerChampionStat,
+  type ScoutingGamePerformance,
+} from "./performance";
 
 export function scoutKey(value: string | null | undefined): string { return value?.trim().toLocaleLowerCase() ?? ""; }
 export function resolveScoutedSide(game: ScoutDraftRow, opponentName: string): DraftSide | null {
@@ -15,8 +22,33 @@ export function resolveScoutedSide(game: ScoutDraftRow, opponentName: string): D
 }
 
 function sourceIngestedData(source: ScoutSource): IngestedScoutingData | null {
+  const enrichCoverage = (games: IngestedScoutingData["games"], coverage: IngestedScoutingData["coverage"]): IngestedScoutingData["coverage"] => {
+    const gamesByIdentity = new Map<string, IngestedScoutingData["games"]>();
+    for (const game of games) {
+      const key = [game.matchId, game.playerId, championKey(game.champion), game.fixtureId ?? "", game.gameNumber ?? ""].join("\u001f");
+      gamesByIdentity.set(key, [...(gamesByIdentity.get(key) ?? []), game]);
+    }
+    return coverage.map((row) => {
+      const matchingGames = gamesByIdentity.get([
+        row.matchId, row.playerId ?? "", championKey(row.champion ?? ""), row.fixtureId ?? "", row.gameNumber ?? "",
+      ].join("\u001f")) ?? [];
+      return {
+        ...row,
+        performance: mergeScoutingPerformances([
+          normalizeScoutingPerformance(row.performance),
+          ...matchingGames.map((game) => normalizeScoutingPerformance(game.performance)),
+        ]),
+      };
+    });
+  };
   if (source.ingestedScouting) {
-    if (source.ingestedScouting.coverage.length > 0 || source.ingestedScouting.games.length === 0) return source.ingestedScouting;
+    if (source.ingestedScouting.coverage.length > 0) {
+      return {
+        ...source.ingestedScouting,
+        coverage: enrichCoverage(source.ingestedScouting.games, source.ingestedScouting.coverage),
+      };
+    }
+    if (source.ingestedScouting.games.length === 0) return source.ingestedScouting;
     return {
       ...source.ingestedScouting,
       coverage: source.ingestedScouting.games.map((game) => ({
@@ -31,25 +63,28 @@ function sourceIngestedData(source: ScoutSource): IngestedScoutingData | null {
         ...(game.gameNumber === undefined ? {} : { gameNumber: game.gameNumber }),
         ...(game.teamSide ? { teamSide: game.teamSide } : {}),
         ...(game.win === undefined ? {} : { win: game.win }),
+        performance: normalizeScoutingPerformance(game.performance),
       })),
     };
   }
   if (!source.ingestedGames) return null;
+  const legacyCoverage = source.ingestedCoverage ?? source.ingestedGames.map((game) => ({
+    playerId: game.playerId,
+    summonerName: game.playerName,
+    tag: null,
+    champion: game.champion,
+    fixtureId: game.fixtureId,
+    season: game.season,
+    matchId: game.matchId,
+    gameDate: game.gameDate,
+    ...(game.gameNumber === undefined ? {} : { gameNumber: game.gameNumber }),
+    ...(game.teamSide ? { teamSide: game.teamSide } : {}),
+    ...(game.win === undefined ? {} : { win: game.win }),
+    performance: normalizeScoutingPerformance(game.performance),
+  }));
   return {
     games: source.ingestedGames,
-    coverage: source.ingestedCoverage ?? source.ingestedGames.map((game) => ({
-      playerId: game.playerId,
-      summonerName: game.playerName,
-      tag: null,
-      champion: game.champion,
-      fixtureId: game.fixtureId,
-      season: game.season,
-      matchId: game.matchId,
-      gameDate: game.gameDate,
-      ...(game.gameNumber === undefined ? {} : { gameNumber: game.gameNumber }),
-      ...(game.teamSide ? { teamSide: game.teamSide } : {}),
-      ...(game.win === undefined ? {} : { win: game.win }),
-    })),
+    coverage: enrichCoverage(source.ingestedGames, legacyCoverage),
   };
 }
 
@@ -149,6 +184,7 @@ interface PoolPick {
   evidence: PoolEvidence;
   fixtureId: string | null;
   gameNumber?: number;
+  performance: ScoutingGamePerformance;
 }
 
 interface ResolvedIngestedPicks {
@@ -158,6 +194,10 @@ interface ResolvedIngestedPicks {
 }
 
 const draftGameKey = (fixtureId: string, gameNumber: number): string => `${fixtureId}:${gameNumber}`;
+const pickGameKey = (pick: Pick<PoolPick, "fixtureId" | "gameNumber" | "matchId">): string =>
+  pick.fixtureId && pick.gameNumber !== undefined
+    ? draftGameKey(pick.fixtureId, pick.gameNumber)
+    : `match:${pick.matchId}`;
 const championKey = (value: string): string => normalizeChampionName(championDisplayName(cleanChampion(value) ?? value));
 const participantKey = (row: IngestedScoutingCoverage): string => {
   const name = scoutKey(row.summonerName).replace(/\s+/g, " ");
@@ -166,8 +206,8 @@ const participantKey = (row: IngestedScoutingCoverage): string => {
 };
 
 function uniqueCoverageRows(rows: IngestedScoutingCoverage[]): IngestedScoutingCoverage[] {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
+  const merged = new Map<string, IngestedScoutingCoverage>();
+  for (const row of rows) {
     const key = [
       row.matchId,
       row.fixtureId ?? "",
@@ -177,10 +217,15 @@ function uniqueCoverageRows(rows: IngestedScoutingCoverage[]): IngestedScoutingC
       row.teamSide ?? "",
       row.playerId ?? "",
     ].join("\u001f");
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const current = merged.get(key);
+    merged.set(key, current
+      ? { ...current, performance: mergeScoutingPerformances([
+          normalizeScoutingPerformance(current.performance),
+          normalizeScoutingPerformance(row.performance),
+        ]) }
+      : { ...row, performance: normalizeScoutingPerformance(row.performance) });
+  }
+  return [...merged.values()];
 }
 
 interface ResolvedCoverageMatch {
@@ -228,6 +273,7 @@ function resolveCoverageMatch(
       fixtureId: participantRows[0].fixtureId,
       ...(participantRows[0].gameNumber === undefined ? {} : { gameNumber: participantRows[0].gameNumber }),
       ...(side ? { teamSide: side } : {}),
+      performance: mergeScoutingPerformances(participantRows.map((row) => normalizeScoutingPerformance(row.performance))),
       participantKey: key,
     });
   }
@@ -338,6 +384,7 @@ function resolveIngestedPicks(
   const scopedRows = scopedIngestedRows(source, scope, data.games);
   const scopedMatchIds = new Set(scopedRows.map((row) => row.matchId));
   const accepted = new Map<string, PoolPick>();
+  const acceptedPerformance = new Map<string, ScoutingGamePerformance[]>();
   const conflicts = new Set<string>();
   for (const [matchId, coverage] of coverageByMatch) {
     if (!scopedMatchIds.has(matchId)) continue;
@@ -354,9 +401,12 @@ function resolveIngestedPicks(
       if (conflicts.has(identity)) continue;
       if (current && championKey(current.champion) !== championKey(candidate.champion)) {
         accepted.delete(identity);
+        acceptedPerformance.delete(identity);
         conflicts.add(identity);
         continue;
       }
+      const performanceSamples = [...(acceptedPerformance.get(identity) ?? []), candidate.performance];
+      acceptedPerformance.set(identity, performanceSamples);
       accepted.set(identity, {
         playerId: candidate.playerId,
         champion: candidate.champion,
@@ -364,6 +414,7 @@ function resolveIngestedPicks(
         evidence: "riot",
         fixtureId: candidate.fixtureId,
         ...(candidate.gameNumber === undefined ? {} : { gameNumber: candidate.gameNumber }),
+        performance: mergeScoutingPerformances(performanceSamples),
       });
     }
   }
@@ -391,7 +442,15 @@ function resolveDraftOnlyPicks(source: ScoutSource, games: TeamGame[], coveredGa
       const player = byName.get(scoutKey(action.playerName)) ?? null;
       if (!player) continue;
       const current = byPlayer.get(player.id);
-      const pick = { playerId: player.id, champion: action.champion, matchId: gameKey, evidence: "draft" as const, fixtureId: game.fixture.id, gameNumber: game.draft.game_number };
+      const pick = {
+        playerId: player.id,
+        champion: action.champion,
+        matchId: gameKey,
+        evidence: "draft" as const,
+        fixtureId: game.fixture.id,
+        gameNumber: game.draft.game_number,
+        performance: normalizeScoutingPerformance(),
+      };
       if (current && championKey(current.champion) !== championKey(pick.champion)) {
         byPlayer.delete(player.id);
         conflictingPlayers.add(player.id);
@@ -476,15 +535,20 @@ export function deriveScoutData(
     const picks = poolPicks.filter((pick) => pick.playerId === player.id);
     const counts: ChampionCounts = new Map();
     for (const pick of picks) addChampion(counts, pick.champion);
-    const champions = rankNames(counts);
+    const champions: PlayerChampionStat[] = rankNames(counts).map((champion) => {
+      const championPicks = picks.filter((pick) => championKey(pick.champion) === championKey(champion.champion));
+      const performance = createScoutingPerformanceAccumulator();
+      for (const pick of championPicks) performance.add({ gameKey: pickGameKey(pick), performance: pick.performance });
+      return { ...champion, performance: performance.result() };
+    });
     return {
       playerId: player.id,
       playerName: player.displayName.trim(),
       role: player.role,
-      champions: champions.slice(0, 5),
+      champions,
       distinctChampions: champions.length,
       totalPicks: champions.reduce((sum, row) => sum + row.count, 0),
-      gamesSampled: new Set(picks.map((pick) => pick.matchId)).size,
+      gamesSampled: new Set(picks.map(pickGameKey)).size,
       riotConfirmedPicks: picks.filter((pick) => pick.evidence === "riot").length,
       draftOnlyPicks: picks.filter((pick) => pick.evidence === "draft").length,
     };

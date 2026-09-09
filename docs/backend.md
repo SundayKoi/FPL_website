@@ -642,6 +642,34 @@ existing cookie-bound/RLS paths; an opponent roster failure is isolated from
 the signed-in team's own roster. The aggregate preview never uses the service-
 role client.
 
+### Scouting evidence and performance contract
+
+`src/lib/scouting/queries.ts` reads the paged `raw_stats` history once and
+selects identity, match, side, result, and the nullable per-game performance
+columns `kills`, `deaths`, `assists`, `game_duration_min`,
+`total_damage_to_champions`, and `kill_participation_pct`. The existing league,
+Academy bridge, report bridge, alias, pagination, and roster identity gates are
+preserved. `src/lib/scouting/derive.ts` keeps unresolved coverage as evidence,
+rejects ambiguous ownership, deduplicates an accepted player/game, and only
+then aggregates by canonical player and champion. Duplicate rows may fill a
+missing metric; conflicting non-null values make only that metric unavailable.
+
+The pure accumulator in `src/lib/scouting/performance.ts` uses ratio-of-totals
+KDA, duration-weighted damage per minute, and the arithmetic mean of stored
+per-game KP percentages. KDA requires finite non-negative K/D/A values; DPM
+requires non-negative damage paired with a positive duration; KP accepts a
+stored value from 0 through 100. Missing metrics render as unavailable rather
+than zero, and each champion retains metric sample counts. Draft-only picks
+remain count evidence without performance samples.
+
+The checked-in `inhouse_stats` contract currently exposes only
+`summoner_name`, `champion`, K/D/A, and `win`. In-house cards therefore expose
+the existing games/win rate and KDA aggregation, while DMG/min and KP remain
+unavailable until the owning schema and ingestion producer are verified. An
+in-house read failure is reported with `inhousePlayerStatsStatus` and is
+isolated from the regular scouting report; no guessed columns, remote schema
+mutation, or page-load Riot request is used.
+
 The Stats team-detail URL contract is `tab=Teams&team=<name>&season=<code>&phase=<phase>`
 under `/stats` or `/academy/stats`. `phase=All` and the default season are
 omitted when they are defaults. Team queries trim and case-fold for exact

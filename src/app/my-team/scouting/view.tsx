@@ -113,6 +113,14 @@ export async function MyTeamScoutingPageView({
       } catch (error) {
         console.error("Unable to load ingested scouting games; using draft attribution", error);
       }
+      let inhousePlayerStats: Awaited<ReturnType<typeof fetchInhousePlayerStats>> = [];
+      let inhousePlayerStatsStatus: "available" | "unavailable" = "unavailable";
+      try {
+        inhousePlayerStats = await fetchInhousePlayerStats(supabase, roster);
+        inhousePlayerStatsStatus = "available";
+      } catch (error) {
+        console.error("Unable to load in-house scouting stats; regular scouting remains available", error);
+      }
       scoutingSource = {
         ...history,
         opponentName: scoutTeam.name,
@@ -122,7 +130,8 @@ export async function MyTeamScoutingPageView({
         roster,
         ...(ingestedScouting ? { ingestedScouting } : {}),
         ingestedScoutingStatus,
-        inhousePlayerStats: await fetchInhousePlayerStats(supabase, roster),
+        inhousePlayerStats,
+        inhousePlayerStatsStatus,
       };
     } catch (error) {
       console.error("Unable to load scouting", error);

@@ -116,7 +116,7 @@ describe("opponent scouting derivation", () => {
     traded.fixtures = [...traded.fixtures, fixture("7", "S5", "2026-08-07T00:00:00Z"), fixture("8", "S5", "2026-08-08T00:00:00Z")];
     const pools = deriveScoutData(traded, "all").playerPools;
     expect(pools.map((row) => row.playerName)).toEqual(["Hollowpoint", "GhostRoute", "NorthStar", "Halflight", "LowTide"]);
-    expect(pools.find((row) => row.playerName === "NorthStar")?.champions).toEqual([{ champion: "Ahri", count: 2 }, { champion: "Orianna", count: 1 }]);
+    expect(pools.find((row) => row.playerName === "NorthStar")?.champions).toMatchObject([{ champion: "Ahri", count: 2 }, { champion: "Orianna", count: 1 }]);
     expect(pools.find((row) => row.playerName === "Hollowpoint")?.totalPicks).toBe(0);
     expect(pools.some((row) => row.playerName === "Former Mid")).toBe(false);
   });
@@ -167,7 +167,7 @@ describe("opponent scouting derivation", () => {
     capped.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
     capped.drafts = Array.from({ length: 6 }, (_, index) => ({ ...capped.drafts[0], id: `cap-${index}`, actions: [{ stepIndex: 6, side: "blue" as const, kind: "pick" as const, slot: 1, champion: `Champion ${index}`, playerName: "Northstar" }] }));
     const pool = deriveScoutData(capped, "all").playerPools[0];
-    expect(pool.champions).toHaveLength(5);
+    expect(pool.champions).toHaveLength(6);
     expect(pool.distinctChampions).toBe(6);
     expect(pool.totalPicks).toBe(6);
   });
@@ -305,7 +305,7 @@ describe("opponent scouting derivation", () => {
     };
 
     const pools = deriveScoutData(conflicting, "season").playerPools;
-    expect(pools.find((row) => row.playerName === "Academy Top")?.champions).toEqual([{ champion: "Ahri", count: 1 }]);
+    expect(pools.find((row) => row.playerName === "Academy Top")?.champions).toMatchObject([{ champion: "Ahri", count: 1 }]);
     expect(pools.find((row) => row.playerName === "Academy Mid")?.totalPicks).toBe(0);
   });
 
@@ -424,7 +424,7 @@ describe("opponent scouting derivation", () => {
 
     const pool = deriveScoutData(recent, "recent").playerPools[0];
     expect(pool).toMatchObject({ totalPicks: 11, gamesSampled: 11 });
-    expect(pool.champions).toEqual([{ champion: "Ahri", count: 5 }, { champion: "Orianna", count: 5 }, { champion: "Syndra", count: 1 }]);
+    expect(pool.champions).toMatchObject([{ champion: "Ahri", count: 5 }, { champion: "Orianna", count: 5 }, { champion: "Syndra", count: 1 }]);
   });
 
   it("falls back to draft attribution only for players without ingested rows", () => {
@@ -459,5 +459,73 @@ describe("opponent scouting derivation", () => {
       draftOnlyPicks: 1,
     });
     expect(pools.find((row) => row.playerName === "Hollowpoint")).toMatchObject({ champions: [{ champion: "Gnar", count: 1 }] });
+  });
+
+  it("retains the complete ranked champion pool and aggregates accepted performance", () => {
+    const performanceSource = structuredClone(source) as ScoutSource;
+    performanceSource.teamName = "Night Vale";
+    performanceSource.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    performanceSource.fixtures = [fixture("perf", "S5", "2026-08-20T00:00:00Z")];
+    performanceSource.drafts = [{
+      ...source.drafts[0], fixture_id: "perf", blue_team_name: "Night Vale", red_team_name: "Other",
+      actions: [{ stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: null }],
+    }];
+    const performance = {
+      kills: 2, deaths: 1, assists: 3, damageToChampions: 12000,
+      durationMinutes: 20, killParticipationPct: 40,
+    };
+    performanceSource.ingestedScouting = {
+      games: [{
+        playerId: "n", playerName: "Northstar", role: "mid", champion: "Ahri", fixtureId: "perf", season: "S5",
+        matchId: "m1", gameDate: "2026-08-20", gameNumber: 1, teamSide: "blue", performance,
+      }],
+      coverage: [{
+        playerId: "n", summonerName: "Northstar", tag: "NA1", champion: "Ahri", fixtureId: "perf", season: "S5",
+        matchId: "m1", gameDate: "2026-08-20", gameNumber: 1, teamSide: "blue", performance,
+      }],
+    };
+
+    const pool = deriveScoutData(performanceSource, "season").playerPools[0];
+    expect(pool).toMatchObject({ totalPicks: 1, gamesSampled: 1, champions: [{ champion: "Ahri", count: 1 }] });
+    expect(pool.champions[0].performance).toMatchObject({ statGames: 1, kda: 5, damagePerMinute: 600, killParticipationPct: 40 });
+  });
+
+  it("supplements duplicate performance rows and makes conflicting metrics unavailable independent of row order", () => {
+    const base = structuredClone(source) as ScoutSource;
+    base.teamName = "Night Vale";
+    base.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    base.fixtures = [fixture("perf", "S5", "2026-08-20T00:00:00Z")];
+    base.drafts = [{ ...source.drafts[0], fixture_id: "perf", blue_team_name: "Night Vale", red_team_name: "Other", actions: [{ stepIndex: 6, side: "blue", kind: "pick", slot: 1, champion: "Ahri", playerName: null }] }];
+    const row = (matchId: string, kills: number | null, damage: number | null) => ({
+      playerId: "n", summonerName: "Northstar", tag: "NA1", champion: "Ahri", fixtureId: "perf", season: "S5",
+      matchId, gameDate: "2026-08-20", gameNumber: 1, teamSide: "blue" as const,
+      performance: { kills, deaths: 1, assists: 3, damageToChampions: damage, durationMinutes: 10, killParticipationPct: 0 },
+    });
+    const makeSource = (rows: ReturnType<typeof row>[]) => ({
+      ...base,
+      ingestedScouting: {
+        games: rows.map((coverage) => ({ playerId: "n", playerName: "Northstar", role: "mid" as const, champion: "Ahri", fixtureId: "perf", season: "S5", matchId: coverage.matchId, gameDate: coverage.gameDate, gameNumber: 1, teamSide: "blue" as const, performance: coverage.performance })),
+        coverage: rows,
+      },
+    });
+
+    const forward = deriveScoutData(makeSource([row("m1", 2, 1000), row("m1", null, 1000), row("m2", 3, 1000)]), "season").playerPools[0];
+    const reversed = deriveScoutData(makeSource([row("m2", 3, 1000), row("m1", null, 1000), row("m1", 2, 1000)]), "season").playerPools[0];
+    expect(forward.totalPicks).toBe(1);
+    expect(reversed.totalPicks).toBe(1);
+    expect(forward.champions[0].performance).toEqual(reversed.champions[0].performance);
+    expect(forward.champions[0].performance).toMatchObject({ statGames: 1, kdaGames: 0, damageGames: 1, damagePerMinute: 100, kpGames: 1, kda: null });
+  });
+
+  it("keeps ten unique champions available for UI disclosure", () => {
+    const complete = structuredClone(source) as ScoutSource;
+    complete.teamName = "Night Vale";
+    complete.roster = [{ id: "n", displayName: "Northstar", role: "mid" }];
+    complete.fixtures = Array.from({ length: 10 }, (_, index) => fixture("pool-" + index, "S5", "2026-08-" + String(index + 1).padStart(2, "0") + "T00:00:00Z"));
+    complete.drafts = complete.fixtures.map((fixtureRow, index) => ({
+      ...source.drafts[0], id: "pool-draft-" + index, fixture_id: fixtureRow.id, blue_team_name: "Night Vale", red_team_name: "Other",
+      actions: [{ stepIndex: 6, side: "blue" as const, kind: "pick" as const, slot: 1, champion: "Champion " + index, playerName: "Northstar" }],
+    }));
+    expect(deriveScoutData(complete, "season").playerPools[0].champions).toHaveLength(10);
   });
 });

@@ -48,7 +48,7 @@ describe("OpponentScout", () => {
     expect(within(patterns!).queryByText("Side samples")).toBeNull();
     expect(within(patterns!).queryByText("Adaptation notes")).toBeNull();
     expect(playerPools?.compareDocumentPosition(patterns!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(playerPools?.querySelector("ul")?.className).not.toContain("md:grid-cols-2");
+    expect(playerPools?.querySelector("[data-testid='scout-player-pool-board']")).toBeTruthy();
     expect((screen.getByLabelText("Draft history") as HTMLSelectElement).value).toBe("season");
     expect(screen.getByText("Drafts sampled").parentElement?.textContent).toContain("2");
     fireEvent.change(screen.getByLabelText("Draft history"), { target: { value: "all" } });
@@ -207,5 +207,32 @@ describe("OpponentScout", () => {
     expect(screen.getByText("Ahri")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Draft patterns" })).toBeNull();
     expect(screen.queryByLabelText("Draft history")).toBeNull();
+  });
+
+  it("keeps champion disclosure independent for each player", () => {
+    const expanded = structuredClone(source);
+    const northstarChampions = ["Ahri", "Vi", "Nautilus", "Garen", "Orianna", "Zed"];
+    const lowTideChampions = ["Lux", "Rumble", "Syndra", "Milio", "Thresh", "Viktor"];
+    expanded.fixtures = northstarChampions.map((_, index) => fixture(String(index + 1)));
+    expanded.drafts = northstarChampions.map((_, index) => ({
+      ...source.drafts[0],
+      id: `disclosure-${index}`,
+      fixture_id: String(index + 1),
+      actions: actions().map((action) => action.side === "blue" && action.kind === "pick"
+        ? action.slot === 1
+          ? { ...action, champion: northstarChampions[index], playerName: "Northstar" }
+          : action.slot === 2
+            ? { ...action, champion: lowTideChampions[index], playerName: "LowTide" }
+            : action
+        : action),
+    }));
+
+    renderScout(expanded);
+
+    const moreButtons = screen.getAllByRole("button", { name: "+1 more" });
+    expect(moreButtons).toHaveLength(2);
+    fireEvent.click(moreButtons[0]);
+    expect(screen.getByRole("button", { name: "Show fewer" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+1 more" })).toBeTruthy();
   });
 });

@@ -20,7 +20,7 @@ export const FIXTURE_COLUMNS =
 export const DRAFT_COLUMNS =
   "id, fixture_id, game_number, blue_team_name, red_team_name, winner_team, actions, positions, created_at";
 export const INGESTED_SCOUTING_COLUMNS =
-  "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win";
+  "id, match_id, game_date, season, summoner_name, tag, champion, team_side, win, kills, deaths, assists, game_duration_min, total_damage_to_champions, kill_participation_pct";
 const TEAM_COLUMNS = "id, name, abbreviation";
 const REPORT_COLUMNS = "id, fixture_id, season, draft_url, team_a_id, team_b_id";
 const REPORT_GAME_COLUMNS = "id, report_id, game_number, blue_team_id";

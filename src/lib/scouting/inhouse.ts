@@ -3,13 +3,21 @@ import { linkedAccountUrls } from "@/lib/players/linkedAccounts";
 import { normalizeBasePlayerName } from "@/lib/players/normalize";
 import type { LolRole } from "@/lib/draft/types";
 import type { DraftSide } from "@/lib/match-draft/types";
+import {
+  createScoutingPerformanceAccumulator,
+  mergeScoutingPerformances,
+  normalizeScoutingPerformance,
+  type ChampionPerformance,
+  type NumericPerformanceInput,
+  type ScoutingGamePerformance,
+} from "./performance";
 
 export interface InhouseGameRow {
   summoner_name: string | null;
   champion: string | null;
-  kills: number;
-  deaths: number;
-  assists: number;
+  kills: NumericPerformanceInput;
+  deaths: NumericPerformanceInput;
+  assists: NumericPerformanceInput;
   win: boolean;
 }
 
@@ -23,6 +31,12 @@ export interface IngestedScoutingGameRow {
   game_date: string | null;
   team_side?: string | null;
   win?: boolean | null;
+  kills?: NumericPerformanceInput;
+  deaths?: NumericPerformanceInput;
+  assists?: NumericPerformanceInput;
+  total_damage_to_champions?: NumericPerformanceInput;
+  game_duration_min?: NumericPerformanceInput;
+  kill_participation_pct?: NumericPerformanceInput;
 }
 
 export interface IngestedMatchReference {
@@ -42,6 +56,7 @@ export interface IngestedScoutingGame {
   gameNumber?: number;
   teamSide?: DraftSide;
   win?: boolean;
+  performance?: ScoutingGamePerformance;
 }
 
 /** Raw match coverage is kept even when the participant cannot be resolved
@@ -59,6 +74,7 @@ export interface IngestedScoutingCoverage {
   gameNumber?: number;
   teamSide?: DraftSide;
   win?: boolean;
+  performance?: ScoutingGamePerformance;
 }
 
 export interface IngestedScoutingData {
@@ -72,6 +88,8 @@ export interface InhouseChampionStat {
   wins: number;
   winrate_pct: number;
   avg_kda: number;
+  /** KDA is available from the known in-house schema; other metrics remain unavailable. */
+  performance?: ChampionPerformance;
 }
 
 export interface InhousePlayerStats {
@@ -208,6 +226,14 @@ export function buildIngestedScoutingGames(
     const gameNumber = typeof reference === "string" || reference === null ? undefined : reference?.gameNumber ?? undefined;
     const teamSide = draftSide(row.team_side);
     const matchId = rawMatchId(row);
+    const performance = normalizeScoutingPerformance({
+      kills: row.kills,
+      deaths: row.deaths,
+      assists: row.assists,
+      damageToChampions: row.total_damage_to_champions,
+      durationMinutes: row.game_duration_min,
+      killParticipationPct: row.kill_participation_pct,
+    });
     const covered: IngestedScoutingCoverage = {
       playerId: player?.id ?? null,
       summonerName: row.summoner_name,
@@ -220,8 +246,13 @@ export function buildIngestedScoutingGames(
       ...(gameNumber === undefined ? {} : { gameNumber }),
       ...(teamSide ? { teamSide } : {}),
       ...(typeof row.win === "boolean" ? { win: row.win } : {}),
+      performance,
     };
-    coverage.set(coverageKey(covered), covered);
+    const key = coverageKey(covered);
+    const existing = coverage.get(key);
+    coverage.set(key, existing
+      ? { ...existing, performance: mergeScoutingPerformances([existing.performance ?? normalizeScoutingPerformance(), performance]) }
+      : covered);
 
     if (!player || !row.champion) continue;
     games.push({
@@ -236,6 +267,7 @@ export function buildIngestedScoutingGames(
       ...(gameNumber === undefined ? {} : { gameNumber }),
       ...(teamSide ? { teamSide } : {}),
       ...(typeof row.win === "boolean" ? { win: row.win } : {}),
+      performance,
     });
   }
 
@@ -257,26 +289,46 @@ export function buildInhousePlayerStats(roster: RosterPlayer[], rows: InhouseGam
 
   return roster.map((player) => {
     const playerRows = rowsByPlayer.get(player.id) ?? [];
-    const groups = new Map<string, { games: number; wins: number; kills: number; deaths: number; assists: number }>();
-    for (const row of playerRows) {
+    const groups = new Map<string, {
+      games: number;
+      wins: number;
+      kills: number;
+      deaths: number;
+      assists: number;
+      performance: ReturnType<typeof createScoutingPerformanceAccumulator>;
+    }>();
+    for (const [rowIndex, row] of playerRows.entries()) {
       if (!row.champion) continue;
-      const group = groups.get(row.champion) ?? { games: 0, wins: 0, kills: 0, deaths: 0, assists: 0 };
+      const group = groups.get(row.champion) ?? {
+        games: 0,
+        wins: 0,
+        kills: 0,
+        deaths: 0,
+        assists: 0,
+        performance: createScoutingPerformanceAccumulator(),
+      };
       group.games += 1;
       group.wins += row.win ? 1 : 0;
-      group.kills += row.kills;
-      group.deaths += row.deaths;
-      group.assists += row.assists;
+      const performance = normalizeScoutingPerformance({ kills: row.kills, deaths: row.deaths, assists: row.assists });
+      group.kills += performance.kills ?? 0;
+      group.deaths += performance.deaths ?? 0;
+      group.assists += performance.assists ?? 0;
+      group.performance.add({ gameKey: `${player.id}:${row.champion}:${rowIndex}`, performance });
       groups.set(row.champion, group);
     }
 
     const champions = [...groups.entries()]
-      .map(([champion, group]) => ({
-        champion,
-        games: group.games,
-        wins: group.wins,
-        winrate_pct: Number((100 * group.wins / group.games).toFixed(1)),
-        avg_kda: Number(((group.kills + group.assists) / Math.max(group.deaths, 1)).toFixed(2)),
-      }))
+      .map(([champion, group]) => {
+        const performance = group.performance.result();
+        return {
+          champion,
+          games: group.games,
+          wins: group.wins,
+          winrate_pct: Number((100 * group.wins / group.games).toFixed(1)),
+          avg_kda: Number((performance.kda ?? 0).toFixed(2)),
+          performance,
+        };
+      })
       .sort((a, b) => b.games - a.games || b.winrate_pct - a.winrate_pct || a.champion.localeCompare(b.champion));
 
     return { playerId: player.id, playerName: player.displayName.trim(), role: player.role, games: playerRows.length, champions };
