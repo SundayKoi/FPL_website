@@ -1761,6 +1761,31 @@ body {
   animation: lineKdaStage 6s ease-in-out infinite;
 }
 
+/* A Wayfarer's frame — thirty miles of road survived (trail.ts). Worn
+   leather around the edge, stitched, with the corners rubbed pale where a
+   thumb would hold it. A sibling layer over the front, like the tier
+   frames; no motion, because a thing that has been carried that far has
+   stopped shining. */
+@utility card-trail-wayfarer {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 3px rgb(96 62 34 / 0.95),
+    inset 0 0 0 4px rgb(214 176 118 / 0.55),
+    inset 0 0 0 7px rgb(74 46 24 / 0.85),
+    inset 0 0 22px 6px rgb(40 24 12 / 0.55);
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 6px, rgb(236 210 160 / 0.5) 6px 9px, transparent 9px 14px),
+    repeating-linear-gradient(180deg, transparent 0 6px, rgb(236 210 160 / 0.5) 6px 9px, transparent 9px 14px),
+    radial-gradient(circle at 0 0, rgb(236 210 160 / 0.35), transparent 14%),
+    radial-gradient(circle at 100% 100%, rgb(236 210 160 / 0.35), transparent 14%);
+  background-size: 100% 1px, 1px 100%, 100% 100%, 100% 100%;
+  background-position: 0 5px, 5px 0, 0 0, 0 0;
+  background-repeat: repeat-x, repeat-y, no-repeat, no-repeat;
+}
+
 /* The TIERS inside a season's line. A season is one skin line, and a
    season's foils cannot all look the same — but a tier that lays a new
    pattern over the line is a different foil, not a rarer one. So a tier

@@ -74,6 +74,9 @@ type RunRef = {
   claimedAt?: string | null;
   rules?: number;
   convoy?: number | null;
+  /** The answers so far. A scout at one fork writes a line at the start
+   *  of the next leg — the Jungle back from ahead, naming the place. */
+  choices?: { index: number; choice: string }[];
 };
 
 const onRoad = (run: Pick<RunRef, "rules">): boolean => (run.rules ?? 1) >= ROAD_RULES;
@@ -325,6 +328,12 @@ const ROLE_TRAIL: Record<string, string[]> = {
     "{name} has been talking the whole way, and the squad has been walking better for it.",
   ],
 };
+
+/** The Jungle back from scouting the last fork, naming the next one. */
+const SCOUTED_LINES = [
+  "{name} came back from scouting ahead: it is {title}, and they know where not to sleep.",
+  "{name} was gone an hour and returned with a sketch of the next stop — {title} — and a list of places not to camp.",
+];
 
 /** Reaching a checkpoint, in a few voices. `{title}` is the fork's. */
 const ARRIVAL_LINES = [
@@ -611,6 +620,14 @@ function roadJournal(run: RunRef, squad: Squad): JournalEntry[] {
     }
     const routeLine = fill(route, squad, rand);
     const [firstLine, secondLine] = index % 2 === 0 ? [routeLine, voice || routeLine] : [voice || routeLine, routeLine];
+    // A scout at the fork just behind: the Jungle names the place ahead
+    // at the start of the leg, hours before the squad reaches it.
+    const scoutedBehind = index > 0 && (run.choices ?? []).some((entry) => entry.index === index - 1 && entry.choice === "scout");
+    const ahead = forks[index];
+    if (scoutedBehind && ahead) {
+      const jungle = squad.find((member) => roleWord(member) === "Jungle") ?? null;
+      entries.push({ at: at(leg, 0.12), leg: index, kind: "trail", text: fillFor(pick(SCOUTED_LINES, rand).replaceAll("{title}", ahead.title.toLowerCase()), jungle) });
+    }
     entries.push({ at: at(leg, 0.3), leg: index, kind: "trail", text: firstLine });
     const encounter = encounters.find((entry) => entry.leg === index);
     if (encounter) {

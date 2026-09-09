@@ -27,9 +27,14 @@
 //      because two squads on one clock must stand at one fork.
 //   6. The squad's roles each have a call of their own, once a run: a Top
 //      holds, a Jungle scouts, a Mid roams, a Bot kites, a Support wards.
+//      A Veteran (trail.ts) makes its role's call sharper.
+//   7. A run remembers itself: a toll paid at one fork buys free passage
+//      at the next, and a scout at one fork means the squad knows where
+//      not to camp at the next.
 
 import type { MutationKey } from "@/lib/cards/mutations";
 import { mulberry32 } from "@/lib/gauntlet/sim";
+import { isVeteran, milesOf } from "./trail";
 import {
   EXPEDITION_TIERS,
   LOOT_MULT_CAP,
@@ -196,6 +201,10 @@ export const ROADS: Record<ExpeditionTierKey, ForkDef[][]> = {
         warned: false,
         dark: false,
         gamble: null,
+        // The keeper's price. Paid here, it is good for the moneylender's
+        // stair at the next fork (rule 7) — the one road where the memory
+        // of a toll can be spent.
+        toll: 0.3,
       },
       {
         key: "gate",
@@ -765,8 +774,12 @@ export function forksFor(tier: ExpeditionTierKey, road?: RoadRef | null): ForkDe
 export const DEAD_NEEDS_PUSHES = 2;
 
 /** What holding a checkpoint is worth: a Top's call camps with none of
- *  the camp's risks and this much more loot. */
+ *  the camp's risks and this much more loot — more for a Veteran Top. */
 export const HOLD_LOOT = 0.1;
+export const VETERAN_HOLD_LOOT = 0.15;
+/** A scout at one fork means the squad knows where not to camp at the
+ *  next: its camp risks are scaled by this. */
+export const SCOUTED_CAMP_RISK = 0.5;
 /** What a toll fork takes off the multiplier when the squad pays it. */
 export const TOLL_LOOT = 0.15;
 /** Map fragments a single run can bring home, however it finds them.
@@ -812,6 +825,15 @@ export const ROLE_CALLS: RoleCallDef[] = [
   { choice: "kite", role: "Bot", label: "Kite it", tease: "Push for half the loot at a quarter of the risk. A Bot's call, once a run.", kind: "push" },
   { choice: "ward", role: "Support", label: "Ward the approach", tease: "Push with the lost and dead rolls halved. A Support's call, once a run.", kind: "push" },
 ];
+
+/** What the call says on the button when a Veteran is making it. */
+export const VETERAN_TEASE: Record<RoleCall, string> = {
+  hold: `Veteran Top: +${Math.round(VETERAN_HOLD_LOOT * 100)}% instead.`,
+  scout: "Veteran Jungle: half risk instead.",
+  roam: "Veteran Mid: three-quarters again the loot instead.",
+  kite: "Veteran Bot: an eighth of the risk instead.",
+  ward: "Veteran Support: lost and dead rolls to a quarter.",
+};
 
 export const ROLE_CALL_BY_CHOICE: Record<RoleCall, RoleCallDef> = Object.fromEntries(ROLE_CALLS.map((call) => [call.choice, call])) as Record<RoleCall, RoleCallDef>;
 
@@ -932,11 +954,13 @@ export function forkOptions(
     for (const call of ROLE_CALLS) {
       // A gamble fork has no harm to shape and no camp worth holding: the
       // scouting run's fork is a coin flip, and a role call is not a coin.
-      const present = inRole(copies, call.role).length > 0;
+      const members = inRole(copies, call.role) as CardCopy[];
+      const present = members.length > 0;
+      const veteran = present && members.some((member) => isVeteran(member));
       options.push({
         choice: call.choice,
         label: call.label,
-        tease: call.tease,
+        tease: veteran ? `${call.tease} ${VETERAN_TEASE[call.choice]}` : call.tease,
         role: call.role,
         locked: fork.gamble
           ? "Not on a coin flip."
@@ -1188,7 +1212,9 @@ export function rescueChance(copies: CardCopy[], pushed: boolean): number {
 /** How each kind of push shapes the fork's numbers: what it multiplies
  *  the loot bonus by, what it scales the wound roll by, what it scales the
  *  lost and dead rolls by, and whose head the harm lands on. */
-const PUSH_SHAPE: Record<Exclude<ForkChoice, "camp" | "hold">, { bonus: number; risk: number; deepRisk: number; victims: "one" | "two" | "jungle" }> = {
+type PushShape = { bonus: number; risk: number; deepRisk: number; victims: "one" | "two" | "jungle" };
+
+const PUSH_SHAPE: Record<Exclude<ForkChoice, "camp" | "hold">, PushShape> = {
   push: { bonus: 1, risk: 1, deepRisk: 1, victims: "one" },
   favour: { bonus: 1, risk: 0, deepRisk: 0, victims: "one" },
   light: { bonus: 1, risk: 0.5, deepRisk: 0.5, victims: "one" },
@@ -1198,6 +1224,25 @@ const PUSH_SHAPE: Record<Exclude<ForkChoice, "camp" | "hold">, { bonus: number; 
   kite: { bonus: 0.5, risk: 0.25, deepRisk: 0.25, victims: "one" },
   ward: { bonus: 1, risk: 1, deepRisk: 0.5, victims: "one" },
 };
+
+/** The same calls in a Veteran's hands (trail.ts, sixteen miles): the
+ *  Jungle scouts at half risk, the Mid roams for three-quarters again, the
+ *  Bot kites at an eighth, the Support wards the lost and dead rolls down
+ *  to a quarter. Only the card making the call has to be the veteran. */
+export const VETERAN_SHAPE: Record<RoleCall, PushShape | null> = {
+  hold: null,
+  scout: { bonus: 1, risk: 0.5, deepRisk: 0.5, victims: "jungle" },
+  roam: { bonus: 1.75, risk: 1, deepRisk: 1, victims: "two" },
+  kite: { bonus: 0.5, risk: 0.125, deepRisk: 0.125, victims: "one" },
+  ward: { bonus: 1, risk: 1, deepRisk: 0.25, victims: "one" },
+};
+
+/** The card that makes a role call: the squad's member in that role with
+ *  the most miles, so a squad with two Junglers scouts with the one who
+ *  has walked further. */
+function caller(copies: CardCopy[], role: string): CardCopy | undefined {
+  return [...(inRole(copies, role) as CardCopy[])].sort((a, b) => milesOf(b) - milesOf(a))[0];
+}
 
 const PUSH_VERB: Record<Exclude<ForkChoice, "camp" | "hold">, string> = {
   push: "they pushed through",
@@ -1261,6 +1306,9 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
   let fragments = 0;
   let comp = false;
   const callsSpent = new Set<RoleCall>();
+  // What the run remembers of itself between forks.
+  let tollPaid = false;
+  let scouted = false;
 
   // The trail's beats, first: none of them draws, all of them were settled
   // when the journal was written. A shrine is remembered for the fork it
@@ -1298,34 +1346,50 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     }
     if (choice === "favour") favourSpent = true;
 
+    // What the last fork left behind, read once and spent here.
+    const passage = tollPaid;
+    const knowing = scouted;
+    tollPaid = false;
+    scouted = false;
+
     if (choice === "hold") {
       // A Top on the checkpoint: the safe way with nothing that makes the
       // safe way unsafe — no wound, no haunting, no toll — and a little
-      // more in the bag for the night's work.
-      lootMultiplier += HOLD_LOOT;
-      const top = inRole(alive(), "Top")[0] as CardCopy | undefined;
+      // more in the bag for the night's work. A Veteran Top holds for more.
+      const top = caller(alive(), "Top");
+      lootMultiplier += top && isVeteran(top) ? VETERAN_HOLD_LOOT : HOLD_LOOT;
       events.push({ fork: index, tone: "good", text: `${fork.title}: ${top ? nameOf(top.id) : "the Top"} held the checkpoint alone all night, and the squad kept everything.` });
       return;
     }
 
     if (choice === "camp") {
-      if (decide(fork.campRisk.wounded, rand)) {
+      // A scout at the last fork means the squad knows where not to camp
+      // at this one: both camp risks are halved.
+      const campScale = knowing ? SCOUTED_CAMP_RISK : 1;
+      if (knowing && (fork.campRisk.wounded > 0 || fork.campRisk.haunted > 0)) {
+        events.push({ fork: index, tone: "neutral", text: `${fork.title}: the Jungle's scouting held — the squad knew where not to sleep.` });
+      }
+      if (decide(fork.campRisk.wounded * campScale, rand)) {
         const victim = pick(alive(), rand);
         if (victim) {
           harm(victim.id, "wounded");
           events.push({ fork: index, tone: "bad", text: `${fork.title}: the squad held back and ${nameOf(victim.id)} was hurt anyway.` });
         }
       }
-      if (decide(fork.campRisk.haunted, rand)) {
+      if (decide(fork.campRisk.haunted * campScale, rand)) {
         const victim = pick(unmutated(), rand);
         if (victim && mutate(victim.id, "haunted")) {
           events.push({ fork: index, tone: "bad", text: `${fork.title}: ${nameOf(victim.id)} sat up all night listening, and brought something back.` });
         }
       }
       let tolled = false;
-      if (fork.toll && decide(fork.toll, rand)) {
+      if (fork.toll && passage) {
+        // The toll paid at the last fork bought this gate too.
+        events.push({ fork: index, tone: "good", text: `${fork.title}: the toll they paid at the last gate was good for this one.` });
+      } else if (fork.toll && decide(fork.toll, rand)) {
         lootMultiplier -= TOLL_LOOT;
         tolled = true;
+        tollPaid = true;
         events.push({ fork: index, tone: "bad", text: `${fork.title}: the safe way had a price, and the squad paid it.` });
       }
       if (fork.campReward) {
@@ -1340,9 +1404,13 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
       return;
     }
 
-    // Every other choice is a push of some kind.
+    // Every other choice is a push of some kind. A role call in a Veteran's
+    // hands takes the sharper shape; the caller is the squad's member in
+    // that role with the most miles.
     pushes += 1;
-    const shape = PUSH_SHAPE[choice];
+    const veteran = isRoleCall(choice) ? caller(alive(), ROLE_CALL_BY_CHOICE[choice].role) : undefined;
+    const shape = (isRoleCall(choice) && veteran && isVeteran(veteran) && VETERAN_SHAPE[choice]) || PUSH_SHAPE[choice];
+    if (choice === "scout") scouted = true;
     const bonus = fork.lootBonus * shape.bonus;
     // A shrine on the leg before this fork keeps its hand on the harm.
     const guard = shrines.has(index) ? SHRINE_RISK : 1;
@@ -1367,8 +1435,10 @@ export function resolveRoute(input: RouteInput, rand: () => number): RouteResult
     const victims: CardCopy[] = [];
     if (riskScale > 0 || deepScale > 0) {
       if (shape.victims === "jungle") {
+        // The Jungle who went in first — the one who made the call. With
+        // one Jungle there is nothing to draw; with two the road picks.
         const junglers = inRole(alive(), "Jungle") as CardCopy[];
-        const first = pick(junglers.length > 0 ? junglers : alive(), rand);
+        const first = junglers.length === 1 ? junglers[0] : pick(junglers.length > 0 ? junglers : alive(), rand);
         if (first) victims.push(first);
       } else {
         const first = pick(alive(), rand);

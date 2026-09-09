@@ -155,6 +155,11 @@ export interface PlayerCardData {
    *  expeditions and no Gauntlet lineups until `until`. Cleared by the
    *  next stamp or ignored once it has passed; never read by pricing. */
   wounded?: { until: string; run: number } | null;
+  /** The roads this copy has walked: stamped by the expedition claim's
+   *  trigger on every survivor (20261010000001), read by
+   *  src/lib/expeditions/trail.ts for the titles it earns. Never read by
+   *  pricing; a Wayfarer's one extra shine is the whole mechanical effect. */
+  trail?: { miles: number; runs: number; deepest: string } | null;
   /** Set only on a champions-drop card (the Dealer's Hand) — see
    *  src/lib/cards/champions.ts. Like `moment`, the renderer branches on
    *  this before reading any rating field. */
