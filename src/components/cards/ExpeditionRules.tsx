@@ -44,6 +44,7 @@ import {
 import { HUNTER_FRAGMENT_CHANCE, ROAD_ENCOUNTER_CHANCE, STORM_HOURS, STRANDED_BOUNTY } from "@/lib/expeditions/journal";
 import { MILES_BY_TIER, TRAIL_TITLES, WAYFARER_SHINE } from "@/lib/expeditions/trail";
 import { WEATHERS } from "@/lib/expeditions/weather";
+import { ACCOLADES, ACCOLADE_ORDER } from "@/lib/expeditions/standings";
 
 export const RISK_LABEL: Record<RouteRisk, string> = {
   none: "Nothing can be hurt",
@@ -277,6 +278,26 @@ export default function ExpeditionRules({ id = "expedition-rules" }: { id?: stri
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* ── Season standings ─────────────────────────────────────── */}
+      <div data-testid="rule-standings" className="flex flex-col gap-2 rounded-lg border border-line bg-panel/60 p-3 text-sm text-steel">
+        <h3 className="type-display text-lg text-white">Season standings — the roads, scored</h3>
+        <p>
+          Every claimed run counts: the miles the route is worth, the dollars it brought home, a Legendary route brought home
+          whole, the rivals beaten to a spot. When staff close the season the top of each standing is marked, for good:
+        </p>
+        <ul className="grid gap-2 sm:grid-cols-3">
+          {ACCOLADE_ORDER.map((kind) => (
+            <li key={kind} data-testid={`rule-mark-${kind}`} className="flex flex-col gap-1 rounded-md border border-line bg-black/30 p-2.5">
+              <span className="text-sm font-semibold" style={{ color: ACCOLADES[kind].accent }}>
+                {ACCOLADES[kind].glyph} {ACCOLADES[kind].label}
+              </span>
+              <span className="text-xs">{ACCOLADES[kind].does}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-xs">Marks only. No dollars change hands at season close — the standings are a reason to go out, never a grind.</p>
       </div>
 
       {/* ── Company on the road ──────────────────────────────────── */}

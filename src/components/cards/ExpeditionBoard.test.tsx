@@ -6,6 +6,7 @@ import { briefFor, shineOf } from "@/lib/expeditions/config";
 import type { ConvoyView, ExpeditionRun, Grave, LostHold } from "@/lib/expeditions/queries";
 import type { Rivalry } from "@/lib/expeditions/company";
 import type { WeatherKey } from "@/lib/expeditions/weather";
+import type { Accolade, StandingRow } from "@/lib/expeditions/standings";
 import ExpeditionBoard from "./ExpeditionBoard";
 import { forksFor } from "@/lib/expeditions/routes";
 
@@ -167,6 +168,9 @@ function renderBoard(
     convoys?: Record<number, ConvoyView>;
     rivalries?: Rivalry[];
     weather?: WeatherKey | null;
+    standings?: StandingRow[];
+    accolades?: Accolade[];
+    viewerId?: string | null;
   } = {},
 ) {
   return render(
@@ -174,6 +178,9 @@ function renderBoard(
       convoys={over.convoys}
       rivalries={over.rivalries}
       weather={over.weather ?? null}
+      standings={over.standings}
+      accolades={over.accolades}
+      viewerId={over.viewerId ?? null}
       playingToday={over.playingToday}
       rivals={over.rivals}
       copies={over.copies ?? COPIES}
@@ -965,6 +972,44 @@ describe("ExpeditionBoard — missing cards", () => {
 
     expect(within(screen.getByTestId("tier-rescue")).getByText(/Nothing is lost/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Launch Rescue" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("ExpeditionBoard — season standings", () => {
+  const standing = (over: Partial<StandingRow> & { discordId: string }): StandingRow => ({
+    username: over.discordId, avatarUrl: null, runs: 1, miles: 0, loot: 0, survivals: 0, rivalsBeaten: 0, ...over,
+  });
+
+  it("ranks the season, picks the viewer out, and wears the marks once the season has closed", () => {
+    const rows = [
+      standing({ discordId: "bo", username: "Bo", miles: 6, loot: 1200 }),
+      standing({ discordId: "ann", username: "Ann", miles: 9, loot: 300, survivals: 1, rivalsBeaten: 2 }),
+      ...Array.from({ length: 8 }, (_, index) => standing({ discordId: `mid-${index}`, username: `Mid ${index}`, miles: 3 })),
+      standing({ discordId: "me", username: "Me", miles: 1 }),
+    ];
+    const accolades: Accolade[] = [
+      { kind: "pathfinder", discordId: "ann", username: "Ann", value: 9, awardedAt: "2026-09-09T00:00:00Z" },
+      { kind: "plunderer", discordId: "bo", username: "Bo", value: 1200, awardedAt: "2026-09-09T00:00:00Z" },
+    ];
+    renderBoard({ standings: rows, accolades, viewerId: "me" });
+    const table = screen.getByTestId("standings");
+    const ids = [...table.querySelectorAll("tbody tr")].map((row) => row.getAttribute("data-testid"));
+    // Eight rows and the viewer's own, out past them.
+    expect(ids).toHaveLength(9);
+    expect(ids[0]).toBe("standing-ann");
+    expect(ids[1]).toBe("standing-bo");
+    expect(ids[8]).toBe("standing-me");
+    expect(within(table).getByTestId("standing-me").textContent).toMatch(/^11/);
+    expect(within(table).getByTestId("standing-ann").textContent).toContain("⟟");
+    expect(within(table).getByTestId("standing-bo").textContent).toContain("◈");
+    expect(within(table).getByTestId("accolade-pathfinder").textContent).toContain("Ann");
+    const rule = screen.getByTestId("rule-standings");
+    expect(within(rule).getByTestId("rule-mark-survivor").textContent).toContain("Legendary routes brought home whole");
+  });
+
+  it("says nothing until somebody has claimed a run", () => {
+    renderBoard();
+    expect(screen.queryByTestId("standings")).toBeNull();
   });
 });
 

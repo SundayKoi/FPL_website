@@ -5,7 +5,9 @@ import { tierLabel } from "@/lib/cards/tier";
 import { createBettingServiceClient } from "@/lib/betting/service-client";
 import { fetchCardSeason, type CardLeague } from "@/lib/cards/queries";
 import { EXPEDITION_TIERS, LOST_DAYS } from "@/lib/expeditions/config";
-import { fetchLedger, type LedgerEntry } from "@/lib/expeditions/queries";
+import { fetchAccolades, fetchLedger, fetchStandings, type LedgerEntry } from "@/lib/expeditions/queries";
+import { ACCOLADES, accoladesOf, rankStandings } from "@/lib/expeditions/standings";
+import { fmtPoints } from "@/lib/betting/format";
 
 export const metadata: Metadata = {
   title: "The ledger of the fallen and the found — FPL",
@@ -111,7 +113,14 @@ export async function LedgerPageView({ league = "premier" }: { league?: CardLeag
   const base = league === "academy" ? "/academy/cards" : "/cards";
   const service = createBettingServiceClient();
   const season = await fetchCardSeason(service, league);
-  const entries = season ? (await fetchLedger(service)).filter((entry) => entry.season === season) : [];
+  const [entries, standings, accolades] = season
+    ? await Promise.all([
+        fetchLedger(service).then((all) => all.filter((entry) => entry.season === season)),
+        fetchStandings(service, season),
+        fetchAccolades(service, season),
+      ])
+    : [[], [], []];
+  const ranked = rankStandings(standings).slice(0, 10);
   const now = new Date();
 
   const fallen = entries.filter((entry) => entry.kind === "died" || entry.kind === "buried");
@@ -138,6 +147,39 @@ export async function LedgerPageView({ league = "premier" }: { league?: CardLeag
 
       {entries.length === 0 ? (
         <p className="text-sm text-steel">Nothing yet. Nobody has lost a card this season — the routes are waiting.</p>
+      ) : null}
+
+      {ranked.length > 0 ? (
+        <section aria-label="Season standings" data-testid="ledger-standings" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="type-display text-2xl sm:text-3xl">Season standings</h2>
+            <span className="text-xs text-steel">Miles walked, loot brought home, Legendary routes brought home whole. The top of each is marked at season close.</span>
+          </div>
+          <ol className="flex flex-col gap-1">
+            {ranked.map((row, index) => (
+              <li key={row.discordId} data-testid={`ledger-standing-${row.discordId}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-line bg-panel px-3 py-2 text-xs text-steel">
+                <span className="w-5 font-mono text-steel/80">{index + 1}</span>
+                <span className="font-semibold text-white">
+                  {row.username}
+                  {accoladesOf(accolades, row.discordId).map((def) => (
+                    <span key={def.key} title={`${def.label} — ${def.does}`} className="ml-1" style={{ color: def.accent }}>
+                      {def.glyph}
+                    </span>
+                  ))}
+                </span>
+                <span>{row.miles} mile{row.miles === 1 ? "" : "s"}</span>
+                <span>{fmtPoints(row.loot)} loot</span>
+                <span>{row.survivals} homecoming{row.survivals === 1 ? "" : "s"}</span>
+                <span>{row.rivalsBeaten} rival{row.rivalsBeaten === 1 ? "" : "s"} beaten</span>
+              </li>
+            ))}
+          </ol>
+          {accolades.length > 0 ? (
+            <p className="text-xs text-steel">
+              {accolades.map((accolade) => `${ACCOLADES[accolade.kind].glyph} ${ACCOLADES[accolade.kind].label}: ${accolade.username}`).join(" · ")}
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
       {missing.length > 0 ? (
